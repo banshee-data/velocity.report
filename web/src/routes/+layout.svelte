@@ -15,6 +15,7 @@
 		mdiMonitorDashboard,
 		mdiPlayCircleOutline,
 		mdiSelection,
+		mdiTagMultipleOutline,
 		mdiVectorSquare
 	} from '@mdi/js';
 	import {
@@ -113,7 +114,9 @@
 			     replay or recording is started by hand, comes first; the regions and
 			     debug views of the running grid come last. The clip locations page is
 			     reached from Clips rather than listed here. The site viewer shows what
-			     Gerardus serves for a located site, so it follows Clips, which locate sites. -->
+			     Gerardus serves for a located site, so it follows Clips, which locate sites.
+			     Labelling follows Segments: it tracks the packs cut from them through
+			     review and freezing. -->
 			<div role="group" aria-labelledby="nav-lidar">
 				<div
 					id="nav-lidar"
@@ -144,6 +147,12 @@
 					text="Segments"
 					icon={mdiSelection}
 					path="/app/lidar/segments"
+					currentUrl={navUrl}
+				/>
+				<NavItem
+					text="Labelling"
+					icon={mdiTagMultipleOutline}
+					path="/app/lidar/labelling"
 					currentUrl={navUrl}
 				/>
 				<NavItem

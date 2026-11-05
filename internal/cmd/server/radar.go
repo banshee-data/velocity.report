@@ -175,9 +175,10 @@ var (
 	//
 	// Both defaults are the path the derived form produced under the default
 	// --lidar-pcap-dir, so a deployment that sets neither flag is unchanged.
-	lidarVRLogDir      = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
-	lidarPlotsDir      = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
-	lidarAnnotationDir = serveFlags.String("lidar-annotation-dir", "../sensor_data/lidar/annotation-packs", "Directory for exported annotation packs (independent of --lidar-pcap-dir)")
+	lidarVRLogDir       = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
+	lidarPlotsDir       = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
+	lidarAnnotationDir  = serveFlags.String("lidar-annotation-dir", "../sensor_data/lidar/annotation-packs", "Directory for exported annotation packs (independent of --lidar-pcap-dir)")
+	lidarCohortManifest = serveFlags.String("lidar-cohort-manifest", "", "Site/capture cohort manifest for development eligibility; empty leaves every capture unassigned, so tuning, sweeps and development evaluation are refused")
 	// Off when empty. Staging a clip writes its extract and manifest entry
 	// into this clone of the published dataset; publishing it stays a person's
 	// step.
@@ -836,6 +837,7 @@ func Main(args []string) int {
 			UDPListenerConfig:  udpListenerConfig,
 			PlotsBaseDir:       *lidarPlotsDir,
 			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
+			CohortManifestPath: *lidarCohortManifest,
 			TuningConfig:       tuningCfg,
 			SegmentSelectors:   selectors,
 			DatasetDir:         *lidarDatasetDir,

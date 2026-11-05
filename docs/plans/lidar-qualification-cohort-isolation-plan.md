@@ -2,7 +2,9 @@
 
 This plan separates development, validation, and blind qualification populations to protect independent physical-measurement evidence from tuning leakage.
 
-- **Status:** Proposed
+- **Status:** In progress: the eligibility guard, manifest parser and ledger are delivered at the
+  entry points listed in the [workspace guide](../lidar/operations/labelling-workspace.md#enforcement-coverage);
+  assignments, access controls and the remaining loaders are outstanding
 - **Target:** v0.5.4
 - **Priority:** P0
 - **Workstream:** S-PLATFORM (Ops / Pipeline)
@@ -32,14 +34,28 @@ Add a versioned machine-readable manifest with canonical site ID, S2 L10/L13, ca
 4. Isolate qualification references and diagnostics using permissions, with auditable evaluation execution.
 5. Add CI tests and provenance reports; pilot with existing captures and freeze new-region assignments before collection.
 
+## Delivery state (2026-11-05)
+
+| Step | State                                                                                                                                                                                                                                                 |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Audited; the coverage table is in the [workspace guide](../lidar/operations/labelling-workspace.md#enforcement-coverage). Ten evaluators and the Tracks and Runs pages are not yet guarded                                                            |
+| 2    | Delivered: `internal/lidar/eligibility` (manifest schema version 1, parser, site/capture consistency, synthetic fixtures in `eligibilitytest`)                                                                                                        |
+| 3    | Partly: sweeps, auto-tune, HINT, experiment-arm replays, `lidar-state-estimation-baseline` and `lidar-refinement-eval`. Frozen splits are read globally, so a run that names no split, or a new lineage, is still held to every split's held-out data |
+| 4    | Not started: no storage-level access controls exist, so qualification review and evaluation are refused rather than isolated                                                                                                                          |
+| 5    | CI tests for positive and negative paths, including a renamed capture, a new run ID and a client-claimed purpose; no pilot, and no assignments frozen                                                                                                 |
+
 ## Acceptance
 
-- A qualification capture submitted to a tuning job is rejected **before samples load**.
-- Unknown, conflicting, or hash-mismatched capture assignments are rejected.
-- A capture from the same site cannot be silently split across development and qualification.
-- Authorized isolated qualification scoring succeeds and records the policy and input digests.
-- Ordinary production processing and public publishing remain unaffected.
-- CI exercises positive and negative paths, including direct-loader bypass attempts.
+- [x] A qualification capture submitted to a tuning job is rejected **before samples load**
+      (guarded entry points only; see step 3).
+- [x] Unknown, conflicting, or hash-mismatched capture assignments are rejected.
+- [x] A capture from the same site cannot be silently split across development and qualification.
+- [ ] Authorized isolated qualification scoring succeeds and records the policy and input digests.
+      The decision path exists and is tested with a stand-in access control; no real storage-level
+      control exists, so it is refused in every deployment.
+- [x] Ordinary production processing and public publishing remain unaffected.
+- [ ] CI exercises positive and negative paths, including direct-loader bypass attempts. Done for
+      the guarded entry points; the unguarded evaluators can still be called directly.
 
 ## Open decisions
 

@@ -81,6 +81,7 @@ func TestSweepHandlers_SweepStart(t *testing.T) {
 
 	t.Run("invalid json", func(t *testing.T) {
 		ws := &Server{sweepRunner: &mockSweepHandlerRunner{}}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/start", strings.NewReader(`{`))
 		w := httptest.NewRecorder()
 
@@ -93,6 +94,7 @@ func TestSweepHandlers_SweepStart(t *testing.T) {
 	t.Run("already in progress conflict", func(t *testing.T) {
 		runner := &mockSweepHandlerRunner{startErr: errors.New("already in progress")}
 		ws := &Server{sweepRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/start", strings.NewReader(`{"mode":"multi"}`))
 		w := httptest.NewRecorder()
 
@@ -105,6 +107,7 @@ func TestSweepHandlers_SweepStart(t *testing.T) {
 	t.Run("validation error bad request", func(t *testing.T) {
 		runner := &mockSweepHandlerRunner{startErr: errors.New("invalid request")}
 		ws := &Server{sweepRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/start", strings.NewReader(`{"mode":"multi"}`))
 		w := httptest.NewRecorder()
 
@@ -117,6 +120,7 @@ func TestSweepHandlers_SweepStart(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		runner := &mockSweepHandlerRunner{}
 		ws := &Server{sweepRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/start", strings.NewReader(`{"mode":"multi"}`))
 		w := httptest.NewRecorder()
 
@@ -175,6 +179,7 @@ func TestSweepHandlers_SweepStatusAndStop(t *testing.T) {
 	t.Run("stop success", func(t *testing.T) {
 		runner := &mockSweepHandlerRunner{}
 		ws := &Server{sweepRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/stop", nil)
 		w := httptest.NewRecorder()
 		ws.handleSweepStop(w, req)
@@ -200,6 +205,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("start invalid json", func(t *testing.T) {
 		ws := &Server{autoTuneRunner: &mockSweepHandlerRunner{}}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{`))
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStart(w, req)
@@ -210,6 +216,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("start conflict", func(t *testing.T) {
 		ws := &Server{autoTuneRunner: &mockSweepHandlerRunner{startErr: errors.New("already in progress")}}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{"x":1}`))
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStart(w, req)
@@ -220,6 +227,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("start bad request", func(t *testing.T) {
 		ws := &Server{autoTuneRunner: &mockSweepHandlerRunner{startErr: errors.New("invalid")}}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{"x":1}`))
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStart(w, req)
@@ -231,6 +239,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 	t.Run("start success", func(t *testing.T) {
 		runner := &mockSweepHandlerRunner{}
 		ws := &Server{autoTuneRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{"x":1}`))
 		w := httptest.NewRecorder()
 		ws.handleAutoTune(w, req) // Exercise dispatcher POST path
@@ -278,6 +287,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 	t.Run("stop success", func(t *testing.T) {
 		runner := &mockSweepHandlerRunner{}
 		ws := &Server{autoTuneRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto/stop", nil)
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStop(w, req)
@@ -590,6 +600,7 @@ func TestHINTHandlers_Start(t *testing.T) {
 	t.Run("invalid JSON returns 400", func(t *testing.T) {
 		runner := &mockHINTRunner{}
 		ws := &Server{hintRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
 			strings.NewReader(`not json`))
 		w := httptest.NewRecorder()
@@ -603,6 +614,7 @@ func TestHINTHandlers_Start(t *testing.T) {
 	t.Run("already running returns 409", func(t *testing.T) {
 		runner := &mockHINTRunner{startErr: errors.New("sweep already in progress")}
 		ws := &Server{hintRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
 			strings.NewReader(`{"clip_id":"s1"}`))
 		w := httptest.NewRecorder()
@@ -616,6 +628,7 @@ func TestHINTHandlers_Start(t *testing.T) {
 	t.Run("success returns started", func(t *testing.T) {
 		runner := &mockHINTRunner{}
 		ws := &Server{hintRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
 			strings.NewReader(`{"clip_id":"s1","num_rounds":2}`))
 		w := httptest.NewRecorder()
@@ -641,6 +654,7 @@ func TestHINTHandlers_Status(t *testing.T) {
 			state: map[string]interface{}{"status": "awaiting_labels", "mode": "hint"},
 		}
 		ws := &Server{hintRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/hint", nil)
 		w := httptest.NewRecorder()
 
@@ -673,6 +687,7 @@ func TestHINTHandlers_Continue(t *testing.T) {
 	t.Run("threshold not met returns 400", func(t *testing.T) {
 		runner := &mockHINTRunner{continueErr: errors.New("label threshold not met: 30.0% < 90.0%")}
 		ws := &Server{hintRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
 			strings.NewReader(`{}`))
 		w := httptest.NewRecorder()
@@ -686,6 +701,7 @@ func TestHINTHandlers_Continue(t *testing.T) {
 	t.Run("not awaiting labels returns 409", func(t *testing.T) {
 		runner := &mockHINTRunner{continueErr: errors.New("not in awaiting_labels state")}
 		ws := &Server{hintRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
 			strings.NewReader(`{}`))
 		w := httptest.NewRecorder()
@@ -699,6 +715,7 @@ func TestHINTHandlers_Continue(t *testing.T) {
 	t.Run("success with duration and add_round", func(t *testing.T) {
 		runner := &mockHINTRunner{}
 		ws := &Server{hintRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
 			strings.NewReader(`{"next_sweep_duration_mins":120,"add_round":true}`))
 		w := httptest.NewRecorder()
@@ -721,6 +738,7 @@ func TestHINTHandlers_Continue(t *testing.T) {
 	t.Run("empty body uses defaults", func(t *testing.T) {
 		runner := &mockHINTRunner{}
 		ws := &Server{hintRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
 			strings.NewReader(``))
 		w := httptest.NewRecorder()
@@ -741,6 +759,7 @@ func TestHINTHandlers_Continue(t *testing.T) {
 func TestHandleAutoTuneResume_MalformedJSON(t *testing.T) {
 	runner := &mockSweepHandlerRunner{}
 	ws := &Server{autoTuneRunner: runner}
+	allowDevelopmentCapture(t, ws)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/resume",
 		strings.NewReader(`{invalid json}`))
@@ -759,6 +778,7 @@ func TestHandleAutoTuneResume_MalformedJSON(t *testing.T) {
 func TestHandleAutoTuneResume_EmptyBody(t *testing.T) {
 	runner := &mockSweepHandlerRunner{}
 	ws := &Server{autoTuneRunner: runner}
+	allowDevelopmentCapture(t, ws)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/resume", nil)
 	w := httptest.NewRecorder()
@@ -789,6 +809,7 @@ func TestHINTHandlers_Stop(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		runner := &mockHINTRunner{}
 		ws := &Server{hintRunner: runner}
+		allowDevelopmentCapture(t, ws)
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/stop", nil)
 		w := httptest.NewRecorder()
 

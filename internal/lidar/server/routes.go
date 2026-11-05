@@ -231,6 +231,16 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/annotations/split/freeze", ws.handleSplitFreeze)
 	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/split/freeze", "/api/lidar/annotations/split/freeze"), ws.handleSplitFreeze)
 	mux.HandleFunc("/api/lidar/annotations/splits", ws.handleSplits)
+	mux.HandleFunc("/api/lidar/annotations/objects/review", ws.handleObjectReview)
+
+	// Development eligibility and the labelling workspace.
+	mux.HandleFunc("/api/lidar/eligibility", ws.handleEligibilityStatus)
+	mux.HandleFunc("/api/lidar/eligibility/check", ws.handleEligibilityCheck)
+	mux.HandleFunc("/api/lidar/eligibility/uses", ws.handleEligibilityUses)
+	mux.HandleFunc("/api/lidar/workspace", ws.handleWorkspace)
+	mux.HandleFunc("/api/lidar/workspace/item", ws.handleWorkspaceItem)
+	mux.HandleFunc("/api/lidar/workspace/workflow", ws.handleWorkspaceWorkflow)
+	mux.HandleFunc("/api/lidar/workspace/plan-binding", ws.handlePlanBinding)
 	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/splits", "/api/lidar/annotations/splits"), ws.handleSplits)
 
 	// Site API routes (canonical pose for a located site, e.g. a surveyed
