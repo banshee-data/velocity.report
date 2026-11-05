@@ -27,6 +27,7 @@
 		runMaintenance,
 		startReplay,
 		stopReplay,
+		replayRunning,
 		tuningConfigLabel,
 		validateReplayRequest,
 		withSettleRule,
@@ -541,13 +542,12 @@
 						variant="fill"
 						color="primary"
 						on:click={handleStart}
-						disabled={replayBusy || status?.pcap_in_progress}
+						disabled={replayBusy || replayRunning(status)}
 					>
 						{replayBusy ? 'Starting…' : 'Start replay'}
 					</Button>
-					<Button variant="outline" on:click={handleStop} disabled={!status?.pcap_in_progress}>
-						Stop replay
-					</Button>
+					<!-- Always enabled: stopping is safe in any state, and the status can lag a replay. -->
+					<Button variant="outline" on:click={handleStop}>Stop replay</Button>
 					<Button variant="outline" on:click={handleResumeLive}>Resume live, keep grid</Button>
 					{#if replayMessage}<span class="text-sm text-green-600">{replayMessage}</span>{/if}
 					{#if replayError}<span class="text-sm text-red-500">{replayError}</span>{/if}
