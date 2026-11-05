@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
 
@@ -77,4 +79,25 @@ func (u corpusSplitUse) checkCaptures(cases []resolvedCorpusCase) error {
 		}
 	}
 	return nil
+}
+
+// authorize asks the eligibility guard, before any capture is read, whether
+// this run may read every resolved case's captures: a development
+// evaluation, or a held-out score under the split. A split binds a run given
+// it; the guard also refuses what any other frozen split or the cohort
+// manifest protects, given a split or not.
+func (u corpusSplitUse) authorize(guard *eligibilitycli.CLIFlags, cases []resolvedCorpusCase, experiments, tuning string) error {
+	req := eligibility.Request{Purpose: eligibility.PurposeDevelopmentEvaluation, Experiment: experiments, ConfigDigest: tuning}
+	if u.record != nil {
+		req.SplitDigest, req.HeldOutScore = u.record.Digest, u.record.HeldOut
+	}
+	hasher := eligibility.NewHasher()
+	for _, c := range cases {
+		for _, p := range c.paths {
+			id, err := hasher.Capture(p)
+			req.Inputs = append(req.Inputs, eligibility.Input{Identity: id, Err: err})
+		}
+	}
+	_, err := guard.Authorize("lidar-state-estimation-baseline", req)
+	return err
 }
