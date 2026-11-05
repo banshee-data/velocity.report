@@ -246,23 +246,26 @@ type L5Config struct {
 type L5Common struct {
 	// Identity holds default-off overlap/reacquisition experiments. An absent
 	// block preserves the production configuration and its fingerprint.
-	Identity                    *L5Identity `json:"identity,omitempty"`
-	GatingDistanceSquared       float64     `json:"gating_distance_squared"`
-	ProcessNoisePos             float64     `json:"process_noise_pos"`
-	ProcessNoiseVel             float64     `json:"process_noise_vel"`
-	MeasurementNoise            float64     `json:"measurement_noise"`
-	OcclusionCovInflation       float64     `json:"occlusion_cov_inflation"`
-	HitsToConfirm               int         `json:"hits_to_confirm"`
-	MaxMisses                   int         `json:"max_misses"`
-	MaxMissesConfirmed          int         `json:"max_misses_confirmed"`
-	MaxTracks                   int         `json:"max_tracks"`
-	MaxReasonableSpeedMps       float64     `json:"max_reasonable_speed_mps"`
-	MaxPositionJumpMetres       float64     `json:"max_position_jump_metres"`
-	MaxPredictDt                float64     `json:"max_predict_dt"`
-	MaxCovarianceDiag           float64     `json:"max_covariance_diag"`
-	MinPointsForPCA             int         `json:"min_points_for_pca"`
-	OBBHeadingSmoothingAlpha    float64     `json:"obb_heading_smoothing_alpha"`
-	OBBAspectRatioLockThreshold float64     `json:"obb_aspect_ratio_lock_threshold"`
+	Identity *L5Identity `json:"identity,omitempty"`
+	// Association holds default-off S3 cost and containment-claim options.
+	// Omitted, it preserves the shipped assignment and config fingerprint.
+	Association                 *L5Association `json:"association,omitempty"`
+	GatingDistanceSquared       float64        `json:"gating_distance_squared"`
+	ProcessNoisePos             float64        `json:"process_noise_pos"`
+	ProcessNoiseVel             float64        `json:"process_noise_vel"`
+	MeasurementNoise            float64        `json:"measurement_noise"`
+	OcclusionCovInflation       float64        `json:"occlusion_cov_inflation"`
+	HitsToConfirm               int            `json:"hits_to_confirm"`
+	MaxMisses                   int            `json:"max_misses"`
+	MaxMissesConfirmed          int            `json:"max_misses_confirmed"`
+	MaxTracks                   int            `json:"max_tracks"`
+	MaxReasonableSpeedMps       float64        `json:"max_reasonable_speed_mps"`
+	MaxPositionJumpMetres       float64        `json:"max_position_jump_metres"`
+	MaxPredictDt                float64        `json:"max_predict_dt"`
+	MaxCovarianceDiag           float64        `json:"max_covariance_diag"`
+	MinPointsForPCA             int            `json:"min_points_for_pca"`
+	OBBHeadingSmoothingAlpha    float64        `json:"obb_heading_smoothing_alpha"`
+	OBBAspectRatioLockThreshold float64        `json:"obb_aspect_ratio_lock_threshold"`
 	// OBBHeadingLockMaxRejections releases the heading lock after this many
 	// consecutive Guard 3 rejections. Guard 3 compares each measurement against
 	// the smoothed heading, so once that has drifted outside the rejection band
@@ -313,6 +316,13 @@ type L5Identity struct {
 	OverlapEndFrames    int  `json:"overlap_end_frames"`
 	OverlapEndOnBody    bool `json:"overlap_end_on_body"`
 	OverlapEndKeepOlder bool `json:"overlap_end_keep_older"`
+}
+
+// L5Association makes the S3 comparison reproducible from a tuning file.
+// ContainmentClaim also requires the contained solid body's full membership.
+type L5Association struct {
+	LikelihoodCost   bool `json:"likelihood_cost"`
+	ContainmentClaim bool `json:"containment_claim"`
 }
 
 // L5BoxModel is the published box model's options, one tuning value per

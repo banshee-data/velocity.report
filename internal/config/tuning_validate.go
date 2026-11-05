@@ -432,6 +432,15 @@ func (c *L4HdbscanAdaptiveV1) Validate() error {
 
 // Validate validates common L5 fields.
 func (c *L5Common) Validate() error {
+	if c.Association != nil && c.Association.LikelihoodCost && c.SolidBody != nil && c.SolidBody.Enabled && c.SolidBody.NearEdgeTracking {
+		return fmt.Errorf("association.likelihood_cost does not combine with solid_body.near_edge_tracking: the A2 gate does not carry its noise model")
+	}
+	if c.Association != nil && c.Association.ContainmentClaim {
+		sb := c.SolidBody
+		if sb == nil || !sb.Enabled || !sb.FullMembers || !sb.Containment {
+			return fmt.Errorf("association.containment_claim requires solid_body.enabled, full_members and containment")
+		}
+	}
 	if err := c.SolidBody.Validate(); err != nil {
 		return fmt.Errorf("solid_body: %w", err)
 	}

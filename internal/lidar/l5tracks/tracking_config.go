@@ -486,10 +486,16 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 	if l5cfg.Identity != nil {
 		identity = *l5cfg.Identity
 	}
+	var association config.L5Association
+	if l5cfg.Association != nil {
+		association = *l5cfg.Association
+	}
 	if sb := l5cfg.SolidBody; sb != nil && sb.Enabled {
 		nearEdge, medoidGate = sb.NearEdgeTracking, sb.NearEdgeMedoidGate
 	}
 	return TrackerConfig{
+		LikelihoodAssociationCost:        association.LikelihoodCost,
+		ContainmentClaim:                 association.ContainmentClaim,
 		TentativePriority:                identity.TentativePriority,
 		OverlapEndFrames:                 identity.OverlapEndFrames,
 		OverlapEndOnBody:                 identity.OverlapEndOnBody,

@@ -80,8 +80,8 @@ func TestContainmentClaimGivesTheClusterToTheBoxThatHoldsIt(t *testing.T) {
 	}
 }
 
-// A sole bidder keeps its cluster: the rule chooses between claimants and
-// never leaves a cluster unassigned that a track would have taken.
+// A sole bidder keeps its cluster. This local guard does not guarantee the
+// cardinality of a multi-cluster assignment, as the following test shows.
 func TestContainmentClaimLeavesASoleBidderItsCluster(t *testing.T) {
 	tk, freshID, coastingID, contested := claimScene(t, claimConfig(), 1, 10, 0)
 	tk.Tracks[freshID].TrackState = TrackDeleted
@@ -90,6 +90,38 @@ func TestContainmentClaimLeavesASoleBidderItsCluster(t *testing.T) {
 	}
 	if n := tk.ContinuityStats().ContainmentClaimRefusals; n != 0 {
 		t.Fatalf("%d refusals with one bidder", n)
+	}
+}
+
+// A row retaining a valid bidder is insufficient to preserve the global
+// matching: the fresh track is also the second cluster's only bidder. This
+// counterexample documents the disabled experiment's known limitation; it
+// does not assert that a particular replay's new births have this cause.
+func TestContainmentClaimLocalBidderCanLoseGlobalAssignment(t *testing.T) {
+	tk, freshID, coastingID, contested := claimScene(t, claimConfig(), 1, 10, 0)
+	clusters := []WorldCluster{contested, contested}
+	clusters[1].ClusterID++
+	costs := [][]float32{{.1, 1}, {float32(hungarianlnf), .2}}
+	count := func(assignment []int) int {
+		n := 0
+		for _, col := range assignment {
+			if col >= 0 {
+				n++
+			}
+		}
+		return n
+	}
+	if count(HungarianAssign(costs)) != 2 {
+		t.Fatal("counterexample must start with a complete matching")
+	}
+	tk.applyContainmentClaim(costs, clusters, []int{0, 1}, []string{coastingID, freshID})
+	for _, row := range costs {
+		if row[1] >= float32(hungarianlnf) {
+			t.Fatal("each row must retain the fresh bidder")
+		}
+	}
+	if got := count(HungarianAssign(costs)); got != 1 {
+		t.Fatalf("local refusal left %d assignments, want the demonstrated global shortfall of one", got)
 	}
 }
 
