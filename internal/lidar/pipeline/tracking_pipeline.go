@@ -353,6 +353,9 @@ type TrackingPipelineConfig struct {
 	// FragmentJoin is a default-off motion-supported joining experiment. It
 	// uses the previous observed body's prediction, before current association.
 	FragmentJoin *config.L4FragmentJoin
+	// FragmentJoinTrackerConfig reads the same current noise law used by L5,
+	// including runtime changes, even when instrumentation wraps the tracker.
+	FragmentJoinTrackerConfig func() l5tracks.TrackerConfig
 	// OnFragmentJoin is an optional offline counter hook, called only when
 	// the joining experiment runs. It does not control the partition.
 	OnFragmentJoin func(componentsJoined int)
@@ -1013,7 +1016,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			clusters = l4perception.DBSCAN(filteredPoints, dbscanParams)
 		}
 		if fragmentJoin.Enabled && profile.RunsLayer(5) && !isNilInterface(cfg.Tracker) {
-			hints := motionFragmentHints(cfg.Tracker.GetConfirmedTracks(), frame.StartTimestamp, fragmentJoin)
+			var hints []l4perception.FragmentHint
+			if cfg.FragmentJoinTrackerConfig != nil {
+				hints = motionFragmentHints(cfg.Tracker.GetConfirmedTracks(), frame.StartTimestamp, fragmentJoin, cfg.FragmentJoinTrackerConfig())
+			}
 			var joined int
 			clusters, trace, joined = l4perception.JoinMotionFragments(clusters, trace, dbscanParams, hints, fragmentJoin.MaxGapMetres, fragmentJoin.MarginMetres)
 			if cfg.OnFragmentJoin != nil {

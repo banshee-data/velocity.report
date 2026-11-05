@@ -29,7 +29,7 @@ func (s *FragmentJoinStats) Observe(joined int) {
 // motionFragmentHints projects recent observed rigid vehicles to one common
 // capture time. Stale, coasted, stopped, uncertain and unclassified bodies
 // cannot join clusters. A footprint is only experimental support, not truth.
-func motionFragmentHints(tracks []*l5tracks.TrackedObject, at time.Time, cfg config.L4FragmentJoin) []l4perception.FragmentHint {
+func motionFragmentHints(tracks []*l5tracks.TrackedObject, at time.Time, cfg config.L4FragmentJoin, trackerCfg l5tracks.TrackerConfig) []l4perception.FragmentHint {
 	tracks = append([]*l5tracks.TrackedObject(nil), tracks...)
 	sort.SliceStable(tracks, func(i, j int) bool { return tracks[i].CreationSequence < tracks[j].CreationSequence })
 	var hints []l4perception.FragmentHint
@@ -44,7 +44,7 @@ func motionFragmentHints(tracks []*l5tracks.TrackedObject, at time.Time, cfg con
 		}
 		dt := float64(at.UnixNano()-tr.StateUnixNanos) / 1e9
 		age := float64(at.UnixNano()-tr.LastObservedUnixNanos) / 1e9
-		if tr.StateUnixNanos <= 0 || tr.LastObservedUnixNanos <= 0 || dt <= 0 || dt > cfg.MaxAgeSecs || age < 0 || age > cfg.MaxAgeSecs {
+		if tr.StateUnixNanos <= 0 || tr.LastObservedUnixNanos <= 0 || dt <= 0 || dt > cfg.MaxAgeSecs || dt > float64(trackerCfg.MaxPredictDt) || age < 0 || age > cfg.MaxAgeSecs {
 			continue
 		}
 		speed := math.Hypot(float64(tr.VX), float64(tr.VY))
@@ -56,6 +56,14 @@ func motionFragmentHints(tracks []*l5tracks.TrackedObject, at time.Time, cfg con
 		p := tr.P
 		xx := float64(p[0]) + dt*float64(p[2]+p[8]) + dt*dt*float64(p[10])
 		yy := float64(p[5]) + dt*float64(p[7]+p[13]) + dt*dt*float64(p[15])
+		noise := float64(trackerCfg.ProcessNoisePos) * dt
+		if trackerCfg.CoupledProcessNoise {
+			noise += float64(trackerCfg.ProcessNoiseVel) * dt * dt * dt / 3
+		}
+		if !(noise >= 0) || math.IsInf(noise, 0) {
+			continue
+		}
+		xx, yy = xx+noise, yy+noise
 		xy := .5*float64(p[1]+p[4]) + dt*.5*float64(p[3]+p[9]+p[6]+p[12]) + dt*dt*.5*float64(p[11]+p[14])
 		variance := .5 * (xx + yy + math.Hypot(xx-yy, 2*xy))
 		if !(xx >= 0 && yy >= 0 && xx*yy >= xy*xy && variance <= cfg.MaxPositionStddevMetres*cfg.MaxPositionStddevMetres) {

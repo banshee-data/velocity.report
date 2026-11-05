@@ -15,7 +15,7 @@ Startup and offline replay pass the same settings to the callback. Before curren
 association, a confirmed rigid vehicle with at least eight observations and
 observed support is projected to one common capture time. The configured bounds
 are 0.2 s age, 2 m/s minimum speed and 0.75 m maximum position standard deviation.
-The position covariance uses the full CV projection and its largest eigenvalue;
+The position covariance uses the full CV projection, the tracker's current process-noise law (including the coupled option), and its largest eigenvalue;
 weak prior directions are not replaced by a fixed isotropic certainty.
 
 L4 considers only accepted components and the complete post-cap member stream.
@@ -51,3 +51,11 @@ The pre-run rule was committed before any candidate replay. Kirk0 source SHA-256
 `2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a`.
 Dataset revision `37ef1befc1876ad860800beea1bbeaa6c9078da9`.
 Raw evidence and logs stay outside Git.
+
+The first development launch was stopped before reading candidate results when
+review found that the hint covariance projection omitted process noise. The
+implementation now reads the actual tracker noise configuration, including
+through instrumentation, rejects priors beyond `MaxPredictDt`, and has a
+boundary regression that the noise-free calculation would incorrectly admit.
+The final screen uses fresh outputs and a single corrected build for both arms;
+the stopped launch supplies no acceptance evidence.

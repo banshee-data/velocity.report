@@ -920,6 +920,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		MaxClusterAspectRatio:     tuningCfg.GetMaxClusterAspectRatio(),
 		ClusterCentre:             tuningCfg.GetClusterCentre(),
 		FragmentJoin:              tuningCfg.GetFragmentJoin(),
+		FragmentJoinTrackerConfig: tracker.GetConfig,
 		HeightBandFloor:           tuningCfg.GetHeightBandFloor(),
 		HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
 		RemoveGround:              tuningCfg.GetRemoveGround(),
