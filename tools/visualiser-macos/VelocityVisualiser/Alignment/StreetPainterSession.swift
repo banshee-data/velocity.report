@@ -49,6 +49,13 @@ struct StreetReference: Sendable {
     var centrelines: [StreetGeometry.SnapTarget] = []
     /// Box walls' feet and footprint outlines.
     var walls: [StreetGeometry.SnapTarget] = []
+    /// Painted markings Gerardus traced (W5), where the paint is: not the
+    /// public rows placed on a centreline or at an intersection.
+    var markings: [StreetGeometry.SnapTarget] = []
+    /// The lane, centre and edge lines among them: what bounds a lane.
+    var laneLines: [StreetGeometry.SnapTarget] = []
+    /// Signs' positions (W6), where Split at sign cuts a lane.
+    var signs: [PlanPoint] = []
     var ground = GroundSurface()
     /// The street layers' draped vertices, for a click where there is no
     /// ground mesh.
@@ -63,6 +70,15 @@ struct StreetReference: Sendable {
         walls = (geometry.boxes + geometry.footprints).enumerated().map {
             Self.target($1, layer: .wall, index: $0)
         }.filter { !$0.points.isEmpty }
+        for (i, feature) in geometry.laneMarkings.enumerated() where Self.isPaint(feature) {
+            let target = Self.target(feature, layer: .marking, index: i)
+            guard !target.points.isEmpty else { continue }
+            markings.append(target)
+            if Self.boundsLane(feature), !target.closed, target.points.count >= 2 {
+                laneLines.append(target)
+            }
+        }
+        signs = geometry.streetFurniture.filter { $0.kind == .sign }.compactMap(Self.centre)
         ground = GroundSurface(heightfields: geometry.groundMesh)
         for feature in geometry.kerbs + streets {
             for i in stride(from: 0, to: feature.xyz.count - 2, by: 3) {
@@ -76,6 +92,38 @@ struct StreetReference: Sendable {
     }
 
     var targets: [StreetGeometry.SnapTarget] { kerbs + centrelines + walls }
+
+    /// A marking where the paint is. The public rows carry `position`
+    /// (`centreline` or `intersection`): a bike lane drawn on its street's
+    /// centreline, a crosswalk at its intersection's point.
+    static func isPaint(_ f: Gerardus_Align_V1alpha1_LineFeature) -> Bool {
+        (f.tags["position"] ?? "").isEmpty
+    }
+
+    /// A line along a lane's side: a lane, centre or edge line.
+    static func boundsLane(_ f: Gerardus_Align_V1alpha1_LineFeature) -> Bool {
+        ["lane_line", "centre_line", "edge_line"].contains(f.tags["marking"] ?? "")
+    }
+
+    /// A feature's mean position across the ground.
+    static func centre(_ f: Gerardus_Align_V1alpha1_LineFeature) -> PlanPoint? {
+        let n = f.xyz.count / 3
+        guard n > 0 else { return nil }
+        var sum = PlanPoint(0, 0)
+        for i in 0..<n { sum += PlanPoint(Double(f.xyz[3 * i]), Double(f.xyz[3 * i + 1])) }
+        return sum / Double(n)
+    }
+
+    /// How far from a click on a lane a sign may stand and still be where
+    /// Split at sign cuts it.
+    static let signReachM = 5.0
+
+    /// The sign nearest p within reach, if any.
+    func sign(near p: PlanPoint) -> PlanPoint? {
+        signs.filter { StreetGeometry.distance($0, p) <= Self.signReachM }.min {
+            StreetGeometry.distance($0, p) < StreetGeometry.distance($1, p)
+        }
+    }
 
     /// How far a street vertex may lie from a click and still lend it its
     /// height, when there is no ground mesh.
@@ -729,9 +777,23 @@ struct StreetReference: Sendable {
         let tolerance = max(1.0, Self.edgeHitPoints * metresPerPoint * 2)
         for lane in lanes {
             guard
-                let (up, down) = StreetUseEditing.split(
+                var (up, down) = StreetUseEditing.split(
                     lane, at: at, newKey: newKey(), tolerance: tolerance)
             else { continue }
+            // At the sign, when one stands near the click: the cut goes where
+            // the sign is along the lane, not where the pointer landed.
+            if let sign = reference.sign(near: at),
+                let cut = StreetGeometry.nearestOn(
+                    sign,
+                    [
+                        StreetGeometry.SnapTarget(
+                            id: lane.key, layer: .mark, points: lane.plan, closed: false)
+                    ])?.point,
+                let atSign = StreetUseEditing.split(
+                    lane, at: cut, newKey: down.key, tolerance: tolerance)
+            {
+                (up, down) = atSign
+            }
             var next = edit.marks
             guard let i = next.firstIndex(where: { $0.key == lane.key }) else { continue }
             next[i] = up
@@ -824,22 +886,42 @@ struct StreetReference: Sendable {
     }
 
     /// Everything a vertex snaps to: the street layers and the marks, but
-    /// not the mark being edited.
-    private func snapTargets(excluding key: String?) -> [StreetGeometry.SnapTarget] {
-        reference.targets
+    /// not the mark being edited. A travel lane is its centreline, so it
+    /// does not snap onto painted lines; it goes between them (laneCentre).
+    private func snapTargets(
+        excluding key: String?, lane: Bool = false
+    ) -> [StreetGeometry.SnapTarget] {
+        reference.targets + (lane ? [] : reference.markings)
             + edit.marks.filter { $0.key != key }.map {
                 StreetGeometry.SnapTarget(
                     id: $0.key, layer: .mark, points: $0.plan, closed: $0.kind.closed)
             }
     }
 
+    /// Whether a vertex placed now belongs to a travel lane: one being drawn,
+    /// or the lane whose vertex is being moved.
+    private func placingLane(excluding key: String?) -> Bool {
+        if let key { return edit.mark(key)?.kind == .travelLane }
+        return tool == .lane
+    }
+
     /// The ground under a point of the view, snapped as Gerardus will snap it.
+    /// A travel lane's vertex also goes midway between two painted lines a
+    /// lane's width apart, unless it meets another mark's vertex.
     func point(
         atView p: CGPoint, excluding key: String? = nil
     ) -> (point: SIMD3<Double>, snapped: Bool)? {
         guard let plan else { return nil }
         let site = plan.sitePoint(atView: p, size: viewSize)
-        let snap = StreetGeometry.snap(site, to: snapTargets(excluding: key))
+        let lane = placingLane(excluding: key)
+        var snap = StreetGeometry.snap(site, to: snapTargets(excluding: key, lane: lane))
+        if lane, snap.on != .vertex,
+            let centre = StreetGeometry.laneCentre(site, between: reference.laneLines),
+            centre.distance <= StreetGeometry.laneCentreReachM,
+            snap.on == .none || centre.distance < snap.distance
+        {
+            snap = StreetGeometry.Snap(point: centre.point, on: .edge, distance: centre.distance)
+        }
         return (SIMD3(snap.point, reference.groundZ(at: snap.point)), snap.snapped)
     }
 
