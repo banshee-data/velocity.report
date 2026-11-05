@@ -110,6 +110,7 @@ flowchart TB
     l5id0014["<b>l5id0014</b><br/>A birth gate on the live body: no track…<br/>proposed · 4h8m machine + 5h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::proposed
     l5id0015["<b>l5id0015</b><br/>How wide are kirk0's identity figures? A…<br/>answered · 18m machine + 3h person (took 1h30m)<br/>manual: implement, write"]:::answered
     l5id0016["<b>l5id0016</b><br/>The overlap end's lost, shortened and…<br/>proposed · 23m machine + 4h person<br/>manual: implement, write<br/>needs tooling: corpus_screen"]:::proposed
+    l5id0017["<b>l5id0017</b><br/>Do the overlap end and a looser velocity…<br/>proposed · 12m machine + 30m person<br/>manual: write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
   subgraph area_l6cls ["l6cls: L6 classification"]
     l6cls0001["<b>l6cls0001</b><br/>How much following the class gate holds…<br/>answered · 1h9m machine + 1h person (took 30m)<br/>manual: write"]:::answered
@@ -225,6 +226,7 @@ flowchart TB
   l5id0006 --> l5id0013
   l5id0016 --> l5id0014
   l5id0012 --> l5id0016
+  l5est0003 --> l5id0017
   l8fol0003 --> l6cls0001
   l6cls0002 --> l6cls0003
   l5id0006 --> l6cls0003
@@ -270,6 +272,7 @@ flowchart TB
 - [l5id0013](l5id/l5id0013.md) Reacquisition acceptance on the current mean-centre defaults: ready, but a step needs tooling; 21m machine + 4h person; after l5id0006; asks [BACKLOG](../../docs/BACKLOG.md), [pcl-noise-and-splits-2026-11 #recommendations](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md#recommendations).
 - [l5id0014](l5id/l5id0014.md) A birth gate on the live body: no track is confirmed inside a live confirmed track's observed returns: waiting on a dependency; 4h8m machine + 5h person; after l5id0016; asks [experiment-review-2026-11-05 #c-the-overlap-end-the-one-large…](../../docs/lidar/operations/experiment-review-2026-11-05.md#c-the-overlap-end-the-one-large-lever), [overlap-end-default-cost-2026-11 #recommendations](../../docs/lidar/operations/overlap-end-default-cost-2026-11.md#recommendations).
 - [l5id0016](l5id/l5id0016.md) The overlap end's lost, shortened and brief tracks, rescored on l5id0012's archived rows with a body-aware match: proposed, awaiting approval; 23m machine + 4h person; after l5id0012; asks [experiment-review-2026-11-05 #c-the-overlap-end-the-one-large…](../../docs/lidar/operations/experiment-review-2026-11-05.md#c-the-overlap-end-the-one-large-lever), [overlap-end-default-cost-2026-11 #recommendations](../../docs/lidar/operations/overlap-end-default-cost-2026-11.md#recommendations), [pcl-noise-and-splits-2026-11 #recommendations](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md#recommendations).
+- [l5id0017](l5id/l5id0017.md) Do the overlap end and a looser velocity noise remove the same identity errors on kirk0, or different ones?: proposed, awaiting approval; 12m machine + 30m person; after l5est0003; asks [cloud-run-kirk0-labelled-2026-11 #l5est0003-the-filters-velocity-…](../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md#l5est0003-the-filters-velocity-on-kirk0s-trucks).
 - [l6cls0004](l6cls/l6cls0004.md) What clutter is: artefact, stationary road user or a fragment of a mover, told apart on the archived evidence, and where spurious clusters recur: proposed, awaiting approval; 46m machine + 4h person; after l6cls0002; asks [experiment-review-2026-11-05 #d-what-counts-as-noise](../../docs/lidar/operations/experiment-review-2026-11-05.md#d-what-counts-as-noise), [pcl-noise-and-splits-2026-11 #recommendations](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md#recommendations).
 - [l8fol0004](l8fol/l8fol0004.md) The following limits, predeclared on kirk0's pairs, and a scorer that reads the leader truth: ready, but a step needs tooling; 6m machine + 12h person; asks [lidar-physical-reference-review-plan #scoring-and-inspection](../../docs/plans/lidar-physical-reference-review-plan.md#scoring-and-inspection), [0.5.2-sprint-review #r6-the-held-out-gap-scorer-is-a…](../../docs/lidar/operations/0.5.2-sprint-review.md#r6-the-held-out-gap-scorer-is-a-component-not-a-complete-promotion-gate), [lidar-052-mvp-sprint-plan #evidence-and-promotion-ledger](../../docs/plans/lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger), [geometry-convergence-criteria #criteria](../../docs/lidar/operations/geometry-convergence-criteria.md#criteria), [physical-reference-pilot-kirk0-2026-10 #recommendations](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md#recommendations).
 - [l8fol0005](l8fol/l8fol0005.md) The first held-out following score, on the labelled window's pairs: waiting on a dependency; 18m machine + 3h person; after l8fol0004, label0002; asks [lidar-behaviour-analytics-plan #104-first-headway-report](../../docs/plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [lidar-052-mvp-sprint-plan #evidence-and-promotion-ledger](../../docs/plans/lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days).
@@ -355,5 +358,5 @@ flowchart TB
 
 ## Totals
 
-- 38 open experiments: 72h12m machine + 251h40m person estimated.
+- 39 open experiments: 72h24m machine + 252h10m person estimated.
 - Longest chain of open work, machine and person time together: lane0001 → l5id0008 → l5id0009 → l5id0010, 69h57m.
