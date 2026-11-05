@@ -103,7 +103,7 @@ enum StreetPaintTool: String, CaseIterable, Identifiable, Sendable {
         case .driveway: return "Click the two ends of the kerb cut."
         case .split:
             return
-                "Click a travel lane where its limit changes, at the sign: it becomes two lanes sharing that vertex, and the second's limit is cleared for the new value."
+                "Click a travel lane where its limit changes: it is cut at the sign when one stands within 5 m of the click, else where you click. It becomes two lanes sharing that vertex, and the second's limit is cleared for the new value."
         }
     }
 

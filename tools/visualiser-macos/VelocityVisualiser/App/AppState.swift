@@ -393,6 +393,27 @@ private let logger = DevLogger(category: "AppState")
     @Published var currentRunID: String?  // Current run being replayed
     @Published var showRunBrowser: Bool = false  // Show run browser sheet
 
+    /// The run whose recording the server is replaying, when no run is open
+    /// here: a replay started from the web, or before the app restarted.
+    /// Matched by the replayed path against the latest runs.
+    func runOfCurrentReplay() async -> String? {
+        guard currentRunID == nil, sourceMode == .vrlog,
+            let status = try? await runTrackLabelClient.getPlaybackStatus()
+        else { return nil }
+        if runBrowserState.runs.isEmpty { await runBrowserState.fetchRuns() }
+        return LaneSteps.replayRun(
+            vrlogPath: status.vrlogPath, runs: runBrowserState.runs.map { ($0.runId, $0.vrlogPath) }
+        )
+    }
+
+    /// Opens a run as the run browser does: loads its recording for replay
+    /// and makes it the current run.
+    func openRun(_ runID: String) async {
+        await loadRunForReplayAndUpdateAppState(
+            runID: runID, appState: self, runBrowserState: runBrowserState
+        ) { await self.runBrowserState.loadRunForReplay(runID) }
+    }
+
     // MARK: - Alignment (Gerardus)
 
     /// The optional client for the Gerardus alignment service. Until a server

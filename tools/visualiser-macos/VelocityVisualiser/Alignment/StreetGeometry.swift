@@ -38,6 +38,8 @@ enum StreetGeometry {
             case kerb
             case centreline
             case wall
+            /// Painted markings Gerardus traced (W5); not a lane's centre.
+            case marking
             case mark
         }
 
@@ -118,6 +120,63 @@ enum StreetGeometry {
             }
         }
         return best.on == .none ? Snap(point: p, on: .none, distance: 0) : best
+    }
+
+    // MARK: Between painted lines
+
+    /// A travel lane's width as Gerardus reads one (LANE-PROPOSALS §4.7):
+    /// two painted lines this far apart bound a lane.
+    static let laneWidthRangeM = 2.4...4.5
+    /// How far from parallel two lines may be and still bound one lane.
+    static let laneLineMaxAngleDeg = 15.0
+    /// How far from the midline a click may land and still be put on it.
+    static let laneCentreReachM = 0.75
+
+    /// The lane centre between two painted lines: the point midway across
+    /// the lane, on the perpendicular through p, when p lies between two
+    /// near-parallel lines whose spacing is a lane's width. Lines are
+    /// open polylines (lane, centre and edge lines). Nil when none bound p.
+    static func laneCentre(
+        _ p: PlanPoint, between lines: [SnapTarget]
+    ) -> (point: PlanPoint, widthM: Double, distance: Double)? {
+        // Each line's nearest segment to p: its closest point and direction.
+        var near: [(point: PlanPoint, dir: PlanPoint, distance: Double)] = []
+        for line in lines where !line.closed && line.points.count >= 2 {
+            var best: (point: PlanPoint, dir: PlanPoint, distance: Double)?
+            for edge in edges(line.points, closed: false) {
+                let d = edge.b - edge.a
+                let length = simd_length(d)
+                guard length > 1e-6 else { continue }
+                let c = closestOnSegment(p, edge.a, edge.b)
+                if best == nil || c.distance < best!.distance {
+                    best = (c.point, d / length, c.distance)
+                }
+            }
+            if let best, best.distance <= laneWidthRangeM.upperBound { near.append(best) }
+        }
+        let cosMax = cos(laneLineMaxAngleDeg * .pi / 180)
+        var answer: (point: PlanPoint, widthM: Double, distance: Double)?
+        for a in near {
+            let normal = PlanPoint(-a.dir.y, a.dir.x)
+            // Offsets across the lane, along a's normal, measured from p.
+            let offA = simd_dot(a.point - p, normal)
+            for b in near where abs(simd_dot(a.dir, b.dir)) >= cosMax {
+                let offB = simd_dot(b.point - p, normal)
+                // p lies between them: they are on opposite sides of it.
+                guard offA * offB < 0 else { continue }
+                let width = abs(offA - offB)
+                guard laneWidthRangeM.contains(width) else { continue }
+                let mid = p + normal * ((offA + offB) / 2)
+                let d = distance(p, mid)
+                // The narrowest pair: the lane p is in, not one spanning two.
+                if answer == nil || width < answer!.widthM - 1e-9
+                    || (abs(width - answer!.widthM) < 1e-9 && d < answer!.distance)
+                {
+                    answer = (mid, width, d)
+                }
+            }
+        }
+        return answer
     }
 
     /// The nearest point on any of the targets, however far; nil when there

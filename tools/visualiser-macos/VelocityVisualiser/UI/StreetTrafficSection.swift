@@ -66,8 +66,15 @@ import SwiftUI
             if let error = traffic.errorMessage {
                 Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
             }
+        }.task(id: loadKey) {
+            // Read the open run's field and the site's whenever the run or
+            // the site changes, not only on ↻: Send needs the run's.
+            await traffic.load(runID: appState.currentRunID)
         }
     }
+
+    /// The run and the site the fields are read for.
+    private var loadKey: String { "\(appState.currentRunID ?? "")|\(session.site?.l16Token ?? "")" }
 
     /// The site's field and Send are hidden on a server that has none.
     private var choices: [StreetTrafficLayer.Choice] {
@@ -76,14 +83,27 @@ import SwiftUI
 
     private var sendRow: some View {
         let blocker = traffic.sendBlocker(pendingSave: painter.hasPendingSave)
-        return HStack {
-            Button("Send lane field") {
-                Task { await traffic.send(pendingSave: painter.hasPendingSave) }
-            }.disabled(blocker != nil).help(
-                blocker
-                    ?? "Upload this run's three fields (the whole run and its halves) to Gerardus against the accepted pose"
-            )
-            if traffic.isSending { ProgressView().controlSize(.small) }
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Button("Send lane field") {
+                    Task {
+                        await traffic.send(pendingSave: painter.hasPendingSave)
+                        // Gerardus derives proposals when they are read: read
+                        // them now, so a new field's lanes show at once.
+                        await painter.proposals.load()
+                    }
+                }.disabled(blocker != nil).help(
+                    blocker
+                        ?? "Upload this run's three fields (the whole run and its halves) to Gerardus against the accepted pose"
+                )
+                if traffic.isSending { ProgressView().controlSize(.small) }
+            }
+            // Why it is off, in the pane: a tooltip on a disabled button is
+            // easy to miss.
+            if let blocker {
+                Text(blocker).font(.caption2).foregroundStyle(.orange).fixedSize(
+                    horizontal: false, vertical: true)
+            }
         }
     }
 

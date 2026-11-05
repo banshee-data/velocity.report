@@ -1157,3 +1157,62 @@ struct StreetStyleTests {
         #expect(InteractiveMetalView.paintKey(0) == nil)
     }
 }
+
+// MARK: - Painting along markings and at signs
+
+@MainActor struct StreetPaintAlongMarkingsTests {
+    /// The fake's street (kerbs at y = ±5) with its canned markings (a centre
+    /// line along y = 0, a crosswalk across x = ±2) and sign (at 3.2, 3), and
+    /// a lane line along y = 3.5.
+    private func painter() async -> StreetPainterSession {
+        let (painter, _, _, _) = await placedPainter { service in
+            service.availableLayers += [.laneMarkings, .streetFurniture]
+            var laneLine = Gerardus_Align_V1alpha1_LineFeature()
+            laneLine.kind = .laneMarking
+            laneLine.xyz = [-40, 3.5, 21, 40, 3.5, 21]
+            laneLine.tags = ["marking": "lane_line", "pattern": "dashed"]
+            service.extraFeatures[.laneMarkings] = [laneLine]
+        }
+        painter.setPainting(true)
+        return painter
+    }
+
+    @Test func aLaneVertexGoesMidwayBetweenThePaintedLines() async throws {
+        let painter = await painter()
+        painter.tool = .lane
+        click(painter, plan(-15, 1.3))
+        click(painter, plan(15, 2.2))
+        click(painter, plan(15, 2.2), count: 2)
+        let lane = try #require(painter.edit.marks.last)
+        #expect(lane.kind == .travelLane)
+        #expect(lane.points.count == 2)
+        #expect(lane.points.allSatisfy { abs($0.y - 1.75) < 1e-6 })
+    }
+
+    @Test func otherMarksSnapOntoThePaint() async throws {
+        let painter = await painter()
+        painter.tool = .surface
+        painter.fields.surface = "carriageway"
+        click(painter, plan(10, 3.8))  // 0.3 m off the lane line
+        click(painter, plan(20, 3.5))
+        click(painter, plan(20, 0.2))
+        click(painter, plan(20, 0.2), count: 2)
+        let surface = try #require(painter.edit.marks.last)
+        #expect(abs(surface.points[0].y - 3.5) < 1e-6)
+    }
+
+    @Test func splitAtSignCutsWhereTheSignStands() async throws {
+        let painter = await painter()
+        painter.tool = .lane
+        click(painter, plan(-15, 1.75))
+        click(painter, plan(15, 1.75))
+        click(painter, plan(15, 1.75), count: 2)
+        let lanes = painter.edit.marks.filter { $0.kind == .travelLane }.count
+        painter.tool = .split
+        click(painter, plan(1, 1.75))  // the sign stands at x = 3.2
+        let split = painter.edit.marks.filter { $0.kind == .travelLane }
+        #expect(split.count == lanes + 1)
+        let up = try #require(split.first { $0.points.first!.x < -14 })
+        #expect(abs(up.points.last!.x - 3.2) < 1e-6)
+    }
+}
