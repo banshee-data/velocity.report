@@ -241,6 +241,7 @@ is the March 2023 Task 1 literature review cited by the AAA report, not the sepa
 report with a fourth author.
 
 The November 5, 2026 update adds `Wu2026` (208 total entries). The speed/conflict/crash benchmark section grows from 47 to 48 entries, within its cap of 50; no budget change is needed. Its online publication is in October 2026, despite assignment to the January 2027 journal volume. The indexed abstract supports the causal-validation framework but does not establish a numeric hard-braking threshold or a successful causal-surrogacy verdict.
+
 | BibTeX key               | Mention that requires the entry                                                                                                 | Identity record                                                                                                                                      |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Wu2026`                 | [Causal-surrogate validation](../../../research/2026-11-05-causal-surrogate-validation.md)                                      | [Primary record](https://pubmed.ncbi.nlm.nih.gov/42858486/)                                                                                          |
