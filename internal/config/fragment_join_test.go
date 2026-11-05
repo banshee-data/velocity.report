@@ -31,3 +31,16 @@ func TestFragmentJoinRejectsUnboundedEvidence(t *testing.T) {
 		})
 	}
 }
+
+func TestFragmentJoinAccessorKeepsTuningImmutable(t *testing.T) {
+	cfg := MustLoadDefaultConfig()
+	if cfg.GetFragmentJoin() != nil {
+		t.Fatal("defaults enabled joining")
+	}
+	cfg.L4.DbscanXyV1.FragmentJoin = &L4FragmentJoin{MaxGapMetres: 2}
+	copy := cfg.GetFragmentJoin()
+	copy.MaxGapMetres = 1
+	if cfg.L4.DbscanXyV1.FragmentJoin.MaxGapMetres != 2 {
+		t.Fatal("callback mutated the tuning it was created from")
+	}
+}

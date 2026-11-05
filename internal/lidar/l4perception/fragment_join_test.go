@@ -103,3 +103,44 @@ func TestMotionJoinDoesNotRecoverNoiseOrRejectedComponents(t *testing.T) {
 		t.Fatal("joining turned noise into an observation")
 	}
 }
+
+// One rejected group must not erase its original components while another
+// valid group in the same frame joins. The high original component ID must
+// survive even though the first trial partition no longer contains it.
+func TestMotionJoinMixedShapeOutcomesPreserveEveryReturn(t *testing.T) {
+	_, trace, params, hint := fragmentFixture(t)
+	points := append([]WorldPoint(nil), trace.Processed...)
+	for _, p := range trace.Processed {
+		if p.X < 1 {
+			p.X += 10
+		} else {
+			p.X += 10.7
+		}
+		p.SetSourceOrdinal(len(points))
+		points = append(points, p)
+	}
+	params.MaxClusterDiameter = 2
+	clusters, trace := DBSCANWithTrace(points, params)
+	if len(clusters) != 4 {
+		t.Fatalf("setup has %d clusters", len(clusters))
+	}
+	hints := []FragmentHint{hint, {ID: "second", Rect: Rect{X: 11.15, Y: .05, Length: 3, Width: 1}}}
+	out, next, joined := JoinMotionFragments(clusters, trace, params, hints, 2, .15)
+	if len(out) != 3 || joined != 1 {
+		t.Fatalf("joined %d, components %d", joined, len(out))
+	}
+	returns := 0
+	ids := map[int64]bool{}
+	for _, c := range out {
+		returns += c.PointsCount
+		ids[c.ClusterID] = true
+	}
+	if returns != 24 || !ids[3] || !ids[4] {
+		t.Fatal("rejected group lost original components or members")
+	}
+	for _, label := range next.Labels {
+		if !ids[int64(label)] {
+			t.Fatal("trace names a missing component")
+		}
+	}
+}

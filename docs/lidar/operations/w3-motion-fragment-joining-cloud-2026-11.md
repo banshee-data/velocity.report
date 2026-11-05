@@ -40,9 +40,72 @@ rejection. They verify no input mutation, canonical joined identity, full return
 lineage, noise preservation and observation-tap consistency. Prior tests refuse
 stale, tentative, coasting, stopped, pedestrian and uncertain tracks.
 
-Real-pcap results and the predeclared rule are recorded after the runs. Missing
-labels or independent references mean insufficient evidence, not acceptance.
-No physical, corpus-wide or Pi throughput claim follows from synthetic joining.
+## Corrected-build kirk0 results
+
+Both arms ran the whole capture with six seconds of warm-up and
+`-require-settled=false`, matching the development screen rather than claiming
+qualification of an unsettled background. Each scored recording held 771 frames;
+the counters saw 773 clustered frames, with 39 component joins in 39 frames for
+the candidate. First/repeat baseline bytes and joining counts agreed exactly.
+The default-off control also matched the independently built identity screen's
+control baseline byte for byte.
+
+| Measure                                          |     a0 |   join |
+| ------------------------------------------------ | -----: | -----: |
+| Component joins                                  |      0 |     39 |
+| Confirmed tracks in observed evidence            |     79 |     76 |
+| Brief tracks under 1 s                           |     12 |     11 |
+| Lasting tracks, at least 2 s                     |     58 |     58 |
+| Near-static lasting tracks                       |      6 |      6 |
+| Lasting vehicle-sized tracks                     |     36 |     36 |
+| Approximate spurious clusters per observed frame | 0.6947 | 0.6326 |
+| Published vehicle tracks, at least five frames   |     44 |     43 |
+| Observed vehicle frames                          |  4,523 |  4,515 |
+| Duplicate pairs                                  |     10 |     10 |
+| Overlapping pair-frames                          |    452 |    431 |
+
+The approximate spurious-cluster measure fell 8.94 %, brief tracks fell by one,
+and observed vehicle frames fell 0.18 %. The duplicate pair count did not change.
+The two vehicle-track definitions differ: the noise screen requires a lasting
+track, while the published-box duplicate screen requires five vehicle-sized
+frames and includes predictions. These are proxies, not object truth.
+End-to-end counts include subsequent tracking/background feedback; they do not
+attribute every changed detection to the 39 immediate component joins.
+
+The W3 rule remains **insufficient evidence**. Reviewed fragmentation at 20–35 m,
+retention, cross-object merges, HOTA, IDF1 and false negatives were not scored:
+Hugging Face label/point payloads still redirected to a CDN blocked by the running
+instance, whose network policy remained revision 1 after the saved update.
+No target fragmentation denominator or merge truth was invented from these
+unlabelled counts. The corpus, frozen held-out identity/merge population and Pi
+cost gates remain open, and the candidate remains off by default.
+
+## Execution and validation
+
+The stamped corpus and duplicate-count tools used
+`1acf836e` (the full SHA is in each replay manifest), Go 1.27.1 on Linux amd64.
+The primary command used the committed `kirk0-corpus.json` and `kirk0-index.json`,
+`-warmup 6 -require-settled=false -sample-points 1024`, one of the tuning files
+below, an immutable source manifest and per-case evidence. The existing
+`lidar_noise_screen.py` read those databases. A separate
+`lidar-box-eval -pcap kirk0.pcapng -warmup 6 -variants none` replay per arm supplied
+the duplicate/observed-vehicle counts, including instrumentation-wrapper wiring.
+Primary first/repeat runs took 83.8 and 84.6 s; box-count runs 30.6 and 27.7 s.
+These shared-host wall times do not qualify runtime cost or Pi throughput.
+
+The full Go suite passed. After the process-noise correction, the pipeline,
+replay and server suites passed again, as did the added covariance-bound,
+mixed-shape and immutable-config properties. Go vet/lint, documentation lint,
+experiment validation, config-order and raw-output guards passed.
+
+Baseline tuning SHA-256:
+`9ad7377fa5d356ba5f9d8756d48721708071da3295702350c835110b38b41675`.
+Candidate `config/experiments/motion-fragment-join.json` SHA-256:
+`2e604040caebd0a8d41f9a4647f42249a0a60fb7c80698e10444413a69129e3d`.
+Corpus tool executable SHA-256:
+`329a23b1f51a93b6c2eb2c602bcd04e964211e212055aa2fce455d1e3ce90a94`.
+The raw databases were compressed outside Git, with decompressed SHA-256 checked
+before removing the uncompressed copies.
 
 ## Provenance
 
