@@ -288,7 +288,9 @@ def brief_origin(tracks):
     """Each brief track of one arm: re-birth, split or other (see the docstring)."""
     idx = by_time(tracks)
     ends = [
-        (t["t1"], t["rows"][-1][1], t["rows"][-1][2], tid)
+        # The last row's time, as the brief track's first row is read: the
+        # track table's end is a cluster's acquisition time, not a frame's.
+        (t["rows"][-1][0], t["rows"][-1][1], t["rows"][-1][2], tid)
         for tid, t in tracks.items()
         if t["rows"]
     ]
@@ -336,8 +338,11 @@ def compare(a_path, b_path, match="point"):
         if best < COVER_SHARE:
             shortened += 1
         dv.append(b[bid]["p85"] - t["p85"])
+        # Ages on the rows' own times, the frame times both arms share: the
+        # track table's start is the first cluster's acquisition time.
+        b_first = b[bid]["rows"][0][0]
         common = sorted({r[0] for r in t["rows"]} & {r[0] for r in b[bid]["rows"]})
-        ages.append(((common[0] if common else b[bid]["t0"]) - b[bid]["t0"]) / 1e9)
+        ages.append(((common[0] if common else b_first) - b_first) / 1e9)
     added = sum(
         1 for t in b.values() if t["moving"] and coverage(t, ai, match)[0] < COVER_SHARE
     )

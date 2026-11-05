@@ -248,3 +248,43 @@ def test_database_rows_meet_on_their_frame_time(tmp_path):
 
     out = fc.compare(db(tmp_path / "a.db", 3_000_000), db(tmp_path / "b.db", 7_000_000))
     assert out["lost"] == 0 and out["matched"] == 1
+
+
+def test_ages_and_endings_read_the_rows_frame_times(tmp_path):
+    """On evidence databases the track table's start and end are cluster acquisition times;
+    ages and re-births must read the rows' frame times, which the arms share."""
+
+    def db(path, tracks, skew_ns):
+        con = sqlite3.connect(path)
+        con.execute(
+            "CREATE TABLE lidar_tracks (track_id TEXT, start_unix_nanos INTEGER, end_unix_nanos INTEGER, track_duration_secs REAL)"
+        )
+        con.execute(
+            "CREATE TABLE lidar_track_observations (track_id TEXT, ts_unix_nanos INTEGER, frame_unix_nanos INTEGER, x REAL, y REAL, speed_mps REAL)"
+        )
+        for tid, rows in tracks.items():
+            frames = [int(round(t * S)) for t, *_ in rows]
+            # the table's times a cluster later than each frame, as acquisition times are
+            con.execute(
+                "INSERT INTO lidar_tracks VALUES (?,?,?,?)",
+                (
+                    tid,
+                    frames[0] + skew_ns,
+                    frames[-1] + skew_ns,
+                    (frames[-1] - frames[0]) / S,
+                ),
+            )
+            for (t, x, y, v), f in zip(rows, frames):
+                con.execute(
+                    "INSERT INTO lidar_track_observations VALUES (?,?,?,?,?,?)",
+                    (tid, f + skew_ns, f, x, y, v),
+                )
+        con.commit()
+        con.close()
+        return str(path)
+
+    a = db(tmp_path / "a.db", {"car": drive(0, 6)}, 60_000_000)
+    b = db(tmp_path / "b.db", {"car": drive(0, 6)}, 60_000_000)
+    tail = fc.compare(a, b)["speed_tail_by_age"]
+    # B's track is matched from its own first frame: age zero, not -0.06 s
+    assert tail["under_1s"]["pairs"] == 1

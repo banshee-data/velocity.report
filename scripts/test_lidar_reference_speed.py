@@ -71,3 +71,21 @@ def test_no_span_without_two_reviewed_keyframes(tmp_path):
     kfs = [keyframe(1.0, 8.0, 0.0), keyframe(3.0, 28.0, 0.0, origin="tracker_assisted")]
     db = make_db(tmp_path / "e.db", {"t1": drive(0, 5)})
     assert rs.measure(refs(tmp_path, kfs), db)["vehicles"][0]["span"] is None
+
+
+def test_a_zero_span_is_refused(tmp_path):
+    kfs = [keyframe(1.0, 8.0, 0.0), keyframe(1.0, 18.0, 0.0)]
+    db = make_db(tmp_path / "e.db", {"t1": drive(0, 5)})
+    try:
+        rs.measure(refs(tmp_path, kfs), db)
+    except ValueError as e:
+        assert "not positive" in str(e)
+    else:
+        raise AssertionError("a zero span was accepted")
+
+
+def test_nearest_frame():
+    assert rs.nearest_frame([10, 20, 30], 24) == 20
+    assert rs.nearest_frame([10, 20, 30], 26) == 30
+    assert rs.nearest_frame([10, 20, 30], 99) == 30
+    assert rs.nearest_frame([], 5) is None

@@ -23,6 +23,7 @@ Usage: lidar_reference_speed.py physical-references.json EVIDENCE.db [--json OUT
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import math
 import sys
@@ -56,6 +57,11 @@ def span(obj):
 
 def reference_speed(first, last):
     dt = (last["timestamp_ns"] - first["timestamp_ns"]) / 1e9
+    if dt <= 0:
+        raise ValueError(
+            f"span from {first['timestamp_ns']} to {last['timestamp_ns']} ns is not positive: "
+            "two reviewed keyframes of one anchor share a timestamp, or are out of order"
+        )
     p, q = first["position"], last["position"]
     dist = math.hypot(q["x_m"] - p["x_m"], q["y_m"] - p["y_m"])
     return dist / dt, (p["bound_m"] + q["bound_m"]) / dt, dt
@@ -65,10 +71,20 @@ def nearest_row(rows, ts):
     return min(rows, key=lambda r: abs(r[0] - ts)) if rows else None
 
 
+def nearest_frame(frames, ts):
+    """The frame time nearest ts in sorted frames, or None."""
+    if not frames:
+        return None
+    i = bisect.bisect_left(frames, ts)
+    near = frames[max(0, i - 1) : i + 1]
+    return min(near, key=lambda t: abs(t - ts))
+
+
 def match(tracks, idx, keyframes):
+    frames = sorted(idx)
     votes = []
     for k in keyframes:
-        frame = min(idx, key=lambda t: abs(t - k["timestamp_ns"])) if idx else None
+        frame = nearest_frame(frames, k["timestamp_ns"])
         best = None
         for tid, x, y, _ in idx.get(frame, ()):
             d = math.hypot(x - k["position"]["x_m"], y - k["position"]["y_m"])
@@ -84,7 +100,8 @@ def match(tracks, idx, keyframes):
 
 
 def measure(refs_path, db_path):
-    refs = json.load(open(refs_path))
+    with open(refs_path) as f:
+        refs = json.load(f)
     tracks = fc.load(db_path)
     idx = fc.by_time(tracks)
     out = []
