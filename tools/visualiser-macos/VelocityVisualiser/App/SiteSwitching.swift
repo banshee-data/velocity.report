@@ -92,8 +92,10 @@ enum SiteSourceResolver {
             return byFile
         }
         guard !site.cells.l16.isEmpty else { return nil }
+        // Only when one clip is there: of several, any could be the wrong
+        // recording.
         let inCell = clips.filter { $0.l16Token == site.cells.l16 }
-        return inCell.first
+        return inCell.count == 1 ? inCell[0] : nil
     }
 
     /// The files to replay: the clip's captures the index names, in the
@@ -162,8 +164,9 @@ extension AppState {
             throw SiteSwitchError.nothingToPlay(site.title)
         }
         let source = SiteSource.replay(clipID: clip.clipID, sensorID: clip.sensorID, files: replay)
-        enterSite(SiteContext(site: site, source: source), alignmentSite: clip)
+        // Started first: a refused replay leaves the current site as it was.
         try await service.startReplay(sensorID: clip.sensorID, files: replay)
+        enterSite(SiteContext(site: site, source: source), alignmentSite: clip)
         restartGRPCStream()
         return source
     }

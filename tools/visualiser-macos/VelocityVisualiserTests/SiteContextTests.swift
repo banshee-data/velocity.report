@@ -185,6 +185,14 @@ struct SiteSourceResolverTests {
         #expect(SiteSourceResolver.files(for: embarcadero, clipFiles: ["a", "b"]) == ["a", "b"])
         let unplaced = try #require(index.site(id: "soma1"))
         #expect(SiteSourceResolver.clip(for: unplaced, clips: clips, filesByClip: [:]) == nil)
+        // Two clips at one cell and no file to tell them apart: neither.
+        var twice = clips
+        twice.append(
+            AlignmentSite(
+                clipID: "clip-embarcadero-2", l16Token: "8085805e5", l13Token: "8085805c",
+                description: "S2 archive: Embarcadero again", sensorID: "hesai-pandar40p",
+                latitude: 0, longitude: 0))
+        #expect(SiteSourceResolver.clip(for: embarcadero, clips: twice, filesByClip: [:]) == nil)
     }
 
     @Test func theIndexResolvesTheOpenCaptureBeforeItsName() throws {
@@ -271,6 +279,24 @@ final class FakeSiteReplayService: SiteReplayService, @unchecked Sendable {
         #expect(state.alignment.siteMatch == .siteIndex)
         #expect(state.alignment.northAzimuthText == "36.46")
         #expect(abs((state.alignment.hintHeadingDeg ?? 0) - 143.54) < 1e-9)
+    }
+
+    @Test func aRefusedReplayLeavesTheSiteAsItWas() async throws {
+        let index = try fixtureSiteIndex()
+        let fake = service()
+        let state = AppState(autoConnectOnStartup: false, serverDefaults: nil)
+        try await state.switchSite(
+            to: try #require(index.site(id: "columbus-broadway")), service: fake)
+        state.onFrameReceived(frame(1, tracks: [track("trk_columbus")]))
+        await Task.yield()
+        fake.refuse = true
+        await #expect(throws: SiteSwitchError.replayRefused("busy")) {
+            try await state.switchSite(
+                to: try #require(index.site(id: "embarcadero-broadway")), service: fake)
+        }
+        #expect(state.siteContext.siteID == "columbus-broadway")
+        #expect(state.allSeenTracks.keys.sorted() == ["trk_columbus"])
+        #expect(state.alignment.citySite?.id == "columbus-broadway")
     }
 
     @Test func aSiteTheServerCannotPlayIsEnteredButSaysSo() async throws {
