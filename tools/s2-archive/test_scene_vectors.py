@@ -723,6 +723,14 @@ class PlacementTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.build()
 
+    def test_a_zero_or_missing_pose_is_refused_not_raised_raw(self):
+        self.write_vectors(vectors_block(heading=None))
+        zero = dict(yaw_pose(0.0), rotation={"w": 0.0, "x": 0.0, "y": 0.0, "z": 0.0})
+        no_translation = {k: v for k, v in yaw_pose(0.0).items() if k != "translationM"}
+        for pose in (zero, no_translation):
+            with self.assertRaises(RuntimeError):
+                self.build(pose)
+
     def test_no_vectors_is_not_placed_with_an_eye_read_marker(self):
         placement, asked = self.build()
         asked.assert_not_called()

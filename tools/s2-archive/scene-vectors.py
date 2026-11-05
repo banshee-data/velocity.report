@@ -938,6 +938,11 @@ def build_placement(site, assets, base=None):
             " placed by; rebuild the vectors first"
         ) from error
     pose = scan["pose"]
+    q = pose.get("rotation") or {}
+    if not any(float(q.get(k, 0.0)) for k in "wxyz") or "translationM" not in pose:
+        raise RuntimeError(
+            f"{site}: {record_id} has no usable pose (rotation or translation missing)"
+        )
     heading = round(heading_deg(pose), 2)
     if (
         vectors.get("heading_deg") is not None
