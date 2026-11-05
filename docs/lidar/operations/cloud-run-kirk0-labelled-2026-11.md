@@ -277,6 +277,22 @@ compute the instant speed themselves, so l5id0012's speed clause is unaffected; 
 published p85 and p98 read each track's `MaxSpeedMps`, the maximum of the instant speed, and are
 unaffected.
 
+**What it moves in a shipped figure.** kirk0's lane field built from each replay's observations
+(`l8analytics.BuildLaneField`, whole capture, default options), before and after the fix:
+
+| Lane field, vehicle group | Running mean (as it was) | Instant speed (fixed) |
+| ------------------------- | -----------------------: | --------------------: |
+| Tracks in the field       |                       30 |                    33 |
+| Cells                     |                    2,227 |                 2,728 |
+| Track-cells               |                      740 |                   916 |
+| Heading votes             |                      636 |                   779 |
+| Median cell speed         |                 3.25 m/s |              4.13 m/s |
+
+Three vehicles the 2 m/s lifetime-maximum filter refused on the running mean are admitted, a fifth
+more cells reach the field and the heading gate, and the median cell speed rises 27 %. The lane
+field reports and the lanes proposed from them so far, such as
+[Columbus at Broadway](lane-field-columbus-broadway-2026-11.md), were built on the running mean.
+
 **What the filter's speed says.** Fixed, the car's speed is within its bound; the trucks' are 12 %
 low over spans where their positions move at the reference speed, so the filter lags them, as an
 accelerating long body pulled by a moving cluster centre would. A track's maximum speed, which the
