@@ -18,7 +18,8 @@ Replay aliases and file settings must agree. `remove_ground` stays authoritative
 
 A monotonic background revision covers cell updates, parameter changes, restored
 cells, absorbed returns, ring elevations and grid reset; snapshot persistence
-cannot rewind it. Background-driven surface refits and failed-fit retries coalesce at one capture-time second. Runtime
+cannot rewind it. All enabled consumers, including tracker/report-only fits, use the same reset and bounded
+refresh lifecycle. Background-driven surface refits and failed-fit retries coalesce at one capture-time second. Runtime
 region changes and re-enabling refit immediately. Reset/unsettled input and failed
 refits invalidate the old model and its published pointer. The ordinary height
 band applies while a fit is unavailable. An empty frame can invalidate a reset

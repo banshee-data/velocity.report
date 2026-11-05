@@ -114,7 +114,13 @@ var IsNilInterface = isNilInterface
 // fitGroundSurface fits the regional ground surface from the settled
 // background. It is a variable so a test can stand in a surface without
 // settling a grid with ring elevations; nothing else replaces it.
-var fitGroundSurface = l3grid.FitRegionalGroundSurfaceFromBackground
+var fitGroundSurface = func(manager *l3grid.BackgroundManager, cellMetres float64) (l3grid.RegionalGroundSurface, error) {
+	if cellMetres == 0 {
+		global, err := l3grid.FitGroundSurfaceFromBackground(manager)
+		return l3grid.RegionalGroundSurface{Global: global}, err
+	}
+	return l3grid.FitRegionalGroundSurfaceFromBackground(manager, cellMetres)
+}
 
 // heapBytes returns the current heap allocation in bytes.
 func heapBytes() uint64 {
@@ -614,18 +620,18 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			return
 		}
 		version, settled := cfg.BackgroundManager.GroundSurfaceVersion()
-		if useSurfaceGround && !settled {
+		if !settled {
 			if groundSurface != nil {
 				clearSurface()
 			}
 			surfaceAttemptAt = time.Time{}
 			return
 		}
-		if useSurfaceGround && groundSurface != nil && groundSurfaceGrid != cfg.BackgroundManager.Grid {
+		if groundSurface != nil && groundSurfaceGrid != cfg.BackgroundManager.Grid {
 			clearSurface()
 			surfaceAttemptAt = time.Time{}
 		}
-		changed := useSurfaceGround && version != surfaceVersion && (at.Before(surfaceFitAt) || at.Sub(surfaceFitAt) >= time.Second)
+		changed := version != surfaceVersion && (at.Before(surfaceFitAt) || at.Sub(surfaceFitAt) >= time.Second)
 		if groundSurface != nil && !changed && fittedCellMetres == surfaceGroundRegionMetres {
 			return
 		}

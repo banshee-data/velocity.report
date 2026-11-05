@@ -67,8 +67,8 @@ func TestGroundSurfaceForTrackerLeavesTheClipAlone(t *testing.T) {
 	}
 
 	rec, fitted := run(false, true)
-	if len(rec.surfaces) != 1 {
-		t.Fatalf("the tracker was handed %d surfaces, want the one fitted", len(rec.surfaces))
+	if len(rec.surfaces) != 2 {
+		t.Fatalf("the tracker was handed %d surfaces, want the two bounded fits", len(rec.surfaces))
 	}
 	if _, ok := rec.surfaces[0].(l3grid.BlendedSurface); !ok {
 		t.Fatalf("the tracker was handed a %T, want the blended surface", rec.surfaces[0])
@@ -79,8 +79,8 @@ func TestGroundSurfaceForTrackerLeavesTheClipAlone(t *testing.T) {
 	if rec.updateCalls != 15 || rec.detectionUpdates != 0 {
 		t.Fatalf("the tracker was updated %d times: the surface fitted for the box changed the clip", rec.updateCalls)
 	}
-	if fits != 1 {
-		t.Fatalf("the surface was fitted %d times, want once", fits)
+	if fits != 2 {
+		t.Fatalf("the surface was fitted %d times, want two bounded fits", fits)
 	}
 
 	rec, _ = run(true, false)
@@ -128,8 +128,8 @@ func TestGroundSurfaceForReportIsReadNeverApplied(t *testing.T) {
 	if fit.Load() == nil {
 		t.Fatal("the report's fit was not published")
 	}
-	if fits != 1 {
-		t.Fatalf("the surface was fitted %d times, want once", fits)
+	if fits != 2 {
+		t.Fatalf("the surface was fitted %d times, want two bounded fits", fits)
 	}
 	if len(rec.surfaces) != 0 {
 		t.Fatal("the report's surface reached the tracker")
@@ -240,5 +240,66 @@ func TestSurfaceGroundExplicitZeroFloorAndSnapshot(t *testing.T) {
 	}
 	if rec.detectionUpdates == 0 {
 		t.Fatal("zero floor was replaced by the legacy .2 m default, or snapshot mutated")
+	}
+}
+
+func TestConfiguredGlobalGroundSurfaceHasNoRegionalFits(t *testing.T) {
+	bm := l3grid.NewBackgroundManagerDI(t.Name(), 1, 360, l3grid.BackgroundParams{SeedFromFirstObservation: true}, nil)
+	if err := bm.SetRingElevations([]float64{-10}); err != nil {
+		t.Fatal(err)
+	}
+	points := make([]l2frames.PointPolar, 360)
+	for i := range points {
+		points[i] = l2frames.PointPolar{Channel: 1, Azimuth: float64(i), Distance: 20}
+	}
+	if _, err := bm.ProcessFramePolarWithMaskAt(points, time.Unix(1700000000, 0)); err != nil {
+		t.Fatal(err)
+	}
+	bm.Grid.SettlingComplete = true
+	surface, err := fitGroundSurface(bm, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if surface.CellMetres != 0 || surface.RegionCount != 0 {
+		t.Fatalf("global selected regional fit: %+v", surface)
+	}
+	for _, xy := range [][2]float64{{0, 0}, {50, 50}, {-50, -50}} {
+		if surface.HeightAt(xy[0], xy[1]) != surface.Global.HeightAt(xy[0], xy[1]) {
+			t.Fatal("global height differs")
+		}
+		if _, local := surface.RegionAt(xy[0], xy[1]); local {
+			t.Fatal("global arm has local regions")
+		}
+	}
+}
+
+func TestSurfaceGroundConsumersInvalidateOnReset(t *testing.T) {
+	old := fitGroundSurface
+	fitGroundSurface = func(*l3grid.BackgroundManager, float64) (l3grid.RegionalGroundSurface, error) {
+		return l3grid.RegionalGroundSurface{CellMetres: 10}, nil
+	}
+	t.Cleanup(func() { fitGroundSurface = old })
+	for _, tracker := range []bool{false, true} {
+		bm := makeTestBgManager(t, fmt.Sprintf("reset-consumer-%v", tracker))
+		bm.Grid.SettlingComplete = true
+		var fit atomic.Pointer[l3grid.RegionalGroundSurface]
+		rec := &surfaceRecorder{}
+		cb := (&TrackingPipelineConfig{BackgroundManager: bm, Tracker: rec, GroundSurfaceForTracker: tracker, GroundSurfaceForReport: !tracker, GroundSurfaceFit: &fit}).NewFrameCallback()
+		frame := &l2frames.LiDARFrame{StartTimestamp: time.Unix(1700000000, 0)}
+		cb(ended(frame))
+		if fit.Load() == nil {
+			t.Fatal("initial consumer fit missing")
+		}
+		if err := bm.ResetGrid(); err != nil {
+			t.Fatal(err)
+		}
+		frame.StartTimestamp = frame.StartTimestamp.Add(time.Millisecond)
+		cb(ended(frame))
+		if fit.Load() != nil {
+			t.Fatal("reset retained consumer surface")
+		}
+		if tracker && (len(rec.surfaces) != 2 || rec.surfaces[1] != nil) {
+			t.Fatal("tracker retained reset model")
+		}
 	}
 }
