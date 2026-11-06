@@ -856,6 +856,50 @@ export async function getLidarClips(sensorId?: string): Promise<LidarClip[]> {
 	return data.clips || [];
 }
 
+/**
+ * Every clip with its location, its registration in Gerardus and its lane
+ * proposals (GET /api/lidar/clips?lanes=1).
+ */
+export async function getLidarClipsWithLanes(): Promise<LidarClip[]> {
+	const res = await fetch(`${API_BASE}/lidar/clips?lanes=1`);
+	if (!res.ok) throw apiError('Could not load clips', res.status);
+	const data = await res.json();
+	return data.clips || [];
+}
+
+/** Queue one lane proposals job for a clip. A 409 names the job already running. */
+export async function queueClipLaneProposals(
+	clipId: string,
+	recordId?: string
+): Promise<{ job?: CaptureJob; created: boolean; error?: string }> {
+	const query = recordId ? `?record_id=${encodeURIComponent(recordId)}` : '';
+	const res = await fetch(
+		`${API_BASE}/lidar/clips/${encodeURIComponent(clipId)}/lane-proposals${query}`,
+		{ method: 'POST' }
+	);
+	const data = await res.json().catch(() => ({}));
+	if (res.status === 409 && data.job) return { job: data.job, created: false };
+	if (!res.ok) throw new Error(data.error || `Could not queue lane proposals (${res.status})`);
+	return { job: data.job, created: !!data.created };
+}
+
+/**
+ * Re-run lane proposals across every registered clip whose lanes are stale or
+ * absent; force re-runs current ones too, dryRun queues nothing.
+ */
+export async function rerunLaneProposals(options: {
+	dryRun?: boolean;
+	force?: boolean;
+}): Promise<LaneRerunResponse> {
+	const params = new URLSearchParams();
+	if (options.dryRun) params.set('dry_run', '1');
+	if (options.force) params.set('force', '1');
+	const url = `${API_BASE}/lidar/clips/lane-proposals/rerun${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url, { method: 'POST' });
+	if (!res.ok) throw apiError('Could not re-run lane proposals', res.status);
+	return res.json();
+}
+
 export async function getLidarClip(clipId: string): Promise<LidarClip> {
 	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}`);
 	if (!res.ok) throw apiError('Could not load the clip', res.status);
@@ -1678,6 +1722,7 @@ import type {
 	CaptureJob,
 	CaptureRoot,
 	CaptureSession,
+	LaneRerunResponse,
 	MissingMotionPassesResponse,
 	PeriodBackground,
 	PeriodsResponse,
@@ -1812,10 +1857,12 @@ export async function queueMissingMotionPasses(
 
 export async function getCaptureJobs(options?: {
 	sessionId?: string;
+	kind?: string;
 	limit?: number;
 }): Promise<CaptureJob[]> {
 	const params = new URLSearchParams();
 	if (options?.sessionId) params.set('session_id', options.sessionId);
+	if (options?.kind) params.set('kind', options.kind);
 	if (options?.limit) params.set('limit', String(options.limit));
 	const url = `${API_BASE}/lidar/capture/jobs${params.toString() ? '?' + params : ''}`;
 	const res = await fetch(url);

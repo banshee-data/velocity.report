@@ -146,6 +146,78 @@ export interface CaptureJob {
 /** Job kinds. */
 export const JOB_KIND_MOTION_PASS = 'motion_pass';
 export const JOB_KIND_CAPTURE_EXPORT = 'capture_export';
+export const JOB_KIND_LANE_PROPOSALS = 'lane_proposals';
+
+/**
+ * Whether a clip is registered in Gerardus: an accepted pose for its sensor
+ * at its site places it (docs/plans/lidar-lane-field-batch-plan.md).
+ */
+export interface ClipRegistration {
+	/** registered | not_registered | other_sensor | ambiguous | not_located | unknown */
+	state: string;
+	record_id?: string;
+	/** registered | manually_placed: the record's own state. */
+	record_state?: string;
+	reason?: string;
+	/** The accepted records to choose from when the clip is ambiguous. */
+	candidates?: string[];
+	checked_at: string;
+}
+
+/** One lane proposals job or run-form call for a clip. */
+export interface LaneProposalRun {
+	proposal_run_id: string;
+	clip_id?: string;
+	job_id?: string;
+	run_id?: string;
+	l16_token?: string;
+	record_id?: string;
+	gerardus_version?: string;
+	field_ids?: string[];
+	track_count: number;
+	pipeline_build?: string;
+	tuning_fingerprint?: string;
+	high: number;
+	medium: number;
+	adopted: number;
+	rejected: number;
+	outstanding: number;
+	derive_secs: number;
+	created_at_ns: number;
+	completed_at_ns?: number;
+	state?: string;
+	progress_current: number;
+	progress_total: number;
+	detail?: string;
+	error?: string;
+}
+
+/** A clip's lane proposals: the newest completed run, and the newest job. */
+export interface ClipLaneStatus {
+	latest?: LaneProposalRun;
+	job?: LaneProposalRun;
+	/** The newest run was built by this server's binary and tuning. */
+	current: boolean;
+	stale_reason?: string;
+}
+
+/** One clip's place in a re-run of lane proposals. */
+export interface LaneRerunClip {
+	clip_id: string;
+	description?: string;
+	job_id?: string;
+	reason?: string;
+}
+
+/** What POST /api/lidar/clips/lane-proposals/rerun answers. */
+export interface LaneRerunResponse {
+	dry_run: boolean;
+	force: boolean;
+	queued: LaneRerunClip[];
+	current: LaneRerunClip[];
+	active: LaneRerunClip[];
+	skipped: LaneRerunClip[];
+}
 
 /**
  * One capture_export job for a clip and, once it completes, the standalone
