@@ -254,6 +254,12 @@ Lanes are proposed from measured traffic and approved by an operator, and every 
 
 Kept by: review only (`/review-pr`, `/plan-review`) until built; planned: the render tool's refusal of output paths inside the checkout, the export privacy test's lane-field case, and the attribution fixtures that pin a limit changed between two snapshots.
 
+### D-40 — External-reference campaign answers
+
+The owner answered nine of the external-reference protocol's eleven questions on November 6, 2026. The pilot is Kirkham at 9th, assigned to the development cohort (kirk0, kirk1 and kirk2 with it, so kirk1 and kirk2 support development claims only, never qualification), with one more street measured if it is infeasible. One probe vehicle; its following passes pair it with an operator-fitted vehicle, scored against their own envelope and reported apart from any fully external gap. Corrections are post-processed against public base logs (1 s or finer, within 10 km), the probe logging at 10 Hz or faster, so no position leaves the probe (Tenet 1). The ceilings stay at a quarter of kirk0's operator bounds (centre 0.22 m, gap 0.29 m, speed 0.2 m/s), with a tenth (0.089 m, 0.116 m) reported as a goal; a tenth as the ceiling was declined because the protocol's own allocation sums to 0.20 m and 0.24 m. The feasibility rule stands (Wilson 95 % lower bound at least 0.5 over 20 drive-throughs per lane-direction), all scripted cells are kept, and held-out probe logs go to a read-restricted NAS folder with their SHA-256 in a custody record. D-29's "nothing in code" means pipeline code: speed is scored by an evaluation-only velocity bound in the reference record and an offline speed component. The receiver (Q4) and the control-target permission and survey (Q10) stay open. Source: [campaign protocol](plans/lidar-external-reference-campaign-protocol.md#16-questions-for-the-owner).
+
+Kept by: review only (`/review-pr`, `/plan-review`); the cohort manifest's assignment is kept by the eligibility guard (`internal/lidar/eligibility`), which refuses a site split across cohorts.
+
 ### Milestone Rationale
 
 | Milestone | Rationale                                                      |

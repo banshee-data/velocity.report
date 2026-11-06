@@ -5,8 +5,11 @@ measure, how a pass qualifies as a reference, which passes may tune and which ar
 what result counts as feasible. It is the predeclaration that D-29's proposal needs before money
 or field time is spent on it.
 
-- **Status:** Proposed; predeclared November 5, 2026. No field work done: the fix-availability
-  measurement and the site survey have not started, and no receiver has been bought or borrowed
+- **Status:** Proposed; predeclared November 5, 2026; nine of its eleven questions answered
+  November 6, 2026 ([D-40](../DECISIONS.md#d-40--external-reference-campaign-answers)), the
+  receiver (Q4) and the control-target survey (Q10) left open. No field work done: the
+  fix-availability measurement and the site survey have not started, and no receiver has been
+  bought or borrowed
 - **Target:** v0.5.3 for the protocol and the feasibility measurement; the scripted passes and
   their scores are the v0.5.9 field-validation row ([backlog](../BACKLOG.md))
 - **Layers:** L5 Tracks, L8 Analytics, annotation and offline evaluation, capture provenance
@@ -108,6 +111,10 @@ A candidate street must satisfy all of these before the feasibility measurement:
 | Cohort fit       | The site's S2 cell and cohort role are known (section 8); a site already in the development cohort is preferred     |
 | Stationary marks | A safe place to park the probe on a surveyed mark at the start and end of each session                              |
 
+**Decided (D-40):** the pilot is Kirkham at 9th (`kirkham-9th`), the kirk0 reference site,
+assigned to the development cohort in the cohort manifest's first revision. If it comes out
+infeasible, one more street is measured under the same rule before the campaign is dropped.
+
 ### 3.2 Sensor position and orientation
 
 The sensor pose is estimated from control points, not assumed from the mount:
@@ -149,7 +156,14 @@ station asks the rover to upload its position to a caster, which is vehicle data
 device ([Tenet 1](../../TENETS.md#1-privacy-above-all)). In order of preference: a local base on a
 surveyed control point, which also supplies the timing reference of section 5; post-processing
 against a base log, which downloads and uploads nothing in the field; network RTK only from a
-fixed mount point that needs no position upload, and only if the owner accepts it (Q3).
+fixed mount point that needs no position upload, and only if the owner accepts it.
+
+**Decided (D-40):** post-processing. The probe logs raw dual-frequency observations at 10 Hz or
+faster, and is corrected afterwards against a public base station's logs at 1 s or finer from a
+station within 10 km; nothing is uploaded, and network RTK is not used. A post-processed solution
+gives no live fix status, so a pass's fix is known only after processing; the feasibility
+measurement is post-processed the same way. Section 5's site receiver for the sensor's PPS and
+GPRMC is still needed, since post-processing supplies no clock at the sensor.
 
 ### 4.2 Fix-type acceptance
 
@@ -187,8 +201,8 @@ nothing in until the purchased receiver repeats the measurement in its first ses
 
 **Rule.** The site is feasible for a lane-direction when the interval's lower bound is at least
 0.5, which at 20 drive-throughs needs 15 or more fixed. Half is the share at which reaching the
-section 7 counts costs at most twice the attempts; the owner may set it differently before the
-measurement, never after it (Q6). Section 10 gives the outcome for each result.
+section 7 counts costs at most twice the attempts. The owner kept this rule (D-40); it may change
+only before the measurement, never after it. Section 10 gives the outcome for each result.
 
 | Fixed of 20 | Wilson 95% interval | Outcome                                        |
 | ----------: | ------------------- | ---------------------------------------------- |
@@ -304,7 +318,13 @@ Bounds combine by linear, worst-case addition, the rule the reference record alr
 
 The kirk0 figures are the [pilot's component table](../lidar/operations/physical-reference-pilot-kirk0-2026-10.md#every-component).
 "An error inside the bound is zero" ([W0](../lidar/operations/geometry-convergence-criteria.md#declaration)),
-so a reference no tighter than the operator fits would add no resolution. The quarter is a proposal (Q5).
+so a reference no tighter than the operator fits would add no resolution.
+
+**Decided (D-40):** the quarter stands as the ceiling, and a tenth is the goal: each report also
+states the share of scored instants whose envelope is inside 0.089 m for the centre and 0.116 m for
+a gap. The tenth is not a ceiling, because the allocation below sums to 0.20 m for the centre and
+0.24 m for a gap; reaching it would need about 2 cm RTK, a sensor yaw survey under 0.05° and timing
+under 2 ms.
 
 **Proposed allocation for the centre**, per instant:
 
@@ -328,10 +348,17 @@ the timing term, about 0.14 m. That resolves the corpus's lateral p99 at sites a
 0.684 m by site, [G10](../lidar/operations/geometry-convergence-criteria.md#evidence-so-far)), not
 the lowest.
 
-**Gap**, two probes only. Each bumper carries the RTK, lever-arm, interpolation and half-length
+**Gap**, two probes. Each bumper carries the RTK, lever-arm, interpolation and half-length
 terms, about 0.10 m; the two bumpers 0.20 m. Sensor pose drops out of a distance between two
 bodies. Projecting onto the follower's axis adds the lateral offset times the heading bound: about
 0.03 m for kirk0's 1.6 m offsets at 1°. The sum, about 0.24 m, is inside the 0.29 m ceiling.
+
+**Gap, one probe (D-40).** The campaign has one probe, so a following pass pairs it with an
+operator-fitted vehicle, as follower or leader. Its envelope is the probe bumper's terms (about
+0.10 m) plus the fitted vehicle's own gap-end bound, which on kirk0 is near 1.16 m, so a
+half-external gap is not held to the 0.29 m ceiling: it is scored against its own envelope and
+reported in its own table, never pooled with a two-probe gap. It tests the probe's end of the gap
+against something external; it cannot test the fitted end.
 
 **Speed.** The epoch's reported speed accuracy, plus angular rate times lever arm (near zero on
 straight passes with the antenna over the centre), plus |a| δt.
@@ -354,20 +381,20 @@ prediction. Selecting passes by tracker outcome would make the campaign measure 
 
 ### 7.1 Cells
 
-| Factor           | Levels                                                   | Why                                                                                                                                                                       |
-| ---------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Speed            | The posted limit, and 5 and 10 mph below it; never above | Timing error grows with speed (section 5.3); legal speeds only                                                                                                            |
-| Lane-direction   | Near lane and far lane, each in its legal direction      | Visible faces and range differ by lane ([instrumented-vehicle experiment](../research/2026-10-29-approach-stability-and-ttc.md#phase-a--low-cost-phone-pilot))            |
-| Time gap (pairs) | 2 s and 3 s, at the middle speed, two probes only        | Covers kirk0's following pairs, about 1.9 to 3.5 s at 6 m/s; 2 s is a safety floor for the drivers, not a threshold ([behaviour plan](lidar-behaviour-analytics-plan.md)) |
+| Factor           | Levels                                                     | Why                                                                                                                                                                       |
+| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Speed            | The posted limit, and 5 and 10 mph below it; never above   | Timing error grows with speed (section 5.3); legal speeds only                                                                                                            |
+| Lane-direction   | Near lane and far lane, each in its legal direction        | Visible faces and range differ by lane ([instrumented-vehicle experiment](../research/2026-10-29-approach-stability-and-ttc.md#phase-a--low-cost-phone-pilot))            |
+| Time gap (pairs) | 2 s and 3 s, at the middle speed, probe and fitted vehicle | Covers kirk0's following pairs, about 1.9 to 3.5 s at 6 m/s; 2 s is a safety floor for the drivers, not a threshold ([behaviour plan](lidar-behaviour-analytics-plan.md)) |
 
-That gives six single-probe cells and, with two probes, four following cells.
+That gives six single-probe cells and four following cells, which with one probe are half
+external (section 6.3).
 
 ### 7.2 Counts
 
 At least five clean passes per cell per population, the starting count the instrumented-vehicle
 experiment sets, adjusted only before collection. With two populations at the pilot site (section 8) that is 60 clean single passes and 40 clean following passes. At the feasibility rule's 0.5
-floor it can take up to twice as many attempts; the owner may cut speed levels before collection
-(Q8). Every attempted pass is logged with its outcome, so coverage and reference-quality
+floor it can take up to twice as many attempts. All cells are kept (D-40). Every attempted pass is logged with its outcome, so coverage and reference-quality
 exclusions are published beside the scores.
 
 ### 7.3 Order
@@ -415,7 +442,9 @@ not scored; one added later goes to tuning. Assignments are never moved after a 
 ### 8.3 Keeping the held-out sessions held out
 
 - Held-out probe logs are imported only when their scoring run is authorised, and are kept apart
-  from the tuning material until then. A custodian holds them (Q11).
+  from the tuning material until then. **Decided (D-40):** they go to a read-restricted folder on
+  the NAS when collected, their SHA-256 written to the custody record, and no agent or tuning run
+  reads that folder until the held-out scoring run is authorised.
 - The physical scorer refuses a held-out split today (`ErrPhysicalHeldOut`), because its limits
   must be pinned on tuning data first. The tuning population is what pins them; the held-out read
   follows the held-out path's delivery, not this campaign's schedule.
@@ -462,8 +491,12 @@ sample, the blind fit is scored at its own revision before the probe is imported
 scorer's components are centre, yaw, length, width, height, bumpers, box and gap. Speed, the
 campaign's first quantity, needs either a versioned velocity bound in the reference record with a
 speed component in the evaluation tool, or a separate offline comparison over the scorer's matched
-pairs. Either touches evaluation code, not the pipeline. D-29's entry says nothing in code changes;
-the owner decides whether that means pipeline code (Q7).
+pairs. Either touches evaluation code, not the pipeline.
+
+**Decided (D-40):** D-29's "nothing in code" means pipeline code. Speed is scored by an
+evaluation-only velocity bound in a new version of the reference record and a speed component in
+the offline evaluator; the pipeline, the registry and every definition stay unchanged. That is an
+engineering prerequisite in section 15.
 
 ## 10. Feasibility outcome states
 
@@ -527,8 +560,9 @@ the LiDAR at centimetre level, and the static sensor needs only the probe's fix.
 
 None of this has been done.
 
-- [ ] Choose the candidate street and confirm its cohort role (Q1).
-- [ ] Borrow or rent the feasibility receiver and set the corrections mode (Q3, Q4).
+- [x] Choose the candidate street and confirm its cohort role: Kirkham at 9th, development (D-40).
+- [ ] Borrow or rent the feasibility receiver (Q4, open); corrections are post-processed (D-40).
+- [ ] Permission for, and survey of, the temporary control targets (Q10, open).
 - [ ] Sky-view photographs at the planned antenna positions.
 - [ ] Fix-availability measurement: 20 drive-throughs per lane-direction, report and outcome.
 - [ ] Place and survey the control points; survey the sensor mark.
@@ -541,24 +575,30 @@ None of this has been done.
 
 - Confirm the pack sample timestamp's convention (frame start, end, or a reference azimuth) in
   `l2frames`, and how the importer finds the packets that carry an object's returns.
+- The evaluation-only velocity bound in the reference record and the offline speed component
+  (D-40).
+- The report's goal line: the share of scored instants inside a tenth of the operator bounds.
 - An offline decoder for native Hesai packet time, independent of the parser's `gps` mode.
 - The probe importer: geodetic to pack frame through the survey transform, evaluation at native
   acquisition instants, per-instant envelope, import file output.
 - The speed decision of section 9 and whatever it requires.
 - Whether one pack can carry probe and operator references for the same object and sample.
 
-## 16. Open questions for the owner
+## 16. Questions for the owner
 
-| Id  | Question                                                                                                                                         |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Q1  | Which street is the pilot, and is it in the development cohort? If it is infeasible, is one more street tried?                                   |
-| Q2  | One probe vehicle or two? A fully external gap needs two, and a second consenting driver                                                         |
-| Q3  | Corrections: local base, post-processing, or network RTK from a mount point that takes no position upload?                                       |
-| Q4  | Which receiver is borrowed or rented for feasibility, and is a purchase authorised once the outcome is feasible?                                 |
-| Q5  | The envelope ceilings: is a quarter of the operator fits' bounds (centre 0.22 m, gap 0.29 m) and 0.2 m/s for speed the right resolution?         |
-| Q6  | The feasibility threshold: a Wilson lower bound of 0.5 at 20 drive-throughs, or another share, fixed before the measurement                      |
-| Q7  | Speed scoring: does D-29's "nothing in code" allow an evaluation-only velocity field and scorer component, or must speed be compared outside P2? |
-| Q8  | The cells: three speed levels below the posted limit and gaps of 2 s and 3 s, five clean passes each; cut any before collection?                 |
-| Q9  | The maximum correction age accepted, and the probe's minimum output rate                                                                         |
-| Q10 | Permission and placement for temporary control targets, and whether a surveyor or a rented rover surveys them                                    |
-| Q11 | Who is custodian of the held-out probe logs until isolated scoring exists?                                                                       |
+Answered November 6, 2026 ([D-40](../DECISIONS.md#d-40--external-reference-campaign-answers)),
+except Q4 and Q10.
+
+| Id  | Question                                         | Answer                                                                                                        |
+| --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Q1  | Pilot street and its cohort; a retry if it fails | Kirkham at 9th, development cohort; one more street is measured if it is infeasible                           |
+| Q2  | One probe vehicle or two                         | One. Following passes pair it with an operator-fitted vehicle, scored and reported apart (section 6.3)        |
+| Q3  | Corrections                                      | Post-processed against public base logs; no upload, no network RTK                                            |
+| Q4  | Receiver for feasibility, and a purchase         | Open                                                                                                          |
+| Q5  | The envelope ceilings                            | A quarter stands (centre 0.22 m, gap 0.29 m, speed 0.2 m/s); a tenth (0.089 m, 0.116 m) is reported as a goal |
+| Q6  | The feasibility threshold                        | As proposed: Wilson 95 % lower bound at least 0.5 over 20 drive-throughs per lane-direction                   |
+| Q7  | Speed scoring                                    | An evaluation-only velocity bound and offline speed component; pipeline unchanged                             |
+| Q8  | The cells                                        | All kept: six single cells and four following cells, five clean passes each per population                    |
+| Q9  | Correction age and output rate                   | Probe at 10 Hz or faster; base logs at 1 s or finer from a station within 10 km                               |
+| Q10 | Control-target permission and survey             | Open                                                                                                          |
+| Q11 | Custodian of the held-out logs                   | A read-restricted NAS folder, each log's SHA-256 in the custody record                                        |

@@ -238,7 +238,11 @@ reads (empty is all four, the strictest).
 
 **Breaking:** without a manifest, sweeps, auto-tune, HINT, experiment-arm replays and the two
 evaluators above are refused. That is the fail-closed rule; the assignments themselves are a
-decision for the owner (below), so no manifest is committed.
+decision for the owner (below). The first revision is committed at
+[`config/cohorts/cohort-manifest.json`](../../../config/cohorts/cohort-manifest.json): Kirkham at
+9th (kirk0, kirk1 and kirk2) in the development cohort, by
+[D-40](../../DECISIONS.md#d-40--external-reference-campaign-answers). Every other capture is still
+unassigned and refused.
 
 The manifest's shape (identifiers are placeholders):
 
@@ -290,10 +294,10 @@ qualification evaluation are **refused**, and the page says protection is incomp
 
 ## Outstanding prerequisites
 
-- **Cohort assignments** (TBD): which L10 regions and sites are development, validation and
-  qualification; the preregistered protocol digest; qualification custodians. Until then no
-  manifest exists and development use is refused. kirk0's labels are development evidence; that
-  is the owner's assignment to write.
+- **Cohort assignments** (partly TBD): Kirkham at 9th is development (D-40, manifest revision
+  1). Which other L10 regions and sites are development, validation and qualification, the
+  preregistered protocol digest and qualification custodians are still to choose; until then every
+  other capture is refused for development use.
 - **Storage-level access controls** for qualification data, and an authenticated actor. The
   workspace records operator names as stated.
 - **The remaining evaluators and the Tracks and Runs pages** (table above).
