@@ -57,18 +57,28 @@ type ArmSpec struct {
 	// The arm's identity names the table and the box's observation model,
 	// published_box/<the estimates' model>.
 	Boxes bool
+	// Measurements reads, beside each estimate of the version, the
+	// measurement its update consumed (lidar_track_residuals) in place of the
+	// filtered state: the L4 cluster's position under the replay's position
+	// model, linked to the track the filter gave it to. It excludes
+	// SolidBodies and Boxes. The arm's identity names the residual table.
+	Measurements bool
 }
 
 // solidBodyTable and boxTable name the table a solid-body or box arm reads,
 // for its identity.
 const (
-	solidBodyTable = "lidar_track_solid_bodies"
-	boxTable       = "lidar_track_observations"
+	solidBodyTable   = "lidar_track_solid_bodies"
+	boxTable         = "lidar_track_observations"
+	measurementTable = "lidar_track_residuals"
 )
 
 // checkBoxes refuses a box arm that also names solid bodies, or a stage the
-// box does not have.
+// box does not have, and a measurement arm that also names either.
 func (s ArmSpec) checkBoxes() error {
+	if s.Measurements && (s.SolidBodies || s.Boxes) {
+		return fmt.Errorf("arm %s: read the measurements, the solid bodies or the published boxes, not more than one", s.Label)
+	}
 	if !s.Boxes {
 		return nil
 	}
@@ -130,7 +140,7 @@ func LoadArm(spec ArmSpec) (Hypothesis, error) {
 		return Hypothesis{}, fmt.Errorf("arm %s: no database", spec.Label)
 	}
 	if spec.RunID != "" && (spec.SourceID != "" || spec.EstimatorID != "" || spec.ObservationModelID != "" ||
-		spec.ParamHash != "" || spec.Stage != "" || spec.SolidBodies || spec.Boxes) {
+		spec.ParamHash != "" || spec.Stage != "" || spec.SolidBodies || spec.Boxes || spec.Measurements) {
 		return Hypothesis{}, fmt.Errorf("arm %s: name an analysis run or an estimate version, not both", spec.Label)
 	}
 	if spec.Stage == "" && spec.RunID == "" {
@@ -173,6 +183,9 @@ func loadEstimateArm(database sqlite.DBClient, spec ArmSpec) (Hypothesis, error)
 	case spec.Boxes:
 		listVersions, listPositions = store.ListBoxVersions, boxPositions(store)
 		table = boxTable
+	case spec.Measurements:
+		listPositions = store.ListMeasurementPositions
+		table = measurementTable
 	}
 	versions, err := listVersions()
 	if err != nil {

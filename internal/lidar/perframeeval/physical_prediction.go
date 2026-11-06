@@ -111,6 +111,8 @@ func loadPhysicalArm(store *sqlite.StateEstimateStore, spec ArmSpec) (PhysicalAr
 		listVersions, table = store.ListSolidBodyVersions, solidBodyTable
 	case spec.Boxes:
 		listVersions, table = store.ListBoxVersions, boxTable
+	case spec.Measurements:
+		table = measurementTable
 	}
 	versions, err := listVersions()
 	if err != nil {
@@ -182,6 +184,11 @@ func loadPhysicalArm(store *sqlite.StateEstimateStore, spec ArmSpec) (PhysicalAr
 		if err != nil {
 			return PhysicalArm{}, fmt.Errorf("arm %s: %w", spec.Label, err)
 		}
+		if spec.Measurements {
+			if rows, err = withMeasurements(store, version, rows); err != nil {
+				return PhysicalArm{}, fmt.Errorf("arm %s: %w", spec.Label, err)
+			}
+		}
 		persisted := make([]l8behaviour.PersistedEstimate, len(rows))
 		for i, r := range rows {
 			persisted[i] = l8behaviour.PersistedEstimate{
@@ -232,6 +239,32 @@ func loadPhysicalArm(store *sqlite.StateEstimateStore, spec ArmSpec) (PhysicalAr
 		TrackKey: "creation_sequence", Tracks: len(trajectories), Points: len(arm.Bodies),
 	}
 	return arm, nil
+}
+
+// withMeasurements puts each estimate's measurement in place of its state,
+// keeping every other field: the point the measurement refers to is the
+// estimate's, since the tracker measures the point it tracks. An estimate
+// with no measurement is dropped, which ListMeasurementPositions says does
+// not happen for rows the pipeline wrote.
+func withMeasurements(store *sqlite.StateEstimateStore, v sqlite.EstimateVersion, rows []sqlite.EstimateWithSensor) ([]sqlite.EstimateWithSensor, error) {
+	positions, err := store.ListMeasurementPositions(v)
+	if err != nil {
+		return nil, err
+	}
+	measured := make(map[string][2]float32, len(positions))
+	for _, p := range positions {
+		measured[frameKey(p.TrackID, p.FrameUnixNanos)] = [2]float32{p.X, p.Y}
+	}
+	out := rows[:0:0]
+	for _, r := range rows {
+		m, ok := measured[frameKey(r.TrackID, r.FrameUnixNanos)]
+		if !ok {
+			continue
+		}
+		r.X, r.Y = m[0], m[1]
+		out = append(out, r)
+	}
+	return out, nil
 }
 
 // predictedBody reads one sample as the prediction layer states it.

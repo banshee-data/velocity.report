@@ -218,6 +218,23 @@ func TestPerFrameSolidBodyFlagReadsTheSolidBodyTable(t *testing.T) {
 	}
 }
 
+// -b-measurements points arm B at the residual rows' measurements, and
+// cannot be combined with another table; the measurement positions
+// themselves are perframeeval's test.
+func TestPerFrameMeasurementsFlag(t *testing.T) {
+	f := perFrameFixture(t)
+	code, c, stderr := runPerFrameCapture(t, perFrameArgs(f, "-b-measurements"))
+	if code != 0 || c.B.Arm.Table != "lidar_track_residuals" || c.A.Arm.Table != "" {
+		t.Fatalf("exit %d, arms %+v / %+v, stderr %q", code, c.A.Arm, c.B.Arm, stderr)
+	}
+	for _, other := range []string{"-b-boxes", "-b-solid-body"} {
+		code, _, stderr := runPerFrameCapture(t, perFrameArgs(f, "-b-measurements", other))
+		if code != 2 || !strings.Contains(stderr, "-b-measurements reads the residual rows") {
+			t.Errorf("with %s: exit %d, stderr %q; want a usage refusal", other, code, stderr)
+		}
+	}
+}
+
 // -class asks for the class measure, which reads the classifier's decision
 // from the arms' solid-body rows. The fixture writes none, so the run is
 // refused and says which replay writes them; scoring populated rows is
