@@ -333,9 +333,13 @@ private let logger = DevLogger(category: "AppState")
         renderer?.leaveSite(for: next)
         alignment.leaveSite(for: next)
         siteContext = next
+        city.currentSite = next.site
         if let site = next.site { alignment.enterCitySite(site, clip: alignmentSite) }
-        // In city mode the camera flies to the site.
-        if let renderer, renderer.isCityMode, let at = next.site?.sensorCityPosition {
+        // In city mode the camera flies to the site: its sensor, or for a
+        // site not yet placed its marker, so a click always goes somewhere.
+        if let renderer, renderer.isCityMode,
+            let at = next.site?.sensorCityPosition ?? next.site?.markerCityENU
+        {
             renderer.fly(to: at)
         }
     }
@@ -374,7 +378,7 @@ private let logger = DevLogger(category: "AppState")
         let clocks = Dictionary(
             frames.compactMap { f in f.clock.map { (f.siteID, $0) } },
             uniquingKeysWith: { a, _ in a })
-        if clocks != city.siteClocks { city.siteClocks = clocks }
+        if clocks != city.live.siteClocks { city.live.siteClocks = clocks }
     }
 
     /// Where the operator's per-site preferences (live servers) are kept;
@@ -436,7 +440,7 @@ private let logger = DevLogger(category: "AppState")
         renderer.citySites = city.sites
         renderer.onCityOverlay = { [weak self] overlay in
             // Published from the draw: hand it to SwiftUI on the next turn.
-            DispatchQueue.main.async { self?.city.overlay = overlay }
+            DispatchQueue.main.async { self?.city.live.overlay = overlay }
         }
         alignment.sink = renderer
         streets.sink = renderer
@@ -617,6 +621,7 @@ private let logger = DevLogger(category: "AppState")
             return try await self.switchSite(to: site)
         }
         city.currentSiteID = { [weak self] in self?.siteContext.site?.id }
+        city.leaver = { [weak self] in self?.leaveCitySite() }
         city.onIndex = { [weak self] index in
             self?.alignment.siteIndex = index
             self?.renderer?.citySites = index?.sites ?? []

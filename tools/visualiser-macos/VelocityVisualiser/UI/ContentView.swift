@@ -2487,7 +2487,8 @@ class InteractiveMetalView: MTKView {
         cameraInput?.manualInput()
         let shiftHeld = event.modifierFlags.contains(.shift)
         renderer?.handleMouseDrag(
-            deltaX: deltaX, deltaY: deltaY, isRightButton: false, shiftHeld: shiftHeld)
+            deltaX: deltaX, deltaY: deltaY, isRightButton: false, shiftHeld: shiftHeld,
+            viewHeight: bounds.height)
         self.needsDisplay = true
         onCameraChanged?()
     }
@@ -2528,7 +2529,8 @@ class InteractiveMetalView: MTKView {
 
         cameraInput?.manualInput()
         renderer?.handleMouseDrag(
-            deltaX: deltaX, deltaY: deltaY, isRightButton: true, shiftHeld: false)
+            deltaX: deltaX, deltaY: deltaY, isRightButton: true, shiftHeld: false,
+            viewHeight: bounds.height)
         self.needsDisplay = true
         onCameraChanged?()
     }

@@ -1711,13 +1711,29 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // MARK: - Camera Controls
 
     /// Handle mouse/trackpad drag for camera orbit or pan.
-    func handleMouseDrag(deltaX: CGFloat, deltaY: CGFloat, isRightButton: Bool, shiftHeld: Bool) {
+    /// Metres the view moves for one point of drag at the orbit target: the
+    /// height of the view frustum there over the view's height, so the
+    /// ground under the pointer follows it at any distance. A fixed step
+    /// barely moved the city overview, kilometres away.
+    func panMetresPerPoint(viewHeight: CGFloat) -> Float {
+        let distance = max(length(camera.position - camera.target), Camera.minDistance)
+        let height = Float(viewHeight > 0 ? viewHeight : 800)
+        return 2 * distance * tan(camera.fov * .pi / 360) / height
+    }
+
+    func handleMouseDrag(
+        deltaX: CGFloat, deltaY: CGFloat, isRightButton: Bool, shiftHeld: Bool,
+        viewHeight: CGFloat = 0
+    ) {
         // The plan view's pan and zoom are the street painter's, and it does
         // not turn.
         guard !isPlanLocked else { return }
+        // The operator's hand ends a flight, which would otherwise put the
+        // camera back on its path every frame.
+        cancelFlight()
         if isRightButton || shiftHeld {
             // Pan: move camera and target together in screen space
-            let sensitivity: Float = 0.05
+            let sensitivity = panMetresPerPoint(viewHeight: viewHeight)
             let viewDir = normalize(camera.position - camera.target)
             let right = normalize(cross(camera.up, viewDir))
             // Compute screen-space up (perpendicular to both view direction and right)
@@ -1763,6 +1779,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// Handle scroll wheel or pinch for zoom.
     func handleZoom(delta: CGFloat) {
         guard !isPlanLocked else { return }
+        cancelFlight()
         let sensitivity: Float = 0.1
         let zoomFactor = 1.0 - Float(delta) * sensitivity
 
@@ -2217,7 +2234,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// Returns true if the key was handled.
     func handleKeyDown(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
         guard !isPlanLocked else { return false }
-        let moveStep: Float = 2.0
+        // A twentieth of the distance to the target, at least 2 m: the same
+        // feel near a site and over the whole city.
+        let moveStep = max(2, length(camera.position - camera.target) * 0.05)
+        if [123, 124, 125, 126, 24, 27].contains(keyCode) { cancelFlight() }
         let right = normalize(cross(camera.up, camera.position - camera.target))
         let forward = normalize(camera.target - camera.position)
 

@@ -7,6 +7,14 @@
 import Combine
 import Foundation
 
+/// What city mode draws over the view, republished as the camera moves.
+@MainActor final class CityLiveOverlay: ObservableObject {
+    @Published var overlay = CityOverlay()
+    /// Each nearby site's own clock, for its marker: its recording's time
+    /// of day at the frame it shows.
+    @Published var siteClocks: [String: String] = [:]
+}
+
 @available(macOS 15.0, *) @MainActor final class CityViewSession: ObservableObject {
     /// Where `city/sites.json` is read from: a directory holding `city/`,
     /// the file itself, or an http(s) URL. Kept beside
@@ -26,13 +34,17 @@ import Foundation
 
     /// City mode: the camera over the city tiles, with the sites as markers.
     @Published private(set) var isCityMode = false
-    /// The markers and street names over the view, from the renderer.
-    @Published var overlay = CityOverlay()
+    /// The markers, street names and site clocks over the view. They change
+    /// with every camera move, so they are published apart: a view that
+    /// observes the session (the toolbar's site menu, Settings) is not
+    /// rebuilt on every frame, which kept an open menu from ever settling.
+    let live = CityLiveOverlay()
     /// Turns city mode on or off in the renderer; AppState's.
     var onCityMode: ((Bool) -> Void)?
-    /// Each nearby site's own clock, for its marker: its recording's time
-    /// of day at the frame it shows.
-    @Published var siteClocks: [String: String] = [:]
+    /// The site the main view is at, for the site menu's title; AppState's.
+    @Published var currentSite: CitySite?
+    /// Leaves the current site for none; AppState's.
+    var leaver: (() -> Void)?
 
     /// The index file the sites were read from, for finding their scenes.
     var indexURL: URL? { sitesURL.map(CitySiteIndex.indexURL(for:)) }
@@ -183,8 +195,8 @@ import Foundation
         guard next != isCityMode else { return }
         isCityMode = next
         if !next {
-            overlay = CityOverlay()
-            siteClocks = [:]
+            live.overlay = CityOverlay()
+            live.siteClocks = [:]
         }
         onCityMode?(next)
     }
@@ -242,14 +254,35 @@ import Foundation
         onIndex?(next)
     }
 
-    /// Switches the main view to `site`. One switch at a time.
+    /// Switches the main view to `site`. One switch runs at a time; a site
+    /// chosen while one runs is switched to when it ends (the latest choice
+    /// wins), never dropped.
     func select(_ site: CitySite) async {
-        guard switchingTo == nil, let switcher else { return }
-        switchingTo = site.id
-        switchError = nil
-        do { _ = try await switcher(site) } catch { switchError = error.localizedDescription }
+        guard let switcher else { return }
+        guard switchingTo == nil else {
+            pendingSite = site
+            return
+        }
+        var next: CitySite? = site
+        while let site = next {
+            pendingSite = nil
+            switchingTo = site.id
+            switchError = nil
+            do { _ = try await switcher(site) } catch {
+                switchError = "\(site.title): \(error.localizedDescription)"
+            }
+            next = pendingSite
+        }
         switchingTo = nil
     }
+
+    /// The site chosen while another switch was running.
+    private var pendingSite: CitySite?
+
+    func dismissSwitchError() { switchError = nil }
+
+    /// Leaves the current site for none.
+    func leaveSite() { leaver?() }
 
     /// The next or previous site after the current one.
     func step(_ by: Int) async {
