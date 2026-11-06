@@ -66,6 +66,48 @@ func TestPerFrameEstimateQueriesSeparateVersionsInAStableOrder(t *testing.T) {
 	}
 }
 
+// TestListMeasurementPositions: the measurement beside each estimate of one
+// version, not its state, in the estimate order, and only that version's.
+func TestListMeasurementPositions(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewStateEstimateStore(database)
+	write := func(id, track string, seq, frame int64, param string, x, mx float32) {
+		t.Helper()
+		e := TrackEstimate{
+			EstimateID: id, TrackID: track, ObservationID: "observation/" + id, SourceID: "source/v1/a",
+			CalibrationID: "calibration/v1/test", FrameUnixNanos: frame, MeasurementUnixNanos: frame,
+			EstimatorID: "cv_kf_v1", ObservationModelID: "medoid_v1", ParamHash: param, Stage: "online",
+			MeasurementSource: "medoid_v1", CreationSequence: seq, X: x, Y: -x,
+			Reference: l5tracks.ReferenceClusterMedoid, Support: l5tracks.SupportObserved,
+		}
+		r := TrackResidual{EstimateID: id, ObservationID: e.ObservationID, MeasurementX: mx, MeasurementY: -mx,
+			Disposition: "accepted", Reason: "association_accepted"}
+		if err := store.Insert(e, r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("e2", "track-b", 2, 100, "params/a", 3, 30)
+	write("e1", "track-a", 1, 200, "params/a", 2, 20)
+	write("e0", "track-a", 1, 100, "params/a", 1, 10)
+	write("x1", "track-z", 1, 100, "params/b", 9, 90)
+	versions, err := store.ListEstimateVersions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	positions, err := store.ListMeasurementPositions(versions[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got string
+	for _, p := range positions {
+		got += fmt.Sprintf("%s:%d@%d=%g,%g ", p.TrackID, p.CreationSequence, p.FrameUnixNanos, p.X, p.Y)
+	}
+	if want := "track-a:1@100=10,-10 track-a:1@200=20,-20 track-b:2@100=30,-30 "; got != want {
+		t.Fatalf("measurements %q, want %q", got, want)
+	}
+}
+
 func TestPerFrameRunTrackPositions(t *testing.T) {
 	database, cleanup := setupTestDB(t)
 	defer cleanup()

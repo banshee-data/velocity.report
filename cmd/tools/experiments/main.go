@@ -7,6 +7,7 @@
 //	experiments next                  open experiments and what each waits for
 //	experiments show <slug>           one spec's steps, fan-out and estimate
 //	experiments new <area>            the next free slug in an area
+//	experiments pin <slug>... | -open record each arm's tuning fingerprint in open specs
 //
 // Progress, kept in a state directory outside the checkout (-state, or
 // $VELOCITY_EXPERIMENT_STATE, or ~/.local/state/velocity-report/experiments):
@@ -45,6 +46,7 @@ func run(args []string) int {
 	write := fs.Bool("write", false, "graph: write "+experiments.DependenciesFile+" instead of printing it")
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: experiments [-root DIR] [-state DIR] validate | graph [-write] | check-graph | next | show <slug> | new <area>\n"+
+			"       | pin <slug>... | pin -open\n"+
 			"       | status [slug] | units <slug> [-step id] [-todo] | mark <slug> <unit> start|done|failed [flags]")
 	}
 	if err := fs.Parse(args); err != nil {
@@ -144,8 +146,12 @@ func run(args []string) int {
 				}
 			}
 		}
-		fmt.Printf("%s%04d\n", area, max+1)
+		next := fmt.Sprintf("%s%04d", area, max+1)
+		fmt.Println(next)
+		fmt.Fprintf(os.Stderr, "write %s/%s/%s.md, then pin its arms: experiments pin %s\n", experiments.Dir, area, next, next)
 		return 0
+	case "pin":
+		return pin(set, *root, rest)
 	case "status":
 		return status(set, experiments.OpenLedger(*state), rest)
 	case "units":
@@ -155,6 +161,47 @@ func run(args []string) int {
 	}
 	fs.Usage()
 	return 2
+}
+
+// pin records each arm's current tuning fingerprint in the named open specs,
+// or in every open spec with -open. Pinning is how a spec is written and how
+// it is restated after a file changes under it; the commit that re-pins is the
+// restatement Git keeps.
+func pin(set *experiments.Set, root string, args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: experiments pin <slug>... | pin -open")
+		return 2
+	}
+	var specs []*experiments.Spec
+	if len(args) == 1 && (args[0] == "-open" || args[0] == "--open") {
+		for _, sp := range set.Specs {
+			if sp.Open() && len(sp.Arms) > 0 {
+				specs = append(specs, sp)
+			}
+		}
+	} else {
+		for _, id := range args {
+			sp := spec(set, id)
+			if sp == nil {
+				return 1
+			}
+			specs = append(specs, sp)
+		}
+	}
+	code := 0
+	for _, sp := range specs {
+		changed, err := experiments.Pin(root, sp)
+		switch {
+		case err != nil:
+			fmt.Fprintln(os.Stderr, err)
+			code = 1
+		case changed:
+			fmt.Printf("%s pinned\n", sp.ID)
+		default:
+			fmt.Printf("%s already pinned\n", sp.ID)
+		}
+	}
+	return code
 }
 
 func show(set *experiments.Set, sp *experiments.Spec) {
@@ -168,7 +215,11 @@ func show(set *experiments.Set, sp *experiments.Spec) {
 		fmt.Printf("  depends on: %s\n", strings.Join(sp.DependsOn, ", "))
 	}
 	for _, a := range sp.Arms {
-		fmt.Printf("  arm %-10s %s %s\n", a.Name, a.Tuning, strings.Join(a.Replay, ","))
+		fp := a.Fingerprint
+		if fp == "" {
+			fp = "unpinned"
+		}
+		fmt.Printf("  arm %-10s %s @%s %s\n", a.Name, a.Tuning, fp, strings.Join(a.Replay, ","))
 	}
 	if sp.Cases != nil {
 		fmt.Printf("  cases: %d of %s\n", sp.Cases.Count, sp.Cases.Corpus)

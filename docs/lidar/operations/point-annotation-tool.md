@@ -575,7 +575,13 @@ It is a source sketch, not another independent reference. Discard removes that s
 5. Method and assumptions fill themselves: a fitted record states the fit's, and a record whose
    bounds are set by hand states that they were read off the returns with the tolerance beside
    them. The server checks the draft as you edit and says what it would refuse, and which
-   reviews a save would reset.
+   reviews a save would reset. A refusal appears in red beneath the field that causes it: a
+   missing `±` beneath the position row, missing assumptions beneath the method, an end the
+   returns do not reach beneath its checkbox. A closed group that holds a refused field, such as
+   **Adjust by hand**, stays open until the refusal is fixed, and the line above **Save proposal**
+   names where to look. A refusal with no field on screen, such as one in a pose at another frame
+   or in a following record, is shown in full above **Save proposal** instead. Each refusal keeps
+   the service's own message under **Service detail**.
 6. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
    and steps to the next frame. A save never reviews anything. A changed body dimension is a new
    body under a new ID, and every keyframe of that object returns to proposed.
@@ -816,11 +822,12 @@ bin/lidar-ground-truth-eval perframe -pack "$PACK" -split-manifest "$SPLIT" -spl
   -json physical.json -markdown physical.md
 ```
 
-| Flag                             | Meaning                                                                        |
-| -------------------------------- | ------------------------------------------------------------------------------ |
-| `-physical-reference`            | Score each arm's centre, yaw, dimensions, bumpers, box and following gap       |
-| `-physical-reference-revision N` | Score a retained revision; the default is the current one. Both are recorded   |
-| `-physical-gate-metres M`        | How far a prediction's point may be from the reference centre, or anchor (3 m) |
+| Flag                             | Meaning                                                                                                     |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `-physical-reference`            | Score each arm's centre, yaw, dimensions, bumpers, box, following gap and leader choice                     |
+| `-physical-reference-revision N` | Score a retained revision; the default is the current one. Both are recorded                                |
+| `-physical-gate-metres M`        | How far a prediction's point may be from the reference centre, or anchor (3 m)                              |
+| `-following-criteria FILE`       | Cite a [following-criteria record](#the-following-criteria-record) and read the following strata against it |
 
 An arm is read from `lidar_track_estimates` by default, from `lidar_track_solid_bodies` with
 `-a-solid-body`, or with `-a-boxes` from the published box a replay files beside each online
@@ -829,8 +836,22 @@ needs `-a-stage online -a-declared-baseline`, cannot also be `-a-solid-body`, an
 estimates' version; its identity reports the table and the observation model
 `published_box/<the estimates' model>`. A box records no face, so every endpoint it places is
 temporally inferred and its sigma is a lower bound (see the
-[headway report](headway-report-oracle.md#what-a-persisted-row-supports)). The same flags with
-`-b-` select arm B.
+[headway report](headway-report-oracle.md#what-a-persisted-row-supports)). With
+`-a-measurements` the arm is the measurement each online estimate's update consumed
+(`lidar_track_residuals`): the L4 cluster position under the replay's position model, on the track
+the filter gave it to, in place of the filtered state. It names the estimates' version, cannot be
+combined with `-a-boxes` or `-a-solid-body`, and its identity reports the residual table. The same
+flags with `-b-` select arm B.
+
+Each arm's physical result also carries `centre_by_view`. It places every pose with a compared
+centre by the reference centre's range from the sensor (at the pack frame's origin) and its
+aspect, the angle between the line of sight and the reference heading's axis, from 0° end on to
+90° broadside. Each pose gets its offset toward the sensor, positive where the prediction sits
+nearer the sensor. The poses are pooled per prediction reference by object, by range band (under
+10, 10 to 20 and 20 m or more), by aspect bin (0 to 30°, 30 to 60° and 60 to 90°) and by both.
+Reference poses with no compared prediction are counted unmatched, by object.
+[geom0015](../../../data/experiments/geom/geom0015.md) reads it as kirk0's measurement-bias
+baseline.
 
 A prediction matches a reference by source (every row's sensor, and one calibration: the
 reference's, if it names one), by capture instant (the frame tolerance), in the pack's frame, and
@@ -862,11 +883,116 @@ version, so an inspector showing it cannot pair one instant's reference with ano
 Consecutive scored centres also report how far each layer moved: a step at a face change that the
 reference does not make shows up there.
 
-Physical scoring refuses a held-out split. Its error limits, reference precision and coverage have
-to be pinned on tuning data first. The geometry levels are pinned in the
-[geometry convergence criteria](geometry-convergence-criteria.md); the scorer does not cite that
-record yet, and the following limits are still unpinned. Leader choice is not scored,
-and the along-path gap waits for persisted paths.
+#### The following-criteria record
+
+The following limits are predeclared on tuning data before any held-out window is read, as the
+geometry levels are in the [geometry convergence criteria](geometry-convergence-criteria.md) (W0).
+That record is prose. This one is a versioned JSON file that the scorer reads and cites
+([l8fol0004](../../../data/experiments/l8fol/l8fol0004.md)):
+
+| File                                                                                                    | What it is                                                       |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [`config/criteria/following-limits.schema.json`](../../../config/criteria/following-limits.schema.json) | The layout, schema version 1                                     |
+| [`config/criteria/following-limits.draft.json`](../../../config/criteria/following-limits.draft.json)   | The unpinned template. It chooses nothing: every value is `null` |
+
+A record holds:
+
+- **Limits:** the gap error limit (on a stratum's 95th percentile of the absolute gap error, by
+  nearest rank), the reference precision, the nominal coverage and the accepted coverage range,
+  the minimum independent encounters per stratum, the maximum missing and suppressed shares of
+  opportunity, and the wrong-leader tolerance.
+- **Valid following:** the definition E-01 fixed, with its values and the ceiling chosen by E-09's
+  rule. These are the measurement floor, opportunity floor, band edge, net ceiling (4 or 6 s, with
+  a provisional flag), hysteresis margin, minimum dwell and sensitivity ceilings.
+- **Bootstrap plan:** draws, seed, family confidence and correction.
+- **Status and provenance:** the status, and once pinned, the `D-NN` that pinned it, the date and
+  the tuning split and report it was drafted on.
+
+The file is read strictly: an unknown field or trailing data is refused. A **draft** may leave
+anything `null`. A **pinned** record must state every value. Never edit a pinned file. Copy the
+template to a new file, fill it, set `status` to `pinned` with the decision and date, and cite the
+new file. An amendment is another new file under another decision.
+
+```bash
+bin/lidar-ground-truth-eval perframe ... -physical-reference \
+  -following-criteria config/criteria/following-limits-kirk0-r1.json -json physical.json
+```
+
+`-following-criteria` needs `-physical-reference`. The score cites the record in its reference
+identity as `following_criteria`: the path as named, the record id, the SHA-256 of its bytes, its
+status and decision, and the values the verdicts need that it leaves unset. A changed limit is
+therefore a changed digest. A verification bundle keeps a copy of the record, and `verify-bundle`
+refuses it if the record has changed where it was cited.
+
+**A held-out split** is refused when no record is cited, or when the cited record is a draft. It is
+admitted once the record is pinned, and the first caveat then names the record and its decision.
+The geometry components of a held-out score are reported, but the scorer does not read W0's
+levels. On a tuning split a draft is a preview: every interval is reported, and a stratum that
+needs an unset value is insufficient. Missing truth or a missing criterion is insufficient
+evidence, never a pass.
+
+#### Leader choice
+
+Each instant of a reviewed, independent following record also carries the arm's own leader choice
+(`leader_choice`). The arm's trajectories are analysed by the following method
+(`following_encounter_v1`) under the field run's bounds. Those bounds are the analytic scenarios'
+uncalibrated values, and their hash is reported. The pairing decision for the track matched to the
+record's follower at that sample is then set against the record:
+
+| Record      | Right                                    | Wrong leader                                                                     | Missed leader | Refused                                |
+| ----------- | ---------------------------------------- | -------------------------------------------------------------------------------- | ------------- | -------------------------------------- |
+| `leader`    | The track matched to the record's leader | A track matched to another reviewed body, or to none while the leader is matched | Free flow     | `ambiguous_leader` or `no_common_path` |
+| `no_leader` | Free flow                                | Any leader                                                                       | -             | A suppression                          |
+| `ambiguous` | A suppression                            | Any single leader                                                                | Free flow     | -                                      |
+
+A wrong leader with an accurate gap is still a wrong leader. An instant is **unscored**, with its
+reason, when its follower has no truth keyframe there or no matched track, when the estimator never
+evaluated the follower, or when neither the chosen track nor the record's leader can be identified
+with a body. An instant is also unscored when the arm's leader choice could not be read at all;
+the result then says why.
+
+#### Strata and verdicts
+
+`following_acceptance` reads the following instants by stratum (method `following_acceptance_v1`).
+Each sample of a reviewed leader record whose gap reference is usable is one **opportunity**,
+counted once per follower and sample however many episodes hold it. An opportunity is one of:
+
+- **Imprecise:** its reference half-width exceeds the reference precision. It is counted and never
+  scored toward a pass.
+- **Wrong leader.**
+- **Suppressed:** a refused choice, a follower never evaluated, a body the behaviour layer could not
+  project, or a gap it would not publish.
+- **Missing:** no match, no prediction, or free flow.
+- **Scored.**
+
+A **gap** stratum is the follower's and leader's reference class, and its unit is the body pair. A
+**leader-choice** stratum is the record's decision and the follower's class, and its unit is the
+body pair, or the follower body for a `no_leader` or `ambiguous` record. Bodies and body pairs are
+counted by reviewed object id, never by track id, so a fragmented track does not inflate the
+count. Each stratum reports its bodies, body pairs and units, and the Kish effective count of its
+units weighted by their cases. The encounter floor is read against that effective count, so one
+long encounter beside a short one counts as nearer one than two.
+
+Each stratum's units are drawn with replacement under the record's seed. Each test's interval is
+the percentile interval at 1 − α/m, where α is one less than the family confidence and m is the
+number of tests across the arm (Bonferroni). The tests are:
+
+- **Gap strata:** p95 of the absolute gap error against the limit, coverage against its range, and
+  the missing and suppressed shares against their limits.
+- **Leader-choice strata:** the wrong-leader share against the tolerance.
+
+A test passes when its whole interval is within its limit and fails when its whole interval is
+beyond it. Otherwise it is insufficient, and it is also insufficient when the statistic is
+undefined on any draw or its limit is unset. A stratum is **insufficient** when a value it needs
+is unset, when its effective count is below the floor, when leader choice could not be read, or
+when none of its references was precise; it still lists the tests it fails. Otherwise it **fails**
+on any failed test, is insufficient on any insufficient one, and **passes**. The arm's verdict is
+the worst of its strata. The Markdown gains a "Following acceptance" table.
+
+What this does not do yet. The valid-following definition is recorded and validated, not applied
+to the scored instants, so the count of `leader` records each candidate ceiling keeps (E-09) is
+still read by hand. The strata expected are not listed in advance. The along-path gap waits for
+persisted paths.
 
 ## Feature candidates
 

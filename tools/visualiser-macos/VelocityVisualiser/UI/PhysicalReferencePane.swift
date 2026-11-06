@@ -8,8 +8,10 @@
 // whether each end the returns reach is real. Nothing asks which evidence
 // status a field has: the fit states it, and a value set by hand takes the
 // status its action implies. The manual controls stay, under Adjust, for what
-// a fit cannot do. Metres and degrees on screen; radians only at the model
-// boundary.
+// a fit cannot do. A refusal from the service is shown beside the field it
+// names, holding a closed group open if the field is inside one; only what
+// has no field on screen is listed at Save. Metres and degrees on screen;
+// radians only at the model boundary.
 
 import AppKit
 import SwiftUI
@@ -19,6 +21,11 @@ struct PhysicalReferencePane: View {
     @ObservedObject var physical: PhysicalReferenceSession
     @ObservedObject private var inspector: PhysicalReportInspector
     @State private var assistanceSource = ""
+    // The closed groups an operator opened. A group that holds a refused
+    // field is held open regardless, so no refusal sits out of sight.
+    @State private var sizeMethodOpen = false
+    @State private var adjustOpen = false
+    @State private var sharedErrorsOpen = false
 
     init(session: AnnotationSession) {
         self.session = session
@@ -63,6 +70,34 @@ struct PhysicalReferencePane: View {
         let saved = physical.state?.document.objects ?? []
         return PhysicalAuthoringMessage.describe(
             raw, objects: physical.draft + saved, name: { session.displayName(objectID: $0) })
+    }
+
+    /// The draft's refusals, placed for the object and frame on screen.
+    private var fieldErrors: PhysicalFieldErrors {
+        PhysicalFieldErrors.place(
+            physical.validation, objectID: session.activeObjectID,
+            sampleID: session.currentSample?.sampleID)
+    }
+
+    /// The refusals that belong beside one control, shown under it.
+    private func refusals(_ field: PhysicalPaneField) -> some View {
+        ForEach(fieldErrors.at(field), id: \.self) { refusal in
+            let human = humanMessage(refusal.detail)
+            VStack(alignment: .leading, spacing: 1) {
+                Label(human, systemImage: "exclamationmark.circle").font(.caption2).foregroundStyle(
+                    .red
+                ).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                DisclosureGroup("Service detail") {
+                    Text(refusal.raw).font(.caption2.monospaced()).textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }.font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// A closed group's expansion, held open while it holds a refusal.
+    private func heldOpen(_ open: Binding<Bool>, while refused: Bool) -> Binding<Bool> {
+        Binding(get: { open.wrappedValue || refused }, set: { open.wrappedValue = $0 })
     }
 
     private func diagnostic(_ raw: String, colour: Color) -> some View {
@@ -228,15 +263,21 @@ struct PhysicalReferencePane: View {
                     + "Fit it above, or set it here. Changing the size returns every pose to proposed."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
+            refusals(.size)
             if body != nil {
-                dimensionEditor("Length", objectID: objectID, \.length)
-                dimensionEditor("Width", objectID: objectID, \.width)
-                dimensionEditor("Height", objectID: objectID, \.height)
-                DisclosureGroup("Method and assumptions") {
+                dimensionEditor("Length", field: .length, objectID: objectID, \.length)
+                dimensionEditor("Width", field: .width, objectID: objectID, \.width)
+                dimensionEditor("Height", field: .height, objectID: objectID, \.height)
+                DisclosureGroup(
+                    "Method and assumptions",
+                    isExpanded: heldOpen(
+                        $sizeMethodOpen, while: !fieldErrors.at(.sizeReview).isEmpty)
+                ) {
                     recordReviewFields(
                         method: bodyBinding(objectID, \.review.method, ""),
                         assumptions: bodyBinding(objectID, \.review.uncertaintyAssumptions, nil),
                         needsAssumptions: body?.declaresBounds ?? false)
+                    refusals(.sizeReview)
                 }.font(.caption2)
                 HStack {
                     Button("Review body") {
@@ -271,7 +312,8 @@ struct PhysicalReferencePane: View {
     }
 
     private func dimensionEditor(
-        _ name: String, objectID: String, _ path: WritableKeyPath<PhysicalBody, PhysicalDimension>
+        _ name: String, field: PhysicalPaneField, objectID: String,
+        _ path: WritableKeyPath<PhysicalBody, PhysicalDimension>
     ) -> some View {
         let d = physical.object(objectID)?.body?[keyPath: path] ?? PhysicalDimension()
         let current = session.currentSample?.sampleID
@@ -333,6 +375,7 @@ struct PhysicalReferencePane: View {
                 }.font(.caption2)
             }
             if d.status != .unknown { evidenceCaption(d.status, d.support) }
+            refusals(field)
         }
     }
 
@@ -359,6 +402,7 @@ struct PhysicalReferencePane: View {
                 ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary).textSelection(
                     .enabled)
             }
+            refusals(.pose)
             if let object = physical.object(objectID), !object.keyframes.isEmpty {
                 Menu("Poses: \(object.keyframes.count) marked frames") {
                     ForEach(object.keyframes.sorted { $0.sampleID < $1.sampleID }, id: \.keyframeID)
@@ -459,8 +503,11 @@ struct PhysicalReferencePane: View {
             Text("Ends").font(.caption.bold()).padding(.top, 4)
             if resolved {
                 ForEach(
-                    [("Front", \PhysicalKeyframe.front), ("Rear", \PhysicalKeyframe.rear)], id: \.0
-                ) { name, end in
+                    [
+                        ("Front", \PhysicalKeyframe.front, PhysicalPaneField.front),
+                        ("Rear", \PhysicalKeyframe.rear, PhysicalPaneField.rear),
+                    ], id: \.0
+                ) { name, end, field in
                     VStack(alignment: .leading, spacing: 1) {
                         Toggle(
                             "\(name) is a real end in this frame",
@@ -479,6 +526,7 @@ struct PhysicalReferencePane: View {
                                     : "Not seen here, and not placed."
                             ).font(.caption2).foregroundStyle(.secondary).padding(.leading, 18)
                         }
+                        refusals(field).padding(.leading, 18)
                     }
                 }
                 Text(
@@ -488,11 +536,17 @@ struct PhysicalReferencePane: View {
             } else {
                 Text("No front or rear can be named until the axis is resolved.").font(.caption2)
                     .foregroundStyle(.secondary)
+                // An end the record still claims is refused here, where the
+                // checkboxes would be, rather than nowhere.
+                refusals(.front)
+                refusals(.rear)
             }
 
             derivedSummary(objectID: objectID, k: k)
 
-            DisclosureGroup("Adjust by hand") {
+            DisclosureGroup(
+                "Adjust by hand", isExpanded: heldOpen($adjustOpen, while: fieldErrors.needsAdjust)
+            ) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Axis").font(.caption.bold())
                     Picker(
@@ -530,6 +584,7 @@ struct PhysicalReferencePane: View {
                                     }))
                         }
                     }
+                    refusals(.heading)
 
                     Text("Point fixed to the body").font(.caption.bold()).padding(.top, 4)
                     Picker(
@@ -553,6 +608,7 @@ struct PhysicalReferencePane: View {
                             "Optional. Without both, the anchor locates the face and not the body centre."
                         )
                     }
+                    refusals(.anchor)
 
                     Text("Position").font(.caption.bold()).padding(.top, 4)
                     Text("Click in Top to place ■; drag ■ to move and ● to turn.").font(.caption2)
@@ -576,6 +632,7 @@ struct PhysicalReferencePane: View {
                         )
                         if k.position.zM != nil { metres("z", number(\.position.zM)) }
                     }
+                    refusals(.position)
 
                     sharedErrorEditor(objectID: objectID, k: k, sample: sample)
 
@@ -586,6 +643,7 @@ struct PhysicalReferencePane: View {
                             get: { k.review.uncertaintyAssumptions },
                             set: { a in update { $0.review.uncertaintyAssumptions = a } }),
                         needsAssumptions: k.declaresBounds)
+                    refusals(.poseReview)
                 }
             }.font(.caption)
         }
@@ -666,9 +724,23 @@ struct PhysicalReferencePane: View {
                         .caption
                     ).foregroundStyle(.green)
                 } else {
-                    if let invalid = v.invalid { diagnostic(invalid, colour: .red) }
-                    ForEach(v.linkProblems, id: \.self) { p in
-                        diagnostic("\(p.record): \(p.problem)", colour: .red)
+                    // Each refusal is shown once: beside its field when that
+                    // field is on screen, in full here when it is not.
+                    let errors = fieldErrors
+                    if !errors.placedFields.isEmpty {
+                        Text(
+                            "The service does not accept this draft: the reason is shown at "
+                                + errors.placedFields.map(\.label).joined(separator: ", ")
+                                + ", above."
+                        ).font(.caption).foregroundStyle(.red).fixedSize(
+                            horizontal: false, vertical: true)
+                    }
+                    ForEach(errors.elsewhere, id: \.self) { refusal in
+                        diagnostic(refusal.raw, colour: .red)
+                    }
+                    if errors.isEmpty {
+                        Text("The service does not accept this draft.").font(.caption)
+                            .foregroundStyle(.red)
                     }
                 }
                 if !v.resetReviews.isEmpty {
@@ -769,7 +841,11 @@ struct PhysicalReferencePane: View {
             }
         }
         let list = k.sharedErrors ?? []
-        return DisclosureGroup("Shared errors (\(list.count))") {
+        return DisclosureGroup(
+            "Shared errors (\(list.count))",
+            isExpanded: heldOpen($sharedErrorsOpen, while: !fieldErrors.at(.sharedErrors).isEmpty)
+        ) {
+            refusals(.sharedErrors)
             ForEach(Array(list.enumerated()), id: \.offset) { index, item in
                 VStack(alignment: .leading, spacing: 2) {
                     TextField(

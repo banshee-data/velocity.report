@@ -263,8 +263,10 @@ the same problem the same way.
 The reference position above is a visible-mask position, not a body centre. `-physical-reference`
 adds a separate physical score for each estimate arm against the pack's reviewed physical
 references: centre, yaw, dimensions, bumpers, box and following gap, each only where the reference
-has it, with complete accounting of what was not scored. It refuses a held-out split and analysis
-runs. The flags, matching and accounting are in the
+has it, with complete accounting of what was not scored, and each arm's own leader choice against
+the reviewed following records. It refuses analysis runs, and refuses a held-out split unless
+`-following-criteria` cites a pinned following-criteria record. The flags, matching, accounting,
+record and strata are in the
 [point annotation tool guide](point-annotation-tool.md#scoring-against-physical-references); the
 output gains a `physical` section and a Markdown table.
 

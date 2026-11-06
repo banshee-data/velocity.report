@@ -136,6 +136,12 @@ func mark(set *experiments.Set, root string, ledger *experiments.Ledger, args []
 		fmt.Fprintf(os.Stderr, "%s waits for %s to be answered first (-force to start anyway)\n", sp.ID, strings.Join(sp.DependsOn, ", "))
 		return 1
 	}
+	if pos[2] == string(experiments.Start) && !*force && u.Arm != "" && sp.Open() {
+		if err := armDrift(root, sp, u.Arm); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+	}
 	digest, err := experiments.SpecDigest(root, sp)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -156,6 +162,30 @@ func mark(set *experiments.Set, root string, ledger *experiments.Ledger, args []
 	}
 	fmt.Println(line)
 	return 0
+}
+
+// armDrift refuses to start a unit on an arm whose tuning file no longer has
+// the fingerprint the spec pinned: the run would not be the one the rule was
+// written for.
+func armDrift(root string, sp *experiments.Spec, arm string) error {
+	for _, a := range sp.Arms {
+		if a.Name != arm {
+			continue
+		}
+		cur, err := experiments.TuningFingerprint(root, a.Tuning)
+		if err != nil {
+			return err
+		}
+		if a.Fingerprint != cur {
+			pinned := a.Fingerprint
+			if pinned == "" {
+				pinned = "nothing"
+			}
+			return fmt.Errorf("%s arm %s: %s has fingerprint %s but the spec pinned %s; restate and re-pin the spec (experiments pin %s) before running it (-force to start anyway)", sp.ID, arm, a.Tuning, cur, pinned, sp.ID)
+		}
+		return nil
+	}
+	return nil
 }
 
 // status prints a line per experiment that is approved or has progress, or

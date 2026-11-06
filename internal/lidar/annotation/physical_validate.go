@@ -3,6 +3,7 @@ package annotation
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -45,12 +46,12 @@ func (r *PhysicalReferenceSet) Validate(p *Pack) error {
 		}
 		seen[o.ObjectID] = true
 		if err := v.object(o); err != nil {
-			return fmt.Errorf("object %q: %w", o.ObjectID, err)
+			return fmt.Errorf("object %q: %w", o.ObjectID, inObject(o.ObjectID, err))
 		}
 	}
 	for _, f := range r.Following {
 		if err := v.following(f); err != nil {
-			return fmt.Errorf("following %q: %w", f.FollowingID, err)
+			return fmt.Errorf("following %q: %w", f.FollowingID, inRecord(physicalRecordFollowing, f.FollowingID, nil, err))
 		}
 	}
 	if err := followingConflicts(r.Following); err != nil {
@@ -159,17 +160,19 @@ func (v *physicalValidator) claim(kind, id string, review PhysicalReview) error 
 func (v *physicalValidator) object(o PhysicalObject) error {
 	if o.Body != nil {
 		if err := v.body(*o.Body); err != nil {
-			return fmt.Errorf("body %q: %w", o.Body.BodyID, err)
+			return fmt.Errorf("body %q: %w", o.Body.BodyID, inRecord(string(PhysicalRecordBody), o.Body.BodyID, nil, err))
 		}
 	}
 	samples := map[int]PhysicalKeyframe{}
 	for _, k := range o.Keyframes {
+		sample := k.SampleID
 		if _, dup := samples[k.SampleID]; dup {
-			return fmt.Errorf("two keyframes at sample %d", k.SampleID)
+			return inRecord(string(PhysicalRecordKeyframe), k.KeyframeID, &sample,
+				atField("sample_id", fmt.Errorf("two keyframes at sample %d", k.SampleID)))
 		}
 		samples[k.SampleID] = k
 		if err := v.keyframe(k, o.Body); err != nil {
-			return fmt.Errorf("keyframe %q: %w", k.KeyframeID, err)
+			return fmt.Errorf("keyframe %q: %w", k.KeyframeID, inRecord(string(PhysicalRecordKeyframe), k.KeyframeID, &sample, err))
 		}
 	}
 	v.keyframes[o.ObjectID] = samples
@@ -187,22 +190,22 @@ func ownSample(name string, status EvidenceStatus, s EvidenceSupport, sample int
 			return nil
 		}
 	}
-	return fmt.Errorf("%s is observed but does not cite its own sample %d", name, sample)
+	return atField(name, atField("support", fmt.Errorf("%s is observed but does not cite its own sample %d", name, sample)))
 }
 
 func (v *physicalValidator) body(b BodyGeometry) error {
 	if err := v.claim("body", b.BodyID, b.Review); err != nil {
-		return err
+		return atField("body_id", err)
 	}
 	if b.AxisConvention != BodyAxisConvention {
-		return fmt.Errorf("axis convention %q, want %q", b.AxisConvention, BodyAxisConvention)
+		return atField("axis_convention", fmt.Errorf("axis convention %q, want %q", b.AxisConvention, BodyAxisConvention))
 	}
 	for _, d := range []struct {
 		name string
 		d    DimensionBound
 	}{{"length", b.Length}, {"width", b.Width}, {"height", b.Height}} {
 		if err := v.dimension(d.d); err != nil {
-			return fmt.Errorf("%s: %w", d.name, err)
+			return fmt.Errorf("%s: %w", d.name, atField(d.name, err))
 		}
 	}
 	known := b.Length.Status != EvidenceUnknown || b.Width.Status != EvidenceUnknown || b.Height.Status != EvidenceUnknown
@@ -246,6 +249,10 @@ func (v *physicalValidator) dimension(d DimensionBound) error {
 }
 
 func (v *physicalValidator) support(status EvidenceStatus, s EvidenceSupport) error {
+	return atField("support", v.supportRule(status, s))
+}
+
+func (v *physicalValidator) supportRule(status EvidenceStatus, s EvidenceSupport) error {
 	for i, f := range s.Frames {
 		if f < 0 || f >= len(v.p.Samples) {
 			return fmt.Errorf("supporting frame %d is not in the pack's %d samples", f, len(v.p.Samples))
@@ -277,44 +284,44 @@ func (v *physicalValidator) support(status EvidenceStatus, s EvidenceSupport) er
 
 func (v *physicalValidator) sample(sampleID int, timestampNs int64) error {
 	if sampleID < 0 || sampleID >= len(v.p.Samples) {
-		return fmt.Errorf("sample %d is not in the pack's %d samples", sampleID, len(v.p.Samples))
+		return atField("sample_id", fmt.Errorf("sample %d is not in the pack's %d samples", sampleID, len(v.p.Samples)))
 	}
 	if want := v.p.Samples[sampleID].TimestampNs; timestampNs != want {
-		return fmt.Errorf("sample %d was captured at %d ns, the record says %d", sampleID, want, timestampNs)
+		return atField("timestamp_ns", fmt.Errorf("sample %d was captured at %d ns, the record says %d", sampleID, want, timestampNs))
 	}
 	return nil
 }
 
 func (v *physicalValidator) keyframe(k PhysicalKeyframe, body *BodyGeometry) error {
 	if err := v.claim("keyframe", k.KeyframeID, k.Review); err != nil {
-		return err
+		return atField("keyframe_id", err)
 	}
 	if err := v.sample(k.SampleID, k.TimestampNs); err != nil {
 		return err
 	}
 	if err := v.yaw(k.Yaw); err != nil {
-		return fmt.Errorf("yaw: %w", err)
+		return fmt.Errorf("yaw: %w", atField("yaw", err))
 	}
 	if err := v.anchor(k.Anchor, k.Yaw.Axis, body); err != nil {
-		return fmt.Errorf("anchor: %w", err)
+		return fmt.Errorf("anchor: %w", atField("anchor", err))
 	}
 	if err := v.position(k.Position); err != nil {
-		return fmt.Errorf("position: %w", err)
+		return fmt.Errorf("position: %w", atField("position", err))
 	}
 	for _, e := range []struct {
 		name string
 		e    EndpointEvidence
 	}{{"front", k.Front}, {"rear", k.Rear}} {
 		if !e.e.Status.valid() {
-			return fmt.Errorf("%s: status %q", e.name, e.e.Status)
+			return fmt.Errorf("%s: %w", e.name, atField(e.name, atField("status", fmt.Errorf("status %q", e.e.Status))))
 		}
 		// Which end is the front is exactly what an unresolved axis does
 		// not know, so neither end can be claimed.
 		if e.e.Status != EvidenceUnknown && k.Yaw.Axis != AxisResolved {
-			return fmt.Errorf("%s: a bumper cannot be named while the axis is %s", e.name, k.Yaw.Axis)
+			return fmt.Errorf("%s: %w", e.name, atField(e.name, fmt.Errorf("a bumper cannot be named while the axis is %s", k.Yaw.Axis)))
 		}
 		if err := v.support(e.e.Status, e.e.Support); err != nil {
-			return fmt.Errorf("%s: %w", e.name, err)
+			return fmt.Errorf("%s: %w", e.name, atField(e.name, err))
 		}
 	}
 	for _, c := range []struct {
@@ -328,23 +335,30 @@ func (v *physicalValidator) keyframe(k PhysicalKeyframe, body *BodyGeometry) err
 		}
 	}
 	for i, se := range k.SharedErrors {
-		if strings.TrimSpace(se.Observation) == "" {
-			return fmt.Errorf("shared error %d names no observation", i)
-		}
-		if len(se.Components) < 2 {
-			return fmt.Errorf("shared error %q links fewer than two components", se.Observation)
-		}
-		for j, c := range se.Components {
-			if !physicalComponents[c] {
-				return fmt.Errorf("shared error %q names component %q", se.Observation, c)
-			}
-			if j > 0 && c <= se.Components[j-1] {
-				return fmt.Errorf("shared error %q components must be sorted and unique", se.Observation)
-			}
+		if err := sharedError(i, se); err != nil {
+			return atField("shared_errors", atField(strconv.Itoa(i), err))
 		}
 	}
 	known := k.Position.Status != EvidenceUnknown || k.Yaw.Status != EvidenceUnknown
 	return v.review(k.Review, known)
+}
+
+func sharedError(i int, se SharedError) error {
+	if strings.TrimSpace(se.Observation) == "" {
+		return atField("observation", fmt.Errorf("shared error %d names no observation", i))
+	}
+	if len(se.Components) < 2 {
+		return atField("components", fmt.Errorf("shared error %q links fewer than two components", se.Observation))
+	}
+	for j, c := range se.Components {
+		if !physicalComponents[c] {
+			return atField("components", fmt.Errorf("shared error %q names component %q", se.Observation, c))
+		}
+		if j > 0 && c <= se.Components[j-1] {
+			return atField("components", fmt.Errorf("shared error %q components must be sorted and unique", se.Observation))
+		}
+	}
+	return nil
 }
 
 func (v *physicalValidator) yaw(y YawBound) error {
@@ -427,56 +441,60 @@ func (v *physicalValidator) position(pb PositionBound) error {
 		return fmt.Errorf("a known position needs finite x_m and y_m")
 	}
 	if pb.ZM != nil && !finite(*pb.ZM) {
-		return fmt.Errorf("z_m must be finite")
+		return atField("z_m", fmt.Errorf("z_m must be finite"))
 	}
 	if pb.BoundM == nil || !finiteNonNegative(*pb.BoundM) {
-		return fmt.Errorf("a known position needs a finite, non-negative bound_m")
+		return atField("bound_m", fmt.Errorf("a known position needs a finite, non-negative bound_m"))
 	}
 	return v.support(pb.Status, pb.Support)
 }
 
 func (v *physicalValidator) review(r PhysicalReview, declaresBounds bool) error {
+	return atField("review", v.reviewRule(r, declaresBounds))
+}
+
+func (v *physicalValidator) reviewRule(r PhysicalReview, declaresBounds bool) error {
 	if !validStatus(r.Status) {
-		return fmt.Errorf("review status %q", r.Status)
+		return atField("status", fmt.Errorf("review status %q", r.Status))
 	}
 	if strings.TrimSpace(r.Method) == "" {
-		return fmt.Errorf("review names no method")
+		return atField("method", fmt.Errorf("review names no method"))
 	}
 	if strings.TrimSpace(r.Provenance.Author) == "" {
-		return fmt.Errorf("review names no author")
+		return atField("provenance.author", fmt.Errorf("review names no author"))
 	}
 	switch r.Origin {
 	case OriginIndependent:
 		// Tracker output in the provenance is the tracker grading itself,
 		// whatever the origin field says.
 		if r.TrackerSource != "" || r.Provenance.Algorithm != "" {
-			return fmt.Errorf("a record seeded from tracker output (source %q, algorithm %q) cannot claim independent provenance",
-				r.TrackerSource, r.Provenance.Algorithm)
+			return atField("origin", fmt.Errorf("a record seeded from tracker output (source %q, algorithm %q) cannot claim independent provenance",
+				r.TrackerSource, r.Provenance.Algorithm))
 		}
 	case OriginTrackerAssisted:
 		if strings.TrimSpace(r.TrackerSource) == "" {
-			return fmt.Errorf("a tracker-assisted record must name the tracker output it came from")
+			return atField("tracker_source", fmt.Errorf("a tracker-assisted record must name the tracker output it came from"))
 		}
 	default:
-		return fmt.Errorf("origin %q", r.Origin)
+		return atField("origin", fmt.Errorf("origin %q", r.Origin))
 	}
 	if r.ReviewedAgainst != nil {
 		if r.Status != StatusReviewed {
-			return fmt.Errorf("a %s record cannot carry the membership it was reviewed against", r.Status)
+			return atField("reviewed_against", fmt.Errorf("a %s record cannot carry the membership it was reviewed against", r.Status))
 		}
 		if r.ReviewedAgainst.Revision < 1 {
-			return fmt.Errorf("reviewed_against names membership revision %d", r.ReviewedAgainst.Revision)
+			return atField("reviewed_against", fmt.Errorf("reviewed_against names membership revision %d", r.ReviewedAgainst.Revision))
 		}
 	}
 	if declaresBounds && strings.TrimSpace(r.UncertaintyAssumptions) == "" {
-		return fmt.Errorf("a record that declares bounds must state its uncertainty assumptions")
+		return atField("uncertainty_assumptions", fmt.Errorf("a record that declares bounds must state its uncertainty assumptions"))
 	}
 	return nil
 }
 
 func (v *physicalValidator) following(f FollowingReference) error {
 	if err := v.claim("following", f.FollowingID, f.Review); err != nil {
-		return err
+		return atField("following_id", err)
 	}
 	if f.FollowerObjectID == "" {
 		return fmt.Errorf("no follower object")
@@ -512,7 +530,7 @@ func (v *physicalValidator) following(f FollowingReference) error {
 			return fmt.Errorf("gap at sample %d is outside the interval", g.SampleID)
 		}
 		if err := v.gap(g, f); err != nil {
-			return fmt.Errorf("gap at sample %d: %w", g.SampleID, err)
+			return fmt.Errorf("gap at sample %d: %w", g.SampleID, atField("gaps", atField(strconv.Itoa(i), err)))
 		}
 		declares = declares || g.Status != EvidenceUnknown
 	}

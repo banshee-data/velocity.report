@@ -389,6 +389,33 @@ struct PhysicalReferenceDocument: Codable, Equatable {
 struct PhysicalLinkProblem: Codable, Equatable, Hashable {
     var record: String
     var problem: String
+    /// Where the problem falls, from a service that says; nil from one
+    /// that predates locations.
+    var at: PhysicalLocation? = nil
+}
+
+/// Where in the document the service placed a refusal: the record and the
+/// field within it, in the record's JSON names joined by dots
+/// ("position.bound_m", "review.uncertainty_assumptions"). `detail` is the
+/// refusal without the location prefixes its message carries. The message
+/// itself stays the record of what was refused; this only says where.
+struct PhysicalLocation: Codable, Equatable, Hashable {
+    var objectID: String?
+    /// "body", "keyframe" or "following"; nil for the object as a whole.
+    var record: String?
+    var recordID: String?
+    var sampleID: Int?
+    var field: String?
+    var detail: String
+
+    enum CodingKeys: String, CodingKey {
+        case objectID = "object_id"
+        case record
+        case recordID = "record_id"
+        case sampleID = "sample_id"
+        case field
+        case detail
+    }
 }
 
 /// What the service returns for a pack: the document, its revision and
@@ -503,6 +530,8 @@ struct PhysicalRevisionSummary: Codable, Equatable, Identifiable {
 struct PhysicalEditResult: Codable, Equatable {
     var valid: Bool
     var invalid: String?
+    /// Where `invalid` falls, when the service says and it names a record.
+    var invalidAt: PhysicalLocation? = nil
     var linkProblems: [PhysicalLinkProblem]
     var resetReviews: [String]
     var renamedBodies: [String: String]?
@@ -511,6 +540,7 @@ struct PhysicalEditResult: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case valid
         case invalid
+        case invalidAt = "invalid_at"
         case linkProblems = "link_problems"
         case resetReviews = "reset_reviews"
         case renamedBodies = "renamed_bodies"
