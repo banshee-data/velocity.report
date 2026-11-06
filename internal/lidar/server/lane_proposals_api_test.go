@@ -251,7 +251,7 @@ func TestLaneJobUploadsThreePartsAndRecordsTheCounts(t *testing.T) {
 func TestLaneJobRefusesAServerWithoutLaneFields(t *testing.T) {
 	f := newLaneFixture(t)
 	f.register()
-	job, _, err := sqlite.NewLaneProposalStore(f.ws.db).EnqueueLaneProposals(f.located, "")
+	job, _, err := sqlite.NewLaneProposalStore(f.ws.db).EnqueueLaneProposals(f.located, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,5 +334,59 @@ func TestLaneStatusSaysWhyItIsStale(t *testing.T) {
 	}
 	if s := laneStatus(sqlite.ClipLanes{Latest: row}, "0.5.1+aaa", "f1"); !s.Current {
 		t.Fatalf("current: %+v", s)
+	}
+}
+
+func TestAnAmbiguousSiteNeedsAPinnedRecord(t *testing.T) {
+	f := newLaneFixture(t)
+	f.fake.mu.Lock()
+	f.fake.records[f.l16] = []gerardus.Record{
+		{RecordID: "gms:p1", State: gerardus.StateRegistered, SensorID: laneTestSensor, CaptureRef: "kirk1.pcapng"},
+		{RecordID: "gms:p2", State: gerardus.StateManuallyPlaced, SensorID: laneTestSensor, CaptureRef: "kirk2.pcapng"},
+	}
+	f.fake.mu.Unlock()
+	if c := f.list(t)[f.located]; c.Registration.State != gerardus.ClipAmbiguous {
+		t.Fatalf("two records, neither naming the clip: %+v", c.Registration)
+	}
+	if rec := f.do(t, http.MethodPost, "/api/lidar/clips/"+f.located+"/lane-proposals"); rec.Code != http.StatusConflict {
+		t.Fatalf("ambiguous clip queued without a record: %d", rec.Code)
+	}
+	if rec := f.do(t, http.MethodPost, "/api/lidar/clips/"+f.located+"/lane-proposals?record_id=gms:nope"); rec.Code != http.StatusConflict {
+		t.Fatalf("an unknown record was accepted: %d", rec.Code)
+	}
+	rec := f.do(t, http.MethodPost, "/api/lidar/clips/"+f.located+"/lane-proposals?record_id=gms:p2")
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("pinned: %d %s", rec.Code, rec.Body.String())
+	}
+	var queued struct {
+		Job sqlite.CaptureJob `json:"job"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &queued)
+	ops := laneJobOps{
+		replay: func(context.Context, *sqlite.Clip, []string, func(string)) (string, string, func(), error) {
+			return "x", "", nil, nil
+		},
+		read: func(string) (lanefieldrun.Recording, error) { return straightTraffic(), nil },
+	}
+	if err := f.ws.runLaneProposalsWith(context.Background(), capjobs.Job{JobID: queued.Job.JobID}, func(capjobs.Progress) {}, ops); err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range f.fake.uploads {
+		if h.RecordID != "gms:p2" {
+			t.Fatalf("placed by %s, want the pinned gms:p2", h.RecordID)
+		}
+	}
+	// The rerun leaves an ambiguous clip alone and says why.
+	rec = f.do(t, http.MethodPost, "/api/lidar/clips/lane-proposals/rerun?dry_run=1&force=1")
+	var dry RerunResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &dry)
+	found := false
+	for _, s := range dry.Skipped {
+		if s.ClipID == f.located && strings.HasPrefix(s.Reason, gerardus.ClipAmbiguous) {
+			found = true
+		}
+	}
+	if !found || len(dry.Queued) != 0 {
+		t.Fatalf("rerun of an ambiguous clip: %+v", dry)
 	}
 }

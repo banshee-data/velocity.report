@@ -46,11 +46,14 @@ func (r Record) Accepted() bool {
 // Registration is a clip's answer to "is it registered": its state, the
 // record that places it when it is, and why when it is not.
 type Registration struct {
-	State     string    `json:"state"`
-	RecordID  string    `json:"record_id,omitempty"`
-	Record    string    `json:"record_state,omitempty"`
-	Reason    string    `json:"reason,omitempty"`
-	CheckedAt time.Time `json:"checked_at"`
+	State    string `json:"state"`
+	RecordID string `json:"record_id,omitempty"`
+	Record   string `json:"record_state,omitempty"`
+	Reason   string `json:"reason,omitempty"`
+	// Candidates are the accepted records an operator may pin when the clip
+	// is ambiguous.
+	Candidates []string  `json:"candidates,omitempty"`
+	CheckedAt  time.Time `json:"checked_at"`
 }
 
 // Placed reports whether a record places the clip.
@@ -61,11 +64,11 @@ func (r Registration) Placed() bool { return r.State == ClipRegistered && r.Reco
 //
 // Only accepted records count, and only those of the clip's sensor or of no
 // stated sensor (Gerardus refuses a field whose sensor differs). A record
-// superseded by another in the list is passed over. Among the rest, one
-// whose capture_ref names one of refs (by basename, either way round) wins;
-// with none naming the clip, the most recently reviewed wins. Two records
-// equally good are refused rather than guessed between: a field placed by the
-// wrong pose corrupts the site's sum for every later proposal.
+// superseded by another in the list is passed over. One record left places
+// the clip. With several, the one whose capture_ref names one of refs (by
+// basename, extension aside) places it; otherwise the clip is ambiguous and
+// refused rather than guessed: a field placed by the wrong pose corrupts the
+// site's sum for every later proposal.
 func AcceptedRecord(records []Record, sensorID string, refs []string) Registration {
 	superseded := map[string]bool{}
 	for _, r := range records {
@@ -109,9 +112,21 @@ func AcceptedRecord(records []Record, sensorID string, refs []string) Registrati
 	if len(named) > 0 {
 		pool = named
 	}
-	sort.SliceStable(pool, func(i, j int) bool { return pool[i].ReviewedAt.After(pool[j].ReviewedAt) })
-	if len(pool) > 1 && pool[0].ReviewedAt.Equal(pool[1].ReviewedAt) {
-		return Registration{State: ClipAmbiguous, Reason: fmt.Sprintf("records %s and %s fit equally; name one", pool[0].RecordID, pool[1].RecordID)}
+	// Two live records are two scans: two sensor positions, or two visits.
+	// Unless the clip's own capture picks one, nothing here can tell which
+	// pose its tracks were seen from, so it is refused, as the scene vectors
+	// refuse a site with several accepted scans.
+	if len(pool) > 1 {
+		ids := make([]string, 0, len(pool))
+		for _, r := range pool {
+			ids = append(ids, r.RecordID)
+		}
+		sort.Strings(ids)
+		why := "none names this clip's capture"
+		if len(named) > 0 {
+			why = "more than one names this clip's capture"
+		}
+		return Registration{State: ClipAmbiguous, Candidates: ids, Reason: fmt.Sprintf("%d accepted records at this site (%s) and %s", len(pool), strings.Join(ids, ", "), why)}
 	}
 	return Registration{State: ClipRegistered, RecordID: pool[0].RecordID, Record: pool[0].State}
 }
@@ -131,4 +146,30 @@ func namesClip(captureRef string, refs []string) bool {
 		}
 	}
 	return false
+}
+
+// PinnedRecord checks a record an operator named for a clip: it must be one of
+// the site's live accepted records, of the clip's sensor or of none.
+func PinnedRecord(records []Record, sensorID, recordID string) Registration {
+	superseded := map[string]bool{}
+	for _, r := range records {
+		if r.Supersedes != "" {
+			superseded[r.Supersedes] = true
+		}
+	}
+	for _, r := range records {
+		if r.RecordID != recordID {
+			continue
+		}
+		switch {
+		case !r.Accepted():
+			return Registration{State: ClipNotRegistered, Reason: fmt.Sprintf("record %s is %s, not an accepted pose", recordID, r.State)}
+		case superseded[r.RecordID]:
+			return Registration{State: ClipNotRegistered, Reason: fmt.Sprintf("record %s has been superseded", recordID)}
+		case r.SensorID != "" && sensorID != "" && r.SensorID != sensorID:
+			return Registration{State: ClipOtherSensor, Reason: fmt.Sprintf("record %s is sensor %s, not %s", recordID, r.SensorID, sensorID)}
+		}
+		return Registration{State: ClipRegistered, RecordID: r.RecordID, Record: r.State}
+	}
+	return Registration{State: ClipNotRegistered, Reason: fmt.Sprintf("no record %s at this site", recordID)}
 }

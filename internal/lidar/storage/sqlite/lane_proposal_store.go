@@ -93,8 +93,10 @@ func scanLaneProposalRun(row jobRow) (LaneProposalRun, error) {
 }
 
 // EnqueueLaneProposals queues a lane_proposals job for a clip, or returns the
-// one already queued or running for it. created says which.
-func (s *LaneProposalStore) EnqueueLaneProposals(clipID, detail string) (CaptureJob, bool, error) {
+// one already queued or running for it. created says which. recordID, when
+// set, is the accepted record an operator named to place the clip, for a site
+// with several; the job places the fields by it rather than choosing.
+func (s *LaneProposalStore) EnqueueLaneProposals(clipID, detail, recordID string) (CaptureJob, bool, error) {
 	if clipID == "" {
 		return CaptureJob{}, false, fmt.Errorf("clip id is required")
 	}
@@ -142,8 +144,8 @@ func (s *LaneProposalStore) EnqueueLaneProposals(clipID, detail string) (Capture
 		return active, false, nil
 	}
 	if _, err := tx.Exec(`
-		INSERT INTO lidar_clip_lane_proposals (proposal_run_id, clip_id, job_id, created_at_ns)
-		VALUES (?, ?, ?, ?)`, "lpr-"+uuid.NewString(), clipID, job.JobID, now); err != nil {
+		INSERT INTO lidar_clip_lane_proposals (proposal_run_id, clip_id, job_id, record_id, created_at_ns)
+		VALUES (?, ?, ?, ?, ?)`, "lpr-"+uuid.NewString(), clipID, job.JobID, nullIfEmpty(recordID), now); err != nil {
 		return CaptureJob{}, false, fmt.Errorf("link lane proposals job to clip: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

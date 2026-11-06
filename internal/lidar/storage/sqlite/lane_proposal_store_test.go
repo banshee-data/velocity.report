@@ -10,15 +10,15 @@ func TestLaneProposalStoreKeepsOneActiveJobAndReadsTheNewest(t *testing.T) {
 	insertCase(t, clips, "clip-1", "kirk/kirk2.pcapng")
 	s := NewLaneProposalStore(clips.db)
 
-	first, created, err := s.EnqueueLaneProposals("clip-1", "queued")
+	first, created, err := s.EnqueueLaneProposals("clip-1", "queued", "")
 	if err != nil || !created || first.Kind != JobKindLaneProposals {
 		t.Fatalf("first enqueue: %+v created=%v err=%v", first, created, err)
 	}
-	again, created, err := s.EnqueueLaneProposals("clip-1", "queued")
+	again, created, err := s.EnqueueLaneProposals("clip-1", "queued", "")
 	if err != nil || created || again.JobID != first.JobID {
 		t.Fatalf("second enqueue made %+v (created=%v, err=%v), want the active %s", again, created, err, first.JobID)
 	}
-	if _, _, err := s.EnqueueLaneProposals("missing", ""); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.EnqueueLaneProposals("missing", "", ""); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unknown clip: %v", err)
 	}
 
@@ -53,7 +53,7 @@ func TestLaneProposalStoreKeepsOneActiveJobAndReadsTheNewest(t *testing.T) {
 		t.Fatalf("completed clip lanes = %+v", cl.Latest)
 	}
 
-	second, created, err := s.EnqueueLaneProposals("clip-1", "")
+	second, created, err := s.EnqueueLaneProposals("clip-1", "", "")
 	if err != nil || !created || second.JobID == first.JobID {
 		t.Fatalf("a completed job blocks a re-run: %+v %v %v", second, created, err)
 	}

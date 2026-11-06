@@ -6,10 +6,11 @@ package server
 //   - GET  /api/lidar/clips?lanes=1 — every clip with its location, its
 //     registration in Gerardus and its lane proposals (newest completed run,
 //     newest job, and whether the newest is current)
-//   - POST /api/lidar/clips/{clip_id}/lane-proposals — queue one job for a clip
+//   - POST /api/lidar/clips/{clip_id}/lane-proposals?record_id=… — queue one job
+//     for a clip; record_id names the accepted record at a site with several
 //   - POST /api/lidar/clips/lane-proposals/rerun?force=1&dry_run=1 — queue one
 //     job for every registered clip whose lanes are stale or absent
-//   - POST /api/lidar/runs/{run_id}/lane-proposals?clip_id=…|dataset_id=… —
+//   - POST /api/lidar/runs/{run_id}/lane-proposals?clip_id=…|dataset_id=…[&record_id=…] —
 //     the same from a finished run's recording, without replaying
 //
 // The job replays the clip headlessly, builds its three lane fields, uploads
@@ -260,7 +261,8 @@ func (ws *Server) handleClipLaneProposals(w http.ResponseWriter, r *http.Request
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	reg, err := ws.registrationOf(r.Context(), clip)
+	pinned := strings.TrimSpace(r.URL.Query().Get("record_id"))
+	reg, err := ws.registrationOf(r.Context(), clip, pinned)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -273,7 +275,7 @@ func (ws *Server) handleClipLaneProposals(w http.ResponseWriter, r *http.Request
 		ws.writeJSON(w, status, map[string]any{"error": "the clip is not registered: " + reg.Reason, "registration": reg})
 		return
 	}
-	job, created, err := sqlite.NewLaneProposalStore(ws.db).EnqueueLaneProposals(clipID, laneJobQueuedDetail)
+	job, created, err := sqlite.NewLaneProposalStore(ws.db).EnqueueLaneProposals(clipID, laneJobQueuedDetail, pinned)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -285,7 +287,9 @@ func (ws *Server) handleClipLaneProposals(w http.ResponseWriter, r *http.Request
 	ws.writeJSON(w, status, map[string]any{"job": job, "created": created, "registration": reg})
 }
 
-func (ws *Server) registrationOf(ctx context.Context, clip *sqlite.Clip) (gerardus.Registration, error) {
+// registrationOf answers for a clip, by the record an operator pinned when
+// there is one.
+func (ws *Server) registrationOf(ctx context.Context, clip *sqlite.Clip, pinned string) (gerardus.Registration, error) {
 	store := sqlite.NewClipStore(ws.db)
 	loc, err := store.ClipLocationOf(clip.ClipID)
 	if err != nil {
@@ -297,7 +301,26 @@ func (ws *Server) registrationOf(ctx context.Context, clip *sqlite.Clip) (gerard
 	}
 	cctx, cancel := context.WithTimeout(ctx, gerardusCallTimeout)
 	defer cancel()
-	return ws.clipRegistration(cctx, clip, loc, paths, false), nil
+	return ws.clipRegistrationPinned(cctx, clip, loc, paths, pinned, false), nil
+}
+
+// clipRegistrationPinned is clipRegistration, or the pinned record checked.
+func (ws *Server) clipRegistrationPinned(ctx context.Context, clip *sqlite.Clip, loc *sqlite.ClipLocation, paths []string, pinned string, fresh bool) gerardus.Registration {
+	if pinned == "" {
+		return ws.clipRegistration(ctx, clip, loc, paths, fresh)
+	}
+	st := ws.lanes()
+	now := st.now()
+	if loc == nil || loc.L16Token == "" {
+		return gerardus.Registration{State: gerardus.ClipNotLocated, Reason: "the clip has no location", CheckedAt: now}
+	}
+	recs, err := st.records(ctx, loc.L16Token, fresh)
+	if err != nil {
+		return gerardus.Registration{State: gerardus.ClipUnknown, Reason: fmt.Sprintf("Gerardus at %s did not answer: %v", st.address, err), CheckedAt: now}
+	}
+	reg := gerardus.PinnedRecord(recs, clip.SensorID, pinned)
+	reg.CheckedAt = now
+	return reg
 }
 
 // RerunClip is one clip's place in a re-run: queued, or skipped and why.
@@ -391,7 +414,7 @@ func (ws *Server) handleRerunLaneProposals(w http.ResponseWriter, r *http.Reques
 	for _, c := range run {
 		entry := RerunClip{ClipID: c.clip.ClipID, Description: c.clip.Description}
 		if !dry {
-			job, _, err := lps.EnqueueLaneProposals(c.clip.ClipID, laneJobQueuedDetail)
+			job, _, err := lps.EnqueueLaneProposals(c.clip.ClipID, laneJobQueuedDetail, "")
 			if err != nil {
 				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 				return
@@ -467,7 +490,9 @@ func (ws *Server) runLaneProposalsWith(ctx context.Context, job capjobs.Job, rep
 	if !info.SupportsLaneFields {
 		return fmt.Errorf("Gerardus %s at %s takes no lane fields", info.Version, st.address)
 	}
-	reg := ws.clipRegistration(ctx, clip, loc, paths, true)
+	// A record pinned when the job was queued places the fields; otherwise
+	// the clip's own, chosen afresh.
+	reg := ws.clipRegistrationPinned(ctx, clip, loc, paths, row.RecordID, true)
 	if !reg.Placed() {
 		return fmt.Errorf("the clip is not registered (%s): %s", reg.State, reg.Reason)
 	}
@@ -583,7 +608,7 @@ func (ws *Server) handleRunLaneProposals(w http.ResponseWriter, r *http.Request,
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	reg, err := ws.registrationOf(r.Context(), clip)
+	reg, err := ws.registrationOf(r.Context(), clip, strings.TrimSpace(q.Get("record_id")))
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return

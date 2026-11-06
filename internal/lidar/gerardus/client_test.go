@@ -125,10 +125,14 @@ func TestAcceptedRecord(t *testing.T) {
 			{RecordID: "r1", State: StateRegistered, SensorID: sensor, CaptureRef: "s2-sf-3.pcapng", ReviewedAt: day(1)},
 			{RecordID: "r2", State: StateRegistered, SensorID: sensor, CaptureRef: "s2-sf-9.pcapng", ReviewedAt: day(5)},
 		}, []string{"/Volumes/lidar/pcaps/s2-sf-3.pcapng"}, ClipRegistered, "r1"},
-		{"newest without a name", []Record{
+		{"two without a name refused", []Record{
 			{RecordID: "r1", State: StateRegistered, SensorID: sensor, ReviewedAt: day(1)},
 			{RecordID: "r2", State: StateRegistered, SensorID: sensor, ReviewedAt: day(5)},
-		}, []string{"x.pcapng"}, ClipRegistered, "r2"},
+		}, []string{"x.pcapng"}, ClipAmbiguous, ""},
+		{"named without extension", []Record{
+			{RecordID: "r1", State: StateRegistered, SensorID: sensor, CaptureRef: "kirk1", ReviewedAt: day(1)},
+			{RecordID: "r2", State: StateRegistered, SensorID: sensor, CaptureRef: "kirk2", ReviewedAt: day(5)},
+		}, []string{"/c/kirk1.pcapng"}, ClipRegistered, "r1"},
 		{"superseded passed over", []Record{
 			{RecordID: "r1", State: StateRegistered, SensorID: sensor, ReviewedAt: day(9)},
 			{RecordID: "r2", State: StateRegistered, SensorID: sensor, Supersedes: "r1", ReviewedAt: day(5)},
@@ -142,6 +146,9 @@ func TestAcceptedRecord(t *testing.T) {
 		got := AcceptedRecord(c.records, sensor, c.refs)
 		if got.State != c.state || got.RecordID != c.record {
 			t.Errorf("%s: got %+v, want %s %s", c.name, got, c.state, c.record)
+		}
+		if got.State == ClipAmbiguous && len(got.Candidates) < 2 {
+			t.Errorf("%s: ambiguous without candidates: %+v", c.name, got)
 		}
 	}
 }
@@ -194,5 +201,20 @@ func TestUploadLaneFieldStreams(t *testing.T) {
 	}
 	if again, err := c.UploadLaneField(ctx, field(2)); err != nil || !again.AlreadyStored {
 		t.Fatalf("repeat = %+v, %v", again, err)
+	}
+}
+
+func TestPinnedRecord(t *testing.T) {
+	recs := []Record{
+		{RecordID: "a", State: StateRegistered, SensorID: "s"},
+		{RecordID: "b", State: "rejected", SensorID: "s"},
+		{RecordID: "c", State: StateRegistered, SensorID: "other"},
+		{RecordID: "d", State: StateManuallyPlaced, SensorID: "s", Supersedes: "e"},
+		{RecordID: "e", State: StateRegistered, SensorID: "s"},
+	}
+	for id, want := range map[string]string{"a": ClipRegistered, "d": ClipRegistered, "b": ClipNotRegistered, "c": ClipOtherSensor, "e": ClipNotRegistered, "z": ClipNotRegistered} {
+		if got := PinnedRecord(recs, "s", id); got.State != want {
+			t.Errorf("PinnedRecord(%s) = %+v, want %s", id, got, want)
+		}
 	}
 }
