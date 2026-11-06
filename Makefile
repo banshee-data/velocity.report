@@ -1080,6 +1080,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_update_packaging.py \
 	tools/s2-archive/test_export_static_pcaps.py \
 	tools/s2-archive/test_publish_scenes.py \
+	tools/s2-archive/test_lane_fields.py \
 	tools/s2-archive/test_scene_vectors.py \
 	tools/s2-archive/test_city_frame.py \
 	tools/s2-archive/test_export_scene_variants.py \
@@ -2636,6 +2637,20 @@ scene-variants-recipes:
 	@$(SCENE_VARIANTS_ENV) python3 $(SCENE_VARIANTS) "$(SET)" --recipes "$(RECIPE)" | while read -r recipe; do \
 		echo "  make capture-scene RECIPE=$$recipe"; \
 	done
+
+# Lane proposals across every registered clip, without replaying scenes
+# (docs/plans/lidar-lane-field-batch-plan.md). The server queues one
+# lane_proposals job per clip whose lanes are stale or missing and runs them;
+# this follows them to the end. The server talks to Gerardus at its
+# --gerardus-url, which must be the one the visualiser reads. FORCE=1 re-runs
+# current clips too; DRY=1 says what it would do. LIDAR_API_URL names another
+# server.
+#
+#     make lane-fields [FORCE=1] [DRY=1]
+LANE_FIELDS_API ?= http://localhost:8080/api/lidar
+.PHONY: lane-fields
+lane-fields:
+	@LIDAR_API_URL="$(or $(LIDAR_API_URL),$(LANE_FIELDS_API))" python3 tools/s2-archive/lane-fields.py $(if $(FORCE),--force) $(if $(DRY),--dry-run)
 
 # =============================================================================
 # LIDAR SCENE CAPTURE

@@ -586,13 +586,15 @@ class ReplayTests(unittest.TestCase):
         self.assertLessEqual(since, before)
         self.assertGreater(since, before - 2_000_000_000)
 
-    def test_replay_stretch_still_returns_the_vrlog(self):
+    def test_replay_stretch_returns_the_vrlog_and_the_run(self):
         with mock.patch.object(
             publish_scenes,
             "replay",
             return_value={"vrlog": "/v/x", "run_id": "r", "start": {}},
         ) as replay:
-            self.assertEqual(publish_scenes.replay_stretch(self.scene()), "/v/x")
+            replayed = publish_scenes.replay_stretch(self.scene())
+            self.assertEqual(replayed["vrlog"], "/v/x")
+            self.assertEqual(replayed["run_id"], "r")
         # The batch's tuning file is named on every start, so a scene never runs
         # whatever file the server last had applied.
         replay.assert_called_once_with(self.scene(), publish_scenes.TUNING_CONFIG)
@@ -663,3 +665,45 @@ class TrailTests(unittest.TestCase):
                 self.run_export()
             with self.assertRaises(SystemExit):
                 publish_scenes.main()
+
+
+class LaneFieldStepTests(unittest.TestCase):
+    """The lane step after each replay: the server's run form, never fatal."""
+
+    def test_the_run_form_is_called_with_the_site_as_dataset_id(self):
+        calls = []
+
+        def fake_api(path, payload=None, timeout=900):
+            calls.append(path)
+            return {"high": 6, "medium": 2, "outstanding": 8}
+
+        with mock.patch.object(publish_scenes, "api", fake_api), mock.patch.object(
+            publish_scenes, "LANE_FIELDS", "on"
+        ):
+            marker, said = publish_scenes.land_lane_fields("columbus-broadway", "run-9")
+        self.assertEqual(
+            calls, ["/runs/run-9/lane-proposals?dataset_id=columbus-broadway"]
+        )
+        self.assertEqual(marker, "high=6,medium=2")
+        self.assertIn("8 to review", said)
+
+    def test_a_refusal_is_logged_and_the_scene_goes_on(self):
+        def refusing(path, payload=None, timeout=900):
+            raise RuntimeError(
+                "409 on /runs/r/lane-proposals: the clip is not registered\nmore"
+            )
+
+        with mock.patch.object(publish_scenes, "api", refusing), mock.patch.object(
+            publish_scenes, "LANE_FIELDS", "on"
+        ):
+            marker, said = publish_scenes.land_lane_fields("morg", "r")
+        self.assertEqual(marker, "skipped")
+        self.assertIn("not registered", said)
+        self.assertNotIn("more", said)
+
+    def test_off_calls_nothing(self):
+        with mock.patch.object(publish_scenes, "api") as api, mock.patch.object(
+            publish_scenes, "LANE_FIELDS", "off"
+        ):
+            self.assertEqual(publish_scenes.land_lane_fields("x", "r")[0], "off")
+        api.assert_not_called()
