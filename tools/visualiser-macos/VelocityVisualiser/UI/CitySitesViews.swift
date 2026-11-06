@@ -37,8 +37,9 @@ enum CitySiteText {
 }
 
 @available(macOS 15.0, *) struct SitePickerToolbar: View {
+    /// The session only, never AppState: AppState publishes on every frame,
+    /// and a menu rebuilt while it is open hangs on screen over other windows.
     @ObservedObject var city: CityViewSession
-    @EnvironmentObject var appState: AppState
 
     var body: some View {
         if !city.sites.isEmpty {
@@ -46,28 +47,31 @@ enum CitySiteText {
             HStack(spacing: 4) {
                 Button(action: { Task { await city.step(-1) } }) {
                     Image(systemName: "chevron.left")
-                }.help("Previous site").disabled(city.switchingTo != nil)
+                }.help("Previous site")
                 Menu {
                     ForEach(city.sites) { site in
                         Button(CitySiteText.row(site)) { Task { await city.select(site) } }
                     }
-                    if appState.siteContext.site != nil {
+                    if city.currentSite != nil {
                         Divider()
-                        Button("No site: show what the server streams") { appState.leaveCitySite() }
+                        Button("No site: show what the server streams") { city.leaveSite() }
                     }
                 } label: {
-                    Label(menuTitle, systemImage: "mappin.and.ellipse")
+                    Label(
+                        menuTitle,
+                        systemImage: city.switchError == nil
+                            ? "mappin.and.ellipse" : "exclamationmark.triangle")
                 }.frame(maxWidth: 220).help(menuHelp)
                 Button(action: { Task { await city.step(1) } }) {
                     Image(systemName: "chevron.right")
-                }.help("Next site").disabled(city.switchingTo != nil)
+                }.help("Next site")
             }
         }
     }
 
     private var menuTitle: String {
         if let id = city.switchingTo { return "Opening \(city.index?.site(id: id)?.title ?? id)…" }
-        return appState.siteContext.site?.title ?? "Sites"
+        return city.currentSite?.title ?? "Sites"
     }
 
     private var menuHelp: String {
@@ -213,37 +217,78 @@ enum CitySiteText {
     var body: some View {
         if city.isCityMode {
             ZStack(alignment: .topLeading) {
-                ForEach(city.overlay.streets) { label in
-                    Text(label.name).font(.system(size: label.arterial ? 11 : 9.5, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(label.arterial ? 0.85 : 0.65)).shadow(
-                            color: .black, radius: 1.5
-                        ).fixedSize().rotationEffect(.degrees(label.angleDeg)).position(
-                            label.screen
-                        ).allowsHitTesting(false)
-                }
-                ForEach(city.overlay.markers) { marker in
-                    Button {
-                        guard let site = city.index?.site(id: marker.id) else { return }
-                        Task { await city.select(site) }
-                    } label: {
-                        CityMarkerLabel(
-                            marker: marker,
-                            clock: marker.focused ? clock : city.siteClocks[marker.id])
-                    }.buttonStyle(.plain).fixedSize().position(
-                        x: marker.screen.x, y: marker.screen.y - 14
-                    ).help(
-                        marker.placed
-                            ? "Switch to \(marker.title) and fly there"
-                            : "Not yet placed: \(marker.title) has no accepted pose")
-                }
-                VStack {
+                CityLiveOverlayView(city: city, live: city.live, clock: clock)
+                VStack(spacing: 6) {
+                    CitySwitchBanner(city: city)
                     Spacer()
                     Text(SeparationCopy.line).font(.caption).foregroundStyle(.secondary).padding(
                         .horizontal, 10
                     ).padding(.vertical, 5).background(.ultraThinMaterial, in: Capsule()).padding(
-                        .bottom, 10)
-                }.frame(maxWidth: .infinity).allowsHitTesting(false)
+                        .bottom, 10
+                    ).allowsHitTesting(false)
+                }.frame(maxWidth: .infinity).padding(.top, 10)
             }
+        }
+    }
+}
+
+/// The markers and street names, redrawn as the camera moves.
+@available(macOS 15.0, *) struct CityLiveOverlayView: View {
+    let city: CityViewSession
+    @ObservedObject var live: CityLiveOverlay
+    var clock: String?
+
+    var body: some View {
+        ForEach(live.overlay.streets) { label in
+            Text(label.name).font(.system(size: label.arterial ? 11 : 9.5, weight: .medium))
+                .foregroundStyle(Color.white.opacity(label.arterial ? 0.85 : 0.65)).shadow(
+                    color: .black, radius: 1.5
+                ).fixedSize().rotationEffect(.degrees(label.angleDeg)).position(label.screen)
+                .allowsHitTesting(false)
+        }
+        ForEach(live.overlay.markers) { marker in
+            CityMarkerLabel(
+                marker: marker, clock: marker.focused ? clock : live.siteClocks[marker.id]
+            ).contentShape(Rectangle())
+                // A tap, not a Button: the marker moves under the pointer as
+                // the camera does, and a Button whose frame moves between
+                // press and release cancels the press, so the click blinked
+                // and did nothing.
+                .onTapGesture {
+                    guard let site = city.index?.site(id: marker.id) else { return }
+                    Task { await city.select(site) }
+                }.fixedSize().position(x: marker.screen.x, y: marker.screen.y - 14).help(
+                    marker.placed
+                        ? "Switch to \(marker.title) and fly there"
+                        : "Not yet placed: \(marker.title) has no accepted pose")
+        }
+    }
+}
+
+/// The switch under way, or why the last one failed, so a click that
+/// cannot open a site says so instead of doing nothing.
+@available(macOS 15.0, *) struct CitySwitchBanner: View {
+    @ObservedObject var city: CityViewSession
+
+    var body: some View {
+        if let id = city.switchingTo {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Opening \(city.index?.site(id: id)?.title ?? id)…").font(.caption)
+            }.padding(.horizontal, 10).padding(.vertical, 5).background(
+                .ultraThinMaterial, in: Capsule())
+        } else if let error = city.switchError {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
+                Text(error).font(.caption).lineLimit(2)
+                Button {
+                    city.dismissSwitchError()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }.buttonStyle(.plain).help("Dismiss")
+            }.padding(.horizontal, 10).padding(.vertical, 5).background(
+                .ultraThinMaterial, in: Capsule()
+            ).frame(maxWidth: 520)
         }
     }
 }
