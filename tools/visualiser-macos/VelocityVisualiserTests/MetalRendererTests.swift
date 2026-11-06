@@ -940,8 +940,10 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
         let renderer = try createRenderer()
 
         var frame = FrameBundle()
+        // Trails are drawn only for tracks shown in the frame (#947).
         frame.tracks = TrackSet(
-            frameID: 1, timestampNanos: 0, tracks: [],
+            frameID: 1, timestampNanos: 300,
+            tracks: [Track(trackID: "track-001", state: .confirmed, x: 12.0, y: 22.0, z: 0.0)],
             trails: [
                 TrackTrail(
                     trackID: "track-001",
@@ -953,8 +955,13 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
             ])
 
         renderer.updateFrame(frame)
+        // One segment of independent line pairs, two vertices for each edge
+        // the trail geometry gives (a dashed style splits an edge in pieces).
+        let edges = TrailGeometry.edges(
+            trails: frame.tracks?.trails ?? [], visibleIDs: ["track-001"], timestampNanos: 300)
+        XCTAssertFalse(edges.isEmpty)
         XCTAssertEqual(renderer.trailSegments.count, 1)
-        XCTAssertEqual(renderer.trailSegments[0].count, 3)
+        XCTAssertEqual(renderer.trailSegments.first?.count, edges.count * 2)
     }
 
     func testUpdateFrameWithSinglePointTrail() throws {
