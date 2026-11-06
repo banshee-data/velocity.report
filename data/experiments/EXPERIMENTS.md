@@ -44,23 +44,38 @@ A spec is a Markdown file whose YAML header the validator reads and whose body i
 [l3bg0006](l3bg/l3bg0006.md) is a complete answered example; [l3bg0009](l3bg/l3bg0009.md) and
 [label0001](label/label0001.md) show manual steps and dependencies.
 
-| Field        | Required                      | Meaning                                                                                                                                                                                                                    |
-| ------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`         | yes                           | The slug; must match the file name and a registered area.                                                                                                                                                                  |
-| `title`      | yes                           | One line.                                                                                                                                                                                                                  |
-| `status`     | yes                           | `proposed`, `approved`, `answered` or `retired`. Authoring state only: queued, running and waiting are the queue's, never written here.                                                                                    |
-| `owner`      | yes                           | Who approves and answers it.                                                                                                                                                                                               |
-| `created`    | yes                           | `YYYY-MM-DD`.                                                                                                                                                                                                              |
-| `asks`       | yes                           | The questions it answers: the repository path of the Markdown that poses each (briefing, plan, report, proposal), with an optional `#anchor`, or a decision id such as `D-28`.                                             |
-| `depends_on` | no                            | Slugs whose answers this one needs first.                                                                                                                                                                                  |
-| `report`     | once answered                 | The report under `docs/` that answers it. A proposed spec may name the report it intends.                                                                                                                                  |
-| `reason`     | once retired                  | Why it will not run.                                                                                                                                                                                                       |
-| `requires`   | no                            | `capabilities` a worker must offer, `disk_gb` of free scratch space before a step starts, `cores`.                                                                                                                         |
-| `reclaim`    | no                            | Who may take over a step whose worker stopped: `any` (the default: a worker configured to reclaim orphans), `origin` (only the worker that started it) or `never` (the operator decides).                                  |
-| `arms`       | if a step fans out over arms  | Each a `name`, a `tuning` file (`config/tuning.defaults.json` or a parameter set under `config/experiments/`), any `replay` options (`-experiment` names) and any `export` options of its scene export (`smoothed_trail`). |
-| `cases`      | if a step fans out over cases | A named `corpus` and a `count`, optionally the `sites`.                                                                                                                                                                    |
-| `steps`      | yes                           | In order; see below.                                                                                                                                                                                                       |
-| `actual`     | no                            | For an answered spec: the `wall` time it took and on which `worker`, to calibrate the next estimate.                                                                                                                       |
+| Field        | Required                      | Meaning                                                                                                                                                                                                                                               |
+| ------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`         | yes                           | The slug; must match the file name and a registered area.                                                                                                                                                                                             |
+| `title`      | yes                           | One line.                                                                                                                                                                                                                                             |
+| `status`     | yes                           | `proposed`, `approved`, `answered` or `retired`. Authoring state only: queued, running and waiting are the queue's, never written here.                                                                                                               |
+| `owner`      | yes                           | Who approves and answers it.                                                                                                                                                                                                                          |
+| `created`    | yes                           | `YYYY-MM-DD`.                                                                                                                                                                                                                                         |
+| `asks`       | yes                           | The questions it answers: the repository path of the Markdown that poses each (briefing, plan, report, proposal), with an optional `#anchor`, or a decision id such as `D-28`.                                                                        |
+| `depends_on` | no                            | Slugs whose answers this one needs first.                                                                                                                                                                                                             |
+| `report`     | once answered                 | The report under `docs/` that answers it. A proposed spec may name the report it intends.                                                                                                                                                             |
+| `reason`     | once retired                  | Why it will not run.                                                                                                                                                                                                                                  |
+| `requires`   | no                            | `capabilities` a worker must offer, `disk_gb` of free scratch space before a step starts, `cores`.                                                                                                                                                    |
+| `reclaim`    | no                            | Who may take over a step whose worker stopped: `any` (the default: a worker configured to reclaim orphans), `origin` (only the worker that started it) or `never` (the operator decides).                                                             |
+| `arms`       | if a step fans out over arms  | Each a `name`, a `tuning` file (`config/tuning.defaults.json` or a parameter set under `config/experiments/`), its `fingerprint` (below), any `replay` options (`-experiment` names) and any `export` options of its scene export (`smoothed_trail`). |
+| `cases`      | if a step fans out over cases | A named `corpus` and a `count`, optionally the `sites`.                                                                                                                                                                                               |
+| `steps`      | yes                           | In order; see below.                                                                                                                                                                                                                                  |
+| `actual`     | no                            | For an answered spec: the `wall` time it took and on which `worker`, to calibrate the next estimate.                                                                                                                                                  |
+
+**Fingerprints.** Each arm records the tuning fingerprint of its file, the value a server loading
+the file reports, so the spec says what the arm runs and not only which file it names.
+`experiments pin <slug>` writes it on the line after the arm's `tuning` (`pin -open` does every
+open spec). The validator holds two rules from the
+[queue plan](../../docs/plans/platform-experiment-queue-plan.md#12-keeping-a-spec-true-to-what-ran):
+
+- An open spec (`proposed` or `approved`) must carry a fingerprint on every arm, equal to its
+  file's current one. When a file changes under an open spec the validator refuses it until the
+  spec is restated against the new values and re-pinned, or its arm moves to a parameter set that
+  holds the old ones. `mark ... start` refuses a drifted arm the same way (`-force` overrides).
+- An answered spec keeps the fingerprints it ran under, which may differ from the file's after an
+  adoption, and its report must contain each one. Specs created before 2026-11-06 may leave the
+  field out; `unknown` marks an arm that ran before pinning and whose report records nothing to
+  take one from.
 
 **Steps.** Each has an `id`, a `kind`, an `estimate`, and optionally `after` (the steps it waits
 for; by default the one before it, `-` for none), `over` (`arms`, `cases` or both, to fan out),
@@ -143,6 +158,7 @@ make experiments-graph                         # regenerate DEPENDENCIES.md
 go run ./cmd/tools/experiments next            # open experiments and what each waits for
 go run ./cmd/tools/experiments show l3bg0009   # one spec's steps, fan-out and estimate
 go run ./cmd/tools/experiments new l3bg        # the next free slug in an area
+go run ./cmd/tools/experiments pin l3bg0009    # record each arm's tuning fingerprint (-open: every open spec)
 go run ./cmd/tools/experiments status          # approved experiments: units done, time left
 go run ./cmd/tools/experiments units l3bg0008 -step replay -todo   # what a lane has left
 go run ./cmd/tools/experiments mark l3bg0008 replay/a0/lombard-laguna done -out DIR

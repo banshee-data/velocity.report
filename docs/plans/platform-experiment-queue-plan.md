@@ -12,8 +12,9 @@ the review workflow and the old campaign supervisor already do, rather than buil
   validator, the dependency graph and fifteen specs. Phase 1's progress half is built: units, a
   state file per unit, `mark`, `units` and `status` (see [Progress](../../data/experiments/EXPERIMENTS.md#progress)).
   Expanding a spec into campaign submissions, and the hub queue, are not built. Section 12
-  pins each arm's tuning fingerprint at creation (review P6, decided October 20, 2026); its removal
-  of `approved` is superseded: `approved` stays as the gate for unattended runs ([harness
+  pins each arm's tuning fingerprint at creation (review P6, decided October 20, 2026), built
+  November 5, 2026: arms carry `fingerprint`, `experiments pin` records it, the validator holds
+  both rules and `mark` refuses a drifted arm; its removal of `approved` is superseded: `approved` stays as the gate for unattended runs ([harness
   decision 1](platform-experiment-harness-plan.md#13-decisions), October 22, 2026)
 - **Canonical:** [Experiments](../../data/experiments/EXPERIMENTS.md)
 - **Layers:** platform (jobs, workers, hub); every LiDAR layer as a subject
@@ -366,14 +367,14 @@ and take parameter sets, as section 1 already requires.
 
 ### Steps
 
-| Step                                                                                          | Effort | Milestone |
-| --------------------------------------------------------------------------------------------- | ------ | --------- |
-| `fingerprint` on arms; the validator's two rules; the report check                            | `S`    | v0.5.9    |
-| Backfill the 38 answered specs from their reports' commits                                    | `S`    | v0.5.9    |
-| Arms pinned at creation (removing `approved` withdrawn: harness decision 1)                   | `S`    | v0.5.9    |
-| Restate l3bg0009's arms against l3bg0025; replace the deleted set's citations with commits    | `S`    | v0.5.9    |
-| Unit states renamed to the hub's; `DEPENDENCIES.md` wording from them                         | `S`    | v0.5.9    |
-| Full-key README-row test; the optimised and sweep files moved or deleted; campaigns take sets | `S`    | v0.5.10   |
+| Step                                                                                                                           | Effort | Milestone |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------ | --------- |
+| `fingerprint` on arms; the validator's two rules; the report check (built 2026-11-05)                                          | `S`    | v0.5.3    |
+| Backfill answered specs from their reports' commits (partial: the 7 arms whose reports carry their file's current fingerprint) | `S`    | v0.5.9    |
+| Arms pinned at creation (removing `approved` withdrawn: harness decision 1) (built 2026-11-05)                                 | `S`    | v0.5.3    |
+| Restate l3bg0009's arms against l3bg0025; replace the deleted set's citations with commits                                     | `S`    | v0.5.9    |
+| Unit states renamed to the hub's; `DEPENDENCIES.md` wording from them                                                          | `S`    | v0.5.9    |
+| Full-key README-row test; the optimised and sweep files moved or deleted; campaigns take sets                                  | `S`    | v0.5.10   |
 
 ### Not in scope
 

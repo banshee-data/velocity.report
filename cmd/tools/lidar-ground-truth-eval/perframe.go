@@ -20,7 +20,7 @@ import (
 
 type armFlags struct {
 	label, db, source, estimator, model, params, stage, runID *string
-	declaredBaseline, solidBody, boxes                        *bool
+	declaredBaseline, solidBody, boxes, measurements          *bool
 	name                                                      string
 }
 
@@ -39,6 +39,9 @@ func registerArm(fs *flag.FlagSet, name, defaultLabel string) armFlags {
 		solidBody:        fs.Bool(name+"-solid-body", false, "read the version from lidar_track_solid_bodies (replay -experiment solid_body) instead of lidar_track_estimates"),
 		boxes: fs.Bool(name+"-boxes", false, "read the published box filed beside each online estimate of the version "+
 			"(lidar_track_observations) as the body; needs "+p+"stage online, and not with "+p+"solid-body"),
+		measurements: fs.Bool(name+"-measurements", false, "read the measurement each estimate's update consumed "+
+			"(lidar_track_residuals: the L4 cluster position under the replay's position model) instead of the filtered state; "+
+			"not with "+p+"solid-body or "+p+"boxes"),
 		name: name,
 	}
 }
@@ -47,7 +50,7 @@ func (a armFlags) spec() perframeeval.ArmSpec {
 	return perframeeval.ArmSpec{
 		Label: *a.label, DBPath: *a.db, SourceID: *a.source, EstimatorID: *a.estimator,
 		ObservationModelID: *a.model, ParamHash: *a.params, Stage: *a.stage, RunID: *a.runID,
-		DeclaredBaseline: *a.declaredBaseline, SolidBodies: *a.solidBody, Boxes: *a.boxes,
+		DeclaredBaseline: *a.declaredBaseline, SolidBodies: *a.solidBody, Boxes: *a.boxes, Measurements: *a.measurements,
 	}
 }
 
@@ -55,6 +58,9 @@ func (a armFlags) spec() perframeeval.ArmSpec {
 func (a armFlags) check() error {
 	if *a.boxes && *a.solidBody {
 		return fmt.Errorf("-%s-boxes and -%s-solid-body name different rows; give one", a.name, a.name)
+	}
+	if *a.measurements && (*a.boxes || *a.solidBody) {
+		return fmt.Errorf("-%s-measurements reads the residual rows, not the boxes or solid bodies; give one", a.name)
 	}
 	return nil
 }
@@ -177,7 +183,8 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	gateMetres := fs.Float64("gate-metres", 1.0, "fixed gate, or the footprint gate's slack, in metres")
 	toleranceMs := fs.Float64("frame-tolerance-ms", 10, "how far a hypothesis point may move in time onto a reference frame")
 	maxUnaligned := fs.Float64("max-unaligned-fraction", 0.01, "refuse an arm when more than this share of its points inside an episode lands on no frame")
-	physical := fs.Bool("physical-reference", false, "also score each estimate arm against the pack's physical references (centre, yaw, dimensions, bumpers, box, following gap); a held-out split is refused")
+	physical := fs.Bool("physical-reference", false, "also score each estimate arm against the pack's physical references (centre, yaw, dimensions, bumpers, box, following gap and leader choice); a held-out split is refused unless -following-criteria names a pinned record")
+	followingCriteria := fs.String("following-criteria", "", "following-criteria record to cite and read the following strata against (config/criteria/); a held-out split needs a pinned one (needs -physical-reference)")
 	physicalRevision := fs.Int("physical-reference-revision", 0, "physical reference revision to score (default: the current one, or the revision a frozen split pins, which this must then equal); recorded either way")
 	physicalGate := fs.Float64("physical-gate-metres", perframeeval.DefaultPhysicalGateMetres, "how far a prediction's point may be from a reference body centre (or anchor) and still correspond to it")
 	bundleDir := fs.String("physical-bundle-dir", "", "write a verification bundle of the physical scoring to this new or empty directory: pinned inputs, options and outputs (needs -physical-reference; check it with verify-bundle)")
@@ -268,6 +275,7 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	if *physical {
 		opts := perframeeval.DefaultPhysicalOptions()
 		opts.Revision, opts.GateMetres, opts.FrameToleranceNanos = *physicalRevision, *physicalGate, score.FrameToleranceNanos
+		opts.FollowingCriteria = *followingCriteria
 		if err := opts.Validate(); err != nil {
 			return nil, usageError(fs, stderr, err)
 		}
@@ -276,6 +284,8 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 		return nil, usageError(fs, stderr, fmt.Errorf("-physical-reference-revision needs -physical-reference"))
 	} else if flagSet(fs, "physical-gate-metres") {
 		return nil, usageError(fs, stderr, fmt.Errorf("-physical-gate-metres needs -physical-reference"))
+	} else if *followingCriteria != "" {
+		return nil, usageError(fs, stderr, fmt.Errorf("-following-criteria needs -physical-reference"))
 	}
 	if *bundleDir != "" && cfg.Physical == nil {
 		return nil, usageError(fs, stderr, fmt.Errorf("-physical-bundle-dir needs -physical-reference"))
@@ -317,6 +327,12 @@ func printPerFrameSummary(stderr io.Writer, c *perframeeval.Comparison) {
 			fmt.Fprintf(stderr, "%s physical: centre %d scored, mean %.3f m  yaw %d scored, mean %.3f rad  gap %d scored, mean %.3f m\n",
 				arm.Arm.Label, centre.Scored, centre.MeanAbsError, yaw.Scored, yaw.MeanAbsError,
 				arm.Summary.Following.Scored, arm.Summary.Following.MeanAbsError)
+			if fa := arm.FollowingAcceptance; fa != nil {
+				fmt.Fprintf(stderr, "%s following acceptance: %s over %d strata\n", arm.Arm.Label, fa.Verdict, len(fa.Strata))
+			}
+		}
+		if c := p.Reference.FollowingCriteria; c != nil {
+			fmt.Fprintf(stderr, "following criteria %s: %s, %s, %s\n", c.RecordID, c.Path, c.Digest, c.Status)
 		}
 	}
 	if k := c.Class; k != nil {

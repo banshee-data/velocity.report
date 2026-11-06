@@ -517,7 +517,15 @@ import Foundation
             lastNote = Self.describeSave(result, revision: saved.revision)
             return true
         } catch let error as PhysicalReferenceAPIError {
-            if case .invalid(let result) = error { validation = result }
+            if case .invalid(let result) = error {
+                // A refusal on content is shown where the validation's
+                // refusals are: at the field it names, or at Save. Repeating
+                // it in the status line put one reason at both ends of the
+                // column and at neither field.
+                validation = result
+                clearError()
+                return false
+            }
             report(error)
             return false
         } catch {

@@ -158,8 +158,11 @@ loosen a rule after seeing a result.
    held-out set, and **the rule written before the replays**: the target and how much it must move;
    the non-inferiority bounds on every other measure; the held-out set read for the first time and
    how much of the improvement must survive it; and which candidate is adopted if more than one
-   passes. Commit the spec on its own first, so the history shows the rule predates the result.
-   `go run ./cmd/tools/experiments validate` must pass.
+   passes. Write the arms' parameter sets (step 2) before committing, then
+   `go run ./cmd/tools/experiments pin <slug>` to record each arm's tuning fingerprint. Commit the
+   spec on its own first, so the history shows the rule predates the result.
+   `go run ./cmd/tools/experiments validate` must pass. The report must carry each arm's
+   fingerprint, which the validator checks once the spec is answered.
 2. **Parameter sets.** Each arm runs from a file in `config/experiments/` with its row in that
    directory's README, as `AGENTS.md` requires. A new option starts off by default. Where an
    option only a replay or Go test needs would move the defaults' fingerprint, prefer a Go-only

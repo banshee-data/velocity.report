@@ -47,8 +47,8 @@ func tree(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
 	base := map[string]string{
-		"config/tuning.defaults.json":          "{}",
-		"config/experiments/set.json":          "{}",
+		"config/tuning.defaults.json":          defaultsJSON(t),
+		"config/experiments/set.json":          defaultsJSON(t),
 		"docs/question.md":                     "# Q\n",
 		"docs/report.md":                       "# R\n",
 		"data/experiments/abcd/README.md":      "---\narea: abcd\ntitle: Test area\nlayers: L3\nowner: t\n---\n",
@@ -56,7 +56,9 @@ func tree(t *testing.T, files map[string]string) string {
 		"data/experiments/notanarea/README.md": "# no header, skipped\n",
 	}
 	maps.Copy(base, files)
+	fp := defaultsFingerprint(t)
 	for rel, content := range base {
+		content = strings.ReplaceAll(content, "@FP@", fp)
 		p := filepath.Join(root, rel)
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
@@ -81,8 +83,10 @@ requires:
 arms:
   - name: a0
     tuning: config/tuning.defaults.json
+    fingerprint: @FP@
   - name: b
     tuning: config/experiments/set.json
+    fingerprint: @FP@
     replay: [support_filter]
     export: [smoothed_trail]
 cases:
@@ -172,7 +176,7 @@ func TestValidateRefusesEachBrokenRule(t *testing.T) {
 		{"after a later step", "  - id: label\n    kind: manual:label", "  - id: label\n    after: [write]\n    kind: manual:label", "may wait only for steps listed before it"},
 		{"estimate worker", "estimate: { each: 1m }", "estimate: { each: 1m, worker: cray }", "estimate.worker \"cray\""},
 		{"actual worker", "steps:", "actual:\n  worker: cray\nsteps:", "actual.worker \"cray\""},
-		{"fan-out over absent arms", "arms:\n  - name: a0\n    tuning: config/tuning.defaults.json\n  - name: b\n    tuning: config/experiments/set.json\n    replay: [support_filter]\n    export: [smoothed_trail]\n", "", "fans out over arms, but the experiment has none"},
+		{"fan-out over absent arms", "arms:\n  - name: a0\n    tuning: config/tuning.defaults.json\n    fingerprint: @FP@\n  - name: b\n    tuning: config/experiments/set.json\n    fingerprint: @FP@\n    replay: [support_filter]\n    export: [smoothed_trail]\n", "", "fans out over arms, but the experiment has none"},
 		{"fan-out over absent cases", "cases:\n  corpus: kirk-labelled\n  count: 2\n", "", "fans out over cases, but the experiment has none"},
 	}
 	for _, c := range cases {
@@ -226,7 +230,7 @@ func TestValidateRefusesWrongPlacementAndCycles(t *testing.T) {
 func TestReadFileRefusesUnknownFieldsAndMissingHeader(t *testing.T) {
 	dir := t.TempDir()
 	bad := filepath.Join(dir, "a.md")
-	os.WriteFile(bad, []byte(strings.Replace(validSpec, "owner: t", "owner: t\nestimated: 3h", 1)), 0o644)
+	os.WriteFile(bad, []byte(strings.Replace(strings.ReplaceAll(validSpec, "@FP@", "ab0c4035780d"), "owner: t", "owner: t\nestimated: 3h", 1)), 0o644)
 	if _, err := ReadFile(bad); err == nil || !strings.Contains(err.Error(), "estimated") {
 		t.Errorf("a misspelt field was accepted: %v", err)
 	}
@@ -309,6 +313,7 @@ func TestReadinessAndCriticalPath(t *testing.T) {
 func TestMermaidDrawsStatusAndDependencies(t *testing.T) {
 	root := tree(t, map[string]string{
 		"data/experiments/abcd/abcd0001.md": strings.Replace(validSpec, "status: proposed", "status: answered\nreport: docs/report.md", 1),
+		"docs/report.md":                    "# R\n\nRan under @FP@.\n",
 		"data/experiments/abcd/abcd0002.md": strings.Replace(strings.Replace(validSpec, "id: abcd0001", "id: abcd0002", 1),
 			"asks: [docs/question.md#q1]", "asks: [docs/question.md#q1, D-28]\ndepends_on: [abcd0001]", 1),
 	})

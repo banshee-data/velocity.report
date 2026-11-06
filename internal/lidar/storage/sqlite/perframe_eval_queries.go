@@ -140,6 +140,39 @@ func (s *StateEstimateStore) listPositions(table string, v EstimateVersion) ([]E
 	return out, nil
 }
 
+// ListMeasurementPositions is ListEstimatePositions with each estimate's
+// measurement in place of its state: the position the filter was updated
+// with that frame (lidar_track_residuals.measurement_x and _y), which is the
+// L4 cluster's position under the replay's position model. An estimate is
+// written only after an update with a valid residual, so every estimate has
+// one; an estimate without its residual row is absent here.
+func (s *StateEstimateStore) ListMeasurementPositions(v EstimateVersion) ([]EstimatePosition, error) {
+	rows, err := s.db.Query(`
+		SELECT e.track_id, e.creation_sequence, e.frame_unix_nanos, r.measurement_x, r.measurement_y
+		  FROM lidar_track_estimates e
+		  JOIN lidar_track_residuals r ON r.estimate_id = e.estimate_id
+		 WHERE e.source_id = ? AND e.estimator_id = ? AND e.observation_model_id = ?
+		   AND e.param_hash = ? AND e.stage = ?
+		 ORDER BY e.creation_sequence, e.frame_unix_nanos, e.estimate_id`,
+		v.SourceID, v.EstimatorID, v.ObservationModelID, v.ParamHash, v.Stage)
+	if err != nil {
+		return nil, fmt.Errorf("list measurement positions for %s/%s: %w", v.SourceID, v.EstimatorID, err)
+	}
+	defer rows.Close()
+	out := []EstimatePosition{}
+	for rows.Next() {
+		var p EstimatePosition
+		if err := rows.Scan(&p.TrackID, &p.CreationSequence, &p.FrameUnixNanos, &p.X, &p.Y); err != nil {
+			return nil, fmt.Errorf("scan measurement position: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate measurement positions: %w", err)
+	}
+	return out, nil
+}
+
 // SolidBodyClass is the classifier's decision one solid-body row carries:
 // its motion-class belief at its frame.
 type SolidBodyClass struct {

@@ -14,8 +14,7 @@ import Testing
 struct CityLocationAccessTests {
     @Test func tildeIsTheUsersOwnHome() {
         #expect(CityLocationAccess.expandTilde("~", home: "/Users/a") == "/Users/a")
-        #expect(
-            CityLocationAccess.expandTilde("~/code/x", home: "/Users/a") == "/Users/a/code/x")
+        #expect(CityLocationAccess.expandTilde("~/code/x", home: "/Users/a") == "/Users/a/code/x")
         #expect(CityLocationAccess.expandTilde("/Volumes/x", home: "/Users/a") == "/Volumes/x")
         #expect(CityLocationAccess.expandTilde("~other/x", home: "/Users/a") == "~other/x")
         // Never the app's container, which the sandbox calls home.
@@ -37,7 +36,8 @@ struct CityLocationAccessTests {
                 NSError(domain: NSPOSIXErrorDomain, code: Int(EPERM))))
         let wrapped = NSError(
             domain: NSCocoaErrorDomain, code: 1,
-            userInfo: [NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES))])
+            userInfo: [NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES))]
+        )
         #expect(CityLocationAccess.isPermissionDenied(wrapped))
         #expect(!CityLocationAccess.isPermissionDenied(CocoaError(.fileReadNoSuchFile)))
         let text = CityLocationAccess.describe(
@@ -66,7 +66,9 @@ struct CityLocationAccessTests {
         #expect(defaults.data(forKey: "cityTiles.location.bookmark") != nil)
         let opened = try #require(setting.open(typed: setting.text))
         #expect(opened.standardizedFileURL.path == folder.standardizedFileURL.path)
-        #expect(SecurityScopedLocations.shared.root(containing: opened.appendingPathComponent("a")) != nil)
+        #expect(
+            SecurityScopedLocations.shared.root(containing: opened.appendingPathComponent("a"))
+                != nil)
 
         // Submitting the path shown keeps the bookmark; other text drops it.
         setting.setTyped(folder.path)
@@ -96,13 +98,27 @@ struct CityLocationAccessTests {
 }
 
 @MainActor struct CityDrawnFirstTests {
-    @Test func buildingsFadeOnlyOnceTheSiteDrawsItsOwn() throws {
+    @Test func buildingsFadeOnlyOnceTheSitesOwnBuildingsArrive() throws {
         guard let device = MTLCreateSystemDefaultDevice() else { return }
         let view = MTKView(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         view.device = device
         let renderer = try #require(MetalRenderer(metalView: view))
         renderer.cityFade = (SIMD3(10, 20, 0), 60, 90)
         // A cold site: nothing of its own yet, so the city is drawn in full.
+        #expect(!renderer.siteDrawsOwnSurroundings)
+        #expect(renderer.cityBuildingFade == nil)
+        // Its settled background is points, not buildings: still in full.
+        var bg = BackgroundSnapshot()
+        bg.sequenceNumber = 1
+        bg.x = [1, 2, 3]
+        bg.y = [4, 5, 6]
+        bg.z = [0.5, 0.6, 0.7]
+        bg.confidence = [10, 20, 30]
+        var frame = FrameBundle()
+        frame.frameType = .background
+        frame.background = bg
+        renderer.updateFrame(frame)
+        #expect((renderer.compositeRenderer?.getStats().background ?? 0) > 0)
         #expect(!renderer.siteDrawsOwnSurroundings)
         #expect(renderer.cityBuildingFade == nil)
         var reference = ReferenceOverlayVertices()
