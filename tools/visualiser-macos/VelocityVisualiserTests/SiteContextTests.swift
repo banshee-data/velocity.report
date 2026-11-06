@@ -212,6 +212,14 @@ final class FakeSiteReplayService: SiteReplayService, @unchecked Sendable {
     var files: [String: [String]]
     private(set) var started: [(sensorID: String, files: [String])] = []
     var refuse = false
+    /// Every call in order: "stop", "poll", "start".
+    private(set) var calls: [String] = []
+    /// Whether a replay is running, and how many polls it keeps running
+    /// after a stop.
+    var replaying = false
+    var pollsBeforeStopped = 0
+    /// Starts answered 409 before one is accepted.
+    var busyStarts = 0
 
     init(clips: [AlignmentSite], files: [String: [String]]) {
         self.clips = clips
@@ -221,8 +229,76 @@ final class FakeSiteReplayService: SiteReplayService, @unchecked Sendable {
     func locatedSites() async throws -> [AlignmentSite] { clips }
     func captureFiles(clipID: String) async throws -> [String] { files[clipID] ?? [] }
     func startReplay(sensorID: String, files: [String]) async throws {
+        calls.append("start")
         if refuse { throw SiteSwitchError.replayRefused("busy") }
+        if replaying { throw SiteSwitchError.replayBusy }
+        if busyStarts > 0 {
+            busyStarts -= 1
+            throw SiteSwitchError.replayBusy
+        }
         started.append((sensorID, files))
+        replaying = true
+    }
+    func stopReplay(sensorID: String) async throws { calls.append("stop") }
+    func isReplaying() async throws -> Bool {
+        calls.append("poll")
+        if pollsBeforeStopped > 0 {
+            pollsBeforeStopped -= 1
+        } else {
+            replaying = false
+        }
+        return replaying
+    }
+}
+
+struct SiteReplayReplacementTests {
+    private func fake() -> FakeSiteReplayService {
+        FakeSiteReplayService(clips: [], files: [:])
+    }
+
+    @Test func theRunningReplayIsStoppedAndGoneBeforeTheNextStarts() async throws {
+        let service = fake()
+        service.replaying = true
+        service.pollsBeforeStopped = 2
+        try await service.replaceReplay(
+            sensorID: "s", files: ["a.pcapng"], poll: .milliseconds(1))
+        #expect(service.calls == ["stop", "poll", "poll", "poll", "start"])
+        #expect(service.started.map(\.files) == [["a.pcapng"]])
+    }
+
+    @Test func aStartRefusedAsBusyStopsAndTriesAgain() async throws {
+        let service = fake()
+        service.busyStarts = 1
+        try await service.replaceReplay(sensorID: "s", files: ["a"], poll: .milliseconds(1))
+        #expect(service.calls == ["stop", "poll", "start", "stop", "poll", "start"])
+        #expect(service.started.count == 1)
+        service.busyStarts = 5
+        await #expect(throws: SiteSwitchError.replayBusy) {
+            try await service.replaceReplay(sensorID: "s", files: ["a"], poll: .milliseconds(1))
+        }
+    }
+
+    @Test func aReplayThatWillNotStopIsReported() async throws {
+        let service = fake()
+        service.replaying = true
+        service.pollsBeforeStopped = .max
+        await #expect(throws: SiteSwitchError.replayDidNotStop) {
+            try await service.replaceReplay(
+                sensorID: "s", files: ["a"], timeout: .milliseconds(20), poll: .milliseconds(1))
+        }
+        #expect(!service.calls.contains("start"))
+    }
+
+    @Test func theServersAnswersAreRead() {
+        let running = Data(#"{"pcap_in_progress":true,"replay_active":true}"#.utf8)
+        let vrlog = Data(#"{"pcap_in_progress":false,"replay_active":true}"#.utf8)
+        let live = Data(#"{"pcap_in_progress":false,"replay_active":false}"#.utf8)
+        #expect(VelocityReportSiteReplayService.replaying(running))
+        #expect(VelocityReportSiteReplayService.replaying(vrlog))
+        #expect(!VelocityReportSiteReplayService.replaying(live))
+        let refusal = VelocityReportSiteReplayService.refusal(
+            Data(#"{"error":"no such file"}"#.utf8))
+        #expect(refusal == .replayRefused("no such file"))
     }
 }
 

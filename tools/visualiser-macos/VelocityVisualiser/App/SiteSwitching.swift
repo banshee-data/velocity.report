@@ -4,7 +4,13 @@
 //
 //   GET  /api/lidar/clip-locations     what the connected server can replay
 //   GET  /api/lidar/clips/{clip_id}    a clip's capture files
+//   POST /api/lidar/replay/stop        stop whatever replay is running
+//   GET  /api/lidar/data_source        whether one still is
 //   POST /api/lidar/pcap/start         replay a site's captures
+//
+// The server replays one thing at a time and refuses a start while a
+// replay runs, so a switch stops the running one, waits until the server
+// says nothing is replaying, and only then starts the site's.
 //
 // A site whose live sensor the operator has named (Settings ▸ City view,
 // one velocity.report server per live Pi) is attached to instead: that
@@ -23,8 +29,36 @@ protocol SiteReplayService: Sendable {
     func locatedSites() async throws -> [AlignmentSite]
     /// A clip's capture files, relative to the server's PCAP root.
     func captureFiles(clipID: String) async throws -> [String]
-    /// Starts a replay of `files`, in order, as one recording.
+    /// Starts a replay of `files`, in order, as one recording. Throws
+    /// `SiteSwitchError.replayBusy` when another replay is running.
     func startReplay(sensorID: String, files: [String]) async throws
+    /// Stops whatever replay is running, returning the sensor to live.
+    func stopReplay(sensorID: String) async throws
+    /// Whether the server is replaying anything now.
+    func isReplaying() async throws -> Bool
+}
+
+extension SiteReplayService {
+    /// Stops the running replay, waits until the server reports none, then
+    /// starts `files`. A start refused because a replay is running again
+    /// (another client started one in between) goes round once more.
+    func replaceReplay(
+        sensorID: String, files: [String], attempts: Int = 3, timeout: Duration = .seconds(10),
+        poll: Duration = .milliseconds(200)
+    ) async throws {
+        for attempt in 1...max(attempts, 1) {
+            try await stopReplay(sensorID: sensorID)
+            let clock = ContinuousClock()
+            let deadline = clock.now.advanced(by: timeout)
+            while try await isReplaying() {
+                guard clock.now < deadline else { throw SiteSwitchError.replayDidNotStop }
+                try await Task.sleep(for: poll)
+            }
+            do {
+                return try await startReplay(sensorID: sensorID, files: files)
+            } catch SiteSwitchError.replayBusy where attempt < attempts { continue }
+        }
+    }
 }
 
 struct VelocityReportSiteReplayService: SiteReplayService {
@@ -55,21 +89,65 @@ struct VelocityReportSiteReplayService: SiteReplayService {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.timeoutInterval = 30
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            let text = String(data: data, encoding: .utf8) ?? ""
-            throw SiteSwitchError.replayRefused(text.isEmpty ? "no reason given" : text)
-        }
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 409 { throw SiteSwitchError.replayBusy }
+        guard (200..<300).contains(status) else { throw Self.refusal(data) }
+    }
+
+    func stopReplay(sensorID: String) async throws {
+        var components = URLComponents(
+            url: lookup.baseURL.appendingPathComponent("api/lidar/replay/stop"),
+            resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "sensor_id", value: sensorID)]
+        guard let url = components?.url else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        let (data, response) = try await session.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else { throw Self.refusal(data) }
+    }
+
+    func isReplaying() async throws -> Bool {
+        var request = URLRequest(
+            url: lookup.baseURL.appendingPathComponent("api/lidar/data_source"))
+        request.timeoutInterval = 10
+        let (data, response) = try await session.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else { throw Self.refusal(data) }
+        return Self.replaying(data)
+    }
+
+    /// Whether a `data_source` answer says a replay is running.
+    static func replaying(_ data: Data) -> Bool {
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        return json["pcap_in_progress"] as? Bool == true || json["replay_active"] as? Bool == true
+    }
+
+    /// The server's own reason, its JSON `error` when it gives one.
+    static func refusal(_ data: Data) -> SiteSwitchError {
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        let text = json?["error"] as? String ?? String(data: data, encoding: .utf8) ?? ""
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return .replayRefused(trimmed.isEmpty ? "no reason given" : trimmed)
     }
 }
 
 enum SiteSwitchError: Error, LocalizedError, Equatable {
     case replayRefused(String)
     case nothingToPlay(String)
+    /// The server is replaying something else and refused a start.
+    case replayBusy
+    /// The running replay was asked to stop and was still running.
+    case replayDidNotStop
 
     var errorDescription: String? {
         switch self {
         case .replayRefused(let why): return "The server would not replay the site: \(why)"
         case .nothingToPlay(let title): return "The connected server holds no capture of \(title)."
+        case .replayBusy:
+            return "The server is still replaying something else after it was asked to stop."
+        case .replayDidNotStop: return "The running replay did not stop within 10 seconds."
         }
     }
 }
@@ -164,8 +242,9 @@ extension AppState {
             throw SiteSwitchError.nothingToPlay(site.title)
         }
         let source = SiteSource.replay(clipID: clip.clipID, sensorID: clip.sensorID, files: replay)
-        // Started first: a refused replay leaves the current site as it was.
-        try await service.startReplay(sensorID: clip.sensorID, files: replay)
+        // The running replay is stopped and the site's started before the
+        // site is entered: a refused start leaves the current site shown.
+        try await service.replaceReplay(sensorID: clip.sensorID, files: replay)
         enterSite(SiteContext(site: site, source: source), alignmentSite: clip)
         restartGRPCStream()
         return source
