@@ -242,8 +242,10 @@ Client rules:
 - Each tile is one mesh per layer, so it costs two or three draw calls.
 - An LRU cache keeps the tiles near the camera.
 - A loading tile shows its parent until it arrives.
-- Within a played site's vector radius (90 m), city buildings fade so that the scene's measured
-  walls and roofs are not drawn twice.
+- In a site's own view, within its vector radius (90 m), city buildings fade once the site's
+  measured walls and roofs have arrived, so they are not drawn twice. In city mode the tiles are
+  the buildings: they are not faded, and the site's own buildings, roofs, footprints and boxes are
+  not drawn over them.
 
 ### Placement only from accepted poses
 
@@ -339,7 +341,10 @@ yet placed" for an eye-read marker) and the tiles' street names (arterials first
 overlaps, turned along the street and kept upright) are laid over the view in SwiftUI. Clicking a
 marker, or Previous and Next, switches site through Item 5 and flies the camera there: it rises by
 half the distance across, at most 4 km, and comes down 160 m south-west of the sensor and 120 m
-up. The city's buildings fade within the scene's 90 m vector radius of the sensor. The
+up. In city mode the city tiles are the buildings: they are drawn in full, and the site's
+Gerardus buildings, roofs, footprints and boxes, placed through its own pose, are not drawn over
+them (`drawnReferenceVisibility`). In the site's own view the city's buildings fade within 90 m of
+the sensor once the site's measured buildings or roofs have arrived (`cityBuildingFade`). The
 separation cues: the stream's points and boxes are drawn only inside a 120 m coverage, its boxes
 fading over the last 15 % with a ring at the edge, coloured by class only (`ClassColour`), and the
 line of copy at the foot of the view. `CityMode.swift` holds the flight, coverage, colours and

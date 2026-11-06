@@ -166,6 +166,54 @@ struct CityOverlayLayoutTests {
         #expect(!renderer.cityTilesPlaced)
     }
 
+    /// A reference with every building layer and some street layers.
+    private func siteReference() -> ReferenceOverlayVertices {
+        let line = [Float](repeating: 0, count: 14)
+        var reference = ReferenceOverlayVertices()
+        reference.buildingLines = line
+        reference.roofFills = [Float](repeating: 0, count: 21)
+        reference.footprintLines = line
+        reference.boxLines = line
+        reference.cityStreetLines = line
+        reference.laneMarkingLines = line
+        reference.kerbLines = line
+        return reference
+    }
+
+    @Test func inCityModeTheTilesAreTheBuildings() throws {
+        guard let renderer = try renderer() else { return }
+        let columbus = try #require(try fixtureSiteIndex().site(id: "columbus-broadway"))
+        renderer.leaveSite(for: SiteContext(site: columbus))
+        renderer.setReferenceOverlay(siteReference())
+        // The site's own view: its buildings have arrived, so the city's fade.
+        #expect(renderer.cityBuildingFade?.centre == columbus.sensorCityPosition)
+        #expect(renderer.drawnReferenceVisibility == renderer.referenceVisibility)
+
+        renderer.setCityMode(true)
+        // The tiles are drawn in full, and the site's buildings not over them.
+        #expect(!renderer.siteDrawsOwnSurroundings)
+        #expect(renderer.cityBuildingFade == nil)
+        let shown = renderer.drawnReferenceVisibility
+        #expect(!shown.buildings && !shown.footprints && !shown.boxes)
+        #expect(shown.cityStreets && shown.laneMarkings && shown.kerbs && shown.aerial)
+        // The operator's own toggles are left as they were.
+        #expect(renderer.referenceVisibility == ReferenceVisibility())
+
+        renderer.setCityMode(false)
+        #expect(renderer.cityBuildingFade?.centre == columbus.sensorCityPosition)
+        #expect(renderer.drawnReferenceVisibility.buildings)
+    }
+
+    @Test func inCityModeASiteWithoutAPoseFadesNothing() throws {
+        guard let renderer = try renderer() else { return }
+        let index = try fixtureSiteIndex()
+        renderer.leaveSite(for: SiteContext(site: index.site(id: "soma1")))
+        renderer.setReferenceOverlay(siteReference())
+        renderer.setCityMode(true)
+        #expect(renderer.cityBuildingFade == nil)
+        #expect(!renderer.drawnReferenceVisibility.buildings)
+    }
+
     @Test func boxesAreClassColouredFadedAndKeptToTheirCoverage() throws {
         guard let renderer = try renderer() else { return }
         let columbus = try #require(try fixtureSiteIndex().site(id: "columbus-broadway"))
