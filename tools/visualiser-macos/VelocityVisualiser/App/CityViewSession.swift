@@ -62,8 +62,32 @@ import Foundation
     /// Called with each index read, for the alignment session's lookups.
     var onIndex: ((CitySiteIndex?) -> Void)?
 
-    init(defaults: UserDefaults?) {
+    /// The site index bundled into the app at build time, from
+    /// `public_html/src/city/sites.json`: used when no location is set.
+    nonisolated static var bundledIndexURL: URL? {
+        Bundle.main.url(forResource: "city-sites", withExtension: "json")
+    }
+    private let bundledIndex: URL?
+    /// Reads the tileset's bytes; replaced by tests.
+    var readTiles: @Sendable (URL) async throws -> Data = { try await CityTileSource.read($0) }
+
+    /// The tiles the connected Gerardus server serves, used when no tiles
+    /// location is set: `http://<host:port><city_tiles_path>`.
+    @Published private(set) var serverTilesURL: URL?
+    @Published private(set) var serverTilesEpoch: String?
+    /// The server the tiles are from, for Settings.
+    private(set) var serverTilesHost: String?
+
+    /// Whether the index read is the app's own bundled copy.
+    var usesBundledIndex: Bool {
+        sitesLocation.isEmpty && sitesURL != nil && sitesURL == bundledIndex
+    }
+    /// Whether the tiles read are the server's.
+    var usesServerTiles: Bool { tilesLocation.isEmpty && serverTilesURL != nil }
+
+    init(defaults: UserDefaults?, bundledIndex: URL? = CityViewSession.bundledIndexURL) {
         self.defaults = defaults
+        self.bundledIndex = bundledIndex
         sitesLocation = defaults?.string(forKey: Self.sitesLocationKey) ?? ""
         tilesLocation = defaults?.string(forKey: Self.tilesLocationKey) ?? ""
     }
@@ -86,16 +110,43 @@ import Foundation
         await loadTileset()
     }
 
-    /// Reads the tileset from the saved location; without one, no tiles.
+    /// The HTTP location a Gerardus server advertises for its tiles: on the
+    /// gRPC host and port. Empty fields (no baked tiles, or an older server
+    /// without them) mean none.
+    nonisolated static func serverTilesURL(address: GerardusAddress?, path: String) -> URL? {
+        let trimmed = path.trimmingCharacters(in: .whitespaces)
+        guard let address, !trimmed.isEmpty else { return nil }
+        var directory = trimmed.hasPrefix("/") ? trimmed : "/" + trimmed
+        if !directory.hasSuffix("/") { directory += "/" }
+        return URL(string: "http://\(address.description)\(directory)")
+    }
+
+    /// What the connected Gerardus server says about its tiles; nil when
+    /// there is no server. Reads them again when the server or the epoch
+    /// changes, unless a location set here overrides them.
+    func useServer(
+        _ address: GerardusAddress?, info: Gerardus_Align_V1alpha1_GetServerInfoResponse?
+    ) async {
+        let url = info.flatMap { Self.serverTilesURL(address: address, path: $0.cityTilesPath) }
+        let epoch = info?.cityTilesEpoch.isEmpty == false ? info?.cityTilesEpoch : nil
+        guard url != serverTilesURL || epoch != serverTilesEpoch else { return }
+        serverTilesURL = url
+        serverTilesEpoch = epoch
+        serverTilesHost = url == nil ? nil : address?.description
+        if tilesLocation.isEmpty { await loadTileset() }
+    }
+
+    /// Reads the tileset from the location set here or, without one, from
+    /// the connected Gerardus server; without either, no tiles.
     func loadTileset() async {
-        guard let location = tilesSetting.open(typed: tilesLocation) else {
+        guard let location = tilesSetting.open(typed: tilesLocation) ?? serverTilesURL else {
             setTileset(nil, url: nil, error: nil)
             return
         }
         do {
             try CityLocationAccess.checkReadable(location)
             let url = try CityTileSource.tilesetURL(for: location)
-            let read = try CityTileset.decode(await StaticFiles.read(url))
+            let read = try CityTileset.decode(await readTiles(url))
             setTileset(read, url: url, error: nil)
         } catch {
             setTileset(nil, url: nil, error: CityLocationAccess.describe(error, at: location))
@@ -112,10 +163,14 @@ import Foundation
     /// What Settings says about the tiles.
     var tilesStatus: String {
         if let tilesError { return tilesError }
-        guard let tileset else { return "No tiles read" }
+        guard let tileset else {
+            return tilesLocation.isEmpty
+                ? "No tiles: Gerardus is not connected, or serves none" : "No tiles read"
+        }
         let tiles = tileset.root.all.filter(\.hasContent)
-        let epoch = tileset.tilesetVersion.map { " · epoch \($0)" } ?? ""
-        return "\(tiles.count) tiles\(epoch)"
+        let epoch = (tileset.tilesetVersion ?? serverTilesEpoch).map { " · epoch \($0)" } ?? ""
+        let from = usesServerTiles ? " · from Gerardus at \(serverTilesHost ?? "the server")" : ""
+        return "\(tiles.count) tiles\(epoch)\(from)"
     }
 
     var sites: [CitySite] { index?.sites ?? [] }
@@ -159,7 +214,7 @@ import Foundation
     /// Reads the index from the saved location; without one there is no
     /// index and the visualiser works as it did before the city view.
     func loadIndex() async {
-        sitesURL = sitesSetting.open(typed: sitesLocation)
+        sitesURL = sitesSetting.open(typed: sitesLocation) ?? bundledIndex
         guard let url = sitesURL else {
             setIndex(nil, error: nil)
             return

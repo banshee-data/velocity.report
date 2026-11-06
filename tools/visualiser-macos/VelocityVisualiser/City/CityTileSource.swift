@@ -42,8 +42,22 @@ enum CityTileSource {
         throw LocateError.noTileset(location.path)
     }
 
+    /// The session tiles are fetched over HTTP with. An epoch's URLs never
+    /// change (Gerardus serves them immutable), so unlike the API clients'
+    /// this one keeps what it fetched on disk.
+    static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.urlCache = URLCache(
+            memoryCapacity: 32 * 1024 * 1024, diskCapacity: 1024 * 1024 * 1024,
+            directory: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+                .appendingPathComponent("city-tiles", isDirectory: true))
+        config.requestCachePolicy = .useProtocolCachePolicy
+        return URLSession(configuration: config)
+    }()
+
     /// A tile's bytes, ungzipped when the file is gzip-compressed.
-    static func read(_ url: URL, session: URLSession = APISession.shared) async throws -> Data {
+    static func read(_ url: URL, session: URLSession = CityTileSource.session) async throws -> Data
+    {
         let data = try await StaticFiles.read(url, session: session)
         return try gunzipIfNeeded(data)
     }
