@@ -1,6 +1,6 @@
 # D2 medoid against OBB centre under the current solver, October 2026
 
-- **Status:** Complete. `medoid_v0` stays the production position; `obb_centre_v1` stays opt-in. Quote these figures, not the pre-#600 OBB ones.
+- **Status:** Complete. `medoid_v0` stays the production position; `obb_centre_v1` stays opt-in. Quote these figures, not the pre-#600 OBB ones. Superseded for kirk0 by the [frozen-split re-score](d2-frozen-split-bias-baseline-2026-11.md) (November 2026, geom0015), which binds the same question to the frozen tuning split under the mean position and adds the measurement-bias baseline.
 - **Scope:** kirk0 (one 83.5 s capture, tuning data), build `db5832133`, three replays, three scorers and two annotation packs; and, label-free, the first segment of the 23 tuning and screen sites, build `acbe1834a`. Both against the 24 September runs that used the padded solver.
 - **Related:** [State-estimation plan, D2 outcome](../../plans/lidar-state-estimation-plan.md#d2-outcome-2026-09-24), [per-frame evaluation](per-frame-evaluation.md), [gap analysis H1](../../../data/maths/paper-implementation-gap-analysis.md#measured-outcome-h1), [annotation-scored tuning](annotation-scored-tuning.md).
 
