@@ -280,11 +280,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             let triangles = cityTrianglePipeline, let lines = cityLinePipeline
         else { return }
         let selection = cityTiles.select(view: cityTileView(viewportHeight: viewportHeight))
-        let fade = cityFade.map { SIMD4<Float>(0, 0, $0.inner, $0.outer) }
+        let fadeNow = cityBuildingFade
+        let fade = fadeNow.map { SIMD4<Float>(0, 0, $0.inner, $0.outer) }
         cityTiles.draw(
             encoder: encoder, triangles: triangles, lines: lines, origin: origin,
             view: camera.viewMatrix, projection: camera.projectionMatrix, selection: selection,
-            fade: fade, fadeCity: cityFade?.centre)
+            fade: fade, fadeCity: fadeNow?.centre)
         encoder.setDepthStencilState(depthStencilState)
     }
 
@@ -1997,6 +1998,21 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         guard overlay != lastOverlay else { return }
         lastOverlay = overlay
         onCityOverlay(overlay)
+    }
+
+    /// Whether the site draws its own surroundings near its sensor: its
+    /// measured buildings and roofs, or its settled background. Until they
+    /// arrive (a cold site's Gerardus layers take minutes) the city's
+    /// buildings are drawn in full there, so the view is never empty.
+    var siteDrawsOwnSurroundings: Bool {
+        referenceBuildingVertexCount > 0 || referenceRoofFillVertexCount > 0
+            || (compositeRenderer?.getStats().background ?? 0) > 0
+    }
+
+    /// The fade the city's buildings get now: around the played site's
+    /// sensor once the site draws its own surroundings, else none.
+    var cityBuildingFade: (centre: SIMD3<Double>, inner: Float, outer: Float)? {
+        siteDrawsOwnSurroundings ? cityFade : nil
     }
 
     /// Whether anything of a site is still held: for the switch tests.
