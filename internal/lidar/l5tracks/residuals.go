@@ -65,6 +65,7 @@ func (t *Tracker) BeginTrackingBaseline() {
 	t.baselineEnabled = true
 	t.baselineResiduals = ResidualBands{}
 	t.baselineAssociation = AssociationBands{}
+	t.baselineSteadiness = steadinessWindow{}
 	t.continuity = ContinuityStats{}
 	t.continuityBornAfter = t.NextTrackID
 }
@@ -96,6 +97,9 @@ func (t *Tracker) GetWindowBaseline() TrackingMetrics {
 	m := TrackingMetrics{
 		Residuals:   t.baselineResiduals.Summarise(),
 		Association: t.baselineAssociation.Summarise(),
+	}
+	if t.baselineEnabled {
+		m.Steadiness = t.baselineSteadiness.summarise()
 	}
 	if t.calibrationEnabled {
 		m.PreGate = t.preGate.Summarise(t.openRejections())

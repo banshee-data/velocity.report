@@ -9,6 +9,9 @@ import (
 // TrackingMetrics holds aggregate tracking quality metrics across all active tracks.
 // Used by the sweep tool to evaluate parameter configurations.
 type TrackingMetrics struct {
+	// Steadiness is populated only by GetWindowBaseline. The lifetime/live
+	// jitter fields below retain their original population and meaning.
+	Steadiness *SteadinessSummary `json:"steadiness,omitempty"`
 	// Number of active tracks contributing to metrics
 	ActiveTracks int `json:"active_tracks"`
 	// Total alignment samples across all tracks

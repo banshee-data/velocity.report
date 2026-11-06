@@ -56,3 +56,7 @@ Registered configuration file SHA-256 values at that implementation:
 - `config/experiments/surface-ground-10m.json`: `8dab80bfd3aa60af4e0ccbd64f374063e613e6ea0e7827f0db7e1e9968c3441e`.
 - `config/experiments/surface-ground-global.json`: `518b304cfe6508bcc25d7af689b9b23dd3f7c8fea468200374dbb4febc969541`.
 - `config/experiments/surface-ground-5m.json`: `9ec2f6d4dd9c28777bea62c81d0df3967c56ff096730cad96ba259fc938a6fc3`.
+
+## Scoring-window metrics
+
+The [ground-screen steadiness contract](ground-window-steadiness.md) adds confirmed-update heading/speed jitter and course percentiles to replay baselines and per-case summaries, retaining ended tracks and excluding warm-up. This completes the implement step's metric plumbing without changing the scientific screen or promotion gates.

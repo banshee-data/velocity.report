@@ -52,6 +52,7 @@ type indexEntry struct {
 }
 
 type caseSummary struct {
+	Steadiness            *l5tracks.SteadinessSummary `json:"steadiness,omitempty"`
 	FragmentJoin          *pipeline.FragmentJoinStats `json:"fragment_join,omitempty"`
 	ID                    string                      `json:"id"`
 	Captures              int                         `json:"captures"`
@@ -481,6 +482,7 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			})
 		}
 		summary := caseSummary{
+			Steadiness:   firstResult.Steadiness,
 			FragmentJoin: firstResult.FragmentJoin,
 			ID:           selectedCase.ID, Captures: len(paths), DurationSeconds: first.DurationSeconds,
 			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,

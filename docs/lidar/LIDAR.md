@@ -18,6 +18,8 @@ The [empty-frame lifecycle validation](operations/empty-frame-lifecycle-cloud-va
 
 ## Quick links
 
+The [ground-screen window metrics](operations/ground-window-steadiness.md) record heading/speed jitter and course alignment with explicit populations and sample counts.
+
 The [live surface-ground wiring](operations/ground-surface-live-cloud-2026-11.md) records the opt-in configuration and refit lifecycle; default promotion remains open.
 
 The [S3 likelihood/containment comparison](operations/l5-likelihood-containment-2026-10.md)

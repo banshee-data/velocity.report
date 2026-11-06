@@ -159,6 +159,7 @@ func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measu
 		speedDelta := float64(speed - track.PrevSpeedMps)
 		track.SpeedJitterSumSq += speedDelta * speedDelta
 		track.SpeedJitterCount++
+		t.observeBaselineSpeedJitter(track, speedDelta)
 	}
 	track.PrevSpeedMps = speed
 
@@ -385,6 +386,7 @@ func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measu
 				// Track heading jitter before smoothing
 				track.HeadingJitterSumSq += headingDelta * headingDelta
 				track.HeadingJitterCount++
+				t.observeBaselineHeadingJitter(track, headingDelta)
 
 				// Reject jumps near ±90° (between 60° and 120°). These are
 				// characteristic of PCA axis swaps where the principal and
@@ -457,7 +459,9 @@ func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measu
 		// Sample course alignment against the heading this frame will publish,
 		// after every guard has had its say. Sampling before the update would
 		// measure an intermediate value no client ever sees.
-		track.SampleCourseAlignment()
+		if bin, ok := track.sampleCourseAlignment(); ok {
+			t.observeBaselineCourse(track, bin)
+		}
 	}
 }
 
@@ -491,9 +495,13 @@ func (t *Tracker) refuseNonFiniteUpdate(track *TrackedObject) bool {
 // metric is reported with a sample count: a track that never moved fast enough
 // contributes nothing and must not be read as perfectly aligned.
 func (t *TrackedObject) SampleCourseAlignment() {
+	t.sampleCourseAlignment()
+}
+
+func (t *TrackedObject) sampleCourseAlignment() (int, bool) {
 	speed := math.Sqrt(float64(t.VX*t.VX + t.VY*t.VY))
 	if speed < CourseAlignmentMinSpeedMps {
-		return
+		return 0, false
 	}
 	course := math.Atan2(float64(t.VY), float64(t.VX))
 	deg := FoldAxisAngleDeg(float64(t.OBBHeadingRad) - course)
@@ -507,6 +515,7 @@ func (t *TrackedObject) SampleCourseAlignment() {
 	}
 	t.CourseAlignmentHist[bin]++
 	t.CourseAlignmentCount++
+	return bin, true
 }
 
 // RecordHeadingSource attributes one frame to a heading source and maintains
