@@ -365,7 +365,7 @@ Deployment, reporting and publishing (October 26, 2026): the slots that were v0.
 
 ### v0.7.20 - Lanes from tracks and directional speeds (continued) (0720)
 
-- **P1** Lane fields across the corpus: the scene publisher builds each site's three lane fields after its replay, uploads them with `grpcurl` against the capture's accepted record, asks Gerardus for the proposals once so the derivation runs overnight and the log counts high and medium per site, a lanes-only pass and `make lane-fields`, and a Lanes to review list in the visualiser's city mode; lane0002 runs on the first fields before the corpus: [design doc](plans/lidar-lane-field-batch-plan.md) `M` `S-SCENE`
+- **P1** Lane proposals across the corpus: a `lane_proposals` capture job per clip (headless replay, the three lane fields, upload over a new Go gRPC client to Gerardus against the clip's accepted record, one derivation request that counts the grades, a provenance row with build and tuning fingerprint), a run form for finished runs the scene publisher calls, Registered and Lanes columns in the clips view with a progress bar and a Re-run lane proposals button across every registered clip, `make lane-fields`, a Lanes to review list in the visualiser's city mode; lane0002 runs on the first jobs before the corpus: [design doc](plans/lidar-lane-field-batch-plan.md) `L` `S-SCENE`
 
 ## 08x Mobile mesh 📶
 
