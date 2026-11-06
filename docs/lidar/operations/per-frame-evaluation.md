@@ -463,3 +463,7 @@ This is one acceptance component. It does not establish corpus duplicate/coverag
 W5 geometry, timing or physical accuracy, and does not change any tracker default.
 The [cloud acceptance report](reacquisition-cloud-acceptance-2026-11.md) records
 which evidence was available and what remains.
+
+## Uncertainty manoeuvres
+
+The [uncertainty scoring workflow](uncertainty-labelled-scoring.md) uses this evaluator's reviewed reference and split binding for G-UNC-1 row 6, with an event manifest pinned to the reference digest. `make build-lidar-eval` builds the CLI, including the frozen-table synthetic recovery command for row 7.
