@@ -290,6 +290,9 @@ never drawn as though it were a measured placement.
   and the tiles by Gerardus, so the two are kept apart rather than one derived from the other.
   A site with its own Pi in the field has its live server kept on the Mac
   (`cityView.liveServer.<site id>`), never in a published file.
+  Both are overrides: by default the tiles come from the connected Gerardus server, which
+  advertises `city_tiles_path` and `city_tiles_epoch` in `GetServerInfo` and serves them over
+  HTTP on its gRPC port, and the index is `public_html/src/city/sites.json` bundled at build time.
   The visualiser is sandboxed, so a local folder is given with **Choose…** and kept as a
   read-only security-scoped bookmark (`<key>.bookmark`) beside the path shown; a typed `~` is the
   user's home, not the app's container, and a typed path the sandbox refuses says to choose it.

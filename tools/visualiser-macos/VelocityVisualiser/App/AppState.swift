@@ -544,6 +544,8 @@ private let logger = DevLogger(category: "AppState")
     }
     private var alignmentAvailability: AnyCancellable?
     private var alignmentProbing: AnyCancellable?
+    /// The connected Gerardus server's tiles, for the city view.
+    private var cityServerTiles: AnyCancellable?
 
     func toggleAlignmentPane() { showAlignmentPane = alignment.isAvailable && !showAlignmentPane }
 
@@ -627,6 +629,15 @@ private let logger = DevLogger(category: "AppState")
         city.onTileset = { [weak self] tileset, url in
             self?.renderer?.cityTiles.setTileset(tileset, url: url)
             self?.renderer?.view?.needsDisplay = true
+        }
+        // The tiles come from whichever Gerardus server answers: read again
+        // when it changes or bakes a new epoch. @Published emits before the
+        // value is stored, so the emitted info is the one passed on.
+        cityServerTiles = alignment.$serverInfo.receive(on: DispatchQueue.main).sink {
+            [weak self] info in
+            guard let self else { return }
+            let address = self.alignment.serviceAddress
+            Task { await self.city.useServer(info == nil ? nil : address, info: info) }
         }
         if !Self.isRunningUnderXCTest {
             Task {

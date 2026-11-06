@@ -736,6 +736,12 @@ message GetServerInfoResponse {
   // The street-use rules the server applies; 0 on an older server, which
   // passes limit tags through unchecked. 1: LANES-AND-LIMITS §3.1–3.3.
   uint32 street_use_rules_version = 9;
+  // The city view tiles (CITY-VIEW-TILES), served over HTTP on this
+  // server's own address: GET <city_tiles_path>tileset.json, the tiles'
+  // URIs relative to it. "/city-tiles/<epoch>/", immutable per epoch; empty
+  // when this server has no baked tiles.
+  string city_tiles_path = 10;
+  string city_tiles_epoch = 11;
 }
 
 message PrepareSiteRequest {

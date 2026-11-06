@@ -1286,14 +1286,16 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             trackSet.tracks.filter { $0.state != .deleted && !hiddenTrackIDs.contains($0.trackID) }
                 .map { $0.trackID })
         let edges = TrailGeometry.edges(
-            trails: trackSet.trails, visibleIDs: visibleIDs,
-            timestampNanos: trackSet.timestampNanos)
+            trails: trackSet.trails, visibleIDs: visibleIDs, timestampNanos: trackSet.timestampNanos
+        )
         var vertices: [Float] = []
         vertices.reserveCapacity(edges.count * 14)
         for edge in edges {
             let colour = edge.style.colour
             for point in [edge.start, edge.end] {
-                vertices.append(contentsOf: [point.x, point.y, point.z, colour.x, colour.y, colour.z, edge.alpha])
+                vertices.append(contentsOf: [
+                    point.x, point.y, point.z, colour.x, colour.y, colour.z, edge.alpha,
+                ])
             }
         }
         let segments = vertices.isEmpty ? [] : [(start: 0, count: vertices.count / 7)]

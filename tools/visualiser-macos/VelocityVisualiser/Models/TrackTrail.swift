@@ -63,7 +63,9 @@ enum TrailGeometry {
         var result: [TrailEdge] = []
         let counts = Dictionary(trails.map { ($0.trackID, 1) }, uniquingKeysWith: +)
         for trail in trails
-        where !trail.trackID.isEmpty && visibleIDs.contains(trail.trackID) && counts[trail.trackID] == 1 {
+        where !trail.trackID.isEmpty && visibleIDs.contains(trail.trackID)
+            && counts[trail.trackID] == 1
+        {
 
             var local: [TrailEdge] = []
             var previous: TrackPoint?
@@ -73,7 +75,8 @@ enum TrailGeometry {
             let (duration, overflow) = lastTime.subtractingReportingOverflow(firstTime)
             let span = overflow ? 1 : max(duration, 1)
             for point in points {
-                guard finite(point), timestampNanos == 0 || point.captureTimestampNanos <= timestampNanos
+                guard finite(point),
+                    timestampNanos == 0 || point.captureTimestampNanos <= timestampNanos
                 else {
                     previous = nil
                     continue
@@ -87,8 +90,8 @@ enum TrailGeometry {
                     continue
                 }
                 guard !overflows, gap > 0, gap <= maxGapNanos else { continue }
-                let (elapsed, elapsedOverflows) = point.captureTimestampNanos.subtractingReportingOverflow(
-                    firstTime)
+                let (elapsed, elapsedOverflows) = point.captureTimestampNanos
+                    .subtractingReportingOverflow(firstTime)
                 let progress = elapsedOverflows ? 1 : min(1, max(0, Float(elapsed) / Float(span)))
                 append(
                     start: position(prior), end: position(point), style: style(prior, point),

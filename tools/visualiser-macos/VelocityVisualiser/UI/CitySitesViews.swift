@@ -88,7 +88,7 @@ enum CitySiteText {
         Section {
             TextField(
                 "City tiles", text: $tilesText,
-                prompt: Text("Epoch folder, city-tiles folder, tileset.json or URL")
+                prompt: Text("From Gerardus; or a folder or URL to use instead")
             ).onSubmit { Task { await city.useTilesLocation(tilesText) } }
             HStack {
                 Button("Choose…") {
@@ -108,7 +108,7 @@ enum CitySiteText {
             }
             TextField(
                 "Site index", text: $locationText,
-                prompt: Text("Folder, sites.json or URL of the published scenes")
+                prompt: Text("Bundled with the app; or a folder or URL to use instead")
             ).onSubmit { Task { await city.useSitesLocation(locationText) } }
             HStack {
                 Button("Choose…") {
@@ -150,14 +150,15 @@ enum CitySiteText {
             Text("City view")
         } footer: {
             Text(
-                "Kept as \(CityViewSession.tilesLocationKey) and "
-                    + "\(CityViewSession.sitesLocationKey). The tiles are Gerardus's city tiles; "
-                    + "over SMB, name the epoch folder, as the current link does not resolve. "
-                    + "The index is city/sites.json beside the published scenes; it names each "
-                    + "site's captures, heading and placement. Use Choose… for a folder on this "
-                    + "Mac or a mounted share: the app may read only what it is given. Choose "
-                    + "the folder rather than its JSON file, so the tiles and scenes beside it "
-                    + "can be read too. An http(s) URL may be typed."
+                "Nothing needs setting here. The tiles come from the connected Gerardus server, "
+                    + "which serves its newest bake over HTTP on its gRPC port, and the site "
+                    + "index is the one published when this app was built. Either field "
+                    + "overrides that (\(CityViewSession.tilesLocationKey), "
+                    + "\(CityViewSession.sitesLocationKey)): an http(s) URL, or a folder given "
+                    + "with Choose…, as the app may read only what it is given. For tiles, an "
+                    + "epoch folder, a city-tiles folder or a tileset.json; for the index, the "
+                    + "folder holding city/sites.json and the published scenes, which nearby "
+                    + "sites play from. Clear a field and press Return to go back to the default."
             ).font(.caption).foregroundStyle(.secondary)
         }.onAppear {
             locationText = city.sitesLocation
@@ -171,7 +172,8 @@ enum CitySiteText {
         if let error = city.loadError { return error }
         if city.index == nil { return "No index read" }
         let placed = city.sites.filter(\.isPlaced).count
-        return "\(city.sites.count) sites, \(placed) placed"
+        let from = city.usesBundledIndex ? " · bundled with the app" : ""
+        return "\(city.sites.count) sites, \(placed) placed\(from)"
     }
 }
 
