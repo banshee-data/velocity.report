@@ -194,10 +194,14 @@ func TestCentreViewGeometry(t *testing.T) {
 	}
 	unmatched := PhysicalInstant{EpisodeID: "ep", ObjectID: "truck", SampleID: 5,
 		Reference: &annotation.PhysicalGeometry{Centre: centre(30, 0), Yaw: yaw(0)}}
-	instants = append(instants, unmatched)
+	// An unreviewed pose is neither a reference pose nor unmatched.
+	unreviewed := PhysicalInstant{EpisodeID: "ep", ObjectID: "truck", SampleID: 6,
+		Reference: &annotation.PhysicalGeometry{Centre: centre(31, 0), Yaw: yaw(0)},
+		Outcomes:  map[PhysicalComponent]Outcome{ComponentCentre: {Category: "unknown_geometry", Reason: ReasonReferenceUnreviewed}}}
+	instants = append(instants, unmatched, unreviewed)
 
 	v := summariseCentreView(instants, map[string]string{"car": "car", "truck": "truck"}, true)
-	if v.ReferencePoses != 5 || v.Unmatched != 1 || v.UnmatchedByObject["truck"] != 1 || len(v.Poses) != 4 {
+	if v.ReferencePoses != 5 || v.Unreviewed != 1 || v.Unmatched != 1 || v.UnmatchedByObject["truck"] != 1 || len(v.Poses) != 4 {
 		t.Fatalf("accounting %+v", v)
 	}
 	want := []struct {
