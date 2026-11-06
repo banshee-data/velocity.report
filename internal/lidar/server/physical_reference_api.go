@@ -94,12 +94,14 @@ type physicalEditRequest struct {
 }
 
 type physicalEditResponse struct {
-	Valid         bool                     `json:"valid"`
-	Invalid       string                   `json:"invalid,omitempty"`
-	LinkProblems  []annotation.LinkProblem `json:"link_problems"`
-	ResetReviews  []string                 `json:"reset_reviews"`
-	RenamedBodies map[string]string        `json:"renamed_bodies"`
-	State         *physicalPackState       `json:"state,omitempty"`
+	Valid   bool   `json:"valid"`
+	Invalid string `json:"invalid,omitempty"`
+	// InvalidAt locates Invalid, for a client to show it beside its field.
+	InvalidAt     *annotation.PhysicalLocation `json:"invalid_at,omitempty"`
+	LinkProblems  []annotation.LinkProblem     `json:"link_problems"`
+	ResetReviews  []string                     `json:"reset_reviews"`
+	RenamedBodies map[string]string            `json:"renamed_bodies"`
+	State         *physicalPackState           `json:"state,omitempty"`
 }
 
 type physicalReviewRequest struct {
@@ -264,7 +266,7 @@ func (ws *Server) handlePhysicalEdit(commit bool) http.HandlerFunc {
 			return
 		}
 		resp := physicalEditResponse{
-			Valid: out.Valid(), Invalid: out.Invalid, LinkProblems: out.LinkProblems,
+			Valid: out.Valid(), Invalid: out.Invalid, InvalidAt: out.InvalidAt, LinkProblems: out.LinkProblems,
 			ResetReviews: out.ResetReviews, RenamedBodies: out.RenamedBodies,
 		}
 		if !commit || !out.Valid() {
