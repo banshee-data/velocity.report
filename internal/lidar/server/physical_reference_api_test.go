@@ -333,11 +333,22 @@ func TestPhysicalReferenceAPIRefusals(t *testing.T) {
 	if status != http.StatusUnprocessableEntity || out["valid"] != false || !strings.Contains(out["invalid"].(string), "own sample") {
 		t.Fatalf("invalid save: %d %v", status, out)
 	}
+	// The refusal says where it falls, for the client to show it at the field.
+	if at, _ := out["invalid_at"].(map[string]any); at["object_id"] != "car-1" || at["record"] != "keyframe" ||
+		at["record_id"] != "kf_a" || at["sample_id"] != float64(0) || at["field"] != "position.support" {
+		t.Fatalf("invalid save is not located: %v", out["invalid_at"])
+	}
 	ghost := physicalTestObject()
 	ghost.ObjectID = "ghost"
 	status, out = c.do(http.MethodPost, "/api/lidar/annotations/physical/validate", editBody(state, []annotation.PhysicalObject{ghost}))
 	if status != http.StatusOK || out["valid"] != false || len(out["link_problems"].([]any)) == 0 {
 		t.Fatalf("validate unlinked: %d %v", status, out)
+	}
+	if at, _ := out["link_problems"].([]any)[0].(map[string]any)["at"].(map[string]any); at["object_id"] != "ghost" {
+		t.Fatalf("a link problem is not located: %v", out["link_problems"])
+	}
+	if _, located := out["invalid_at"]; located {
+		t.Fatalf("a valid document carries a refusal location: %v", out)
 	}
 	if after := c.load("kirk0/packs/run-a", p.Manifest.PackDigest); after["exists"] != false {
 		t.Fatal("a refused request wrote the document")

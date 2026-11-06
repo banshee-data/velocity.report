@@ -575,7 +575,13 @@ It is a source sketch, not another independent reference. Discard removes that s
 5. Method and assumptions fill themselves: a fitted record states the fit's, and a record whose
    bounds are set by hand states that they were read off the returns with the tolerance beside
    them. The server checks the draft as you edit and says what it would refuse, and which
-   reviews a save would reset.
+   reviews a save would reset. A refusal appears in red beneath the field that causes it: a
+   missing `±` beneath the position row, missing assumptions beneath the method, an end the
+   returns do not reach beneath its checkbox. A closed group that holds a refused field, such as
+   **Adjust by hand**, stays open until the refusal is fixed, and the line above **Save proposal**
+   names where to look. A refusal with no field on screen, such as one in a pose at another frame
+   or in a following record, is shown in full above **Save proposal** instead. Each refusal keeps
+   the service's own message under **Service detail**.
 6. **Save proposal** (**S**) saves the draft as a new revision; **Save and next** (**X**) saves it
    and steps to the next frame. A save never reviews anything. A changed body dimension is a new
    body under a new ID, and every keyframe of that object returns to proposed.

@@ -272,6 +272,10 @@ func TestPhysicalEditRefusesStaleBasesAndValidatesWithoutWriting(t *testing.T) {
 	if out.Valid() || !strings.Contains(out.Invalid, "own sample") {
 		t.Fatalf("validation missed an uncited observation: %+v", out)
 	}
+	if at := out.InvalidAt; at == nil || at.ObjectID != "car-1" || at.Record != "keyframe" || at.Field != "position.support" ||
+		!strings.HasSuffix(out.Invalid, at.Detail) {
+		t.Fatalf("the refusal is not located at the position's support: %+v", at)
+	}
 	unlinked := editFrom(t, p, car1Only(p))
 	unlinked.Objects[0].ObjectID = "ghost"
 	out, err = ValidatePhysicalEdit(p, unlinked)
