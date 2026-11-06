@@ -5,7 +5,8 @@ decision-partition replay is scored; and the label-free evidence gathered so far
 
 - **Status:** Predeclared. Model, pre-gate statistics, gate-rejection evidence, calibration fit and
   report implemented, tested on synthetic scenes and run once on kirk0; the corpus fitting and
-  decision runs, the labelled manoeuvre scorer and the frozen-table recovery check are outstanding
+  decision runs and reviewed manoeuvre evidence remain outstanding; the
+  [labelled scorer and frozen-table recovery command](uncertainty-labelled-scoring.md) are implemented
 - **Layers:** L5 Tracks, L8 Analytics, offline replay
 - **Related:** [State-estimation plan §8](../../plans/lidar-state-estimation-plan.md#8-uncertainty-matrix),
   [Phase 3](../../plans/lidar-state-estimation-plan.md#phase-3-adaptive-uncertainty-and-residual-statistics),
@@ -86,9 +87,10 @@ dimension, 2 for every online position measurement.
 
 Rows 1–5 are computed by the report builder; the tool reports `within`, `outside` or
 `insufficient_samples` and never an overall pass. A row with `insufficient_samples` has not
-passed. Row 6 needs a scorer that joins the samples file to the labels; it is not built. Row 7's
-test runs today with a representative synthetic table; loading the frozen table into that scene is
-a step of the decision run.
+passed. Row 6 is executed by the [reviewed manoeuvre scorer](uncertainty-labelled-scoring.md),
+which reports incomplete or ambiguous joins explicitly. Row 7's standalone command loads the
+frozen table into the predeclared synthetic scene. Both report individual rows only; the
+reviewed events, fitting and decision runs remain outstanding.
 
 **Promotion guard, beside the gate.** The calibrated arm must not worsen identity switches or IDF1
 against the shipped arm on the reviewed held-out episodes of the

@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 6, 2026 - Uncertainty gate execution
+
+- {codex/uncertainty-label-scorers} Implemented reviewed manoeuvre false-gating scores bound to the existing reference digest and frozen split, with explicit coverage/ambiguity and no overall promotion verdict; added the predeclared synthetic recovery command loading content-addressed frozen coefficients: [workflow](lidar/operations/uncertainty-labelled-scoring.md).
+
 ## November 5, 2026 - Tracker continuity, evidence and steps to lanes in the painter; the PCL round reviewed
 
 - Let the visualiser play the sites around the one it shows from their published scenes (city view Item 8): a Swift reader for the scene export's manifest, timeline and gzipped frames keeps boxes and headings; in city mode up to eight placed sites within 1.5 km of the camera play, each from its own scene on its own looping clock with its own time of day on its marker, inside its own coverage ring, class-coloured, its box ids namespaced by site; a site with a live server kept for it is streamed from its Pi instead, each Pi in its own `SiteContext`; the committed fixture is a trimmed copy of columbus-broadway's published clip (#945).
