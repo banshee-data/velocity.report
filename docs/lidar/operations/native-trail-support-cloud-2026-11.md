@@ -60,3 +60,7 @@ protoc 33.4 and protoc-gen-go 1.36.11 tool versions.
 Human inspection of recorded stops, turns, occlusion/re-entry and revised physical histories
 remains necessary for visual acceptance. The separate uncertainty, smoothing and physical
 reference gates remain open. No tracker tuning default or smoothing horizon changes here.
+
+## Recorded engineering verification
+
+The implementation at `b9501f58f56801f70c4f2898c0a373ccb4f559d9` passed the full Go suite, Go/documentation lint, TypeScript checks and all 861 web tests. The Makefile native binary reported that source commit. PR [#947](https://github.com/banshee-data/velocity.report/pull/947) also passed macOS CI, including the standalone Swift geometry contracts and the Xcode app build, before landing. These automated checks complete compilation and numeric rendering-contract verification; they do not replace recorded-scene visual review or promote a final trajectory stage.
