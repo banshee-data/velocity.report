@@ -117,8 +117,11 @@ frames. Publish the scored and unscored populations by the required strata. Pin 
 reference precision, nominal coverage, encounter counts, and missing-opportunity limits on tuning
 data before held-out scoring. Missing truth or a missing criterion is insufficient evidence. The
 heading, containment, centre, extent, gap, lateral, identity and cost levels are pinned in the
-[geometry convergence criteria](../lidar/operations/geometry-convergence-criteria.md) (W0); the
-following limits and the scorer's citation of the record remain to pin.
+[geometry convergence criteria](../lidar/operations/geometry-convergence-criteria.md) (W0). The
+following limits have a record format the scorer cites by path and digest, and which admits a
+held-out split once pinned
+([following-criteria record](../lidar/operations/point-annotation-tool.md#the-following-criteria-record));
+the limits themselves remain to pin (l8fol0004's decide step).
 
 ## Delivery order and acceptance
 

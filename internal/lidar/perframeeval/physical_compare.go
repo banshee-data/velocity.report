@@ -157,6 +157,12 @@ type PhysicalFollowingInstant struct {
 	ErrorM            *float64                     `json:"error_m,omitempty"`
 	OutsideBoundM     *float64                     `json:"outside_bound_m,omitempty"`
 	Outcome           Outcome                      `json:"outcome"`
+	// LeaderChoice is the estimator's own leader choice against the
+	// record, for a reviewed, independent record (following_leader.go).
+	LeaderChoice *LeaderChoice `json:"leader_choice,omitempty"`
+	// Opportunity is what a leader record's instant counts as in following
+	// acceptance (following_acceptance.go); empty when it is not one.
+	Opportunity string `json:"opportunity,omitempty"`
 }
 
 // ComponentAccounting is where every expected instant of one component went.
@@ -246,8 +252,11 @@ type PhysicalResult struct {
 	CentreExtent *CentreExtentDecomposition `json:"centre_extent,omitempty"`
 	// Axis is criterion G1's reading: the axis error of established, moving
 	// poses, by nearest rank.
-	Axis    *AxisErrorSummary `json:"axis,omitempty"`
-	Caveats []string          `json:"caveats"`
+	Axis *AxisErrorSummary `json:"axis,omitempty"`
+	// FollowingAcceptance is the leader choice and gap read by stratum
+	// against the cited following criteria (following_acceptance.go).
+	FollowingAcceptance *FollowingAcceptance `json:"following_acceptance,omitempty"`
+	Caveats             []string             `json:"caveats"`
 }
 
 // Instant returns the record for one object at one sample of one episode.
@@ -281,12 +290,25 @@ func ScorePhysical(pr *PhysicalReference, arm PhysicalArm) (PhysicalResult, erro
 		res.Instants = append(res.Instants, s.instant(e))
 	}
 	addSteps(res.Instants)
+	var leaders leaderDecisions
+	if len(pr.following) > 0 {
+		leaders = analyseLeaders(arm)
+	}
+	var precision *float64
+	if pr.criteria != nil {
+		precision = pr.criteria.Limits.ReferencePrecisionM
+	}
 	for _, e := range pr.following {
 		f, err := s.following(e)
 		if err != nil {
 			return PhysicalResult{}, err
 		}
+		f.LeaderChoice = s.leaderChoice(e, leaders)
+		f.Opportunity = opportunityOf(f, precision)
 		res.Following = append(res.Following, f)
+	}
+	if len(pr.following) > 0 {
+		res.FollowingAcceptance = scoreFollowingAcceptance(pr, res.Following, leaders.summary)
 	}
 	for _, in := range res.Instants {
 		for _, c := range PhysicalComponents() {
@@ -871,8 +893,31 @@ func summarisePhysical(res PhysicalResult) PhysicalSummary {
 }
 
 func physicalCaveats(res PhysicalResult) []string {
-	out := []string{fmt.Sprintf("Split %q has role %q: physical scores are tuning evidence, not a held-out result.",
-		res.Reference.Split, res.Reference.SplitRole)}
+	var out []string
+	if c := res.Reference.FollowingCriteria; res.Reference.SplitRole == annotation.SplitRoleHeldOut && c != nil {
+		out = append(out, fmt.Sprintf("Split %q is held out, admitted under following criteria %s (%s, %s), pinned by %s. "+
+			"The geometry components are reported; the scorer does not read the geometry convergence levels (W0).",
+			res.Reference.Split, c.RecordID, c.Path, c.Digest, c.Decision))
+	} else {
+		out = append(out, fmt.Sprintf("Split %q has role %q: physical scores are tuning evidence, not a held-out result.",
+			res.Reference.Split, res.Reference.SplitRole))
+	}
+	if fa := res.FollowingAcceptance; fa != nil {
+		switch c := fa.Criteria; {
+		case c == nil:
+			out = append(out, "No following-criteria record is cited: every following stratum is insufficient, and its "+
+				"intervals use the scorer's fallback bootstrap.")
+		case !c.Pinned():
+			out = append(out, fmt.Sprintf("Following criteria %s (%s) are a draft, not pinned: verdicts read under them are a "+
+				"preview, and a stratum needing an unset value is insufficient.", c.RecordID, c.Digest))
+		}
+		if fa.Leader.Unavailable != "" {
+			out = append(out, fmt.Sprintf("Arm %s's leader choice could not be read (%s): no following stratum can pass.",
+				res.Arm.Label, fa.Leader.Unavailable))
+		}
+		out = append(out, "The valid-following definition the criteria record carries is recorded, not yet applied to the scored "+
+			"instants; the leader choice is the following analysis under the field run's uncalibrated bounds, by their hash.")
+	}
 	if res.Arm.Stage != StageFinal {
 		out = append(out, fmt.Sprintf("Arm %s scores %s-stage estimates as a declared baseline.", res.Arm.Label, res.Arm.Stage))
 	}
@@ -890,7 +935,7 @@ func physicalCaveats(res PhysicalResult) []string {
 	}
 	out = append(out,
 		"Following gaps are chords along the follower's axis between projected footprint extremes, not the along-path "+
-			"headway arc; leader choice is not scored.",
+			"headway arc.",
 		"Within-bound counts compare errors with each reference's own stated bound; they are not a calibrated coverage.")
 	return out
 }

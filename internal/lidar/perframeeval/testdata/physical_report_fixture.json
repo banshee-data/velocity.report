@@ -3525,7 +3525,14 @@
           "outside_bound_m": 0,
           "outcome": {
             "category": "scored"
-          }
+          },
+          "leader_choice": {
+            "follower_track": "seq-000001",
+            "answer": "no_common_path",
+            "outcome": "refused",
+            "reason": "no_common_path"
+          },
+          "opportunity": "suppressed"
         },
         {
           "episode_id": "tune-physical-ep1",
@@ -3540,6 +3547,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3595,7 +3607,13 @@
           "outside_bound_m": 0,
           "outcome": {
             "category": "scored"
-          }
+          },
+          "leader_choice": {
+            "follower_track": "seq-000001",
+            "answer": "free_flow",
+            "outcome": "missed_leader"
+          },
+          "opportunity": "missing"
         },
         {
           "episode_id": "tune-physical-ep1",
@@ -3610,6 +3628,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "follower_unmatched",
+            "outcome": "unscored",
+            "reason": "follower_unmatched"
           }
         },
         {
@@ -3625,6 +3648,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3658,6 +3686,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "unknown"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000001",
+            "answer": "free_flow",
+            "outcome": "missed_leader"
           }
         },
         {
@@ -3673,6 +3706,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3688,6 +3726,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000001",
+            "answer": "free_flow",
+            "outcome": "missed_leader"
           }
         },
         {
@@ -3703,6 +3746,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3718,6 +3766,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3732,6 +3785,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000002",
+            "answer": "free_flow",
+            "outcome": "right"
           }
         },
         {
@@ -3746,6 +3804,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3760,6 +3823,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000002",
+            "answer": "free_flow",
+            "outcome": "right"
           }
         },
         {
@@ -3774,6 +3842,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3788,6 +3861,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3802,6 +3880,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000002",
+            "answer": "free_flow",
+            "outcome": "right"
           }
         },
         {
@@ -3816,6 +3899,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3830,6 +3918,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3844,6 +3937,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -3858,6 +3956,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         }
       ],
@@ -4302,10 +4405,141 @@
           "max_deg": 0
         }
       },
+      "following_acceptance": {
+        "method": "following_acceptance_v1",
+        "leader_choice": {
+          "method": "following_encounter_v1",
+          "params_hash": "2789569b98eff6a4",
+          "counts": {
+            "leader": {
+              "missed_leader": 3,
+              "refused": 1,
+              "unscored": 6
+            },
+            "no_leader": {
+              "right": 3,
+              "unscored": 7
+            }
+          }
+        },
+        "bootstrap": {
+          "draws": 1000,
+          "seed": 1,
+          "family_confidence": 0.95,
+          "correction": "bonferroni",
+          "tests": 6,
+          "interval_level": 0.9916666666666667,
+          "source": "scorer_fallback"
+        },
+        "strata": [
+          {
+            "kind": "gap",
+            "follower_class": "car",
+            "leader_class": "car",
+            "bodies": 2,
+            "body_pairs": 1,
+            "units": 1,
+            "effective_units": 1,
+            "cases": 2,
+            "outcomes": {
+              "missing": 1,
+              "suppressed": 1
+            },
+            "tests": [
+              {
+                "test": "p95_abs_gap_error_m",
+                "undefined_draws": 1000,
+                "verdict": "insufficient"
+              },
+              {
+                "test": "coverage",
+                "undefined_draws": 1000,
+                "verdict": "insufficient"
+              },
+              {
+                "test": "missing_share",
+                "point": 0.5,
+                "lower": 0.5,
+                "upper": 0.5,
+                "verdict": "insufficient"
+              },
+              {
+                "test": "suppressed_share",
+                "point": 0.5,
+                "lower": 0.5,
+                "upper": 0.5,
+                "verdict": "insufficient"
+              }
+            ],
+            "insufficient": [
+              "no_criterion"
+            ],
+            "verdict": "insufficient"
+          },
+          {
+            "kind": "leader_choice",
+            "follower_class": "car",
+            "decision": "leader",
+            "bodies": 2,
+            "body_pairs": 1,
+            "units": 1,
+            "effective_units": 1,
+            "cases": 4,
+            "outcomes": {
+              "missed_leader": 3,
+              "refused": 1,
+              "unscored": 6
+            },
+            "tests": [
+              {
+                "test": "wrong_leader_share",
+                "point": 0,
+                "lower": 0,
+                "upper": 0,
+                "verdict": "insufficient"
+              }
+            ],
+            "insufficient": [
+              "no_criterion"
+            ],
+            "verdict": "insufficient"
+          },
+          {
+            "kind": "leader_choice",
+            "follower_class": "car",
+            "decision": "no_leader",
+            "bodies": 1,
+            "body_pairs": 0,
+            "units": 1,
+            "effective_units": 1,
+            "cases": 3,
+            "outcomes": {
+              "right": 3,
+              "unscored": 7
+            },
+            "tests": [
+              {
+                "test": "wrong_leader_share",
+                "point": 0,
+                "lower": 0,
+                "upper": 0,
+                "verdict": "insufficient"
+              }
+            ],
+            "insufficient": [
+              "no_criterion"
+            ],
+            "verdict": "insufficient"
+          }
+        ],
+        "verdict": "insufficient"
+      },
       "caveats": [
         "Split \"tune-physical\" has role \"tuning\": physical scores are tuning evidence, not a held-out result.",
+        "No following-criteria record is cited: every following stratum is insufficient, and its intervals use the scorer's fallback bootstrap.",
+        "The valid-following definition the criteria record carries is recorded, not yet applied to the scored instants; the leader choice is the following analysis under the field run's uncalibrated bounds, by their hash.",
         "Arm exact scores online-stage estimates as a declared baseline.",
-        "Following gaps are chords along the follower's axis between projected footprint extremes, not the along-path headway arc; leader choice is not scored.",
+        "Following gaps are chords along the follower's axis between projected footprint extremes, not the along-path headway arc.",
         "Within-bound counts compare errors with each reference's own stated bound; they are not a calibrated coverage.",
         "10 reviewed record(s) carry no membership pin (reviewed before pins were recorded, or imported): a membership change since their review cannot be detected."
       ]
@@ -6644,7 +6878,14 @@
           "outside_bound_m": -0.1000001907348631,
           "outcome": {
             "category": "scored"
-          }
+          },
+          "leader_choice": {
+            "follower_track": "seq-000001",
+            "answer": "no_common_path",
+            "outcome": "refused",
+            "reason": "no_common_path"
+          },
+          "opportunity": "suppressed"
         },
         {
           "episode_id": "tune-physical-ep1",
@@ -6659,6 +6900,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6714,7 +6960,14 @@
           "outside_bound_m": -0.1000001907348631,
           "outcome": {
             "category": "scored"
-          }
+          },
+          "leader_choice": {
+            "follower_track": "seq-000001",
+            "answer": "no_common_path",
+            "outcome": "refused",
+            "reason": "no_common_path"
+          },
+          "opportunity": "suppressed"
         },
         {
           "episode_id": "tune-physical-ep1",
@@ -6729,6 +6982,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "follower_unmatched",
+            "outcome": "unscored",
+            "reason": "follower_unmatched"
           }
         },
         {
@@ -6744,6 +7002,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6777,6 +7040,12 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "unknown"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000001",
+            "answer": "no_common_path",
+            "outcome": "refused",
+            "reason": "no_common_path"
           }
         },
         {
@@ -6792,6 +7061,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6807,6 +7081,12 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000003",
+            "answer": "no_common_path",
+            "outcome": "refused",
+            "reason": "no_common_path"
           }
         },
         {
@@ -6822,6 +7102,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6837,6 +7122,11 @@
           "outcome": {
             "category": "unknown_geometry",
             "reason": "no_gap_reference"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6851,6 +7141,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000002",
+            "answer": "free_flow",
+            "outcome": "right"
           }
         },
         {
@@ -6865,6 +7160,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6879,6 +7179,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000002",
+            "answer": "free_flow",
+            "outcome": "right"
           }
         },
         {
@@ -6893,6 +7198,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6907,6 +7217,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6921,6 +7236,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "follower_track": "seq-000002",
+            "answer": "free_flow",
+            "outcome": "right"
           }
         },
         {
@@ -6935,6 +7255,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6949,6 +7274,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6963,6 +7293,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         },
         {
@@ -6977,6 +7312,11 @@
           "outcome": {
             "category": "not_following",
             "reason": "no_leader"
+          },
+          "leader_choice": {
+            "answer": "",
+            "outcome": "unscored",
+            "reason": "no_follower_keyframe"
           }
         }
       ],
@@ -7421,10 +7761,138 @@
           "max_deg": 0
         }
       },
+      "following_acceptance": {
+        "method": "following_acceptance_v1",
+        "leader_choice": {
+          "method": "following_encounter_v1",
+          "params_hash": "2789569b98eff6a4",
+          "counts": {
+            "leader": {
+              "refused": 4,
+              "unscored": 6
+            },
+            "no_leader": {
+              "right": 3,
+              "unscored": 7
+            }
+          }
+        },
+        "bootstrap": {
+          "draws": 1000,
+          "seed": 1,
+          "family_confidence": 0.95,
+          "correction": "bonferroni",
+          "tests": 6,
+          "interval_level": 0.9916666666666667,
+          "source": "scorer_fallback"
+        },
+        "strata": [
+          {
+            "kind": "gap",
+            "follower_class": "car",
+            "leader_class": "car",
+            "bodies": 2,
+            "body_pairs": 1,
+            "units": 1,
+            "effective_units": 1,
+            "cases": 2,
+            "outcomes": {
+              "suppressed": 2
+            },
+            "tests": [
+              {
+                "test": "p95_abs_gap_error_m",
+                "undefined_draws": 1000,
+                "verdict": "insufficient"
+              },
+              {
+                "test": "coverage",
+                "undefined_draws": 1000,
+                "verdict": "insufficient"
+              },
+              {
+                "test": "missing_share",
+                "point": 0,
+                "lower": 0,
+                "upper": 0,
+                "verdict": "insufficient"
+              },
+              {
+                "test": "suppressed_share",
+                "point": 1,
+                "lower": 1,
+                "upper": 1,
+                "verdict": "insufficient"
+              }
+            ],
+            "insufficient": [
+              "no_criterion"
+            ],
+            "verdict": "insufficient"
+          },
+          {
+            "kind": "leader_choice",
+            "follower_class": "car",
+            "decision": "leader",
+            "bodies": 2,
+            "body_pairs": 1,
+            "units": 1,
+            "effective_units": 1,
+            "cases": 4,
+            "outcomes": {
+              "refused": 4,
+              "unscored": 6
+            },
+            "tests": [
+              {
+                "test": "wrong_leader_share",
+                "point": 0,
+                "lower": 0,
+                "upper": 0,
+                "verdict": "insufficient"
+              }
+            ],
+            "insufficient": [
+              "no_criterion"
+            ],
+            "verdict": "insufficient"
+          },
+          {
+            "kind": "leader_choice",
+            "follower_class": "car",
+            "decision": "no_leader",
+            "bodies": 1,
+            "body_pairs": 0,
+            "units": 1,
+            "effective_units": 1,
+            "cases": 3,
+            "outcomes": {
+              "right": 3,
+              "unscored": 7
+            },
+            "tests": [
+              {
+                "test": "wrong_leader_share",
+                "point": 0,
+                "lower": 0,
+                "upper": 0,
+                "verdict": "insufficient"
+              }
+            ],
+            "insufficient": [
+              "no_criterion"
+            ],
+            "verdict": "insufficient"
+          }
+        ],
+        "verdict": "insufficient"
+      },
       "caveats": [
         "Split \"tune-physical\" has role \"tuning\": physical scores are tuning evidence, not a held-out result.",
+        "No following-criteria record is cited: every following stratum is insufficient, and its intervals use the scorer's fallback bootstrap.",
+        "The valid-following definition the criteria record carries is recorded, not yet applied to the scored instants; the leader choice is the following analysis under the field run's uncalibrated bounds, by their hash.",
         "Arm face_bias scores online-stage estimates as a declared baseline.",
-        "Following gaps are chords along the follower's axis between projected footprint extremes, not the along-path headway arc; leader choice is not scored.",
+        "Following gaps are chords along the follower's axis between projected footprint extremes, not the along-path headway arc.",
         "Within-bound counts compare errors with each reference's own stated bound; they are not a calibrated coverage.",
         "10 reviewed record(s) carry no membership pin (reviewed before pins were recorded, or imported): a membership change since their review cannot be detected."
       ]
