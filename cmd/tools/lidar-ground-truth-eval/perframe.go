@@ -20,7 +20,7 @@ import (
 
 type armFlags struct {
 	label, db, source, estimator, model, params, stage, runID *string
-	declaredBaseline, solidBody, boxes                        *bool
+	declaredBaseline, solidBody, boxes, measurements          *bool
 	name                                                      string
 }
 
@@ -39,6 +39,9 @@ func registerArm(fs *flag.FlagSet, name, defaultLabel string) armFlags {
 		solidBody:        fs.Bool(name+"-solid-body", false, "read the version from lidar_track_solid_bodies (replay -experiment solid_body) instead of lidar_track_estimates"),
 		boxes: fs.Bool(name+"-boxes", false, "read the published box filed beside each online estimate of the version "+
 			"(lidar_track_observations) as the body; needs "+p+"stage online, and not with "+p+"solid-body"),
+		measurements: fs.Bool(name+"-measurements", false, "read the measurement each estimate's update consumed "+
+			"(lidar_track_residuals: the L4 cluster position under the replay's position model) instead of the filtered state; "+
+			"not with "+p+"solid-body or "+p+"boxes"),
 		name: name,
 	}
 }
@@ -47,7 +50,7 @@ func (a armFlags) spec() perframeeval.ArmSpec {
 	return perframeeval.ArmSpec{
 		Label: *a.label, DBPath: *a.db, SourceID: *a.source, EstimatorID: *a.estimator,
 		ObservationModelID: *a.model, ParamHash: *a.params, Stage: *a.stage, RunID: *a.runID,
-		DeclaredBaseline: *a.declaredBaseline, SolidBodies: *a.solidBody, Boxes: *a.boxes,
+		DeclaredBaseline: *a.declaredBaseline, SolidBodies: *a.solidBody, Boxes: *a.boxes, Measurements: *a.measurements,
 	}
 }
 
@@ -55,6 +58,9 @@ func (a armFlags) spec() perframeeval.ArmSpec {
 func (a armFlags) check() error {
 	if *a.boxes && *a.solidBody {
 		return fmt.Errorf("-%s-boxes and -%s-solid-body name different rows; give one", a.name, a.name)
+	}
+	if *a.measurements && (*a.boxes || *a.solidBody) {
+		return fmt.Errorf("-%s-measurements reads the residual rows, not the boxes or solid bodies; give one", a.name)
 	}
 	return nil
 }

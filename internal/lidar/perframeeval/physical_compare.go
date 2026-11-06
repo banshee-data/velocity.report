@@ -256,7 +256,11 @@ type PhysicalResult struct {
 	// FollowingAcceptance is the leader choice and gap read by stratum
 	// against the cited following criteria (following_acceptance.go).
 	FollowingAcceptance *FollowingAcceptance `json:"following_acceptance,omitempty"`
-	Caveats             []string             `json:"caveats"`
+	// CentreView places each compared centre by the reference's range and
+	// aspect from the sensor, pooled by band and bin per prediction
+	// reference (geom0015).
+	CentreView *CentreViewSummary `json:"centre_by_view,omitempty"`
+	Caveats    []string           `json:"caveats"`
 }
 
 // Instant returns the record for one object at one sample of one episode.
@@ -323,6 +327,7 @@ func ScorePhysical(pr *PhysicalReference, arm PhysicalArm) (PhysicalResult, erro
 	res.Summary = summarisePhysical(res)
 	res.CentreExtent = decomposeCentreExtent(res.Instants, pr.labels, pr.ends, pr.Source.TransformVersion == "")
 	res.Axis = summariseAxis(res.Instants)
+	res.CentreView = summariseCentreView(res.Instants, pr.labels, pr.Source.TransformVersion == "")
 	res.Caveats = physicalCaveats(res)
 	if n := len(s.pr.drifted); n > 0 {
 		keys := make([]string, 0, n)

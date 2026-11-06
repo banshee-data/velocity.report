@@ -836,8 +836,22 @@ needs `-a-stage online -a-declared-baseline`, cannot also be `-a-solid-body`, an
 estimates' version; its identity reports the table and the observation model
 `published_box/<the estimates' model>`. A box records no face, so every endpoint it places is
 temporally inferred and its sigma is a lower bound (see the
-[headway report](headway-report-oracle.md#what-a-persisted-row-supports)). The same flags with
-`-b-` select arm B.
+[headway report](headway-report-oracle.md#what-a-persisted-row-supports)). With
+`-a-measurements` the arm is the measurement each online estimate's update consumed
+(`lidar_track_residuals`): the L4 cluster position under the replay's position model, on the track
+the filter gave it to, in place of the filtered state. It names the estimates' version, cannot be
+combined with `-a-boxes` or `-a-solid-body`, and its identity reports the residual table. The same
+flags with `-b-` select arm B.
+
+Each arm's physical result also carries `centre_by_view`. It places every pose with a compared
+centre by the reference centre's range from the sensor (at the pack frame's origin) and its
+aspect, the angle between the line of sight and the reference heading's axis, from 0° end on to
+90° broadside. Each pose gets its offset toward the sensor, positive where the prediction sits
+nearer the sensor. The poses are pooled per prediction reference by object, by range band (under
+10, 10 to 20 and 20 m or more), by aspect bin (0 to 30°, 30 to 60° and 60 to 90°) and by both.
+Reference poses with no compared prediction are counted unmatched, by object.
+[geom0015](../../../data/experiments/geom/geom0015.md) reads it as kirk0's measurement-bias
+baseline.
 
 A prediction matches a reference by source (every row's sensor, and one calibration: the
 reference's, if it names one), by capture instant (the frame tolerance), in the pack's frame, and
