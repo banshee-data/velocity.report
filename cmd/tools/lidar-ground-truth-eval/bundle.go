@@ -47,6 +47,7 @@ const (
 	bundleMarkdownFile  = "comparison.md"
 	bundleSplitFile     = "split.json"
 	bundlePackFile      = "pack-manifest.json"
+	bundleCriteriaFile  = "following-criteria.json"
 
 	// The physical store's file layout, from annotation/physical_store.go,
 	// which does not export it. A change there fails writeBundle loudly: no
@@ -71,8 +72,19 @@ type bundleManifest struct {
 	Split    bundleSplit                `json:"split"`
 	Physical bundlePhysical             `json:"physical"`
 	Arms     []perframeeval.ArmIdentity `json:"arms"`
-	Outputs  bundleOutputs              `json:"outputs"`
-	Files    []bundleFile               `json:"files"`
+	// FollowingCriteria is the cited following-criteria record, when one
+	// was.
+	FollowingCriteria *bundleCriteria `json:"following_criteria,omitempty"`
+	Outputs           bundleOutputs   `json:"outputs"`
+	Files             []bundleFile    `json:"files"`
+}
+
+// bundleCriteria pins the following-criteria record a score cited: the path
+// as cited (relative to WorkingDir when not absolute) and its bytes.
+type bundleCriteria struct {
+	Path   string `json:"path"`
+	File   string `json:"file"`
+	SHA256 string `json:"sha256"`
 }
 
 type bundleBuild struct {
@@ -159,7 +171,22 @@ func absConfig(cfg perframeeval.Config, base string) perframeeval.Config {
 	cfg.Reference.PackDir = abs(cfg.Reference.PackDir)
 	cfg.Reference.SplitManifestPath = abs(cfg.Reference.SplitManifestPath)
 	cfg.A.DBPath, cfg.B.DBPath = abs(cfg.A.DBPath), abs(cfg.B.DBPath)
+	if cfg.Physical != nil {
+		// The criteria path stays as cited, since the score records it; the
+		// directory it is read from is the run's.
+		p := *cfg.Physical
+		p.FollowingCriteriaDir = base
+		cfg.Physical = &p
+	}
 	return cfg
+}
+
+// criteriaPath is where a cited criteria path is read from.
+func criteriaPath(path, base string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(base, path)
 }
 
 // physicalRevisionBytes returns the bytes of the physical revision the
@@ -239,6 +266,17 @@ func writeBundle(req *perFrameRequest, args []string, c *perframeeval.Comparison
 	if pack.Manifest.PackDigest != c.Reference.PackDigest {
 		return fmt.Errorf("pack %s changed during the run (scored %s, now %s): run again", cfg.Reference.PackDir,
 			c.Reference.PackDigest, pack.Manifest.PackDigest)
+	}
+	if cite := phys.FollowingCriteria; cite != nil {
+		raw, err := os.ReadFile(criteriaPath(cite.Path, wd))
+		if err != nil {
+			return fmt.Errorf("read following criteria: %w", err)
+		}
+		if got := sha256Hex(raw); got != cite.Digest {
+			return fmt.Errorf("following criteria %s changed during the run (cited %s, now %s): run again", cite.Path, cite.Digest, got)
+		}
+		files[bundleCriteriaFile] = raw
+		m.FollowingCriteria = &bundleCriteria{Path: cite.Path, File: bundleCriteriaFile, SHA256: cite.Digest}
 	}
 	files[bundlePackFile] = packBytes
 	m.Pack = bundlePack{Dir: cfg.Reference.PackDir, DatasetID: pack.Manifest.DatasetID, PackDigest: pack.Manifest.PackDigest,
@@ -382,6 +420,19 @@ func verifyBundle(dir string, stderr io.Writer) (*bundleManifest, error) {
 	if content, err := doc.ContentDigest(); err != nil || content != m.Physical.ContentDigest {
 		return nil, refuse("physical reference revision %d content digest %s, pinned %s (%v)", m.Physical.Revision, content, m.Physical.ContentDigest, err)
 	}
+	if (m.FollowingCriteria == nil) != (cfg.Physical.FollowingCriteria == "") ||
+		(m.FollowingCriteria != nil && m.FollowingCriteria.Path != cfg.Physical.FollowingCriteria) {
+		return nil, refuse("the recorded arguments cite following criteria %q, not the pinned %+v", cfg.Physical.FollowingCriteria, m.FollowingCriteria)
+	}
+	if c := m.FollowingCriteria; c != nil {
+		raw, err := os.ReadFile(criteriaPath(c.Path, m.WorkingDir))
+		if err != nil {
+			return nil, refuse("following criteria %s cannot be read: %v", c.Path, err)
+		}
+		if d := sha256Hex(raw); d != c.SHA256 {
+			return nil, refuse("following criteria %s changed (pinned %s, now %s)", c.Path, c.SHA256, d)
+		}
+	}
 
 	// The re-run, at the pinned revision whatever the head is now.
 	cfg.Physical.Revision = m.Physical.Revision
@@ -467,6 +518,9 @@ func readBundle(dir string) (*bundleManifest, map[string][]byte, error) {
 		if pin.digest == "" || listed[pin.file] != pin.digest {
 			return nil, nil, refuse("the %s pin %s does not name the bundle's copy %s (%s)", pin.what, pin.digest, pin.file, listed[pin.file])
 		}
+	}
+	if c := m.FollowingCriteria; c != nil && (c.SHA256 == "" || listed[c.File] != c.SHA256) {
+		return nil, nil, refuse("the following criteria pin %s does not name the bundle's copy %s (%s)", c.SHA256, c.File, listed[c.File])
 	}
 	if m.Outputs.Markdown != "" && listed[m.Outputs.Markdown] == "" {
 		return nil, nil, refuse("the bundle's Markdown output %s is not listed", m.Outputs.Markdown)

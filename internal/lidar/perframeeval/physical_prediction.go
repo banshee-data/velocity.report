@@ -71,6 +71,9 @@ type PhysicalArm struct {
 	// SensorIDs and CalibrationIDs are every distinct value the rows name.
 	SensorIDs      []string
 	CalibrationIDs []string
+	// trajectories are the rows as the behaviour layer reads them, keyed as
+	// Bodies are, for the arm's own leader choice (following_leader.go).
+	trajectories []l8behaviour.Trajectory
 }
 
 // LoadPhysicalArm reads one estimate version for physical scoring. An
@@ -210,6 +213,9 @@ func loadPhysicalArm(store *sqlite.StateEstimateStore, spec ArmSpec) (PhysicalAr
 				spec.Label, sequence[t.Passage.TrackID])
 		}
 		tracks[key] = true
+		keyed := t
+		keyed.Passage.TrackID = key
+		arm.trajectories = append(arm.trajectories, keyed)
 		for _, s := range t.Samples {
 			b := predictedBody(key, s)
 			if h, ok := heights[frameKey(t.Passage.TrackID, s.CaptureUnixNanos)]; ok {

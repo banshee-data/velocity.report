@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://velocity.report/schemas/following-criteria/v1",
+  "title": "Following criteria record",
+  "description": "The following limits predeclared on tuning data before any held-out window is read (experiment l8fol0004). The physical scorer cites a record by path and SHA-256 digest; only a pinned record admits a held-out split. internal/lidar/perframeeval/following_criteria.go is the reader and the authority: it refuses unknown fields and checks the cross-field rules this schema cannot state. A pinned file is never edited; an amendment is a new file under a new decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "record_id",
+    "status",
+    "decision",
+    "pinned_on",
+    "drafted_on",
+    "limits",
+    "valid_following",
+    "bootstrap"
+  ],
+  "properties": {
+    "schema": { "const": "velocity.report/following-criteria" },
+    "schema_version": { "const": 1 },
+    "record_id": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": ["draft", "pinned"],
+      "description": "A draft may leave any value null and admits no held-out split. A pinned record names its decision and date and states every value."
+    },
+    "decision": {
+      "type": "string",
+      "pattern": "^(D-[0-9]+)?$",
+      "description": "The D-NN in docs/DECISIONS.md that pinned the record; empty in a draft."
+    },
+    "pinned_on": {
+      "type": "string",
+      "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2})?$",
+      "description": "YYYY-MM-DD; empty in a draft."
+    },
+    "drafted_on": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["split", "split_digest", "physical_content_digest", "report"],
+      "description": "The tuning evidence the limits were drafted on. A pinned record needs split_digest and report.",
+      "properties": {
+        "split": { "type": "string" },
+        "split_digest": { "type": "string" },
+        "physical_content_digest": { "type": "string" },
+        "report": {
+          "type": "string",
+          "description": "Repository path of the report that sets out the limits' rationale."
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gap_error_limit_m",
+        "reference_precision_m",
+        "nominal_coverage",
+        "min_coverage",
+        "max_coverage",
+        "min_independent_encounters_per_stratum",
+        "max_missing_opportunity_share",
+        "max_suppressed_opportunity_share",
+        "wrong_leader_tolerance"
+      ],
+      "properties": {
+        "gap_error_limit_m": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Upper bound on a gap stratum's 95th percentile of |gap error| (nearest rank), metres."
+        },
+        "reference_precision_m": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Widest reference gap half-width that may count toward a pass; a wider reference is counted as imprecise and never scored toward a pass."
+        },
+        "nominal_coverage": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1,
+          "description": "Coverage the predicted gap's interval claims: covered when |error| <= z sigma."
+        },
+        "min_coverage": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "max_coverage": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "min_independent_encounters_per_stratum": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "Floor on a stratum's Kish effective count of body pairs (or follower bodies for no_leader and ambiguous records)."
+        },
+        "max_missing_opportunity_share": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "max_suppressed_opportunity_share": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "wrong_leader_tolerance": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Upper bound on a leader-choice stratum's share of scored instants whose leader is wrong."
+        }
+      }
+    },
+    "valid_following": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The valid-following definition fixed by the maths decision review (E-01), with the ceiling chosen by E-09's rule. Recorded and validated; method following_acceptance_v1 does not yet apply it.",
+      "required": [
+        "measurement_floor_mps",
+        "opportunity_floor_mph",
+        "spatial_only_below_mph",
+        "net_ceiling_s",
+        "ceiling_provisional",
+        "hysteresis_margin_s",
+        "min_dwell_s",
+        "sensitivity_ceilings_s"
+      ],
+      "properties": {
+        "measurement_floor_mps": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "opportunity_floor_mph": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "spatial_only_below_mph": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Band edge below which only the spatial gap is reported; must exceed opportunity_floor_mph."
+        },
+        "net_ceiling_s": {
+          "enum": [4, 6, null],
+          "description": "Net time-gap ceiling: 4 s unless 4 s drops more than 10 % of the leader records 6 s keeps (E-09)."
+        },
+        "ceiling_provisional": {
+          "type": ["boolean", "null"],
+          "description": "True only for a 6 s ceiling chosen because 6 s kept fewer than ten leader records."
+        },
+        "hysteresis_margin_s": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "min_dwell_s": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "sensitivity_ceilings_s": {
+          "type": ["array", "null"],
+          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "description": "Strictly ascending ceilings the report prints; must include net_ceiling_s."
+        }
+      }
+    },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["draws", "seed", "family_confidence", "correction"],
+      "properties": {
+        "draws": { "type": ["integer", "null"], "minimum": 1 },
+        "seed": { "type": ["integer", "null"] },
+        "family_confidence": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1,
+          "description": "Confidence of all of one arm's interval tests together."
+        },
+        "correction": {
+          "enum": ["", "bonferroni"],
+          "description": "How the family's error rate is shared among the tests; empty in a draft that has not chosen."
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
