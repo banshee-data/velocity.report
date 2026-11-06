@@ -363,6 +363,10 @@ Deployment, reporting and publishing (October 26, 2026): the slots that were v0.
 - **P1** Rendered intersection plots in the dataset: `velocity lanes render` draws a site's summed lane field, lanes, limits and kerbs as one north-up PNG, published with the scene assets to the Hugging Face dataset with `map_path` filled, refusing any output path inside the checkout, so no street plot is committed (D-39): [design doc](plans/lidar-lane-snapshot-and-attribution-plan.md#item-4-rendered-intersection-plots-in-the-dataset) `S` `S-PUBLISH`
 - [#925] **P2** Experiment lane0002: Gerardus's high proposals at kirk and columbus-broadway scored against lanes drawn in the painter with the proposals hidden, lateral RMSE under 0.30 m and the right lane count per direction, the grade thresholds handed back to Gerardus: [design doc](plans/lidar-lane-snapshot-and-attribution-plan.md#item-2-experiment-lane0002-gerarduss-proposals-against-drawn-lanes) `S` `S-EVID`
 
+### v0.7.20 - Lanes from tracks and directional speeds (continued) (0720)
+
+- **P1** Lane proposals across the corpus: a `lane_proposals` capture job per clip (headless replay, the three lane fields, upload over a new Go gRPC client to Gerardus against the clip's accepted record, one derivation request that counts the grades, a provenance row with build and tuning fingerprint), a run form for finished runs the scene publisher calls, Registered and Lanes columns in the clips view with a progress bar and a Re-run lane proposals button across every registered clip, `make lane-fields`, a Lanes to review list in the visualiser's city mode; lane0002 runs on the first jobs before the corpus: [design doc](plans/lidar-lane-field-batch-plan.md) `L` `S-SCENE`
+
 ## 08x Mobile mesh 📶
 
 ### v0.8.0 - Radar polish + automation (080)
