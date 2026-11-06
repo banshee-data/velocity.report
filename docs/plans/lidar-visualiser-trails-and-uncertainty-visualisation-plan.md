@@ -81,8 +81,12 @@ The estimator side of observed-versus-coasted now exists: every `l5tracks.TrackP
 support token (`observed`, `coasted`, `occluded_inferred`, `missed_unknown`, `out_of_fov`) and each
 track its capture-time coast age; see
 [coast, existence and expiry](../lidar/architecture/time-domain-model.md#coast-existence-and-expiry).
-The protobuf `TrackPoint` does not carry the token yet, so existing fields cannot distinguish the
-segments; adding it is the protocol extension this section anticipates.
+The protobuf `TrackPoint` now carries support, separate frame/acquisition timestamps and
+recorded anchor/stage/revision/source metadata through the native continuation. Unknown legacy
+metadata stays unknown; the native renderer distinguishes observed, predicted and unrecorded
+support. Persisted final trajectories still need the estimator's accepted publication contract.
+The [refinement selection rule](../lidar/operations/retrospective-refinement-criteria.md#selection-rule)
+keeps online as the published stage while no horizon passes promotion.
 
 Use existing streaming fields:
 
