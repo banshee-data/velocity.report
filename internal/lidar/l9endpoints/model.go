@@ -360,9 +360,16 @@ type TrackTrail struct {
 
 // TrackPoint is a single point in a track trail.
 type TrackPoint struct {
-	X              float32
-	Y              float32
-	TimestampNanos int64
+	Z                   float32
+	Support             string
+	EstimateStage       string
+	ReferenceAnchor     string
+	RevisionID          string
+	SourceID            string
+	X                   float32
+	Y                   float32
+	TimestampNanos      int64
+	FrameTimestampNanos int64
 }
 
 // DebugOverlaySet contains debug artifacts for visualisation.

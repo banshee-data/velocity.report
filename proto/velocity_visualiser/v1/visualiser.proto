@@ -291,6 +291,15 @@ message TrackPoint {
   float x = 1;
   float y = 2;
   int64 timestamp_ns = 3;
+  // Empty metadata means unrecorded. Never infer observed or final from it.
+  string support = 4;
+  string estimate_stage = 5;
+  string reference_anchor = 6;
+  float z = 7; // box base at this sample, when the anchor is recorded
+  string revision_id = 8;
+  string source_id = 9;
+  // Frame time for display geometry; timestamp_ns remains acquisition time.
+  int64 frame_timestamp_ns = 10;
 }
 
 message TrackTrail {

@@ -45,12 +45,13 @@ type TrackResponse struct {
 
 // TrackPointResponse represents a point in a track's history.
 type TrackPointResponse struct {
-	X           float32 `json:"x"`
-	Y           float32 `json:"y"`
-	Timestamp   string  `json:"timestamp"`
-	TimestampNS string  `json:"timestamp_ns"`
-	Support     string  `json:"support"`
-	Anchor      string  `json:"anchor"`
+	FrameTimestampNS string  `json:"frame_timestamp_ns,omitempty"`
+	X                float32 `json:"x"`
+	Y                float32 `json:"y"`
+	Timestamp        string  `json:"timestamp"`
+	TimestampNS      string  `json:"timestamp_ns"`
+	Support          string  `json:"support"`
+	Anchor           string  `json:"anchor"`
 }
 
 // Position represents a 3D position in world coordinates.
@@ -220,13 +221,18 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 	history := make([]TrackPointResponse, 0, len(track.History))
 	for _, p := range track.History {
 		hx, hy := toDisplayFrame(p.X, p.Y)
+		frameTime := ""
+		if p.FrameUnixNanos != 0 {
+			frameTime = strconv.FormatInt(p.FrameUnixNanos, 10)
+		}
 		history = append(history, TrackPointResponse{
-			X:           hx,
-			Y:           hy,
-			Timestamp:   time.Unix(0, p.Timestamp).UTC().Format(time.RFC3339Nano),
-			TimestampNS: strconv.FormatInt(p.Timestamp, 10),
-			Support:     p.Support.String(),
-			Anchor:      "filter_state",
+			FrameTimestampNS: frameTime,
+			X:                hx,
+			Y:                hy,
+			Timestamp:        time.Unix(0, p.Timestamp).UTC().Format(time.RFC3339Nano),
+			TimestampNS:      strconv.FormatInt(p.Timestamp, 10),
+			Support:          p.Support.String(),
+			Anchor:           "filter_state",
 		})
 	}
 

@@ -64,6 +64,7 @@ func TestMainRunsKirk0UnderAFrozenSplit(t *testing.T) {
 		"-evidence-dir", filepath.Join(dir, "evidence"), "-evidence-per-case", "-discard-evidence",
 		"-split-manifest", splitPath, "-survey-coverage", surveyPath,
 	}
+	args = append(args, developmentGuard(t, dir, kirk0SHA)...)
 	saved := os.Args
 	os.Args = args
 	defer func() { os.Args = saved }()

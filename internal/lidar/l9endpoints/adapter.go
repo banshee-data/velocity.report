@@ -563,11 +563,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 				Points:  make([]TrackPoint, len(t.History)),
 			}
 			for j, hp := range t.History {
-				trail.Points[j] = TrackPoint{
-					X:              hp.X,
-					Y:              hp.Y,
-					TimestampNanos: hp.Timestamp,
-				}
+				trail.Points[j] = trailPoint(hp)
 			}
 			ts.Trails = append(ts.Trails, trail)
 		}
@@ -643,11 +639,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 				Points:  make([]TrackPoint, len(t.History)),
 			}
 			for j, hp := range t.History {
-				trail.Points[j] = TrackPoint{
-					X:              hp.X,
-					Y:              hp.Y,
-					TimestampNanos: hp.Timestamp,
-				}
+				trail.Points[j] = trailPoint(hp)
 			}
 			ts.Trails = append(ts.Trails, trail)
 		}
@@ -733,4 +725,18 @@ func (a *FrameAdapter) adaptDebugFrame(debugFrame interface{}, timestamp time.Ti
 	}
 
 	return overlay
+}
+
+// trailPoint preserves unrecorded metadata on old/restored history. Modern
+// display snapshots carry the box's centre and base at the frame timestamp;
+// acquisition time remains distinct on the wire for measurement bookkeeping.
+func trailPoint(point l5tracks.TrackPoint) TrackPoint {
+	result := TrackPoint{X: point.X, Y: point.Y, TimestampNanos: point.Timestamp, Support: point.Support.String(), ReferenceAnchor: "filter_state_xy"}
+	if point.DisplayAnchor.String() != "" && point.FrameUnixNanos != 0 {
+		result.X, result.Y, result.Z = point.DisplayX, point.DisplayY, point.DisplayZ
+		result.FrameTimestampNanos = point.FrameUnixNanos
+		result.ReferenceAnchor = point.DisplayAnchor.String()
+		result.EstimateStage = "online"
+	}
+	return result
 }

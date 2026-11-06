@@ -817,7 +817,11 @@ struct OverlayTogglesView: View {
             ToggleButton(label: "K", isOn: $appState.showBackground, help: "Background Points")
             ToggleButton(label: "B", isOn: $appState.showBoxes, help: "Boxes")
             ToggleButton(label: "C", isOn: $appState.showClusters, help: "Clusters")
-            ToggleButton(label: "T", isOn: $appState.showTrails, help: "Trails")
+            ToggleButton(
+                label: "T", isOn: $appState.showTrails,
+                help:
+                    "Trails: green observed, amber dashed predicted, grey dashed unknown; cyan provisional, purple final"
+            )
             ToggleButton(label: "V", isOn: $appState.showVelocity, help: "Velocity")
             ToggleButton(label: "L", isOn: $appState.showTrackLabels, help: "Track Labels")
             ToggleButton(label: "G", isOn: $appState.showGrid, help: "Ground Grid")

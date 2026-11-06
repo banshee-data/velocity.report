@@ -744,7 +744,11 @@ final class LockedState<Value>: @unchecked Sendable {
                     TrackTrail(
                         trackID: trail.trackID,
                         points: trail.points.map { p in
-                            TrackPoint(x: p.x, y: p.y, timestampNanos: p.timestampNs)
+                            TrackPoint(
+                                x: p.x, y: p.y, timestampNanos: p.timestampNs, z: p.z,
+                                support: p.support, estimateStage: p.estimateStage,
+                                referenceAnchor: p.referenceAnchor, revisionID: p.revisionID,
+                                sourceID: p.sourceID, frameTimestampNanos: p.frameTimestampNs)
                         })
                 })
         }

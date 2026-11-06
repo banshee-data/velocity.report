@@ -2,6 +2,8 @@
 package l9endpoints
 
 import (
+	pb "github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
+	"google.golang.org/protobuf/proto"
 	"testing"
 	"time"
 
@@ -1952,5 +1954,35 @@ func TestPublishBoxCarriesTheGroundAnchoredVertical(t *testing.T) {
 	}
 	if !track.BBoxCenterValid || track.BBoxCenterX != 10 {
 		t.Fatalf("the box's plane was not published: %+v", track)
+	}
+}
+
+func TestTrailPointPreservesLegacyAndPublishedSnapshots(t *testing.T) {
+	legacy := trailPoint(l5tracks.TrackPoint{X: 1, Y: 2, Timestamp: 123})
+	if legacy.X != 1 || legacy.Y != 2 || legacy.TimestampNanos != 123 || legacy.Support != "" || legacy.EstimateStage != "" || legacy.ReferenceAnchor != "filter_state_xy" {
+		t.Fatalf("legacy metadata invented: %+v", legacy)
+	}
+	for _, support := range []l5tracks.ObservationSupport{l5tracks.SupportObserved, l5tracks.SupportCoasted, l5tracks.SupportUnrecorded} {
+		p := trailPoint(l5tracks.TrackPoint{X: 1, Y: 2, Timestamp: 123, Support: support, FrameUnixNanos: 124, DisplayX: 3, DisplayY: 4, DisplayZ: -2, DisplayAnchor: l5tracks.TrailAnchorPublishedBox})
+		if p.X != 3 || p.Y != 4 || p.Z != -2 || p.TimestampNanos != 123 || p.FrameTimestampNanos != 124 || p.Support != support.String() || p.EstimateStage != "online" || p.ReferenceAnchor != "published_box_center" {
+			t.Fatalf("snapshot metadata lost: %+v", p)
+		}
+	}
+}
+
+func TestTrailMetadataSurvivesWireRoundTrip(t *testing.T) {
+	frame := &FrameBundle{Tracks: &TrackSet{Trails: []TrackTrail{{TrackID: "t", Points: []TrackPoint{{X: 1, Y: 2, Z: -3, TimestampNanos: 1700000000123456789, FrameTimestampNanos: 1700000000123000000, Support: "coasted", EstimateStage: "provisional", ReferenceAnchor: "published_box_center", RevisionID: "r2", SourceID: "source-a"}}}}}}
+	wire := frameBundleToProto(frame, &pb.StreamRequest{IncludeTracks: true})
+	data, err := proto.Marshal(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded pb.FrameBundle
+	if err := proto.Unmarshal(data, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	p := decoded.Tracks.Trails[0].Points[0]
+	if p.X != 1 || p.Y != 2 || p.Z != -3 || p.TimestampNs != 1700000000123456789 || p.FrameTimestampNs != 1700000000123000000 || p.Support != "coasted" || p.EstimateStage != "provisional" || p.ReferenceAnchor != "published_box_center" || p.RevisionId != "r2" || p.SourceId != "source-a" {
+		t.Fatalf("wire metadata lost: %+v", p)
 	}
 }

@@ -397,7 +397,7 @@ struct RenderOriginTests {
         #expect(city.tileset == nil)
         #expect(city.tilesError?.contains("No tileset.json") == true)
         await city.useTilesLocation("")
-        #expect(city.tilesStatus == "No tiles read")
+        #expect(city.tilesStatus == "No tiles: Gerardus is not connected, or serves none")
     }
 
     @Test func aPlacedSitePlacesTheCityAroundItsSensor() async throws {
