@@ -75,6 +75,10 @@ type PhysicalEditOutcome struct {
 	LinkProblems []LinkProblem
 	// Invalid is the document-level refusal, empty when the document is valid.
 	Invalid string
+	// InvalidAt locates Invalid in the document, for a client to show it
+	// beside the field it names. Nil when Invalid is empty or names no
+	// record, such as a source or origin-ledger refusal.
+	InvalidAt *PhysicalLocation
 	// Membership is the sidecar the edit was checked against.
 	Membership *Sidecar
 }
@@ -109,7 +113,7 @@ func ValidatePhysicalEdit(p *Pack, e PhysicalEdit) (*PhysicalEditOutcome, error)
 	candidate.canonicalise()
 	if out.Invalid == "" {
 		if err := candidate.Validate(p); err != nil {
-			out.Invalid = err.Error()
+			out.Invalid, out.InvalidAt = err.Error(), LocatePhysicalError(err)
 		}
 	}
 	if out.Invalid == "" {

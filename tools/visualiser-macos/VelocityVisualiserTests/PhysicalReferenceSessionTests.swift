@@ -427,11 +427,15 @@ private func sample(_ id: Int) -> AnnotationSample {
             invalid:
                 "object \"obj_1\": a record that declares bounds must state its uncertainty assumptions",
             linkProblems: [], resetReviews: [])
-        fake.override["/api/lidar/annotations/physical/save"] = (422, try JSONEncoder().encode(refusal))
+        fake.override["/api/lidar/annotations/physical/save"] = (
+            422, try JSONEncoder().encode(refusal)
+        )
         #expect(!(await physical.save()))
         #expect(physical.draft == draft && physical.isDirty)
         #expect(physical.validation?.invalid?.contains("uncertainty assumptions") == true)
-        #expect(physical.lastError?.contains("uncertainty assumptions") == true)
+        #expect(
+            physical.lastError == nil,
+            "a content refusal is shown at its field or at Save, not again in the status line")
         #expect(!physical.needsReload, "a refusal on content is not an unknown outcome")
     }
 
@@ -443,7 +447,8 @@ private func sample(_ id: Int) -> AnnotationSample {
         #expect(!(await physical.save()))
         #expect(physical.needsReload && physical.isDirty)
         #expect(!(await physical.save()), "wrote again without reading after an unknown outcome")
-        #expect(fake.requests.filter { $0.path == "/api/lidar/annotations/physical/save" }.count == 1)
+        #expect(
+            fake.requests.filter { $0.path == "/api/lidar/annotations/physical/save" }.count == 1)
 
         // Reload keeping the draft: the draft survives, re-based on the head.
         fake.revision = 4
@@ -489,8 +494,11 @@ private func sample(_ id: Int) -> AnnotationSample {
         // A refusal arrives for the draft as it was; the draft has moved on.
         let stale = PhysicalEditResult(
             valid: false, invalid: "old", linkProblems: [], resetReviews: [])
-        fake.override["/api/lidar/annotations/physical/validate"] = (200, try JSONEncoder().encode(stale))
-        let asked = fake.requests.filter { $0.path == "/api/lidar/annotations/physical/validate" }.count
+        fake.override["/api/lidar/annotations/physical/validate"] = (
+            200, try JSONEncoder().encode(stale)
+        )
+        let asked = fake.requests.filter { $0.path == "/api/lidar/annotations/physical/validate" }
+            .count
         let pending = Task { await physical.validateNow() }
         // Wait until that request has reached the service, so the edit below
         // lands while its answer is in flight.

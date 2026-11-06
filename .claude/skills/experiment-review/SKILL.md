@@ -131,8 +131,9 @@ read. The goal is the goal; a new paper is next Monday's briefing.
    minutes; and **the rule written now**, before any replay, with the target, the
    non-inferiority bounds, the held-out set and how much must survive it, or the statement that
    it is a measurement and what each reading decides. A spec needs an implementation step the
-   worker cannot run today, say so in the step's note. `go run ./cmd/tools/experiments validate`
-   must pass and `make experiments-graph` regenerates the graph.
+   worker cannot run today, say so in the step's note. `go run ./cmd/tools/experiments pin <slug>`
+   records each arm's tuning fingerprint, `go run ./cmd/tools/experiments validate` must pass and
+   `make experiments-graph` regenerates the graph.
 2. **The review**, `docs/lidar/operations/experiment-review-YYYY-MM-DD.md`, named by the UTC
    date, with the metadata bullets `Status`, `Goal`, `Inputs`, `Method` and `Related`, and the
    sections `Answer`, `What the experiments established`, `Where the metric stands`, `The next

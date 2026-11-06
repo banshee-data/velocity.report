@@ -117,6 +117,12 @@ type Arm struct {
 	// Tuning is config/tuning.defaults.json or a parameter set under
 	// config/experiments/, as AGENTS.md requires of every arm.
 	Tuning string `yaml:"tuning"`
+	// Fingerprint is the tuning fingerprint (config.TuningConfig.Fingerprint)
+	// of Tuning when the spec was written or last restated. An open spec is
+	// refused when its file no longer has it; an answered spec keeps the one
+	// it ran under, and its report must carry it. FingerprintUnknown marks an
+	// answered arm that ran before arms were pinned.
+	Fingerprint string `yaml:"fingerprint"`
 	// Replay names default-off replay options (the -experiment names).
 	Replay []string `yaml:"replay"`
 	// Export names default-off options of the arm's scene export, for a

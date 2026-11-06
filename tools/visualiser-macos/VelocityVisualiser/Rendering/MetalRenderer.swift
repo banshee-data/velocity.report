@@ -91,8 +91,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// placed in (a placed site's, or the city's own).
     private(set) var cityTilesPlaced = false
     /// Within this disc of the sensor, in the city frame, the city's
-    /// buildings fade so the scene's own measured geometry is not drawn
-    /// twice: centre, then inner and outer radii.
+    /// buildings fade in the site's own view so the site's measured
+    /// buildings are not drawn twice: centre, then inner and outer radii.
+    /// Applied only through `cityBuildingFade`.
     var cityFade: (centre: SIMD3<Double>, inner: Float, outer: Float)?
 
     /// Where the stream's sensor frame sits in the world frame: identity in
@@ -942,7 +943,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         // Everything from Gerardus is in the site frame, scans included, so
         // one model matrix draws it all.
         var reference = Self.uniforms(uniforms, model: referenceModelMatrix)
-        let shown = referenceVisibility
+        let shown = drawnReferenceVisibility
 
         if let pipeline = pointCloudPipeline, let palette = referencePaletteBuffer {
             reference.pointSize = pointSize * Self.referencePointScale
@@ -2002,19 +2003,35 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         onCityOverlay(overlay)
     }
 
-    /// Whether the site draws its own surroundings near its sensor: its
-    /// measured buildings and roofs, or its settled background. Until they
-    /// arrive (a cold site's Gerardus layers take minutes) the city's
-    /// buildings are drawn in full there, so the view is never empty.
+    /// Whether the site draws its own buildings near its sensor: in its own
+    /// view, once its measured buildings or roofs have arrived from
+    /// Gerardus (they load with Align, and a cold site's take minutes). The
+    /// settled background does not count: it is points, not buildings, and
+    /// fading the city for it left the site empty until Align. In city mode
+    /// the city tiles are the buildings, so never.
     var siteDrawsOwnSurroundings: Bool {
-        referenceBuildingVertexCount > 0 || referenceRoofFillVertexCount > 0
-            || (compositeRenderer?.getStats().background ?? 0) > 0
+        !isCityMode && (referenceBuildingVertexCount > 0 || referenceRoofFillVertexCount > 0)
     }
 
     /// The fade the city's buildings get now: around the played site's
-    /// sensor once the site draws its own surroundings, else none.
+    /// sensor once the site draws its own buildings, else none.
     var cityBuildingFade: (centre: SIMD3<Double>, inner: Float, outer: Float)? {
         siteDrawsOwnSurroundings ? cityFade : nil
+    }
+
+    /// The reference layers drawn now: the operator's choice, except that in
+    /// city mode the city tiles are the buildings, so the site's own
+    /// buildings and roofs, footprints and DataSF boxes are not drawn over
+    /// them. They are placed through the site's own pose and would not line
+    /// up with the tiles. The site's points, streets and markings still are.
+    var drawnReferenceVisibility: ReferenceVisibility {
+        var shown = referenceVisibility
+        if isCityMode {
+            shown.buildings = false
+            shown.footprints = false
+            shown.boxes = false
+        }
+        return shown
     }
 
     /// Whether anything of a site is still held: for the switch tests.

@@ -28,6 +28,9 @@ import (
 type LinkProblem struct {
 	Record  string `json:"record"`
 	Problem string `json:"problem"`
+	// At locates the problem for a client to show beside its field. It
+	// repeats what Record and Problem say, in a form that is not prose.
+	At *PhysicalLocation `json:"at,omitempty"`
 }
 
 func (l LinkProblem) String() string { return l.Record + ": " + l.Problem }
@@ -78,20 +81,23 @@ func (r *PhysicalReferenceSet) LinkProblems(p *Pack, s *Sidecar) []LinkProblem {
 	var out []LinkProblem
 	add := func(record string, err error) {
 		if err != nil {
-			out = append(out, LinkProblem{Record: record, Problem: err.Error()})
+			out = append(out, LinkProblem{Record: record, Problem: err.Error(), At: LocatePhysicalError(err)})
 		}
 	}
 	for _, o := range r.Objects {
 		record := fmt.Sprintf("object %q", o.ObjectID)
 		if err := declared("object", o.ObjectID); err != nil {
-			add(record, err)
+			add(record, inObject(o.ObjectID, err))
 			continue
 		}
 		if o.Body != nil {
-			add(fmt.Sprintf("%s body %q", record, o.Body.BodyID), c.body(o))
+			add(fmt.Sprintf("%s body %q", record, o.Body.BodyID),
+				inObject(o.ObjectID, inRecord(string(PhysicalRecordBody), o.Body.BodyID, nil, c.body(o))))
 		}
 		for _, k := range o.Keyframes {
-			add(fmt.Sprintf("%s keyframe %q", record, k.KeyframeID), c.keyframe(o, k))
+			sample := k.SampleID
+			add(fmt.Sprintf("%s keyframe %q", record, k.KeyframeID),
+				inObject(o.ObjectID, inRecord(string(PhysicalRecordKeyframe), k.KeyframeID, &sample, c.keyframe(o, k))))
 		}
 	}
 	for _, f := range r.Following {
@@ -102,7 +108,7 @@ func (r *PhysicalReferenceSet) LinkProblems(p *Pack, s *Sidecar) []LinkProblem {
 		if err == nil {
 			err = c.following(f)
 		}
-		add(fmt.Sprintf("following %q", f.FollowingID), err)
+		add(fmt.Sprintf("following %q", f.FollowingID), inRecord(physicalRecordFollowing, f.FollowingID, nil, err))
 	}
 	return out
 }
@@ -153,7 +159,7 @@ func (c *linkChecker) body(o PhysicalObject) error {
 		axis int // 0 length, 1 width, 2 height
 	}{{"length", o.Body.Length, 0}, {"width", o.Body.Width, 1}, {"height", o.Body.Height, 2}} {
 		if err := c.present(o.ObjectID, d.name, d.d.Support); err != nil {
-			return err
+			return atField(d.name, atField("support", err))
 		}
 		if d.d.Status != EvidenceObserved {
 			continue
@@ -166,20 +172,20 @@ func (c *linkChecker) body(o PhysicalObject) error {
 			}
 			pts, err := c.pointsAt(f)
 			if err != nil {
-				return err
+				return atField(d.name, err)
 			}
 			best, checked = math.Max(best, returnSpan(pts, c.returns[o.ObjectID][f], d.axis, yaw)), true
 		}
 		if !checked {
-			return fmt.Errorf("observed %s cites no frame with a keyframe yaw to measure it along: it cannot be checked, so state it as inferred", d.name)
+			return atField(d.name, fmt.Errorf("observed %s cites no frame with a keyframe yaw to measure it along: it cannot be checked, so state it as inferred", d.name))
 		}
 		if best+ObservedSpanSlackM < *d.d.LowerM {
 			suffix := ""
 			if d.d.Span == SpanFull {
 				suffix = ": a partial span supports only a lower bound"
 			}
-			return fmt.Errorf("observed %s %s is at least %.3f m, but its supporting frames' returns span at most %.3f m%s",
-				d.d.Span, d.name, *d.d.LowerM, best, suffix)
+			return atField(d.name, fmt.Errorf("observed %s %s is at least %.3f m, but its supporting frames' returns span at most %.3f m%s",
+				d.d.Span, d.name, *d.d.LowerM, best, suffix))
 		}
 	}
 	return nil
@@ -193,7 +199,7 @@ func (c *linkChecker) keyframe(o PhysicalObject, k PhysicalKeyframe) error {
 		s    EvidenceSupport
 	}{{"position", k.Position.Support}, {"yaw", k.Yaw.Support}, {"front", k.Front.Support}, {"rear", k.Rear.Support}} {
 		if err := c.present(o.ObjectID, comp.name, comp.s); err != nil {
-			return err
+			return atField(comp.name, atField("support", err))
 		}
 	}
 	for _, b := range []struct {
@@ -204,7 +210,7 @@ func (c *linkChecker) keyframe(o PhysicalObject, k PhysicalKeyframe) error {
 	}{{"front", k.Front, 1, AnchorFrontFace}, {"rear", k.Rear, -1, AnchorRearFace}} {
 		if b.e.Status == EvidenceObserved {
 			if err := c.bumper(o, k, b.name, b.sign, b.face); err != nil {
-				return err
+				return atField(b.name, err)
 			}
 		}
 	}

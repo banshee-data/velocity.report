@@ -124,6 +124,74 @@ func writePhysical(b *strings.Builder, p PhysicalArms) {
 	}
 	writeCentreExtent(b, p)
 	writeAxis(b, p)
+	writeFollowingAcceptance(b, p)
+}
+
+// writeFollowingAcceptance writes each arm's following acceptance: the cited
+// criteria, the leader-choice accounting, and each stratum's counts, tests
+// and verdict.
+func writeFollowingAcceptance(b *strings.Builder, p PhysicalArms) {
+	if p.A.FollowingAcceptance == nil && p.B.FollowingAcceptance == nil {
+		return
+	}
+	b.WriteString("\n### Following acceptance\n\n")
+	if c := p.Reference.FollowingCriteria; c != nil {
+		fmt.Fprintf(b, "Criteria `%s` (%s), `%s`, %s", c.RecordID, c.Path, c.Digest, c.Status)
+		if c.Decision != "" {
+			fmt.Fprintf(b, " by %s", c.Decision)
+		}
+		if len(c.Unset) > 0 {
+			fmt.Fprintf(b, "; unset: %s", strings.Join(c.Unset, ", "))
+		}
+		b.WriteString(".\n")
+	} else {
+		b.WriteString("No following-criteria record is cited: every stratum is insufficient.\n")
+	}
+	point := func(v *float64) string {
+		if v == nil {
+			return "-"
+		}
+		return fmt.Sprintf("%.3f", *v)
+	}
+	for _, arm := range []PhysicalResult{p.A, p.B} {
+		fa := arm.FollowingAcceptance
+		if fa == nil {
+			continue
+		}
+		bs := fa.Bootstrap
+		fmt.Fprintf(b, "\nArm %s: %s. Leader choice by %s (params `%s`)", arm.Arm.Label, fa.Verdict, fa.Leader.Method, fa.Leader.ParamsHash)
+		if fa.Leader.Unavailable != "" {
+			fmt.Fprintf(b, ", unavailable: %s", fa.Leader.Unavailable)
+		}
+		fmt.Fprintf(b, "; %d draws, seed %d, family confidence %g over %d tests (%s), intervals at %.4f, from the %s.\n\n",
+			bs.Draws, bs.Seed, bs.FamilyConfidence, bs.Tests, bs.Correction, bs.IntervalLevel, strings.ReplaceAll(bs.Source, "_", " "))
+		b.WriteString("| Stratum | Bodies | Body pairs | Units (effective) | Outcomes | Test | Point | Interval | Verdict |\n")
+		b.WriteString("| ------- | ---: | ---: | ---: | ------- | ---- | ---: | ------- | ------- |\n")
+		for _, s := range fa.Strata {
+			name := s.Kind + " " + s.FollowerClass
+			if s.Kind == StratumGap {
+				name += " after " + s.LeaderClass
+			} else {
+				name += " " + string(s.Decision)
+			}
+			var outcomes []string
+			for _, k := range sortedMapKeys(s.Outcomes) {
+				outcomes = append(outcomes, fmt.Sprintf("%s %d", k, s.Outcomes[k]))
+			}
+			for i, t := range s.Tests {
+				lead := fmt.Sprintf("| %s | %d | %d | %d (%.1f) | %s ", name, s.Bodies, s.BodyPairs, s.Units, s.EffectiveUnits, strings.Join(outcomes, ", "))
+				if i > 0 {
+					lead = "| | | | | "
+				}
+				fmt.Fprintf(b, "%s| %s | %s | [%s, %s] | %s |\n", lead, t.Test, point(t.Point), point(t.Lower), point(t.Upper), t.Verdict)
+			}
+			verdict := s.Verdict
+			if len(s.Insufficient) > 0 {
+				verdict += " (" + strings.Join(s.Insufficient, ", ") + ")"
+			}
+			fmt.Fprintf(b, "| | | | | | stratum | | | %s |\n", verdict)
+		}
+	}
 }
 
 // writeCentreExtent is the centre-against-extent table: each arm's
