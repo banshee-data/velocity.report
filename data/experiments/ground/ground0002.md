@@ -16,14 +16,19 @@ requires:
 arms:
   - name: a0
     tuning: config/tuning.defaults.json
+    fingerprint: ab0c4035780d
   - name: floor-road
     tuning: config/experiments/height-floor-road.json
+    fingerprint: 93a1ea12c876
   - name: surface
     tuning: config/experiments/surface-ground-10m.json
+    fingerprint: 14fd4d6b692e
   - name: surface-global
     tuning: config/experiments/surface-ground-global.json
+    fingerprint: 49262b0d0209
   - name: surface-5m
     tuning: config/experiments/surface-ground-5m.json
+    fingerprint: 1b96ff92c903
 cases:
   corpus: d2-first-segment
   count: 23

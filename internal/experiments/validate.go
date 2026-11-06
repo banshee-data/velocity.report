@@ -136,8 +136,12 @@ func readArea(path string) (*Area, error) {
 func (s *Set) Validate(root string) []error {
 	var errs []error
 	seen := map[string]string{}
+	fps := &fingerprints{root: root, cache: map[string]fpResult{}}
 	for _, spec := range s.Specs {
 		for _, e := range spec.validate(root, s) {
+			errs = append(errs, fmt.Errorf("%s: %w", spec.Path, e))
+		}
+		for _, e := range spec.validateFingerprints(root, fps) {
 			errs = append(errs, fmt.Errorf("%s: %w", spec.Path, e))
 		}
 		if prev, dup := seen[spec.ID]; dup {

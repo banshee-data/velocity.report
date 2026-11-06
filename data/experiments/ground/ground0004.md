@@ -16,11 +16,14 @@ requires:
 arms:
   - name: a0
     tuning: config/tuning.defaults.json
+    fingerprint: ab0c4035780d
   - name: surface
     tuning: config/tuning.defaults.json
+    fingerprint: ab0c4035780d
     replay: [surface_ground]
   - name: box-ground
     tuning: config/tuning.defaults.json
+    fingerprint: ab0c4035780d
     replay: [surface_ground, box_ground]
 cases:
   corpus: d2-first-segment
