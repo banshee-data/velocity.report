@@ -368,6 +368,12 @@ build-ctl: build-velocity
 build-ctl-linux: build-velocity-linux
 build-tools: build-velocity
 
+LIDAR_EVAL_BIN ?= bin/lidar-ground-truth-eval
+.PHONY: build-lidar-eval
+build-lidar-eval: ## Build the offline labelled evaluation CLI with source stamps
+	@mkdir -p "$(dir $(LIDAR_EVAL_BIN))"
+	go build -ldflags "$(LDFLAGS)" -o "$(LIDAR_EVAL_BIN)" ./cmd/tools/lidar-ground-truth-eval
+
 .PHONY: build-radar-linux-docker
 build-radar-linux-docker:
 	@VERSION="$(VERSION)" BUILD_TIME="$(BUILD_TIME)" GIT_SHA="$(GIT_SHA)" ./image/scripts/build-image.sh --binaries-only

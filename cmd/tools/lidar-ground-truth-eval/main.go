@@ -72,6 +72,12 @@ func main() {
 
 func run(args []string) int {
 	stdout, stderr := os.Stdout, os.Stderr
+	if len(args) > 0 && args[0] == "uncertainty-recovery" {
+		return runUncertaintyRecovery(args[1:], stdout, stderr)
+	}
+	if len(args) > 0 && args[0] == "manoeuvres" {
+		return runManoeuvres(args[1:], stdout, stderr)
+	}
 	if len(args) > 0 && args[0] == "perframe" {
 		return runPerFrame(args[1:], stdout, stderr)
 	}
@@ -96,6 +102,8 @@ func run(args []string) int {
 
 	fs.Usage = func() {
 		fmt.Fprintf(stderr, "Usage: lidar-ground-truth-eval -reference-run-id ID -candidate-run-id ID [flags]\n")
+		fmt.Fprintf(stderr, "       lidar-ground-truth-eval manoeuvres [flags]   (G-UNC-1 labelled false gating; manoeuvres -h)\n")
+		fmt.Fprintf(stderr, "       lidar-ground-truth-eval uncertainty-recovery -calibration FILE   (G-UNC-1 synthetic frozen-table recovery)\n")
 		fmt.Fprintf(stderr, "       lidar-ground-truth-eval perframe [flags]   (per-frame scoring against annotations; perframe -h)\n")
 		fmt.Fprintf(stderr, "       lidar-ground-truth-eval verify-bundle -bundle DIR   (re-check a physical verification bundle)\n")
 		fmt.Fprintf(stderr, "       lidar-ground-truth-eval retention [flags]   (retention and fragmentation per reviewed mask; retention -h)\n")
