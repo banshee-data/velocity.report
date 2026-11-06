@@ -27,6 +27,17 @@ and moves to the next site with data while the city stays drawn around it.
 - **Playing sites:** sites in view play in place, simplified with distance. Each plays only inside
   its own coverage, on its own clock and date, coloured by class and never by track. Each
   intersection is recorded on its own. Vehicles are not followed from one intersection to the next.
+- **Lanes to review (visualiser):** a list in city mode of each placed site's Gerardus lane
+  proposals, with columns for site, high, medium and outstanding. Outstanding means neither
+  adopted nor rejected, and the list is sorted by it, most first. High and medium count every
+  proposal of that grade. The counts come from `ListLaneProposals`, one call at a time, read when
+  city mode opens and kept for the session. A painter save or review at a site drops that site's
+  count, and it is read again the next time city mode opens. Choosing a row switches to the site,
+  places the sensor from its hint, and opens paint mode with Proposals on. A site that cannot be
+  placed or painted stays in city mode, and the list says why. A site's marker shows its
+  outstanding count when it is not zero. When Gerardus cannot be reached, or reports
+  `supports_lane_fields` false, the list shows that reason instead of zeros. `city/sites.json`
+  carries no counts: a proposal is a Gerardus row that changes under review.
 
 None of it is a plan, survey or specification of a street, and a feature that is not drawn is not
 asserted absent. See [Geometry priors: data purpose](../geometry-priors-data-purpose.md).

@@ -27,6 +27,10 @@ import simd
 
     private let alignment: AlignmentSession
     var onChange: (() -> Void)?
+    /// Called with the site's cell after every review sent, whatever its
+    /// outcome (a lost answer may still have been applied), so the city's
+    /// Lanes to review count for it is read again.
+    var onReviewed: ((String) -> Void)?
 
     init(alignment: AlignmentSession) { self.alignment = alignment }
 
@@ -135,6 +139,7 @@ import simd
             }
         }
         isReviewing = false
+        onReviewed?(token)
         onChange?()
     }
 

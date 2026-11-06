@@ -278,6 +278,9 @@ struct StreetReference: Sendable {
     @Published private(set) var snapshotError: String?
     /// A snapshot request whose outcome is not known: retried unchanged.
     private(set) var pendingSnapshot: LaneSnapshotRequest?
+    /// Called with the site's cell after every save or proposal review sent,
+    /// whatever its outcome, for the city's Lanes to review counts.
+    var onLanesChanged: ((String) -> Void)?
 
     init(
         alignment: AlignmentSession, laneFields: LaneFieldSource = VelocityReportLaneFieldClient(),
@@ -298,6 +301,7 @@ struct StreetReference: Sendable {
         }.store(in: &subscriptions)
         traffic.onChange = { [weak self] in self?.refresh() }
         proposals.onChange = { [weak self] in self?.refresh() }
+        proposals.onReviewed = { [weak self] cell in self?.onLanesChanged?(cell) }
     }
 
     // MARK: - Paint mode
@@ -515,6 +519,8 @@ struct StreetReference: Sendable {
             }
         }
         isSaving = false
+        // An approval adopts its proposal; a lost answer may have been applied.
+        onLanesChanged?(token)
         if let response, loadedToken == token { saved(response, sent: edits.count) }
     }
 
