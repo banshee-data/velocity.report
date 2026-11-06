@@ -61,6 +61,13 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle /api/lidar/runs/{run_id}/lane-proposals (upload the run's lane
+	// fields to Gerardus and derive its proposals)
+	if subPath == "lane-proposals" {
+		ws.handleRunLaneProposals(w, r, runID)
+		return
+	}
+
 	// Handle /api/lidar/runs/{run_id}/tracks (list run tracks)
 	if subPath == "tracks" {
 		ws.handleListRunTracks(w, r, runID)

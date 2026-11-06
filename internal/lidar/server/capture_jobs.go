@@ -95,6 +95,8 @@ func (ws *Server) runCaptureJob(ctx context.Context, job capjobs.Job, report fun
 		return ws.runSegmentClipJob(ctx, job, report)
 	case sqlite.JobKindCaptureExport:
 		return ws.runClipExtract(ctx, job, report)
+	case sqlite.JobKindLaneProposals:
+		return ws.runLaneProposals(ctx, job, report)
 	default:
 		return fmt.Errorf("unknown capture job kind %q", job.Kind)
 	}
@@ -297,7 +299,7 @@ func (ws *Server) handleCaptureMissingMotionPasses(w http.ResponseWriter, r *htt
 
 // handleCaptureJobs lists jobs, newest first.
 //
-// GET /api/lidar/capture/jobs?session_id=…&limit=…
+// GET /api/lidar/capture/jobs?session_id=…&kind=…&limit=…
 func (ws *Server) handleCaptureJobs(w http.ResponseWriter, r *http.Request) {
 	store, err := ws.captureStore()
 	if err != nil {
@@ -305,7 +307,7 @@ func (ws *Server) handleCaptureJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	jobs, err := store.ListJobs(r.URL.Query().Get("session_id"), limit)
+	jobs, err := store.ListJobsOfKind(r.URL.Query().Get("session_id"), r.URL.Query().Get("kind"), limit)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return

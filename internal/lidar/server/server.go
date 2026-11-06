@@ -58,6 +58,14 @@ type Server struct {
 	// boundary is only a boundary while the set of readable roots is fixed
 	// outside the API. The UI selects among these; it cannot add one.
 	captureRoots []string
+	// gerardusAddress is Config.GerardusURL: the Gerardus server the lane
+	// proposals job uploads to and reads registrations from (empty means
+	// GERARDUS_URL or the default). laneSt holds its connection and the
+	// registration cache, made on first use.
+	gerardusAddress string
+	laneOnce        sync.Once
+	laneSt          *laneState
+
 	// captureRunner drains the capture job queue. Nil until StartCaptureJobs
 	// runs, and left nil when the server has no database to queue work in.
 	captureRunner *capjobs.Runner
@@ -323,6 +331,10 @@ type Config struct {
 	// SegmentSelectors is the catalogue the segments API ranks with, read
 	// once at startup. Nil reads the default one.
 	SegmentSelectors *segments.Catalogue
+	// GerardusURL is the Gerardus server the lane proposals job uploads lane
+	// fields to and reads registration records from: the one the visualiser
+	// reads. Empty means GERARDUS_URL or http://127.0.0.1:50061.
+	GerardusURL string
 	// DatasetDir is the published survey dataset clone (manifest.json,
 	// raw/lidar/) that POST /api/lidar/clips/{id}/stage writes into. It must
 	// sit under PCAPSafeDir, as the scene publisher replays from it. Empty
@@ -446,6 +458,7 @@ func NewServer(config Config) *Server {
 		forwardPort:        config.ForwardPort,
 		parsingEnabled:     config.ParsingEnabled,
 		udpPort:            config.UDPPort,
+		gerardusAddress:    config.GerardusURL,
 		db:                 config.DB,
 		sensorID:           config.SensorID,
 		parser:             config.Parser,

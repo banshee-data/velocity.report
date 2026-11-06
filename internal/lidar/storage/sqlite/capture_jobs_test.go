@@ -403,7 +403,7 @@ func TestTheCaptureWritersKeepTheShippedSchemaRules(t *testing.T) {
 		t.Fatalf("EnqueueJob: %v", err)
 	}
 
-	if _, err := store.EnqueueJob("sweep", sessionID, "root-1", ""); err == nil || !strings.Contains(err.Error(), "a motion_pass, a vrlog_record or a capture_export") {
+	if _, err := store.EnqueueJob("sweep", sessionID, "root-1", ""); err == nil || !strings.Contains(err.Error(), "a motion_pass, a vrlog_record, a capture_export or a lane_proposals") {
 		t.Fatalf("a job of another kind: %v", err)
 	}
 	askew := samplePeriods(captureBase)
