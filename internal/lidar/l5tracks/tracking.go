@@ -388,6 +388,7 @@ type Tracker struct {
 	baselineEnabled     bool
 	baselineResiduals   ResidualBands
 	baselineAssociation AssociationBands
+	baselineSteadiness  steadinessWindow
 
 	// Calibration window: pre-gate samples, the pre-gate band set and open
 	// gate-rejection events (pregate.go). Off unless
@@ -469,6 +470,7 @@ func (t *Tracker) Reset() {
 	t.TotalBoxFrames = 0
 	t.baselineEnabled = false
 	t.baselineResiduals = ResidualBands{}
+	t.baselineSteadiness = steadinessWindow{}
 	t.baselineAssociation = AssociationBands{}
 	t.filterSteps.endAll(ChainEndReset)
 	t.calibrationEnabled = false

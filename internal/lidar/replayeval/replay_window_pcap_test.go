@@ -98,8 +98,11 @@ func TestWarmupPrefixAndScoringManifest(t *testing.T) {
 	if err := json.Unmarshal(baseline, &measured); err != nil {
 		t.Fatal(err)
 	}
-	if measured.SchemaVersion != 2 || measured.Population == "" || measured.NISSelection != "accepted_associations_only" || measured.AssociationPopulation == "" || len(measured.Residuals) == 0 {
+	if measured.SchemaVersion != 3 || measured.Steadiness == nil || measured.Population == "" || measured.NISSelection != "accepted_associations_only" || measured.AssociationPopulation == "" || len(measured.Residuals) == 0 {
 		t.Fatalf("invalid scoring baseline: %+v", measured)
+	}
+	if r.Steadiness == nil || r.Steadiness.SpeedJitterSamples == 0 || r.Steadiness.SpeedJitterSamples != measured.Steadiness.SpeedJitterSamples {
+		t.Fatal("replay result lost the observed scoring-window steadiness")
 	}
 	runCfg.OutDir = filepath.Join(t.TempDir(), "repeat")
 	if _, err := Run(runCfg); err != nil {

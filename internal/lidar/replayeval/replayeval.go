@@ -311,6 +311,7 @@ type SplitUse struct {
 
 // Result summarises a completed replay.
 type Result struct {
+	Steadiness          *l5tracks.SteadinessSummary
 	FragmentJoin        *pipeline.FragmentJoinStats
 	VRLOGPath           string
 	FramesRead          int
@@ -1329,7 +1330,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// Phase 0 scoring-window aggregates include empty frames and ended tracks.
 	// Debug VRLOGs also carry individual innovations, but not these banded NIS
 	// and association summaries. Keep the population declaration beside the run.
-	if err := runtime.writeBaseline(cfg.OutDir, tracker.GetWindowBaseline()); err != nil {
+	baseline := canonicalTrackingBaseline(tracker.GetWindowBaseline())
+	if err := runtime.writeBaseline(cfg.OutDir, baseline); err != nil {
 		return nil, err
 	}
 	var uncertainty *l8analytics.UncertaintyReport
@@ -1367,6 +1369,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		}
 	}
 	result := &Result{
+		Steadiness:          baseline.Steadiness,
 		FragmentJoin:        fragmentJoinStats,
 		VRLOGPath:           filepath.Clean(cfg.OutDir),
 		FramesRead:          frameCount,
@@ -1758,6 +1761,7 @@ func fileSHA256(path string) (string, error) {
 
 // TrackingBaseline is the Phase 0 filter-consistency baseline for one run.
 type TrackingBaseline struct {
+	Steadiness            *l5tracks.SteadinessSummary       `json:"steadiness,omitempty"`
 	SchemaVersion         int                               `json:"schema_version"`
 	Population            string                            `json:"population"`
 	NISSelection          string                            `json:"nis_selection"`
@@ -1781,6 +1785,16 @@ func roundBaselineMetric(v float64) float64 {
 
 func canonicalTrackingBaseline(m l5tracks.TrackingMetrics) l5tracks.TrackingMetrics {
 	canonical := m
+	if m.Steadiness != nil {
+		s := *m.Steadiness
+		for _, field := range []**float64{&s.HeadingJitterDeg, &s.SpeedJitterMps, &s.CourseAlignmentP50Deg, &s.CourseAlignmentP90Deg} {
+			if *field != nil {
+				v := roundBaselineMetric(**field)
+				*field = &v
+			}
+		}
+		canonical.Steadiness = &s
+	}
 	canonical.Residuals = append([]l5tracks.ResidualBandSummary(nil), m.Residuals...)
 	for i := range canonical.Residuals {
 		r := &canonical.Residuals[i]
@@ -1807,7 +1821,8 @@ func canonicalTrackingBaseline(m l5tracks.TrackingMetrics) l5tracks.TrackingMetr
 func writeTrackingBaseline(outDir string, m l5tracks.TrackingMetrics) error {
 	m = canonicalTrackingBaseline(m)
 	b, err := json.MarshalIndent(TrackingBaseline{
-		SchemaVersion:         2,
+		SchemaVersion:         3,
+		Steadiness:            m.Steadiness,
 		Population:            "scoring_window_including_terminated_tracks",
 		NISSelection:          "accepted_associations_only",
 		AssociationPopulation: "preexisting_active_tracks_including_empty_frames_and_terminal_misses",

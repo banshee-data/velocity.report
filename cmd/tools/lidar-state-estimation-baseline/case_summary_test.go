@@ -13,11 +13,34 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
 
 // enospc is the error that ended the 2026-09-28 corpus run on its second case.
 var enospc = errors.New("close recording: failed to write header: no space left on device")
+
+func TestCaseSummaryPreservesScoringWindowSteadiness(t *testing.T) {
+	s := newStubCorpus(t, false)
+	replay := s.replay.replay
+	value := 0.123456
+	metrics := &l5tracks.SteadinessSummary{Population: "confirmed_window", SpeedJitterSamples: 17, SpeedJitterMps: &value}
+	s.replay.replay = func(cfg replayeval.Config) (*replayeval.Result, error) {
+		r, err := replay(cfg)
+		if r != nil {
+			r.Steadiness = metrics
+		}
+		return r, err
+	}
+	cases, _, err := s.replay.run(s.cases[:1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := readCaseRecord(t, s.caseOut(s.cases[0].corpusCase.ID))
+	if len(cases) != 1 || !reflect.DeepEqual(cases[0].Steadiness, metrics) || !reflect.DeepEqual(record.Case.Steadiness, metrics) {
+		t.Fatal("case summary discarded counts, null measures or the measured window")
+	}
+}
 
 // stubCorpus is the two cases that run met, in its order, replayed by a
 // stand-in. A first run with evidence makes the database the loop would

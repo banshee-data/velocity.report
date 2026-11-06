@@ -139,3 +139,5 @@ settled background changes, which the implement step leaves to the backlog item.
 ## Implementation progress
 
 The [default-off live/configuration wiring](../../../docs/lidar/operations/ground-surface-live-cloud-2026-11.md) implements the block, runtime updates and capture-time background refits. The named 10 m, global and 5 m settings have registered parameter files. This is engineering validation only; the declared screen, cost and promotion gates remain outstanding.
+
+The [scoring-window steadiness contract](../../../docs/lidar/operations/ground-window-steadiness.md) completes the remaining metric plumbing in the implement step: confirmed-update heading/speed jitter and course percentiles, with sample counts, empty-population nulls and ended tracks retained, are carried into schema-3 baselines and per-case summaries. The predeclared replay, labelled score and cost steps remain unrun by this change.

@@ -2,6 +2,7 @@ package replayeval
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"math"
 	"os"
@@ -68,6 +69,29 @@ func TestTrackingBaselineCanonicalisesAccumulatorNoise(t *testing.T) {
 	}
 	if !bytes.Equal(firstBytes, repeatBytes) {
 		t.Fatalf("canonical baseline changed:\n%s\n%s", firstBytes, repeatBytes)
+	}
+}
+
+func TestTrackingBaselineSteadinessIsVersionedNullableAndCanonical(t *testing.T) {
+	v := 1.123456789
+	m := l5tracks.TrackingMetrics{Steadiness: &l5tracks.SteadinessSummary{Population: "confirmed_window",
+		SpeedJitterSamples: 2, SpeedJitterMps: &v, CourseAlignmentSamples: 2, CourseAlignmentP50Deg: &v}}
+	dir := t.TempDir()
+	if err := writeTrackingBaseline(dir, m); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "tracking_baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got TrackingBaseline
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.SchemaVersion != 3 || got.Steadiness == nil || got.Steadiness.HeadingJitterDeg != nil ||
+		got.Steadiness.HeadingJitterSamples != 0 || got.Steadiness.SpeedJitterSamples != 2 ||
+		*got.Steadiness.SpeedJitterMps != 1.123457 || *got.Steadiness.CourseAlignmentP50Deg != 1.123457 || v != 1.123456789 {
+		t.Fatalf("invalid steadiness contract: %s", b)
 	}
 }
 
