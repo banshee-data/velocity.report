@@ -48,9 +48,10 @@ const PhysicalMethodID = "physical_reference_v1"
 // faces the sensor saw, so a long vehicle may need more.
 const DefaultPhysicalGateMetres = 3.0
 
-// ErrPhysicalHeldOut refuses physical scoring of a held-out split. Its error
+// ErrPhysicalHeldOut refuses physical scoring of a held-out split that cites
+// no pinned following-criteria record (following_criteria.go). Its error
 // limits, reference precision and coverage must be pinned on tuning data
-// first, and nothing yet records them.
+// first, by decision; a draft, or no record, is refused.
 var ErrPhysicalHeldOut = errors.New("physical scoring of a held-out split is refused")
 
 // PhysicalComponent is one scored quantity.
@@ -131,6 +132,12 @@ type PhysicalOptions struct {
 	Revision            int
 	GateMetres          float64
 	FrameToleranceNanos int64
+	// FollowingCriteria is the path of the following-criteria record the
+	// score cites, as named; empty cites none. FollowingCriteriaDir, when
+	// set, is the directory a relative path is read from, so a re-run from
+	// elsewhere reads the same file and cites the same path.
+	FollowingCriteria    string
+	FollowingCriteriaDir string `json:"-"`
 }
 
 // DefaultPhysicalOptions are the current revision, the default gate and the
@@ -181,8 +188,11 @@ type PhysicalReferenceIdentity struct {
 	// revision scored, so the score is reproducible from the split alone.
 	// False for a version 1 manifest, and for a frozen split with no pin
 	// for the pack, whose physical revision was the head when scored.
-	PhysicalPinned bool   `json:"physical_pinned,omitempty"`
-	Digest         string `json:"digest"`
+	PhysicalPinned bool `json:"physical_pinned,omitempty"`
+	// FollowingCriteria cites the following-criteria record the score was
+	// read under, by path and content digest; absent when none was named.
+	FollowingCriteria *FollowingCriteriaCitation `json:"following_criteria,omitempty"`
+	Digest            string                     `json:"digest"`
 }
 
 // expectedInstant is one object that should be accounted for at one sample.
@@ -233,6 +243,8 @@ type PhysicalReference struct {
 	// seen end. Neither enters the identity: neither changes a score.
 	labels map[string]string
 	ends   map[string]map[int]referenceEnds
+	// criteria is the cited following-criteria record, nil when none was.
+	criteria *FollowingCriteria
 }
 
 // LoadPhysicalReference opens the pack, its split manifest and annotation
@@ -240,7 +252,8 @@ type PhysicalReference struct {
 // every instant the split's episodes expect. A frozen split that pins a
 // physical revision is scored at that revision, bound through its pin
 // (FrozenSplit.BindPhysical); opts.Revision must be zero or that revision.
-// A held-out split is refused.
+// A held-out split is refused unless opts cite a pinned following-criteria
+// record.
 func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*PhysicalReference, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -264,10 +277,26 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 		return nil, err
 	}
 	split, _ := manifest.SplitByName(ref.Split)
+	var criteria *FollowingCriteria
+	var citation *FollowingCriteriaCitation
+	if opts.FollowingCriteria != "" {
+		c, cite, err := LoadFollowingCriteria(opts.FollowingCriteria, opts.FollowingCriteriaDir)
+		if err != nil {
+			return nil, err
+		}
+		criteria, citation = c, &cite
+	}
 	if split.Role == annotation.SplitRoleHeldOut {
-		return nil, fmt.Errorf("%w: split %q is held out, and its physical error limits, reference precision and "+
-			"coverage have not been pinned on tuning data (docs/plans/lidar-physical-reference-review-plan.md); "+
-			"score a tuning split with -allow-tuning-split", ErrPhysicalHeldOut, split.Name)
+		switch {
+		case citation == nil:
+			return nil, fmt.Errorf("%w: split %q is held out, and no following-criteria record is cited: its error limits, "+
+				"reference precision and coverage are pinned on tuning data first (docs/plans/lidar-physical-reference-review-plan.md); "+
+				"cite a pinned record, or score a tuning split with -allow-tuning-split", ErrPhysicalHeldOut, split.Name)
+		case !citation.Pinned():
+			return nil, fmt.Errorf("%w: split %q is held out, and following criteria %s (%s, %s) are a %s, not pinned by a decision: "+
+				"pin them on tuning data before any held-out window is read", ErrPhysicalHeldOut, split.Name,
+				citation.RecordID, citation.Path, citation.Digest, citation.Status)
+		}
 	}
 
 	// A frozen split's pin decides the revision; a flag may only agree.
@@ -307,7 +336,7 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 	pr := &PhysicalReference{Source: doc.Source, samples: pack.Samples,
 		bodies: map[string]annotation.BodyGeometry{}, otherSplits: map[string]bool{},
 		drifted: doc.DriftedRecords(pack, sidecar), unpinnedReviews: doc.UnpinnedReviews(),
-		FrozenWithoutPhysicalPin: frozen != nil && !pinned}
+		FrozenWithoutPhysicalPin: frozen != nil && !pinned, criteria: criteria}
 	pr.geometry = driftedGeometries(doc, pr.drifted)
 	for _, sp := range manifest.Splits {
 		if sp.Name != split.Name {
@@ -364,6 +393,7 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 		PhysicalContentDigest: content, SplitManifestDigest: manifest.Digest, Split: split.Name, SplitRole: split.Role,
 		Episodes: ids, GateMetres: opts.GateMetres, FrameToleranceNanos: opts.FrameToleranceNanos,
 		GapDefinition: annotation.GapAlongFollowerAxis, ExpectedInstants: len(pr.instants),
+		FollowingCriteria: citation,
 	}
 	if frozen != nil {
 		pr.Identity.SplitDigest, pr.Identity.SplitRevision, pr.Identity.PhysicalPinned = frozen.SplitDigest, frozen.Revision, pinned

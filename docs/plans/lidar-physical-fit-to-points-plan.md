@@ -6,7 +6,7 @@ belong to the object, and whether an end the returns reach is the vehicle's real
 of something hiding it. The fit does the arithmetic, states every bound it uses, and writes
 proposals that go through the same validation and review as anything typed by hand.
 
-- **Status:** F1 and F2 built: the Go fit, its command, its endpoint, and the window's Fit section with the evidence pickers removed. F4 built: the whole box is drawn in the 3D view and the elevations, a fitted pose turns about its centre, and the window names every frame by its sample. F3 (errors at the field) and F5 open
+- **Status:** F1 and F2 built: the Go fit, its command, its endpoint, and the window's Fit section with the evidence pickers removed. F4 built: the whole box is drawn in the 3D view and the elevations, a fitted pose turns about its centre, and the window names every frame by its sample. F3 built: the service locates each refusal by record and field, and the window shows it beneath the field that causes it. F5 open
 - **Target:** v0.5.3, Sprint 0.5.2.0; the P3 operator pilot of the [physical reference plan](lidar-physical-reference-review-plan.md)
 - **Layers:** L10 Clients, annotation and offline evaluation
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
@@ -189,8 +189,33 @@ by its digest, and stores nothing. In the window:
   hand states its assumptions itself, so no free-text field blocks a save; a missing `±` is
   flagged beside its value.
 
-That takes part of F3 early. What F3 still needs is the service's refusals shown beside the field
-that causes them, rather than at the top and bottom of the column.
+That took part of F3 early.
+
+## F3 as built
+
+The rest of F3 is the service's refusals shown beside the field that causes them, rather than at
+the top and bottom of the column.
+
+- **The service says where.** Every refusal the validator or the link check makes carries a
+  location: the object, the record (`body`, `keyframe` or `following`) and its ID, a keyframe's
+  sample, and the field in the record's JSON names (`position.bound_m`,
+  `review.uncertainty_assumptions`, `length`). The edit endpoint returns it as `invalid_at`, and
+  each link problem as `at`. The messages, the rules and the record schema are unchanged; the
+  location rides on the error chain and adds no text.
+- **The window places it.** A refusal is shown in red beneath the control that sets its field,
+  for the object and frame on screen. A closed group that holds one, **Adjust by hand**, the size's
+  method and assumptions, or shared errors, is held open until it is fixed. The line above **Save
+  proposal** names where to look. A refusal with no control on screen (a pose at another frame,
+  another object, a following record, the document as a whole, or any refusal from a service that
+  predates locations) is shown there in full, as before. A refused save is no longer repeated in
+  the status line.
+- **The pilot's two stops.** Both were already closed in the fitted path by F2: a fit states its
+  own assumptions and bounds, and hand-set bounds state theirs. If either recurs by hand, a cleared
+  assumptions field or a position without `±`, the refusal now sits beneath that field.
+- **Held to each other.** `TestPhysicalLocationSwiftFixture` writes Go's refusals for every
+  control the window maps to `testdata/physical_location_fixture.json`, and
+  `PhysicalFieldErrorsTests.swift` checks where each lands, so a renamed location fails a test
+  rather than falling back to the bottom of the pane.
 
 ## The pane
 

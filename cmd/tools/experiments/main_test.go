@@ -4,9 +4,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 const laneSpec = `---
@@ -20,8 +23,10 @@ report: docs/r.md
 arms:
   - name: a0
     tuning: config/tuning.defaults.json
+    fingerprint: @FP@
   - name: b
     tuning: config/tuning.defaults.json
+    fingerprint: @FP@
     replay: [support_filter, cascade]
 cases:
   corpus: kirk-labelled
@@ -43,11 +48,12 @@ steps:
 func repo(t *testing.T) (string, string) {
 	t.Helper()
 	root := t.TempDir()
+	defaults, fp := defaultsAndFingerprint(t)
 	for rel, content := range map[string]string{
-		"config/tuning.defaults.json":       "{}",
+		"config/tuning.defaults.json":       string(defaults),
 		"docs/q.md":                         "# Q\n",
 		"data/experiments/abcd/README.md":   "---\narea: abcd\ntitle: Test\nlayers: L3\nowner: t\n---\n",
-		"data/experiments/abcd/abcd0001.md": laneSpec,
+		"data/experiments/abcd/abcd0001.md": strings.ReplaceAll(laneSpec, "@FP@", fp),
 	} {
 		p := filepath.Join(root, rel)
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -58,6 +64,21 @@ func repo(t *testing.T) (string, string) {
 		}
 	}
 	return root, filepath.Join(t.TempDir(), "state")
+}
+
+// defaultsAndFingerprint is the repository's tuning defaults and their
+// fingerprint, so the fixture's arms are pinned to a file that loads.
+func defaultsAndFingerprint(t *testing.T) ([]byte, string) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "config", "tuning.defaults.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.ParseTuningConfig(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw, cfg.Fingerprint()
 }
 
 // cli runs the command and returns its exit code and standard output.
@@ -148,7 +169,8 @@ func TestALaneMarksUnitsAndStatusFollows(t *testing.T) {
 	do(2, "status", "a", "b")
 
 	// An experiment waiting on an unanswered one does not start without -force.
-	dep := strings.Replace(strings.Replace(laneSpec, "id: abcd0001", "id: abcd0002", 1), "report: docs/r.md\n", "report: docs/r.md\ndepends_on: [abcd0001]\n", 1)
+	_, fp := defaultsAndFingerprint(t)
+	dep := strings.Replace(strings.Replace(strings.ReplaceAll(laneSpec, "@FP@", fp), "id: abcd0001", "id: abcd0002", 1), "report: docs/r.md\n", "report: docs/r.md\ndepends_on: [abcd0001]\n", 1)
 	if err := os.WriteFile(filepath.Join(root, "data/experiments/abcd/abcd0002.md"), []byte(dep), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -185,4 +207,53 @@ func TestALaneMarksUnitsAndStatusFollows(t *testing.T) {
 	do(1, "status", "abcd0001")
 	do(1, "status")
 	do(1, "units", "abcd0001")
+}
+
+// pin writes the fingerprints an open spec needs, and a lane cannot start an
+// arm whose file changed after the spec was pinned.
+func TestPinAndMarkRefuseADriftedArm(t *testing.T) {
+	root, state := repo(t)
+	base := []string{"-root", root, "-state", state}
+	do := func(want int, args ...string) string {
+		t.Helper()
+		code, out := cli(t, append(base, args...)...)
+		if code != want {
+			t.Fatalf("%v: exit %d, want %d\n%s", args, code, want, out)
+		}
+		return out
+	}
+	specPath := filepath.Join(root, "data/experiments/abcd/abcd0001.md")
+	raw, _ := os.ReadFile(specPath)
+	_, fp := defaultsAndFingerprint(t)
+	unpinned := strings.ReplaceAll(string(raw), "    fingerprint: "+fp+"\n", "")
+	if err := os.WriteFile(specPath, []byte(unpinned), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	do(1, "validate")
+	if out := do(0, "pin", "-open"); !strings.Contains(out, "abcd0001 pinned") {
+		t.Fatalf("pin -open: %s", out)
+	}
+	do(0, "validate")
+	if out := do(0, "pin", "abcd0001"); !strings.Contains(out, "already pinned") {
+		t.Fatalf("pin again: %s", out)
+	}
+	if out := do(0, "show", "abcd0001"); !strings.Contains(out, "@"+fp) {
+		t.Errorf("show does not print the pinned fingerprint:\n%s", out)
+	}
+
+	defaults := filepath.Join(root, "config/tuning.defaults.json")
+	cur, _ := os.ReadFile(defaults)
+	moved := regexp.MustCompile(`"frame_budget_ms": [0-9.]+`).ReplaceAllString(string(cur), `"frame_budget_ms": 987.5`)
+	if moved == string(cur) {
+		t.Fatal("defaults have no frame_budget_ms to move")
+	}
+	if err := os.WriteFile(defaults, []byte(moved), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	do(1, "validate")
+	code, _ := cli(t, append(base, "mark", "abcd0001", "replay/a0/kirk0", "start", "-worker", "m1")...)
+	if code != 1 {
+		t.Fatalf("start on a drifted arm: exit %d, want 1", code)
+	}
+	do(0, "mark", "abcd0001", "replay/a0/kirk0", "start", "-worker", "m1", "-force")
 }

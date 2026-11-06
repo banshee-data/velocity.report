@@ -117,8 +117,11 @@ frames. Publish the scored and unscored populations by the required strata. Pin 
 reference precision, nominal coverage, encounter counts, and missing-opportunity limits on tuning
 data before held-out scoring. Missing truth or a missing criterion is insufficient evidence. The
 heading, containment, centre, extent, gap, lateral, identity and cost levels are pinned in the
-[geometry convergence criteria](../lidar/operations/geometry-convergence-criteria.md) (W0); the
-following limits and the scorer's citation of the record remain to pin.
+[geometry convergence criteria](../lidar/operations/geometry-convergence-criteria.md) (W0). The
+following limits have a record format the scorer cites by path and digest, and which admits a
+held-out split once pinned
+([following-criteria record](../lidar/operations/point-annotation-tool.md#the-following-criteria-record));
+the limits themselves remain to pin (l8fol0004's decide step).
 
 ## Delivery order and acceptance
 
@@ -161,6 +164,10 @@ capture; and score L5 speed, path and gap against the probe with the same P2 sco
 recorded as a reference source distinct from operator-fitted references. It changes no code path
 in the pipeline, no registry entry and no definition.
 
+The [campaign protocol](lidar-external-reference-campaign-protocol.md) predeclares the site survey,
+the RTK fix rule, the clock chain, the reference envelope, the scripted passes and the disjoint
+populations, with the fix-availability measurement and the survey still to do in the field.
+
 ## Checklist
 
 - [x] P0: versioned physical-reference contract, independent import, and revision-safe round trip
@@ -168,4 +175,4 @@ in the pipeline, no registry entry and no definition.
 - [x] P2: physical-reference scoring, prediction comparison, and complete missing-evidence accounting (Go; the macOS Compare mode reads its per-instant record, and physical scoring binds frozen splits with a verifiable bundle)
 - [ ] P3: operator pilot, independent pair/manoeuvre references, and frozen object-disjoint splits (frozen splits now pin each pack's physical revision, digests and review coverage, and the window freezes through the service; the [kirk0 pilot](../lidar/operations/physical-reference-pilot-kirk0-2026-10.md) froze three vehicles and two following pairs and scored them; more pairs and a second site remain)
 - [ ] Physical gates scored against the frozen references; insufficient evidence remains visible
-- [ ] Proposed: RTK probe-vehicle passes as an external reference (D-29); fix availability measured on the pilot street first
+- [ ] Proposed: RTK probe-vehicle passes as an external reference (D-29); fix availability measured on the pilot street first, under the predeclared [campaign protocol](lidar-external-reference-campaign-protocol.md) (written; field work not started)

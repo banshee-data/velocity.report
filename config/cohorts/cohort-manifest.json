@@ -1,0 +1,34 @@
+{
+  "schema": "velocity.report/cohort-manifest",
+  "schema_version": 1,
+  "revision": 1,
+  "frozen_utc": "2026-11-06T00:00:00Z",
+  "sites": [
+    {
+      "site_id": "kirkham-9th",
+      "cohort": "development",
+      "rationale": "D-40 (November 6, 2026): the kirk0 reference site and the external-reference pilot street; kirk0's labels are development evidence, so kirk1 and kirk2 support development claims only, never qualification"
+    }
+  ],
+  "captures": [
+    {
+      "capture_id": "kirk0",
+      "site_id": "kirkham-9th",
+      "raw_sha256": "sha256:2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a",
+      "basename": "kirk0.pcapng"
+    },
+    {
+      "capture_id": "kirk1",
+      "site_id": "kirkham-9th",
+      "raw_sha256": "sha256:db7e4f5dc83433286199e2b01e46debf772e32fbeb4e7b5e49001976f8692fdb",
+      "basename": "kirk1.pcapng"
+    },
+    {
+      "capture_id": "kirk2",
+      "site_id": "kirkham-9th",
+      "raw_sha256": "sha256:bf67b7092b8614e5bb24a61c5f1cc5c762c5066a8fc5bde2f4cc4f594acebc67",
+      "basename": "kirk2.pcapng"
+    }
+  ],
+  "access": { "qualification_storage_restricted": false, "custodians": [] }
+}

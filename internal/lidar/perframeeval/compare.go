@@ -166,6 +166,11 @@ func caveats(c Comparison) []string {
 				"extents as drawn, with the front named from the course. The box records no face and no spread, so every "+
 				"endpoint is temporally inferred and its sigma is the filter's position sigma alone, a lower bound.", arm.Label))
 		}
+		if arm.Table == measurementTable {
+			out = append(out, fmt.Sprintf("Arm %s scores the filter's measurements, not its state: the L4 cluster "+
+				"position each update consumed, on the track the filter assigned it to. Its sigma is the state's, which "+
+				"says nothing about the measurement.", arm.Label))
+		}
 	}
 	out = append(out, "False positives include hypotheses on returns nobody labelled. They are an upper bound "+
 		"unless every road user in the episodes' frames has a mask; the deltas are sounder than either arm's count.")

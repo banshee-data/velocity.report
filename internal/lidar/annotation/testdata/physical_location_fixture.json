@@ -1,0 +1,313 @@
+[
+  {
+    "name": "position bound",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": keyframe \"kf-car-1-s0\": position: a known position needs a finite, non-negative bound_m",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "keyframe",
+        "record_id": "kf-car-1-s0",
+        "sample_id": 0,
+        "field": "position.bound_m",
+        "detail": "a known position needs a finite, non-negative bound_m"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "pose assumptions",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": keyframe \"kf-car-1-s0\": a record that declares bounds must state its uncertainty assumptions",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "keyframe",
+        "record_id": "kf-car-1-s0",
+        "sample_id": 0,
+        "field": "review.uncertainty_assumptions",
+        "detail": "a record that declares bounds must state its uncertainty assumptions"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "size assumptions",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": body \"body-car-1\": a record that declares bounds must state its uncertainty assumptions",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "body",
+        "record_id": "body-car-1",
+        "field": "review.uncertainty_assumptions",
+        "detail": "a record that declares bounds must state its uncertainty assumptions"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "length",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": body \"body-car-1\": length: a full span needs a finite upper_m no less than lower_m",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "body",
+        "record_id": "body-car-1",
+        "field": "length",
+        "detail": "a full span needs a finite upper_m no less than lower_m"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "width",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": body \"body-car-1\": width: an inferred component names neither supporting frames nor an external reference",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "body",
+        "record_id": "body-car-1",
+        "field": "width.support",
+        "detail": "an inferred component names neither supporting frames nor an external reference"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "height",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": body \"body-car-1\": height: a partial span supports only a lower bound: it cannot carry upper_m or value_m",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "body",
+        "record_id": "body-car-1",
+        "field": "height",
+        "detail": "a partial span supports only a lower bound: it cannot carry upper_m or value_m"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "axis convention",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": body \"body-car-1\": axis convention \"x_left\", want \"x_front_y_left_z_up\"",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "body",
+        "record_id": "body-car-1",
+        "field": "axis_convention",
+        "detail": "axis convention \"x_left\", want \"x_front_y_left_z_up\""
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "heading",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": keyframe \"kf-car-1-s0\": yaw: a known yaw needs a finite yaw_rad and a bound_rad in [0, pi]",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "keyframe",
+        "record_id": "kf-car-1-s0",
+        "sample_id": 0,
+        "field": "yaw",
+        "detail": "a known yaw needs a finite yaw_rad and a bound_rad in [0, pi]"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "anchor",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": keyframe \"kf-car-1-s0\": anchor: a body-centre anchor has no offset",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "keyframe",
+        "record_id": "kf-car-1-s0",
+        "sample_id": 0,
+        "field": "anchor",
+        "detail": "a body-centre anchor has no offset"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "front",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": keyframe \"kf-car-1-s0\": front: a bumper cannot be named while the axis is front_rear_ambiguous",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "keyframe",
+        "record_id": "kf-car-1-s0",
+        "sample_id": 0,
+        "field": "front",
+        "detail": "a bumper cannot be named while the axis is front_rear_ambiguous"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "rear",
+    "object_id": "car-1",
+    "sample_id": 3,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": keyframe \"kf-car-1-s3\": rear: an observed component names no supporting frames",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "keyframe",
+        "record_id": "kf-car-1-s3",
+        "sample_id": 3,
+        "field": "rear.support",
+        "detail": "an observed component names no supporting frames"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "shared errors",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": keyframe \"kf-car-1-s0\": shared error \"outline fit at sample 0\" links fewer than two components",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "keyframe",
+        "record_id": "kf-car-1-s0",
+        "sample_id": 0,
+        "field": "shared_errors.0.components",
+        "detail": "shared error \"outline fit at sample 0\" links fewer than two components"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "capture time",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": keyframe \"kf-car-1-s0\": sample 0 was captured at 1000000000 ns, the record says 1000000001",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "keyframe",
+        "record_id": "kf-car-1-s0",
+        "sample_id": 0,
+        "field": "timestamp_ns",
+        "detail": "sample 0 was captured at 1000000000 ns, the record says 1000000001"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "pose at another frame",
+    "object_id": "car-1",
+    "sample_id": 3,
+    "result": {
+      "valid": false,
+      "invalid": "object \"car-1\": keyframe \"kf-car-1-s0\": position: a known position needs a finite, non-negative bound_m",
+      "invalid_at": {
+        "object_id": "car-1",
+        "record": "keyframe",
+        "record_id": "kf-car-1-s0",
+        "sample_id": 0,
+        "field": "position.bound_m",
+        "detail": "a known position needs a finite, non-negative bound_m"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "following",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "following \"follow-car-1\": a record that declares bounds must state its uncertainty assumptions",
+      "invalid_at": {
+        "record": "following",
+        "record_id": "follow-car-1",
+        "field": "review.uncertainty_assumptions",
+        "detail": "a record that declares bounds must state its uncertainty assumptions"
+      },
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "document",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "invalid": "record keyframe/kf-car-1-s0 is missing from record_origins",
+      "link_problems": [],
+      "reset_reviews": []
+    }
+  },
+  {
+    "name": "length beyond the returns",
+    "object_id": "car-1",
+    "sample_id": 0,
+    "result": {
+      "valid": false,
+      "link_problems": [
+        {
+          "record": "object \"car-1\" body \"body-car-1\"",
+          "problem": "observed full length is at least 4.300 m, but its supporting frames' returns span at most 1.500 m: a partial span supports only a lower bound",
+          "at": {
+            "object_id": "car-1",
+            "record": "body",
+            "record_id": "body-car-1",
+            "field": "length",
+            "detail": "observed full length is at least 4.300 m, but its supporting frames' returns span at most 1.500 m: a partial span supports only a lower bound"
+          }
+        }
+      ],
+      "reset_reviews": []
+    }
+  }
+]

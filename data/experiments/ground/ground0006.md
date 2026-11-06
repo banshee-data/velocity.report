@@ -16,6 +16,7 @@ requires:
 arms:
   - name: a0
     tuning: config/tuning.defaults.json
+    fingerprint: ab0c4035780d
 cases:
   corpus: d2-first-segment
   count: 23

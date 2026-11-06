@@ -23,8 +23,10 @@ reclaim: any
 arms:
   - name: a0
     tuning: config/tuning.defaults.json
+    fingerprint: @FP@
   - name: b
     tuning: config/experiments/set.json
+    fingerprint: @FP@
 cases:
   corpus: kirk-labelled
   count: 2
@@ -308,7 +310,7 @@ func TestProgressFoldsUnitsIntoStepsAndTimeLeft(t *testing.T) {
 
 	// Units the spec no longer has are reported, not hidden.
 	spec2, _ := progressFixture(t, func(s string) string {
-		return strings.Replace(s, "  - name: b\n    tuning: config/experiments/set.json\n", "", 1)
+		return strings.Replace(s, "  - name: b\n    tuning: config/experiments/set.json\n    fingerprint: @FP@\n", "", 1)
 	})
 	p = spec2.Progress(recs, t0)
 	if strings.Join(p.Extra, ",") != "replay/b/kirk0,replay/b/kirk1" {
