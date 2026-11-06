@@ -882,14 +882,48 @@ def published(site):
     return os.path.exists(os.path.join(SCENES, site, ".rebuilt"))
 
 
-def report_status(scenes, problems):
+def lane_status():
+    """Each dataset id's lane proposals, as the server's clips list says.
+
+    Empty when the server does not answer: --status needs no server, and the
+    lane column is then left blank rather than guessed.
+    """
+    try:
+        listed = api("/clips?lanes=1", timeout=30)
+    except Exception:
+        return {}
+    out = {}
+    for clip in listed.get("clips", []):
+        dataset = clip.get("dataset_id")
+        if not dataset:
+            continue
+        reg = clip.get("registration", {}).get("state", "")
+        lanes = clip.get("lanes", {})
+        latest = lanes.get("latest")
+        if reg != "registered":
+            out[dataset] = reg.replace("_", " ") or "unknown"
+        elif not latest:
+            out[dataset] = "lanes: none yet"
+        else:
+            word = "current" if lanes.get("current") else "stale"
+            out[dataset] = (
+                f"lanes: {latest.get('high', 0)} high, {latest.get('medium', 0)} medium, {word}"
+            )
+    return out
+
+
+def report_status(scenes, problems, lanes=None):
     """What a rebuild would do, without starting one."""
+    lanes = {} if lanes is None else lanes
     done = [s for s in scenes if published(s["site"])]
     outstanding = [s for s in scenes if not published(s["site"])]
     minutes = sum(s["minutes"] for s in outstanding)
     for scene in scenes:
         mark = "published" if published(scene["site"]) else "OUTSTANDING"
-        print(f"  {mark:<11} {scene['site']:<24} {scene['minutes']:>6.1f} min")
+        lane = lanes.get(scene["site"], "")
+        print(
+            f"  {mark:<11} {scene['site']:<24} {scene['minutes']:>6.1f} min  {lane}".rstrip()
+        )
     for problem in problems:
         print(f"  UNRESOLVED  {problem}")
     print(
@@ -952,7 +986,7 @@ def main():
     db_issue = db_problem()
     scenes, problems = plan(args.source, args.sites, args.corpus, args.pcap_dir)
     if args.status:
-        status = report_status(scenes, problems)
+        status = report_status(scenes, problems, lane_status())
         if db_issue:
             print(f"  {db_issue}")
         return 1 if db_issue else status

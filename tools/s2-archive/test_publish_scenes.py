@@ -707,3 +707,41 @@ class LaneFieldStepTests(unittest.TestCase):
         ):
             self.assertEqual(publish_scenes.land_lane_fields("x", "r")[0], "off")
         api.assert_not_called()
+
+
+class LaneStatusTests(unittest.TestCase):
+    """--status shows each site's lanes when the server answers, nothing when not."""
+
+    def test_each_dataset_id_reads_its_lanes(self):
+        listed = {
+            "clips": [
+                {
+                    "dataset_id": "a",
+                    "registration": {"state": "registered"},
+                    "lanes": {"latest": {"high": 4, "medium": 1}, "current": True},
+                },
+                {
+                    "dataset_id": "b",
+                    "registration": {"state": "registered"},
+                    "lanes": {"current": False},
+                },
+                {
+                    "dataset_id": "c",
+                    "registration": {"state": "ambiguous"},
+                    "lanes": {},
+                },
+                {"registration": {"state": "registered"}},
+            ]
+        }
+        with mock.patch.object(publish_scenes, "api", return_value=listed):
+            got = publish_scenes.lane_status()
+        self.assertEqual(got["a"], "lanes: 4 high, 1 medium, current")
+        self.assertEqual(got["b"], "lanes: none yet")
+        self.assertEqual(got["c"], "ambiguous")
+        self.assertEqual(len(got), 3)
+
+    def test_no_server_leaves_the_column_blank(self):
+        with mock.patch.object(
+            publish_scenes, "api", side_effect=RuntimeError("refused")
+        ):
+            self.assertEqual(publish_scenes.lane_status(), {})
