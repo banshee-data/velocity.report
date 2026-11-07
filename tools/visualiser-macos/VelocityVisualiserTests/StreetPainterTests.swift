@@ -1215,4 +1215,27 @@ struct StreetStyleTests {
         let up = try #require(split.first { $0.points.first!.x < -14 })
         #expect(abs(up.points.last!.x - 3.2) < 1e-6)
     }
+
+    @Test func joinLanesUndoesASplitAsOneChange() async throws {
+        let painter = await painter()
+        painter.tool = .lane
+        click(painter, plan(-15, 1.75))
+        click(painter, plan(15, 1.75))
+        click(painter, plan(15, 1.75), count: 2)
+        painter.tool = .split
+        click(painter, plan(1, 1.75))
+        let lanes = painter.edit.marks.filter { $0.kind == .travelLane }.count
+        painter.tool = .join
+        // The downstream half first: the order clicked does not matter.
+        click(painter, plan(10, 1.75))
+        #expect(painter.joinFirst != nil && painter.edit.marks.filter { $0.kind == .travelLane }.count == lanes)
+        click(painter, plan(-10, 1.75))
+        let joined = painter.edit.marks.filter { $0.kind == .travelLane }
+        #expect(joined.count == lanes - 1)
+        let lane = try #require(joined.first { $0.points.first!.x < -14 })
+        #expect(lane.points.last!.x > 14 && lane.points.count == 3)
+        #expect(painter.selectedKey == lane.key && painter.joinFirst == nil && painter.joinMessage == nil)
+        painter.undo()
+        #expect(painter.edit.marks.filter { $0.kind == .travelLane }.count == lanes)
+    }
 }

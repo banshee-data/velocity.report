@@ -240,6 +240,56 @@ private let rejectedHigh = proposal("gms:p4", grade: "high", from: SIMD2(0, -9),
         #expect(StreetUseEditing.split(lane, at: PlanPoint(20, 5), newKey: "x") == nil)
     }
 
+    private func lane(
+        _ key: String, _ pts: [SIMD2<Double>], featureID: String = "", tags: [String: String] = [:]
+    ) -> StreetMark {
+        StreetMark(
+            key: key, featureID: featureID, kind: .travelLane, points: pts.map { SIMD3($0.x, $0.y, 21) },
+            tags: tags)
+    }
+
+    @Test func joiningKeepsEveryVertexInTravelOrder() {
+        // Two proposals meeting near a node, 0.45 m apart, clicked downstream first.
+        let up = lane("a", [SIMD2(0, 0), SIMD2(20, 0)], tags: ["proposal": "gms:p1", "width_m": "2.4"])
+        let down = lane(
+            "b", [SIMD2(20.2, 0.4), SIMD2(40, 3)], featureID: "gms:lane-b",
+            tags: ["proposal": "gms:p2", "speed_limit": "25", "speed_limit_unit": "mph"])
+        guard case .joined(let joined, let removed) = StreetUseEditing.join(down, up) else {
+            Issue.record("expected a join")
+            return
+        }
+        #expect(joined.plan == [PlanPoint(0, 0), PlanPoint(20, 0), PlanPoint(20.2, 0.4), PlanPoint(40, 3)])
+        // The saved lane's identity; upstream's tags, plus the limit only downstream had.
+        #expect(joined.key == "b" && joined.featureID == "gms:lane-b" && removed == "a")
+        #expect(joined.tags["proposal"] == "gms:p1" && joined.tags["speed_limit"] == "25")
+        #expect(joined.tags["width_m"] == "2.4")
+        // Ends that meet become one vertex.
+        let touching = lane("c", [SIMD2(20, 0), SIMD2(40, 0)])
+        guard case .joined(let one, _) = StreetUseEditing.join(up, touching) else {
+            Issue.record("expected a join")
+            return
+        }
+        #expect(one.points.count == 3)
+    }
+
+    @Test func lanesThatDoNotContinueEachOtherStayApart() {
+        let up = lane("a", [SIMD2(0, 0), SIMD2(20, 0)], tags: ["speed_limit": "25", "lane_type": "general"])
+        func refused(_ other: StreetMark) -> Bool {
+            if case .refused = StreetUseEditing.join(up, other) { return true }
+            return false
+        }
+        #expect(refused(lane("far", [SIMD2(26, 0), SIMD2(40, 0)])))
+        #expect(refused(lane("back", [SIMD2(40, 0), SIMD2(21, 0)])))
+        #expect(refused(lane("turn", [SIMD2(20, 0), SIMD2(20, 20)])))
+        #expect(refused(lane("limit", [SIMD2(20, 0), SIMD2(40, 0)], tags: ["speed_limit": "30"])))
+        #expect(refused(lane("bus", [SIMD2(20, 0), SIMD2(40, 0)], tags: ["lane_type": "bus"])))
+        #expect(refused(up))
+        var space = lane("s", [SIMD2(20, 0), SIMD2(40, 0)])
+        space.kind = .driveway
+        #expect(refused(space))
+        #expect(!refused(lane("ok", [SIMD2(23, 1), SIMD2(40, 3)], tags: ["speed_limit": "25"])))
+    }
+
     @Test func aDirectionNameGoesOnEveryLaneOfTheDirection() async {
         let second = proposal("gms:p5", grade: "high", from: SIMD2(0, -5), to: SIMD2(40, -5))
         let (painter, _, _) = await lanePainter([high, second, medium])
