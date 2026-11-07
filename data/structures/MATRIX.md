@@ -155,6 +155,9 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Clip extracts  | `clip_extract_api.go`   | `GET/POST /api/lidar/clips/{id}/extract`        | ✅  | ✅  | -   |
 | Clip extracts  | `clip_extract_api.go`   | `PUT /api/lidar/clips/{id}/publishing`          | ✅  | ✅  | -   |
 | Clip extracts  | `clip_extract_api.go`   | `POST /api/lidar/clips/{id}/stage`              | ✅  | ✅  | -   |
+| Lane proposals | `lane_proposals_api.go` | `POST /api/lidar/clips/{id}/lane-proposals`     | ✅  | ✅  | -   |
+| Lane proposals | `lane_proposals_api.go` | `POST /api/lidar/clips/lane-proposals/rerun`    | ✅  | ✅  | -   |
+| Lane proposals | `lane_proposals_api.go` | `POST /api/lidar/runs/{id}/lane-proposals`      | ✅  | -   | -   |
 | Clip extracts  | `clip_extract_api.go`   | `GET /api/lidar/dataset/site-index`             | ✅  | -   | -   |
 | Missed regions | `run_track_api.go`      | `GET/POST /api/lidar/runs/{id}/missed-regions`  | ✅  | ✅  | -   |
 | Missed regions | `run_track_api.go`      | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | -   | -   |
@@ -231,6 +234,7 @@ via `RunBrowserState`.
 | LiDAR  | `lidar_clips`                    | ✅  | ✅  | Replay-case browser and Mac labelling                  |
 | LiDAR  | `lidar_clip_evaluations`         | ✅  | -   | Replay evaluation and compare UI                       |
 | LiDAR  | `lidar_clip_extracts`            | ✅  | -   | A clip's standalone extract and its capture_export job |
+| LiDAR  | `lidar_clip_lane_proposals`      | ✅  | -   | A clip's lane fields in Gerardus and proposal counts   |
 | LiDAR  | `lidar_lane_snapshots`           | -   | ✅  | Append-only lane snapshots; written by the painter     |
 | LiDAR  | `lidar_lane_snapshot_lanes`      | -   | ✅  | A snapshot's lanes with their limits, for attribution  |
 | LiDAR  | `lidar_data_uses`                | ✅  | -   | Append-only eligibility ledger; labelling workspace    |
@@ -278,7 +282,7 @@ via `RunBrowserState`.
 
 ## 5. Database fields: all columns
 
-The current schema has 666 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
+The current schema has 688 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
 
 | Table                            | Column                              | Type          | DB  | Web | Mac |
 | -------------------------------- | ----------------------------------- | ------------- | --- | --- | --- |
@@ -460,6 +464,28 @@ The current schema has 666 fields, including generated fields. Newly added rows 
 | `lidar_clip_extracts`            | `sidecar_json`                      | TEXT          | ✅  | -   | -   |
 | `lidar_clip_extracts`            | `created_at_ns`                     | INTEGER       | ✅  | -   | -   |
 | `lidar_clip_extracts`            | `completed_at_ns`                   | INTEGER       | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `proposal_run_id`                   | TEXT PK       | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `clip_id`                           | TEXT FK       | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `job_id`                            | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `run_id`                            | TEXT          | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `l16_token`                         | TEXT          | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `sensor_id`                         | TEXT          | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `record_id`                         | TEXT          | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `gerardus_version`                  | TEXT          | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `field_ids_json`                    | TEXT          | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `window_start_ns`                   | INTEGER       | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `window_end_ns`                     | INTEGER       | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `track_count`                       | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `pipeline_build`                    | TEXT          | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `tuning_fingerprint`                | TEXT          | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `high`                              | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `medium`                            | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `adopted`                           | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `rejected`                          | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `outstanding`                       | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_lane_proposals`      | `derive_secs`                       | REAL          | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `created_at_ns`                     | INTEGER       | ✅  | -   | -   |
+| `lidar_clip_lane_proposals`      | `completed_at_ns`                   | INTEGER       | ✅  | ✅  | -   |
 | `lidar_lane_snapshots`           | `snapshot_id`                       | TEXT PK       | ✅  | -   | ✅  |
 | `lidar_lane_snapshots`           | `l16_token`                         | TEXT          | ✅  | -   | ✅  |
 | `lidar_lane_snapshots`           | `sensor_id`                         | TEXT          | ✅  | -   | ✅  |
@@ -1285,9 +1311,9 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 115   | 72  | 92  | 14  |
+| HTTP endpoints (LiDAR)  | 118   | 75  | 94  | 14  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
-| DB tables               | 52    | -   | 39  | 8   |
+| DB tables               | 53    | -   | 40  | 8   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   |
 | cmd/ entry points       | 15    | -   | -   | -   |
