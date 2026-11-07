@@ -129,3 +129,42 @@ func TestBuildWithoutAReadableRecording(t *testing.T) {
 		t.Fatalf("missing run: %v", err)
 	}
 }
+
+func TestFromHeadlessVRLOGKeepsConfirmedTracksWithTheirLastClass(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "headless.vrlog")
+	rec, err := recorder.NewRecorder(path, "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for f := 0; f < 30; f++ {
+		ts := t0 + int64(f)*100_000_000
+		tracks := []l9endpoints.Track{
+			// Tentative for its first five frames, then confirmed; classed late.
+			{TrackID: "car-a", X: 0.1, Y: float32(0.5 * float64(f)), VY: 5, SpeedMps: 5, BBoxLength: 4, BBoxWidth: 2},
+			// Never confirmed: must not count.
+			{TrackID: "ghost", X: 3, Y: 3, State: l9endpoints.TrackStateTentative, ObjectClass: "car"},
+		}
+		if f >= 5 {
+			tracks[0].State = l9endpoints.TrackStateConfirmed
+		}
+		if f >= 20 {
+			tracks[0].ObjectClass = "car"
+		}
+		if err := rec.Record(&l9endpoints.FrameBundle{FrameID: uint64(f), TimestampNanos: ts, SensorID: "s1", Tracks: &l9endpoints.TrackSet{TimestampNanos: ts, Tracks: tracks}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := FromHeadlessVRLOG(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Frames != 30 || got.WindowStartNs != t0 || got.WindowEndNs != t0+29*100_000_000 {
+		t.Fatalf("window = %+v", got)
+	}
+	if len(got.Tracks) != 1 || got.Tracks[0].TrackID != "car-a" || got.Tracks[0].Class != "car" || len(got.Tracks[0].Instants) != 30 {
+		t.Fatalf("tracks = %+v", got.Tracks)
+	}
+}

@@ -399,3 +399,91 @@ func TestLaneFieldRejectsBadOptions(t *testing.T) {
 		t.Fatalf("an empty part builds all: %v %q", err, f.Header.WindowPart)
 	}
 }
+
+func TestLaneFieldCountsEveryCellThePathCrosses(t *testing.T) {
+	// Five cars at 9 m/s: 0.9 m between instants, four cells. Each starts at
+	// a different phase, so no row of cells holds every car's sampled centre.
+	var tracks []LaneFieldTrack
+	for i := 0; i < 5; i++ {
+		tracks = append(tracks, straightTrack(fmt.Sprintf("t%d", i), "car", 0.1, 0.18*float64(i), 9, 20, 0, false))
+	}
+	f := build(t, tracks, LaneFieldPartAll)
+	// Every cell from the last start to the first end holds all five, with
+	// the heading north and the speed of the step.
+	for y := 1.0; y < 17; y += 0.25 {
+		n, _, heading, speed, ok := cellAt(f, LaneFieldVehicle, 0.125, y+0.125)
+		if !ok || n != 5 {
+			t.Fatalf("cell at y %.3f holds %d tracks (present %v), want 5", y+0.125, n, ok)
+		}
+		if heading[0] != 5 || math.Abs(float64(speed)-45) > 1e-3 {
+			t.Fatalf("cell at y %.3f: heading %v speed sum %v, want 5 north and 45", y+0.125, heading, speed)
+		}
+	}
+
+	// Sampled cells only, as before: no 0.25 m row holds all five.
+	opts := DefaultLaneFieldOptions()
+	opts.MaxBridgeS = 0
+	sampled, err := BuildLaneField(tracks, LaneFieldMeta{}, LaneFieldPartAll, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sampled.CellCount() != 0 {
+		t.Fatalf("sampled-only field has %d cells at k = 5, want none", sampled.CellCount())
+	}
+}
+
+func TestLaneFieldDoesNotBridgeAGapInObservation(t *testing.T) {
+	// Five cars observed at y = 0 and again 0.6 s later at y = 5: an
+	// occlusion, not a path.
+	var tracks []LaneFieldTrack
+	for i := 0; i < 5; i++ {
+		tr := straightTrack(fmt.Sprintf("t%d", i), "car", 0.1, 0, 8.3, 10, 0, false)
+		last := tr.Instants[len(tr.Instants)-1]
+		for j := 1; j <= 10; j++ {
+			in := last
+			in.TimeNs = last.TimeNs + 6*laneSec/10 + int64(j-1)*laneSec/10
+			in.Y = last.Y + 5 + 0.83*float64(j-1)
+			tr.Instants = append(tr.Instants, in)
+		}
+		tracks = append(tracks, tr)
+	}
+	f := build(t, tracks, LaneFieldPartAll)
+	if _, _, _, _, ok := cellAt(f, LaneFieldVehicle, 0.125, 10.125); ok {
+		t.Fatal("the cell inside the 0.6 s gap is present; the gap was bridged")
+	}
+	if n, _, _, _, ok := cellAt(f, LaneFieldVehicle, 0.125, 4.125); !ok || n != 5 {
+		t.Fatalf("a cell before the gap holds %d tracks (present %v), want 5", n, ok)
+	}
+}
+
+func TestLaneSegmentCellsIsFourConnectedEndToEnd(t *testing.T) {
+	cases := []struct {
+		name           string
+		x0, y0, x1, y1 float64
+		want           []laneCellKey
+	}{
+		{"one cell", 0.1, 0.1, 0.2, 0.2, []laneCellKey{{0, 0}}},
+		{"along x", 0.1, 0.1, 0.8, 0.1, []laneCellKey{{0, 0}, {1, 0}, {2, 0}, {3, 0}}},
+		{"backwards", 0.8, 0.1, 0.1, 0.1, []laneCellKey{{3, 0}, {2, 0}, {1, 0}, {0, 0}}},
+		{"diagonal", 0.1, 0.05, 0.6, 0.35, []laneCellKey{{0, 0}, {1, 0}, {1, 1}, {2, 1}}},
+		{"through a corner, x first", 0.1, 0.05, 0.6, 0.3, []laneCellKey{{0, 0}, {1, 0}, {2, 0}, {2, 1}}},
+		{"negative", -0.1, -0.1, -0.6, -0.1, []laneCellKey{{-1, -1}, {-2, -1}, {-3, -1}}},
+	}
+	for _, c := range cases {
+		got := laneSegmentCells(c.x0, c.y0, c.x1, c.y1, 0.25)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
+	}
+	// A long diagonal: every step changes one index by one.
+	got := laneSegmentCells(0.01, 0.02, 7.3, 5.9, 0.25)
+	for i := 1; i < len(got); i++ {
+		d := absInt64(got[i].ix-got[i-1].ix) + absInt64(got[i].iy-got[i-1].iy)
+		if d != 1 {
+			t.Fatalf("step %d from %v to %v is not to a neighbour", i, got[i-1], got[i])
+		}
+	}
+	if got[0] != laneCellOf(0.01, 0.02, 0.25) || got[len(got)-1] != laneCellOf(7.3, 5.9, 0.25) {
+		t.Fatalf("path runs %v to %v", got[0], got[len(got)-1])
+	}
+}

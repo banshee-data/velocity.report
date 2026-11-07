@@ -187,6 +187,8 @@ struct StreetReference: Sendable {
             guard tool != oldValue else { return }
             drawing = []
             cursor = nil
+            joinFirst = nil
+            joinMessage = nil
             refresh()
         }
     }
@@ -208,6 +210,10 @@ struct StreetReference: Sendable {
     @Published private(set) var isSaving = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var savedMessage: String?
+    /// Join lanes: the lane clicked first, and why the last join was refused
+    /// (or what to click next).
+    @Published private(set) var joinFirst: String?
+    @Published private(set) var joinMessage: String?
     /// The last save's problems, by the feature they name, and those naming
     /// none.
     @Published private(set) var problemsByID: [String: [String]] = [:]
@@ -278,6 +284,9 @@ struct StreetReference: Sendable {
     @Published private(set) var snapshotError: String?
     /// A snapshot request whose outcome is not known: retried unchanged.
     private(set) var pendingSnapshot: LaneSnapshotRequest?
+    /// Called with the site's cell after every save or proposal review sent,
+    /// whatever its outcome, for the city's Lanes to review counts.
+    var onLanesChanged: ((String) -> Void)?
 
     init(
         alignment: AlignmentSession, laneFields: LaneFieldSource = VelocityReportLaneFieldClient(),
@@ -298,6 +307,7 @@ struct StreetReference: Sendable {
         }.store(in: &subscriptions)
         traffic.onChange = { [weak self] in self?.refresh() }
         proposals.onChange = { [weak self] in self?.refresh() }
+        proposals.onReviewed = { [weak self] cell in self?.onLanesChanged?(cell) }
     }
 
     // MARK: - Paint mode
@@ -515,6 +525,8 @@ struct StreetReference: Sendable {
             }
         }
         isSaving = false
+        // An approval adopts its proposal; a lost answer may have been applied.
+        onLanesChanged?(token)
         if let response, loadedToken == token { saved(response, sent: edits.count) }
     }
 
@@ -806,6 +818,38 @@ struct StreetReference: Sendable {
         }
     }
 
+    /// Join lanes: the first click picks a lane (and selects it), the second
+    /// joins the lane that continues it, as one undoable change. A refusal
+    /// keeps the first lane picked and says why.
+    func pickForJoin(_ key: String?) {
+        guard let key, let lane = edit.mark(key), lane.kind == .travelLane else {
+            joinMessage =
+                joinFirst == nil
+                ? "Click a travel lane." : "Click the lane that continues the first."
+            return
+        }
+        guard let firstKey = joinFirst, let first = edit.mark(firstKey), firstKey != key else {
+            joinFirst = key
+            selectedKey = key
+            joinMessage = "Now click the lane that continues it."
+            return
+        }
+        switch StreetUseEditing.join(first, lane) {
+        case .refused(let why): joinMessage = why
+        case .joined(let joined, let removedKey):
+            var next = edit.marks
+            guard let i = next.firstIndex(where: { $0.key == joined.key }) else { return }
+            next[i] = joined
+            next.removeAll { $0.key == removedKey }
+            edit.change(next)
+            joinFirst = nil
+            joinMessage = nil
+            selectedKey = joined.key
+            savedMessage = nil
+            refresh()
+        }
+    }
+
     /// The checks shown before Save: by mark key, and for the site.
     var limitWarnings: (byKey: [String: [String]], general: [String]) {
         LaneLimits.warnings(marks: edit.marks, base: edit.base)
@@ -1035,6 +1079,10 @@ struct StreetReference: Sendable {
         }
         if tool == .split {
             splitLane(atView: p)
+            return
+        }
+        if tool == .join {
+            pickForJoin(mark(atView: p)?.key)
             return
         }
         // The second click of a double-click finishes a polygon or a lane;

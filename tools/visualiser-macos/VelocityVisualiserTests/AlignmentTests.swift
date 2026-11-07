@@ -1136,6 +1136,18 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var siteLaneFields: [String: Gerardus_Align_V1alpha1_GetLaneFieldResponse] = [:]
     /// What ListLaneProposals answers.
     var laneProposals: [Gerardus_Align_V1alpha1_LaneProposal] = []
+    /// What ListLaneProposals answers for a cell, where a test sets one;
+    /// other cells get `laneProposals`.
+    var laneProposalsByCell: [String: [Gerardus_Align_V1alpha1_LaneProposal]] = [:]
+    /// Refuse ListLaneProposals for these cells with this status.
+    var laneListFailures: [String: RPCError] = [:]
+    /// How long each ListLaneProposals takes; nil answers at once.
+    var laneListDelay: Duration?
+    /// Every cell ListLaneProposals was asked for, in order, and the most
+    /// calls that were ever on the wire at once.
+    private(set) var laneListCells: [String] = []
+    private(set) var maxLaneListsInFlight = 0
+    private var laneListsInFlight = 0
     var laneProposalReviews: [Gerardus_Align_V1alpha1_ReviewLaneProposalRequest] = []
     /// Fail this many ReviewLaneProposal calls with UNAVAILABLE before
     /// applying one, as a lost connection would.
@@ -1152,6 +1164,20 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// applies nothing; the same id with other content is ABORTED.
     private var mutationResults: [String: (request: Data, response: Data)] = [:]
     let hintPose = levelPose(headingDeg: 35, at: SIMD3(-9.4, -38.5, 23))
+
+    private func laneListBegan(_ cell: String) {
+        lock.lock()
+        laneListCells.append(cell)
+        laneListsInFlight += 1
+        maxLaneListsInFlight = max(maxLaneListsInFlight, laneListsInFlight)
+        lock.unlock()
+    }
+
+    private func laneListEnded() {
+        lock.lock()
+        laneListsInFlight -= 1
+        lock.unlock()
+    }
 
     private func log(_ name: String) {
         lock.lock()
@@ -1613,11 +1639,15 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         l16Token: String
     ) async throws -> Gerardus_Align_V1alpha1_ListLaneProposalsResponse {
         log("ListLaneProposals")
+        laneListBegan(l16Token)
+        if let laneListDelay { try? await Task.sleep(for: laneListDelay) }
+        laneListEnded()
         guard supportsLaneFields else {
             throw RPCError(code: .unimplemented, message: "ListLaneProposals")
         }
+        if let failure = laneListFailures[l16Token] { throw failure }
         var r = Gerardus_Align_V1alpha1_ListLaneProposalsResponse()
-        r.proposals = laneProposals
+        r.proposals = laneProposalsByCell[l16Token] ?? laneProposals
         return r
     }
 

@@ -53,7 +53,7 @@ struct ContentView: View {
                             }, paintInput: appState.streets, cameraInput: appState.camera)
 
                         CityOverlayView(
-                            city: appState.city,
+                            city: appState.city, lanes: appState.laneReview,
                             clock: CityOverlayLayout.clock(
                                 timestampNanos: appState.currentTimestamp))
 

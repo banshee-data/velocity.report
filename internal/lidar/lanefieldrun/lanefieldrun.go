@@ -24,6 +24,7 @@ import (
 	"sort"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -150,4 +151,70 @@ func FromVRLOG(path string, classes map[string]string) ([]l8analytics.LaneFieldT
 		out = append(out, *byID[id])
 	}
 	return out, nil
+}
+
+// Recording is what a recording with no run row says about itself: the
+// tracks it confirmed with their last class, and the window its frames span.
+type Recording struct {
+	Tracks        []l8analytics.LaneFieldTrack
+	WindowStartNs int64
+	WindowEndNs   int64
+	Frames        int
+}
+
+// FromHeadlessVRLOG reads a recording that no run row describes, such as the
+// lane proposals job's headless replay (docs/plans/lidar-lane-field-batch-plan.md):
+// a track counts when some frame shows it confirmed, with the last non-empty
+// class any frame gave it, which stands in for lidar_run_tracks' final class.
+// Its instants are then read as FromVRLOG reads a run's.
+func FromHeadlessVRLOG(path string) (Recording, error) {
+	rep, err := recorder.NewReplayer(path)
+	if err != nil {
+		return Recording{}, err
+	}
+	classes := map[string]string{}
+	confirmed := map[string]bool{}
+	var out Recording
+	for {
+		frame, err := rep.ReadFrame()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			rep.Close()
+			return Recording{}, err
+		}
+		if frame == nil {
+			continue
+		}
+		out.Frames++
+		ts := frame.TimestampNanos
+		if frame.Tracks != nil && frame.Tracks.TimestampNanos != 0 {
+			ts = frame.Tracks.TimestampNanos
+		}
+		if ts != 0 && (out.WindowStartNs == 0 || ts < out.WindowStartNs) {
+			out.WindowStartNs = ts
+		}
+		if ts > out.WindowEndNs {
+			out.WindowEndNs = ts
+		}
+		if frame.Tracks == nil {
+			continue
+		}
+		for _, t := range frame.Tracks.Tracks {
+			if t.State == l9endpoints.TrackStateConfirmed {
+				confirmed[t.TrackID] = true
+			}
+			if t.ObjectClass != "" {
+				classes[t.TrackID] = t.ObjectClass
+			}
+		}
+	}
+	rep.Close()
+	kept := make(map[string]string, len(confirmed))
+	for id := range confirmed {
+		kept[id] = classes[id]
+	}
+	out.Tracks, err = FromVRLOG(path, kept)
+	return out, err
 }

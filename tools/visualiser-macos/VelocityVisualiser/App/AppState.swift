@@ -349,6 +349,7 @@ private let logger = DevLogger(category: "AppState")
     /// mode the sites around the camera play from their published scenes.
     func cityModeChanged(_ on: Bool) {
         if on { streets.setPainting(false) }
+        laneReview.setActive(on, sites: city.sites)
         let centre = city.tileset.map { $0.root.cityCentre }
         renderer?.setCityMode(on, overview: centre)
         reprojectLabels()
@@ -564,6 +565,8 @@ private let logger = DevLogger(category: "AppState")
     let city: CityViewSession
     /// The sites around the one playing, from their published scenes.
     let nearby = NearbySites()
+    /// City mode's Lanes to review list: each placed site's proposals.
+    let laneReview: LaneReviewSession
     private var nearbyTimer: Timer?
     private var nearbyRefreshing = false
     /// Closing the pane stops its orbit (putting the camera back) and its
@@ -594,6 +597,7 @@ private let logger = DevLogger(category: "AppState")
             alignment: alignment, painter: streets,
             defaults: Self.isRunningUnderXCTest ? nil : .standard)
         city = CityViewSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
+        laneReview = LaneReviewSession(alignment: alignment)
         alignmentAvailability = alignment.$availability.sink { [weak self] availability in
             if case .available = availability { return }
             self?.showAlignmentPane = false
@@ -625,7 +629,13 @@ private let logger = DevLogger(category: "AppState")
         city.onIndex = { [weak self] index in
             self?.alignment.siteIndex = index
             self?.renderer?.citySites = index?.sites ?? []
+            self?.laneReview.sitesChanged(index?.sites ?? [])
         }
+        laneReview.opener = { [weak self] site in
+            guard let self else { return nil }
+            return await self.openLaneReview(site)
+        }
+        streets.onLanesChanged = { [weak self] cell in self?.laneReview.invalidate(cell: cell) }
         city.onCityMode = { [weak self] on in self?.cityModeChanged(on) }
         nearby.indexURL = { [weak self] in self?.city.indexURL }
         nearby.liveServer = { [weak self] id in

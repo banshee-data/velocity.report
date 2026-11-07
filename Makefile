@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre51
+VERSION := 0.5.1-pre52
 
 # =============================================================================
 # LIDAR DATA DIRECTORIES
@@ -943,11 +943,15 @@ PROTO_SWIFT_STUB = $(PROTO_SWIFT_OUT)/visualiser.pb.swift
 PROTO_RECORDING_DIR = proto/velocity_recording/v1
 PROTO_RECORDING_GO_OUT = internal/lidar/recordingpb
 # Gerardus alignment API, vendored from banshee-data/gerardus (see the file's
-# header). Swift only: the visualiser calls Gerardus directly and the Go server
-# is not in the path. Generated beside the visualiser stubs, so one protoc run
-# makes both and PROTO_SWIFT_STUB stands for the pair.
+# header). The visualiser calls Gerardus directly; its Swift stubs are generated
+# beside the visualiser stubs, so one protoc run makes both and
+# PROTO_SWIFT_STUB stands for the pair. The Go server calls it too, for the
+# lane proposals job (docs/plans/lidar-lane-field-batch-plan.md): the file keeps
+# Gerardus's own go_package, so the Go stubs are mapped into this module with M.
 PROTO_GERARDUS_DIR = proto/gerardus/align/v1alpha1
 PROTO_GERARDUS_SWIFT_STUB = $(PROTO_SWIFT_OUT)/align.pb.swift
+PROTO_GERARDUS_GO_OUT = internal/lidar/gerarduspb
+PROTO_GERARDUS_GO_PKG = github.com/banshee-data/velocity.report/$(PROTO_GERARDUS_GO_OUT);gerarduspb
 
 .PHONY: proto-gen proto-gen-go proto-gen-swift
 
@@ -982,7 +986,13 @@ proto-gen-go:
 	       -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/recording.proto
 	@protoc --go_out=$(PROTO_RECORDING_GO_OUT) --go_opt=paths=source_relative \
 	       -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/features.proto
-	@echo "✓ Go stubs generated in $(PROTO_GO_OUT) and $(PROTO_RECORDING_GO_OUT)"
+	@mkdir -p $(PROTO_GERARDUS_GO_OUT)
+	@protoc --go_out=$(PROTO_GERARDUS_GO_OUT) --go_opt=paths=source_relative \
+	       --go_opt='Malign.proto=$(PROTO_GERARDUS_GO_PKG)' \
+	       --go-grpc_out=$(PROTO_GERARDUS_GO_OUT) --go-grpc_opt=paths=source_relative \
+	       --go-grpc_opt='Malign.proto=$(PROTO_GERARDUS_GO_PKG)' \
+	       -I $(PROTO_GERARDUS_DIR) $(PROTO_GERARDUS_DIR)/align.proto
+	@echo "✓ Go stubs generated in $(PROTO_GO_OUT), $(PROTO_RECORDING_GO_OUT) and $(PROTO_GERARDUS_GO_OUT)"
 
 # Generate Swift protobuf stubs (for macOS visualiser)
 proto-gen-swift:
@@ -1070,6 +1080,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_update_packaging.py \
 	tools/s2-archive/test_export_static_pcaps.py \
 	tools/s2-archive/test_publish_scenes.py \
+	tools/s2-archive/test_lane_fields.py \
 	tools/s2-archive/test_scene_vectors.py \
 	tools/s2-archive/test_city_frame.py \
 	tools/s2-archive/test_export_scene_variants.py \
@@ -2626,6 +2637,20 @@ scene-variants-recipes:
 	@$(SCENE_VARIANTS_ENV) python3 $(SCENE_VARIANTS) "$(SET)" --recipes "$(RECIPE)" | while read -r recipe; do \
 		echo "  make capture-scene RECIPE=$$recipe"; \
 	done
+
+# Lane proposals across every registered clip, without replaying scenes
+# (docs/plans/lidar-lane-field-batch-plan.md). The server queues one
+# lane_proposals job per clip whose lanes are stale or missing and runs them;
+# this follows them to the end. The server talks to Gerardus at its
+# --gerardus-url, which must be the one the visualiser reads. FORCE=1 re-runs
+# current clips too; DRY=1 says what it would do. LIDAR_API_URL names another
+# server.
+#
+#     make lane-fields [FORCE=1] [DRY=1]
+LANE_FIELDS_API ?= http://localhost:8080/api/lidar
+.PHONY: lane-fields
+lane-fields:
+	@LIDAR_API_URL="$(or $(LIDAR_API_URL),$(LANE_FIELDS_API))" python3 tools/s2-archive/lane-fields.py $(if $(FORCE),--force) $(if $(DRY),--dry-run)
 
 # =============================================================================
 # LIDAR SCENE CAPTURE

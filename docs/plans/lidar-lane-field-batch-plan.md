@@ -9,9 +9,9 @@ publisher use the same job after each replay, and give the visualiser a list of 
 proposals waiting, so an operator walks the corpus the next morning approving, editing or rejecting
 lanes rather than replaying anything.
 
-- **Status:** Proposed (D-32: the owner places it in a slot; proposed as the v0.7.20 continuation
-  of the lane work delivered in v0.7.19, whose slot is full). The web clips view items follow the
-  owner's instruction of November 6, 2026
+- **Status:** Active: built on the owner's instruction of November 6, 2026 (Items 1–4 and 6); Item
+  7 waits on the owner's lane0002 drawing. Placed as the v0.7.20 continuation of the lane work
+  delivered in v0.7.19, whose slot is full (D-32)
 - **Decisions:** relies on D-31 (the clip cutover), D-32, D-33 (hub docs state what ships), D-34
   (scene assets leave the repository), D-36 (Gerardus owns static street geometry and accepted
   registration; L8 alone owns aggregation), D-38 (geometry is measured spatial data), D-39
@@ -120,7 +120,7 @@ flowchart LR
   R --> F
   F --> U[UploadLaneField<br/>Go gRPC client, accepted record]
   U --> G[Gerardus<br/>sums, derives, grades]
-  G --> D[GET geojson?layers=lane_proposals<br/>warms the derivation, counts grades]
+  G --> D[ListLaneProposals<br/>warms the derivation, counts grades]
   D --> T[lidar_clip_lane_proposals<br/>field ids, record, build, counts]
   T --> C
   G --> V[Visualiser city mode<br/>sites with proposals waiting]
@@ -235,7 +235,7 @@ registered clip.
 2. `runLaneProposals(ctx, job, report)`: `replayeval.Run` on the clip's captures with the clip's
    offsets and the server's tuning, VRLOG only; `lanefieldrun.FromVRLOG` for the three parts;
    header filled with the site token, the record and `capture_ref` (clip id and basenames);
-   three uploads; `GET …/geojson?layers=lane_proposals` timed and counted; the row written. Each
+   three uploads; `ListLaneProposals` timed and counted; the row written. Each
    step reports progress; cancellation stops the replay as `vrlog_record`'s does.
 3. `POST /api/lidar/clips/{clip_id}/lane-proposals` (`force` optional) enqueues one job, 409 when
    one is queued or running for the clip; `POST /api/lidar/runs/{run_id}/lane-proposals` does the
@@ -384,6 +384,17 @@ then run the corpus and open the review list.
   operator's, one site at a time, in the painter.
 - **Counts in the visualiser are live, not static (proposal):** the review list reads Gerardus;
   `city/sites.json` carries no proposal state.
+- **A site with several accepted records is refused, not guessed (implemented, November 6, 2026):**
+  read-only against the shared Gerardus on arrow-worker, Kirkham holds seven accepted records
+  (three sensor positions and repeat scans) and Embarcadero at Folsom two, none naming the clip's
+  capture. Choosing the newest would place fields by the wrong pose and corrupt the site's sum.
+  `AcceptedRecord` places a clip only when one live record fits or the clip's capture names exactly
+  one; otherwise the clip is `ambiguous`, the clips view shows **choose**, **Run lanes** asks the
+  operator which record, and the job places the fields by the record pinned when it was queued. The
+  re-run skips ambiguous clips with the reason, as the scene vectors refuse a site with several
+  accepted scans.
+- **The job warms the derivation with `ListLaneProposals` (implemented):** the same derivation
+  the GeoJSON layer runs, over gRPC, typed, on the connection the uploads already hold.
 
 ## Open questions
 
@@ -407,21 +418,29 @@ then run the corpus and open the review list.
 
 - [x] Plan written from the November 6, 2026 assessment of where the lane work stands in both
       repositories; revised the same day for the clips view and the re-run across registered clips
+- [x] Item 1: `align.proto` Go stubs (`internal/lidar/gerarduspb`), `internal/lidar/gerardus`
+      client, `AcceptedRecord` and `PinnedRecord`, the registration cache, `registration` on
+      `GET /api/lidar/clips?lanes=1`, `--gerardus-url`
+- [x] Item 2: migration 071, the `lane_proposals` job (`lanefieldrun.FromHeadlessVRLOG` for a
+      replay with no run row), the run form, the rerun route, `kind=` on the jobs route,
+      `velocity lidar lane-field --upload`, a record pinned per job for an ambiguous site
+- [x] Item 3: Registered and Lanes columns, progress, Run lanes (asking for the record on an
+      ambiguous clip), Re-run lane proposals with a dry-run confirmation; checked in the browser
+      against a clone of the sensor database and the shared Gerardus, read-only
+- [x] Item 4: the publisher's run-form call after each replay, `make lane-fields`, the lanes
+      column in `--status`
+- [x] Item 6: **Lanes to review** in the visualiser's city mode (unit and app-state tests; the panel
+      not yet seen in a running app)
+- [x] Hub docs (D-33): [clip management](../lidar/operations/clip-management-implementation.md#lane-proposals)
+      and [city view](../ui/city-view.md)
 
 ### Outstanding
 
-- [ ] Item 1: `align.proto` Go stubs, `internal/lidar/gerardus` client, `AcceptedRecord`, the
-      registration cache and `registration` on located clips (`M`)
-- [ ] Item 2: migration, the `lane_proposals` job, the run form, the rerun route, `kind=` on the
-      jobs route, `lane-field --upload` (`M`)
-- [ ] Item 3: Registered and Lanes columns, progress, Run lanes, Re-run lane proposals (`M`)
-- [ ] Item 4: the publisher's run-form call, `make lane-fields`, `--status` (`S`)
-- [ ] Item 6: **Lanes to review** in the visualiser's city mode (`M`)
-- [ ] Item 7: lane0002 from the first jobs; thresholds handed to Gerardus; then the corpus re-run
+- [ ] Item 7: lane0002 from the first jobs (Run lanes on columbus-broadway, and on kirk with its
+      record named); the owner's drawing; thresholds handed to Gerardus; then the corpus re-run
       and the first review session, written up in the lanes-from-tracks plan's Phase E
-- [ ] Hub docs at ship (D-33): the clips view's columns in
-      [clip management](../lidar/operations/clip-management-implementation.md); the job in the
-      LiDAR API surface list; the review list in [city view](../ui/city-view.md)
+- [ ] The first real job's wall time per clip and its derive time, recorded here once measured
+      (no tuning key moved, so the perf baselines stand)
 
 ### Deferred
 

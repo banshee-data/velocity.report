@@ -32,6 +32,8 @@ var (
 // - DELETE /api/lidar/clips/{clip_id} — delete clip
 // - POST /api/lidar/clips/{clip_id}/replay — clip
 // - /api/lidar/clips/{clip_id}/extract, /publishing, /stage — see clip_extract_api.go
+// - /api/lidar/clips/{clip_id}/lane-proposals, /api/lidar/clips/lane-proposals/rerun,
+//   GET /api/lidar/clips?lanes=1 — see lane_proposals_api.go
 
 // handleClips handles /api/lidar/clips (list and create).
 func (ws *Server) handleClips(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +62,11 @@ func (ws *Server) handleClipByID(w http.ResponseWriter, r *http.Request) {
 	clipID, action := parseClipPath(r.URL.Path)
 	if clipID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing clip_id in path")
+		return
+	}
+	if clipID == "lane-proposals" && action == "rerun" {
+		// /api/lidar/clips/lane-proposals/rerun: not a clip; clip ids are UUIDs.
+		ws.handleRerunLaneProposals(w, r)
 		return
 	}
 
@@ -105,6 +112,8 @@ func (ws *Server) handleClipByID(w http.ResponseWriter, r *http.Request) {
 		ws.handleClipPublishing(w, r, clipID)
 	case "stage":
 		ws.handleClipStage(w, r, clipID)
+	case "lane-proposals":
+		ws.handleClipLaneProposals(w, r, clipID)
 	case "evaluations":
 		// /api/lidar/clips/{clip_id}/evaluations
 		switch r.Method {
@@ -143,6 +152,13 @@ func (ws *Server) handleListClips(w http.ResponseWriter, r *http.Request) {
 	clips, err := store.ListClips(sensorID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list clips: %v", err))
+		return
+	}
+
+	// lanes=1 lists every clip with its location, its registration in
+	// Gerardus and its lane proposals, for the clips view.
+	if r.URL.Query().Get("lanes") == "1" {
+		ws.listClipsWithLanes(w, r, clips)
 		return
 	}
 

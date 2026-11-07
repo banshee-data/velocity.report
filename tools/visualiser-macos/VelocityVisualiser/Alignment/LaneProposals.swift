@@ -323,3 +323,96 @@ extension StreetUseEditing {
         return (up, down)
     }
 }
+
+extension StreetUseEditing {
+    /// How far apart two lanes' facing ends may be and still join, metres.
+    static let joinGapM = 5.0
+    /// How sharply the second may turn from the first at the joint, degrees.
+    static let joinTurnDeg = 45.0
+
+    /// What joining two lanes gives: the joined lane and the key of the lane
+    /// it absorbed, or why they stay apart.
+    enum JoinOutcome: Equatable {
+        case joined(StreetMark, removedKey: String)
+        case refused(String)
+    }
+
+    /// Joins two travel lanes in one direction of travel into one: the lane
+    /// upstream, then the one that continues it. The order clicked does not
+    /// matter. Vertices are kept as drawn, so the joined lane still runs along
+    /// every proposal either lane came from, and Gerardus adopts them all by
+    /// geometry; a facing pair of ends closer than 5 cm becomes one vertex.
+    /// The joined lane keeps the saved lane's identity (upstream's when both
+    /// or neither are saved) and upstream's tags, with any tag only
+    /// downstream carries added. Lanes with different limits or lane types
+    /// stay apart: a limit change is where a lane splits.
+    static func join(
+        _ a: StreetMark, _ b: StreetMark, maxGap: Double = joinGapM, maxTurn: Double = joinTurnDeg
+    ) -> JoinOutcome {
+        guard a.kind == .travelLane, b.kind == .travelLane else {
+            return .refused("Only travel lanes join.")
+        }
+        guard a.key != b.key else { return .refused("Click a second lane to join to this one.") }
+        guard a.points.count >= 2, b.points.count >= 2 else {
+            return .refused("A lane needs two vertices to join.")
+        }
+        func gap(_ p: SIMD3<Double>, _ q: SIMD3<Double>) -> Double {
+            simd_distance(SIMD2(p.x, p.y), SIMD2(q.x, q.y))
+        }
+        // Which runs into which: a's end to b's start, or b's end to a's.
+        let ab = gap(a.points.last!, b.points.first!)
+        let ba = gap(b.points.last!, a.points.first!)
+        let (up, down) = ab <= ba ? (a, b) : (b, a)
+        let joint = min(ab, ba)
+        let headOn = min(gap(a.points.last!, b.points.last!), gap(a.points.first!, b.points.first!))
+        if headOn < joint, headOn <= maxGap {
+            return .refused(
+                "The lanes travel in opposite directions. Reverse one first if it was drawn the wrong way."
+            )
+        }
+        guard joint <= maxGap else {
+            return .refused(
+                String(
+                    format:
+                        "The nearest end of one lane is %.1f m from the start of the other; they join within %.0f m.",
+                    joint, maxGap))
+        }
+        let n = up.points.count
+        let inBearing = StreetGeometry.bearing(
+            PlanPoint(up.points[n - 2].x, up.points[n - 2].y),
+            PlanPoint(up.points[n - 1].x, up.points[n - 1].y))
+        let outBearing = StreetGeometry.bearing(
+            PlanPoint(down.points[0].x, down.points[0].y),
+            PlanPoint(down.points[1].x, down.points[1].y))
+        var turn = abs(inBearing - outBearing).truncatingRemainder(dividingBy: 360)
+        if turn > 180 { turn = 360 - turn }
+        guard turn <= maxTurn else {
+            return .refused(
+                String(
+                    format:
+                        "The second lane turns %.0f° from the first at the joint; lanes join up to %.0f°.",
+                    turn, maxTurn))
+        }
+        for key in [LaneLimits.speedLimit, LaneLimits.unit, StreetUseTags.laneType] {
+            if let u = up.tags[key], let d = down.tags[key], !u.isEmpty, !d.isEmpty, u != d {
+                let what = key == StreetUseTags.laneType ? "lane types" : "limits"
+                return .refused(
+                    "The lanes carry different \(what) (\(u) and \(d)). A limit or type change is where lanes split."
+                )
+            }
+        }
+        var joined = up
+        if up.featureID.isEmpty, !down.featureID.isEmpty {
+            joined.key = down.key
+            joined.featureID = down.featureID
+            joined.rowID = down.rowID
+            joined.author = down.author
+            joined.editedAt = down.editedAt
+        }
+        let tail = joint < 0.05 ? Array(down.points.dropFirst()) : down.points
+        joined.points = up.points + tail
+        for (k, v) in down.tags where (joined.tags[k] ?? "").isEmpty { joined.tags[k] = v }
+        let removed = joined.key == up.key ? down.key : up.key
+        return .joined(joined, removedKey: removed)
+    }
+}

@@ -61,6 +61,8 @@ enum StreetPaintTool: String, CaseIterable, Identifiable, Sendable {
     case driveway
     /// Splits a travel lane where its limit changes along the street.
     case split
+    /// Joins a travel lane to the one that continues it.
+    case join
 
     var id: String { rawValue }
 
@@ -73,6 +75,7 @@ enum StreetPaintTool: String, CaseIterable, Identifiable, Sendable {
         case .row: return "Row"
         case .driveway: return "Driveway"
         case .split: return "Split at sign"
+        case .join: return "Join lanes"
         }
     }
 
@@ -85,6 +88,7 @@ enum StreetPaintTool: String, CaseIterable, Identifiable, Sendable {
         case .row: return "rectangle.split.3x1"
         case .driveway: return "road.lanes"
         case .split: return "scissors"
+        case .join: return "link"
         }
     }
 
@@ -104,13 +108,16 @@ enum StreetPaintTool: String, CaseIterable, Identifiable, Sendable {
         case .split:
             return
                 "Click a travel lane where its limit changes: it is cut at the sign when one stands within 5 m of the click, else where you click. It becomes two lanes sharing that vertex, and the second's limit is cleared for the new value."
+        case .join:
+            return
+                "Click a travel lane, then the lane that continues it in the same direction: they become one lane, keeping every vertex. Ends must be within 5 m and turn under 45°; lanes with different limits or lane types stay apart."
         }
     }
 
     /// The kind a drawing tool makes; nil for Select.
     var kind: StreetUseKind? {
         switch self {
-        case .select, .split: return nil
+        case .select, .split, .join: return nil
         case .surface: return .surface
         case .lane: return .travelLane
         case .space, .row: return .parkingSpace

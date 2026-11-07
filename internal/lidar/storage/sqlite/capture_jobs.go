@@ -405,6 +405,12 @@ func (s *CaptureStore) GetJob(jobID string) (CaptureJob, error) {
 
 // ListJobs returns jobs newest first, optionally scoped to a session.
 func (s *CaptureStore) ListJobs(sessionIDValue string, limit int) ([]CaptureJob, error) {
+	return s.ListJobsOfKind(sessionIDValue, "", limit)
+}
+
+// ListJobsOfKind returns jobs newest first, optionally scoped to a session
+// and to one kind.
+func (s *CaptureStore) ListJobsOfKind(sessionIDValue, kind string, limit int) ([]CaptureJob, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -413,10 +419,18 @@ func (s *CaptureStore) ListJobs(sessionIDValue string, limit int) ([]CaptureJob,
 		       progress_current, progress_total, detail, error, queued_at_ns,
 		       started_at_ns, finished_at_ns
 		  FROM lidar_capture_jobs`
+	var where []string
 	args := []any{}
 	if sessionIDValue != "" {
-		query += ` WHERE session_id = ?`
+		where = append(where, `session_id = ?`)
 		args = append(args, sessionIDValue)
+	}
+	if kind != "" {
+		where = append(where, `kind = ?`)
+		args = append(args, kind)
+	}
+	if len(where) > 0 {
+		query += ` WHERE ` + strings.Join(where, ` AND `)
 	}
 	query += ` ORDER BY queued_at_ns DESC LIMIT ?`
 	args = append(args, limit)

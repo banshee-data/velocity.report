@@ -1,7 +1,7 @@
 // src/lib/types/lidar.ts
 // TypeScript type definitions for LiDAR tracking system
 
-import type { ClipLocation } from '#lib/types/captures.js';
+import type { ClipLaneStatus, ClipLocation, ClipRegistration } from '#lib/types/captures.js';
 
 /**
  * Track represents a tracked object in the LiDAR system.
@@ -325,6 +325,10 @@ export interface LidarClip {
 	north_azimuth_deg?: number;
 	/** What a replay opens: the source captures, or the latest extract. */
 	storage?: ClipStorage;
+	/** Whether Gerardus has an accepted pose for it; only from the lanes list. */
+	registration?: ClipRegistration;
+	/** Its lane proposals; only from the lanes list. */
+	lanes?: ClipLaneStatus;
 }
 
 /** What a clip replays. */

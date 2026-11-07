@@ -192,6 +192,12 @@ and width; the downstream lane's limit fields open for the new value. Where Gera
 furniture layer carries a pole with a speed-limit sign code (the Gerardus plan asks it to flag
 these), the painter offers the split at the sign's foot.
 
+**Join lanes** is the reverse. Gerardus derives a lane per city street segment, so one lane through an
+intersection arrives as two proposals meeting at the node. The tool joins a lane to the one that
+continues it, keeping every vertex so that both proposals are still adopted by geometry. It refuses
+lanes whose ends are more than 5 m apart, that turn more than 45° at the joint, that travel in
+opposite directions, or that carry different limits or lane types.
+
 **Checks before Save** (shown, not blocking, in the style of Gerardus's own problems): a travel
 lane with no limit; two lanes in one direction with different limits and no split between them;
 a limit whose unit differs from the site's others.

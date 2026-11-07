@@ -78,6 +78,16 @@ The environment the batch expects, in full:
       A scene without checked vectors is "not_placed", with its eye-read
       position for a marker only. To write the sidecars of published scenes
       without replaying: scene-vectors.py --placement.
+  SCENE_LANE_FIELDS=on
+      After each replay the run's lane fields go to Gerardus and its lane
+      proposals are derived (POST /api/lidar/runs/{run_id}/lane-proposals,
+      docs/plans/lidar-lane-field-batch-plan.md), against the clip marked for
+      the site's dataset id and its accepted record. The server talks to
+      Gerardus (its --gerardus-url), so start it pointed at the one the
+      visualiser reads. A site that is not registered, or a server without
+      Gerardus, logs why and the scene publishes as before; "off" skips the
+      step. To re-run lane proposals without replaying scenes: make
+      lane-fields, which queues the server's own job per registered clip.
 
 A scene is built beside the published one and swapped in only when whole, so a
 half-finished export never reaches the site.
@@ -121,6 +131,7 @@ import struct
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
@@ -167,6 +178,8 @@ SCENES = os.path.join(REPO, "public_html", "src", "scenes")
 
 VECTOR_MODES = ("auto", "required", "off")
 VECTORS = os.environ.get("SCENE_VECTORS", "auto")
+LANE_FIELD_MODES = ("on", "off")
+LANE_FIELDS = os.environ.get("SCENE_LANE_FIELDS", "on")
 
 # scene-vectors.py is named with a hyphen, so it is loaded by path.
 _spec = importlib.util.spec_from_file_location(
@@ -345,8 +358,33 @@ def export(vrlog, out_dir, site, title, kind=None, extra=None, trail=None):
 
 
 def replay_stretch(scene):
-    """Replay the whole stretch as one sequence, under the batch's tuning file."""
-    return replay(scene, TUNING_CONFIG)["vrlog"]
+    """Replay the whole stretch as one sequence, under the batch's tuning file.
+
+    Returns replay()'s record: the VRLOG and the run id the lane step needs.
+    """
+    return replay(scene, TUNING_CONFIG)
+
+
+def land_lane_fields(site, run_id):
+    """Send a scene run's lane fields to Gerardus and derive its proposals.
+
+    The server does the work against the clip marked for the site's dataset
+    id, placed by that clip's accepted record. Never fails the scene: the
+    street geometry and the speeds publish whether or not lanes could be
+    proposed. Returns the marker's token and a line for the log.
+    """
+    if LANE_FIELDS == "off":
+        return "off", "off (SCENE_LANE_FIELDS=off)"
+    query = urllib.parse.urlencode({"dataset_id": site})
+    try:
+        done = api(f"/runs/{run_id}/lane-proposals?{query}", payload={}, timeout=600)
+    except Exception as error:  # a scene must not fail on its lanes
+        return "skipped", f"skipped: {str(error).splitlines()[0][:200]}"
+    high, medium = done.get("high", 0), done.get("medium", 0)
+    return (
+        f"high={high},medium={medium}",
+        f"{high} high, {medium} medium, {done.get('outstanding', 0)} to review",
+    )
 
 
 def replay(scene, tuning_config=None):
@@ -515,8 +553,11 @@ def build_scene(scene):
         f" [{scene['source']}] ==="
     )
     started = time.time()
-    vrlog = replay_stretch(scene)
+    replayed = replay_stretch(scene)
+    vrlog = replayed["vrlog"]
     log(f"  vrlog in {(time.time() - started) / 60:.1f} min: {os.path.basename(vrlog)}")
+    lanes, said = land_lane_fields(site, replayed["run_id"])
+    log(f"  lane proposals: {said}")
 
     summary = export(
         vrlog, part, site, title, extra=["--start-frame", str(start_frame())]
@@ -537,7 +578,7 @@ def build_scene(scene):
     with open(os.path.join(SCENES, site, ".rebuilt"), "w") as fh:
         fh.write(
             f"{SPEED_MODE} {SPEED_RATIO} settle={SETTLE} vectors={vectors or 'none'}"
-            f" placement={placement}\n"
+            f" placement={placement} lanes={lanes}\n"
         )
     # Regenerate the map and page data now rather than at the end of the batch.
     # A scene that exists but is still listed as unpublished is the same bug to
@@ -841,14 +882,48 @@ def published(site):
     return os.path.exists(os.path.join(SCENES, site, ".rebuilt"))
 
 
-def report_status(scenes, problems):
+def lane_status():
+    """Each dataset id's lane proposals, as the server's clips list says.
+
+    Empty when the server does not answer: --status needs no server, and the
+    lane column is then left blank rather than guessed.
+    """
+    try:
+        listed = api("/clips?lanes=1", timeout=30)
+    except Exception:
+        return {}
+    out = {}
+    for clip in listed.get("clips", []):
+        dataset = clip.get("dataset_id")
+        if not dataset:
+            continue
+        reg = clip.get("registration", {}).get("state", "")
+        lanes = clip.get("lanes", {})
+        latest = lanes.get("latest")
+        if reg != "registered":
+            out[dataset] = reg.replace("_", " ") or "unknown"
+        elif not latest:
+            out[dataset] = "lanes: none yet"
+        else:
+            word = "current" if lanes.get("current") else "stale"
+            out[dataset] = (
+                f"lanes: {latest.get('high', 0)} high, {latest.get('medium', 0)} medium, {word}"
+            )
+    return out
+
+
+def report_status(scenes, problems, lanes=None):
     """What a rebuild would do, without starting one."""
+    lanes = {} if lanes is None else lanes
     done = [s for s in scenes if published(s["site"])]
     outstanding = [s for s in scenes if not published(s["site"])]
     minutes = sum(s["minutes"] for s in outstanding)
     for scene in scenes:
         mark = "published" if published(scene["site"]) else "OUTSTANDING"
-        print(f"  {mark:<11} {scene['site']:<24} {scene['minutes']:>6.1f} min")
+        lane = lanes.get(scene["site"], "")
+        print(
+            f"  {mark:<11} {scene['site']:<24} {scene['minutes']:>6.1f} min  {lane}".rstrip()
+        )
     for problem in problems:
         print(f"  UNRESOLVED  {problem}")
     print(
@@ -871,6 +946,10 @@ def main():
     if VECTORS not in VECTOR_MODES:
         raise SystemExit(
             f"SCENE_VECTORS={VECTORS!r}: want one of {', '.join(VECTOR_MODES)}"
+        )
+    if LANE_FIELDS not in LANE_FIELD_MODES:
+        raise SystemExit(
+            f"SCENE_LANE_FIELDS={LANE_FIELDS!r}: want one of {', '.join(LANE_FIELD_MODES)}"
         )
     parser = argparse.ArgumentParser(
         description="Publish the web scene assets for the S2 archive sites."
@@ -907,7 +986,7 @@ def main():
     db_issue = db_problem()
     scenes, problems = plan(args.source, args.sites, args.corpus, args.pcap_dir)
     if args.status:
-        status = report_status(scenes, problems)
+        status = report_status(scenes, problems, lane_status())
         if db_issue:
             print(f"  {db_issue}")
         return 1 if db_issue else status

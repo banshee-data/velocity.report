@@ -80,6 +80,30 @@ clone that is not there, and a dataset id another capture in the manifest alread
 never uploads: publishing the dataset stays a person's step. A part grid above 4 GB is not
 cut yet; an extract is one file whatever its size.
 
+## Lane proposals
+
+A located clip whose site is registered in Gerardus can have its traffic lanes proposed
+([plan](../../plans/lidar-lane-field-batch-plan.md)). The server replays the clip headlessly under
+its current tuning, sums the run's tracks into the three lane fields (no cell under five distinct
+tracks), uploads them to Gerardus against the clip's accepted registration record, and asks Gerardus
+for its proposals once. Gerardus derives and grades them; approval stays in the visualiser's
+painter. Only Gerardus's field ids and the grade counts are kept here, in
+`lidar_clip_lane_proposals` (migration 071).
+
+| Step              | Surface                                                                 | What it does                                                                                                                                                                      |
+| ----------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| See the state     | `GET /api/lidar/clips?lanes=1`, the Clips page's Registered and Lanes   | Each clip's registration (placing record, ambiguous, not located, not registered, or unknown while Gerardus does not answer) and its newest result, current or stale and why      |
+| Run one clip      | `POST /api/lidar/clips/{id}/lane-proposals[?record_id=]`, **Run lanes** | Queues a `lane_proposals` job; at a site with several accepted records the record must be named, and the page asks for it                                                         |
+| Re-run the corpus | `POST /api/lidar/clips/lane-proposals/rerun[?dry_run=1&force=1]`        | Queues a job for every registered clip whose result is stale or missing, oldest first; ambiguous and unregistered clips are skipped with the reason. `make lane-fields` drives it |
+| Follow progress   | `GET /api/lidar/capture/jobs?kind=lane_proposals`, the Lanes column     | Replay, fields, three uploads, derive; the page polls only while a job is active                                                                                                  |
+| From a scene run  | `POST /api/lidar/runs/{run_id}/lane-proposals?dataset_id=`              | The same from a finished run's recording, without replaying; the scene publisher calls it after each replay                                                                       |
+
+A result is **current** when its build and tuning fingerprint are the running server's; a new build
+or tuning file makes every result stale. The server reads Gerardus at `--gerardus-url` (default
+`$GERARDUS_URL`, then `http://127.0.0.1:50061`), which must be the server the visualiser reads.
+The lane field and the proposals are measured spatial data; see
+[Geometry priors: data purpose](../../geometry-priors-data-purpose.md).
+
 ## Locating a static period on a map
 
 The Captures page lists, under "Only sessions with a static period that needs a location", the

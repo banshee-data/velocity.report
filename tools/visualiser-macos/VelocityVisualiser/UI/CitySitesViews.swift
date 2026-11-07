@@ -208,16 +208,25 @@ enum CitySiteText {
     }
 }
 
-/// City mode's markers, street names and line of copy, over the 3D view.
+/// City mode's markers, street names, Lanes to review list and line of
+/// copy, over the 3D view.
 @available(macOS 15.0, *) struct CityOverlayView: View {
     @ObservedObject var city: CityViewSession
+    let lanes: LaneReviewSession
     /// The playing site's clock, from the stream's timestamp.
     var clock: String?
 
     var body: some View {
         if city.isCityMode {
             ZStack(alignment: .topLeading) {
-                CityLiveOverlayView(city: city, live: city.live, clock: clock)
+                CityLiveOverlayView(city: city, live: city.live, lanes: lanes, clock: clock)
+                VStack {
+                    HStack {
+                        Spacer()
+                        LaneReviewList(lanes: lanes, alignment: lanes.alignment)
+                    }
+                    Spacer()
+                }.padding(10)
                 VStack(spacing: 6) {
                     CitySwitchBanner(city: city)
                     Spacer()
@@ -236,6 +245,7 @@ enum CitySiteText {
 @available(macOS 15.0, *) struct CityLiveOverlayView: View {
     let city: CityViewSession
     @ObservedObject var live: CityLiveOverlay
+    @ObservedObject var lanes: LaneReviewSession
     var clock: String?
 
     var body: some View {
@@ -247,8 +257,10 @@ enum CitySiteText {
                 .allowsHitTesting(false)
         }
         ForEach(live.overlay.markers) { marker in
+            let outstanding = lanes.outstanding(siteID: marker.id)
             CityMarkerLabel(
-                marker: marker, clock: marker.focused ? clock : live.siteClocks[marker.id]
+                marker: marker, clock: marker.focused ? clock : live.siteClocks[marker.id],
+                outstanding: outstanding
             ).contentShape(Rectangle())
                 // A tap, not a Button: the marker moves under the pointer as
                 // the camera does, and a Button whose frame moves between
@@ -258,9 +270,7 @@ enum CitySiteText {
                     guard let site = city.index?.site(id: marker.id) else { return }
                     Task { await city.select(site) }
                 }.fixedSize().position(x: marker.screen.x, y: marker.screen.y - 14).help(
-                    marker.placed
-                        ? "Switch to \(marker.title) and fly there"
-                        : "Not yet placed: \(marker.title) has no accepted pose")
+                    CityMarkerText.help(marker, outstanding: outstanding))
         }
     }
 }
@@ -293,13 +303,35 @@ enum CitySiteText {
     }
 }
 
+/// What a marker says on hover.
+enum CityMarkerText {
+    static func help(_ marker: CityMarker, outstanding: Int?) -> String {
+        guard marker.placed else { return "Not yet placed: \(marker.title) has no accepted pose" }
+        var text = "Switch to \(marker.title) and fly there"
+        if let n = outstanding, n > 0 {
+            text += ". \(n) lane proposal\(n == 1 ? "" : "s") to review"
+        }
+        return text
+    }
+}
+
 struct CityMarkerLabel: View {
     let marker: CityMarker
     let clock: String?
+    /// Lane proposals neither adopted nor rejected; shown when not zero.
+    var outstanding: Int?
 
     var body: some View {
         VStack(spacing: 1) {
-            Text(marker.title).font(.system(size: 11, weight: marker.focused ? .bold : .semibold))
+            HStack(spacing: 4) {
+                Text(marker.title).font(
+                    .system(size: 11, weight: marker.focused ? .bold : .semibold))
+                if let n = outstanding, n > 0 {
+                    Text("\(n)").font(.system(size: 9.5, weight: .bold).monospacedDigit()).padding(
+                        .horizontal, 4
+                    ).padding(.vertical, 0.5).background(Capsule().fill(Color.orange.opacity(0.85)))
+                }
+            }
             Text(subtitle).font(.system(size: 9.5)).foregroundStyle(.secondary)
         }.padding(.horizontal, 6).padding(.vertical, 3).background(
             RoundedRectangle(cornerRadius: 5).fill(
@@ -319,5 +351,134 @@ struct CityMarkerLabel: View {
         if let clock { parts.append(clock) }
         if !marker.placed { parts.append("not yet placed") }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// City mode's Lanes to review list (lidar-lane-field-batch-plan Item 6):
+/// each placed site's lane proposals by grade and what is left to review,
+/// most outstanding first. A row opens the site's painter with Proposals on.
+@available(macOS 15.0, *) struct LaneReviewList: View {
+    @ObservedObject var lanes: LaneReviewSession
+    /// Observed for the reason the list gives when Gerardus cannot count.
+    @ObservedObject var alignment: AlignmentSession
+    @State private var collapsed = false
+
+    static let width: CGFloat = 300
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            header
+            if !collapsed { content }
+        }.padding(10).frame(width: Self.width, alignment: .leading).background(
+            .ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Text("Lanes to review").font(.headline)
+            if lanes.isReading { ProgressView().controlSize(.small) }
+            Spacer()
+            Button {
+                collapsed.toggle()
+            } label: {
+                Image(systemName: collapsed ? "chevron.down" : "chevron.up")
+            }.buttonStyle(.plain).help(collapsed ? "Show the list" : "Hide the list")
+        }
+    }
+
+    @ViewBuilder private var content: some View {
+        if let reason = lanes.reason {
+            Text(reason).font(.caption).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+        } else {
+            columns
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(lanes.rows) { row in
+                        LaneReviewRowView(
+                            row: row, opening: lanes.opening == row.id,
+                            disabled: lanes.opening != nil
+                        ) { Task { await lanes.open(row.site) } }
+                    }
+                }
+            }.frame(maxHeight: 300)
+        }
+        if let id = lanes.opening {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Opening \(lanes.rows.first { $0.id == id }?.site.title ?? id)\u{2026}").font(
+                    .caption)
+            }
+        } else if let error = lanes.openError {
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
+                Text(error).font(.caption).fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Button {
+                    lanes.dismissOpenError()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }.buttonStyle(.plain).help("Dismiss")
+            }
+        }
+    }
+
+    private var columns: some View {
+        HStack(spacing: 6) {
+            Text("Site").frame(maxWidth: .infinity, alignment: .leading)
+            Text("High").frame(width: LaneReviewRowView.countWidth, alignment: .trailing)
+            Text("Medium").frame(width: LaneReviewRowView.countWidth, alignment: .trailing)
+            Text("Outstanding").frame(
+                width: LaneReviewRowView.outstandingWidth, alignment: .trailing)
+        }.font(.caption2).foregroundStyle(.secondary)
+    }
+}
+
+/// One site's row: its counts, or that they are being read, or why not.
+@available(macOS 15.0, *) struct LaneReviewRowView: View {
+    let row: LaneReviewRow
+    let opening: Bool
+    let disabled: Bool
+    let action: () -> Void
+
+    static let countWidth: CGFloat = 46
+    static let outstandingWidth: CGFloat = 72
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(row.site.title).lineLimit(1).truncationMode(.tail).frame(
+                    maxWidth: .infinity, alignment: .leading)
+                cells
+            }.font(.caption).padding(.vertical, 3).padding(.horizontal, 4).contentShape(Rectangle())
+                .background(
+                    RoundedRectangle(cornerRadius: 4).fill(
+                        opening ? Color.accentColor.opacity(0.3) : Color.clear))
+        }.buttonStyle(.plain).disabled(disabled).help(help)
+    }
+
+    @ViewBuilder private var cells: some View {
+        switch row.entry {
+        case .counted(let c):
+            Text("\(c.high)").frame(width: Self.countWidth, alignment: .trailing)
+            Text("\(c.medium)").frame(width: Self.countWidth, alignment: .trailing)
+            Text("\(c.outstanding)").fontWeight(c.outstanding > 0 ? .bold : .regular).frame(
+                width: Self.outstandingWidth, alignment: .trailing)
+        case .failed:
+            Text("Not read").foregroundStyle(.orange).frame(
+                width: Self.countWidth * 2 + Self.outstandingWidth + 12, alignment: .trailing)
+        case .reading, nil:
+            Text("Reading\u{2026}").foregroundStyle(.secondary).frame(
+                width: Self.countWidth * 2 + Self.outstandingWidth + 12, alignment: .trailing)
+        }
+    }
+
+    private var help: String {
+        let open = "Open \(row.site.title) in the street painter with Proposals on"
+        switch row.entry {
+        case .counted(let c): return "\(c.summary). \(open)"
+        case .failed(let why): return "Proposals not read: \(why). \(open)"
+        case .reading, nil: return "Reading the proposals. \(open)"
+        }
     }
 }

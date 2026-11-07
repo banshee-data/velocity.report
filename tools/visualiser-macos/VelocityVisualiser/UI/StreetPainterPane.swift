@@ -116,6 +116,10 @@ import SwiftUI
             Text(painter.tool.label).font(.callout.weight(.medium))
             Text(painter.tool.hint).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
+            if let message = painter.joinMessage {
+                Text(message).font(.caption2).foregroundStyle(.orange).fixedSize(
+                    horizontal: false, vertical: true)
+            }
             toolFields
             if !painter.drawing.isEmpty {
                 HStack {
@@ -143,7 +147,7 @@ import SwiftUI
 
     @ViewBuilder private var toolFields: some View {
         switch painter.tool {
-        case .select, .split: EmptyView()
+        case .select, .split, .join: EmptyView()
         case .surface:
             Picker("Surface", selection: $painter.fields.surface) {
                 ForEach(StreetUseTags.surfaces, id: \.self) { Text($0).tag($0) }

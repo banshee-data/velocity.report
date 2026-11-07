@@ -183,6 +183,7 @@ var (
 	// into this clone of the published dataset; publishing it stays a person's
 	// step.
 	lidarDatasetDir = serveFlags.String("lidar-dataset-dir", "", "Published survey dataset clone that clip staging writes into (inside --lidar-pcap-dir); empty disables staging")
+	gerardusURL     = serveFlags.String("gerardus-url", "", "Gerardus server the lane proposals job uploads lane fields to and reads registrations from (empty: $GERARDUS_URL or http://127.0.0.1:50061)")
 	// Read once at startup. Empty uses the repository's file when the server
 	// runs from the repository, and the binary's own copy anywhere else.
 	lidarSegmentSelectors = serveFlags.String("lidar-segment-selectors", "",
@@ -841,6 +842,7 @@ func Main(args []string) int {
 			TuningConfig:       tuningCfg,
 			SegmentSelectors:   selectors,
 			DatasetDir:         *lidarDatasetDir,
+			GerardusURL:        *gerardusURL,
 			OnPCAPStarted:      closeLiveObservationsOnReplayStart,
 			OnTuningChange:     endLiveObservationsOnTuning,
 			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),

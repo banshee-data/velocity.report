@@ -4,12 +4,14 @@ package lidar
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	coredb "github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/gerardus"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/lanefieldrun"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -100,6 +102,43 @@ func TestLaneFieldCLIOnePartAndErrors(t *testing.T) {
 	} {
 		if code := LaneFieldMain(c.args); code != c.want {
 			t.Errorf("%v: exit %d, want %d", c.args, code, c.want)
+		}
+	}
+}
+
+type fakeLaneUploader struct {
+	records []gerardus.Record
+	headers []l8analytics.LaneFieldHeader
+}
+
+func (f *fakeLaneUploader) Records(context.Context, string) ([]gerardus.Record, error) {
+	return f.records, nil
+}
+func (f *fakeLaneUploader) UploadLaneField(_ context.Context, lf l8analytics.LaneField) (gerardus.Upload, error) {
+	f.headers = append(f.headers, lf.Header)
+	return gerardus.Upload{Part: lf.Header.WindowPart, FieldID: "sha256:" + lf.Header.WindowPart, Cells: uint32(lf.CellCount())}, nil
+}
+func (f *fakeLaneUploader) Close() error { return nil }
+
+func TestLaneFieldCLIUploadsPlacedByTheRunsRecord(t *testing.T) {
+	dbPath := laneFieldDB(t)
+	fake := &fakeLaneUploader{records: []gerardus.Record{
+		{RecordID: "gms:other", State: gerardus.StateRegistered, SensorID: "s1", CaptureRef: "b.pcapng"},
+		{RecordID: "gms:a", State: gerardus.StateRegistered, SensorID: "s1", CaptureRef: "a.pcapng"},
+	}}
+	dial := func(string) (laneFieldUploader, error) { return fake, nil }
+	if code := laneFieldMainWith([]string{"--db", dbPath, "--run", "run-1", "--upload"}, sqlite.OpenReadOnly, dial); code != 2 {
+		t.Fatalf("--upload without --l16: exit %d, want 2", code)
+	}
+	if code := laneFieldMainWith([]string{"--db", dbPath, "--run", "run-1", "--upload", "--l16", "808580f47"}, sqlite.OpenReadOnly, dial); code != 0 {
+		t.Fatalf("upload: exit %d", code)
+	}
+	if len(fake.headers) != 3 {
+		t.Fatalf("uploaded %d parts, want 3", len(fake.headers))
+	}
+	for _, h := range fake.headers {
+		if h.L16Token != "808580f47" || h.RecordID != "gms:a" {
+			t.Fatalf("header = %+v", h)
 		}
 	}
 }

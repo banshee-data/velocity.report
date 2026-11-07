@@ -11,17 +11,30 @@
 		createLidarClip,
 		createClipFromCaptures,
 		deleteLidarClip,
+		getCaptureJobs,
 		getLidarClip,
-		getLidarClips,
+		getLidarClipsWithLanes,
+		queueClipLaneProposals,
+		rerunLaneProposals,
 		scanPcapFiles,
 		updateLidarClip
 	} from '#lib/api.js';
+	import {
+		activeLaneJobIds,
+		canRunLanes,
+		describeRerun,
+		describeSkipped,
+		laneView,
+		pickRecord,
+		registrationView
+	} from '#lib/laneProposals.js';
+	import { JOB_KIND_LANE_PROPOSALS, type CaptureJob } from '#lib/types/captures.js';
 	import ClipPublishingPanel from '#lib/components/lidar/ClipPublishingPanel.svelte';
 	import type { LidarClip } from '#lib/types/lidar.js';
 	import { linkedId, tracksQuery } from '#lib/lidarLinks.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { Button, SelectField } from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -65,11 +78,114 @@
 		loading = true;
 		error = null;
 		try {
-			scenes = await getLidarClips();
+			scenes = await getLidarClipsWithLanes();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load clips.';
 		} finally {
 			loading = false;
+		}
+		if (activeLaneJobIds(scenes, laneJobs).length > 0) startLanePolling();
+	}
+
+	// Lane proposals (docs/plans/lidar-lane-field-batch-plan.md): each clip's
+	// registration in Gerardus and its lanes, a job per clip, and a re-run
+	// across every registered clip. The jobs are polled only while one is
+	// queued or running; each that finishes reloads the list for its counts.
+	const LANE_POLL_MS = 2500;
+	let laneJobs: Map<string, CaptureJob> = new Map();
+	let lanePoll: ReturnType<typeof setTimeout> | null = null;
+	let lanePolling = false;
+	let laneMessage: string | null = null;
+	let laneError: string | null = null;
+	let rerunning = false;
+	let destroyed = false;
+
+	function startLanePolling() {
+		if (lanePolling || destroyed) return;
+		lanePolling = true;
+		const poll = async () => {
+			lanePoll = null;
+			try {
+				const before = activeLaneJobIds(scenes, laneJobs);
+				const jobs = await getCaptureJobs({ kind: JOB_KIND_LANE_PROPOSALS, limit: 200 });
+				laneJobs = new Map(jobs.map((j) => [j.job_id, j]));
+				const after = activeLaneJobIds(scenes, laneJobs);
+				if (after.length < before.length) {
+					scenes = await getLidarClipsWithLanes();
+				}
+				if (activeLaneJobIds(scenes, laneJobs).length === 0) {
+					lanePolling = false;
+					return;
+				}
+			} catch (e) {
+				lanePolling = false;
+				laneError = e instanceof Error ? e.message : 'Could not check on the lane jobs.';
+				return;
+			}
+			if (lanePolling && !destroyed) lanePoll = setTimeout(poll, LANE_POLL_MS);
+		};
+		lanePoll = setTimeout(poll, LANE_POLL_MS);
+	}
+
+	onDestroy(() => {
+		destroyed = true;
+		if (lanePoll) clearTimeout(lanePoll);
+	});
+
+	async function handleRunLanes(clip: LidarClip) {
+		laneError = null;
+		let recordId: string | undefined;
+		const candidates = clip.registration?.candidates ?? [];
+		if (clip.registration?.state === 'ambiguous') {
+			// Several accepted poses at the site and none names this clip: the
+			// operator says which one its tracks were seen from.
+			const list = candidates.map((c, i) => `${i + 1}. ${c}`).join('\n');
+			const answer = prompt(
+				`Several accepted records place sensors at this site. Which one was this clip recorded from? Enter its number or id:\n\n${list}`
+			);
+			if (answer === null) return;
+			recordId = pickRecord(answer, candidates);
+			if (!recordId) {
+				laneError = `"${answer}" is not one of the site's accepted records.`;
+				return;
+			}
+		}
+		try {
+			const queued = await queueClipLaneProposals(clip.clip_id, recordId);
+			laneMessage = queued.created
+				? `Lane proposals queued for ${clip.description || clip.clip_id.substring(0, 8)}.`
+				: 'A lane proposals job is already queued for this clip.';
+			scenes = await getLidarClipsWithLanes();
+			startLanePolling();
+		} catch (e) {
+			laneError = e instanceof Error ? e.message : 'Could not queue lane proposals.';
+		}
+	}
+
+	async function handleRerunLanes() {
+		laneError = null;
+		laneMessage = null;
+		rerunning = true;
+		try {
+			const plan = await rerunLaneProposals({ dryRun: true });
+			if (plan.queued.length === 0) {
+				laneMessage = `Nothing to re-run: ${describeRerun(plan)}.`;
+				return;
+			}
+			const skipped = describeSkipped(plan);
+			const ok = confirm(
+				`Re-run lane proposals: ${describeRerun(plan)}.\n\nEach clip is replayed, its lane fields go to Gerardus and its proposals are derived.` +
+					(skipped ? `\n\nSkipped:\n${skipped}` : '')
+			);
+			if (!ok) return;
+			const done = await rerunLaneProposals({});
+			laneMessage = `Queued lane proposals for ${done.queued.length} ${done.queued.length === 1 ? 'clip' : 'clips'}.`;
+			scenes = await getLidarClipsWithLanes();
+			startLanePolling();
+		} catch (e) {
+			laneError = e instanceof Error ? e.message : 'Could not re-run lane proposals.';
+		} finally {
+			rerunning = false;
 		}
 	}
 
@@ -322,6 +438,14 @@
 				</p>
 			</div>
 			<div class="flex gap-2">
+				<Button
+					variant="outline"
+					on:click={handleRerunLanes}
+					disabled={rerunning}
+					title="Replay every registered clip whose lane proposals are stale or missing, send its lane fields to Gerardus and derive its proposals"
+				>
+					{rerunning ? 'Checking...' : 'Re-run lane proposals'}
+				</Button>
 				<Button variant="outline" on:click={handleScanPcap} disabled={scanning}>
 					{scanning ? 'Scanning...' : 'Scan PCAP Folder'}
 				</Button>
@@ -339,6 +463,20 @@
 				<div class="mb-4 rounded bg-red-50 px-4 py-3 text-sm text-red-600">
 					{error}
 					<button class="ml-2 underline" on:click={loadScenes}>Retry</button>
+				</div>
+			{/if}
+			{#if laneError}
+				<div class="mb-4 rounded bg-red-50 px-4 py-3 text-sm text-red-600" role="alert">
+					{laneError}
+					<button class="ml-2 underline" on:click={() => (laneError = null)}>Dismiss</button>
+				</div>
+			{:else if laneMessage}
+				<div class="mb-4 rounded bg-sky-50 px-4 py-3 text-sm text-sky-700" role="status">
+					{laneMessage}
+					{#if lanePolling}
+						<span class="text-sky-700/70">Progress shows in the Lanes column.</span>
+					{/if}
+					<button class="ml-2 underline" on:click={() => (laneMessage = null)}>Dismiss</button>
 				</div>
 			{/if}
 
@@ -564,6 +702,14 @@
 								<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
 									>Files</th
 								>
+								<th
+									class="text-surface-content/70 px-4 py-3 text-center text-sm font-medium"
+									title="An accepted pose in Gerardus places the clip">Registered</th
+								>
+								<th
+									class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+									title="Lane proposals derived by Gerardus from this clip's lane fields">Lanes</th
+								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
 								>
@@ -575,6 +721,8 @@
 						<tbody>
 							{#each scenes as scene (scene.clip_id)}
 								{@const isSelected = selectedScene?.clip_id === scene.clip_id}
+								{@const reg = registrationView(scene.registration)}
+								{@const lane = laneView(scene, laneJobs)}
 								<tr
 									class="border-surface-content/10 hover:bg-surface-200/50 cursor-pointer border-b transition-colors last:border-b-0 {isSelected
 										? 'bg-primary/5'
@@ -599,10 +747,60 @@
 											<span class="text-surface-content/40">1</span>
 										{/if}
 									</td>
+									<td class="px-4 py-3 text-center text-sm" title={reg.title}>
+										{#if reg.kind === 'registered'}
+											<span class="text-emerald-600" aria-label="registered">{reg.label}</span>
+										{:else if reg.kind === 'unknown' || reg.kind === 'ambiguous'}
+											<span class="text-amber-600">{reg.label}</span>
+										{:else}
+											<span class="text-surface-content/40">{reg.label}</span>
+										{/if}
+									</td>
+									<td class="max-w-[220px] px-4 py-3 text-sm" title={lane.title}>
+										{#if lane.kind === 'running' || lane.kind === 'queued'}
+											<div class="flex flex-col gap-1">
+												<div
+													class="bg-surface-200 h-1.5 w-full overflow-hidden rounded"
+													role="progressbar"
+													aria-valuemin="0"
+													aria-valuemax="100"
+													aria-valuenow={Math.round((lane.fraction ?? 0) * 100)}
+												>
+													<div
+														class="bg-primary h-full transition-all"
+														style="width: {Math.max(4, Math.round((lane.fraction ?? 0) * 100))}%"
+													></div>
+												</div>
+												<span class="text-surface-content/60 truncate text-xs"
+													>{lane.detail || lane.label}</span
+												>
+											</div>
+										{:else if lane.kind === 'current'}
+											<span class="text-emerald-700">{lane.label}</span>
+										{:else if lane.kind === 'stale'}
+											<span class="text-amber-700">{lane.label}</span>
+										{:else if lane.kind === 'failed'}
+											<span class="text-red-600">{lane.label}</span>
+										{:else}
+											<span class="text-surface-content/40">{lane.label}</span>
+										{/if}
+									</td>
 									<td class="text-surface-content/70 px-4 py-3 text-sm">
 										{formatDate(scene.created_at_ns)}
 									</td>
-									<td class="px-4 py-3 text-right">
+									<td class="px-4 py-3 text-right whitespace-nowrap">
+										<button
+											class="text-primary mr-3 text-sm hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:no-underline"
+											disabled={!canRunLanes(scene, laneJobs)}
+											title={canRunLanes(scene, laneJobs)
+												? 'Replay this clip and derive its lane proposals'
+												: reg.kind === 'registered' || reg.kind === 'ambiguous'
+													? 'A lane proposals job is already queued or running'
+													: reg.title}
+											on:click|stopPropagation={() => handleRunLanes(scene)}
+										>
+											Run lanes
+										</button>
 										<button
 											class="text-sm text-red-500 hover:text-red-700"
 											on:click|stopPropagation={() => handleDelete(scene.clip_id)}
