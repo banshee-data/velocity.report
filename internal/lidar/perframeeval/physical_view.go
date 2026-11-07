@@ -76,9 +76,12 @@ type CentreViewSummary struct {
 	Rule              string    `json:"rule"`
 	RangeBandEdgesM   []float64 `json:"range_band_edges_m"`
 	AspectBinEdgesDeg []float64 `json:"aspect_bin_edges_deg"`
-	// ReferencePoses counts the poses whose reference states a centre;
-	// Unmatched those of them no prediction was compared with, by object.
+	// ReferencePoses counts the reviewed poses whose reference states a
+	// centre; Unmatched those of them no prediction was compared with, by
+	// object. Unreviewed counts the poses left out because their reference
+	// is not reviewed: they are neither reference poses nor unmatched.
 	ReferencePoses    int              `json:"reference_poses"`
+	Unreviewed        int              `json:"unreviewed_poses"`
 	Unmatched         int              `json:"unmatched_poses"`
 	UnmatchedByObject map[string]int   `json:"unmatched_by_object"`
 	Poses             []CentreViewPose `json:"poses"`
@@ -101,6 +104,10 @@ func summariseCentreView(instants []PhysicalInstant, labels map[string]string, s
 	for _, in := range instants {
 		g := in.Reference
 		if g == nil || g.Centre == nil {
+			continue
+		}
+		if in.Outcomes[ComponentCentre].Reason == ReasonReferenceUnreviewed {
+			out.Unreviewed++
 			continue
 		}
 		out.ReferencePoses++
