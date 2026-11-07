@@ -36,6 +36,15 @@ const (
 	// heading counts: below it the heading is noise and a stopped car names
 	// no direction. It is LateralFitLocalMinSpeedMps.
 	LaneFieldHeadingMinSpeedMps = LateralFitLocalMinSpeedMps
+	// LaneFieldMaxBridgeS is the longest step between two consecutive
+	// observed instants that the centre's path is drawn across. Instants come
+	// about 0.1 s apart, so at street speed the centre moves 0.8 to 1 m
+	// between them: four cells. Counting only the cells the centre was
+	// sampled in left a 0.25 m line across a lane seeing about a quarter of
+	// the tracks that drove over it. A longer step is a gap in observation
+	// (occlusion, coasting) and is not bridged, so a guess never paints a
+	// lane.
+	LaneFieldMaxBridgeS = 0.5
 	// LaneFieldHeadingBins is the number of 45° heading bins per cell,
 	// clockwise from the sensor's +Y; bin b covers [45b, 45b + 45) degrees.
 	LaneFieldHeadingBins = 8
@@ -125,6 +134,9 @@ type LaneFieldOptions struct {
 	MinInstants           int
 	VehicleMinMaxSpeedMps float64
 	HeadingMinSpeedMps    float64
+	// MaxBridgeS is the longest step between consecutive instants whose path
+	// counts; zero counts the sampled cells only.
+	MaxBridgeS float64
 }
 
 // DefaultLaneFieldOptions are the plan's thresholds.
@@ -135,6 +147,7 @@ func DefaultLaneFieldOptions() LaneFieldOptions {
 		MinInstants:           LaneFieldMinInstants,
 		VehicleMinMaxSpeedMps: LaneFieldVehicleMinMaxSpeedMps,
 		HeadingMinSpeedMps:    LaneFieldHeadingMinSpeedMps,
+		MaxBridgeS:            LaneFieldMaxBridgeS,
 	}
 }
 
@@ -234,9 +247,12 @@ type laneTrackCell struct {
 // BuildLaneField sums the tracks into one part of a run's lane field. It is
 // pure: the same tracks in any order give the same field. A track counts when
 // it has at least MinInstants observed instants and a class group, and, for a
-// vehicle, a lifetime maximum speed of at least VehicleMinMaxSpeedMps. Each
-// counted track counts once per cell per channel however many instants it
-// spent there. A cell is emitted only when its tracks or its box_tracks
+// vehicle, a lifetime maximum speed of at least VehicleMinMaxSpeedMps. A
+// track's centre counts in the cell of each observed instant and in every
+// cell its straight path crosses between two consecutive instants at most
+// MaxBridgeS apart, with the step's mean speed and its direction of travel.
+// Each counted track counts once per cell per channel however many instants
+// it spent there. A cell is emitted only when its tracks or its box_tracks
 // reaches K; the grid is the bounding box of the emitted cells, so nothing
 // of a thinner cell reaches the header either.
 func BuildLaneField(tracks []LaneFieldTrack, meta LaneFieldMeta, part LaneFieldPart, opts LaneFieldOptions) (LaneField, error) {
@@ -323,28 +339,48 @@ func BuildLaneField(tracks []LaneFieldTrack, meta LaneFieldMeta, part LaneFieldP
 		centre := map[laneCellKey]*laneTrackCell{}
 		boxed := map[laneCellKey]struct{}{}
 		seen := false
-		for _, in := range t.Instants {
-			if !inPart(in.TimeNs) || !finite(in.X, in.Y) {
-				continue
-			}
-			seen = true
-			k := laneCellOf(in.X, in.Y, opts.CellM)
+		// sample adds one speed and, when moving, one heading (vx, vy, any
+		// scale) to a cell of this track.
+		sample := func(k laneCellKey, speed, vx, vy float64) {
 			c := centre[k]
 			if c == nil {
 				c = &laneTrackCell{}
 				centre[k] = c
 			}
 			c.n++
-			if finite(in.SpeedMps) {
-				c.speedSum += in.SpeedMps
+			if finite(speed) {
+				c.speedSum += speed
 			}
-			if in.SpeedMps >= opts.HeadingMinSpeedMps && finite(in.VX, in.VY) && (in.VX != 0 || in.VY != 0) {
+			if speed >= opts.HeadingMinSpeedMps && finite(vx, vy) && (vx != 0 || vy != 0) {
 				// Bearing clockwise from the sensor's +Y.
-				b := math.Atan2(in.VX, in.VY)
+				b := math.Atan2(vx, vy)
 				c.sinSum += math.Sin(b)
 				c.cosSum += math.Cos(b)
 				c.movingSeen = true
 			}
+		}
+		var prev *LaneFieldInstant
+		for i := range t.Instants {
+			in := t.Instants[i]
+			if !inPart(in.TimeNs) || !finite(in.X, in.Y) {
+				continue
+			}
+			seen = true
+			k := laneCellOf(in.X, in.Y, opts.CellM)
+			// The cells the centre crossed since the previous instant,
+			// between the two instants' own cells.
+			if prev != nil && opts.MaxBridgeS > 0 && float64(in.TimeNs-prev.TimeNs) <= opts.MaxBridgeS*1e9 {
+				path := laneSegmentCells(prev.X, prev.Y, in.X, in.Y, opts.CellM)
+				if len(path) > 2 {
+					speed := (prev.SpeedMps + in.SpeedMps) / 2
+					dx, dy := in.X-prev.X, in.Y-prev.Y
+					for _, pk := range path[1 : len(path)-1] {
+						sample(pk, speed, dx, dy)
+					}
+				}
+			}
+			sample(k, in.SpeedMps, in.VX, in.VY)
+			prev = &t.Instants[i]
 			if in.BoxLength > 0 && in.BoxWidth > 0 && finite(in.BoxX, in.BoxY, in.BoxHeadingRad, in.BoxLength, in.BoxWidth) {
 				for _, bk := range laneBoxCells(in, opts.CellM) {
 					boxed[bk] = struct{}{}
@@ -475,6 +511,66 @@ func laneCellAt(cells map[laneCellKey]*laneCell, k laneCellKey) *laneCell {
 		cells[k] = c
 	}
 	return c
+}
+
+// laneSegmentCells are the cells a straight segment from (x0, y0) to (x1,
+// y1) passes through, in order from the first point's cell to the last's
+// (Amanatides and Woo's traversal). Where it passes exactly through a cell
+// corner it steps along x first, so the path stays 4-connected.
+func laneSegmentCells(x0, y0, x1, y1, cellM float64) []laneCellKey {
+	a := laneCellOf(x0, y0, cellM)
+	b := laneCellOf(x1, y1, cellM)
+	out := []laneCellKey{a}
+	if a == b {
+		return out
+	}
+	dx, dy := x1-x0, y1-y0
+	stepX, stepY := int64(0), int64(0)
+	tMaxX, tMaxY := math.Inf(1), math.Inf(1)
+	tDeltaX, tDeltaY := math.Inf(1), math.Inf(1)
+	if dx > 0 {
+		stepX = 1
+		tMaxX = ((float64(a.ix)+1)*cellM - x0) / dx
+		tDeltaX = cellM / dx
+	} else if dx < 0 {
+		stepX = -1
+		tMaxX = (float64(a.ix)*cellM - x0) / dx
+		tDeltaX = -cellM / dx
+	}
+	if dy > 0 {
+		stepY = 1
+		tMaxY = ((float64(a.iy)+1)*cellM - y0) / dy
+		tDeltaY = cellM / dy
+	} else if dy < 0 {
+		stepY = -1
+		tMaxY = (float64(a.iy)*cellM - y0) / dy
+		tDeltaY = -cellM / dy
+	}
+	cur := a
+	// The cells between differ from a to b by at most |Δix| + |Δiy| steps.
+	steps := absInt64(b.ix-a.ix) + absInt64(b.iy-a.iy)
+	for n := int64(0); n < steps && cur != b; n++ {
+		if tMaxX <= tMaxY {
+			cur.ix += stepX
+			tMaxX += tDeltaX
+		} else {
+			cur.iy += stepY
+			tMaxY += tDeltaY
+		}
+		out = append(out, cur)
+	}
+	if out[len(out)-1] != b {
+		// Rounding at a cell edge: end on the last point's own cell.
+		out = append(out, b)
+	}
+	return out
+}
+
+func absInt64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 // laneHeadingBin is the 45° bin of a bearing in radians clockwise from +Y:
