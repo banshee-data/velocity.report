@@ -85,6 +85,14 @@ const (
 	// ResidualReferenceChanged: the body-centre claim lapsed and the
 	// position was translated back to the medoid.
 	ResidualReferenceChanged = "reference_changed"
+	// ResidualTwoPointInit: TwoPointVelocityInit initialised the state from
+	// this measurement and the track's first, in place of an update. The
+	// measurement entered the state, but not through a Kalman gain, so its
+	// innovation (against a zero-velocity prediction) and NIS are recorded
+	// as the gate saw them and are not filter residuals: the consistency
+	// accumulators do not see them, and the smoother does not list the
+	// observation as update evidence (FilterObservation.Applied is false).
+	ResidualTwoPointInit = "two_point_init"
 )
 
 // measurementForCluster is the production measurement: the default mode,

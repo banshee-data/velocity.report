@@ -128,6 +128,10 @@ type TrackedObject struct {
 	LastMeasurementUnixNanos int64
 	LastClusterID            int64
 	LastResidual             FilterResidual
+	// foundingMeasurement is the measurement initTrack seeded the state
+	// from. TwoPointVelocityInit differences the second measurement against
+	// it; nothing else reads it.
+	foundingMeasurement PositionMeasurement
 
 	// Capture-time state and coast accounting; see time_domain.go.
 	//
@@ -846,6 +850,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		Y:                        measurement.Y,
 		LastMeasurementSource:    measurement.Source,
 		LastMeasurementUnixNanos: measurement.UnixNanos,
+		foundingMeasurement:      measurement,
 		StateUnixNanos:           stateNanos,
 		LastObservedUnixNanos:    stateNanos,
 		// Initialise velocity to zero

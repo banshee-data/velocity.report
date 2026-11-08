@@ -119,6 +119,19 @@ const (
 	// predict across a whole capture-time gap instead of clamping it to
 	// max_predict_dt.
 	ExperimentCaptureGapPredict = "capture_gap_predict"
+	// Initialisation and covariance hygiene (data/maths/tracking-maths.md
+	// §2.3), each a TrackerConfig option the tuning file does not carry:
+	//   - ExperimentTwoPointVelocityInit: TwoPointVelocityInit, a track's
+	//     second measurement initialises its velocity and covariance from the
+	//     pair instead of updating a zero-velocity prior;
+	//   - ExperimentConsistentCovarianceCap: ConsistentCovarianceCap, the
+	//     covariance cap applied as P <- D P D so P stays positive
+	//     semi-definite;
+	//   - ExperimentConsistentSpeedClamp: ConsistentSpeedClamp, the speed
+	//     limit applied as a conditional update of the state and covariance.
+	ExperimentTwoPointVelocityInit    = "two_point_velocity_init"
+	ExperimentConsistentCovarianceCap = "consistent_covariance_cap"
+	ExperimentConsistentSpeedClamp    = "consistent_speed_clamp"
 
 	// Occlusion continuity (state-estimation plan, Sprint 0.5.2.2): the
 	// switches in l5tracks.OcclusionContinuityConfig, each alone so a change
@@ -363,6 +376,10 @@ var knownExperiments = map[string]bool{
 	ExperimentBirthGateBody:        true,
 	ExperimentFixedLagRTS:          true,
 	ExperimentSolidBody:            true,
+
+	ExperimentTwoPointVelocityInit:    true,
+	ExperimentConsistentCovarianceCap: true,
+	ExperimentConsistentSpeedClamp:    true,
 
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,

@@ -1,5 +1,7 @@
 package l5tracks
 
+import "math"
+
 // Covariance maths for the four-state CV filter, split out so the two known
 // gaps in it (K1 and K2 in the paper-implementation gap analysis) can be
 // measured against the shipped forms rather than argued about.
@@ -156,6 +158,133 @@ func transpose4x4(a [16]float32) [16]float32 {
 		}
 	}
 	return out
+}
+
+// capCovarianceConsistent caps every diagonal of P at maxDiag by scaling its
+// row and column (ConsistentCovarianceCap):
+//
+//	D = diag(min(1, sqrt(maxDiag / P_ii))),   P ← D P D.
+//
+// D P D is a congruence, so every correlation P_ij/sqrt(P_ii P_jj) is kept and
+// a positive semi-definite P stays so. The shipped cap clamps the diagonal and
+// leaves the off-diagonals, which lowers P_ii while P_ij keeps its size, so
+// |P_ij| can pass sqrt(P_ii P_jj) and P becomes indefinite.
+//
+// Computed in float64 and stored once; a capped diagonal is stored at exactly
+// maxDiag so the bound holds to the bit, as the shipped cap's does. A
+// diagonal that is not above maxDiag (including NaN, which the callers'
+// finite-state guards then refuse) is untouched, and P is untouched when no
+// diagonal is above it. A cap of zero or below scales the over-cap rows and
+// columns to zero, the consistent reading of a variance bound that admits no
+// variance.
+func capCovarianceConsistent(p *[16]float32, maxDiag float32) {
+	var d [4]float64
+	capped := false
+	for i := 0; i < 4; i++ {
+		d[i] = 1
+		if v := p[i*4+i]; v > maxDiag {
+			capped = true
+			d[i] = 0
+			if maxDiag > 0 {
+				d[i] = math.Sqrt(float64(maxDiag) / float64(v))
+			}
+		}
+	}
+	if !capped {
+		return
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			if d[i] != 1 || d[j] != 1 {
+				p[i*4+j] = float32(float64(p[i*4+j]) * d[i] * d[j])
+			}
+		}
+	}
+	for i := 0; i < 4; i++ {
+		if d[i] != 1 && p[i*4+i] > maxDiag {
+			p[i*4+i] = maxDiag
+		}
+	}
+}
+
+// minSpeedConstraintVariance is the smallest velocity variance along the
+// direction of travel the consistent speed clamp will regress on. Below it
+// the gain P hᵀ / (h P hᵀ) is float noise divided by float noise, so the clamp
+// falls back to rescaling the velocity alone.
+const minSpeedConstraintVariance = 1e-9
+
+// constrainSpeedConsistent applies a speed limit to a four-state CV estimate
+// as a conditional update (ConsistentSpeedClamp), in place of rescaling the
+// velocity and leaving P.
+//
+// With u the unit vector along the current velocity and h = [0, 0, ux, uy],
+// h·x is the speed. The limit is treated as a perfect measurement of that
+// component: the state moves to it, and every other component moves with it
+// through its regression on it,
+//
+//	k = P hᵀ / (h P hᵀ),   x ← x + k (vmax − h·x),   P ← P − k h P.
+//
+// That is a projection of the estimate onto the constraint surface h·x =
+// vmax, not a truncation of the density: the along-track velocity variance
+// becomes zero, and prediction's process noise restores it. Position moves
+// too, by its covariance with the along-track speed, so the clamp no longer
+// leaves the position believing a speed the velocity no longer says.
+//
+// P − k h P is symmetric for a symmetric P; the result is symmetrised against
+// float error and any diagonal driven below zero by it is floored at zero.
+// Velocity across the direction of travel also moves by its covariance with
+// the along-track component, which can leave the speed fractionally above
+// vmax; that residue, second order in the excess, is removed by the shipped
+// rescale of the velocity alone so the speed bound holds as it always has. A
+// velocity variance along u below minSpeedConstraintVariance, or a
+// non-finite one, falls back to the shipped rescale outright. The caller has
+// already found the speed above vmax.
+func constrainSpeedConsistent(x *[4]float32, p *[16]float32, vmax float32) {
+	vx, vy := float64(x[2]), float64(x[3])
+	speed := math.Hypot(vx, vy)
+	limit := float64(vmax)
+	if !(speed > 0) || math.IsInf(speed, 0) {
+		return
+	}
+	ux, uy := vx/speed, vy/speed
+	var ph [4]float64 // P hᵀ
+	for i := 0; i < 4; i++ {
+		ph[i] = float64(p[i*4+2])*ux + float64(p[i*4+3])*uy
+	}
+	s := ph[2]*ux + ph[3]*uy // h P hᵀ
+	if !(s > minSpeedConstraintVariance) || math.IsInf(s, 0) {
+		rescaleVelocity(x, vmax)
+		return
+	}
+	excess := limit - speed
+	for i := 0; i < 4; i++ {
+		x[i] = float32(float64(x[i]) + ph[i]/s*excess)
+	}
+	var out [16]float32
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			pij := 0.5 * (float64(p[i*4+j]) + float64(p[j*4+i]))
+			out[i*4+j] = float32(pij - ph[i]*ph[j]/s)
+		}
+	}
+	for i := 0; i < 4; i++ {
+		if out[i*4+i] < 0 {
+			out[i*4+i] = 0
+		}
+	}
+	*p = out
+	rescaleVelocity(x, vmax)
+}
+
+// rescaleVelocity is the shipped speed clamp on a state vector: the velocity
+// scaled to vmax along its own direction, the covariance untouched.
+func rescaleVelocity(x *[4]float32, vmax float32) {
+	speed := float32(math.Sqrt(float64(x[2]*x[2] + x[3]*x[3])))
+	if speed > vmax && speed > 0 {
+		scale := vmax / speed
+		x[2] *= scale
+		x[3] *= scale
+	}
 }
 
 // covarianceAsymmetry is the largest |P[i,j] - P[j,i]| in P.
