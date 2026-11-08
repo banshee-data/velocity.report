@@ -38,15 +38,33 @@ import (
 //     the span covers enough of the believed width, and as an absolute value:
 //     its sign follows the heading, which may be ambiguous.
 //
+//   - Extent shortfall and placement. The labelled returns' span along the
+//     believed heading is a lower bound on the object's length, given the
+//     heading (and across it on the width). A believed box shorter than that
+//     span cannot contain it: half the shortfall lies outside the box at one
+//     end or the other, wherever the centre sits. The half shortfall is
+//     max(0, span - believed dimension)/2, and the placement residual is the
+//     normal residual plus it, which is what a box of the believed extent
+//     leaves once the part its extent forces is removed: centre, heading and
+//     the partial view. This is the F0 report's Section 4.1 decomposition,
+//     computed on every instant rather than post hoc, so an attribution gate
+//     can compare placement error with the extent term rather than read a raw
+//     residual that mixes the two. The span is taken between the same trimmed
+//     extremes as the face, so a box exactly covering the trimmed returns has
+//     zero placement residual.
+//
 // What this does not score: the centre along an axis whose face the sensor
 // cannot see, the far bumper, yaw, and the identity of the track. A body whose
 // extents are class priors is scored but kept apart, because its residual
 // mostly measures the prior.
 
-// NearFaceSchema identifies the report's format.
+// NearFaceSchema identifies the report's format. Version 2 adds the labelled
+// spans, the half extent shortfalls and the placement residuals per instant,
+// their statistics per stratum and the placement pairs; every version 1 field
+// keeps its meaning.
 const (
 	NearFaceSchema        = "velocity.report/near-face-comparison"
-	NearFaceSchemaVersion = 1
+	NearFaceSchemaVersion = 2
 )
 
 // Reasons an instant is not scored, as the accounting names them.
@@ -206,6 +224,22 @@ type NearFaceInstant struct {
 	// ExtentEvidence is true when both extents were learnt from this object.
 	ExtentEvidence bool `json:"extent_evidence"`
 	Returns        int  `json:"returns"`
+
+	// SpanAlongM and SpanAcrossM are the labelled returns' extent along and
+	// across the believed heading, between the trimmed extremes the faces
+	// use: lower bounds on the length and width, given the heading.
+	SpanAlongM  float64 `json:"span_along_m"`
+	SpanAcrossM float64 `json:"span_across_m"`
+	// HalfLengthShortfallM and HalfWidthShortfallM are max(0, span - believed
+	// dimension)/2: the part of a normal residual the believed extent forces,
+	// wherever the centre sits. Zero when the box is at least the span.
+	HalfLengthShortfallM *float64 `json:"half_length_shortfall_m,omitempty"`
+	HalfWidthShortfallM  *float64 `json:"half_width_shortfall_m,omitempty"`
+	// EndPlacementM and SidePlacementM are the normal residual plus the half
+	// shortfall on that axis: the face placement error once the extent's
+	// forced part is removed. Present where the normal residual is.
+	EndPlacementM  *float64 `json:"end_placement_m,omitempty"`
+	SidePlacementM *float64 `json:"side_placement_m,omitempty"`
 }
 
 // NearFaceStratum is the statistics of the instants in one stratum.
@@ -215,6 +249,15 @@ type NearFaceStratum struct {
 	SideNormal FaceStats `json:"side_normal"`
 	// EndTangent is of the absolute offset: its sign follows the heading.
 	EndTangent FaceStats `json:"end_tangent_abs"`
+	// EndPlacement and SidePlacement are the placement residuals, over the
+	// same instants as EndNormal and SideNormal.
+	EndPlacement  FaceStats `json:"end_placement"`
+	SidePlacement FaceStats `json:"side_placement"`
+	// HalfLengthShortfall is over the instants with an end residual, and
+	// HalfWidthShortfall over those with a side residual, so each sits on the
+	// same population as the placement it was added to.
+	HalfLengthShortfall FaceStats `json:"half_length_shortfall"`
+	HalfWidthShortfall  FaceStats `json:"half_width_shortfall"`
 }
 
 // NearFaceAccounting counts every labelled instant the scorer was asked to
@@ -459,6 +502,7 @@ func nearFaceCaveats(ref NearFaceReference) []string {
 			"a centre biased toward the sensor, or an extent believed too long. It cannot tell the two apart.",
 		"The face is the outermost labelled return (less a small trimmed share), so the sensor's range noise, a few centimetres, puts a floor under every residual.",
 		"Every mask is saved as partial by default; a partial mask still certifies that its returns belong to the object, and the extreme of a partly seen face is a lower bound on the face.",
+		"A placement residual is the normal residual plus half the amount by which the believed extent is shorter than the labelled span. The span is a lower bound on the object's extent given the heading, so the half shortfall is a lower bound on the extent's part: placement keeps any extent error the span cannot see, and a wrong heading inflates the span across it.",
 	}
 	if !ref.HeldOut {
 		c = append(c, fmt.Sprintf("Split %q is role %q, not held out: this is a tuning score and may not be quoted as held out.", ref.Split, ref.SplitRole))
@@ -518,14 +562,26 @@ func scoreArmNearFaces(masks []nearFaceMask, arm PhysicalArm, opts NearFaceOptio
 	return res
 }
 
-type stratumAccum struct{ end, side, tangent []float64 }
+type stratumAccum struct {
+	end, side, tangent                      []float64
+	endPlacement, sidePlacement             []float64
+	halfLengthShortfall, halfWidthShortfall []float64
+}
 
 func (a *stratumAccum) add(i NearFaceInstant) {
 	if i.EndNormalM != nil {
 		a.end = append(a.end, *i.EndNormalM)
+		if i.EndPlacementM != nil && i.HalfLengthShortfallM != nil {
+			a.endPlacement = append(a.endPlacement, *i.EndPlacementM)
+			a.halfLengthShortfall = append(a.halfLengthShortfall, *i.HalfLengthShortfallM)
+		}
 	}
 	if i.SideNormalM != nil {
 		a.side = append(a.side, *i.SideNormalM)
+		if i.SidePlacementM != nil && i.HalfWidthShortfallM != nil {
+			a.sidePlacement = append(a.sidePlacement, *i.SidePlacementM)
+			a.halfWidthShortfall = append(a.halfWidthShortfall, *i.HalfWidthShortfallM)
+		}
 	}
 	if i.EndTangentM != nil {
 		a.tangent = append(a.tangent, math.Abs(*i.EndTangentM))
@@ -533,7 +589,11 @@ func (a *stratumAccum) add(i NearFaceInstant) {
 }
 
 func (a *stratumAccum) stratum(name string) NearFaceStratum {
-	return NearFaceStratum{Name: name, EndNormal: summariseResiduals(a.end), SideNormal: summariseResiduals(a.side), EndTangent: summariseResiduals(a.tangent)}
+	return NearFaceStratum{
+		Name: name, EndNormal: summariseResiduals(a.end), SideNormal: summariseResiduals(a.side), EndTangent: summariseResiduals(a.tangent),
+		EndPlacement: summariseResiduals(a.endPlacement), SidePlacement: summariseResiduals(a.sidePlacement),
+		HalfLengthShortfall: summariseResiduals(a.halfLengthShortfall), HalfWidthShortfall: summariseResiduals(a.halfWidthShortfall),
+	}
 }
 
 func rangeStratum(r float64) string {
@@ -642,12 +702,21 @@ func scoreBodyFaces(b PredictedBody, m nearFaceMask, opts NearFaceOptions) (Near
 	for i := range m.x {
 		as[i], bs[i] = toBody(m.x[i], m.y[i])
 	}
+	// The spans and shortfalls are set on every scored instant, the
+	// placements only beside the normal residual they correct.
+	inst.SpanAlongM = trimmedSpan(as, opts.FaceQuantile)
+	inst.SpanAcrossM = trimmedSpan(bs, opts.FaceQuantile)
+	halfLengthShortfall := halfShortfall(inst.SpanAlongM, b.Length.Metres)
+	halfWidthShortfall := halfShortfall(inst.SpanAcrossM, b.Width.Metres)
+	inst.HalfLengthShortfallM, inst.HalfWidthShortfallM = &halfLengthShortfall, &halfWidthShortfall
 	var tangentReasons []string
 	if endSeen {
 		n := math.Copysign(1, sa)
 		extreme := outwardExtreme(as, n, opts.FaceQuantile)
 		r := halfL - n*extreme
 		inst.EndNormalM = &r
+		p := r + halfLengthShortfall
+		inst.EndPlacementM = &p
 		t, reason := endFaceTangent(as, bs, n, extreme, b.Width.Metres, opts)
 		if reason != "" {
 			tangentReasons = append(tangentReasons, reason)
@@ -659,8 +728,24 @@ func scoreBodyFaces(b PredictedBody, m nearFaceMask, opts NearFaceOptions) (Near
 		n := math.Copysign(1, sb)
 		r := halfW - n*outwardExtreme(bs, n, opts.FaceQuantile)
 		inst.SideNormalM = &r
+		p := r + halfWidthShortfall
+		inst.SidePlacementM = &p
 	}
 	return inst, "", tangentReasons
+}
+
+// trimmedSpan is the extent of the returns along one body axis between the
+// trimmed extremes outwardExtreme takes on each side, so the span and the face
+// it is compared with ignore the same stray returns.
+func trimmedSpan(v []float64, quantile float64) float64 {
+	return math.Max(0, outwardExtreme(v, 1, quantile)-outwardExtreme(v, -1, quantile))
+}
+
+// halfShortfall is half the amount by which a believed dimension falls short
+// of the labelled span, zero when it does not: the part of a face residual a
+// box of that dimension cannot avoid, wherever its centre sits.
+func halfShortfall(span, believed float64) float64 {
+	return math.Max(0, span-believed) / 2
 }
 
 // outwardExtreme is the coordinate, along an axis, of the face the returns
@@ -717,6 +802,8 @@ func sortedInstants(m map[instantKey]NearFaceInstant) []NearFaceInstant {
 }
 
 // pairNearFaces compares an arm with the first arm on the instants both scored.
+// The normal residuals come first and the placements after them, so a reader
+// of the version 1 pairs finds them where it did.
 func pairNearFaces(this, other NearFaceArmResult) []NearFacePair {
 	var out []NearFacePair
 	for _, face := range []struct {
@@ -725,6 +812,8 @@ func pairNearFaces(this, other NearFaceArmResult) []NearFacePair {
 	}{
 		{"end_normal", func(i NearFaceInstant) *float64 { return i.EndNormalM }},
 		{"side_normal", func(i NearFaceInstant) *float64 { return i.SideNormalM }},
+		{"end_placement", func(i NearFaceInstant) *float64 { return i.EndPlacementM }},
+		{"side_placement", func(i NearFaceInstant) *float64 { return i.SidePlacementM }},
 	} {
 		p := NearFacePair{Against: other.Arm.Label, Face: face.name}
 		var sumThis, sumOther float64

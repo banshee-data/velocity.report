@@ -158,8 +158,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// summarise prints the headline of each arm: what was scored, and the end and
-// side face residuals over all of it.
+// summarise prints the headline of each arm: what was scored, the end and
+// side face residuals over all of it, and the end placement beside the half
+// length shortfall it removes.
 func summarise(w io.Writer, r *perframeeval.NearFaceReport) {
 	fmt.Fprintf(w, "labels: pack %s revision %d, split %s (held out: %v), episodes %s\n",
 		r.Reference.PackDigest, r.Reference.SidecarRevision, r.Reference.Split, r.Reference.HeldOut, strings.Join(r.Reference.Episodes, ","))
@@ -172,6 +173,8 @@ func summarise(w io.Writer, r *perframeeval.NearFaceReport) {
 			}
 			line += fmt.Sprintf("; end face mean %+.3f m (n=%d, p95 abs %.3f), side face mean %+.3f m (n=%d), end tangent mean abs %.3f m (n=%d)",
 				s.EndNormal.Mean, s.EndNormal.N, s.EndNormal.P95Abs, s.SideNormal.Mean, s.SideNormal.N, s.EndTangent.MeanAbs, s.EndTangent.N)
+			line += fmt.Sprintf("; end placement mean abs %.3f m, half length shortfall mean %.3f m (n=%d)",
+				s.EndPlacement.MeanAbs, s.HalfLengthShortfall.Mean, s.EndPlacement.N)
 		}
 		fmt.Fprintln(w, line)
 	}

@@ -80,6 +80,7 @@ var PlannedKinds = map[string]string{
 	"pi_timing":         "frame-time tails on the deployment target",
 	"chart":             "a chart rendered from step summaries",
 	"box_eval":          "lidar-box-eval: one replay scoring the drawn box, and box-model variants beside it, for containment and turning",
+	"near_face_eval":    "lidar-near-face-eval: solid bodies' visible faces against reviewed masks, with the extent shortfall and placement residual",
 }
 
 // KindClass says how a step kind is executed.
