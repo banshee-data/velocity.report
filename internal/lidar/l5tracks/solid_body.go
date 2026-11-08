@@ -28,6 +28,20 @@ import (
 // row at the migration.
 const StateModelCVCartesianV1 = "cv_cartesian_v1"
 
+// StateModelCVCartesianExtentV1 names the joint layout a solid body's
+// covariance is persisted in when its filter carried the half-extents
+// (SolidBodyOptions.ExtentState): six elements [x, y, vx, vy, hL, hW] and a
+// 6x6 covariance, row-major.
+//
+// It names a persisted blob, never an in-memory estimate. In memory the
+// estimate's StateModel stays StateModelCVCartesianV1, because
+// SolidBodyReading.Covariance and the estimate's PositionCovariance keep their
+// four-state meaning, and the extent blocks are separate fields that a reader
+// can see are present (SolidBodyEstimate.ExtentState). A store writes the
+// reading's CovarianceStateModel beside the blob and reads the blob back by
+// it, so a reader never infers six states from thirty-six numbers.
+const StateModelCVCartesianExtentV1 = "cv_cartesian_extent_v1"
+
 // Provenance records where a believed value came from. The zero value means
 // there is no value yet, which is deliberately distinct from a value of zero.
 type Provenance uint8
@@ -476,6 +490,20 @@ type SolidBodyEstimate struct {
 
 	Length, Width, Height DimensionBelief
 
+	// ExtentState says the half-extents hL and hW were states of the filter
+	// that produced the position (SolidBodyOptions.ExtentState), so their
+	// covariance with it is known: PositionExtentCovariance and
+	// HalfExtentCovariance hold it, and ProjectSurface bounds a surface
+	// jointly. False, both are zero and mean nothing. Length and Width are
+	// then 2hL and 2hW with sigma 2·sqrt(Var(h)), except where Containment's
+	// floor raised the reported box (SolidBodyMeasurement.ExtentFloor).
+	ExtentState bool
+	// PositionExtentCovariance is Cov([x, y], [hL, hW]), row-major:
+	// [x·hL, x·hW, y·hL, y·hW].
+	PositionExtentCovariance [4]float32
+	// HalfExtentCovariance is Cov([hL, hW]), row-major.
+	HalfExtentCovariance [4]float32
+
 	// GroundZ is the believed vertical position of the object's ground
 	// contact, and GroundSurfaceModel names the surface it was resolved
 	// against. Vertical motion here is road grade, not object dynamics.
@@ -525,23 +553,44 @@ type SurfaceProjection struct {
 	// rather than evidence about this object. The projection is still bounded,
 	// but a consumer should know the extent was assumed.
 	FromClassPrior bool
+	// JointBound is true when SigmaMetres carries the covariance between the
+	// position and the half-length (the estimate's ExtentState), and false
+	// when the half-length's variance was added as though independent of the
+	// position. Section 5.4 requires the joint bound for headway, so a
+	// headway consumer suppresses on false (ProjectSurfaceJoint).
+	JointBound bool
 }
 
 // ProjectSurface projects a named surface of the body onto its own orientation.
 //
-// The second return is false when the joint bound is unavailable, and a caller
-// must then suppress rather than substitute: Section 5.4 requires that headway
-// be suppressed when pose, heading and dimensions cannot be bounded together.
+// The second return is false when no bound is available, and a caller must
+// then suppress rather than substitute: Section 5.4 requires that headway be
+// suppressed when pose, heading and dimensions cannot be bounded together.
 // Unavailable means any of:
 //
 //   - the estimation state forbids a reported pose;
 //   - the reference point is not a physical place on the body;
 //   - the orientation is unresolved, so front and rear are interchangeable;
 //   - the length has no value at all, not even a prior;
-//   - the position covariance is absent or not positive.
+//   - the position covariance is absent or not positive;
+//   - under ExtentState, the joint variance is not positive.
 //
 // A class-prior length does not make it unavailable. It makes the projection
 // wider and flags it, which is a weaker claim rather than no claim.
+//
+// The bound. With u the body axis and d = +u for the front, -u for the rear,
+// the surface is c + hL·d, and along d its variance is
+//
+//	Var(d·c + hL) = uᵀ P_cc u + Var(hL) + 2 dᵀ P_ch
+//
+// with P_ch the position's covariance with hL. Under ExtentState P_ch is
+// the filter's and the projection is JointBound. Without it the cross term is
+// unknown and dropped, which is the independent sum: an end face seen alone
+// measures d·c + hL well and each part poorly, so the parts are negatively
+// correlated along d and the independent sum overstates the bound there;
+// positively correlated parts understate it. Either way it is not the bound
+// Section 5.4 asks for, and JointBound says so. The orientation term,
+// hL² σ_psi², is added in both forms.
 func (e SolidBodyEstimate) ProjectSurface(s BodySurface) (SurfaceProjection, bool) {
 	if !e.Estimation.AllowsReportedPose() {
 		return SurfaceProjection{}, false
@@ -567,21 +616,62 @@ func (e SolidBodyEstimate) ProjectSurface(s BodySurface) (SurfaceProjection, boo
 	cos := float32(math.Cos(float64(e.Orientation.PsiRad)))
 	sin := float32(math.Sin(float64(e.Orientation.PsiRad)))
 
-	// Half the length's sigma, since it is the half-length that is projected.
-	dimVar := (e.Length.SigmaMetres / 2) * (e.Length.SigmaMetres / 2)
 	// An orientation error of sigma swings the projected point by roughly
 	// half-length times that angle, perpendicular to the body axis. Taken
 	// along the projection direction it is a second-order term, but it is the
 	// term that grows with the body, so it is retained rather than dropped.
 	angVar := (half * half) * e.Orientation.VarianceRad2
 
-	return SurfaceProjection{
+	p := SurfaceProjection{
 		Surface:        s,
 		X:              e.X + half*cos,
 		Y:              e.Y + half*sin,
-		SigmaMetres:    float32(math.Sqrt(float64(posVar + dimVar + angVar))),
 		FromClassPrior: e.Length.Provenance == ProvenanceClassPrior,
-	}, true
+	}
+	if e.ExtentState {
+		joint, ok := e.jointSurfaceVariance(s)
+		if !ok {
+			return SurfaceProjection{}, false
+		}
+		p.SigmaMetres = float32(math.Sqrt(joint + float64(angVar)))
+		p.JointBound = true
+		return p, true
+	}
+	// Half the length's sigma, since it is the half-length that is projected.
+	dimVar := (e.Length.SigmaMetres / 2) * (e.Length.SigmaMetres / 2)
+	p.SigmaMetres = float32(math.Sqrt(float64(posVar + dimVar + angVar)))
+	return p, true
+}
+
+// ProjectSurfaceJoint is ProjectSurface for a consumer that needs the joint
+// bound of Section 5.4, which headway does: it is unavailable whenever the
+// bound would not carry the position-extent correlation.
+func (e SolidBodyEstimate) ProjectSurfaceJoint(s BodySurface) (SurfaceProjection, bool) {
+	p, ok := e.ProjectSurface(s)
+	if !ok || !p.JointBound {
+		return SurfaceProjection{}, false
+	}
+	return p, true
+}
+
+// jointSurfaceVariance is the variance of the surface point c + hL·d along d,
+// uᵀ P_cc u + Var(hL) + 2 dᵀ P_ch, in float64, and false when it is not
+// positive and finite.
+func (e SolidBodyEstimate) jointSurfaceVariance(s BodySurface) (float64, bool) {
+	c := math.Cos(float64(e.Orientation.PsiRad))
+	sn := math.Sin(float64(e.Orientation.PsiRad))
+	dx, dy := c, sn
+	if s == SurfaceRear {
+		dx, dy = -c, -sn
+	}
+	cc := c*c*float64(e.PositionCovariance[0]) + c*sn*float64(e.PositionCovariance[1]+e.PositionCovariance[2]) +
+		sn*sn*float64(e.PositionCovariance[3])
+	ch := dx*float64(e.PositionExtentCovariance[0]) + dy*float64(e.PositionExtentCovariance[2])
+	v := cc + float64(e.HalfExtentCovariance[0]) + 2*ch
+	if !(v > 0) || math.IsInf(v, 0) {
+		return 0, false
+	}
+	return v, true
 }
 
 // positionVarianceAlong is the position variance resolved along a heading,

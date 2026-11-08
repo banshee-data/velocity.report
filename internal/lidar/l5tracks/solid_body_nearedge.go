@@ -49,9 +49,9 @@ package l5tracks
 // ProjectSurface adds the dimension's own variance when it bounds a bumper, but
 // the correlation between anchor and dimension is not represented; carrying it
 // needs the dimension in the state or a consider-parameter treatment, which
-// SolidBodyOptions.ExtentState provides on the shadow (solid_body_face_state.go),
-// default-off and not on the tracked path. The published reading's 4x4
-// covariance still omits the extent block. And the
+// SolidBodyOptions.ExtentState provides (solid_body_face_state.go), default-off,
+// on the shadow and on the tracked path; the reading then publishes the extent
+// blocks and ProjectSurface's bound is joint. And the
 // heading that selects a face is the tracked one, which lags a real turn by its
 // smoothing: a heading error tilts the face normal and biases the plane, so the
 // heading is the first thing to stratify by when the anchor disagrees with
@@ -271,11 +271,18 @@ type SolidBodyOptions struct {
 	// class prior is used rather than excluded, the prior's uncertainty
 	// being in P. FaceEntryConsider, whose one-frame term this replaces, is
 	// not applied. The reported length and width are 2hL and 2hW with sigma
-	// 2·sqrt(P_hh). Once evidence has updated a half-extent, a lower bound
-	// at half extentStateFloorMetres holds it positive, through the same
-	// bound site as the span bounds. The tracked path under NearEdgeTracking
-	// keeps the four-state filter and ignores this option: its covariance is
-	// the tracked filter's, which neither predicts nor gates on the extents.
+	// 2·sqrt(P_hh), and the reading publishes the extent blocks of the
+	// covariance, so ProjectSurface bounds a bumper jointly.
+	//
+	// Under NearEdgeTracking the tracked filter carries the extent block in
+	// the same way: its prediction propagates the cross block and adds the
+	// extents' process noise, its covariance cap and consistent speed clamp
+	// act on the joint covariance, its medoid update moves the extents by
+	// their covariance with the position, and a face updates the joint state
+	// through its joint row (near_edge_tracking.go). Association is unchanged:
+	// the A2 gate is the 2x2 position innovation against the four-state P,
+	// with the state's half-extents as if exact, so it does not see the
+	// extents' uncertainty or their correlation with the position.
 	// Default false.
 	ExtentState bool
 	// CensoredExtent reports each extent belief as the class prior
@@ -284,20 +291,16 @@ type SolidBodyOptions struct {
 	// deviation, instead of the corroborated maximum with sigma shrinking as
 	// the prior's over the square root of the frame count. It narrows only
 	// when a bound moves into the prior's mass. Under ExtentState it switches
-	// on the frame's span evidence on the half-extents instead, as
-	// SpanBoundsBelief does there. Default false.
+	// on the per-frame lower-bound truncation of the half-extents instead.
+	// Default false.
 	CensoredExtent bool
 	// SpanBoundsBelief feeds the frame's window-minimum span along and
 	// across the face axis, less its noise, to the extent belief as a lower
 	// bound before the faces are measured, so the half-extent the face
 	// update uses is never below what the frame shows. With CensoredExtent
-	// the bound joins the censored posterior; alone it raises the belief's
-	// estimate to the bound. Under ExtentState a span the frame shows whole
-	// (the length with a side face measured, the width with an end face) is a
-	// measurement of 2h, held as one site the next full span replaces, and
-	// any other span is a lower bound, held with the floor as one truncation
-	// site at the highest bound admitted (solid_body_face_state.go). Default
-	// false.
+	// the bound joins the censored posterior; under ExtentState it is the
+	// per-frame truncation of hL and hW; alone it raises the belief's
+	// estimate to the bound. Default false.
 	SpanBoundsBelief bool
 	// HeadingFaceNoise adds sigma_psi^2 · t_eff^2 to each face's
 	// measurement variance: the orientation variance of the axis the faces
@@ -439,6 +442,18 @@ type SolidBodyMeasurement struct {
 	// degrees of freedom. The faces are applied sequentially with
 	// independent noise, so the sum of the per-face terms is the joint NIS.
 	NIS float32
+	// FaceInnovations are a near-edge fix's first FaceInnovationCount faces'
+	// innovations against the state the faces updated (PriorX, PriorY,
+	// PriorVX, PriorVY: the prediction, after any re-reference translation),
+	// in the order the update applied them, and FaceInnovationCross is the
+	// joint S's off-diagonal for a two-face fix. FaceInnovationCount is Rank
+	// for a near-edge fix and zero otherwise: a medoid update, a lapse or a
+	// coast records none. See solid_body_face_innovation.go.
+	FaceInnovations     [maxFixFaces]FaceInnovation
+	FaceInnovationCount int
+	FaceInnovationCross float32
+	PriorX, PriorY      float32
+	PriorVX, PriorVY    float32
 	// FallbackReason says why no near-edge fix was made, when none was.
 	FallbackReason string
 	// ReferenceChange is the reference change this instant made, if any.
@@ -486,11 +501,120 @@ type SolidBodyMeasurement struct {
 // and the dynamic state it was read with. Covariance is the shadow filter's
 // full 4x4 over [x, y, vx, vy], row-major; its position block is the
 // estimate's PositionCovariance, so the two cannot describe different frames.
+//
+// Under ExtentState the filter's state is [x, y, vx, vy, hL, hW], and the
+// rest of its covariance is here too: ExtentCrossCovariance is
+// Cov([x, y, vx, vy], [hL, hW]), 4x2 row-major, and ExtentCovariance is
+// Cov([hL, hW]), 2x2. Covariance keeps its four-state meaning either way;
+// JointCovariance assembles the 6x6. The estimate's PositionExtentCovariance
+// and HalfExtentCovariance are the same blocks' position rows and extent
+// block. Without ExtentState the extent fields are zero and ExtentState false.
 type SolidBodyReading struct {
 	Estimate    SolidBodyEstimate
 	VX, VY      float32
 	Covariance  [16]float32
 	Measurement SolidBodyMeasurement
+
+	ExtentState           bool
+	ExtentCrossCovariance [8]float32
+	ExtentCovariance      [4]float32
+}
+
+// JointCovarianceSize is the element count of a joint covariance under
+// ExtentState: 6x6 over [x, y, vx, vy, hL, hW].
+const JointCovarianceSize = jointStates * jointStates
+
+// CovarianceStateModel names the layout the reading's covariance is persisted
+// in: StateModelCVCartesianExtentV1 for the 6x6 joint covariance when the
+// reading carries the extent state, and the estimate's own state model, the
+// 4x4, otherwise.
+func (r SolidBodyReading) CovarianceStateModel() string {
+	if r.ExtentState {
+		return StateModelCVCartesianExtentV1
+	}
+	return r.Estimate.StateModel
+}
+
+// JointCovariance is the 6x6 covariance over [x, y, vx, vy, hL, hW],
+// row-major, assembled from Covariance and the extent blocks, and false when
+// the reading carries no extent state. The cross block is stored once, so the
+// result is symmetric wherever Covariance is.
+func (r SolidBodyReading) JointCovariance() ([JointCovarianceSize]float32, bool) {
+	var p [JointCovarianceSize]float32
+	if !r.ExtentState {
+		return p, false
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			p[i*jointStates+j] = r.Covariance[i*4+j]
+		}
+		for j := 0; j < 2; j++ {
+			v := r.ExtentCrossCovariance[i*2+j]
+			p[i*jointStates+4+j] = v
+			p[(4+j)*jointStates+i] = v
+		}
+	}
+	for i := 0; i < 2; i++ {
+		for j := 0; j < 2; j++ {
+			p[(4+i)*jointStates+4+j] = r.ExtentCovariance[i*2+j]
+		}
+	}
+	return p, true
+}
+
+// WithJointCovariance returns the reading with every covariance block taken
+// from a 6x6 joint covariance over [x, y, vx, vy, hL, hW], row-major: the
+// reading's Covariance and extent blocks and the estimate's position and
+// extent blocks, so none can describe a different matrix. It is an error for
+// the position-extent blocks not to be each other's transpose, since then p
+// is not one covariance and no block of it can be read as the cross block.
+func (r SolidBodyReading) WithJointCovariance(p [JointCovarianceSize]float32) (SolidBodyReading, error) {
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 2; j++ {
+			if a, b := p[i*jointStates+4+j], p[(4+j)*jointStates+i]; a != b {
+				return r, fmt.Errorf("joint covariance is not symmetric: P[%d][%d] = %v, P[%d][%d] = %v", i, 4+j, a, 4+j, i, b)
+			}
+		}
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			r.Covariance[i*4+j] = p[i*jointStates+j]
+		}
+		for j := 0; j < 2; j++ {
+			r.ExtentCrossCovariance[i*2+j] = p[i*jointStates+4+j]
+		}
+	}
+	for i := 0; i < 2; i++ {
+		for j := 0; j < 2; j++ {
+			r.ExtentCovariance[i*2+j] = p[(4+i)*jointStates+4+j]
+		}
+	}
+	r.ExtentState = true
+	r.Estimate.PositionCovariance = [4]float32{r.Covariance[0], r.Covariance[1], r.Covariance[4], r.Covariance[5]}
+	r.Estimate.setExtentBlocks(r.ExtentCrossCovariance, r.ExtentCovariance)
+	return r, nil
+}
+
+// WithoutExtentCovariance returns the reading with no extent state: the
+// extent blocks zeroed on the reading and the estimate, and the flags false.
+// A smoother that revises only [x, y, vx, vy] leaves the online cross block
+// describing another position, so a refined reading drops it rather than
+// pair it with the revised covariance.
+func (r SolidBodyReading) WithoutExtentCovariance() SolidBodyReading {
+	r.ExtentState = false
+	r.ExtentCrossCovariance, r.ExtentCovariance = [8]float32{}, [4]float32{}
+	r.Estimate.ExtentState = false
+	r.Estimate.PositionExtentCovariance, r.Estimate.HalfExtentCovariance = [4]float32{}, [4]float32{}
+	return r
+}
+
+// setExtentBlocks sets the estimate's extent fields from a 4x2 cross block
+// and a 2x2 extent block: the cross block's position rows, and the extent
+// block itself.
+func (e *SolidBodyEstimate) setExtentBlocks(cross [8]float32, extent [4]float32) {
+	e.ExtentState = true
+	e.PositionExtentCovariance = [4]float32{cross[0], cross[1], cross[2], cross[3]}
+	e.HalfExtentCovariance = extent
 }
 
 // solidBodyTrack is one track's solid-body estimator state. It is held by
@@ -581,11 +705,6 @@ type nearEdgeFrame struct {
 	// SpanBoundsBelief, or under ExtentState with CensoredExtent; zero when
 	// none was taken (frameSpanBounds).
 	spanBound [2]float32
-	// span and spanNoise are the spans the bounds came from and their
-	// noise, which ExtentState reads as a measurement where the span is full
-	// (fullSpans); zero when none was taken.
-	span      [2]float32
-	spanNoise float32
 	// axisVarianceRad2 is the orientation variance of axis, read by
 	// HeadingFaceNoise; zero when that option is off.
 	axisVarianceRad2 float32
@@ -684,7 +803,11 @@ func (t *Tracker) seedSolidBody(track *TrackedObject, cluster WorldCluster) {
 	if t.Config.NearEdgeTracking {
 		sb.tracked = true
 		sb.syncFromTrack(track)
-	} else if t.Config.SolidBody.ExtentState {
+	}
+	if t.Config.SolidBody.ExtentState {
+		// Under NearEdgeTracking the block is the tracked filter's from here
+		// on: near_edge_tracking.go's hooks carry it through every step that
+		// changes the tracked covariance.
 		seedSolidBodyExtent(sb, prior)
 	}
 	t.publishSolidBody(track, class, SolidBodyMeasurement{
@@ -801,8 +924,8 @@ func (t *Tracker) finishSolidBodyState(track *TrackedObject, step string) {
 	if speed > t.Config.MaxReasonableSpeedMps && speed > 0 {
 		if t.Config.ConsistentSpeedClamp {
 			// The tracked filter's consistent clamp, on the body's own
-			// state and covariance.
-			constrainSpeedConsistent(&sb.state, &sb.p, t.Config.MaxReasonableSpeedMps)
+			// state and covariance, and under ExtentState on the joint one.
+			constrainSpeedConsistentJoint(&sb.state, &sb.p, sb.extentBlock(), t.Config.MaxReasonableSpeedMps)
 			return
 		}
 		scale := t.Config.MaxReasonableSpeedMps / speed
@@ -877,7 +1000,7 @@ func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster,
 	default:
 		f.axis, f.axisIsCourse = t.faceAxis(sb)
 		if t.takesSpanBounds(sb) {
-			f.spanBound, f.span, f.spanNoise = t.frameSpanBounds(sb, cluster, f.axis, f.axisIsCourse, mergeCandidate)
+			f.spanBound = t.frameSpanBounds(sb, cluster, f.axis, f.axisIsCourse, mergeCandidate)
 		}
 		if sb.ext.on {
 			f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
@@ -925,9 +1048,10 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 	// under ExtentState.
 	var touched [2]bool
 	if sb.ext.on && f.fallback == "" {
-		// The frame's spans first, so the faces see half-extents the frame
-		// does not contradict.
-		touched = sb.applyExtentSpans(f)
+		// The frame's lower bounds first, so the faces see half-extents the
+		// frame does not contradict; the floor with them. Every joint step
+		// below ends at the floor too (holdHalfExtentsAbove).
+		touched = sb.applyExtentBounds(f.spanBound)
 		f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
 	}
 
@@ -995,16 +1119,24 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		var nis float32
 		var faces VisibleFaces
 		var ok bool
+		// The record is taken from the state the faces update, before they
+		// do, and kept only if the fix applies.
+		var record SolidBodyMeasurement
 		if sb.ext.on {
 			js = sb.jointOf(startState, startP)
+			t.recordFaceInnovations(&record, &js, usable, true, nil, heading)
 			nis, faces, ok = t.applyEdgeMeasurementsJoint(&js, usable, heading)
 		} else {
+			flat := flatJoint(startState, startP)
+			t.recordFaceInnovations(&record, &flat, usable, false, consider, heading)
 			state, p, nis, faces, ok = t.applyEdgeMeasurements(startState, startP, usable, consider, heading)
 		}
 		if !ok {
 			m.FallbackReason = "singular_innovation"
 			break
 		}
+		m.FaceInnovations, m.FaceInnovationCount, m.FaceInnovationCross = record.FaceInnovations, record.FaceInnovationCount, record.FaceInnovationCross
+		m.PriorX, m.PriorY, m.PriorVX, m.PriorVY = record.PriorX, record.PriorY, record.PriorVX, record.PriorVY
 		applied = applicationOf(sb.state, startState, usable)
 		loose, ok := t.endFaceCentringTerm(usable, f, cluster)
 		if !ok {
@@ -1047,6 +1179,7 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			m.ContainmentShiftAlongMetres, m.ContainmentShiftAcrossMetres = along, across
 		}
 		if sb.ext.on {
+			js.holdHalfExtentsAbove(extentFloor)
 			sb.setJoint(js)
 			for _, e := range usable {
 				touched[extentIndex(e.Face)] = true
@@ -1077,6 +1210,7 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		if sb.ext.on {
 			js := sb.jointOf(sb.state, sb.p)
 			along, across = t.containmentTruncationJoint(&js, f, cluster, true, true)
+			js.holdHalfExtentsAbove(extentFloor)
 			sb.setJoint(js)
 		} else {
 			along, across = t.containmentTruncation(&sb.state, &sb.p, f, cluster, true, true)
@@ -1102,11 +1236,6 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 	}
 	if outcome == nearEdgeCoast && sb.reference == ReferenceClusterMedoid {
 		outcome = nearEdgeMedoid
-	}
-	if sb.ext.on && f.fallback == "" {
-		// The faces, the loose term and containment move the half-extents
-		// by their gains; the bounds, the floor's included, hold them.
-		sb.holdExtentBounds(touched)
 	}
 	for i, hit := range touched {
 		if hit {
@@ -1749,15 +1878,8 @@ func (t *Tracker) applyEdgeMeasurements(state [4]float32, p [16]float32, edges [
 	next := state
 	nextP := p
 	for i, e := range edges {
-		r := float64(t.Config.MeasurementNoise)
-		if consider != nil {
-			r += consider[i]
-		}
-		if heading != nil {
-			r += heading[i]
-		}
-		term, ok := scalarPositionUpdate(&next, &nextP,
-			float64(e.NormalX), float64(e.NormalY), float64(e.ImpliedCentreOffset()), r)
+		h, z, r := t.faceMeasurementRow(e, false, consider, heading, i)
+		term, ok := scalarPositionUpdate(&next, &nextP, h[0], h[1], z, r)
 		if !ok {
 			return state, p, 0, 0, false
 		}
@@ -1781,6 +1903,7 @@ func (t *Tracker) applyMedoidMeasurement(sb *solidBodyTrack, cluster WorldCluste
 		if !okX || !okY {
 			return 0, false
 		}
+		js.holdHalfExtentsAbove(extentFloor)
 		sb.setJoint(js)
 		return float32(nx + ny), true
 	}
@@ -2138,6 +2261,9 @@ func (t *Tracker) assembleSolidBody(track *TrackedObject, class MotionClassBelie
 		LastObservedUnixNanos: sb.lastObservedNanos,
 		Support:               sb.support,
 	}
+	if sb.ext.on {
+		e.setExtentBlocks(sb.ext.pxh, sb.ext.phh)
+	}
 	// Containment's floor: the reported box is never shorter than the points
 	// this frame measured along its axes. The beliefs are read above and
 	// never see it.
@@ -2165,6 +2291,10 @@ func (t *Tracker) publishSolidBody(track *TrackedObject, class MotionClassBelief
 		VY:          sb.state[3],
 		Covariance:  sb.p,
 		Measurement: m,
+	}
+	if sb.ext.on {
+		sb.reading.ExtentState = true
+		sb.reading.ExtentCrossCovariance, sb.reading.ExtentCovariance = sb.ext.pxh, sb.ext.phh
 	}
 }
 

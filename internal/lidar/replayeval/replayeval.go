@@ -227,6 +227,11 @@ type Config struct {
 	// It reads tracker state and changes no estimate and no hash: a
 	// measurement tool scores the published geometry from it.
 	TrackerTap func(TrackerTapFrame)
+	// FilterStepObserver, when set, watches the tracker's filter-step record
+	// beside the recording's filter record (l5tracks.FilterStepObservers),
+	// attached before the first frame so every chain is seen whole. Like the
+	// recorder it only reads, so it changes no estimate and no hash.
+	FilterStepObserver l5tracks.FilterStepObserver
 	// KeepClusterMembers hands every cluster its members for the frame
 	// (l4perception.DBSCANParams.KeepMembers), for a TrackerTap that measures
 	// against every return. Nothing but the solid body and the box model
@@ -1063,6 +1068,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if refinement != nil {
 		observers = append(observers, refinement)
 	}
+	if cfg.FilterStepObserver != nil {
+		observers = append(observers, cfg.FilterStepObserver)
+	}
 	tracker.SetFilterStepObserver(observers)
 	if cfg.IncludeDebug {
 		collector := debug.NewDebugCollector()
@@ -1414,6 +1422,14 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.MeasurementSourceMode = mode
 	trackerConfig.AdaptiveMeasurementNoise = hasExperiment(experiments, ExperimentAdaptiveUncertainty)
 	trackerConfig.LikelihoodAssociationCost = trackerConfig.LikelihoodAssociationCost || hasExperiment(experiments, ExperimentLikelihoodCost)
+	trackerConfig.RobustLikelihoodAssociationCost = hasExperiment(experiments, ExperimentRobustLikelihoodCost)
+	if trackerConfig.RobustLikelihoodAssociationCost && trackerConfig.LikelihoodAssociationCost {
+		// Both are the assignment cost. The tracker would run the robust one
+		// alone, so the arm would be reported under a name it did not run.
+		return l5tracks.TrackerConfig{}, fmt.Errorf(
+			"replay experiment %s replaces the Gaussian likelihood cost with the Student-t one, and %s (named, or association.likelihood_cost in the tuning file) asks for the Gaussian; name one",
+			ExperimentRobustLikelihoodCost, ExperimentLikelihoodCost)
+	}
 	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
@@ -1524,14 +1540,11 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		trackerConfig.SolidBody = opts
 		trackerConfig.NearEdgeTracking = trackerConfig.NearEdgeTracking || hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = trackerConfig.NearEdgeMedoidGate || hasExperiment(experiments, ExperimentNearEdgeTrackA1)
-		if trackerConfig.NearEdgeTracking && opts.ExtentState {
-			// The tracked filter carries no extents and ignores the option,
-			// so the arm would run as near_edge_track without it and be
-			// reported under its name.
-			return l5tracks.TrackerConfig{}, fmt.Errorf(
-				"replay experiments %s and %s put the extents in the shadow solid body's filter, which %s replaces with the tracked one; name one",
-				ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState, ExperimentNearEdgeTrack)
-		}
+		// With near_edge_track the extent state is the tracked filter's: it
+		// carries the extent block through prediction, the cap, the speed
+		// clamp and the medoid update, and the faces update it jointly
+		// (l5tracks near_edge_tracking.go), so the combination is an arm of
+		// its own and needs no refusal.
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
 		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment || rectangle || rectangleHeading || courseFusion || sigmaScale > 0 ||
 		faceState != (l5tracks.SolidBodyOptions{}) ||
@@ -1539,6 +1552,19 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
+	}
+	if hasExperiment(experiments, ExperimentBoxExtentSolidBody) {
+		// The box reads the solid body's extent state: without the box model
+		// there is no box to change, and without the state there is nothing
+		// to read, so either arm would run as the baseline under this name.
+		switch {
+		case !trackerConfig.BoxModel.Enabled:
+			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s draws the box model's box from the solid body's extent state, and the tuning file's box model is off", ExperimentBoxExtentSolidBody)
+		case !trackerConfig.SolidBody.Enabled || !trackerConfig.SolidBody.ExtentState:
+			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s reads the solid body's extent state, so it needs %s and %s (or %s), and %q lacks one",
+				ExperimentBoxExtentSolidBody, ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState, experiments)
+		}
+		trackerConfig.BoxModel.BoxExtentFromSolidBody = true
 	}
 	if trackerConfig.ContainmentClaim || hasExperiment(experiments, ExperimentContainmentClaim) {
 		// The claim changes which track takes a cluster, so the returns it

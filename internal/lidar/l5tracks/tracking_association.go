@@ -3,6 +3,8 @@ package l5tracks
 import (
 	"math"
 	"sort"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks/likelihood"
 )
 
 // Internal numerical stability constants — not user-tunable.
@@ -36,6 +38,10 @@ func isFiniteState(track *TrackedObject) bool {
 			return false
 		}
 	}
+	// Under the tracked extent state the half-extents are tracked state too.
+	if sb := &track.solidBody; sb.tracksExtent() && !sb.ext.finite() {
+		return false
+	}
 	return true
 }
 
@@ -51,7 +57,11 @@ func (t *Tracker) clampVelocity(track *TrackedObject) {
 	if speed > t.Config.MaxReasonableSpeedMps {
 		if t.Config.ConsistentSpeedClamp {
 			state := [4]float32{track.X, track.Y, track.VX, track.VY}
-			constrainSpeedConsistent(&state, &track.P, t.Config.MaxReasonableSpeedMps)
+			var ext *solidBodyExtent
+			if track.solidBody.tracksExtent() {
+				ext = &track.solidBody.ext
+			}
+			constrainSpeedConsistentJoint(&state, &track.P, ext, t.Config.MaxReasonableSpeedMps)
 			track.X, track.Y, track.VX, track.VY = state[0], state[1], state[2], state[3]
 			return
 		}
@@ -124,8 +134,16 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	// Cap covariance diagonal elements to prevent unbounded gating ellipse
 	// growth from accumulated prediction steps and occlusion inflation.
 	// ConsistentCovarianceCap scales the row and column instead of clamping
-	// the diagonal alone, so P stays positive semi-definite.
-	if t.Config.ConsistentCovarianceCap {
+	// the diagonal alone, so P stays positive semi-definite. Under the
+	// tracked extent state the joint matrix is capped consistently after the
+	// diagonal clamp below, so ConsistentCovarianceCap's 4x4 scaling would
+	// apply twice; the four-state filter keeps it.
+	trackedExtent := track.solidBody.tracksExtent()
+	var uncapped [4]float32
+	if trackedExtent {
+		uncapped = [4]float32{track.P[0], track.P[5], track.P[10], track.P[15]}
+	}
+	if t.Config.ConsistentCovarianceCap && !trackedExtent {
 		capCovarianceConsistent(&track.P, t.Config.MaxCovarianceDiag)
 	} else {
 		for i := 0; i < 4; i++ {
@@ -133,6 +151,9 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 				track.P[i*4+i] = t.Config.MaxCovarianceDiag
 			}
 		}
+	}
+	if trackedExtent {
+		track.solidBody.predictTrackedExtent(&track.P, dt, uncapped)
 	}
 
 	// Guard: reset state if prediction produced NaN/Inf (task 2.4).
@@ -268,6 +289,13 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 		return assigned
 	}
 
+	// The robust cost's floor is the same for every pairing in the matrix;
+	// see robustLikelihoodCost.
+	var robustFloor float64
+	if t.Config.RobustLikelihoodAssociationCost {
+		robustFloor = robustLikelihoodFloor(t.Config.RobustLikelihoodNu)
+	}
+
 	// Build cost matrix [len(clusterIdx) × len(trackIDs)].
 	costMatrix := make([][]float32, len(clusterIdx))
 	for row, ci := range clusterIdx {
@@ -290,7 +318,7 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 				continue
 			}
 
-			dist2 := t.gateDistanceSquared(track, clusters, ci, dt)
+			dist2, logDetS := t.gateInnovation(track, clusters, ci, dt)
 			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) || dist2 > gate {
 				costMatrix[row][tj] = float32(hungarianlnf)
 			} else if t.Config.ClassIdentity && classMismatch(track, &clusters[ci]) {
@@ -299,6 +327,16 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 				// pairing, so the count is of decisions the option changed.
 				costMatrix[row][tj] = float32(hungarianlnf)
 				t.continuity.ClassIdentityRefusals++
+			} else if t.Config.RobustLikelihoodAssociationCost {
+				// The gate above is d² either way: it is a validity test,
+				// whether the cluster can be this track's at all, and the
+				// chi-square bound is what GatingDistanceSquared and K10's
+				// tail are stated in. The cost is a ranking among the
+				// pairings the gate admitted, and that is what the density
+				// is for. Moving the gate onto the Student-t would widen it,
+				// since its tail is heavier, and admit what the shipped
+				// tracker refuses.
+				costMatrix[row][tj] = robustLikelihoodCost(dist2, logDetS, t.Config.RobustLikelihoodNu, robustFloor) + t.extentCompatibilityCost(track, clusters[ci])
 			} else {
 				// The gate above is always d². Only the cost the solver
 				// minimises changes with the option.
@@ -386,17 +424,75 @@ func (t *Tracker) covarianceCostTerm(track *TrackedObject, cluster WorldCluster)
 	return float32(math.Log(det)) + likelihoodCostOffset
 }
 
+// robustLikelihoodMinDet is the smallest det S either gate admits. The
+// medoid gate compares a float32 determinant with MinDeterminantThreshold
+// rounded to float32, which is just below the float64 threshold A2's gate
+// uses, so the smaller of the two is the floor for both.
+var robustLikelihoodMinDet = math.Min(float64(float32(MinDeterminantThreshold)), MinDeterminantThreshold)
+
+// robustLikelihoodFloor is the least Student-t negative log-likelihood an
+// admitted pairing can have: a zero innovation at the smallest det S the
+// gates admit. It depends on ν alone.
+func robustLikelihoodFloor(nu float64) float64 {
+	return likelihood.StudentTNegLogLikelihood(2, 0, math.Log(robustLikelihoodMinDet), likelihood.Nu(nu))
+}
+
+// robustLikelihoodCost is RobustLikelihoodAssociationCost's assignment cost
+// for an admitted pairing with squared Mahalanobis distance dist2 and
+// ln det S = logDetS, both from the gate's own S:
+//
+//	2 · (NLL_t(d², ln det S; ν) − floor)
+//
+// NLL_t is the bivariate Student-t negative log-likelihood the IMM uses
+// (likelihood.StudentTNegLogLikelihood), and floor is robustLikelihoodFloor(ν).
+//
+// Twice the NLL, not the NLL, so the cost is on the scale the shipped cost and
+// LikelihoodAssociationCost are on: as ν grows it tends to d² + ln det S plus
+// a constant, which is that option's cost. The additive extent term, whose cap
+// is a fraction of GatingDistanceSquared, and the reacquisition guard's
+// ambiguity margin are stated in that scale, so they keep their weight. A
+// positive factor changes no assignment on its own. Near d² = 0 the robust
+// miss term grows as (ν+2)/ν · d², so at ν = 4 an inlier's miss costs half as
+// much again as under d²; the margin reads that difference.
+//
+// The floor keeps the cost non-negative, which every in-tree caller of
+// HungarianAssign promises (the solver would shift a negative matrix itself,
+// but the guards that read the matrix first are not written for one). The
+// NLL rises in both d² and ln det S, and every admitted pairing has d² ≥ 0 and
+// det S ≥ robustLikelihoodMinDet, so it is at least the floor. The floor is
+// the same constant for every pairing in the matrix, and the solver first
+// maximises the number of admitted pairings and then minimises their sum
+// (see HungarianAssign), so subtracting it cannot change which assignment is
+// optimal; the guards read differences, which it leaves alone.
+func robustLikelihoodCost(dist2 float32, logDetS, nu, floor float64) float32 {
+	nll := likelihood.StudentTNegLogLikelihood(2, float64(dist2), logDetS, likelihood.Nu(nu))
+	return float32(2 * (nll - floor))
+}
+
 // mahalanobisDistanceSquared computes the squared Mahalanobis distance for gating.
 // Uses only position (x, y) for distance computation.
 // Also performs physical plausibility checks to reject spurious associations.
 func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster WorldCluster, dt float32) float32 {
+	dist2, _ := t.mahalanobisInnovation(track, cluster, dt)
+	return dist2
+}
+
+// mahalanobisInnovation is mahalanobisDistanceSquared and the determinant of
+// the innovation covariance S it was computed with, so a likelihood cost
+// reads the S the gate read. The determinant is zero when the pairing is
+// rejected.
+//
+// S is the position block of HPHᵀ + R: the tracked state is position and
+// velocity, and under SolidBodyOptions.ExtentState the half-extents live in
+// the shadow solid body's filter, not this one, so no extent enters S.
+func (t *Tracker) mahalanobisInnovation(track *TrackedObject, cluster WorldCluster, dt float32) (float32, float32) {
 	// Innovation: difference between measurement and prediction
 	measurement := t.measurementForCluster(cluster, t.LastUpdateNanos)
 	dx := measurement.X - track.X
 	dy := measurement.Y - track.Y
 
 	if t.implausiblePairing(track, measurement, dt) {
-		return SingularDistanceRejection
+		return SingularDistanceRejection, 0
 	}
 
 	// Innovation covariance S = H * P * H^T + R
@@ -413,7 +509,7 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 	// Compute determinant and inverse
 	det := S00*S11 - S01*S10
 	if det < MinDeterminantThreshold {
-		return SingularDistanceRejection // Singular covariance, reject association
+		return SingularDistanceRejection, 0 // Singular covariance, reject association
 	}
 
 	invS00 := S11 / det
@@ -457,7 +553,7 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 	// Mahalanobis distance squared: d² = [dx dy] * S^-1 * [dx dy]^T
 	dist2 := dx*dx*invS00 + dx*dy*(invS01+invS10) + dy*dy*invS11
 
-	return dist2
+	return dist2, det
 }
 
 // implausiblePairing is the physical plausibility check every gate applies

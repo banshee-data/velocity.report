@@ -30,6 +30,15 @@ const (
 	ExperimentAdaptiveUncertainty = "adaptive_uncertainty"
 	// ExperimentLikelihoodCost: l5tracks.TrackerConfig.LikelihoodAssociationCost (gap analysis S3).
 	ExperimentLikelihoodCost = "likelihood_cost"
+	// ExperimentRobustLikelihoodCost:
+	// l5tracks.TrackerConfig.RobustLikelihoodAssociationCost at the default
+	// ν (4): the Student-t negative log-likelihood the multiple-model filter
+	// weighs its modes with, as the assignment cost (gap analysis S3 and K9).
+	// It is a second likelihood cost, so it is refused with likelihood_cost,
+	// from the name or the tuning file, rather than resolved. Unlike
+	// likelihood_cost it reads the gate's own S, so it combines with
+	// near_edge_track.
+	ExperimentRobustLikelihoodCost = "robust_likelihood_cost"
 	// ExperimentCascade: l5tracks.TrackerConfig.CascadedAssociation (S2).
 	ExperimentCascade = "cascade"
 	// ExperimentDensityCap: pipeline DensityPreservingCap (D6).
@@ -297,10 +306,11 @@ const (
 	ExperimentSolidBodyRectangleCourseFusion = "solid_body_rectangle_course_fusion"
 	// The face-state options of the November 2026 maths review (state plan
 	// Section 9.2.4), each qualifying solid_body like the remedies:
-	//   - ExperimentSolidBodyExtentState: the half-extents in the shadow
+	//   - ExperimentSolidBodyExtentState: the half-extents in the solid
 	//     body's filter, a face measuring its plane as n·c + h
-	//     (SolidBodyOptions.ExtentState). The tracked filter carries no
-	//     extents, so it is refused with near_edge_track;
+	//     (SolidBodyOptions.ExtentState). With near_edge_track the filter is
+	//     the tracked one, which then carries the extent block too; its gate
+	//     stays the 2x2 position innovation and does not see the extents;
 	//   - ExperimentSolidBodyCensoredExtent: the extent belief as the class
 	//     prior truncated below at the largest lower bound, not a sigma
 	//     shrinking with frame count (CensoredExtent);
@@ -351,6 +361,14 @@ const (
 	// GroundSurfaceForTracker fitting that surface whether or not the clip
 	// reads it. It needs the tuning file's box model and is refused without.
 	ExperimentBoxGround = "box_ground"
+	// ExperimentBoxExtentSolidBody: l5tracks.BoxModelConfig.
+	// BoxExtentFromSolidBody, the published box's length and width from the
+	// solid body's joint extent state (2hL, 2hW) rather than its own
+	// windowBelief of spans, with the frame's span still the floor. It reads
+	// the extent state, so it needs the tuning file's box model, solid_body
+	// and solid_body_extent_state (or solid_body_face_state, which includes
+	// it) and is refused without them.
+	ExperimentBoxExtentSolidBody = "box_extent_solid_body"
 	// ExperimentBorderClasses: pipeline BorderClasses, foreground returns carrying the veil
 	// trait (a mixed return between a nearer and a farther neighbour in the same channel)
 	// withheld from L4 (l3bg0028). A treatment to test, not a claim that a veil bit is a mixed
@@ -370,6 +388,7 @@ const (
 var knownExperiments = map[string]bool{
 	ExperimentAdaptiveUncertainty:  true,
 	ExperimentLikelihoodCost:       true,
+	ExperimentRobustLikelihoodCost: true,
 	ExperimentCascade:              true,
 	ExperimentDensityCap:           true,
 	ExperimentBorderClasses:        true,
@@ -450,6 +469,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSurfaceGroundGlobal:               true,
 	ExperimentSurfaceGround5m:                   true,
 	ExperimentBoxGround:                         true,
+	ExperimentBoxExtentSolidBody:                true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

@@ -29,6 +29,9 @@ import (
 //   - The extents are the larger of a corroborated belief (windowBelief, over
 //     the spans the fit measured along the body's own axes) and this frame's
 //     span of the points along the heading, so the box always holds them.
+//     Under BoxExtentFromSolidBody the belief is the solid body's joint
+//     extent state instead, per dimension, once that state is an estimate
+//     (bodyExtents); the frame's span is still the floor.
 //   - The centre is placed so that the box contains this frame's points: as
 //     near as containment allows to where the previous box moved with the
 //     track, pulled toward the placement that puts the unseen remainder on
@@ -135,6 +138,22 @@ type BoxModelConfig struct {
 	// without. Not a tuning key: ground0004 scores it (replay experiment
 	// box_ground).
 	GroundAnchor bool
+	// BoxExtentFromSolidBody takes the box's length and width from the solid
+	// body's joint extent state (SolidBodyOptions.ExtentState): 2·hL and 2·hW
+	// with their sigmas, in place of windowBelief, whose spans are lower
+	// bounds that a partial view keeps short (the F0 report, Section 4.1).
+	// The frame's span along the heading is still the floor, so the box
+	// holds its points; the heading filter is the box's own, and so is the
+	// centre (bodyExtents says why). A frame on which the solid body is not
+	// seeded, carries no extent state, is medoid-referenced, or names its
+	// length along another axis than the box's heading takes the shipped
+	// path for that frame, and a dimension the state has not yet narrowed
+	// keeps windowBelief. It is not display-only: L3's track guard holds the
+	// returns inside a confirmed track's published box as foreground
+	// (pipeline/track_guard.go), so a longer box changes the next frames'
+	// clusters and can change the tracks. Not a tuning key: the replay
+	// experiment box_extent_solid_body scores it.
+	BoxExtentFromSolidBody bool
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -214,6 +233,26 @@ type BoxInput struct {
 	// Surface is the fitted ground surface, nil until one is fitted; read
 	// only with GroundAnchor.
 	Surface l4perception.HeightSurface
+	// Body is the solid body's extent state after this frame's update; read
+	// only with BoxExtentFromSolidBody.
+	Body BoxBodyExtent
+}
+
+// BoxBodyExtent is the solid body's joint extent state as the box reads it:
+// the full dimensions 2·hL and 2·hW, their standard deviations 2·sqrt(P_hh),
+// whether a face or a bound has updated each (rather than the class prior
+// alone), the axis hL is measured along, and the standard deviation of the
+// class prior for the body's current motion class (the same for length and
+// width). Known is false when there is no such state to read: no solid body,
+// no ExtentState, or a body still referenced to its medoid, whose faces have
+// not placed it.
+type BoxBodyExtent struct {
+	Known                         bool
+	AxisRad                       float64
+	Length, Width                 float64
+	LengthSigma, WidthSigma       float64
+	LengthEvidence, WidthEvidence bool
+	PriorSigma                    float64
 }
 
 // BoxState is the published box.
@@ -230,6 +269,11 @@ type BoxState struct {
 	// from the cluster's lowest return.
 	Base, Height float64
 	OnSurface    bool
+	// LengthSigma and WidthSigma are the standard deviations of the extent
+	// the box was drawn from under BoxExtentFromSolidBody, when that was the
+	// solid body's state; zero when it was windowBelief, which has none.
+	// Neither is persisted yet.
+	LengthSigma, WidthSigma float64
 }
 
 // BoxStats counts a box's discrete events.
@@ -248,6 +292,12 @@ type BoxStats struct {
 	// below it) or more than 0.5 m above it (the lower body unseen, which is
 	// what the anchor is for).
 	LowBelowBase, LowAboveBase int
+	// Under BoxExtentFromSolidBody, over associated frames: BodyExtentFrames
+	// took at least one dimension from the solid body's state;
+	// BodyExtentUnknown had no state to read; BodyExtentAxisRefusals had one
+	// measured along an axis further than the span window from the box's;
+	// BodyExtentUnsettled had one that had not yet narrowed either dimension.
+	BodyExtentFrames, BodyExtentUnknown, BodyExtentAxisRefusals, BodyExtentUnsettled int
 }
 
 // BoxEstimator is one track's published box.
@@ -312,12 +362,18 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 		// rather than carry state estimated under other bounds.
 		track.box = NewBoxEstimator(t.Config.BoxModel)
 	}
-	b := track.box.Observe(BoxInput{
+	in := BoxInput{
 		Nanos: nowNanos, X: float64(track.X), Y: float64(track.Y), VX: float64(track.VX), VY: float64(track.VY),
 		VelCov:  [3]float64{float64(track.P[10]), float64(track.P[11]), float64(track.P[15])},
 		Cluster: cluster, Merge: track.MergeCandidate, Neighbours: t.frameClusters,
 		Surface: t.groundSurface,
-	})
+	}
+	if t.Config.BoxModel.BoxExtentFromSolidBody {
+		// The solid body was updated in step 3c, before this step, so its
+		// extent state is this frame's.
+		in.Body = boxBodyExtent(track)
+	}
+	b := track.box.Observe(in)
 	if b.Length <= 0 {
 		return
 	}
@@ -325,6 +381,35 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 	track.BoxHeadingRad = float32(b.HeadingRad)
 	track.BoxLength, track.BoxWidth = float32(b.Length), float32(b.Width)
 	track.BoxZ, track.BoxHeight = float32(b.Base), float32(b.Height)
+}
+
+// boxBodyExtent reads a solid body's joint extent state for the box, Known
+// only when it describes a body centre: seeded, carrying ExtentState, and
+// re-referenced from its medoid by a face. A medoid-referenced body's
+// half-extents have been moved by no face, only by the prior and bounds, and
+// the box keeps its own belief then.
+func boxBodyExtent(track *TrackedObject) BoxBodyExtent {
+	sb := &track.solidBody
+	if !sb.seeded || !sb.ext.on || sb.reference != ReferenceBodyCentre || sb.orientation.Provenance == ProvenanceNone {
+		return BoxBodyExtent{}
+	}
+	l, w := sb.extentDimension(0), sb.extentDimension(1)
+	effective, _ := solidBodyClass(track).Effective()
+	return BoxBodyExtent{
+		Known: true, AxisRad: float64(sb.orientation.PsiRad), PriorSigma: float64(dimensionPriorFor(effective).sigmaMetres),
+		Length: float64(l.Metres), Width: float64(w.Metres),
+		LengthSigma: float64(l.SigmaMetres), WidthSigma: float64(w.SigmaMetres),
+		LengthEvidence: l.Provenance.IsEvidence(), WidthEvidence: w.Provenance.IsEvidence(),
+	}
+}
+
+// BoxModelStats returns the published box's event counts, and false when the
+// track has no box (the box model is off, or the track was never observed).
+func (t *TrackedObject) BoxModelStats() (BoxStats, bool) {
+	if t.box == nil {
+		return BoxStats{}, false
+	}
+	return t.box.Stats, true
 }
 
 // SetGroundSurface gives the published box the fitted ground surface to stand
@@ -384,7 +469,23 @@ const (
 	// still as wide as the frame's points: the cap only stops a merge or a
 	// stray return from widening the box beyond them.
 	boxMaxBelievedWidthMetres = 2.6
+	// boxBodyExtentPriorSigmaShare is the largest share of the class prior's
+	// standard deviation at which a dimension of the solid body's extent
+	// state replaces windowBelief under BoxExtentFromSolidBody: at a half,
+	// the posterior variance is at most a quarter of the prior's, so the
+	// evidence rather than the prior carries the estimate. On the synthetic
+	// partial truck the length stays at 4.1 ± 1.4 m against a 1.5 m prior
+	// while one end face is all that has been seen, and reaches
+	// 9.0 ± 0.6 m once the other end is seen too.
+	boxBodyExtentPriorSigmaShare = 0.5
 )
+
+// boxBodyAxisAgreementRad is how far, modulo a half turn, the solid body's
+// axis may lie from the box's heading for the body's half-extents to be read
+// along the box's axes: the span window the solid body's own extent
+// admission believes an axis within (spanSearchHalfWindowDeg). Beyond it the
+// body's hL is measured along some other direction, or across the body.
+const boxBodyAxisAgreementRad = spanSearchHalfWindowDeg * math.Pi / 180
 
 // Observe advances the box to the input's time. With a cluster it is updated
 // from it; without one it coasts with the track.
@@ -758,10 +859,28 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 	if e.cfg.TallHeightMetres > 0 && in.Cluster != nil && !in.Merge {
 		e.height.observe(float64(in.Cluster.BoundingBoxHeight))
 	}
-	vehicleWide := e.width.estimate() >= boxVehicleMinWidthMetres
-	length := math.Max(math.Max(e.length.estimate(), spanA), boxMinExtentMetres)
-	width := math.Max(math.Max(e.width.estimate(), spanN), boxMinExtentMetres)
-	if floor := e.lengthFloor(); floor > 0 && e.labelled && vehicleWide {
+	// windowBelief still observes every admitted span under
+	// BoxExtentFromSolidBody, so a frame that falls back to it finds the
+	// shipped belief, not one starved while the solid body's was read.
+	lengthBelief, widthBelief := e.length.estimate(), e.width.estimate()
+	var body bodyExtentUse
+	if e.cfg.BoxExtentFromSolidBody {
+		body = e.bodyExtents(in.Body)
+		if body.length {
+			lengthBelief = body.lengthMetres
+		}
+		if body.width {
+			widthBelief = body.widthMetres
+		}
+	}
+	vehicleWide := widthBelief >= boxVehicleMinWidthMetres
+	length := math.Max(math.Max(lengthBelief, spanA), boxMinExtentMetres)
+	width := math.Max(math.Max(widthBelief, spanN), boxMinExtentMetres)
+	// The vehicle and tall floors stand in for a length the spans cannot
+	// see. A length from the solid body's state already carries the class
+	// prior and what the faces made of it, so a floor would count the prior
+	// twice.
+	if floor := e.lengthFloor(); floor > 0 && e.labelled && vehicleWide && !body.length {
 		length = math.Max(length, floor)
 	}
 	sa := (e.cfg.SensorX-in.X)*c + (e.cfg.SensorY-in.Y)*s
@@ -777,7 +896,7 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 			e.Stats.Yields++
 			e.length = windowBelief{window: w}
 			length = math.Max(spanA, boxMinExtentMetres)
-			if floor := e.lengthFloor(); floor > 0 && e.labelled && vehicleWide {
+			if floor := e.lengthFloor(); floor > 0 && e.labelled && vehicleWide && !body.length {
 				length = math.Max(length, floor)
 			}
 			e.offA = boxCentre(aLo, aHi, length, sa, e.offA, first, e.cfg.CentrePull)
@@ -806,6 +925,63 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 		X: in.X + e.offA*c - e.offN*s, Y: in.Y + e.offA*s + e.offN*c,
 		HeadingRad: e.psi, Length: length, Width: width, Labelled: e.labelled,
 	}
+	if body.length {
+		e.box.LengthSigma = body.lengthSigma
+	}
+	if body.width {
+		e.box.WidthSigma = body.widthSigma
+	}
+}
+
+// bodyExtentUse is which of the solid body's dimensions a frame's box takes
+// under BoxExtentFromSolidBody, with their values and sigmas.
+type bodyExtentUse struct {
+	length, width             bool
+	lengthMetres, widthMetres float64
+	lengthSigma, widthSigma   float64
+}
+
+// bodyExtents decides, for an associated frame, which of the solid body's
+// dimensions replace windowBelief. A dimension is taken when the state has
+// evidence for it (a face or a bound has moved it off the class prior) and
+// its standard deviation is at most boxBodyExtentPriorSigmaShare of the
+// prior's: before then the state is mostly the prior, which for a body of
+// unknown class is a 4.5 by 2 m car whatever the body is. The width is
+// capped at boxMaxBelievedWidthMetres as windowBelief's is. Neither is taken
+// when the body's axis lies further than boxBodyAxisAgreementRad from the
+// box's heading, modulo a half turn: the half-extents are measured along the
+// body's axis, and read along another they mix length into width.
+//
+// The centre is not the solid body's. The box's contract is that its parts
+// agree by construction and that it holds this frame's points; the solid
+// body's centre is placed along its own orientation, which is not the box's
+// heading filter, and with Containment off is not held on the points at all.
+// So the box keeps its own placement (boxCentre), now with the longer
+// extent: it holds the points and puts the unseen remainder on the side away
+// from the sensor, which is where the state's centre would put it.
+func (e *BoxEstimator) bodyExtents(b BoxBodyExtent) bodyExtentUse {
+	var u bodyExtentUse
+	switch {
+	case !b.Known:
+		e.Stats.BodyExtentUnknown++
+		return u
+	case math.Abs(foldHalf(e.psi-b.AxisRad)) > boxBodyAxisAgreementRad:
+		e.Stats.BodyExtentAxisRefusals++
+		return u
+	}
+	settled := boxBodyExtentPriorSigmaShare * b.PriorSigma
+	if b.LengthEvidence && b.Length > 0 && b.LengthSigma <= settled {
+		u.length, u.lengthMetres, u.lengthSigma = true, b.Length, b.LengthSigma
+	}
+	if b.WidthEvidence && b.Width > 0 && b.WidthSigma <= settled {
+		u.width, u.widthMetres, u.widthSigma = true, math.Min(b.Width, boxMaxBelievedWidthMetres), b.WidthSigma
+	}
+	if u.length || u.width {
+		e.Stats.BodyExtentFrames++
+	} else {
+		e.Stats.BodyExtentUnsettled++
+	}
+	return u
 }
 
 // boxLowBelowBaseMetres and boxLowAboveBaseMetres are how far a cluster's

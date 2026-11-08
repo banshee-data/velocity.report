@@ -223,7 +223,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentConsistentCovarianceCap, ExperimentConsistentSpeedClamp, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
@@ -231,7 +231,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentHeldToL4, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentOverlapEndBody,
-		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody,
+		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentRobustLikelihoodCost, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody,
 		ExperimentSolidBodyAnisotropicReferenceBias, ExperimentSolidBodyCensoredExtent, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
@@ -267,7 +267,10 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentAdaptiveUncertainty: func(c *l5tracks.TrackerConfig) {
 			c.AdaptiveMeasurementNoise = true
 		},
-		ExperimentLikelihoodCost:    func(c *l5tracks.TrackerConfig) { c.LikelihoodAssociationCost = true },
+		ExperimentLikelihoodCost: func(c *l5tracks.TrackerConfig) { c.LikelihoodAssociationCost = true },
+		ExperimentRobustLikelihoodCost: func(c *l5tracks.TrackerConfig) {
+			c.RobustLikelihoodAssociationCost = true
+		},
 		ExperimentCascade:           func(c *l5tracks.TrackerConfig) { c.CascadedAssociation = true },
 		ExperimentFlipRule:          func(c *l5tracks.TrackerConfig) { c.OBBHeadingFlipRule = true },
 		ExperimentMeasurementTime:   func(c *l5tracks.TrackerConfig) { c.MeasurementTimePrediction = true },
@@ -409,8 +412,9 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s and %s were accepted together", ExperimentSolidBodyEndFaceCentring, ExperimentSolidBodyEndFaceCentringOpenPrior)
 	}
 	// The combined face-state arm named with one of its parts is the same
-	// arm; the extents in the state are refused on the tracked filter, which
-	// does not carry them, and the other four combine with it.
+	// arm. On the tracked filter the extents in the state are carried by the
+	// tracked filter itself, so both names combine with near_edge_track, as
+	// the other four do.
 	combined, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFaceState}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -419,9 +423,9 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s with %s is not the combined arm (%v)", ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentState, err)
 	}
 	for _, name := range []string{ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState} {
-		if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack, name}, nil); err == nil ||
-			!strings.Contains(err.Error(), ExperimentNearEdgeTrack) {
-			t.Errorf("%s with %s: want a refusal, got %v", name, ExperimentNearEdgeTrack, err)
+		cfg, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack, name}, nil)
+		if err != nil || !cfg.NearEdgeTracking || !cfg.SolidBody.ExtentState {
+			t.Errorf("%s with %s: want the tracked extent state, got %v (%+v)", name, ExperimentNearEdgeTrack, err, cfg.SolidBody)
 		}
 	}
 	tracked, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack,
@@ -528,6 +532,15 @@ func TestNearEdgeTrackReachesItsOptionAndRefusesWhatItCannotCarry(t *testing.T) 
 	}
 	if _, err := trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, arm, nil); err == nil {
 		t.Error("near_edge_track was accepted with the OBB-centre position model")
+	}
+	// The robust likelihood cost reads the gate's own S, A2's included, so
+	// unlike likelihood_cost it combines, and reaches its own option only.
+	{
+		robust := want
+		robust.RobustLikelihoodAssociationCost = true
+		if got, err := trackerConfigFor(l5, "", append([]string{ExperimentRobustLikelihoodCost}, arm...), nil); err != nil || got != robust {
+			t.Errorf("near_edge_track with the robust likelihood cost (%v):\n got %+v\nwant %+v", err, got, robust)
+		}
 	}
 	if _, err := trackerConfigFor(l5, l5tracks.MeasurementMedoidV0, arm, nil); err != nil {
 		t.Errorf("near_edge_track refused the medoid position model: %v", err)
@@ -800,6 +813,50 @@ func TestSettlingRelativeExperiment(t *testing.T) {
 	}
 }
 
+// box_extent_solid_body reaches its own option, on top of the solid body
+// with its extent state, by either name for that state; and it is refused
+// without the box model, without the solid body, and without the extent
+// state, each of which would leave it nothing to change.
+func TestBoxExtentSolidBodyNeedsTheBoxAndTheExtentState(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	for _, state := range []string{ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState} {
+		base, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, state}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := base
+		want.BoxModel.BoxExtentFromSolidBody = true
+		got, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, state, ExperimentBoxExtentSolidBody}, nil)
+		if err != nil {
+			t.Fatalf("%s with %s: %v", ExperimentBoxExtentSolidBody, state, err)
+		}
+		if got != want {
+			t.Errorf("%s with %s:\n got %+v\nwant %+v", ExperimentBoxExtentSolidBody, state, got, want)
+		}
+	}
+	for _, without := range [][]string{
+		{ExperimentBoxExtentSolidBody},
+		{ExperimentSolidBody, ExperimentBoxExtentSolidBody},
+		{ExperimentSolidBodyExtentState, ExperimentBoxExtentSolidBody},
+		{ExperimentSolidBody, ExperimentSolidBodyCensoredExtent, ExperimentBoxExtentSolidBody},
+	} {
+		if _, err := trackerConfigFor(l5, "", without, nil); err == nil || !strings.Contains(err.Error(), ExperimentBoxExtentSolidBody) {
+			t.Errorf("%q: want a refusal naming %s, got %v", without, ExperimentBoxExtentSolidBody, err)
+		}
+	}
+	noBox := config.MustLoadDefaultConfig().L5.CvKfV1
+	noBox.BoxModel = nil
+	if _, err := trackerConfigFor(noBox, "", []string{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentBoxExtentSolidBody}, nil); err == nil ||
+		!strings.Contains(err.Error(), "box model") {
+		t.Errorf("with the box model off: want a refusal naming the box model, got %v", err)
+	}
+	// The box it draws is the recording, so a tool without an evidence
+	// database may run it.
+	if err := RefuseExperimentsWithout("some-tool", []string{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentBoxExtentSolidBody}, ReplayInputs{}); err != nil {
+		t.Errorf("refused without an evidence database: %v", err)
+	}
+}
+
 // box_ground stands the box model's box on the ground, so without the box
 // model it would change nothing and run as the baseline under its name.
 func TestBoxGroundNeedsTheBoxModel(t *testing.T) {
@@ -819,5 +876,43 @@ func TestGroundSpecsReplayOptionsParse(t *testing.T) {
 	}
 	if want := []string{ExperimentBoxGround, ExperimentSurfaceGround}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+// robust_likelihood_cost and likelihood_cost are two assignment costs; the
+// tracker would run the robust one alone, so naming both, or naming the
+// robust one over a tuning file that sets the Gaussian, is refused with the
+// reason rather than resolved.
+func TestRobustLikelihoodCostRefusesTheGaussianLikelihoodCost(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	_, err := trackerConfigFor(l5, "", []string{ExperimentLikelihoodCost, ExperimentRobustLikelihoodCost}, nil)
+	if err == nil {
+		t.Fatal("likelihood_cost and robust_likelihood_cost were accepted together")
+	}
+	for _, want := range []string{ExperimentRobustLikelihoodCost, ExperimentLikelihoodCost, "name one"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal %q does not say %q", err, want)
+		}
+	}
+	tuned := *l5
+	tuned.Association = &config.L5Association{LikelihoodCost: true}
+	if _, err := trackerConfigFor(&tuned, "", []string{ExperimentRobustLikelihoodCost}, nil); err == nil {
+		t.Error("robust_likelihood_cost was accepted over a tuning file with association.likelihood_cost")
+	}
+	if got, err := trackerConfigFor(&tuned, "", nil, nil); err != nil || !got.LikelihoodAssociationCost || got.RobustLikelihoodAssociationCost {
+		t.Errorf("the tuning file's likelihood_cost alone (%v): %+v", err, got)
+	}
+	// The composites the option is meant to be measured with are accepted.
+	for _, with := range [][]string{
+		{ExperimentTentativePriority},
+		{ExperimentCascade},
+		{ExperimentContestedRejoin},
+		{ExperimentOverlapEnd1, ExperimentOverlapEndBody, ExperimentOverlapEndOlder, ExperimentBirthGateBody},
+		{ExperimentAdaptiveUncertainty},
+	} {
+		got, err := trackerConfigFor(l5, "", append([]string{ExperimentRobustLikelihoodCost}, with...), nil)
+		if err != nil || !got.RobustLikelihoodAssociationCost {
+			t.Errorf("robust_likelihood_cost with %v (%v): %+v", with, err, got)
+		}
 	}
 }

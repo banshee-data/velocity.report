@@ -27,40 +27,51 @@ package l5tracks
 // approach and a front face on departure have rows +n and -n against one hL,
 // which fixes hL and the centre.
 //
-// Lower bounds. A frame's span along a body axis, less the span noise, is a
-// lower bound on the dimension, and every body has a positive one
-// (extentStateFloorMetres). Bounds on one half-extent nest: together they say
-// h >= the highest of them, once. Under ExtentState that one constraint is
-// held as a Gaussian site on the half-extent's marginal, in the manner of
-// expectation propagation (Minka 2001). Each refinement divides the old site
-// out of the marginal to get the cavity, truncates the cavity below at the
-// bound (the moment-matched one-sided truncation), and moves the joint state
-// to the truncated moments through the regression on the half-extent, the
-// form truncateAxis uses for position. The new site is the truncated moments
-// divided by the cavity's. Re-truncating the posterior instead counts its
-// Gaussian tail below the last bound as mass the next bound removes: a bound
-// rising a millimetre a frame then moves the mean up and halves sigma with
-// frame count alone, which Section 9.2.2 forbids. The site is refined before
-// the frame's faces, so they see half-extents the bound does not contradict,
-// and after them, so no face leaves a half-extent below its floor. With the
-// cavity unchanged a refinement changes nothing, whatever the frame count;
-// as faces narrow the cavity above the bound, the site's pull fades. The
-// floor joins the site only once evidence has updated the half-extent: the
-// seed is the class prior as declared.
+// Lower bounds. A frame's span along a body axis, less its noise, is a lower
+// bound b on the dimension, so the half-extent h = gᵀx satisfies h ≥ l = b/2.
+// Under ExtentState the inequality is imposed on the joint Gaussian N(x̂, P)
+// by estimate projection: when gᵀx̂ < l the mean moves to the nearest point of
+// {gᵀx ≥ l} in the P⁻¹ metric,
 //
-// Full spans. A span is a lower bound only when the frame may have missed an
-// end. A frame that measured a side face shows the length whole, since a
-// convex body hides none of a face it shows, and one that measured an end
-// face shows the width whole (fullSpans): Section 9.2.1 admits such a span as
-// a measurement, z = 2h with the span noise. Treated as a bound, a span at
-// the true length lifts the mean about 0.8 cavity sigmas above it. A full span
-// is one Gaussian site per half-extent, which the next full span replaces
-// rather than joins, so repeated views of one span never narrow the extent.
-// The prediction's process noise does dilute the old site between frames.
-// Once the posterior is wider than one span's noise, the next span adds to
-// what is left of it, so sigma settles where the extent's process noise and
-// one span's noise balance (0.043 to 0.058 m on the synthetic box pass)
-// rather than shrinking with frame count.
+//	x̂' = x̂ + P g (l − gᵀx̂) / (gᵀ P g),
+//
+// which is the joint regression on h, puts h exactly at l, and is the mode of
+// the Gaussian truncated at the bound; when gᵀx̂ ≥ l nothing moves. P is left
+// as it is. Both half-extents' constraints together are the two-dimensional
+// problem min (h − ĥ)ᵀ P_hh⁻¹ (h − ĥ) subject to h ≥ l, solved by its active
+// set, and every state moves by P_xh λ with λ ≥ 0 its multipliers
+// (holdHalfExtentsAbove).
+//
+// The bound was first a moment-matched truncation, mean μ + σλ(α) with
+// λ(α) = φ(α)/(1 − Φ(α)) and α = (l − μ)/σ, and that overshot. Its mean lands
+// past the bound by σλ(α): on the box pass of
+// TestSpanBoundsDoNotCarryTheExtentStatePastTheFaces the first frame's
+// bound, l = 2.186 m, took hL from 1.562 m (sigma 0.75 m) to 2.606 m against a
+// true 2.25 m: a 5.21 m length against the 4.494 m span the frame observed. And
+// the Gaussian it returns has mass below the bound again, so the next frame's
+// bound, from the same returns a few millimetres longer, truncated it again as
+// if it were independent evidence: a 5 mm rise in l moved hL 78 mm and shrank
+// its sigma from 0.294 to 0.237 m. That is an assumed-density filter applying
+// a correlated sequence of bounds as independent ones, and it ended the pass
+// at hL 2.457 m with a departure error of 0.190 m, against 2.214 m and
+// 0.054 m without the bounds. The projection is idempotent: any sequence of
+// bounds leaves the mean where the highest alone puts it, and since P is
+// unchanged no number of bounds narrows the posterior, which is Section
+// 9.2.2's rule. Leaving P is conservative, as a truncation only ever narrows
+// a Gaussian. What it gives up is the bound's narrowing of sigma: only faces
+// narrow it.
+//
+// Floor. Nothing else keeps a half-extent positive. A face measures n·c + h,
+// so a face whose plane lies far inboard of the prediction (a cluster that
+// has shed its far returns, or a face of the wrong identity) moves h by its
+// gain, through zero, and the medoid update and the speed clamp move it by its
+// covariance with the position and velocity. (A negative 2h was published as
+// 0 m: assembleSolidBody raises the length to the containment floor, which is
+// zero when containment is off.) Every step that moves the half-extents
+// therefore ends with the same projection at extentStateMinHalfMetres:
+// holdHalfExtentsAbove(extentFloor) on a jointState, holdExtentFloor where
+// the blocks are written in place. A frame's bounds are taken together with
+// it (applyExtentBounds).
 //
 // CensoredExtent, without ExtentState, reports the class prior truncated
 // below at the largest lower bound (censoredDimension). SpanBoundsBelief makes
@@ -97,32 +108,11 @@ const (
 	// one-sided truncation puts its upper limit: far enough that the density
 	// beyond it is below float64 precision.
 	oneSidedTruncationSigmas = 20
-	// extentStateFloorMetres is the least dimension the extent state admits,
-	// a tenth of a metre: below any road user it holds a body for (a
-	// pedestrian is about a quarter of a metre through), and above the
-	// returns' few centimetres of spread. It is a lower bound held in the
-	// same site as the span's, not a clamp, so it moves a half-extent
-	// appreciably only when the evidence takes it near zero. The class
-	// prior's minimum is not used: the rigid-vehicle minimum, 2.4 m, sits
-	// within one prior sigma of the mean, so it would truncate every car whose
-	// evidence is still short, which is the F0 case the extent state exists
-	// to correct, and only the rigid-vehicle class states a minimum.
-	extentStateFloorMetres = 0.1
-	// negligibleBoundMass is the cavity mass below a bound under which the
-	// bound starts no site: float32's epsilon, 2^-23. Below it the
-	// truncation moves the half-extent's mean by under a ten-millionth of its
-	// sigma, which the stored float32 state cannot hold.
-	negligibleBoundMass = 0x1p-23
+	// extentStateMinHalfMetres is the half-extents' floor under ExtentState:
+	// half the extent belief's own floor, below which a return is noise
+	// (extentBeliefMinMetres).
+	extentStateMinHalfMetres = extentBeliefMinMetres / 2
 )
-
-// extentSite is a Gaussian site on one half-extent, the factor a lower bound
-// or a full span contributes, in information form: precision and
-// precision-weighted mean, so that the posterior marginal is the cavity's
-// times exp(-precision h^2/2 + weighted h). Zero is no site.
-type extentSite struct {
-	precision float64
-	weighted  float64
-}
 
 // solidBodyExtent is the half-extent block of the solid body's joint state
 // under ExtentState. The four-state block is solidBodyTrack.state and p.
@@ -137,18 +127,9 @@ type solidBodyExtent struct {
 	// phh is the half-extents' own covariance, row-major.
 	phh [4]float32
 	// updates counts, per half-extent, the frames on which a face or a lower
-	// bound updated it: the dimension's admissible-frame count.
+	// bound updated it: the dimension's admissible-frame count. A bound counts
+	// only on a frame it moved the half-extent.
 	updates [2]int
-	// appliedBound is, per dimension, the highest full-dimension lower bound
-	// admitted from a frame's span.
-	appliedBound [2]float32
-	// site is, per half-extent, the Gaussian site of its lower bound: half
-	// the higher of appliedBound and extentStateFloorMetres.
-	site [2]extentSite
-	// spanSite is, per half-extent, the Gaussian site of the latest full
-	// span (fullSpans): one frame's measurement, replaced by the next, so the
-	// spans never count more than once whatever the frame count.
-	spanSite [2]extentSite
 }
 
 // finite says every value in the block is finite.
@@ -168,17 +149,7 @@ func (e *solidBodyExtent) finite() bool {
 			return false
 		}
 	}
-	for i := range e.site {
-		if !e.site[i].finite() || !e.spanSite[i].finite() {
-			return false
-		}
-	}
 	return true
-}
-
-// finite says both of the site's terms are finite.
-func (s extentSite) finite() bool {
-	return !math.IsNaN(s.precision) && !math.IsInf(s.precision, 0) && !math.IsNaN(s.weighted) && !math.IsInf(s.weighted, 0)
 }
 
 // seedSolidBodyExtent starts the extent block from the extent beliefs when
@@ -267,11 +238,18 @@ func (sb *solidBodyTrack) predictExtent(dt float32) {
 // deviation, P <- D P D, instead of leaving the off-diagonals as they were.
 // It runs only under ExtentState; the four-state paths keep their cap.
 func (sb *solidBodyTrack) scaleCappedRows(uncapped [4]float32) {
+	scaleCappedJoint(&sb.p, &sb.ext, uncapped)
+}
+
+// scaleCappedJoint is scaleCappedRows on a given four-state block and extent
+// block: the shadow's own, or under NearEdgeTracking the tracked filter's P
+// and the body's extent block.
+func scaleCappedJoint(p *[16]float32, ext *solidBodyExtent, uncapped [4]float32) {
 	var d [4]float64
 	scaled := false
 	for i := range d {
 		d[i] = 1
-		if c, u := sb.p[i*4+i], uncapped[i]; c < u && u > 0 {
+		if c, u := p[i*4+i], uncapped[i]; c < u && u > 0 {
 			d[i] = math.Sqrt(float64(c) / float64(u))
 			scaled = true
 		}
@@ -282,13 +260,22 @@ func (sb *solidBodyTrack) scaleCappedRows(uncapped [4]float32) {
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {
 			if i != j {
-				sb.p[i*4+j] = float32(float64(sb.p[i*4+j]) * d[i] * d[j])
+				p[i*4+j] = float32(float64(p[i*4+j]) * d[i] * d[j])
 			}
 		}
 		for j := 0; j < 2; j++ {
-			sb.ext.pxh[i*2+j] = float32(float64(sb.ext.pxh[i*2+j]) * d[i])
+			ext.pxh[i*2+j] = float32(float64(ext.pxh[i*2+j]) * d[i])
 		}
 	}
+}
+
+// extentBlock is the body's extent block when it carries one, and nil
+// otherwise, for the helpers that take the block optionally.
+func (sb *solidBodyTrack) extentBlock() *solidBodyExtent {
+	if !sb.ext.on {
+		return nil
+	}
+	return &sb.ext
 }
 
 // jointState is the solid body's joint state under ExtentState, in float64:
@@ -301,6 +288,12 @@ type jointState struct {
 // jointOf assembles the joint state from a four-state block and the body's
 // extent block.
 func (sb *solidBodyTrack) jointOf(state [4]float32, p [16]float32) jointState {
+	return jointFrom(state, p, &sb.ext)
+}
+
+// jointFrom assembles the joint state from a four-state block and an extent
+// block.
+func jointFrom(state [4]float32, p [16]float32, ext *solidBodyExtent) jointState {
 	var js jointState
 	for i := 0; i < 4; i++ {
 		js.x[i] = float64(state[i])
@@ -308,18 +301,30 @@ func (sb *solidBodyTrack) jointOf(state [4]float32, p [16]float32) jointState {
 			js.p[i*jointStates+j] = float64(p[i*4+j])
 		}
 		for j := 0; j < 2; j++ {
-			v := float64(sb.ext.pxh[i*2+j])
+			v := float64(ext.pxh[i*2+j])
 			js.p[i*jointStates+4+j] = v
 			js.p[(4+j)*jointStates+i] = v
 		}
 	}
 	for i := 0; i < 2; i++ {
-		js.x[4+i] = float64(sb.ext.h[i])
+		js.x[4+i] = float64(ext.h[i])
 		for j := 0; j < 2; j++ {
-			js.p[(4+i)*jointStates+4+j] = float64(sb.ext.phh[i*2+j])
+			js.p[(4+i)*jointStates+4+j] = float64(ext.phh[i*2+j])
 		}
 	}
 	return js
+}
+
+// writeJointMean writes a joint state's mean, and only its mean, back to a
+// four-state block and an extent block: the write a projection needs, which
+// leaves the covariance as it was.
+func writeJointMean(state *[4]float32, ext *solidBodyExtent, js jointState) {
+	for i := 0; i < 4; i++ {
+		state[i] = float32(js.x[i])
+	}
+	for i := 0; i < 2; i++ {
+		ext.h[i] = float32(js.x[4+i])
+	}
 }
 
 // setJoint writes a joint state back to the body's two blocks, symmetrising
@@ -410,6 +415,47 @@ func (js *jointState) scalarUpdateNIS(h [jointStates]float64, z, r float64) (flo
 	return innovation * innovation / s, true
 }
 
+// applyMedoidGain carries a two-dimensional position update of the
+// four-state filter, with gain K (4x2, row-major) and inverse innovation
+// covariance invS (2x2), to the extent block: the joint update the tracked
+// filter's medoid update is the four-state part of. With A = H P_xh, the
+// position rows of the cross block, the half-extents' gain is
+// K_h = Aᵀ S⁻¹, and
+//
+//	h ← h + K_h y,   P_hh ← P_hh − K_h A,   P_xh ← P_xh − K A,
+//
+// the optimal-gain update's extent rows and columns, which is what the Joseph
+// form gives at that gain too. P_hh is symmetrised after, as the joint matrix
+// is held exactly symmetric.
+func (e *solidBodyExtent) applyMedoidGain(k [8]float32, invS [4]float32, yX, yY float32) {
+	var a [4]float64
+	for i := range a {
+		a[i] = float64(e.pxh[i])
+	}
+	y := [2]float64{float64(yX), float64(yY)}
+	var kh [4]float64 // kh[j*2+r]
+	for j := 0; j < 2; j++ {
+		for r := 0; r < 2; r++ {
+			kh[j*2+r] = a[0*2+j]*float64(invS[0*2+r]) + a[1*2+j]*float64(invS[1*2+r])
+		}
+		e.h[j] = float32(float64(e.h[j]) + kh[j*2+0]*y[0] + kh[j*2+1]*y[1])
+	}
+	var phh [4]float64
+	for j := 0; j < 2; j++ {
+		for l := 0; l < 2; l++ {
+			phh[j*2+l] = float64(e.phh[j*2+l]) - (kh[j*2+0]*a[0*2+l] + kh[j*2+1]*a[1*2+l])
+		}
+	}
+	off := (phh[1] + phh[2]) / 2
+	e.phh = [4]float32{float32(math.Max(phh[0], 0)), float32(off), float32(off), float32(math.Max(phh[3], 0))}
+	for i := 0; i < 4; i++ {
+		for l := 0; l < 2; l++ {
+			v := float64(e.pxh[i*2+l]) - (float64(k[i*2+0])*a[0*2+l] + float64(k[i*2+1])*a[1*2+l])
+			e.pxh[i*2+l] = float32(v)
+		}
+	}
+}
+
 // truncate holds the linear functional g·x of the joint state to
 // [g·x̂ + a, g·x̂ + b]: the marginal of g·x is truncated to the interval and
 // replaces the prior marginal through the state's regression on it, as
@@ -440,21 +486,10 @@ func (js *jointState) truncate(g [jointStates]float64, a, b float64, lowerOnly b
 		}
 	}
 	variance = math.Max(variance, containmentVarianceFloor)
-	js.replaceMarginal(pg, sigma2, mean, variance)
-	return mean, true
-}
-
-// replaceMarginal replaces the marginal of a linear functional g·x, whose
-// prior variance is sigma2 and whose covariance with the state is pg = P g,
-// by one moved by shift with the given variance, through the state's
-// regression on it: the conditional of x given g·x is kept. A scalar site on
-// g·x changes only that marginal, so this is also how a site is replaced.
-func (js *jointState) replaceMarginal(pg [jointStates]float64, sigma2, shift, variance float64) {
-	const n = jointStates
 	var k [n]float64
 	for i := range k {
 		k[i] = pg[i] / sigma2
-		js.x[i] += k[i] * shift
+		js.x[i] += k[i] * mean
 	}
 	d := variance - sigma2
 	for i := 0; i < n; i++ {
@@ -466,6 +501,7 @@ func (js *jointState) replaceMarginal(pg [jointStates]float64, sigma2, shift, va
 		}
 	}
 	js.symmetrise()
+	return mean, true
 }
 
 // lowerTruncatedMoments is the mean and variance of N(mu, sigma^2) truncated
@@ -503,14 +539,8 @@ func (t *Tracker) applyEdgeMeasurementsJoint(js *jointState, edges []EdgeMeasure
 	var faces VisibleFaces
 	next := *js
 	for i, e := range edges {
-		r := float64(t.Config.MeasurementNoise)
-		if heading != nil {
-			r += heading[i]
-		}
-		var h [jointStates]float64
-		h[0], h[1] = float64(e.NormalX), float64(e.NormalY)
-		h[4+extentIndex(e.Face)] = 1
-		term, ok := next.scalarUpdateNIS(h, float64(e.PlaneOffsetMetres), r)
+		h, z, r := t.faceMeasurementRow(e, true, nil, heading, i)
+		term, ok := next.scalarUpdateNIS(h, z, r)
 		if !ok {
 			return 0, 0, false
 		}
@@ -567,26 +597,24 @@ func (t *Tracker) takesSpanBounds(sb *solidBodyTrack) bool {
 // rules that make a span a lower bound apply (Section 9.2.1): none on a merge
 // candidate, whose span is two bodies'; none while the estimation lifecycle is
 // initialising; and none along an axis the course contradicts
-// (spanAxisBelieved). Zero is no bound. It also returns the spans themselves
-// and their noise, which ExtentState reads as a measurement where the frame
-// shows the dimension whole (fullSpans).
-func (t *Tracker) frameSpanBounds(sb *solidBodyTrack, cluster WorldCluster, axis float32, axisIsCourse, mergeCandidate bool) (bounds, spans [2]float32, noise float32) {
+// (spanAxisBelieved). Zero is no bound.
+func (t *Tracker) frameSpanBounds(sb *solidBodyTrack, cluster WorldCluster, axis float32, axisIsCourse, mergeCandidate bool) [2]float32 {
+	var out [2]float32
 	if mergeCandidate || sb.estimation == EstimationInitialising || !spanAxisBelieved(sb, axis, axisIsCourse) {
-		return bounds, spans, 0
+		return out
 	}
 	points := nearEdgePoints(cluster)
 	if len(points) < DefaultMinFaceSupport {
-		return bounds, spans, 0
+		return out
 	}
 	along, across := windowMinimumSpans(points, float64(axis))
-	e := spanBoundNoise(math.Hypot(float64(sb.state[0]-t.Config.SolidBody.SensorX), float64(sb.state[1]-t.Config.SolidBody.SensorY)))
-	spans = [2]float32{along, across}
-	for i, span := range spans {
-		if b := float64(span) - e; b > 0 {
-			bounds[i] = float32(b)
+	noise := spanBoundNoise(math.Hypot(float64(sb.state[0]-t.Config.SolidBody.SensorX), float64(sb.state[1]-t.Config.SolidBody.SensorY)))
+	for i, span := range [2]float32{along, across} {
+		if b := float64(span) - noise; b > 0 {
+			out[i] = float32(b)
 		}
 	}
-	return bounds, spans, float32(e)
+	return out
 }
 
 // spanBoundNoise is a span bound's noise at a range: the extreme's spread and
@@ -597,163 +625,120 @@ func spanBoundNoise(rangeMetres float64) float64 {
 	return math.Sqrt(spanBoundNoiseMetres*spanBoundNoiseMetres + spacing*spacing)
 }
 
-// fullSpans says which of the frame's spans run the dimension's whole
-// extent: the length when the frame measured a side face, which lies along
-// it, and the width when it measured an end face. A convex body hides none of
-// a face it shows, so that face's returns reach the body's extreme at each
-// end: reliable physical endpoints, which Section 9.2.1 admits as a
-// measurement. Any other span is a lower bound. An external occlusion that
-// cuts the face short is not detected, as the tracker detects no truncation.
-func fullSpans(edges []EdgeMeasurement) [2]bool {
-	var full [2]bool
-	for _, e := range edges {
-		if e.Face.IsLongitudinal() {
-			full[1] = true
-		} else {
-			full[0] = true
-		}
-	}
-	return full
-}
-
-// applyExtentSpans is the frame's span evidence on the half-extents under
-// ExtentState, before its faces: a full span replaces the dimension's span
-// site, and the others are lower bounds (applyExtentBounds). It says which
-// half-extents the evidence updated.
-func (sb *solidBodyTrack) applyExtentSpans(f nearEdgeFrame) [2]bool {
-	bounds := f.spanBound
-	var touched [2]bool
-	full := fullSpans(f.edges.Edges)
-	for i := range bounds {
-		if !full[i] || !(f.span[i] > 0) || !(f.spanNoise > 0) {
-			continue
-		}
-		// A full span is a measurement of the dimension, not a bound on it.
-		bounds[i] = 0
-		half, sd := float64(f.span[i])/2, float64(f.spanNoise)/2
-		touched[i] = sb.refineSite(i, &sb.ext.spanSite[i], func(cm, cv float64) (float64, float64, bool) {
-			r := sd * sd
-			tv := cv * r / (cv + r)
-			return tv * (cm/cv + half/r), tv, true
-		})
-	}
-	bounded := sb.applyExtentBounds(bounds)
-	return [2]bool{touched[0] || bounded[0], touched[1] || bounded[1]}
-}
-
-// applyExtentBounds admits the frame's lower bounds and refines each
-// half-extent's bound site, and says which half-extents a newly admitted
-// bound updated. A bound is admitted when it is higher than every bound
-// before it; a lower or repeated one says nothing the site does not already
-// hold. The site is refined on every call once it holds a bound or the
-// half-extent has evidence, so a half-extent that has fallen toward zero is
-// held above the floor (see the file comment).
+// applyExtentBounds holds each half-extent at or above half its dimension's
+// bound and at or above extentStateMinHalfMetres, by projection (see the file
+// comment), and says which half-extents a bound, rather than the floor, moved.
+// The covariance is not changed, so a bound repeated or a millimetre higher on
+// the next frame cannot narrow it, and moves the mean only as far as the
+// higher bound requires.
 func (sb *solidBodyTrack) applyExtentBounds(bounds [2]float32) [2]bool {
-	var touched [2]bool
+	lower := [2]float64{extentStateMinHalfMetres, extentStateMinHalfMetres}
 	for i, b := range bounds {
-		raised := b > 0 && b > sb.ext.appliedBound[i]
-		highest := sb.ext.appliedBound[i]
-		if raised {
-			highest = b
+		if b > 0 {
+			lower[i] = math.Max(lower[i], float64(b)/2)
 		}
-		if !raised && !sb.boundBinds(i, false) {
-			continue
-		}
-		if !sb.refineBoundSite(i, halfExtentLowerBound(highest)) || !raised {
-			continue
-		}
-		sb.ext.appliedBound[i] = b
-		touched[i] = true
+	}
+	js := sb.jointOf(sb.state, sb.p)
+	active := js.holdHalfExtentsAbove(lower)
+	if active == ([2]bool{}) {
+		return active
+	}
+	writeJointMean(&sb.state, &sb.ext, js)
+	var touched [2]bool
+	for i, a := range active {
+		touched[i] = a && bounds[i] > 0 && lower[i] == float64(bounds[i])/2
 	}
 	return touched
 }
 
-// holdExtentBounds refines both bound sites at the bounds already admitted,
-// after a frame's faces, which can move a half-extent anywhere their gain
-// takes it. touched names the half-extents this frame's evidence updated.
-func (sb *solidBodyTrack) holdExtentBounds(touched [2]bool) {
-	for i := range sb.ext.site {
-		if sb.boundBinds(i, touched[i]) {
-			sb.refineBoundSite(i, halfExtentLowerBound(sb.ext.appliedBound[i]))
-		}
+// extentFloor is the half-extents' lower limits with no frame bound.
+var extentFloor = [2]float64{extentStateMinHalfMetres, extentStateMinHalfMetres}
+
+// holdExtentFloor holds an extent block's half-extents at or above
+// extentStateMinHalfMetres, for a joint state whose four-state block is
+// (x, p): the steps that write the blocks in place rather than through a
+// jointState (the tracked medoid update and the consistent speed clamp). Only
+// the mean moves; p and the extent block's covariance are not touched.
+func holdExtentFloor(x *[4]float32, p [16]float32, ext *solidBodyExtent) {
+	if float64(ext.h[0]) >= extentStateMinHalfMetres && float64(ext.h[1]) >= extentStateMinHalfMetres {
+		return
+	}
+	js := jointFrom(*x, p, ext)
+	if js.holdHalfExtentsAbove(extentFloor) != ([2]bool{}) {
+		writeJointMean(x, ext, js)
 	}
 }
 
-// boundBinds says whether half-extent i's bound site is refined: once a span
-// bound has been admitted, or evidence has updated the half-extent (now says
-// this frame's did). Until then the half-extent is the class prior as
-// declared, Gaussian, and the floor does not truncate it: the floor is a
-// constraint on what the evidence makes of the half-extent, applied after
-// each update as the span bounds are.
-func (sb *solidBodyTrack) boundBinds(i int, now bool) bool {
-	return now || sb.ext.appliedBound[i] > 0 || sb.ext.updates[i] > 0 || sb.ext.site[i].precision > 0
-}
-
-// halfExtentLowerBound is a half-extent's lower bound given the highest
-// admitted full-dimension bound: half of it, or half the floor.
-func halfExtentLowerBound(bound float32) float64 {
-	return math.Max(float64(bound), extentStateFloorMetres) / 2
-}
-
-// refineBoundSite is one expectation-propagation step for half-extent i's
-// lower bound: the target is the cavity truncated below at lower. A bound
-// that holds no site yet and would cut off less than negligibleBoundMass of
-// the cavity starts none: what it would change is below float32's resolution
-// of the half-extent, and a site of that size is rounding, not evidence.
-func (sb *solidBodyTrack) refineBoundSite(i int, lower float64) bool {
-	open := sb.ext.site[i].precision == 0
-	return sb.refineSite(i, &sb.ext.site[i], func(cm, cv float64) (float64, float64, bool) {
-		sd := math.Sqrt(cv)
-		below := 0.5 * math.Erfc((cm-lower)/(sd*math.Sqrt2))
-		if open && below < negligibleBoundMass {
-			return 0, 0, false
-		}
-		tm, tv := lowerTruncatedMoments(cm, sd, lower)
-		return tm, math.Max(tv, containmentVarianceFloor), true
-	})
-}
-
-// refineSite replaces one Gaussian site on half-extent i: the cavity is the
-// marginal with the old site divided out, target gives the new marginal from
-// the cavity, and the joint state is moved from its marginal to the target
-// through the regression on h, which keeps every other state's conditional
-// on h. The new site is the target divided by the cavity. It returns false,
-// changing nothing, when the marginal is degenerate or the target would not
-// narrow the cavity.
+// holdHalfExtentsAbove imposes h ≥ lower on the joint state's half-extents by
+// estimate projection: the mean moves to the point of the feasible set
+// nearest it in the P⁻¹ metric, and P is not changed. It returns which
+// constraints are active, those the projection put the half-extent on.
 //
-// The site was fitted at an earlier frame and the prediction has since added
-// process noise, so dividing it out is the filtering approximation. Where the
-// posterior has grown wider than the site alone, the site's information has
-// diffused out of the state, and the posterior stands in for the cavity.
-func (sb *solidBodyTrack) refineSite(i int, site *extentSite, target func(cm, cv float64) (float64, float64, bool)) bool {
+// The cost of a move in the full state, minimised over the states the
+// constraint does not name, is the half-extents' own (h − ĥ)ᵀ P_hh⁻¹ (h − ĥ),
+// and the minimising move of every state is P_xh λ with λ = P_hh⁻¹ (h − ĥ).
+// The Karush-Kuhn-Tucker conditions make λ ≥ 0 the constraints' multipliers,
+// zero on an inactive one. With two constraints the active set is one of
+// {hL}, {hW} or both, and the problem is strictly convex, so the first set
+// whose solution is feasible with λ ≥ 0 is the solution: one constraint j
+// active moves h by P_hh e_j d_j / P_jj, with d_j = lower_j − ĥ_j > 0, and is
+// the answer when it leaves the other half-extent feasible; otherwise both
+// are active and λ = P_hh⁻¹ d.
+//
+// A half-extent with no variance has no correlation either (P is positive
+// semi-definite), and a P_hh that is singular has its two half-extents
+// exactly correlated; in either case the constraints are taken one at a time,
+// each by its own regression where it has variance and by setting the
+// half-extent where it has none.
+func (js *jointState) holdHalfExtentsAbove(lower [2]float64) [2]bool {
 	const n = jointStates
-	js := sb.jointOf(sb.state, sb.p)
-	k := 4 + i
-	m, v := js.x[k], js.p[k*n+k]
-	if !(v > 0) || math.IsInf(v, 0) {
-		return false
+	h := [2]float64{js.x[4], js.x[5]}
+	d := [2]float64{lower[0] - h[0], lower[1] - h[1]}
+	if !(d[0] > 0) && !(d[1] > 0) {
+		return [2]bool{}
 	}
-	cm, cv := m, v
-	if c := 1/v - site.precision; site.precision > 0 && c > 0 {
-		cv = 1 / c
-		cm = cv * (m/v - site.weighted)
+	s := [2]float64{js.p[4*n+4], js.p[5*n+5]}
+	s01 := (js.p[4*n+5] + js.p[5*n+4]) / 2
+	det := s[0]*s[1] - s01*s01
+	var lambda [2]float64
+	var active [2]bool
+	if s[0] > 0 && s[1] > 0 && det > 1e-12*s[0]*s[1] {
+		single := func(j int) bool {
+			o := 1 - j
+			if !(d[j] > 0) || h[o]+s01/s[j]*d[j] < lower[o] {
+				return false
+			}
+			lambda[j], active[j] = d[j]/s[j], true
+			return true
+		}
+		if !single(0) && !single(1) {
+			lambda = [2]float64{(s[1]*d[0] - s01*d[1]) / det, (s[0]*d[1] - s01*d[0]) / det}
+			active = [2]bool{true, true}
+		}
+		for i := 0; i < n; i++ {
+			js.x[i] += js.p[i*n+4]*lambda[0] + js.p[i*n+5]*lambda[1]
+		}
+	} else {
+		for j := 0; j < 2; j++ {
+			dj := lower[j] - js.x[4+j]
+			if !(dj > 0) {
+				continue
+			}
+			active[j] = true
+			if sjj := js.p[(4+j)*n+4+j]; sjj > 0 {
+				for i := 0; i < n; i++ {
+					js.x[i] += js.p[i*n+4+j] / sjj * dj
+				}
+			}
+		}
 	}
-	tm, tv, ok := target(cm, cv)
-	if !ok || !(tv < cv) || math.IsNaN(tm) || math.IsInf(tm, 0) {
-		return false
+	// On the constraint exactly, not a rounding below it.
+	for j, a := range active {
+		if a {
+			js.x[4+j] = lower[j]
+		}
 	}
-	var pg [n]float64
-	for j := 0; j < n; j++ {
-		pg[j] = js.p[j*n+k]
-	}
-	js.replaceMarginal(pg, v, tm-m, tv)
-	sb.setJoint(js)
-	*site = extentSite{precision: 1/tv - 1/cv, weighted: tm/tv - cm/cv}
-	if !(site.precision > 0) {
-		// The target equals the cavity to float64 precision: no site.
-		*site = extentSite{}
-	}
-	return true
+	return active
 }
 
 // censoredDimension is CensoredExtent's dimension: the class prior

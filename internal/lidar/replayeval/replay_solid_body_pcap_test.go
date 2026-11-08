@@ -41,8 +41,15 @@ type solidBodyArm struct {
 
 func runSolidBodyArm(t *testing.T, dir, name string, experiments []string) solidBodyArm {
 	t.Helper()
+	return runSolidBodyArmTapped(t, dir, name, experiments, nil)
+}
+
+// runSolidBodyArmTapped is runSolidBodyArm with a tracker tap.
+func runSolidBodyArmTapped(t *testing.T, dir, name string, experiments []string, tap func(TrackerTapFrame)) solidBodyArm {
+	t.Helper()
 	cfg := Config{
-		PCAPFile: requireKirk0(t), OutDir: filepath.Join(dir, name), SensorID: "test-replay", UDPPort: 2369,
+		TrackerTap: tap,
+		PCAPFile:   requireKirk0(t), OutDir: filepath.Join(dir, name), SensorID: "test-replay", UDPPort: 2369,
 		// The whole capture after the settled 20 s prefix.
 		StartSeconds: 20, WarmupSeconds: 20, RequireSettled: true,
 		ObservationDBPath: filepath.Join(dir, name+".db"), ClipID: "kirk0-solid-body",
@@ -286,19 +293,65 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 // for the plan rather than required to be equal; the default arm itself is
 // the default replay, which the other kirk0 tests pin.
 func TestNearEdgeTrackOnKirk0(t *testing.T) {
+	runNearEdgeTrackOnKirk0(t, "near_edge_track", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers,
+		ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces, ExperimentNearEdgeTrack})
+}
+
+// TestNearEdgeTrackExtentStateOnKirk0 is the same exit with the extent state
+// on the tracked filter: the arm runs, runs identically twice, and every
+// online solid body carries and persists the 6x6 joint covariance. How the
+// tracked arm moves against near_edge_track is logged, not asserted.
+func TestNearEdgeTrackExtentStateOnKirk0(t *testing.T) {
+	first := runNearEdgeTrackOnKirk0(t, "near_edge_track_extent_state", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers,
+		ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces, ExperimentNearEdgeTrack, ExperimentSolidBodyExtentState})
+	var joint, jointFront, independentFront int
+	var frontJoint, frontIndependent []float64
+	for _, sb := range first.bodies {
+		r := sb.Reading
+		if !r.ExtentState || !r.Estimate.ExtentState {
+			t.Fatalf("solid body %s read back without the extent state", sb.EstimateID)
+		}
+		if _, ok := r.JointCovariance(); !ok {
+			t.Fatalf("solid body %s has no joint covariance", sb.EstimateID)
+		}
+		joint++
+		if p, ok := r.Estimate.ProjectSurface(l5tracks.SurfaceFront); ok {
+			if !p.JointBound {
+				t.Fatalf("solid body %s: a front projection that is not joint under the extent state", sb.EstimateID)
+			}
+			jointFront++
+			frontJoint = append(frontJoint, float64(p.SigmaMetres))
+			apart := r.Estimate
+			apart.ExtentState = false
+			if q, ok := apart.ProjectSurface(l5tracks.SurfaceFront); ok {
+				independentFront++
+				frontIndependent = append(frontIndependent, float64(q.SigmaMetres))
+			}
+		}
+	}
+	t.Logf("kirk0 near_edge_track_extent_state: %d solid bodies with the joint covariance; %d front projections, "+
+		"joint sigma median %.3f m (p90 %.3f), independent-sum sigma median %.3f m (p90 %.3f) over %d of them",
+		joint, jointFront, evidenceMedian(frontJoint), evidenceQuantile(frontJoint, 0.9),
+		evidenceMedian(frontIndependent), evidenceQuantile(frontIndependent, 0.9), independentFront)
+	logExtentConvergence(t, first.bodies)
+}
+
+// runNearEdgeTrackOnKirk0 runs a tracked arm twice beside the default, holds
+// it to determinism and to one solid body beside each point estimate at the
+// same position, logs its summary, and returns the first run.
+func runNearEdgeTrackOnKirk0(t *testing.T, name string, experiments []string) solidBodyArm {
+	t.Helper()
 	dir := t.TempDir()
-	experiments := []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers,
-		ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces, ExperimentNearEdgeTrack}
 	plain := runSolidBodyArm(t, dir, "default", nil)
-	first := runSolidBodyArm(t, dir, "near_edge_track", experiments)
-	repeat := runSolidBodyArm(t, dir, "near_edge_track_repeat", experiments)
+	first := runSolidBodyArm(t, dir, name, experiments)
+	repeat := runSolidBodyArm(t, dir, name+"_repeat", experiments)
 
 	if !bytes.Equal(first.baseline, repeat.baseline) {
-		t.Fatalf("near_edge_track's tracking baseline differs between two replays:\n%s\n%s", first.baseline, repeat.baseline)
+		t.Fatalf("%s's tracking baseline differs between two replays:\n%s\n%s", name, first.baseline, repeat.baseline)
 	}
 	firstFrames, trackFrames := trackFingerprint(t, first.cfg.OutDir)
 	repeatFrames, _ := trackFingerprint(t, repeat.cfg.OutDir)
-	requireSameDecisions(t, "near_edge_track repeat", firstFrames, repeatFrames)
+	requireSameDecisions(t, name+" repeat", firstFrames, repeatFrames)
 	if len(first.points) != len(repeat.points) || len(first.bodies) != len(repeat.bodies) {
 		t.Fatalf("repeat wrote %d/%d rows, first %d/%d", len(repeat.points), len(repeat.bodies), len(first.points), len(first.bodies))
 	}
@@ -307,8 +360,13 @@ func TestNearEdgeTrackOnKirk0(t *testing.T) {
 			t.Fatalf("point estimate %d differs between replays:\n%s\n%s", i, a, b)
 		}
 	}
+	for i := range first.bodies {
+		if a, b := solidBodyContent(first.bodies[i]), solidBodyContent(repeat.bodies[i]); a != b {
+			t.Fatalf("solid body %d differs between replays:\n%s\n%s", i, a, b)
+		}
+	}
 	if first.params == plain.params {
-		t.Error("near_edge_track shares the default's parameter hash")
+		t.Errorf("%s shares the default's parameter hash", name)
 	}
 	if len(first.bodies) != len(first.points) {
 		t.Fatalf("%d solid bodies for %d point estimates; want one beside each", len(first.bodies), len(first.points))
@@ -348,10 +406,137 @@ func TestNearEdgeTrackOnKirk0(t *testing.T) {
 	}
 	plainFrames, plainTrackFrames := trackFingerprint(t, plain.cfg.OutDir)
 	all := summary.AnchorBodiesCentred
-	t.Logf("kirk0 near_edge_track: %d recorded frames (default %d), %d track-frames (default %d); "+
+	t.Logf("kirk0 %s: %d recorded frames (default %d), %d track-frames (default %d); "+
 		"%d fixes of %d rows, %d near-edge point estimates, %d re-references, %d lapses; "+
 		"body-centre lateral p95/p99/max %.3f/%.3f/%.3f m, steady p99 %.3f m, face-stable p99 %.3f m",
-		len(firstFrames), len(plainFrames), trackFrames, plainTrackFrames,
+		name, len(firstFrames), len(plainFrames), trackFrames, plainTrackFrames,
 		summary.NearEdgeFixes, summary.SolidBodies, nearEdge, summary.ReReferences, summary.Lapses,
 		all.P95Metres, all.P99Metres, all.MaxMetres, summary.AnchorBodiesSteady.P99Metres, summary.AnchorBodiesFaceStable.P99Metres)
+	return first
+}
+
+// solidBodyContent is a solid body without its random identities: the
+// reading, joint covariance included.
+func solidBodyContent(sb observationsqlite.TrackSolidBody) string {
+	joint, _ := sb.Reading.JointCovariance()
+	return fmt.Sprintf("%d@%d %s %+v %v", sb.CreationSequence, sb.FrameUnixNanos, sb.Reading.CovarianceStateModel(), sb.Reading, joint)
+}
+
+// boxArmSummary is what one kirk0 arm drew as its published box, over the
+// scored frames: per track, the longest box and the last of its counters.
+type boxArmSummary struct {
+	trackFrames int
+	maxLength   map[int64]float64
+	maxWidth    map[int64]float64
+	stats       map[int64]l5tracks.BoxStats
+}
+
+func newBoxArmSummary() *boxArmSummary {
+	return &boxArmSummary{maxLength: map[int64]float64{}, maxWidth: map[int64]float64{}, stats: map[int64]l5tracks.BoxStats{}}
+}
+
+func (s *boxArmSummary) tap(f TrackerTapFrame) {
+	if !f.Scored {
+		return
+	}
+	for _, tr := range f.Tracks {
+		if tr.BoxLength <= 0 {
+			continue
+		}
+		s.trackFrames++
+		seq := tr.CreationSequence
+		if l := float64(tr.BoxLength); l > s.maxLength[seq] {
+			s.maxLength[seq] = l
+			s.maxWidth[seq] = float64(tr.BoxWidth)
+		}
+		if st, ok := tr.BoxModelStats(); ok {
+			s.stats[seq] = st
+		}
+	}
+}
+
+// totals sums the per-track counters.
+func (s *boxArmSummary) totals() l5tracks.BoxStats {
+	var sum l5tracks.BoxStats
+	for _, st := range s.stats {
+		sum.BodyExtentFrames += st.BodyExtentFrames
+		sum.BodyExtentUnknown += st.BodyExtentUnknown
+		sum.BodyExtentAxisRefusals += st.BodyExtentAxisRefusals
+		sum.BodyExtentUnsettled += st.BodyExtentUnsettled
+	}
+	return sum
+}
+
+// TestBoxExtentFromSolidBodyOnKirk0 is box_extent_solid_body's wiring check:
+// beside the face-state solid body, the published box takes its length and
+// width from the solid body's extent state on some frames and falls back on
+// the rest, and the run says how often each. Label-free: it shows the option
+// reaches the box on a real capture and how much it moves it, not whether
+// the moved box is nearer the truth, which needs geom0015's reviewed body
+// centres.
+func TestBoxExtentFromSolidBodyOnKirk0(t *testing.T) {
+	dir := t.TempDir()
+	faceState := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState}
+	plainBox, onBox := newBoxArmSummary(), newBoxArmSummary()
+	plain := runSolidBodyArmTapped(t, dir, "face_state", faceState, plainBox.tap)
+	on := runSolidBodyArmTapped(t, dir, "box_extent_solid_body", append(append([]string{}, faceState...), ExperimentBoxExtentSolidBody), onBox.tap)
+	if on.params == plain.params {
+		t.Error("box_extent_solid_body shares the face-state arm's parameter hash")
+	}
+	sameTracks := bytes.Equal(plain.baseline, on.baseline)
+	if !sameTracks {
+		// L3's track guard holds the returns inside each confirmed track's
+		// published box as foreground (pipeline/track_guard.go), so a longer
+		// box changes the next frames' clusters and the tracks move with it.
+		t.Logf("box_extent_solid_body changed the tracking baseline, through the track guard's published boxes")
+	}
+	total := onBox.totals()
+	t.Logf("kirk0 box_extent_solid_body: %d box track-frames (face state %d), tracking baseline equal %v; "+
+		"associated frames: %d took the solid body's extent, %d had none to read, %d refused on axis, %d not yet settled",
+		onBox.trackFrames, plainBox.trackFrames, sameTracks,
+		total.BodyExtentFrames, total.BodyExtentUnknown, total.BodyExtentAxisRefusals, total.BodyExtentUnsettled)
+	if total.BodyExtentFrames == 0 {
+		t.Fatal("no frame on kirk0 took the solid body's extent: the option never reached the box")
+	}
+	if pt := plainBox.totals(); pt != (l5tracks.BoxStats{}) {
+		t.Errorf("the face-state arm counted body-extent frames without the option: %+v", pt)
+	}
+	logBoxLengthShift(t, plainBox, onBox)
+}
+
+// logBoxLengthShift reports, over the tracks both arms drew, how the longest
+// box each drew moved, and the longest box among vehicle-wide tracks. Tracks
+// are paired by creation sequence, which names the same object in both arms
+// only while their tracks agree; where the track guard has moved them it is
+// an approximate pairing, and the vehicle-wide medians are the firmer read.
+func logBoxLengthShift(t *testing.T, plain, on *boxArmSummary) {
+	t.Helper()
+	var deltas, plainVehicle, onVehicle []float64
+	longer, shorter, used := 0, 0, 0
+	for seq, l := range on.maxLength {
+		p, ok := plain.maxLength[seq]
+		if !ok {
+			continue
+		}
+		d := l - p
+		deltas = append(deltas, d)
+		switch {
+		case d > 0.5:
+			longer++
+		case d < -0.5:
+			shorter++
+		}
+		if on.stats[seq].BodyExtentFrames > 0 {
+			used++
+		}
+		if on.maxWidth[seq] >= 1.5 && plain.maxWidth[seq] >= 1.5 {
+			plainVehicle = append(plainVehicle, p)
+			onVehicle = append(onVehicle, l)
+		}
+	}
+	t.Logf("longest box per track over %d tracks in both arms (%d took the state on some frame): "+
+		"change median %+.3f m, p10 %+.3f, p90 %+.3f; %d longer by over 0.5 m, %d shorter; "+
+		"vehicle-wide tracks (%d): median longest %.2f m without, %.2f m with, p90 %.2f and %.2f m",
+		len(deltas), used, evidenceMedian(deltas), evidenceQuantile(deltas, 0.1), evidenceQuantile(deltas, 0.9), longer, shorter,
+		len(onVehicle), evidenceMedian(plainVehicle), evidenceMedian(onVehicle), evidenceQuantile(plainVehicle, 0.9), evidenceQuantile(onVehicle, 0.9))
 }
