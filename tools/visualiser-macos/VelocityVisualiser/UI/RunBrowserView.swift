@@ -118,18 +118,17 @@ private enum RunBrowserLayout {
                             ForEach(group.rows) { row in
                                 runRow(row.run)
                                 if let label = row.foldLabel {
-                                    RunFoldToggle(
-                                        label: label, isExpanded: expandedFolds.contains(row.id)
-                                    ) {
+                                    // The open run is never hidden in a fold.
+                                    let holdsOpenRun = row.folds(runBrowserState.selectedRunID)
+                                    let expanded = holdsOpenRun || expandedFolds.contains(row.id)
+                                    RunFoldToggle(label: label, isExpanded: expanded) {
                                         if expandedFolds.contains(row.id) {
                                             expandedFolds.remove(row.id)
                                         } else {
                                             expandedFolds.insert(row.id)
                                         }
-                                    }
-                                    if expandedFolds.contains(row.id) {
-                                        ForEach(row.folded) { run in runRow(run) }
-                                    }
+                                    }.inert(holdsOpenRun, hint: "The open run is in this fold")
+                                    if expanded { ForEach(row.folded) { run in runRow(run) } }
                                 }
                             }
                         }

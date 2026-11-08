@@ -12,6 +12,12 @@ struct RunFoldRow: Identifiable {
 
     var id: String { run.runId }
 
+    /// Whether a run is one of this row's folded repeats.
+    func folds(_ runID: String?) -> Bool {
+        guard let runID else { return false }
+        return folded.contains { $0.runId == runID }
+    }
+
     /// The fold's line under the row, or nil when nothing is folded.
     var foldLabel: String? { folded.isEmpty ? nil : "+ \(folded.count) more, identical parameters" }
 }
@@ -85,13 +91,18 @@ enum RunGrouping {
     }
 
     /// Whether a run repeats another: the same capture read with the same
-    /// parameters. A run with no parameter digest repeats nothing.
+    /// parameters and the same build, ending the same way. A run without
+    /// either digest repeats nothing. The status and the recording are
+    /// compared so a failed run never hides an openable one behind its fold,
+    /// and the configuration digest, which includes the build, so a rerun
+    /// after a perception change is not called identical.
     static func repeats(_ run: Run, _ other: Run) -> Bool {
-        guard let hash = nonEmpty(run.paramsHash), hash == nonEmpty(other.paramsHash) else {
-            return false
-        }
+        guard let params = nonEmpty(run.paramsHash), params == nonEmpty(other.paramsHash),
+            let config = nonEmpty(run.configHash), config == nonEmpty(other.configHash)
+        else { return false }
         return clipID(of: run) == clipID(of: other) && run.sourcePath == other.sourcePath
-            && run.sensorId == other.sensorId
+            && run.sensorId == other.sensorId && run.status == other.status
+            && run.hasVRLog == other.hasVRLog
     }
 
     private static func nonEmpty(_ value: String?) -> String? {

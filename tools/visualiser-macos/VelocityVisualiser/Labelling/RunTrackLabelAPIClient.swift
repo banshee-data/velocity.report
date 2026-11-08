@@ -83,10 +83,14 @@ class RunTrackLabelAPIClient {
         return try Self.goDecoder.decode(Run.self, from: data)
     }
 
-    /// List the clips, for naming the run browser's groups.
-    func listClips() async throws -> [ClipSummary] {
-        let url = baseURL.appendingPathComponent("api/lidar/clips")
-        let (data, response) = try await session.data(from: url)
+    /// List the clips, for naming the run browser's groups. A plain list
+    /// carries no locations; `located` lists only the clips with one, each
+    /// with its location, which is where a clip's site comes from.
+    func listClips(located: Bool = false) async throws -> [ClipSummary] {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("api/lidar/clips"), resolvingAgainstBaseURL: false)!
+        if located { components.queryItems = [URLQueryItem(name: "located", value: "1")] }
+        let (data, response) = try await session.data(from: components.url!)
         guard let httpResponse = response as? HTTPURLResponse,
             (200...299).contains(httpResponse.statusCode)
         else { throw APIError.requestFailed(response) }
@@ -320,7 +324,9 @@ struct ClipSummary: Codable, Equatable {
         return trimmed.isEmpty ? "Clip \(clipId.prefix(8))" : trimmed
     }
 
-    /// The site the clip was captured at, when known.
+    /// The site the clip was captured at, when known: the site's S2 cell as
+    /// the server displays it. Sites have labels only through a lookup per
+    /// site, which the run browser does not make.
     var site: String? {
         for value in [location?.s2L16Display, location?.siteId] {
             if let value, !value.isEmpty { return value }
@@ -403,6 +409,9 @@ struct Run: Codable, Identifiable {
     /// The digest of the parameters the run was made with. Runs with the same
     /// digest on the same capture are repeats; older servers omit it.
     var paramsHash: String? = nil
+    /// The digest of the run's whole configuration, build included, which
+    /// `paramsHash` leaves out. Older servers omit it.
+    var configHash: String? = nil
     var labelRollup: RunLabelRollup? = nil
     /// What the run's VRLOG frames hold: "full" (background and foreground in
     /// every frame) or "foreground". Servers before frame_mode omit it, and
