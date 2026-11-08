@@ -2266,6 +2266,13 @@ describe('api', () => {
 				);
 			});
 
+			it('asks for each run’s sweep only when told to', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+				const { getLidarRuns } = await import('./api');
+				await getLidarRuns({ sweeps: true });
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/?sweeps=1');
+			});
+
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getLidarRuns } = await import('./api');
@@ -2279,6 +2286,43 @@ describe('api', () => {
 				});
 				const { getLidarRuns } = await import('./api');
 				await expect(getLidarRuns()).resolves.toEqual([]);
+			});
+		});
+
+		describe('getRunVrlogFrame', () => {
+			it('asks for the frame at an instant given in nanoseconds', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					status: 200,
+					json: async () => ({ frame: 412, total_frames: 9000 })
+				});
+				const { getRunVrlogFrame } = await import('./api');
+				await expect(getRunVrlogFrame('run 1', '1794153505436000000')).resolves.toEqual({
+					frame: 412,
+					total_frames: 9000
+				});
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/runs/run%201/vrlog-frame?at_ns=1794153505436000000'
+				);
+			});
+
+			it('says why when the run has no recording to read', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 404,
+					json: async () => ({ error: 'this run has no recording' })
+				});
+				const { getRunVrlogFrame } = await import('./api');
+				await expect(getRunVrlogFrame('r', '1')).resolves.toEqual({
+					frame: null,
+					reason: 'this run has no recording'
+				});
+			});
+
+			it('throws on a server error rather than calling it no recording', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getRunVrlogFrame } = await import('./api');
+				await expect(getRunVrlogFrame('r', '1')).rejects.toThrow(/HTTP 500/);
 			});
 		});
 
@@ -2329,6 +2373,13 @@ describe('api', () => {
 				const { getLidarRun } = await import('./api');
 				await expect(getLidarRun('r1')).resolves.toEqual({ run_id: 'r1', sensor_id: 'hesai' });
 				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/r1');
+			});
+
+			it('asks for the run’s sweep only when told to', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+				const { getLidarRun } = await import('./api');
+				await getLidarRun('r 1', { sweeps: true });
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/r%201?sweeps=1');
 			});
 
 			it('names the run it could not load', async () => {

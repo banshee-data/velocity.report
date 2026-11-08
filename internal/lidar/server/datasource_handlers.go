@@ -147,7 +147,21 @@ var sweepSlotRetryDelay = 5 * time.Second
 // skip it, so the whole sweep finished with no results.
 func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMode string, speedRatio float64,
 	startSeconds, durationSeconds float64, maxRetries int, disableRecording bool) error {
+	return ws.startPCAPForSweep(pcapFile, ReplayConfig{
+		StartSeconds:     startSeconds,
+		DurationSeconds:  durationSeconds,
+		SpeedMode:        speedMode,
+		SpeedRatio:       speedRatio,
+		AnalysisMode:     analysisMode,
+		DisableRecording: disableRecording,
+	}, maxRetries)
+}
 
+// startPCAPForSweep is StartPCAPForSweep with the replay given as a
+// ReplayConfig, so a sweep can name the clip its runs belong to. Only the
+// timing, speed, analysis, recording and clip fields are read; the sensor is
+// always the server's own.
+func (ws *Server) startPCAPForSweep(pcapFile string, replay ReplayConfig, maxRetries int) error {
 	if maxRetries <= 0 {
 		maxRetries = 60
 	}
@@ -181,13 +195,14 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 		}
 
 		if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
-			StartSeconds:     startSeconds,
-			DurationSeconds:  durationSeconds,
-			SpeedMode:        speedMode,
-			SpeedRatio:       speedRatio,
-			AnalysisMode:     analysisMode,
-			DisableRecording: disableRecording,
+			StartSeconds:     replay.StartSeconds,
+			DurationSeconds:  replay.DurationSeconds,
+			SpeedMode:        replay.SpeedMode,
+			SpeedRatio:       replay.SpeedRatio,
+			AnalysisMode:     replay.AnalysisMode,
+			DisableRecording: replay.DisableRecording,
 			SensorID:         ws.sensorID,
+			ClipID:           replay.ClipID,
 		}); err != nil {
 			_ = ws.startLiveListenerLocked()
 			ws.dataSourceMu.Unlock()

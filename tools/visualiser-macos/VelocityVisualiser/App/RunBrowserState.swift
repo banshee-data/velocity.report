@@ -81,6 +81,8 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
     // MARK: - Published State
 
     @Published var runs: [Run] = []
+    /// The clips the runs name, by clip ID, for the groups' headers.
+    @Published var clips: [String: ClipSummary] = [:]
     @Published var isLoading: Bool = false
     @Published var error: String?
     @Published var selectedRunID: String?
@@ -109,12 +111,82 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
             let fetchedRuns = try await apiClient.listRuns(limit: 50)
             runs = fetchedRuns
             logger.info("Fetched \(fetchedRuns.count) runs")
+            await fetchClips()
+        } catch  where Self.isCancellation(error) {
+            // A task that was cancelled, such as a window's lookup for a pack
+            // closed meanwhile, failed nothing the operator asked for.
+            logger.info("Fetching runs cancelled")
         } catch {
             self.error = "Failed to fetch runs: \(error.localizedDescription)"
             logger.error("Failed to fetch runs: \(error.localizedDescription)")
         }
 
         isLoading = false
+    }
+
+    /// Whether an error only reports that its task was cancelled.
+    static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let error = error as? URLError, error.code == .cancelled { return true }
+        return false
+    }
+
+    /// Fetch the clips, for naming the groups. A server that cannot list them
+    /// leaves the groups named by clip ID, so a failure here is logged only.
+    func fetchClips() async {
+        do {
+            let list = try await apiClient.listClips()
+            var byID = Dictionary(
+                list.map { ($0.clipId, $0) }, uniquingKeysWith: { first, _ in first })
+            // The plain list names every clip; only the located list carries
+            // locations, so the sites come from it.
+            if let located = try? await apiClient.listClips(located: true) {
+                for clip in located where byID[clip.clipId] != nil {
+                    byID[clip.clipId]?.location = clip.location
+                }
+            }
+            clips = byID
+        } catch { logger.error("Failed to fetch clips: \(error.localizedDescription)") }
+    }
+
+    /// The name of the clip a run was made from, for the Annotation window's
+    /// title, or nil when the run has none or cannot be found.
+    ///
+    /// It reads the run on its own rather than through `fetchRuns`, so a
+    /// lookup that is cancelled or fails writes nothing the sheet shows, and
+    /// two lookups cannot add the same run to the list twice.
+    func clipName(forRun runID: String) async -> String? {
+        var run = runs.first { $0.runId == runID }
+        if run == nil { run = try? await apiClient.getRun(runID) }
+        guard !Task.isCancelled, let run, let clip = RunGrouping.clipID(of: run) else { return nil }
+        if clips[clip] == nil { await fetchClips() }
+        return clips[clip]?.name ?? "Clip \(clip.prefix(8))"
+    }
+
+    /// Find a run a link names: in the list, else asked of the server, so a
+    /// run older than the latest 50 still opens. A run found on the server
+    /// joins the list, where `loadRunForReplay` looks for it. Returns the
+    /// run, or why it could not be found.
+    func findRun(_ runID: String) async -> Result<Run, RunLookupError> {
+        if runs.isEmpty { await fetchRuns() }
+        if let run = runs.first(where: { $0.runId == runID }) { return .success(run) }
+        do {
+            let run = try await apiClient.getRun(runID)
+            runs.append(run)
+            return .success(run)
+        } catch let RunTrackLabelAPIClient.APIError.requestFailed(response)
+            where (response as? HTTPURLResponse)?.statusCode == 404
+        { return .failure(.notFound) } catch let RunTrackLabelAPIClient.APIError.server(status, _)
+            where status == 404
+        { return .failure(.notFound) } catch {
+            return .failure(.unreachable(error.localizedDescription))
+        }
+    }
+
+    /// Why `findRun` found no run.
+    enum RunLookupError: Error, Equatable {
+        case notFound
+        case unreachable(String)
     }
 
     /// Load a run for VRLOG replay.

@@ -156,7 +156,7 @@ func TestRunValidatesSelectorFiles(t *testing.T) {
 		t.Fatalf("run returned %d: %s", code, stderr.String())
 	}
 	requireContains(t, stdout.String(), "valid selectors:")
-	requireContains(t, stdout.String(), "selectors=7 held_out=3")
+	requireContains(t, stdout.String(), "selectors=8 held_out=4")
 
 	invalid := filepath.Join(t.TempDir(), "selectors.json")
 	if err := os.WriteFile(invalid, []byte(`{"version": 1, "selectors": []}`), 0o644); err != nil {

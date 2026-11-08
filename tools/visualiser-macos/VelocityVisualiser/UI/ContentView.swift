@@ -24,6 +24,7 @@ func playbackStepFrameCount(for modifierFlags: NSEvent.ModifierFlags) -> UInt64 
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
@@ -155,6 +156,22 @@ struct ContentView: View {
                 // Share the app-level RunBrowserState so local rollup updates stay in sync
                 // with the run-browser sheet and replay-loading helper.
                 RunBrowserView(state: appState.runBrowserState).environmentObject(appState)
+            }
+            // What a velocityreport:// link left to say: why it was refused,
+            // or how it opened when not quite as asked.
+            .alert(
+                appState.linkAlert?.title ?? "",
+                isPresented: Binding(
+                    get: { appState.linkAlert != nil }, set: { if !$0 { appState.linkAlert = nil } }
+                )
+            ) {
+                Button("OK") { appState.linkAlert = nil }
+            } message: {
+                Text(appState.linkAlert?.message ?? "")
+            }.onAppear {
+                // A link arriving with this window closed reopens it, through
+                // the scene's own action: AppKit cannot reopen a SwiftUI Window.
+                VisualiserURLInbox.shared.openMainWindow = { openWindow(id: "main") }
             }
     }
 }

@@ -8,7 +8,6 @@
 	 */
 	import type { PcapFileInfo } from '#lib/api.js';
 	import {
-		createLidarClip,
 		createClipFromCaptures,
 		deleteLidarClip,
 		getCaptureJobs,
@@ -35,7 +34,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onDestroy, onMount } from 'svelte';
-	import { Button, SelectField } from 'svelte-ux';
+	import { Button } from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	// Survey list
@@ -47,14 +46,8 @@
 	let selectedScene: LidarClip | null = null;
 
 	// Create form state
-	let showCreateForm = false;
-	let newSensorId = 'hesai-pandar40p';
-	let newPcapFile = '';
-	let newDescription = '';
-	let newPcapStartSecs = '';
-	let newPcapDurationSecs = '';
-	let creating = false;
-	let createError: string | null = null;
+	// The sensor a clip joined from the scanned folder is recorded against.
+	const newSensorId = 'hesai-pandar40p';
 
 	// Edit form state
 	let editDescription = '';
@@ -232,31 +225,6 @@
 		editPcapDurationSecs = '';
 		editCaptureFiles = '';
 		saveError = null;
-	}
-
-	async function handleCreate() {
-		creating = true;
-		createError = null;
-		try {
-			const scene = await createLidarClip({
-				sensor_id: newSensorId,
-				pcap_files: [newPcapFile],
-				description: newDescription || undefined,
-				pcap_start_secs: newPcapStartSecs ? parseFloat(newPcapStartSecs) : undefined,
-				pcap_duration_secs: newPcapDurationSecs ? parseFloat(newPcapDurationSecs) : undefined
-			});
-			scenes = [...scenes, scene];
-			// Reset form
-			newPcapFile = '';
-			newDescription = '';
-			newPcapStartSecs = '';
-			newPcapDurationSecs = '';
-			showCreateForm = false;
-		} catch (e) {
-			createError = e instanceof Error ? e.message : 'Could not create the clip.';
-		} finally {
-			creating = false;
-		}
 	}
 
 	async function handleUpdate() {
@@ -449,9 +417,13 @@
 				<Button variant="outline" on:click={handleScanPcap} disabled={scanning}>
 					{scanning ? 'Scanning...' : 'Scan PCAP Folder'}
 				</Button>
-				<Button variant="fill" color="primary" on:click={() => (showCreateForm = !showCreateForm)}>
-					{showCreateForm ? 'Cancel' : 'New Clip'}
-				</Button>
+				<!-- Clips are made on Captures, from a session's static periods or its captures. -->
+				<a
+					href={resolve('/lidar/captures')}
+					class="bg-primary text-primary-content inline-flex items-center rounded px-3 py-1.5 text-sm font-medium hover:opacity-90"
+					title="Make clips from a capture session's static periods, or from captures you pick"
+					>Make clips on Captures →</a
+				>
 			</div>
 		</div>
 	</div>
@@ -477,97 +449,6 @@
 						<span class="text-sky-700/70">Progress shows in the Lanes column.</span>
 					{/if}
 					<button class="ml-2 underline" on:click={() => (laneMessage = null)}>Dismiss</button>
-				</div>
-			{/if}
-
-			<!-- Create Form -->
-			{#if showCreateForm}
-				<div class="bg-surface-100 border-surface-content/10 mb-6 rounded-lg border p-6">
-					<h2 class="text-surface-content mb-4 text-lg font-semibold">Create New Clip</h2>
-
-					{#if createError}
-						<div class="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
-							{createError}
-						</div>
-					{/if}
-
-					<div class="grid grid-cols-2 gap-4">
-						<div>
-							<label for="new-sensor" class="text-surface-content/70 mb-1 block text-sm font-medium"
-								>Sensor</label
-							>
-							<SelectField
-								label=""
-								bind:value={newSensorId}
-								options={[{ label: 'Hesai Pandar40P', value: 'hesai-pandar40p' }]}
-								size="sm"
-							/>
-						</div>
-						<div>
-							<label for="new-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium"
-								>PCAP File</label
-							>
-							<input
-								id="new-pcap"
-								type="text"
-								bind:value={newPcapFile}
-								placeholder="path/to/capture.pcap"
-								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
-							/>
-						</div>
-						<div class="col-span-2">
-							<label for="new-desc" class="text-surface-content/70 mb-1 block text-sm font-medium"
-								>Description</label
-							>
-							<textarea
-								id="new-desc"
-								bind:value={newDescription}
-								placeholder="Describe what the clip covers..."
-								rows="2"
-								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
-							></textarea>
-						</div>
-						<div>
-							<label for="new-start" class="text-surface-content/70 mb-1 block text-sm font-medium"
-								>Start Offset (seconds)</label
-							>
-							<input
-								id="new-start"
-								type="text"
-								bind:value={newPcapStartSecs}
-								placeholder="0"
-								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
-							/>
-						</div>
-						<div>
-							<label
-								for="new-duration"
-								class="text-surface-content/70 mb-1 block text-sm font-medium"
-								>Duration (seconds)</label
-							>
-							<input
-								id="new-duration"
-								type="text"
-								bind:value={newPcapDurationSecs}
-								placeholder="Full PCAP"
-								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
-							/>
-						</div>
-					</div>
-
-					<div class="mt-4 flex justify-end gap-2">
-						<Button variant="outline" on:click={() => (showCreateForm = false)} disabled={creating}>
-							Cancel
-						</Button>
-						<Button
-							variant="fill"
-							color="primary"
-							on:click={handleCreate}
-							disabled={creating || !newPcapFile}
-						>
-							{creating ? 'Creating...' : 'Create Clip'}
-						</Button>
-					</div>
 				</div>
 			{/if}
 

@@ -316,6 +316,26 @@ func annotationFramingHalfHeight(
 struct AnnotationWindow: View {
     @StateObject private var controller = AnnotationController()
     @State private var showGenerateSheet = false
+    @EnvironmentObject private var appState: AppState
+    /// The clip the open pack's run was made from, read when a pack opens,
+    /// with the session it was read for: a slow lookup for one pack is never
+    /// shown on the next.
+    @State private var packClip: (session: ObjectIdentifier, name: String)?
+
+    private var sessionID: ObjectIdentifier? { controller.session.map(ObjectIdentifier.init) }
+
+    /// The clip's name, when it was read for the pack that is open.
+    private var openPackClip: String? {
+        guard let packClip, packClip.session == sessionID else { return nil }
+        return packClip.name
+    }
+
+    /// The run the open pack was cut from.
+    private var packRunID: String? {
+        controller.session.flatMap {
+            AnnotationWindowTitle.runID(ofVRLogPath: $0.pack.manifest.source.vrlogPath)
+        }
+    }
 
     var body: some View {
         Group {
@@ -326,8 +346,19 @@ struct AnnotationWindow: View {
                 emptyState
             }
         }.frame(minWidth: 1180, minHeight: 700).navigationTitle(
-            controller.packName.map { "Annotation — \($0)" } ?? "Annotation"
-        ).sheet(isPresented: $showGenerateSheet) {
+            // The pack's window position is not shown: the app does not read
+            // the clip job's windows, so it does not know it.
+            AnnotationWindowTitle.format(
+                clip: openPackClip, pack: controller.packName, runID: packRunID)
+        ).task(id: sessionID) {
+            packClip = nil
+            guard let session = sessionID, let runID = packRunID else { return }
+            let name = await appState.runBrowserState.clipName(forRun: runID)
+            // Another pack opened meanwhile: this task was cancelled, and its
+            // answer is not that pack's.
+            guard !Task.isCancelled, session == sessionID, let name else { return }
+            packClip = (session, name)
+        }.sheet(isPresented: $showGenerateSheet) {
             GenerateAnnotationPackSheet { packDir in controller.openGeneratedPack(at: packDir) }
         }
     }

@@ -1,10 +1,6 @@
 import { VIRIDIS } from './components/charts/chartData';
 import {
 	CSV_METRIC_COLUMNS,
-	parseScoreComponents,
-	recommendationMetrics,
-	resultsCsv,
-	roundSummary,
 	autoTuneEtaSeconds,
 	comboBars,
 	comboLabel,
@@ -16,7 +12,12 @@ import {
 	metricLabel,
 	numericParams,
 	paramHeatmap,
-	resultColumns
+	parseScoreComponents,
+	recommendationMetrics,
+	resultColumns,
+	resultsCsv,
+	roundSummary,
+	sweepSummaryOf
 } from './sweepResults';
 
 const EPS = 'l4.dbscan_xy_v1.foreground_dbscan_eps';
@@ -308,5 +309,34 @@ describe('parseScoreComponents', () => {
 		expect(parseScoreComponents('{bad')).toBeNull();
 		expect(parseScoreComponents([1])).toBeNull();
 		expect(parseScoreComponents(null)).toBeNull();
+	});
+});
+
+describe('sweepSummaryOf', () => {
+	it('summarises a sweep fetched by id as the list does', () => {
+		expect(
+			sweepSummaryOf({
+				id: 7,
+				sweep_id: 'sw-1',
+				sensor_id: 'hesai-pandar40p',
+				mode: 'auto',
+				status: 'completed',
+				started_at: '2026-03-24T13:29:41Z',
+				completed_at: '2026-03-24T14:49:41Z',
+				request: { clip_id: 'kirk0', objective: 'ground_truth', pcap_file: '' }
+			})
+		).toEqual({
+			id: 7,
+			sweep_id: 'sw-1',
+			sensor_id: 'hesai-pandar40p',
+			mode: 'auto',
+			status: 'completed',
+			error: undefined,
+			started_at: '2026-03-24T13:29:41Z',
+			completed_at: '2026-03-24T14:49:41Z',
+			objective_name: 'ground_truth',
+			clip_id: 'kirk0',
+			pcap_file: undefined
+		});
 	});
 });

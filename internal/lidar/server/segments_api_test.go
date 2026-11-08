@@ -912,7 +912,7 @@ func TestSegmentsAPIRanksWithSelectors(t *testing.T) {
 		Selectors []segments.ListedSelector `json:"selectors"`
 	}
 	if err := json.Unmarshal(listed.Body.Bytes(), &catalogue); err != nil || listed.Code != 200 || catalogue.Version != 1 ||
-		!strings.HasPrefix(catalogue.Digest, "sha256:") || len(catalogue.Selectors) != 7 {
+		!strings.HasPrefix(catalogue.Digest, "sha256:") || len(catalogue.Selectors) != 8 {
 		t.Fatalf("selectors: %d %+v %v", listed.Code, catalogue, err)
 	}
 	var closer segments.ListedSelector

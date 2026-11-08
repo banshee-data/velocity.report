@@ -288,6 +288,18 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 		req.Params[i] = p
 	}
 
+	// A clip is checked once here, so a bad one is refused at the start
+	// rather than failing round 1 after the tune has begun.
+	if err := at.runner.checkClip(SweepRequest{
+		ClipID:           req.ClipID,
+		DataSource:       req.DataSource,
+		PCAPFile:         req.PCAPFile,
+		PCAPStartSecs:    req.PCAPStartSecs,
+		PCAPDurationSecs: req.PCAPDurationSecs,
+	}); err != nil {
+		return err
+	}
+
 	// Now acquire lock for state modification
 	at.mu.Lock()
 	if at.state.Status == SweepStatusRunning {
@@ -337,17 +349,20 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 
 // run executes the auto-tuning algorithm from round 1.
 func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
-	at.runFromRound(ctx, req, 1, nil, nil)
+	at.runFromRound(ctx, req, 1, nil, nil, nil)
 }
 
 // runFromRound executes the auto-tuning algorithm starting from the given round,
-// optionally seeded with prior results from a checkpoint.
+// optionally seeded from a checkpoint with prior results and the summaries of
+// the rounds already finished, whose best result competes with this run's.
+// A fresh run passes nil priorRounds; Resume passes a non-nil slice.
 func (at *AutoTuner) runFromRound(
 	ctx context.Context,
 	req AutoTuneRequest,
 	startRound int,
 	priorResults []ComboResult,
 	startBounds map[string][2]float64,
+	priorRounds []RoundSummary,
 ) {
 	at.logger.Printf("[sweep] Auto-tuner started: rounds %d–%d, %d values/param, top %d", startRound, req.MaxRounds, req.ValuesPerParam, req.TopK)
 
@@ -381,7 +396,21 @@ func (at *AutoTuner) runFromRound(
 		allResults = make([]ComboResult, len(priorResults))
 		copy(allResults, priorResults)
 	}
-	var overallBest *ScoredResult
+	overallBest := bestOfRounds(priorRounds)
+
+	// A resumed tune that fails before finishing a round stays suspended on
+	// the checkpoint it resumed from, so it can be resumed again; failing it
+	// would leave a sweep nothing can load.
+	// Resume passes a non-nil priorRounds, empty when no round had finished.
+	resumed := priorRounds != nil
+	roundFinished := false
+	failRound := func(msg string) {
+		if resumed && !roundFinished {
+			at.resuspend(msg)
+			return
+		}
+		at.setError(msg)
+	}
 
 	for round := startRound; round <= req.MaxRounds; round++ {
 		select {
@@ -466,30 +495,37 @@ func (at *AutoTuner) runFromRound(
 			PCAPStartSecs:    req.PCAPStartSecs,
 			PCAPDurationSecs: req.PCAPDurationSecs,
 			SettleMode:       req.SettleMode,
+			ClipID:           req.ClipID,
 		}
 
 		// Start the sweep for this round
 		if err := at.runner.StartWithRequest(ctx, sweepReq); err != nil {
-			at.setError(fmt.Sprintf("round %d: failed to start sweep: %v", round, err))
+			failRound(fmt.Sprintf("round %d: failed to start sweep: %v", round, err))
 			return
 		}
 
 		// Poll for completion
 		if err := at.waitForSweepComplete(ctx); err != nil {
-			at.setError(fmt.Sprintf("round %d: %v", round, err))
+			msg := fmt.Sprintf("round %d: %v", round, err)
+			if ctx.Err() != nil {
+				// Stopped or suspended by the operator: not a failure to run.
+				at.setError(msg)
+			} else {
+				failRound(msg)
+			}
 			return
 		}
 
 		// Get results from the runner
 		sweepState := at.runner.GetSweepState()
 		if sweepState.Status == SweepStatusError {
-			at.setError(fmt.Sprintf("round %d: sweep failed: %s", round, sweepState.Error))
+			failRound(fmt.Sprintf("round %d: sweep failed: %s", round, sweepState.Error))
 			return
 		}
 
 		roundResults := sweepState.Results
 		if len(roundResults) == 0 {
-			at.setError(fmt.Sprintf("round %d: no results returned", round))
+			failRound(fmt.Sprintf("round %d: no results returned", round))
 			return
 		}
 
@@ -571,6 +607,7 @@ func (at *AutoTuner) runFromRound(
 		at.mu.Lock()
 		at.state.RoundResults = append(at.state.RoundResults, roundSummary)
 		at.mu.Unlock()
+		roundFinished = true
 
 		allResults = append(allResults, roundResults...)
 
@@ -606,6 +643,12 @@ func (at *AutoTuner) runFromRound(
 			at.mu.Unlock()
 
 			at.logger.Printf("[sweep] Narrowed bounds for round %d: %v", round+1, currentBounds)
+
+			at.mu.RLock()
+			finishedRounds := make([]RoundSummary, len(at.state.RoundResults))
+			copy(finishedRounds, at.state.RoundResults)
+			at.mu.RUnlock()
+			at.saveRoundCheckpoint(round+1, currentBounds, allResults, finishedRounds, req)
 		}
 	}
 
@@ -699,6 +742,18 @@ func (at *AutoTuner) waitForSweepComplete(ctx context.Context) error {
 }
 
 // setError sets an error state and marks the auto-tune as failed.
+// resuspend ends a resumed run that failed before finishing a round. The
+// stored sweep is left as it was, suspended on the checkpoint the run resumed
+// from, and the state reads suspended with the error, so the failure is shown
+// and Resume can be tried again.
+func (at *AutoTuner) resuspend(msg string) {
+	at.logger.Printf("[sweep] Resumed auto-tune failed before finishing a round; still suspended: %s", msg)
+	at.mu.Lock()
+	at.state.Status = SweepStatusSuspended
+	at.state.Error = msg
+	at.mu.Unlock()
+}
+
 func (at *AutoTuner) setError(msg string) {
 	at.logger.Printf("[sweep] Auto-tune error: %s", msg)
 	now := time.Now()
@@ -762,4 +817,35 @@ func sortScoredResults(scored []ScoredResult) []ScoredResult {
 		return result[i].Score > result[j].Score
 	})
 	return result
+}
+
+// saveRoundCheckpoint records where a running auto-tune would resume once a
+// round has finished: the next round, its narrowed bounds, every result so
+// far and the finished rounds' summaries. The sweep keeps its status. A restart before the next checkpoint is
+// recovered as suspended at this round instead of failed, and Resume replays
+// only the round that was in progress. A failure to save is logged and the
+// sweep carries on; it is then recovered as failed, as before.
+func (at *AutoTuner) saveRoundCheckpoint(nextRound int, bounds map[string][2]float64, results []ComboResult, rounds []RoundSummary, req AutoTuneRequest) {
+	cp, ok := at.persister.(SweepRoundCheckpointer)
+	if !ok || at.sweepID == "" {
+		return
+	}
+	boundsJSON, err := json.Marshal(bounds)
+	if err != nil {
+		at.logger.Printf("[sweep] WARNING: round checkpoint skipped, bounds: %v", err)
+		return
+	}
+	resultsJSON, err := encodeAutoCheckpoint(results, rounds)
+	if err != nil {
+		at.logger.Printf("[sweep] WARNING: round checkpoint skipped, results: %v", err)
+		return
+	}
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		at.logger.Printf("[sweep] WARNING: round checkpoint skipped, request: %v", err)
+		return
+	}
+	if err := cp.SaveSweepRoundCheckpoint(at.sweepID, nextRound, boundsJSON, resultsJSON, reqJSON); err != nil {
+		at.logger.Printf("[sweep] WARNING: failed to save round %d checkpoint: %v", nextRound, err)
+	}
 }
