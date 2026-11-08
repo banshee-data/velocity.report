@@ -1456,10 +1456,11 @@ lapse back to the medoid, inflates position. It adds `R diag((L/2)², (W/2)²) R
 prior along the believed axis, instead of `(W/2)²` on both axes. The seed has no resolved axis,
 and nor does a lapse with no orientation. In those cases the inflation is isotropic at `(L/2)²`.
 
-**Tracked path.** Under `NearEdgeTracking` the filter is the tracked one, which neither predicts
-nor gates on extents. So `ExtentState` is ignored there, and the replay refuses
-`solid_body_extent_state` and `solid_body_face_state` with `near_edge_track`. The other four apply
-to the tracked path. With every option off the arithmetic is unchanged bit for bit. A test pins the
+**Tracked path.** Since #982, under `NearEdgeTracking` the tracked filter carries the extent block
+through prediction, the covariance cap, the speed clamp and the medoid update, and its faces update
+the joint state, so the replay accepts `solid_body_extent_state` and `solid_body_face_state` with
+`near_edge_track`. The association gate still sees only the position innovation. The other four
+options apply to the tracked path as well. With every option off the arithmetic is unchanged bit for bit. A test pins the
 digests of four shadow and tracked scenarios on amd64.
 
 **Evidence so far.** The evidence is synthetic only. A 4.5 m box passes 5 m from the sensor, with
