@@ -23,11 +23,16 @@ func TestASideFaceDoesNotTurnAPartialSpanIntoALengthMeasurement(t *testing.T) {
 	cluster := passingBoxCluster(rand.New(rand.NewSource(37)), -10, 5, 1.2, 1.9)
 	face := EdgeMeasurement{Face: FaceRight, NormalY: -1, PlaneOffsetMetres: -4.05,
 		HalfExtentMetres: 0.95, HalfExtentProvenance: ProvenanceAccumulated, SupportPoints: 20}
-	f := nearEdgeFrame{axis: 0, edges: EdgeMeasurementSet{Edges: []EdgeMeasurement{face}, Rank: 1},
-		spanBound: [2]float32{1.1, 1.8}}
 	length, variance := sb.ext.h[0], sb.ext.phh[0]
 	for frame := 0; frame < 50; frame++ {
-		f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
+		f := tracker.measureNearEdgeFrame(sb, cluster, prior, 100+frame, false)
+		if f.fallback != "" || !(f.spanBound[0] > 0) || f.spanBound[0] >= 2*length {
+			t.Fatalf("frame %d: want a partial length bound, got %.3f m with fallback %q",
+				frame, f.spanBound[0], f.fallback)
+		}
+		// Isolate the observed side plane; other faces need not be visible
+		// when membership or an occluder removes the longitudinal ends.
+		f.edges = EdgeMeasurementSet{Edges: []EdgeMeasurement{face}, Rank: 1}
 		if _, outcome, _ := tracker.stepNearEdge(sb, cluster, prior, f); outcome != nearEdgeFix {
 			t.Fatalf("frame %d: outcome %v, want a side-face fix", frame, outcome)
 		}
