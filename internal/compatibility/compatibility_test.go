@@ -244,6 +244,13 @@ func TestClipDMGNamesHaveRegisterRows(t *testing.T) {
 	}
 }
 
+func TestWindowsPageCompatibilityNamesHaveRows(t *testing.T) {
+	entries := register(t)
+	if !Registered(entries, "/lidar/segments") {
+		t.Error("unregistered windows compatibility name /lidar/segments")
+	}
+}
+
 func TestLocationMapCompatibilityNamesHaveRows(t *testing.T) {
 	entries := register(t)
 	for _, name := range []string{"/api/lidar/scene-map", "areas", "area_count", "cases", "case_count", "/lidar/scene-map", "/scene", "/scene/{id}"} {

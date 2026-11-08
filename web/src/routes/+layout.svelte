@@ -108,15 +108,15 @@
 		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={navUrl} />
 		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={navUrl} />
 		{#if Object.values($capabilities.lidar).some((s) => s.enabled)}
-			<!-- In the order the work runs: captures are cut into clips (by hand, or
-			     from a ranked segment), clips are replayed as runs, runs are labelled
-			     as tracks, and sweeps tune the parameters the runs use. Status, where a
-			     replay or recording is started by hand, comes first; the regions and
-			     debug views of the running grid come last. The clip locations page is
-			     reached from Clips rather than listed here. The site viewer shows what
-			     Gerardus serves for a located site, so it follows Clips, which locate sites.
-			     Labelling follows Segments: it tracks the packs cut from them through
-			     review and freezing. -->
+			<!-- In the order the work runs (T1 of the LiDAR workflow design):
+			     captures are cut into clips, clips are replayed as runs, a run's
+			     windows are ranked and packed, runs are shown as tracks, packs are
+			     reviewed and frozen on Labelling, and sweeps tune the parameters the
+			     runs use. Status, where a replay or recording is started by hand,
+			     comes first. The Sensor group holds what inspects the sensor and its
+			     site rather than the dataset: the site viewer and the running grid's
+			     regions and debug views. The clip locations page is reached from
+			     Clips rather than listed here. -->
 			<div role="group" aria-labelledby="nav-lidar">
 				<div
 					id="nav-lidar"
@@ -138,15 +138,16 @@
 				/>
 				<NavItem text="Clips" icon={mdiFilmstrip} path="/app/lidar/clips" currentUrl={navUrl} />
 				<NavItem
-					text="Site viewer"
-					icon={mdiCubeOutline}
-					path="/app/lidar/sites"
+					text="Runs"
+					icon={mdiPlayCircleOutline}
+					path="/app/lidar/runs"
 					currentUrl={navUrl}
 				/>
+				<NavItem text="Windows" icon={mdiSelection} path="/app/lidar/windows" currentUrl={navUrl} />
 				<NavItem
-					text="Segments"
-					icon={mdiSelection}
-					path="/app/lidar/segments"
+					text="Tracks"
+					icon={mdiMapMarkerPath}
+					path="/app/lidar/tracks"
 					currentUrl={navUrl}
 				/>
 				<NavItem
@@ -156,21 +157,23 @@
 					currentUrl={navUrl}
 				/>
 				<NavItem
-					text="Runs"
-					icon={mdiPlayCircleOutline}
-					path="/app/lidar/runs"
-					currentUrl={navUrl}
-				/>
-				<NavItem
-					text="Tracks"
-					icon={mdiMapMarkerPath}
-					path="/app/lidar/tracks"
-					currentUrl={navUrl}
-				/>
-				<NavItem
 					text="Sweeps"
 					icon={mdiChartBoxOutline}
 					path="/app/lidar/sweeps"
+					currentUrl={navUrl}
+				/>
+			</div>
+			<div role="group" aria-labelledby="nav-sensor">
+				<div
+					id="nav-sensor"
+					class="text-surface-content/50 pt-4 pb-1 pl-6 text-xs font-semibold tracking-wide"
+				>
+					Sensor
+				</div>
+				<NavItem
+					text="Site viewer"
+					icon={mdiCubeOutline}
+					path="/app/lidar/sites"
 					currentUrl={navUrl}
 				/>
 				<NavItem

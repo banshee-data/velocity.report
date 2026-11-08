@@ -113,10 +113,10 @@ records. Opening a version 1 pack is refused with a message that says so and nam
 ### Choosing what to cut
 
 An hour of labelling covers tens of seconds of a busy street, so the window matters more than the
-speed. Open **LiDAR → Segments** at `/app/lidar/segments`, choose a run and a selector, then inspect
-the score strip and ranked windows. **Preview in scene player** shows a tuning window with the
-run's tracks. **Make case** fixes the capture and offset; **Queue clip** replays it with points and
-exports the annotation pack. The page lists each pack with its label set
+speed. Open **LiDAR → Windows** at `/app/lidar/windows` (once Segments; the old address
+redirects), choose a run and a selector, then inspect the score strip and ranked windows.
+**Preview in Tracks** shows a tuning window with the run's tracks. **Make clip** fixes the capture
+and offset; **Queue pack** replays it with points and exports the annotation pack. The page lists each pack with its label set
 ([where label sets show](label-sets.md#where-it-shows)). Labels and review decisions still belong
 in the macOS window.
 
@@ -160,10 +160,13 @@ not match the command. The old `scripts/lidar-following-windows.py` remains a us
 for comparing following scores.
 
 Decide a pack's role before choosing its window. Tuning packs may be chosen for tracker failure.
-Held-out packs, Embarcadero's among them, use the standard following, moving-traffic or random
-selectors at their own parameters, never one that hunts tracker failures; the page offers only
-those, and a held-out request that sets parameters is refused. Choose a random window from each capture first. The Segments page
-enforces that order before making a held-out traffic case. Blind review hides tracker previews.
+Held-out packs, Embarcadero's among them, are drawn on the Windows page by the random selector
+only, one window per capture at the selector's own seed, which the page shows. The server still
+accepts the standard following and moving-traffic selectors for a held-out window, after a random
+window from the same capture, and refuses a held-out request that sets parameters; the page no
+longer offers them. **Select** records the window and **Cut pack** exports it; review and freezing
+happen on the Labelling page, which each held-out row links to. Blind review hides tracker
+previews.
 The warm-up precedes the clip and is not exported; random windows start at least 35 seconds into
 a capture with measured packet times so that this prefix is available.
 
