@@ -41,8 +41,15 @@ type solidBodyArm struct {
 
 func runSolidBodyArm(t *testing.T, dir, name string, experiments []string) solidBodyArm {
 	t.Helper()
+	return runSolidBodyArmTapped(t, dir, name, experiments, nil)
+}
+
+// runSolidBodyArmTapped is runSolidBodyArm with a tracker tap.
+func runSolidBodyArmTapped(t *testing.T, dir, name string, experiments []string, tap func(TrackerTapFrame)) solidBodyArm {
+	t.Helper()
 	cfg := Config{
-		PCAPFile: requireKirk0(t), OutDir: filepath.Join(dir, name), SensorID: "test-replay", UDPPort: 2369,
+		TrackerTap: tap,
+		PCAPFile:   requireKirk0(t), OutDir: filepath.Join(dir, name), SensorID: "test-replay", UDPPort: 2369,
 		// The whole capture after the settled 20 s prefix.
 		StartSeconds: 20, WarmupSeconds: 20, RequireSettled: true,
 		ObservationDBPath: filepath.Join(dir, name+".db"), ClipID: "kirk0-solid-body",
@@ -413,4 +420,123 @@ func runNearEdgeTrackOnKirk0(t *testing.T, name string, experiments []string) so
 func solidBodyContent(sb observationsqlite.TrackSolidBody) string {
 	joint, _ := sb.Reading.JointCovariance()
 	return fmt.Sprintf("%d@%d %s %+v %v", sb.CreationSequence, sb.FrameUnixNanos, sb.Reading.CovarianceStateModel(), sb.Reading, joint)
+}
+
+// boxArmSummary is what one kirk0 arm drew as its published box, over the
+// scored frames: per track, the longest box and the last of its counters.
+type boxArmSummary struct {
+	trackFrames int
+	maxLength   map[int64]float64
+	maxWidth    map[int64]float64
+	stats       map[int64]l5tracks.BoxStats
+}
+
+func newBoxArmSummary() *boxArmSummary {
+	return &boxArmSummary{maxLength: map[int64]float64{}, maxWidth: map[int64]float64{}, stats: map[int64]l5tracks.BoxStats{}}
+}
+
+func (s *boxArmSummary) tap(f TrackerTapFrame) {
+	if !f.Scored {
+		return
+	}
+	for _, tr := range f.Tracks {
+		if tr.BoxLength <= 0 {
+			continue
+		}
+		s.trackFrames++
+		seq := tr.CreationSequence
+		if l := float64(tr.BoxLength); l > s.maxLength[seq] {
+			s.maxLength[seq] = l
+			s.maxWidth[seq] = float64(tr.BoxWidth)
+		}
+		if st, ok := tr.BoxModelStats(); ok {
+			s.stats[seq] = st
+		}
+	}
+}
+
+// totals sums the per-track counters.
+func (s *boxArmSummary) totals() l5tracks.BoxStats {
+	var sum l5tracks.BoxStats
+	for _, st := range s.stats {
+		sum.BodyExtentFrames += st.BodyExtentFrames
+		sum.BodyExtentUnknown += st.BodyExtentUnknown
+		sum.BodyExtentAxisRefusals += st.BodyExtentAxisRefusals
+		sum.BodyExtentUnsettled += st.BodyExtentUnsettled
+	}
+	return sum
+}
+
+// TestBoxExtentFromSolidBodyOnKirk0 is box_extent_solid_body's wiring check:
+// beside the face-state solid body, the published box takes its length and
+// width from the solid body's extent state on some frames and falls back on
+// the rest, and the run says how often each. Label-free: it shows the option
+// reaches the box on a real capture and how much it moves it, not whether
+// the moved box is nearer the truth, which needs geom0015's reviewed body
+// centres.
+func TestBoxExtentFromSolidBodyOnKirk0(t *testing.T) {
+	dir := t.TempDir()
+	faceState := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState}
+	plainBox, onBox := newBoxArmSummary(), newBoxArmSummary()
+	plain := runSolidBodyArmTapped(t, dir, "face_state", faceState, plainBox.tap)
+	on := runSolidBodyArmTapped(t, dir, "box_extent_solid_body", append(append([]string{}, faceState...), ExperimentBoxExtentSolidBody), onBox.tap)
+	if on.params == plain.params {
+		t.Error("box_extent_solid_body shares the face-state arm's parameter hash")
+	}
+	sameTracks := bytes.Equal(plain.baseline, on.baseline)
+	if !sameTracks {
+		// L3's track guard holds the returns inside each confirmed track's
+		// published box as foreground (pipeline/track_guard.go), so a longer
+		// box changes the next frames' clusters and the tracks move with it.
+		t.Logf("box_extent_solid_body changed the tracking baseline, through the track guard's published boxes")
+	}
+	total := onBox.totals()
+	t.Logf("kirk0 box_extent_solid_body: %d box track-frames (face state %d), tracking baseline equal %v; "+
+		"associated frames: %d took the solid body's extent, %d had none to read, %d refused on axis, %d not yet settled",
+		onBox.trackFrames, plainBox.trackFrames, sameTracks,
+		total.BodyExtentFrames, total.BodyExtentUnknown, total.BodyExtentAxisRefusals, total.BodyExtentUnsettled)
+	if total.BodyExtentFrames == 0 {
+		t.Fatal("no frame on kirk0 took the solid body's extent: the option never reached the box")
+	}
+	if pt := plainBox.totals(); pt != (l5tracks.BoxStats{}) {
+		t.Errorf("the face-state arm counted body-extent frames without the option: %+v", pt)
+	}
+	logBoxLengthShift(t, plainBox, onBox)
+}
+
+// logBoxLengthShift reports, over the tracks both arms drew, how the longest
+// box each drew moved, and the longest box among vehicle-wide tracks. Tracks
+// are paired by creation sequence, which names the same object in both arms
+// only while their tracks agree; where the track guard has moved them it is
+// an approximate pairing, and the vehicle-wide medians are the firmer read.
+func logBoxLengthShift(t *testing.T, plain, on *boxArmSummary) {
+	t.Helper()
+	var deltas, plainVehicle, onVehicle []float64
+	longer, shorter, used := 0, 0, 0
+	for seq, l := range on.maxLength {
+		p, ok := plain.maxLength[seq]
+		if !ok {
+			continue
+		}
+		d := l - p
+		deltas = append(deltas, d)
+		switch {
+		case d > 0.5:
+			longer++
+		case d < -0.5:
+			shorter++
+		}
+		if on.stats[seq].BodyExtentFrames > 0 {
+			used++
+		}
+		if on.maxWidth[seq] >= 1.5 && plain.maxWidth[seq] >= 1.5 {
+			plainVehicle = append(plainVehicle, p)
+			onVehicle = append(onVehicle, l)
+		}
+	}
+	t.Logf("longest box per track over %d tracks in both arms (%d took the state on some frame): "+
+		"change median %+.3f m, p10 %+.3f, p90 %+.3f; %d longer by over 0.5 m, %d shorter; "+
+		"vehicle-wide tracks (%d): median longest %.2f m without, %.2f m with, p90 %.2f and %.2f m",
+		len(deltas), used, evidenceMedian(deltas), evidenceQuantile(deltas, 0.1), evidenceQuantile(deltas, 0.9), longer, shorter,
+		len(onVehicle), evidenceMedian(plainVehicle), evidenceMedian(onVehicle), evidenceQuantile(plainVehicle, 0.9), evidenceQuantile(onVehicle, 0.9))
 }

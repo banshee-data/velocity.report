@@ -223,7 +223,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentConsistentCovarianceCap, ExperimentConsistentSpeedClamp, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
@@ -810,6 +810,50 @@ func TestSettlingRelativeExperiment(t *testing.T) {
 	}
 	if got := bm.GetParams().SettlingRelativeSpreadRatio; got != 0.075 {
 		t.Errorf("settling_relative_0075 set the ratio to %v", got)
+	}
+}
+
+// box_extent_solid_body reaches its own option, on top of the solid body
+// with its extent state, by either name for that state; and it is refused
+// without the box model, without the solid body, and without the extent
+// state, each of which would leave it nothing to change.
+func TestBoxExtentSolidBodyNeedsTheBoxAndTheExtentState(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	for _, state := range []string{ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState} {
+		base, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, state}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := base
+		want.BoxModel.BoxExtentFromSolidBody = true
+		got, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, state, ExperimentBoxExtentSolidBody}, nil)
+		if err != nil {
+			t.Fatalf("%s with %s: %v", ExperimentBoxExtentSolidBody, state, err)
+		}
+		if got != want {
+			t.Errorf("%s with %s:\n got %+v\nwant %+v", ExperimentBoxExtentSolidBody, state, got, want)
+		}
+	}
+	for _, without := range [][]string{
+		{ExperimentBoxExtentSolidBody},
+		{ExperimentSolidBody, ExperimentBoxExtentSolidBody},
+		{ExperimentSolidBodyExtentState, ExperimentBoxExtentSolidBody},
+		{ExperimentSolidBody, ExperimentSolidBodyCensoredExtent, ExperimentBoxExtentSolidBody},
+	} {
+		if _, err := trackerConfigFor(l5, "", without, nil); err == nil || !strings.Contains(err.Error(), ExperimentBoxExtentSolidBody) {
+			t.Errorf("%q: want a refusal naming %s, got %v", without, ExperimentBoxExtentSolidBody, err)
+		}
+	}
+	noBox := config.MustLoadDefaultConfig().L5.CvKfV1
+	noBox.BoxModel = nil
+	if _, err := trackerConfigFor(noBox, "", []string{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentBoxExtentSolidBody}, nil); err == nil ||
+		!strings.Contains(err.Error(), "box model") {
+		t.Errorf("with the box model off: want a refusal naming the box model, got %v", err)
+	}
+	// The box it draws is the recording, so a tool without an evidence
+	// database may run it.
+	if err := RefuseExperimentsWithout("some-tool", []string{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentBoxExtentSolidBody}, ReplayInputs{}); err != nil {
+		t.Errorf("refused without an evidence database: %v", err)
 	}
 }
 

@@ -1545,6 +1545,19 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
 	}
+	if hasExperiment(experiments, ExperimentBoxExtentSolidBody) {
+		// The box reads the solid body's extent state: without the box model
+		// there is no box to change, and without the state there is nothing
+		// to read, so either arm would run as the baseline under this name.
+		switch {
+		case !trackerConfig.BoxModel.Enabled:
+			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s draws the box model's box from the solid body's extent state, and the tuning file's box model is off", ExperimentBoxExtentSolidBody)
+		case !trackerConfig.SolidBody.Enabled || !trackerConfig.SolidBody.ExtentState:
+			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s reads the solid body's extent state, so it needs %s and %s (or %s), and %q lacks one",
+				ExperimentBoxExtentSolidBody, ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState, experiments)
+		}
+		trackerConfig.BoxModel.BoxExtentFromSolidBody = true
+	}
 	if trackerConfig.ContainmentClaim || hasExperiment(experiments, ExperimentContainmentClaim) {
 		// The claim changes which track takes a cluster, so the returns it
 		// judges must reach the tracker on every replay, the determinism
