@@ -15,7 +15,10 @@ import (
 // with it, where the shipped update stays half the shortfall out; the joint
 // covariance stays symmetric positive semi-definite and a face adds exactly
 // one rank of information; the censored extent does not narrow with frame
-// count; the frame's span bounds the belief; the heading term is
+// count; span evidence does not push the extent past the box, a rising bound
+// counts once at its highest, a full span is one measurement whatever the
+// frame count, and no face takes a half-extent below the floor; the frame's
+// span bounds the belief; the heading term is
 // sigma_psi^2 t_eff^2; and the reference bias has the body's axes as its
 // eigenvectors.
 
@@ -481,11 +484,184 @@ func TestExtentStateAppliesABoundOnceAndAHigherOneAgain(t *testing.T) {
 			t.Fatalf("the same bound applied again on repeat %d", i)
 		}
 	}
-	if sb.ext.h[0] != h || sb.ext.phh[0] != v {
-		t.Fatalf("repeated bounds moved hL to %.4f with variance %.4f", sb.ext.h[0], sb.ext.phh[0])
+	// The bound's site is refined on each call, against a cavity that has
+	// not changed, so nothing moves but float32 rounding.
+	if math.Abs(float64(sb.ext.h[0]-h)) > 1e-6 || math.Abs(float64(sb.ext.phh[0]/v)-1) > 1e-6 {
+		t.Fatalf("repeated bounds moved hL to %.6f with variance %.6f, from %.6f and %.6f", sb.ext.h[0], sb.ext.phh[0], h, v)
 	}
 	if touched := sb.applyExtentBounds([2]float32{6.5, 0}); !touched[0] || sb.ext.h[0] <= h {
 		t.Fatalf("a higher bound did not apply: %v, hL %.3f", touched, sb.ext.h[0])
+	}
+}
+
+// boxPassExtentSeed is the box pass's extent-state seed: the short 3.125 m
+// length with the class prior's half-sigma on each half-extent.
+func boxPassExtentSeed(sb *solidBodyTrack) {
+	shortLengthBelief(sb)
+	sigma := dimensionPriorFor(MotionRigidVehicle).sigmaMetres / 2
+	sb.ext = solidBodyExtent{on: true, h: [2]float32{3.125 / 2, 0.9375},
+		phh: [4]float32{sigma * sigma, 0, 0, sigma * sigma}}
+}
+
+// The span bound is evidence the box is at least as long as its near side
+// shows, which it is: it must not push the half-length past the box. Before
+// the bound was held as one site, each slightly higher bound re-truncated a
+// moment-matched Gaussian that still had mass below the last one, and the
+// pass ended at hL 2.457 m with a 0.190 m departure error, against 2.214 m
+// and 0.054 m from the faces alone.
+func TestSpanBoundsDoNotPushTheExtentStatePastTheBox(t *testing.T) {
+	cfg := solidBodyConfig()
+	cfg.SolidBody.ExtentState = true
+	alone := runBoxPass(t, cfg, boxPassExtentSeed)
+	cfg.SolidBody.SpanBoundsBelief = true
+	bounded := runBoxPass(t, cfg, boxPassExtentSeed)
+	t.Logf("extent state: departure %.3f m, half-length %.3f m; with span bounds: departure %.3f m, half-length %.3f m (true 2.25)",
+		alone.departureErr, alone.finalHalfLen, bounded.departureErr, bounded.finalHalfLen)
+	if math.Abs(bounded.finalHalfLen-2.25) > 0.1 {
+		t.Errorf("half-length %.3f m with span bounds, want 2.25 m within 0.1 m", bounded.finalHalfLen)
+	}
+	if bounded.departureErr > 0.1 {
+		t.Errorf("departure error %.3f m with span bounds, want under 0.1 m", bounded.departureErr)
+	}
+	if bounded.worstEigen < -1e-6 || bounded.worstAsym != 0 {
+		t.Errorf("joint covariance: least eigenvalue %.3g, asymmetry %.3g", bounded.worstEigen, bounded.worstAsym)
+	}
+}
+
+// A bound that creeps up a millimetre a frame, as a span less a
+// range-dependent noise does on approach, says no more than its highest
+// value does once: the constraint hL >= b/2 for every b is hL >= max b/2.
+// Re-truncating the moment-matched posterior on each rise counted the bound
+// a hundred times, moving the mean and shrinking the sigma with frame count.
+func TestARisingBoundSaysNoMoreThanItsHighestValueOnce(t *testing.T) {
+	seed := func() solidBodyTrack {
+		var sb solidBodyTrack
+		sb.p = [16]float32{0.25, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+		sb.ext = solidBodyExtent{on: true, h: [2]float32{1.5625, 0.9}, phh: [4]float32{0.5625, 0, 0, 0.0625},
+			pxh: [8]float32{0.1, 0, 0, 0, 0, 0, 0, 0}}
+		return sb
+	}
+	creeping := seed()
+	for k := 0; k <= 100; k++ {
+		creeping.applyExtentBounds([2]float32{4.3 + 0.001*float32(k), 0})
+	}
+	once := seed()
+	once.applyExtentBounds([2]float32{creeping.ext.appliedBound[0], 0})
+	t.Logf("creeping: hL %.4f m, sd %.4f m, x %.4f m; once: hL %.4f m, sd %.4f m, x %.4f m",
+		creeping.ext.h[0], math.Sqrt(float64(creeping.ext.phh[0])), creeping.state[0],
+		once.ext.h[0], math.Sqrt(float64(once.ext.phh[0])), once.state[0])
+	if d := math.Abs(float64(creeping.ext.h[0] - once.ext.h[0])); d > 1e-4 {
+		t.Errorf("creeping bound left hL %.4f m, the highest bound once %.4f m", creeping.ext.h[0], once.ext.h[0])
+	}
+	if r := float64(creeping.ext.phh[0] / once.ext.phh[0]); math.Abs(r-1) > 1e-3 {
+		t.Errorf("creeping bound left var(hL) %.5f, the highest bound once %.5f", creeping.ext.phh[0], once.ext.phh[0])
+	}
+	if d := math.Abs(float64(creeping.state[0] - once.state[0])); d > 1e-4 {
+		t.Errorf("creeping bound moved x to %.4f m, the highest bound once to %.4f m", creeping.state[0], once.state[0])
+	}
+}
+
+// A frame that shows a side face spans the length end to end: that span is
+// a measurement of the length, not a bound on it, and it is one frame's
+// measurement however many frames repeat it (Section 9.2.2). A span along an
+// axis whose face the frame did not see stays a lower bound.
+func TestAFullSpanIsOneMeasurementWhateverTheFrameCount(t *testing.T) {
+	seed := func() solidBodyTrack {
+		var sb solidBodyTrack
+		sb.p = [16]float32{0.25, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+		sb.ext = solidBodyExtent{on: true, h: [2]float32{1.5625, 0.9}, phh: [4]float32{0.5625, 0, 0, 0.0625},
+			pxh: [8]float32{0.1, 0, 0, 0, 0, 0, 0, 0}}
+		return sb
+	}
+	side := nearEdgeFrame{span: [2]float32{4.5, 0.4}, spanNoise: 0.1, spanBound: [2]float32{4.4, 0.3},
+		edges: EdgeMeasurementSet{Edges: []EdgeMeasurement{{Face: FaceRight}}}}
+	once := seed()
+	if touched := once.applyExtentSpans(side); !touched[0] {
+		t.Fatalf("a full span touched %v, want the length", touched)
+	}
+	// One measurement of hL at 2.25 m with sd 0.05 m on the prior's 0.75 m.
+	r, p0 := 0.05*0.05, 0.5625
+	wantVar := p0 * r / (p0 + r)
+	wantMean := wantVar * (1.5625/p0 + 2.25/r)
+	if math.Abs(float64(once.ext.h[0])-wantMean) > 1e-5 || math.Abs(float64(once.ext.phh[0])/wantVar-1) > 1e-4 {
+		t.Fatalf("after one full span hL %.5f with variance %.6g, want %.5f and %.6g", once.ext.h[0], once.ext.phh[0], wantMean, wantVar)
+	}
+	if once.ext.appliedBound[0] != 0 {
+		t.Fatalf("the full span was also admitted as a bound, %.3f m", once.ext.appliedBound[0])
+	}
+	// The across span is not full on this frame: its bound applies.
+	if once.ext.appliedBound[1] != 0.3 {
+		t.Fatalf("the across bound was %.3f m, want 0.3 m", once.ext.appliedBound[1])
+	}
+	repeated := seed()
+	for i := 0; i < 50; i++ {
+		repeated.applyExtentSpans(side)
+	}
+	if math.Abs(float64(repeated.ext.h[0]-once.ext.h[0])) > 1e-5 || math.Abs(float64(repeated.ext.phh[0]/once.ext.phh[0])-1) > 1e-4 {
+		t.Fatalf("50 frames of the same span: hL %.5f, variance %.6g; once: %.5f, %.6g",
+			repeated.ext.h[0], repeated.ext.phh[0], once.ext.h[0], once.ext.phh[0])
+	}
+	// Without the side face the length's span is a lower bound only.
+	end := side
+	end.edges = EdgeMeasurementSet{Edges: []EdgeMeasurement{{Face: FaceFront}}}
+	bounded := seed()
+	bounded.applyExtentSpans(end)
+	if bounded.ext.appliedBound[0] != 4.4 || bounded.ext.spanSite[0] != (extentSite{}) {
+		t.Fatalf("an end-face frame: bound %.3f m, span site %+v; want the bound alone", bounded.ext.appliedBound[0], bounded.ext.spanSite[0])
+	}
+	if bounded.ext.spanSite[1] == (extentSite{}) {
+		t.Fatal("an end-face frame did not measure the width from its span")
+	}
+}
+
+// Nothing in a face update keeps a half-extent positive: a face whose plane
+// jumps behind the believed centre, as a cluster that has absorbed or lost a
+// neighbour's returns can make it, moves h by its gain, through zero (the
+// l4clus0010 join arm wrote a 0 m length on kirk0). The floor is a lower
+// bound like the span's, applied through the joint regression.
+func TestTheExtentStateKeepsItsHalfExtentsPositive(t *testing.T) {
+	const floor = 0.05 // half of extentStateFloorMetres
+	cfg := solidBodyConfig()
+	cfg.SolidBody.ExtentState = true
+	tracker := NewTracker(cfg)
+	prior := dimensionPriorFor(MotionRigidVehicle)
+	track := boxPassBody(-10, 5, 5)
+	sb := &track.solidBody
+	sb.ext = solidBodyExtent{on: true, h: [2]float32{0.4, 0.9}, phh: [4]float32{0.5625, 0, 0, 0.0625}}
+	// A 0.3 m body whose front face is 0.45 m behind the believed centre:
+	// the face alone takes hL to about -0.14 m.
+	cluster := passingBoxCluster(rand.New(rand.NewSource(3)), -10.6, 5, 0.3, 1.8)
+	f := tracker.measureNearEdgeFrame(sb, cluster, prior, 100, false)
+	m, outcome, _ := tracker.stepNearEdge(sb, cluster, prior, f)
+	if outcome != nearEdgeFix || !m.Faces.Has(FaceFront) {
+		t.Fatalf("outcome %v with faces %v, want a fix on the front face", outcome, m.Faces)
+	}
+	if sb.ext.h[0] < floor || sb.ext.h[1] < floor {
+		t.Fatalf("half-extents %v after a jumped face, want each at least %.2f m", sb.ext.h, floor)
+	}
+	if d := sb.extentDimension(0); !(d.Metres > 0) || !(d.SigmaMetres > 0) {
+		t.Fatalf("reported length %+v, want a positive length and sigma", d)
+	}
+
+	// Not a clamp: the floor moves the position by its covariance with hL,
+	// and narrows hL, as any truncation through the regression does.
+	var b solidBodyTrack
+	b.p = [16]float32{0.25, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+	// A face has updated hL, so the floor binds it; hW is still the class
+	// prior, which the floor leaves as declared.
+	b.ext = solidBodyExtent{on: true, h: [2]float32{-0.2, 0.9}, phh: [4]float32{0.2, 0, 0, 0.0625},
+		pxh: [8]float32{-0.15, 0, 0, 0, 0, 0, 0, 0}, updates: [2]int{1, 0}}
+	before := b.jointOf(b.state, b.p)
+	b.applyExtentBounds([2]float32{})
+	dh := float64(b.ext.h[0]) - before.x[4]
+	if b.ext.h[0] < floor || !(b.ext.phh[0] < 0.2) {
+		t.Fatalf("hL %.4f m with variance %.4f after the floor, want at least %.2f m and narrower than 0.2", b.ext.h[0], b.ext.phh[0], floor)
+	}
+	if want := -0.15 / 0.2 * dh; math.Abs(float64(b.state[0])-want) > 1e-5 {
+		t.Fatalf("x moved %.5f m with hL's %.4f m, want the regression's %.5f m", b.state[0], dh, want)
+	}
+	if b.state[1] != 0 || b.ext.h[1] != 0.9 {
+		t.Fatalf("the floor moved y to %.4f or hW to %.4f, which are uncorrelated with hL", b.state[1], b.ext.h[1])
 	}
 }
 

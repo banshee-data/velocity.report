@@ -1441,9 +1441,10 @@ candidate, the lifecycle is not initialising, and the course does not contradict
   regression on it, in the same form `truncateAxis` uses for position. A truncation moment-matched
   back to a Gaussian still has mass below the bound. Applying the same bound on every frame would
   therefore narrow the posterior every frame, and so would applying the history's maximum on every
-  frame. So a frame's bound is applied once, and only when it is higher than every bound already
-  applied. The containment truncation reads the state's `hL` and `hW`, with their standard
-  deviations as the upper tail, and also truncates the joint state.
+  frame. The bound is therefore held as one site at the highest bound admitted, and a span the
+  frame shows whole is a measurement, not a bound (see the corrections below). The containment
+  truncation reads the state's `hL` and `hW`, with their standard deviations as the upper tail,
+  and also truncates the joint state.
 - `SpanBoundsBelief` alone raises the belief's estimate to the bound, so the face update on the
   same frame uses a half-extent at least half the bound. It does not change the belief's
   provenance, so a class-prior face is still excluded.
@@ -1471,6 +1472,39 @@ shipped update holds the centre 0.71 m from truth on both end faces, which is ha
 With `ExtentState` the second end face brings the half-length to 2.21 m (truth 2.25 m), and the
 departure centre error to 0.05 m. No replay arm has run. Scoring `solid_body_face_state` against
 geom0015's box rows on kirk0 is in the checklist.
+
+**Corrections (November 2026).** Two defects in the delivered state, both default-off:
+
+- _Span-bound overshoot_, found on the synthetic box pass. Extent state with span bounds ended at
+  `hL` 2.457 m with a 0.190 m departure error, against 2.214 m and 0.054 m from the faces alone.
+  There were two causes. First, applying a bound only when it rose did not stop the ratchet. The
+  span less its range-dependent noise rises a few millimetres a frame on approach, and each rise
+  re-truncated a moment-matched Gaussian. That Gaussian still had mass below the last bound, so
+  each step moved the mean up and narrowed sigma with frame count alone. The bounds and the floor
+  are now one expectation-propagation site per half-extent. The site is divided out to give the
+  cavity, which is truncated at the highest bound and moved through the joint regression. With
+  that fix alone the pass ended at 2.372 m and 0.107 m. Second, a span the frame shows whole was
+  treated as a lower bound. A convex body hides none of a face it shows, so with a side face
+  measured the length's span reaches both ends, and with an end face measured so does the width's.
+  Section 9.2.1 admits such a span as a measurement, `z = 2h` with the span noise. As a bound at
+  the true length it lifted the mean about 0.8 cavity sigmas above the truth. A full span is held
+  as one Gaussian site that the next full span replaces, so repeated views do not narrow the
+  extent. With both fixes the pass ends at 2.220 m and 0.044 m. The noise's sign and size and the
+  half- against full-extent factor were checked and are correct. The tracked-path carriage
+  (`solid_body_tracked_extent_test.go`, not yet on main) shares `stepNearEdge`, so it takes both
+  fixes once rebased.
+- _Half-extent collapse_. On kirk0 under the l4clus0010 join arm, an `unknown` track wrote a
+  0 m length on three rows, because a face whose plane jumps moves `h` by its gain and nothing
+  bounded it below. A floor of 0.1 m, half of it on each half-extent, now joins the same bound site
+  once evidence has updated that half-extent. The seed stays the class prior as declared. The floor
+  is not the class minimum, because the rigid-vehicle minimum lies within one prior sigma and would
+  truncate every short-believed car. A bound that would cut off less than `2^-23` of the cavity
+  starts no site.
+
+With every option off the four pinned digests are unchanged. Every extent-state digest of the
+three shadow scenarios changes, under `solid_body_extent_state` alone as well. The floor binds on
+the first frames, when `hW` after one face still has 2.5 % of its mass below 0.05 m. On the box
+pass under extent state alone that moves the final `hL` by 2·10⁻⁷ m.
 
 ### 9.3 Decision gate G-GEO-1
 

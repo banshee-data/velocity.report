@@ -271,9 +271,11 @@ type SolidBodyOptions struct {
 	// class prior is used rather than excluded, the prior's uncertainty
 	// being in P. FaceEntryConsider, whose one-frame term this replaces, is
 	// not applied. The reported length and width are 2hL and 2hW with sigma
-	// 2·sqrt(P_hh). The tracked path under NearEdgeTracking keeps the
-	// four-state filter and ignores this option: its covariance is the
-	// tracked filter's, which neither predicts nor gates on the extents.
+	// 2·sqrt(P_hh). Once evidence has updated a half-extent, a lower bound
+	// at half extentStateFloorMetres holds it positive, through the same
+	// bound site as the span bounds. The tracked path under NearEdgeTracking
+	// keeps the four-state filter and ignores this option: its covariance is
+	// the tracked filter's, which neither predicts nor gates on the extents.
 	// Default false.
 	ExtentState bool
 	// CensoredExtent reports each extent belief as the class prior
@@ -282,16 +284,20 @@ type SolidBodyOptions struct {
 	// deviation, instead of the corroborated maximum with sigma shrinking as
 	// the prior's over the square root of the frame count. It narrows only
 	// when a bound moves into the prior's mass. Under ExtentState it switches
-	// on the per-frame lower-bound truncation of the half-extents instead.
-	// Default false.
+	// on the frame's span evidence on the half-extents instead, as
+	// SpanBoundsBelief does there. Default false.
 	CensoredExtent bool
 	// SpanBoundsBelief feeds the frame's window-minimum span along and
 	// across the face axis, less its noise, to the extent belief as a lower
 	// bound before the faces are measured, so the half-extent the face
 	// update uses is never below what the frame shows. With CensoredExtent
-	// the bound joins the censored posterior; under ExtentState it is the
-	// per-frame truncation of hL and hW; alone it raises the belief's
-	// estimate to the bound. Default false.
+	// the bound joins the censored posterior; alone it raises the belief's
+	// estimate to the bound. Under ExtentState a span the frame shows whole
+	// (the length with a side face measured, the width with an end face) is a
+	// measurement of 2h, held as one site the next full span replaces, and
+	// any other span is a lower bound, held with the floor as one truncation
+	// site at the highest bound admitted (solid_body_face_state.go). Default
+	// false.
 	SpanBoundsBelief bool
 	// HeadingFaceNoise adds sigma_psi^2 · t_eff^2 to each face's
 	// measurement variance: the orientation variance of the axis the faces
@@ -575,6 +581,11 @@ type nearEdgeFrame struct {
 	// SpanBoundsBelief, or under ExtentState with CensoredExtent; zero when
 	// none was taken (frameSpanBounds).
 	spanBound [2]float32
+	// span and spanNoise are the spans the bounds came from and their
+	// noise, which ExtentState reads as a measurement where the span is full
+	// (fullSpans); zero when none was taken.
+	span      [2]float32
+	spanNoise float32
 	// axisVarianceRad2 is the orientation variance of axis, read by
 	// HeadingFaceNoise; zero when that option is off.
 	axisVarianceRad2 float32
@@ -866,7 +877,7 @@ func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster,
 	default:
 		f.axis, f.axisIsCourse = t.faceAxis(sb)
 		if t.takesSpanBounds(sb) {
-			f.spanBound = t.frameSpanBounds(sb, cluster, f.axis, f.axisIsCourse, mergeCandidate)
+			f.spanBound, f.span, f.spanNoise = t.frameSpanBounds(sb, cluster, f.axis, f.axisIsCourse, mergeCandidate)
 		}
 		if sb.ext.on {
 			f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
@@ -914,9 +925,9 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 	// under ExtentState.
 	var touched [2]bool
 	if sb.ext.on && f.fallback == "" {
-		// The frame's lower bounds first, so the faces see half-extents the
-		// frame does not contradict.
-		touched = sb.applyExtentBounds(f.spanBound)
+		// The frame's spans first, so the faces see half-extents the frame
+		// does not contradict.
+		touched = sb.applyExtentSpans(f)
 		f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
 	}
 
@@ -1091,6 +1102,11 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 	}
 	if outcome == nearEdgeCoast && sb.reference == ReferenceClusterMedoid {
 		outcome = nearEdgeMedoid
+	}
+	if sb.ext.on && f.fallback == "" {
+		// The faces, the loose term and containment move the half-extents
+		// by their gains; the bounds, the floor's included, hold them.
+		sb.holdExtentBounds(touched)
 	}
 	for i, hit := range touched {
 		if hit {
