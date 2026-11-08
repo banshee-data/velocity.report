@@ -194,9 +194,12 @@ Each step records `Π`, `c`, the mixing weights, each mode's log likelihood, and
 ln L = −d²/2 − (m/2) ln 2π − ½ ln det S,   d² = yᵀ S⁻¹ y
 ```
 
-It includes `ln det S`, which a bare `d²` association cost leaves out. The same function is
-exported (`motion.Likelihood.LogDensity`), so an association cost can use it. The cluster a track
-wins and the mode it credits are then scored on the same terms.
+It includes `ln det S`, which a bare `d²` association cost leaves out. Both densities live in the
+leaf package
+[`l5tracks/likelihood`](../../internal/lidar/l5tracks/likelihood/likelihood.go), and
+`motion.Likelihood.LogDensity` calls it. The package imports neither `l5tracks` nor `motion`, so
+the tracker can import it too. Its functions take the innovation's dimension, `d²` and `ln det S`.
+The caller computes both from one `S`.
 
 **Robust option.** The Student-t density with scale `S` and `ν` degrees of freedom (default 4):
 
@@ -206,6 +209,16 @@ ln L = ln Γ((ν+m)/2) − ln Γ(ν/2) − (m/2) ln(νπ) − ½ ln det S − ((
 
 It is the IMM's default, because K9 measured 7 to 17 % of moving innovations beyond the 95 %
 bound. Under a Gaussian, each of those would move most of the probability to the wider mode.
+
+**Association shares it.** The tracker's default-off `RobustLikelihoodAssociationCost` (replay
+`robust_likelihood_cost`) ranks admitted pairings by this Student-t at the same default `ν`, from
+the same function. The cluster a track wins and the mode it credits are then scored on the same
+terms, as the maths review requires
+([20261108 §4.5 item 2](proposals/20261108-face-state-and-cv-ca-maths-review.md)). The cost is
+`2 × (−ln L) − c`, where `c` is the value at `d² = 0` and the smallest `det S` the gate admits.
+The factor of two keeps the cost on the `d²` scale. Subtracting `c` keeps it non-negative. The
+gate stays a `d²` test. The cost reads the gate's own `S`, including A2's face-residual `S` under
+near-edge tracking. See [gap analysis, Computed: S3](paper-implementation-gap-analysis.md#computed-s3).
 
 **Transition in capture time.** Mode switching is a continuous-time Markov chain with rates
 `λ12 = 1/dwell_CV` and `λ21 = 1/dwell_CA`, so `Π(Δt) = expm(Λ Δt)`. With `λ = λ12 + λ21` and

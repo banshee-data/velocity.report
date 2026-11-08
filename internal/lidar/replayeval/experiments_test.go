@@ -231,7 +231,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentHeldToL4, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentOverlapEndBody,
-		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody,
+		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentRobustLikelihoodCost, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody,
 		ExperimentSolidBodyAnisotropicReferenceBias, ExperimentSolidBodyCensoredExtent, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
@@ -267,7 +267,10 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentAdaptiveUncertainty: func(c *l5tracks.TrackerConfig) {
 			c.AdaptiveMeasurementNoise = true
 		},
-		ExperimentLikelihoodCost:    func(c *l5tracks.TrackerConfig) { c.LikelihoodAssociationCost = true },
+		ExperimentLikelihoodCost: func(c *l5tracks.TrackerConfig) { c.LikelihoodAssociationCost = true },
+		ExperimentRobustLikelihoodCost: func(c *l5tracks.TrackerConfig) {
+			c.RobustLikelihoodAssociationCost = true
+		},
 		ExperimentCascade:           func(c *l5tracks.TrackerConfig) { c.CascadedAssociation = true },
 		ExperimentFlipRule:          func(c *l5tracks.TrackerConfig) { c.OBBHeadingFlipRule = true },
 		ExperimentMeasurementTime:   func(c *l5tracks.TrackerConfig) { c.MeasurementTimePrediction = true },
@@ -528,6 +531,15 @@ func TestNearEdgeTrackReachesItsOptionAndRefusesWhatItCannotCarry(t *testing.T) 
 	}
 	if _, err := trackerConfigFor(l5, l5tracks.MeasurementOBBCentreV1, arm, nil); err == nil {
 		t.Error("near_edge_track was accepted with the OBB-centre position model")
+	}
+	// The robust likelihood cost reads the gate's own S, A2's included, so
+	// unlike likelihood_cost it combines, and reaches its own option only.
+	{
+		robust := want
+		robust.RobustLikelihoodAssociationCost = true
+		if got, err := trackerConfigFor(l5, "", append([]string{ExperimentRobustLikelihoodCost}, arm...), nil); err != nil || got != robust {
+			t.Errorf("near_edge_track with the robust likelihood cost (%v):\n got %+v\nwant %+v", err, got, robust)
+		}
 	}
 	if _, err := trackerConfigFor(l5, l5tracks.MeasurementMedoidV0, arm, nil); err != nil {
 		t.Errorf("near_edge_track refused the medoid position model: %v", err)
@@ -819,5 +831,43 @@ func TestGroundSpecsReplayOptionsParse(t *testing.T) {
 	}
 	if want := []string{ExperimentBoxGround, ExperimentSurfaceGround}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+// robust_likelihood_cost and likelihood_cost are two assignment costs; the
+// tracker would run the robust one alone, so naming both, or naming the
+// robust one over a tuning file that sets the Gaussian, is refused with the
+// reason rather than resolved.
+func TestRobustLikelihoodCostRefusesTheGaussianLikelihoodCost(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	_, err := trackerConfigFor(l5, "", []string{ExperimentLikelihoodCost, ExperimentRobustLikelihoodCost}, nil)
+	if err == nil {
+		t.Fatal("likelihood_cost and robust_likelihood_cost were accepted together")
+	}
+	for _, want := range []string{ExperimentRobustLikelihoodCost, ExperimentLikelihoodCost, "name one"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal %q does not say %q", err, want)
+		}
+	}
+	tuned := *l5
+	tuned.Association = &config.L5Association{LikelihoodCost: true}
+	if _, err := trackerConfigFor(&tuned, "", []string{ExperimentRobustLikelihoodCost}, nil); err == nil {
+		t.Error("robust_likelihood_cost was accepted over a tuning file with association.likelihood_cost")
+	}
+	if got, err := trackerConfigFor(&tuned, "", nil, nil); err != nil || !got.LikelihoodAssociationCost || got.RobustLikelihoodAssociationCost {
+		t.Errorf("the tuning file's likelihood_cost alone (%v): %+v", err, got)
+	}
+	// The composites the option is meant to be measured with are accepted.
+	for _, with := range [][]string{
+		{ExperimentTentativePriority},
+		{ExperimentCascade},
+		{ExperimentContestedRejoin},
+		{ExperimentOverlapEnd1, ExperimentOverlapEndBody, ExperimentOverlapEndOlder, ExperimentBirthGateBody},
+		{ExperimentAdaptiveUncertainty},
+	} {
+		got, err := trackerConfigFor(l5, "", append([]string{ExperimentRobustLikelihoodCost}, with...), nil)
+		if err != nil || !got.RobustLikelihoodAssociationCost {
+			t.Errorf("robust_likelihood_cost with %v (%v): %+v", with, err, got)
+		}
 	}
 }

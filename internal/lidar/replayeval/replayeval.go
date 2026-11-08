@@ -1414,6 +1414,14 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.MeasurementSourceMode = mode
 	trackerConfig.AdaptiveMeasurementNoise = hasExperiment(experiments, ExperimentAdaptiveUncertainty)
 	trackerConfig.LikelihoodAssociationCost = trackerConfig.LikelihoodAssociationCost || hasExperiment(experiments, ExperimentLikelihoodCost)
+	trackerConfig.RobustLikelihoodAssociationCost = hasExperiment(experiments, ExperimentRobustLikelihoodCost)
+	if trackerConfig.RobustLikelihoodAssociationCost && trackerConfig.LikelihoodAssociationCost {
+		// Both are the assignment cost. The tracker would run the robust one
+		// alone, so the arm would be reported under a name it did not run.
+		return l5tracks.TrackerConfig{}, fmt.Errorf(
+			"replay experiment %s replaces the Gaussian likelihood cost with the Student-t one, and %s (named, or association.likelihood_cost in the tuning file) asks for the Gaussian; name one",
+			ExperimentRobustLikelihoodCost, ExperimentLikelihoodCost)
+	}
 	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)

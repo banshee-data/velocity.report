@@ -207,11 +207,20 @@ func TestLikelihoodCostStillLetsACoastingTrackReacquireItsOwnObject(t *testing.T
 	}
 }
 
-// With LikelihoodAssociationCost on, the production assignment (not just the
+// s3LikelihoodArms are the two options that charge a track for its ln det S:
+// the Gaussian likelihood cost, and the Student-t one the multiple-model
+// filter shares. Each S3 property below holds for both.
+var s3LikelihoodArms = []struct {
+	name string
+	set  func(*TrackerConfig)
+}{
+	{"likelihood_cost", func(c *TrackerConfig) { c.LikelihoodAssociationCost = true }},
+	{"robust_likelihood_cost", func(c *TrackerConfig) { c.RobustLikelihoodAssociationCost = true }},
+}
+
+// With either likelihood cost on, the production assignment (not just the
 // arithmetic above) gives every pinned contested cluster to the fresh track.
 func TestLikelihoodAssociationCostGivesContestedClustersToTheFreshTrack(t *testing.T) {
-	cfg := DefaultTrackerConfig()
-	cfg.LikelihoodAssociationCost = true
 	const separation = 1.2
 	cases := []struct {
 		name   string
@@ -223,11 +232,15 @@ func TestLikelihoodAssociationCostGivesContestedClustersToTheFreshTrack(t *testi
 		{"equidistant, 5 misses", 0.6, 5},
 		{"twice as far from the coasting track, 1 miss", 0.4, 1},
 	}
-	for _, tc := range cases {
-		tk, freshID, _ := s3Scene(t, cfg, separation, tc.misses)
-		got := tk.associate([]WorldCluster{s3Cluster(10, tc.y)}, float32(s3FramePeriod.Seconds()))
-		if got[0] != freshID {
-			t.Errorf("%s: contested cluster went to the coasting track with the likelihood cost on", tc.name)
+	for _, arm := range s3LikelihoodArms {
+		cfg := DefaultTrackerConfig()
+		arm.set(&cfg)
+		for _, tc := range cases {
+			tk, freshID, _ := s3Scene(t, cfg, separation, tc.misses)
+			got := tk.associate([]WorldCluster{s3Cluster(10, tc.y)}, float32(s3FramePeriod.Seconds()))
+			if got[0] != freshID {
+				t.Errorf("%s, %s: contested cluster went to the coasting track with the cost on", arm.name, tc.name)
+			}
 		}
 	}
 }
@@ -237,18 +250,20 @@ func TestLikelihoodAssociationCostGivesContestedClustersToTheFreshTrack(t *testi
 // goes back to the coasting track, and each track keeps its own cluster when
 // both are present.
 func TestLikelihoodAssociationCostStillReacquires(t *testing.T) {
-	cfg := DefaultTrackerConfig()
-	cfg.LikelihoodAssociationCost = true
 	const separation = 1.2
 	dt := float32(s3FramePeriod.Seconds())
-	for _, misses := range []int{1, 3, 5} {
-		tk, freshID, coastingID := s3Scene(t, cfg, separation, misses)
-		if got := tk.associate([]WorldCluster{s3Cluster(10, separation)}, dt); got[0] != coastingID {
-			t.Errorf("misses=%d: a reappearing object went to %q, want the coasting track that predicted it", misses, got[0])
-		}
-		both := []WorldCluster{s3Cluster(10, 0), s3Cluster(10, separation)}
-		if got := tk.associate(both, dt); got[0] != freshID || got[1] != coastingID {
-			t.Errorf("misses=%d: with both objects present got %v, want [fresh coasting]", misses, got)
+	for _, arm := range s3LikelihoodArms {
+		cfg := DefaultTrackerConfig()
+		arm.set(&cfg)
+		for _, misses := range []int{1, 3, 5} {
+			tk, freshID, coastingID := s3Scene(t, cfg, separation, misses)
+			if got := tk.associate([]WorldCluster{s3Cluster(10, separation)}, dt); got[0] != coastingID {
+				t.Errorf("%s, misses=%d: a reappearing object went to %q, want the coasting track that predicted it", arm.name, misses, got[0])
+			}
+			both := []WorldCluster{s3Cluster(10, 0), s3Cluster(10, separation)}
+			if got := tk.associate(both, dt); got[0] != freshID || got[1] != coastingID {
+				t.Errorf("%s, misses=%d: with both objects present got %v, want [fresh coasting]", arm.name, misses, got)
+			}
 		}
 	}
 }
@@ -258,9 +273,14 @@ func TestLikelihoodAssociationCostStillReacquires(t *testing.T) {
 func TestLikelihoodAssociationCostLeavesTheGateAlone(t *testing.T) {
 	const separation = 1.2
 	dt := float32(s3FramePeriod.Seconds())
-	for _, on := range []bool{false, true} {
+	arms := map[string]func(*TrackerConfig){
+		"off":                    func(*TrackerConfig) {},
+		"likelihood_cost":        s3LikelihoodArms[0].set,
+		"robust_likelihood_cost": s3LikelihoodArms[1].set,
+	}
+	for on, set := range arms {
 		cfg := DefaultTrackerConfig()
-		cfg.LikelihoodAssociationCost = on
+		set(&cfg)
 		tk, freshID, coastingID := s3Scene(t, cfg, separation, 1)
 		// 3.2 m from the fresh track is outside its gate (about 1.7 m); 2 m
 		// from the coasting track is inside its inflated one (about 4.6 m)
@@ -270,16 +290,20 @@ func TestLikelihoodAssociationCostLeavesTheGateAlone(t *testing.T) {
 		// the option.
 		got := tk.associate([]WorldCluster{s3Cluster(10, separation+2)}, dt)
 		if got[0] == freshID {
-			t.Errorf("option=%v: a cluster 3.2 m from the fresh track passed its d² gate", on)
+			t.Errorf("option=%s: a cluster 3.2 m from the fresh track passed its d² gate", on)
 		}
 		if got[0] != coastingID {
-			t.Errorf("option=%v: a cluster inside only the coasting track's gate went to %q", on, got[0])
+			t.Errorf("option=%s: a cluster inside only the coasting track's gate went to %q", on, got[0])
 		}
 	}
 }
 
 func TestLikelihoodAssociationCostOffByDefault(t *testing.T) {
-	if DefaultTrackerConfig().LikelihoodAssociationCost {
+	cfg := DefaultTrackerConfig()
+	if cfg.LikelihoodAssociationCost {
 		t.Fatal("LikelihoodAssociationCost defaults on; it must be measured against the shipped cost first")
+	}
+	if cfg.RobustLikelihoodAssociationCost {
+		t.Fatal("RobustLikelihoodAssociationCost defaults on; it must be measured against the shipped cost first")
 	}
 }

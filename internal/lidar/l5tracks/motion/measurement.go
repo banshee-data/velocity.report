@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks/likelihood"
 )
 
 // Observation is one measured position of a track at a capture time.
@@ -185,49 +187,44 @@ const (
 )
 
 // DefaultStudentTNu is the default degrees of freedom of the robust
-// likelihood: heavy enough that a 10-sigma innovation costs a polynomial,
-// not an exponential, penalty, and finite-variance (ν > 2).
-const DefaultStudentTNu = 4.0
+// likelihood; it is the shared package's (likelihood.DefaultStudentTNu).
+const DefaultStudentTNu = likelihood.DefaultStudentTNu
 
 // Likelihood selects the density used to score an innovation. It is the one
-// likelihood an IMM's mode probabilities use, and the function an association
-// cost could share so that the cluster a track wins and the mode it credits
-// are scored on the same terms (maths review, Section 4.5).
+// likelihood an IMM's mode probabilities use, and the tracker's association
+// shares it: RobustLikelihoodAssociationCost ranks pairings by the same
+// Student-t from internal/lidar/l5tracks/likelihood, so the cluster a track
+// wins and the mode it credits are scored on the same terms (maths review,
+// Section 4.5).
 type Likelihood struct {
 	Kind LikelihoodKind
-	// Nu is the Student-t degrees of freedom; zero means DefaultStudentTNu.
+	// Nu is the Student-t degrees of freedom; zero, or any value that is not
+	// finite and positive, means DefaultStudentTNu (likelihood.Nu).
 	Nu float64
 }
 
 // LogDensity returns the log likelihood of the innovation.
 func (l Likelihood) LogDensity(in Innovation) float64 {
 	if l.Kind == LikelihoodStudentT {
-		nu := l.Nu
-		if nu <= 0 {
-			nu = DefaultStudentTNu
-		}
-		return StudentTLogLikelihood(in, nu)
+		return StudentTLogLikelihood(in, likelihood.Nu(l.Nu))
 	}
 	return GaussianLogLikelihood(in)
 }
 
-// GaussianLogLikelihood is ln N(y; 0, S) = −d²/2 − (m/2) ln 2π − ½ ln det S.
-// The ln det S term is what a bare d² association cost omits; without it a
-// wide (coasting, or CA) prior is not charged for its width.
+// GaussianLogLikelihood is ln N(y; 0, S) = −d²/2 − (m/2) ln 2π − ½ ln det S,
+// from the shared likelihood package. The ln det S term is what a bare d²
+// association cost omits; without it a wide (coasting, or CA) prior is not
+// charged for its width.
 func GaussianLogLikelihood(in Innovation) float64 {
-	m := float64(in.Dim)
-	return -0.5*in.NIS - 0.5*m*math.Log(2*math.Pi) - 0.5*in.LogDetS
+	return likelihood.GaussianLogLikelihood(in.Dim, in.NIS, in.LogDetS)
 }
 
 // StudentTLogLikelihood is the log density of the m-variate Student-t with
-// scale S and ν degrees of freedom:
+// scale S and ν degrees of freedom, from the shared likelihood package:
 //
 //	ln Γ((ν+m)/2) − ln Γ(ν/2) − (m/2) ln(νπ) − ½ ln det S − ((ν+m)/2) ln(1 + d²/ν)
 //
 // It tends to the Gaussian as ν → ∞.
 func StudentTLogLikelihood(in Innovation, nu float64) float64 {
-	m := float64(in.Dim)
-	a, _ := math.Lgamma((nu + m) / 2)
-	b, _ := math.Lgamma(nu / 2)
-	return a - b - 0.5*m*math.Log(nu*math.Pi) - 0.5*in.LogDetS - 0.5*(nu+m)*math.Log1p(in.NIS/nu)
+	return likelihood.StudentTLogLikelihood(in.Dim, in.NIS, in.LogDetS, nu)
 }

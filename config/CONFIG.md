@@ -376,7 +376,9 @@ named scale replaces the block's.
 
 The other replay experiments have no config key yet, so a set cannot carry
 them, and the server cannot run them: `adaptive_uncertainty`,
-`likelihood_cost`, `cascade`, `density_cap`, `border_classes`, `held_to_l4`, `radius_graph_xy`, `radius_graph_xy_overlap`, `range_adaptive_eps`,
+`likelihood_cost`, `robust_likelihood_cost` (the Student-t likelihood the multiple-model filter
+uses, at ν = 4; refused with `likelihood_cost`, named or from the tuning file, and allowed with
+`near_edge_track` because it reads the gate's own S), `cascade`, `density_cap`, `border_classes`, `held_to_l4`, `radius_graph_xy`, `radius_graph_xy_overlap`, `range_adaptive_eps`,
 `flip_rule`, `no_region_overrides`, `region_overrides_volatile_only`,
 `region_overrides_quiet_only`, `region_overrides_cell_tercile`,
 `volatile_window_cap_1m`, `volatile_window_cap_2m`, `support_filter`,

@@ -197,14 +197,30 @@ func (t *Tracker) attachNearEdgePair(track *TrackedObject, clusterIdx int) {
 // Mahalanobis distance otherwise, or for every body under A1
 // (NearEdgeMedoidGate).
 func (t *Tracker) gateDistanceSquared(track *TrackedObject, clusters []WorldCluster, ci int, dt float32) float32 {
+	dist2, _ := t.gateInnovation(track, clusters, ci, dt)
+	return dist2
+}
+
+// gateInnovation is gateDistanceSquared and ln det S for the innovation
+// covariance S that distance was computed with: the medoid's P + R (or the
+// adaptive R), or A2's face-residual S for a body-centre tracked body. The
+// robust likelihood cost reads both, so its ln det S is always the gate's own
+// and a face-referenced innovation is scored as the gate judged it. Both are
+// against the tracked prediction, which under NearEdgeTracking is the solid
+// body's state. ln det S is zero when the pairing is rejected.
+func (t *Tracker) gateInnovation(track *TrackedObject, clusters []WorldCluster, ci int, dt float32) (float32, float64) {
 	sb := &track.solidBody
 	if !sb.tracked || sb.reference != ReferenceBodyCentre || t.Config.NearEdgeMedoidGate {
-		return t.mahalanobisDistanceSquared(track, clusters[ci], dt)
+		dist2, det := t.mahalanobisInnovation(track, clusters[ci], dt)
+		if dist2 >= SingularDistanceRejection {
+			return dist2, 0
+		}
+		return dist2, math.Log(float64(det))
 	}
 	cluster := clusters[ci]
 	measurement := t.measurementForCluster(cluster, t.LastUpdateNanos)
 	if t.implausiblePairing(track, measurement, dt) {
-		return SingularDistanceRejection
+		return SingularDistanceRejection, 0
 	}
 	key := nearEdgePairKey{track, ci}
 	frame, ok := t.nearEdgePairs[key]
@@ -215,7 +231,12 @@ func (t *Tracker) gateDistanceSquared(track *TrackedObject, clusters []WorldClus
 		}
 		t.nearEdgePairs[key] = frame
 	}
-	return t.faceResidualDistanceSquared(track, cluster, frame)
+	dist2, det := t.faceResidualInnovationAt(trackedPrediction{x: track.X, y: track.Y, p: track.P},
+		&track.solidBody, nearEdgePriorFor(track), cluster, frame)
+	if dist2 >= SingularDistanceRejection {
+		return dist2, 0
+	}
+	return dist2, math.Log(det)
 }
 
 // faceResidualDistanceSquared is A2's squared distance between a body-centre
@@ -235,6 +256,18 @@ func (t *Tracker) faceResidualDistanceSquared(track *TrackedObject, cluster Worl
 // faceResidualDistanceSquaredAt is faceResidualDistanceSquared against a
 // given prediction, with the body's beliefs and class prior.
 func (t *Tracker) faceResidualDistanceSquaredAt(predicted trackedPrediction, sb *solidBodyTrack, prior classDimensionPrior, cluster WorldCluster, f nearEdgeFrame) float32 {
+	dist2, _ := t.faceResidualInnovationAt(predicted, sb, prior, cluster, f)
+	return dist2
+}
+
+// faceResidualInnovationAt is faceResidualDistanceSquaredAt and det S of the
+// residual covariance it was computed with, zero when it is rejected. S is
+// two-dimensional, over the two directions, and projects the position block
+// of P alone: the tracked filter carries no extents (SolidBodyOptions.
+// ExtentState keeps them in the shadow body's filter and is refused with
+// NearEdgeTracking), so a believed half-extent enters S only as the loose
+// direction's measurement variance.
+func (t *Tracker) faceResidualInnovationAt(predicted trackedPrediction, sb *solidBodyTrack, prior classDimensionPrior, cluster WorldCluster, f nearEdgeFrame) (float32, float64) {
 	length, width := f.length, f.width
 	if f.fallback != "" {
 		length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres)
@@ -286,8 +319,8 @@ func (t *Tracker) faceResidualDistanceSquaredAt(predicted trackedPrediction, sb 
 	s11 := project(dirs[1], dirs[1]) + dirs[1].variance
 	det := s00*s11 - s01*s10
 	if !(det >= MinDeterminantThreshold) || math.IsInf(det, 0) {
-		return SingularDistanceRejection
+		return SingularDistanceRejection, 0
 	}
 	a, b := dirs[0].residual, dirs[1].residual
-	return float32((a*(s11*a-s01*b) + b*(s00*b-s10*a)) / det)
+	return float32((a*(s11*a-s01*b) + b*(s00*b-s10*a)) / det), det
 }

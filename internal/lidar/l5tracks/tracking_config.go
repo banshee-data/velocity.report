@@ -171,6 +171,28 @@ type TrackerConfig struct {
 	// same fingerprint reason as the two options above.
 	LikelihoodAssociationCost bool
 
+	// RobustLikelihoodAssociationCost ranks admitted pairings by the
+	// Student-t negative log-likelihood of the innovation, with ν degrees of
+	// freedom (RobustLikelihoodNu), from the likelihood package the
+	// multiple-model filter weighs its modes with, so association and mode
+	// probabilities use one likelihood (maths review 20261108 §4.5 item 2).
+	// Like LikelihoodAssociationCost it charges ln det S, so a coasting
+	// track's inflated covariance no longer discounts its bid (gap analysis
+	// S3); unlike it, the miss is charged ((ν+2)/2) ln(1 + d²/ν), a
+	// polynomial tail, so one heavy-tailed innovation (K9) does not dominate
+	// the assignment the way d² lets it. The cost is computed from the same S
+	// the gate's d² was, whichever gate that is: the medoid's P + R, the
+	// adaptive R, or A2's face residual under NearEdgeTracking. The gate is
+	// unchanged: it stays d² against GatingDistanceSquared. See
+	// robustLikelihoodCost. It replaces LikelihoodAssociationCost's term when
+	// both are set; the replay refuses the pair. Default false, and not a
+	// tuning key, for the fingerprint reason above.
+	RobustLikelihoodAssociationCost bool
+	// RobustLikelihoodNu is the Student-t degrees of freedom of
+	// RobustLikelihoodAssociationCost. Zero, or any value that is not finite
+	// and positive, means likelihood.DefaultStudentTNu (4), the IMM's.
+	RobustLikelihoodNu float64
+
 	// CascadedAssociation matches confirmed tracks to clusters first and
 	// offers only the clusters they leave to tentative tracks (gap analysis
 	// S2, after DeepSORT's final stage; it does not address S3, whose two
