@@ -540,3 +540,97 @@ func logBoxLengthShift(t *testing.T, plain, on *boxArmSummary) {
 		len(deltas), used, evidenceMedian(deltas), evidenceQuantile(deltas, 0.1), evidenceQuantile(deltas, 0.9), longer, shorter,
 		len(onVehicle), evidenceMedian(plainVehicle), evidenceMedian(onVehicle), evidenceQuantile(plainVehicle, 0.9), evidenceQuantile(onVehicle, 0.9))
 }
+
+// headingArmSummary is, over one kirk0 arm's scored frames, how the solid
+// body's orientation sat against the published box's heading, and the
+// shared belief's calibration diagnostic.
+type headingArmSummary struct {
+	bodyFrames, disagree int       // body-centre frames, and those over 10° from the box
+	nis                  []float64 // accepted axis innovations' r²/S
+	gated                int
+}
+
+func (s *headingArmSummary) tap(f TrackerTapFrame) {
+	if !f.Scored {
+		return
+	}
+	for _, tr := range f.Tracks {
+		r, ok := tr.SolidBody()
+		if !ok {
+			continue
+		}
+		m := r.Measurement
+		if m.HeadingNISKnown {
+			if m.HeadingNISGated {
+				s.gated++
+			} else {
+				s.nis = append(s.nis, float64(m.HeadingNIS))
+			}
+		}
+		e := r.Estimate
+		if e.Reference != l5tracks.ReferenceBodyCentre || tr.BoxLength <= 0 || e.Orientation.Provenance == l5tracks.ProvenanceNone {
+			continue
+		}
+		s.bodyFrames++
+		if l5tracks.FoldAxisAngleDeg(float64(e.Orientation.PsiRad)-float64(tr.BoxHeadingRad)) > 10 {
+			s.disagree++
+		}
+	}
+}
+
+// TestSolidBodySharedOrientationOnKirk0 is solid_body_shared_orientation's
+// wiring check beside the face-state solid body. The shared belief is a
+// shadow change, so its tracks are the face-state arm's exactly; the solid
+// body's axis then agrees with the box's on the body-centre frames it is
+// shared on, and the axis innovation's mean NIS says how the box filter's
+// variance stands against its errors on a real capture. With
+// box_extent_solid_body as well, it reports how many of the refusals on axis
+// that the box extent met in its own wiring check remain. Label-free, like
+// the other kirk0 arms.
+func TestSolidBodySharedOrientationOnKirk0(t *testing.T) {
+	dir := t.TempDir()
+	faceState := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState}
+	with := func(names ...string) []string { return append(append([]string{}, faceState...), names...) }
+	plainHeading, sharedHeading := &headingArmSummary{}, &headingArmSummary{}
+	plain := runSolidBodyArmTapped(t, dir, "face_state", faceState, plainHeading.tap)
+	shared := runSolidBodyArmTapped(t, dir, "shared_orientation", with(ExperimentSolidBodySharedOrientation), sharedHeading.tap)
+	bothBox := newBoxArmSummary()
+	both := runSolidBodyArmTapped(t, dir, "shared_orientation_box_extent",
+		with(ExperimentSolidBodySharedOrientation, ExperimentBoxExtentSolidBody), bothBox.tap)
+
+	if !bytes.Equal(plain.baseline, shared.baseline) {
+		t.Fatal("solid_body_shared_orientation changed the tracking baseline: the shadow body's orientation reached the tracks")
+	}
+	if shared.params == plain.params {
+		t.Error("solid_body_shared_orientation shares the face-state arm's parameter hash")
+	}
+	nis := sharedHeading.nis
+	if len(nis) == 0 {
+		t.Fatal("no heading innovation reached the solid body on kirk0: the shared orientation never applied")
+	}
+	t.Logf("kirk0 solid body against the box's heading over body-centre frames: face state %d of %d over 10°, shared %d of %d",
+		plainHeading.disagree, plainHeading.bodyFrames, sharedHeading.disagree, sharedHeading.bodyFrames)
+	t.Logf("kirk0 shared heading calibration: %d axis innovations accepted, %d gated (%.1f %%); mean NIS %.3f, median %.3f, p90 %.3f "+
+		"(a calibrated filter's accepted innovations average about one)",
+		len(nis), sharedHeading.gated, 100*float64(sharedHeading.gated)/float64(sharedHeading.gated+len(nis)),
+		meanFloat(nis), evidenceMedian(nis), evidenceQuantile(nis, 0.9))
+	if sharedHeading.disagree >= plainHeading.disagree {
+		t.Errorf("sharing the heading left %d body-centre frames over 10° from the box, against %d without",
+			sharedHeading.disagree, plainHeading.disagree)
+	}
+	total := bothBox.totals()
+	t.Logf("kirk0 shared orientation with box_extent_solid_body: tracking baseline equal to the face state %v; associated frames: "+
+		"%d took the solid body's extent, %d had none to read, %d refused on axis, %d not yet settled",
+		bytes.Equal(plain.baseline, both.baseline), total.BodyExtentFrames, total.BodyExtentUnknown, total.BodyExtentAxisRefusals, total.BodyExtentUnsettled)
+}
+
+func meanFloat(v []float64) float64 {
+	if len(v) == 0 {
+		return math.NaN()
+	}
+	s := 0.0
+	for _, x := range v {
+		s += x
+	}
+	return s / float64(len(v))
+}

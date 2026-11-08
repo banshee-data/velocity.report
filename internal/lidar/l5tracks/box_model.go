@@ -341,6 +341,11 @@ type BoxEstimator struct {
 	// pts and sample are per-frame scratch, kept to spare the allocations.
 	pts    [][2]float64
 	sample []l4perception.WorldPoint
+	// axisInnovation is this frame's axis observation as the filter weighed
+	// it, for the calibration diagnostic; pending is this frame's heading
+	// half when it ran ahead of the solid body under SharedOrientation.
+	axisInnovation boxAxisInnovation
+	pending        boxStep
 }
 
 // updateBox advances a track's published box under TrackerConfig.BoxModel
@@ -357,23 +362,23 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 		}
 		return
 	}
-	if track.box == nil || track.box.cfg != t.Config.BoxModel {
-		// A new box, or a configuration changed at run time: start again
-		// rather than carry state estimated under other bounds.
-		track.box = NewBoxEstimator(t.Config.BoxModel)
-	}
-	in := BoxInput{
-		Nanos: nowNanos, X: float64(track.X), Y: float64(track.Y), VX: float64(track.VX), VY: float64(track.VY),
-		VelCov:  [3]float64{float64(track.P[10]), float64(track.P[11]), float64(track.P[15])},
-		Cluster: cluster, Merge: track.MergeCandidate, Neighbours: t.frameClusters,
-		Surface: t.groundSurface,
-	}
+	t.ensureBox(track)
+	in := t.boxInput(track, cluster, nowNanos)
 	if t.Config.BoxModel.BoxExtentFromSolidBody {
 		// The solid body was updated in step 3c, before this step, so its
 		// extent state is this frame's.
 		in.Body = boxBodyExtent(track)
 	}
-	b := track.box.Observe(in)
+	var b BoxState
+	if p := track.box.pending; p.valid && p.nanos == nowNanos {
+		// The heading half ran in step 3c, ahead of the solid body
+		// (advanceBoxHeading), on the same input less the body's extent,
+		// which only the placement reads.
+		track.box.pending = boxStep{}
+		b = track.box.finish(in, p)
+	} else {
+		b = track.box.Observe(in)
+	}
 	if b.Length <= 0 {
 		return
 	}
@@ -381,6 +386,44 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 	track.BoxHeadingRad = float32(b.HeadingRad)
 	track.BoxLength, track.BoxWidth = float32(b.Length), float32(b.Width)
 	track.BoxZ, track.BoxHeight = float32(b.Base), float32(b.Height)
+}
+
+// ensureBox gives an enabled box model's track its estimator: a new one, or
+// a fresh one when the configuration changed at run time, rather than carry
+// state estimated under other bounds.
+func (t *Tracker) ensureBox(track *TrackedObject) {
+	if track.box == nil || track.box.cfg != t.Config.BoxModel {
+		track.box = NewBoxEstimator(t.Config.BoxModel)
+	}
+}
+
+// boxInput is the box model's input for a track this frame, without the
+// solid body's extent.
+func (t *Tracker) boxInput(track *TrackedObject, cluster *WorldCluster, nowNanos int64) BoxInput {
+	return BoxInput{
+		Nanos: nowNanos, X: float64(track.X), Y: float64(track.Y), VX: float64(track.VX), VY: float64(track.VY),
+		VelCov:  [3]float64{float64(track.P[10]), float64(track.P[11]), float64(track.P[15])},
+		Cluster: cluster, Merge: track.MergeCandidate, Neighbours: t.frameClusters,
+		Surface: t.groundSurface,
+	}
+}
+
+// advanceBoxHeading runs the heading half of a matched track's box update
+// ahead of its solid body under SolidBodyOptions.SharedOrientation, so the
+// solid body reads this frame's heading posterior; updateBox places the box
+// afterwards. The input is the one updateBox builds: the tracked state, the
+// merge flag and the frame's clusters are all settled by step 3b, and the
+// shadow solid body writes none of them.
+func (t *Tracker) advanceBoxHeading(track *TrackedObject, cluster *WorldCluster, nowNanos int64) {
+	// Under NearEdgeTracking step 3c writes the tracked state the box reads,
+	// and the tracked body ignores the option, so the box runs whole in 3d.
+	if !t.Config.BoxModel.Enabled || t.Config.NearEdgeTracking {
+		return
+	}
+	t.ensureBox(track)
+	if step, ok := track.box.advance(t.boxInput(track, cluster, nowNanos)); ok {
+		track.box.pending = step
+	}
 }
 
 // boxBodyExtent reads a solid body's joint extent state for the box, Known
@@ -490,6 +533,30 @@ const boxBodyAxisAgreementRad = spanSearchHalfWindowDeg * math.Pi / 180
 // Observe advances the box to the input's time. With a cluster it is updated
 // from it; without one it coasts with the track.
 func (e *BoxEstimator) Observe(in BoxInput) BoxState {
+	step, ok := e.advance(in)
+	if !ok {
+		return e.box
+	}
+	return e.finish(in, step)
+}
+
+// boxStep carries a frame from the heading half of Observe (advance) to its
+// placement half (finish): whether the frame seeded the box, the spans the
+// axis observation measured, and the frame time it was taken at. Under
+// SolidBodyOptions.SharedOrientation the halves run apart, the heading before
+// the solid body's update and the placement after it (advanceBoxHeading).
+type boxStep struct {
+	valid bool
+	first bool
+	spans *[2]float64
+	nanos int64
+}
+
+// advance is Observe's heading half: the seed, or the prediction, this
+// frame's axis and course corrections and the yaw-rate bound. It also takes
+// the frame's points into the scratch buffer that finish places the box on.
+// false means there was nothing to do: an unseeded box with no points.
+func (e *BoxEstimator) advance(in BoxInput) (boxStep, bool) {
 	dt := 0.0
 	if e.seeded {
 		dt = float64(in.Nanos-e.lastNanos) / 1e9
@@ -500,19 +567,17 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 			dt = boxMaxDtSeconds
 		}
 	}
+	e.axisInnovation = boxAxisInnovation{}
 	speed := math.Hypot(in.VX, in.VY)
 	e.pts = boxPoints(e.pts[:0], in.Cluster)
 	pts := e.pts
 	if !e.seeded {
 		if len(pts) == 0 {
-			return e.box
+			return boxStep{}, false
 		}
 		e.seed(in, pts, speed)
 		e.lastNanos = in.Nanos
-		e.place(in, pts, true, nil)
-		e.anchor(in)
-		e.releaseScratch()
-		return e.box
+		return boxStep{valid: true, first: true, nanos: in.Nanos}, true
 	}
 	prev := e.psi
 	if len(pts) == 0 {
@@ -527,10 +592,27 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 	}
 	e.limit(prev, boundSpeed(in, speed), dt, in.Nanos)
 	e.lastNanos = in.Nanos
-	e.place(in, pts, false, spans)
+	return boxStep{valid: true, spans: spans, nanos: in.Nanos}, true
+}
+
+// finish is Observe's placement half: the extents and centre on the points
+// advance took, and the vertical.
+func (e *BoxEstimator) finish(in BoxInput, step boxStep) BoxState {
+	e.place(in, e.pts, step.first, step.spans)
 	e.anchor(in)
 	e.releaseScratch()
 	return e.box
+}
+
+// boxAxisInnovation is one frame's axis observation as the heading filter
+// weighed it: the normalised innovation r²/S, with S = P_ψψ + σ² the
+// innovation variance before the update, and whether the gate refused it.
+// Known is false on a frame with no axis observation (a coast, an abstaining
+// fit) and on the seeding frame, which has no prediction to innovate on. A
+// calibrated filter's accepted innovations average one.
+type boxAxisInnovation struct {
+	known, gated bool
+	nis          float64
 }
 
 // boxScratchKeep is the most points a box keeps its scratch buffer for
@@ -604,6 +686,12 @@ func (e *BoxEstimator) correct(in BoxInput, pts [][2]float64, speed float64) *[2
 		r := foldQuarter(axis - e.psi)
 		v := sigma * sigma
 		gate := e.cfg.AxisGateSigmas
+		if s := e.p[0][0] + v; s > 0 {
+			// Read only: recorded for the calibration diagnostic, and used
+			// by nothing the filter computes.
+			e.axisInnovation = boxAxisInnovation{known: true, nis: r * r / s,
+				gated: gate > 0 && r*r > gate*gate*s}
+		}
 		if gate <= 0 || r*r <= gate*gate*(e.p[0][0]+v) {
 			e.refusals = 0
 			e.update(r, v)

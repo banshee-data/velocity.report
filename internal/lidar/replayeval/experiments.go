@@ -331,6 +331,17 @@ const (
 	ExperimentSolidBodyHeadingFaceNoise         = "solid_body_heading_face_noise"
 	ExperimentSolidBodyAnisotropicReferenceBias = "solid_body_anisotropic_reference_bias"
 	ExperimentSolidBodyFaceState                = "solid_body_face_state"
+	// ExperimentSolidBodySharedOrientation:
+	// l5tracks.SolidBodyOptions.SharedOrientation, the shadow solid body's
+	// orientation belief (psi and its variance) the published box's heading
+	// filter posterior, so one heading is observed by the rectangle-fit axis
+	// and the course, and HeadingFaceNoise reads that filter's variance. It
+	// needs solid_body and the tuning file's box model, and is refused with
+	// the other sources of the same orientation or face axis
+	// (solid_body_rectangle_heading, solid_body_course_heading,
+	// solid_body_course_faces) and with near_edge_track, whose tracked body
+	// ignores it.
+	ExperimentSolidBodySharedOrientation = "solid_body_shared_orientation"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -463,6 +474,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyHeadingFaceNoise:         true,
 	ExperimentSolidBodyAnisotropicReferenceBias: true,
 	ExperimentSolidBodyFaceState:                true,
+	ExperimentSolidBodySharedOrientation:        true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
 	ExperimentSurfaceGround:                     true,

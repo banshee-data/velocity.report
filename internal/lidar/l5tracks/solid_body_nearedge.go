@@ -316,6 +316,20 @@ type SolidBodyOptions struct {
 	// resolved axis (the seed, and a lapse with no orientation) the
 	// inflation is isotropic at the larger, (L/2)^2. Default false.
 	AnisotropicReferenceBias bool
+
+	// SharedOrientation makes the shadow solid body's orientation belief the
+	// published box's heading filter posterior (box_model.go): psi is the
+	// filter's state and VarianceRad2 its P_psi-psi, so there is one heading,
+	// observed by the rectangle-fit axis with its sigma and by the course,
+	// under the yaw-rate bound, and the variance HeadingFaceNoise consumes is
+	// that filter's. It needs TrackerConfig.BoxModel; on a frame whose box
+	// has not resolved which axis is the length (unlabelled), or has no
+	// estimate yet, the orientation is what it would be without this option.
+	// It takes precedence over CourseHeading and RectangleHeading on the
+	// frames it applies to. The tracked path under NearEdgeTracking ignores
+	// it, as it ignores ExtentState. Default false.
+	// solid_body_shared_orientation.go holds the mapping.
+	SharedOrientation bool
 }
 
 // extentGrowthLateralMarginMetres is how much wider than the believed width
@@ -495,6 +509,17 @@ type SolidBodyMeasurement struct {
 	RectangleSpan1      float32
 	RectangleSpan2      float32
 	RectangleAbstain    string
+	// HeadingNIS is, under SharedOrientation, this frame's normalised heading
+	// innovation from the box filter's axis observation: innovation squared
+	// over its variance, P_psi-psi plus the fit's sigma squared, before the
+	// update. HeadingNISGated says the filter's gate refused that
+	// observation. HeadingNISKnown is false on a frame without one. It is a
+	// calibration diagnostic for G-UNC-1-style checks of the shared
+	// variance, carried on the reading and not yet persisted: the solid-body
+	// table has no column for it.
+	HeadingNIS      float32
+	HeadingNISGated bool
+	HeadingNISKnown bool
 }
 
 // SolidBodyReading is a track's solid body at its latest update: the estimate,
@@ -627,7 +652,10 @@ type solidBodyTrack struct {
 
 	reference   ReferencePoint
 	orientation OrientationBelief
-	estimation  EstimationState
+	// shared says this frame's orientation is the box's heading posterior
+	// under SharedOrientation.
+	shared     bool
+	estimation EstimationState
 
 	// lengthBelief and widthBelief are lower-bound extent evidence admitted
 	// from near-edge frames, with the same corroborated-maximum semantics as
@@ -956,10 +984,17 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	effective, _ := class.Effective()
 	prior := dimensionPriorFor(effective)
 	t.observeAxis(track, sb, cluster)
-	sb.orientation = t.solidBodyOrientation(track, sb)
+	if o, ok := t.sharedOrientation(track); ok {
+		sb.orientation, sb.shared = o, true
+	} else {
+		sb.orientation, sb.shared = t.solidBodyOrientation(track, sb), false
+	}
 
 	frame := t.measureNearEdgeFrame(sb, cluster, prior, track.ObservationCount, track.MergeCandidate)
 	m, outcome, _ := t.stepNearEdge(sb, cluster, prior, frame)
+	if sb.shared {
+		headingInnovation(track, &m)
+	}
 	measured := outcome != nearEdgeCoast
 	if outcome == nearEdgeMedoid {
 		// Never re-referenced, so the medoid is still what the state
@@ -1812,6 +1847,12 @@ func (sb *solidBodyTrack) entryConsider(edges []EdgeMeasurement, length, width D
 // heading that points the other way.
 func (t *Tracker) faceAxis(sb *solidBodyTrack) (float32, bool) {
 	psi := sb.orientation.PsiRad
+	if sb.shared {
+		// The box filter's heading is already the fit and the course fused,
+		// so the faces lie along it, believed by the rule the rectangle
+		// heading's axis is (axisBelieved).
+		return psi, sb.orientation.VarianceRad2 <= axisBelievedSigmaRad*axisBelievedSigmaRad
+	}
 	if t.Config.SolidBody.RectangleHeading && sb.axis.known {
 		// The faces along the observed axis, not the course: the axis is
 		// what the body's own returns say, and the course is what they
@@ -2167,6 +2208,12 @@ func (t *Tracker) coastSolidBody(track *TrackedObject, inflation float32) {
 	sb := &track.solidBody
 	if !sb.seeded {
 		return
+	}
+	if o, ok := t.sharedOrientation(track); ok {
+		// The box coasted first (step 4), so this is its prediction.
+		sb.orientation, sb.shared = o, true
+	} else {
+		sb.shared = false
 	}
 	if sb.tracked {
 		// The tracked covariance has had the same inflation.

@@ -368,7 +368,9 @@ truck seen at most 3 m at a time, the shipped box stays at the 3.8 m floor and t
 
 The wiring check on kirk0 ran beside `solid_body_face_state`. 1702 associated frames took the
 state, and 3459 were refused because the solid body's orientation disagreed with the box's
-heading, which the shared orientation addresses. The box is not display-only: L3's track guard
+heading. With `solid_body_shared_orientation` as well
+([state plan §9.2.4](lidar-state-estimation-plan.md#924-extents-in-the-state-and-censored-extent-evidence-delivered-default-off)),
+4032 took it and 567 were refused. The box is not display-only: L3's track guard
 holds the returns inside it, so the tracks changed. This is wiring, not a score; geom0015's
 reviewed centres are the score.
 

@@ -1472,6 +1472,27 @@ With `ExtentState` the second end face brings the half-length to 2.21 m (truth 2
 departure centre error to 0.05 m. No replay arm has run. Scoring `solid_body_face_state` against
 geom0015's box rows on kirk0 is in the checklist.
 
+**Shared orientation (default-off).** `HeadingFaceNoise` reads `σψ²` from an orientation belief
+whose variance nothing calibrates. Under `SolidBodyOptions.SharedOrientation` (replay
+`solid_body_shared_orientation`), the shadow body's orientation is instead the published box's
+heading filter posterior, its state and `P_ψψ`. The filter is observed by the rectangle-fit axis,
+with the fit's sigma, and by the course, under the yaw-rate bound. Orientation is then one filtered
+belief beside the dynamic state. It is still Option A, so the deferred Option B gate is untouched.
+The box's filter is a heading only once the course or displacement has labelled it. A labelled
+box is a direction-resolved belief, with zero weight on the `ψ+π` mode. An unlabelled box has four
+candidates, which the two-mode belief cannot state, so the body keeps its shipped orientation on
+those frames. Each axis update records its normalised innovation `r²/S` on the solid-body reading
+(`HeadingNIS`), which is not yet persisted. On a synthetic turning box with noise at the filter's
+own sigmas, the mean NEES is 0.83 and the mean NIS is 0.95. At twice the noise they are 3.28 and
+2.32. On kirk0, beside `solid_body_face_state`, the solid body sat more than 10° from the box's
+heading on 3922 of 6493 body-centre frames. With the heading shared, it does so on 834 of 6887,
+the unlabelled ones. Over 3933 accepted axis updates (5.0 % gated) the mean NIS is 0.73, but the
+median is 0.10 against χ²₁'s 0.45 and the p90 is 2.3. Most innovations are smaller than the
+variance says, and a tail is larger, so the mean alone does not show the variance is calibrated.
+The axis sigma's 1.5 scale, which stands in for the correlation between consecutive fits, is the
+first suspect. That is a G-UNC-1-style finding to resolve before the shared variance is trusted as
+`σψ²`.
+
 ### 9.3 Decision gate G-GEO-1
 
 The historical 0.316 m and 11.3% baseline figures below are not a current paired comparator.
