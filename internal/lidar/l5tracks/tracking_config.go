@@ -134,6 +134,32 @@ type TrackerConfig struct {
 	CoupledProcessNoise    bool
 	JosephCovarianceUpdate bool
 
+	// Initialisation and covariance hygiene (data/maths/tracking-maths.md
+	// §2.3; the face-state maths review §4.2 and §4.6). Each is a Go-level
+	// option with the shipped arithmetic as the default, for the fingerprint
+	// reason above, and each is reachable from a replay by name.
+	//
+	// TwoPointVelocityInit replaces a track's second update with
+	// initialisation from its two measurements: position the second, velocity
+	// their difference over the capture interval between them, and the
+	// covariance that pair implies. The shipped track starts at zero velocity
+	// with unit variance, so a vehicle at 6.5 m/s is 6.5 sigma from its prior
+	// and its velocity takes about a second to converge. See
+	// initialiseTwoPoint for when it applies and when it falls back.
+	//
+	// ConsistentCovarianceCap caps a covariance diagonal by scaling its row
+	// and column, P ← D P D, rather than clamping the diagonal alone, which
+	// can leave a correlation above one and P indefinite. See
+	// capCovarianceConsistent.
+	//
+	// ConsistentSpeedClamp applies the speed limit as a Gaussian truncation
+	// of the speed along the current velocity direction, carried through the
+	// state's regression on it, rather than rescaling the velocity and
+	// leaving P. See constrainSpeedConsistent.
+	TwoPointVelocityInit    bool
+	ConsistentCovarianceCap bool
+	ConsistentSpeedClamp    bool
+
 	// LikelihoodAssociationCost changes the assignment cost from the bare
 	// squared Mahalanobis distance d² to the Gaussian negative log-likelihood
 	// d² + ln|S| (gap analysis S3). With d² alone, a track whose innovation

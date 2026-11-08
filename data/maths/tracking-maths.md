@@ -98,6 +98,137 @@ The implementation rejects updates with near-singular `S` (determinant below thr
 adaptive model of Section 12 replaces `R` alone, in the gate, the likelihood cost and the update
 alike.
 
+### 2.3 Initialisation and covariance hygiene (default-off options)
+
+Three operations set or change the state without the covariance the filter's own maths implies.
+Each has a default-off `TrackerConfig` option that replaces it; with the option off the shipped
+arithmetic runs unchanged. They are Go-level options and not tuning keys, because
+`TuningConfig.Fingerprint` hashes the whole tuning config and a new key would break the committed
+perf baselines. A replay switches each on by name. Source: the face-state maths review
+(`data/maths/proposals/20261108-face-state-and-cv-ca-maths-review.md`, §4.2 and §4.6).
+
+| Option                    | Replay experiment           | Replaces                                        |
+| ------------------------- | --------------------------- | ----------------------------------------------- |
+| `TwoPointVelocityInit`    | `two_point_velocity_init`   | the second update of a zero-velocity prior      |
+| `ConsistentCovarianceCap` | `consistent_covariance_cap` | the diagonal clamp at `MaxCovarianceDiag`       |
+| `ConsistentSpeedClamp`    | `consistent_speed_clamp`    | the velocity rescale at `MaxReasonableSpeedMps` |
+
+#### Two-point velocity initialisation
+
+`initTrack` starts a track at the measurement with `v = 0`, `P_vv = 1 m²/s²` per axis and
+`P_xx = 10 m²`. A vehicle at 6.5 m/s is then 6.5 standard deviations from its velocity prior.
+Under `TwoPointVelocityInit` the track's second accepted association replaces the update. With
+`z₁` the founding measurement, `z₂` this one, and `Δt` the interval between their acquisition
+times:
+
+- `x = z₂`
+- `v = (z₂ − z₁) / Δt`
+- per axis, `P = [[R, R/Δt], [R/Δt, 2R/Δt²]]`
+
+This is the exact mean and covariance of the pair when both measurements carry noise `R` and
+nothing is known of the velocity beforehand. At the shipped `R = 0.05 m²` and `Δt = 0.1 s` the
+velocity variance is 10 m²/s². `R` is the isotropic `MeasurementNoise`, so the two axes stay
+uncorrelated. Under the adaptive model it is this measurement's `R`, used for both measurements
+because the founding one's `R` is not retained, and `R`'s own x–y term carries into each block.
+
+It applies only while the track has exactly one measurement and its velocity is still zero. It
+declines, and the shipped update runs, when:
+
+- either acquisition time is missing;
+- `Δt` is not positive and finite;
+- the implied velocity is not finite;
+- the implied speed exceeds `MaxReasonableSpeedMps`;
+- `2R/Δt²` exceeds `MaxCovarianceDiag`. At the shipped `R` and cap that is a `Δt` under about
+  32 ms, too short a baseline to carry a velocity the covariance can represent.
+
+It does not apply to a track whose state the near-edge state machine owns (`NearEdgeTracking`).
+That reference point can move between the two frames, and a difference across a re-reference
+would read the translation as motion. Such a track runs the shipped update.
+
+The frame is recorded with disposition `two_point_init`. The record keeps the innovation against
+the zero-velocity prediction, and the NIS the gate computed, so the frame still has its estimate
+row. That innovation is not a filter residual: no gain was applied. The consistency accumulators
+do not see it, and the smoother does not list the frame as update evidence.
+
+On a synthetic noise-free scene at the shipped tuning, the shipped tracker does not hold a
+vehicle born at 14 m/s or faster. The second update leaves the velocity near zero. The posterior
+position variance is then near `R`, so by the third or fourth frame the vehicle is outside the
+gate and is born again. At 20 m/s it was born 10 times in 3 s and never confirmed. With the
+option on it was born once and confirmed (`TestTwoPointVelocityInitHoldsAFastVehicleFromBirth`).
+This is a property of the synthetic scene. It is not a measurement on a capture.
+
+#### Covariance cap that keeps `P` positive semi-definite
+
+The shipped cap sets `P_ii ← min(P_ii, cap)` and leaves the off-diagonals. It runs in the
+prediction, in the coast inflation and in the solid body's prediction and coast. Lowering `P_ii`
+while `P_ij` keeps its size can push `|P_ij|` past `√(P_ii P_jj)`, and `P` is then indefinite.
+Under `ConsistentCovarianceCap` every one of these sites scales instead:
+
+- `D = diag(min(1, √(cap / P_ii)))`
+- `P ← D P D`
+
+`D P D` is a congruence. Every correlation `P_ij / √(P_ii P_jj)` is kept, so a positive
+semi-definite `P` stays so, and each capped diagonal is stored at exactly `cap`. With the coupled
+process noise and a 2 m² cap, an 80-frame coast drove a position-velocity correlation to 4.4
+under the shipped cap and kept it at 0.51 under this one (`TestCovarianceCapOnALongCoast`). At
+the shipped 100 m² cap and 25 confirmed misses the cap is not reached, so the defect is latent.
+
+#### Speed clamp consistent with the covariance
+
+The shipped clamp scales `v` to `MaxReasonableSpeedMps` along its own direction and leaves `P`.
+It runs in the tracked filter's `clampVelocity` and in the solid body's state step.
+
+The limit is an inequality: the speed along the current velocity direction `u` is at most
+`v_max`. Under `ConsistentSpeedClamp` the clamp is a Gaussian truncation of that speed, carried
+through the state's regression on it. This is the same form the containment truncation
+(`truncateAxis`) uses for a position bound. With `h = [0, 0, u_x, u_y]`, the speed's marginal is
+`N(μ, σ²)`, where `μ = h·x` and `σ² = h P hᵀ`. Truncated to `(−∞, v_max]`, with
+`β = (v_max − μ)/σ` and the inverse Mills ratio `λ = φ(β)/Φ(β)`, its moments are:
+
+- `m = μ − σ λ`
+- `s² = σ² (1 − β λ − λ²)`
+
+They replace the marginal's through every component's regression on it:
+
+- `k = P hᵀ / σ²`
+- `x ← x + k (m − μ)`
+- `P ← P + (s² − σ²) k kᵀ`
+
+The lower bound is infinite, and it is taken explicitly. The two-sided moments would form
+`α φ(α) = ∞ · 0` at `α = −∞`. `Φ` comes from `erfc`. Beyond 30 standard deviations, where `Φ`
+nears underflow, `λ` comes from its continued fraction, `z + 1/(z + 2/(z + …))` at `z = −β`.
+
+The along-track speed moves to `m`, just below the limit, and keeps the variance `s²`. That is
+less than `σ²` but not zero, so the next update can still move the speed. Position moves too, by
+its covariance with the along-track speed. `P` is symmetrised first. `s²` is floored at
+(1 cm/s)², never above `σ²`, and any diagonal below zero is floored at zero.
+
+A projection onto `h·x = v_max` would treat the limit as an equality. It would zero the
+along-track variance and, with it, the next update's along-track velocity gain. In the unit test
+(`TestConsistentSpeedClampBoundsTheNextVelocityGain`), the shipped clamp left that gain at
+1.15 s⁻¹, a projection left it at zero to rounding, and the truncation leaves it at 0.063 s⁻¹. In
+that case a speed of 33.24 ± 0.72 m/s is truncated at 30 m/s to 29.85 ± 0.14 m/s.
+
+The cross-track velocity also moves by its covariance with the along-track one. That can leave
+the speed a little above `v_max`, and the shipped rescale then removes the excess, so the speed
+bound holds as it always has. If the velocity variance along `u` is below 1e-9 m²/s² or not
+finite, the clamp falls back to the shipped rescale.
+
+The truncation does not stop a body that really travels above the limit from outrunning its
+track. In the synthetic scene of `TestHygieneOptionsOffKeepTheShippedArithmetic`, a vehicle
+accelerates at 5 m/s² to 37 m/s. The clamp first binds at a true speed of 34 m/s. Each truncation
+puts the speed just below 30 m/s with a small variance, so the track falls behind faster than
+under the shipped clamp. That clamp holds the speed at 30 m/s with its untouched variance and
+lets the position update catch up. At a true speed of 36 m/s, after four clamped frames, the
+truncated track misses one frame and a stray track is born. The original track reacquires the
+vehicle on the next frame. Under the shipped clamp the same track holds throughout, its lag
+growing from 0.62 m to 0.98 m. A body above `MaxReasonableSpeedMps` is outside the model by
+definition.
+
+On kirk0's six-second moving window, neither covariance option changed the recording. The
+two-point option did (`TestHygieneExperimentsOnKirk0`, `pcap` build tag). That run checks the
+wiring only. It is not evidence for or against any of the three options.
+
 ## 3. Gating and plausibility
 
 Each cluster-track candidate gets a squared Mahalanobis cost:

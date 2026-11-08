@@ -39,9 +39,12 @@ struct FacetPoseProposalOverlay: View {
             context.stroke(
                 Path(ellipseIn: CGRect(x: centre.x - 5, y: centre.y - 5, width: 10, height: 10)),
                 with: .color(.orange), lineWidth: 2)
+            let label =
+                result.constraint == FacetPoseProposal.normalPositionAndYaw
+                ? "body pose proposal · measured yaw" : "body pose proposal · prior yaw"
             context.draw(
-                Text("body pose proposal · prior yaw").font(.system(size: 10)).foregroundColor(
-                    .orange), at: CGPoint(x: centre.x, y: centre.y - 16))
+                Text(label).font(.system(size: 10)).foregroundColor(.orange),
+                at: CGPoint(x: centre.x, y: centre.y - 16))
         }.allowsHitTesting(false)
     }
 }

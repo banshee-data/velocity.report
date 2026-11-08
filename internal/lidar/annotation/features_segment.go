@@ -10,6 +10,7 @@ import (
 // featureSegmentRelation derives a horizontal infinite line from explicit
 // direction-defining returns. The changing visible midpoint is not a body
 // point. The conservative offset bound leaves tangent position unconstrained.
+// Every return must lie within returnBound of the endpoint line in plan view.
 func featureSegmentRelation(points Points, indices []uint32, start, end uint32, centre PlanarBound, yaw AngleBound, returnBound float64) (*pb.FeatureLineConstraint, float64, error) {
 	if start == end || !finiteFeature(returnBound) || returnBound <= 0 || !finiteFeature(centre.XM) || !finiteFeature(centre.YM) || !finiteFeature(centre.BoundM) || centre.BoundM < 0 || !finiteFeature(yaw.Rad) || !finiteFeature(yaw.BoundRad) || yaw.BoundRad < 0 {
 		return nil, 0, fmt.Errorf("invalid segment inputs")
@@ -33,18 +34,21 @@ func featureSegmentRelation(points Points, indices []uint32, start, end uint32, 
 	if !foundA || !foundB || len(unique) < 3 {
 		return nil, 0, fmt.Errorf("segment needs three distinct returns and two direction-defining support indices")
 	}
-	ax, ay, az := float64(points.X[start]), float64(points.Y[start]), float64(points.Z[start])
-	vx, vy, vz := float64(points.X[end])-ax, float64(points.Y[end])-ay, float64(points.Z[end])-az
+	ax, ay := float64(points.X[start]), float64(points.Y[start])
+	vx, vy := float64(points.X[end])-ax, float64(points.Y[end])-ay
 	span := math.Hypot(vx, vy)
 	if span < 0.1 || returnBound*2 >= span {
 		return nil, 0, fmt.Errorf("insufficient horizontal segment span for the return bound")
 	}
-	length := math.Sqrt(vx*vx + vy*vy + vz*vz)
+	// Straightness is tested in plan view only. A constant-elevation ring on a
+	// flat vertical face is straight in (x, y) but sags in z across the face
+	// (0.13-0.22 m over 4.5 m at 5 m on steep rings), so a 3D distance would
+	// refuse a flat panel. The relation is horizontal, so z carries no part
+	// of it and is not tested.
 	for _, index := range indices {
-		dx, dy, dz := float64(points.X[index])-ax, float64(points.Y[index])-ay, float64(points.Z[index])-az
-		cx, cy, cz := dy*vz-dz*vy, dz*vx-dx*vz, dx*vy-dy*vx
-		if math.Sqrt(cx*cx+cy*cy+cz*cz)/length > returnBound {
-			return nil, 0, fmt.Errorf("selected support is not straight within the return bound")
+		dx, dy := float64(points.X[index])-ax, float64(points.Y[index])-ay
+		if math.Abs(dx*vy-dy*vx)/span > returnBound {
+			return nil, 0, fmt.Errorf("selected support is not straight in plan view within the return bound")
 		}
 	}
 	c, s := math.Cos(yaw.Rad), math.Sin(yaw.Rad)

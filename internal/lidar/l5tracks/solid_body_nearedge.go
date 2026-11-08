@@ -640,9 +640,13 @@ func (t *Tracker) predictSolidBodyStep(track *TrackedObject, dt float32) {
 	sb.state[1] += sb.state[3] * dt
 	sb.p = propagateConstantVelocity(sb.p, dt)
 	addProcessNoise(&sb.p, t.Config.ProcessNoisePos, t.Config.ProcessNoiseVel, dt, t.Config.CoupledProcessNoise)
-	for i := 0; i < 4; i++ {
-		if sb.p[i*4+i] > t.Config.MaxCovarianceDiag {
-			sb.p[i*4+i] = t.Config.MaxCovarianceDiag
+	if t.Config.ConsistentCovarianceCap {
+		capCovarianceConsistent(&sb.p, t.Config.MaxCovarianceDiag)
+	} else {
+		for i := 0; i < 4; i++ {
+			if sb.p[i*4+i] > t.Config.MaxCovarianceDiag {
+				sb.p[i*4+i] = t.Config.MaxCovarianceDiag
+			}
 		}
 	}
 	t.finishSolidBodyState(track, "predict")
@@ -690,6 +694,12 @@ func (t *Tracker) finishSolidBodyState(track *TrackedObject, step string) {
 	}
 	speed := float32(math.Hypot(float64(sb.state[2]), float64(sb.state[3])))
 	if speed > t.Config.MaxReasonableSpeedMps && speed > 0 {
+		if t.Config.ConsistentSpeedClamp {
+			// The tracked filter's consistent clamp, on the body's own
+			// state and covariance.
+			constrainSpeedConsistent(&sb.state, &sb.p, t.Config.MaxReasonableSpeedMps)
+			return
+		}
 		scale := t.Config.MaxReasonableSpeedMps / speed
 		sb.state[2] *= scale
 		sb.state[3] *= scale
@@ -1801,6 +1811,10 @@ func (t *Tracker) coastSolidBody(track *TrackedObject, inflation float32) {
 	if sb.tracked {
 		// The tracked covariance has had the same inflation.
 		sb.syncFromTrack(track)
+	} else if inflation > 0 && t.Config.ConsistentCovarianceCap {
+		sb.p[0*4+0] += inflation
+		sb.p[1*4+1] += inflation
+		capCovarianceConsistent(&sb.p, t.Config.MaxCovarianceDiag)
 	} else if inflation > 0 {
 		sb.p[0*4+0] += inflation
 		sb.p[1*4+1] += inflation

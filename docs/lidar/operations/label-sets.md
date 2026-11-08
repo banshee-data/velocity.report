@@ -20,7 +20,7 @@ One layout, locally and in the Hugging Face dataset, where `<root>` is `labels/`
                              window), journal.ndjson and .lock
       views/<view>/          a pack linked to the set; label-set-link.json -> ../..
     packs/<run>/             a pack not in a set yet (local only)
-  clip-<job>-<n>/pack/       a Segments clip job's pack, in the job's folder beside its recording
+  clip-<job>-<n>/pack/       a Windows clip job's pack, in the job's folder beside its recording
   splits/                    frozen splits
 ```
 
@@ -115,7 +115,7 @@ file holds its role and a different file does not.
 | macOS annotation window, replay check   | With "Follow the main view" on: whether the main view's current frame holds this label set's packets (same capture, partly, a different capture, or cannot check when frames carry no packet keys)               |
 | macOS annotation window, no label set   | "No label set yet": the first save makes one in the capture folder; buttons attach the pack to an existing label set of the same capture, with how many packets they share                                       |
 | macOS annotation window, version 1 pack | Refused when opened, with where its labels went and the `annotation-v1-reader` tag that keeps the last build that reads it                                                                                       |
-| Web, Segments page, Annotation packs    | Every pack: its label set and revision, or that it has no labels yet; reviewed work; and each verified capture file                                                                                              |
+| Web, Windows page, Annotation packs     | Every pack: its label set and revision, or that it has no labels yet; reviewed work; and each verified capture file                                                                                              |
 
 The replay check compares the packet keys on the gRPC stream with the label set's packet table, so it
 is a check of content, whichever verified file the main view replays. A live source, a VRLOG recorded

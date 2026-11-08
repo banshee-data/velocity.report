@@ -35,18 +35,23 @@ enum FacetBodyRegistration {
         else {
             throw FeatureError.message("A segment needs at least three distinct finite returns")
         }
-        let a = SIMD3<Double>(Double(start.x), Double(start.y), Double(start.z))
-        let b = SIMD3<Double>(Double(end.x), Double(end.y), Double(end.z))
+        // Straightness is tested in plan view only, as the Go relation does.
+        // A constant-elevation ring on a flat vertical side is straight in
+        // (x, y) but sags in z across the face (0.13-0.22 m over 4.5 m at 5 m
+        // on steep rings), so a 3D distance would refuse a flat panel. The
+        // relation is horizontal, so z carries no part of it.
+        let a = SIMD2<Double>(Double(start.x), Double(start.y))
+        let b = SIMD2<Double>(Double(end.x), Double(end.y))
         let vector = b - a
         let span = hypot(vector.x, vector.y)
         guard span >= 0.1, returnBoundM * 2 < span,
             values.allSatisfy({ value in
-                let p = SIMD3<Double>(Double(value.x), Double(value.y), Double(value.z))
-                return simd_length(simd_cross(p - a, vector)) / simd_length(vector) <= returnBoundM
+                let d = SIMD2<Double>(Double(value.x), Double(value.y)) - a
+                return abs(d.x * vector.y - d.y * vector.x) / span <= returnBoundM
             })
         else {
             throw FeatureError.message(
-                "Choose a longer straight edge: every selected return must fit within the stated return bound"
+                "Choose a longer straight edge: every selected return must fit within the stated return bound in plan view"
             )
         }
         let object = physical.document.objects.first { $0.objectID == feature.objectID }!

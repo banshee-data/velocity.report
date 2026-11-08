@@ -1,4 +1,4 @@
-import { clipQuery, linkedId, runQuery, tracksQuery } from './lidarLinks';
+import { clipQuery, linkedId, linkedRun, runQuery, tracksQuery, windowsQuery } from './lidarLinks';
 
 describe('clipQuery and runQuery', () => {
 	it('carry the record as id', () => {
@@ -37,5 +37,19 @@ describe('linkedId', () => {
 	it('is null when nothing was linked', () => {
 		expect(linkedId(new URL('http://localhost/app/lidar/runs'))).toBeNull();
 		expect(linkedId(new URL('http://localhost/app/lidar/runs?id=%20'))).toBeNull();
+	});
+});
+
+describe('windowsQuery and linkedRun', () => {
+	it('carry the run as run, and read it back', () => {
+		expect(windowsQuery('ad8b9438')).toBe('run=ad8b9438');
+		expect(linkedRun(new URL(`http://x/app/lidar/windows?${windowsQuery('ad8b9438')}`))).toBe(
+			'ad8b9438'
+		);
+	});
+
+	it('is null when no run was linked', () => {
+		expect(linkedRun(new URL('http://x/app/lidar/windows'))).toBeNull();
+		expect(linkedRun(new URL('http://x/app/lidar/windows?run=%20'))).toBeNull();
 	});
 });

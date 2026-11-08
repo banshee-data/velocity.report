@@ -1,6 +1,6 @@
 /**
  * Read-only descriptions of annotation packs and the label sets that hold
- * their labels, for the Segments page's pack inventory.
+ * their labels, for the Windows page's pack inventory.
  *
  * A label set cites a capture's returns by packet, so it applies to every run
  * of the capture and every file holding its packets. Its verified captures are

@@ -1,5 +1,7 @@
 package l5tracks
 
+import "math"
+
 // Covariance maths for the four-state CV filter, split out so the two known
 // gaps in it (K1 and K2 in the paper-implementation gap analysis) can be
 // measured against the shipped forms rather than argued about.
@@ -156,6 +158,184 @@ func transpose4x4(a [16]float32) [16]float32 {
 		}
 	}
 	return out
+}
+
+// capCovarianceConsistent caps every diagonal of P at maxDiag by scaling its
+// row and column (ConsistentCovarianceCap):
+//
+//	D = diag(min(1, sqrt(maxDiag / P_ii))),   P ← D P D.
+//
+// D P D is a congruence, so every correlation P_ij/sqrt(P_ii P_jj) is kept and
+// a positive semi-definite P stays so. The shipped cap clamps the diagonal and
+// leaves the off-diagonals, which lowers P_ii while P_ij keeps its size, so
+// |P_ij| can pass sqrt(P_ii P_jj) and P becomes indefinite.
+//
+// Computed in float64 and stored once; a capped diagonal is stored at exactly
+// maxDiag so the bound holds to the bit, as the shipped cap's does. A
+// diagonal that is not above maxDiag (including NaN, which the callers'
+// finite-state guards then refuse) is untouched, and P is untouched when no
+// diagonal is above it. A cap of zero or below scales the over-cap rows and
+// columns to zero, the consistent reading of a variance bound that admits no
+// variance.
+func capCovarianceConsistent(p *[16]float32, maxDiag float32) {
+	var d [4]float64
+	capped := false
+	for i := 0; i < 4; i++ {
+		d[i] = 1
+		if v := p[i*4+i]; v > maxDiag {
+			capped = true
+			d[i] = 0
+			if maxDiag > 0 {
+				d[i] = math.Sqrt(float64(maxDiag) / float64(v))
+			}
+		}
+	}
+	if !capped {
+		return
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			if d[i] != 1 || d[j] != 1 {
+				p[i*4+j] = float32(float64(p[i*4+j]) * d[i] * d[j])
+			}
+		}
+	}
+	for i := 0; i < 4; i++ {
+		if d[i] != 1 && p[i*4+i] > maxDiag {
+			p[i*4+i] = maxDiag
+		}
+	}
+}
+
+// minSpeedConstraintVariance is the smallest velocity variance along the
+// direction of travel the consistent speed clamp will regress on. Below it
+// the gain P hᵀ / (h P hᵀ) is float noise divided by float noise, so the clamp
+// falls back to rescaling the velocity alone.
+const minSpeedConstraintVariance = 1e-9
+
+// speedClampVarianceFloor is the least along-track velocity variance the
+// consistent speed clamp leaves, (1 cm/s)²: like the containment truncation's
+// floor, the truncation never claims the speed to better than that, and a
+// float32 diagonal can otherwise round below zero. It never raises a variance
+// already below it.
+const speedClampVarianceFloor = 1e-4
+
+// millsContinuedFractionFrom is the standardised excess beyond which the
+// inverse Mills ratio is taken from its continued fraction rather than from
+// φ/Φ, whose denominator underflows near 37 standard deviations.
+const millsContinuedFractionFrom = 30
+
+// constrainSpeedConsistent applies a speed limit to a four-state CV estimate
+// as a Gaussian truncation through the state's regression
+// (ConsistentSpeedClamp), in place of rescaling the velocity and leaving P.
+//
+// With u the unit vector along the current velocity and h = [0, 0, ux, uy],
+// μ = h·x is the speed and σ² = h P hᵀ its variance. The limit is an
+// inequality, h·x ≤ vmax, so the marginal N(μ, σ²) is truncated to
+// (−∞, vmax] (upperTruncatedNormalMoments) and its mean m and variance s²
+// replace the marginal's through every component's regression on it, the
+// form truncateAxis uses for the containment bound:
+//
+//	k = P hᵀ / σ²,   x ← x + k (m − μ),   P ← P + (s² − σ²) k kᵀ.
+//
+// The velocity's along-track component moves to m, below the limit, and
+// keeps the variance s², which is less than σ² but not zero, so the next
+// update can still move it. Position moves too, by its covariance with the
+// along-track speed. A projection onto h·x = vmax, by contrast, would treat
+// the limit as an equality and zero that variance.
+//
+// P is symmetrised first; s² is floored at speedClampVarianceFloor (never
+// above σ²), and any diagonal float error takes below zero is floored at zero.
+// Velocity across the direction of travel also moves by its covariance with
+// the along-track component, which can leave the speed above vmax; the
+// shipped rescale of the velocity alone then removes that residue, so the
+// speed bound holds as it always has. A velocity variance along u below
+// minSpeedConstraintVariance, or a non-finite one, falls back to the shipped
+// rescale outright. The caller has already found the speed above vmax.
+func constrainSpeedConsistent(x *[4]float32, p *[16]float32, vmax float32) {
+	vx, vy := float64(x[2]), float64(x[3])
+	speed := math.Hypot(vx, vy)
+	if !(speed > 0) || math.IsInf(speed, 0) {
+		return
+	}
+	ux, uy := vx/speed, vy/speed
+	var sym [16]float64
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			sym[i*4+j] = 0.5 * (float64(p[i*4+j]) + float64(p[j*4+i]))
+		}
+	}
+	var k [4]float64 // P hᵀ, then divided by σ²
+	for i := 0; i < 4; i++ {
+		k[i] = sym[i*4+2]*ux + sym[i*4+3]*uy
+	}
+	sigma2 := k[2]*ux + k[3]*uy // h P hᵀ
+	if !(sigma2 > minSpeedConstraintVariance) || math.IsInf(sigma2, 0) {
+		rescaleVelocity(x, vmax)
+		return
+	}
+	mean, variance := upperTruncatedNormalMoments(speed, math.Sqrt(sigma2), float64(vmax))
+	variance = math.Min(sigma2, math.Max(variance, speedClampVarianceFloor))
+	shift := mean - speed
+	d := variance - sigma2
+	for i := range k {
+		k[i] /= sigma2
+		x[i] = float32(float64(x[i]) + k[i]*shift)
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			v := sym[i*4+j] + d*k[i]*k[j]
+			if i == j && v < 0 {
+				v = 0
+			}
+			p[i*4+j] = float32(v)
+		}
+	}
+	rescaleVelocity(x, vmax)
+}
+
+// upperTruncatedNormalMoments is the mean and variance of N(mu, sigma²)
+// truncated to (−∞, upper], with β = (upper − mu)/σ and λ = φ(β)/Φ(β), the
+// inverse Mills ratio:
+//
+//	mean = mu − σ λ,   variance = σ² (1 − β λ − λ²).
+//
+// The infinite lower bound is taken explicitly: the two-sided form
+// (truncatedNormalMoments) would form α φ(α) = ∞ · 0 at α = −∞. λ is φ/Φ
+// with Φ from erfc, which stays accurate in relative terms, until β falls
+// below −millsContinuedFractionFrom; there Φ approaches underflow and λ is
+// the continued fraction for φ(z)/(1 − Φ(z)) at z = −β,
+// z + 1/(z + 2/(z + 3/(z + …))), which converges in a few terms that far
+// out. The mean is held at or below upper and the variance at or above zero
+// against rounding; σ must be positive.
+func upperTruncatedNormalMoments(mu, sigma, upper float64) (mean, variance float64) {
+	beta := (upper - mu) / sigma
+	var lambda float64
+	if z := -beta; z > millsContinuedFractionFrom {
+		t := z
+		for n := 40; n >= 1; n-- {
+			t = z + float64(n)/t
+		}
+		lambda = t
+	} else {
+		pdf := math.Exp(-beta*beta/2) / math.Sqrt(2*math.Pi)
+		cdf := 0.5 * math.Erfc(-beta/math.Sqrt2)
+		lambda = pdf / cdf
+	}
+	mean = math.Min(mu-sigma*lambda, upper)
+	variance = math.Max(sigma*sigma*(1-beta*lambda-lambda*lambda), 0)
+	return mean, variance
+}
+
+// rescaleVelocity is the shipped speed clamp on a state vector: the velocity
+// scaled to vmax along its own direction, the covariance untouched.
+func rescaleVelocity(x *[4]float32, vmax float32) {
+	speed := float32(math.Sqrt(float64(x[2]*x[2] + x[3]*x[3])))
+	if speed > vmax && speed > 0 {
+		scale := vmax / speed
+		x[2] *= scale
+		x[3] *= scale
+	}
 }
 
 // covarianceAsymmetry is the largest |P[i,j] - P[j,i]| in P.

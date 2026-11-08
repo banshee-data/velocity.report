@@ -95,6 +95,9 @@ The production pipeline uses four math-heavy layers:
 - [Tracking Maths](tracking-maths.md):
   CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions,
   and stability metrics.
+- [Motion Models Maths](motion-models-maths.md):
+  Offline only, not in the live tracker: CV and CA in one six-state space, the CA coast rule,
+  the CV/CA IMM, and the G-EST-1 analyses.
 - [Classification Maths](classification-maths.md):
   Rule-based feature aggregation and thresholds for L6 object classes (pedestrian,
   cyclist, bird, bus, car, noise, other), and the SemanticKITTI / Waymo /
