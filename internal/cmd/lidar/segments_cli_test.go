@@ -379,7 +379,7 @@ func TestSegmentsCLIRanksWithSelectors(t *testing.T) {
 		} `json:"selectors"`
 	}
 	b := captureCommandJSON(t, func() int { return SegmentsMain([]string{"--list-selectors"}) })
-	if err := json.Unmarshal(b, &listing); err != nil || len(listing.Selectors) != 7 ||
+	if err := json.Unmarshal(b, &listing); err != nil || len(listing.Selectors) != 8 ||
 		listing.Selectors[1].ID != "close_following" || listing.Selectors[1].HeldOut || !listing.Selectors[0].HeldOut {
 		t.Fatalf("listing: %+v %v", listing, err)
 	}
