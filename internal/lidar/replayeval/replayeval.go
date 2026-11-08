@@ -1498,6 +1498,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		return l5tracks.TrackerConfig{}, err
 	}
 	faceState := faceStateFor(experiments)
+	sharedOrientation := hasExperiment(experiments, ExperimentSolidBodySharedOrientation)
 	// The experiments are aliases for the tuning file's solid_body block:
 	// each switches its option on over whatever the block set, so a block
 	// and a name that agree are one configuration, and a name adds to a
@@ -1537,6 +1538,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		opts.SpanBoundsBelief = opts.SpanBoundsBelief || faceState.SpanBoundsBelief
 		opts.HeadingFaceNoise = opts.HeadingFaceNoise || faceState.HeadingFaceNoise
 		opts.AnisotropicReferenceBias = opts.AnisotropicReferenceBias || faceState.AnisotropicReferenceBias
+		opts.SharedOrientation = opts.SharedOrientation || sharedOrientation
 		trackerConfig.SolidBody = opts
 		trackerConfig.NearEdgeTracking = trackerConfig.NearEdgeTracking || hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = trackerConfig.NearEdgeMedoidGate || hasExperiment(experiments, ExperimentNearEdgeTrackA1)
@@ -1545,9 +1547,12 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		// clamp and the medoid update, and the faces update it jointly
 		// (l5tracks near_edge_tracking.go), so the combination is an arm of
 		// its own and needs no refusal.
+		if err := sharedOrientationRefusal(trackerConfig); err != nil {
+			return l5tracks.TrackerConfig{}, err
+		}
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
 		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment || rectangle || rectangleHeading || courseFusion || sigmaScale > 0 ||
-		faceState != (l5tracks.SolidBodyOptions{}) ||
+		faceState != (l5tracks.SolidBodyOptions{}) || sharedOrientation ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
@@ -1581,6 +1586,29 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		return l5tracks.TrackerConfig{}, fmt.Errorf("%s does not combine with %s: the A2 gate does not carry its noise model", ExperimentNearEdgeTrack, ExperimentLikelihoodCost)
 	}
 	return trackerConfig, nil
+}
+
+// sharedOrientationRefusal refuses solid_body_shared_orientation where it
+// would not be the arm its name reports: without the box model there is no
+// heading filter to share; under near_edge_track the tracked body ignores it;
+// and with another source of the same orientation or face axis switched on,
+// which source ran would depend on the frame. Nil when the option is off.
+func sharedOrientationRefusal(c l5tracks.TrackerConfig) error {
+	o := c.SolidBody
+	if !o.SharedOrientation {
+		return nil
+	}
+	switch {
+	case !c.BoxModel.Enabled:
+		return fmt.Errorf("replay experiment %s shares the box model's heading filter, and the tuning file's box model is off", ExperimentSolidBodySharedOrientation)
+	case c.NearEdgeTracking:
+		return fmt.Errorf("replay experiment %s gives the shadow solid body the box's heading, which %s replaces with the tracked one; name one",
+			ExperimentSolidBodySharedOrientation, ExperimentNearEdgeTrack)
+	case o.RectangleHeading || o.CourseHeading || o.CourseAlignedFaces:
+		return fmt.Errorf("replay experiment %s is the solid body's orientation and face axis, and %s, %s and %s are other sources of them; name one",
+			ExperimentSolidBodySharedOrientation, ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyCourseHeading, ExperimentSolidBodyCourseFaces)
+	}
+	return nil
 }
 
 // tuningNearEdge says the tuning file's block runs the body on the tracked

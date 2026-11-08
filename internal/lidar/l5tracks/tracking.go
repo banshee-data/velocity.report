@@ -651,6 +651,11 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 	if t.Config.SolidBody.Enabled {
 		for clusterIdx, trackID := range associations {
 			if trackID != "" {
+				if track := t.Tracks[trackID]; t.Config.SolidBody.SharedOrientation && track != nil && track.TrackState != TrackDeleted {
+					// The solid body takes the box's heading posterior, so the
+					// box's heading half runs first; 3d places the box.
+					t.advanceBoxHeading(track, &clusters[clusterIdx], nowNanos)
+				}
 				t.updateSolidBody(t.Tracks[trackID], clusters[clusterIdx])
 			}
 		}
@@ -710,10 +715,17 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 			// Inflate covariance during occlusion so the gating
 			// ellipse grows and re-association becomes easier.
 			inflation := t.inflateCoastCovariance(track)
-			if t.Config.SolidBody.Enabled {
+			if t.Config.SolidBody.Enabled && t.Config.SolidBody.SharedOrientation {
+				// The solid body takes the box's coasted heading, so the box
+				// coasts first. A coasting box reads nothing of the body.
+				t.updateBox(track, nil, nowNanos)
 				t.coastSolidBody(track, inflation)
+			} else {
+				if t.Config.SolidBody.Enabled {
+					t.coastSolidBody(track, inflation)
+				}
+				t.updateBox(track, nil, nowNanos)
 			}
-			t.updateBox(track, nil, nowNanos)
 			if t.Config.OverlapEndFrames > 0 {
 				if on, hit := t.coastsOn(track, live); hit {
 					track.overlapCoasts++

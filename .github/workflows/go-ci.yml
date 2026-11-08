@@ -95,6 +95,8 @@ jobs:
             lfs: true
           - shard: replay-b
             lfs: true
+          - shard: replay-c
+            lfs: true
           - shard: lidar-a
             lfs: true
           - shard: lidar-b
@@ -109,8 +111,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      # Six shards read the kirk0 fixtures. Restoring the LFS objects from the
-      # Actions cache keeps that from becoming six LFS downloads per run.
+      # Seven shards read the kirk0 fixtures. Restoring the LFS objects from
+      # the Actions cache avoids downloading them separately for every shard.
       - name: List LFS objects
         if: matrix.lfs
         run: git lfs ls-files --long | cut -d ' ' -f1 | sort > .lfs-assets-id
@@ -184,7 +186,7 @@ jobs:
           merge-multiple: true
 
       - name: Merge coverage profiles
-        # replay-a and replay-b both profile replayeval; Codecov merges the
+        # All three replay shards profile replayeval; Codecov merges the
         # repeated blocks line by line.
         run: |
           echo "mode: atomic" > coverage.out

@@ -242,7 +242,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyRectangleCourseFusion,
 		ExperimentSolidBodyRectangleFit, ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyRectangleSigmaMid,
 		ExperimentSolidBodyRectangleSigmaWide,
-		ExperimentSolidBodyReferenceTranslation, ExperimentSolidBodySpanBoundsBelief,
+		ExperimentSolidBodyReferenceTranslation, ExperimentSolidBodySharedOrientation, ExperimentSolidBodySpanBoundsBelief,
 		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentSurfaceGround, ExperimentSurfaceGround5m, ExperimentSurfaceGroundGlobal, ExperimentTentativePriority,
 		ExperimentTwoPointVelocityInit, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
@@ -378,6 +378,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 			o.AnisotropicReferenceBias = true
 		},
 		// The combined arm is the five together, and nothing else.
+		ExperimentSolidBodySharedOrientation: func(o *l5tracks.SolidBodyOptions) { o.SharedOrientation = true },
 		ExperimentSolidBodyFaceState: func(o *l5tracks.SolidBodyOptions) {
 			o.ExtentState, o.CensoredExtent, o.SpanBoundsBelief = true, true, true
 			o.HeadingFaceNoise, o.AnisotropicReferenceBias = true, true
@@ -854,6 +855,41 @@ func TestBoxExtentSolidBodyNeedsTheBoxAndTheExtentState(t *testing.T) {
 	// database may run it.
 	if err := RefuseExperimentsWithout("some-tool", []string{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentBoxExtentSolidBody}, ReplayInputs{}); err != nil {
 		t.Errorf("refused without an evidence database: %v", err)
+	}
+}
+
+// solid_body_shared_orientation combines with the face state and with the
+// box's extent from the solid body, and is refused where it would not be the
+// arm it names: without the box model, on the tracked filter, and beside
+// another source of the same orientation or face axis.
+func TestSolidBodySharedOrientationRefusals(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	got, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFaceState,
+		ExperimentSolidBodySharedOrientation, ExperimentBoxExtentSolidBody}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.SolidBody.SharedOrientation || !got.SolidBody.ExtentState || !got.BoxModel.BoxExtentFromSolidBody {
+		t.Errorf("the shared orientation with the face state and the box extent: %+v %+v", got.SolidBody, got.BoxModel)
+	}
+	for _, other := range []string{ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyCourseHeading, ExperimentSolidBodyCourseFaces} {
+		if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodySharedOrientation, other}, nil); err == nil ||
+			!strings.Contains(err.Error(), ExperimentSolidBodySharedOrientation) {
+			t.Errorf("with %s: want a refusal naming %s, got %v", other, ExperimentSolidBodySharedOrientation, err)
+		}
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack,
+		ExperimentSolidBodySharedOrientation}, nil); err == nil || !strings.Contains(err.Error(), ExperimentNearEdgeTrack) {
+		t.Errorf("with %s: want a refusal naming it, got %v", ExperimentNearEdgeTrack, err)
+	}
+	noBox := config.MustLoadDefaultConfig().L5.CvKfV1
+	noBox.BoxModel = nil
+	if _, err := trackerConfigFor(noBox, "", []string{ExperimentSolidBody, ExperimentSolidBodySharedOrientation}, nil); err == nil ||
+		!strings.Contains(err.Error(), "box model") {
+		t.Errorf("with the box model off: want a refusal naming the box model, got %v", err)
+	}
+	if err := ValidateExperiments([]string{ExperimentSolidBodySharedOrientation}, "", "", nil); err == nil {
+		t.Errorf("%s was accepted without %s", ExperimentSolidBodySharedOrientation, ExperimentSolidBody)
 	}
 }
 
