@@ -362,6 +362,14 @@ const (
 	// GroundSurfaceForTracker fitting that surface whether or not the clip
 	// reads it. It needs the tuning file's box model and is refused without.
 	ExperimentBoxGround = "box_ground"
+	// ExperimentBoxExtentSolidBody: l5tracks.BoxModelConfig.
+	// BoxExtentFromSolidBody, the published box's length and width from the
+	// solid body's joint extent state (2hL, 2hW) rather than its own
+	// windowBelief of spans, with the frame's span still the floor. It reads
+	// the extent state, so it needs the tuning file's box model, solid_body
+	// and solid_body_extent_state (or solid_body_face_state, which includes
+	// it) and is refused without them.
+	ExperimentBoxExtentSolidBody = "box_extent_solid_body"
 	// ExperimentBorderClasses: pipeline BorderClasses, foreground returns carrying the veil
 	// trait (a mixed return between a nearer and a farther neighbour in the same channel)
 	// withheld from L4 (l3bg0028). A treatment to test, not a claim that a veil bit is a mixed
@@ -470,6 +478,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSurfaceGroundGlobal:               true,
 	ExperimentSurfaceGround5m:                   true,
 	ExperimentBoxGround:                         true,
+	ExperimentBoxExtentSolidBody:                true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

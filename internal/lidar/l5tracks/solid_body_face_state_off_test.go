@@ -90,6 +90,11 @@ func solidBodyFingerprintScenarios() []solidBodyFingerprintScenario {
 		// taken on the code before the tracked path carried the extent
 		// block: extending ExtentState to the tracked filter, and publishing
 		// the joint covariance, must leave the shadow's arithmetic as it was.
+		// The first was retaken (from 6af1d1fdad6d35e2) when the span bounds
+		// became a projection rather than a moment-matched truncation
+		// (applyExtentBounds); it is the same with the half-extents' floor
+		// disabled, so the floor does not reach this pass. The second, which
+		// takes no bounds, did not move.
 		{
 			name: "shadow_face_state_end_on_truck",
 			pass: endOnTruckPass,
@@ -104,7 +109,7 @@ func solidBodyFingerprintScenarios() []solidBodyFingerprintScenario {
 				cfg.SolidBody.Containment = true
 				return cfg
 			},
-			golden: "6af1d1fdad6d35e2",
+			golden: "105a08d9a63cbec0",
 		},
 		{
 			name: "shadow_extent_state_default_pass_consistent",

@@ -346,6 +346,32 @@ scored its pairs.
   false), so no face, no fit and no containment exist on the device today. The v0.5.7 live
   retention item is on the critical path for any of this to leave replay.
 
+### 4.4 Published box from the solid body's extent state (default-off)
+
+The published box (`box_model.go`) is a separate estimator from the solid body. Its extents are
+the larger of `windowBelief`, a corroborated maximum over spans, and the frame's span: a lower
+bound used as a sample, the defect the face-state options removed from the solid body. geom0015
+([report](../lidar/operations/d2-frozen-split-bias-baseline-2026-11.md)) puts truck 2 1.49 m out
+on length the box cannot see, and F0 found believed lengths short in 83 % of car and 97 % of
+truck instants.
+
+`BoxModelConfig.BoxExtentFromSolidBody` (replay `box_extent_solid_body`, which needs the box
+model, `solid_body` and `solid_body_extent_state`) draws the box's length and width from the
+solid body's joint extent state, 2hL and 2hW, instead. Per dimension, it applies only once a face
+or bound has moved the state and its sigma is at most half the class prior's. The frame's span
+stays the floor, so the box still holds its points. The box keeps its own heading filter and its
+own containment placement for the centre, because the solid body's centre is placed along a
+different orientation. A frame whose body is unseeded, medoid-referenced or measured along an
+axis more than 10° from the box's heading falls back to the shipped box. On a synthetic 10 m
+truck seen at most 3 m at a time, the shipped box stays at the 3.8 m floor and the option reaches
+8.98 ± 0.61 m once both end faces have been seen.
+
+The wiring check on kirk0 ran beside `solid_body_face_state`. 1702 associated frames took the
+state, and 3459 were refused because the solid body's orientation disagreed with the box's
+heading, which the shared orientation addresses. The box is not display-only: L3's track guard
+holds the returns inside it, so the tracks changed. This is wiring, not a score; geom0015's
+reviewed centres are the score.
+
 ## 5. Upcoming work that addresses these
 
 | Planned item                                                                            | Where                                                                                                                              | What it covers                                                                                       | What it leaves                                                                                                       |

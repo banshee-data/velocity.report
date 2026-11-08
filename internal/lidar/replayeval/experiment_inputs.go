@@ -33,9 +33,13 @@ func RefuseExperimentsWithout(tool string, experiments []string, have ReplayInpu
 		return fmt.Errorf("replay experiments %s, %s and %s classify an absence against a sensor coverage declaration, which %s does not take; run them with lidar-state-estimation-baseline -continuity-coverage",
 			ExperimentCoastSupport, ExperimentClassCoastBounds, ExperimentOcclusionContinuity, tool)
 	}
-	if hasExperiment(experiments, ExperimentSolidBody) && !hasExperiment(experiments, ExperimentNearEdgeTrack) && !have.ObservationDB {
-		return fmt.Errorf("replay experiment %s writes its rows only to an evidence database, which %s does not write, and changes no track, so it would record the default replay; name %s with it, or run it with lidar-state-estimation-baseline -evidence-dir",
-			ExperimentSolidBody, tool, ExperimentNearEdgeTrack)
+	// Under near_edge_track the solid body is the tracked filter, and under
+	// box_extent_solid_body it draws the published box: either way the
+	// recording itself is the arm.
+	recorded := hasExperiment(experiments, ExperimentNearEdgeTrack) || hasExperiment(experiments, ExperimentBoxExtentSolidBody)
+	if hasExperiment(experiments, ExperimentSolidBody) && !recorded && !have.ObservationDB {
+		return fmt.Errorf("replay experiment %s writes its rows only to an evidence database, which %s does not write, and changes no track, so it would record the default replay; name %s or %s with it, or run it with lidar-state-estimation-baseline -evidence-dir",
+			ExperimentSolidBody, tool, ExperimentNearEdgeTrack, ExperimentBoxExtentSolidBody)
 	}
 	return nil
 }
