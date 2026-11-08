@@ -351,6 +351,11 @@ interval over 2,000 resamples of whole tracks with replacement (seeded). On four
 track-level effect the bootstrap is more than five times the Fisher interval's width; on forty
 independent tracks the two agree.
 
+The first replay of both sources, kirk0 under l5est0005, is in the
+[G-EST-1 face-state screen](../../docs/lidar/operations/gest1-face-state-kirk0-2026-11.md): both
+filters' NIS correlates with acceleration and neither is over-dispersed, so the criterion's
+over-dispersion premise is not met there.
+
 ## 11. What this does not establish
 
 - No capture was replayed. Every figure is a noise-free or seeded-noise simulation under the
