@@ -35,7 +35,13 @@ LIDAR='^(internal/lidar|internal/cmd/(root|server|tune)|cmd/velocity)(/|$)'
 API='^internal/api(/|$)'
 
 # The replayeval tests that make up replay-a: about half the package's time.
-REPLAY_A_TESTS='^(TestWarmupPrefixAndScoringManifest|TestObservationStoragePreservesReplayBaseline|TestCampaignMetricsPreserveTrackingBaseline)$'
+# Re-balanced on 2026-11-08 from a local -race -json run of replay-b (34.9 min
+# there, about 25 min on CI, where it hit the 25 m -timeout): the November
+# kirk0 experiment tests went to replay-b by default, and the two heaviest new
+# ones (likelihood costs 288 s, hygiene 215 s under -race locally) move here,
+# with the fragment-join membership test. The solid-body and near-edge kirk0
+# tests are tagged pcap && !race and run in neither shard.
+REPLAY_A_TESTS='^(TestWarmupPrefixAndScoringManifest|TestObservationStoragePreservesReplayBaseline|TestCampaignMetricsPreserveTrackingBaseline|TestLikelihoodCostsOnKirk0|TestHygieneExperimentsOnKirk0|TestFragmentJoinTrackMembershipOnKirk0)$'
 
 all_packages() {
 	# The module root itself becomes ".", so "./." names it on the command line.
