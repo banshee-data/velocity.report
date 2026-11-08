@@ -188,9 +188,8 @@ struct FacetPoseProposal: Decodable, Equatable {
             // the other mode, pi away, is excluded.
             guard yaw.status == "observed", yaw.rad.isFinite, yaw.boundRad.isFinite,
                 yaw.boundRad >= 0, yaw.boundRad + expected.prior.yawBoundRad < .pi / 2,
-                abs(yaw.rad - expected.prior.yawRad)
-                    <= yaw.boundRad + expected.prior.yawBoundRad + 1e-9,
-                !unresolved.contains("yaw_from_prior_not_measured")
+                abs(yaw.rad - expected.prior.yawRad) <= yaw.boundRad + expected.prior.yawBoundRad
+                    + 1e-9, !unresolved.contains("yaw_from_prior_not_measured")
             else {
                 throw FeatureError.message(
                     "The segment's measured yaw is missing or contradicts the prior")
