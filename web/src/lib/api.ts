@@ -1007,6 +1007,24 @@ export async function getRunTracks(runId: string): Promise<RunTrack[]> {
 	return data.tracks || [];
 }
 
+/**
+ * getRunVrlogFrame names the frame of a run's recording at an instant: the
+ * 0-based VRLOG index the macOS visualiser counts in, for a velocityreport://
+ * link. `atMs` is whole Unix milliseconds; the server takes nanoseconds, built
+ * here as text since they pass Number.MAX_SAFE_INTEGER.
+ */
+export async function getRunVrlogFrame(
+	runId: string,
+	atMs: number
+): Promise<{ frame: number; total_frames: number }> {
+	const atNs = `${Math.round(atMs)}000000`;
+	const res = await fetch(
+		`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}/vrlog-frame?at_ns=${atNs}`
+	);
+	if (!res.ok) throw apiError('Could not find the frame in the run’s recording', res.status);
+	return res.json();
+}
+
 /** Where a run's recording, exported by the server as a scene, is served. */
 export function runScenePaths(runId: string): { manifestURL: string; backgroundURL: string } {
 	const base = `${API_BASE}/lidar/runs/${encodeURIComponent(runId)}/scene`;

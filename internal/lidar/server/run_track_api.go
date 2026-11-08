@@ -55,6 +55,12 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle /api/lidar/runs/{run_id}/vrlog-frame (an instant's frame index in the run's recording)
+	if subPath == "vrlog-frame" {
+		ws.handleRunFrame(w, r, runID)
+		return
+	}
+
 	// Handle /api/lidar/runs/{run_id}/lane-field (the run's lane field)
 	if subPath == "lane-field" {
 		ws.handleRunLaneField(w, r, runID)

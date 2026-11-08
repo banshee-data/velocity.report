@@ -70,3 +70,19 @@ export function linkedId(url: {
 	const id = url.searchParams.get(ID_PARAM)?.trim();
 	return id ? id : null;
 }
+
+/** The URL scheme the macOS visualiser registers (decided November 2026). */
+export const VISUALISER_SCHEME = 'velocityreport';
+
+/**
+ * visualiserLink opens a run in the macOS visualiser, paused on a frame when
+ * one is given: velocityreport://run/<run_id>?frame=<n>. The frame is the
+ * 0-based index of a record in the run's VRLOG, background snapshots
+ * included, which is how the visualiser counts; without one the run opens at
+ * its start.
+ */
+export function visualiserLink(runId: string, frame?: number | null): string {
+	const base = `${VISUALISER_SCHEME}://run/${encodeURIComponent(runId)}`;
+	if (frame == null || !Number.isInteger(frame) || frame < 0) return base;
+	return `${base}?frame=${frame}`;
+}

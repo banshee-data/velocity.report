@@ -18,6 +18,7 @@
 		getLidarRun,
 		getLidarRuns,
 		getRunScene,
+		getRunVrlogFrame,
 		getMissedRegions,
 		getRunTracks,
 		getTrackHistory,
@@ -27,8 +28,8 @@
 	import TimelinePane from '#lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '#lib/components/lidar/TrackList.svelte';
 	import { unixNanosToMillis } from '#lib/dateUtils.js';
-	import { clipQuery, runQuery } from '#lib/lidarLinks.js';
-	import { clipForRun } from '#lib/lidarRecords.js';
+	import { clipQuery, runQuery, visualiserLink } from '#lib/lidarLinks.js';
+	import { clipForRun, runsOfClip, shortDigest } from '#lib/lidarRecords.js';
 	import type { PageClock } from '#lib/scene/sceneClock.js';
 	import type {
 		Run,
@@ -78,6 +79,65 @@
 	// Derived state
 	$: selectedScene = scenes.find((s) => s.clip_id === selectedSceneId) ?? null;
 	$: selectedRun = runs.find((r) => r.run_id === selectedRunId) ?? null;
+	// A run replayed from a clip names it: the clip shows as a link, the run
+	// picker offers that clip's runs, and "None" is offered only for a run no
+	// clip covers (or before any run is chosen).
+	$: runClip = selectedRun ? clipForRun(selectedRun, scenes) : null;
+	$: clipRuns = runsOfClip(runs, selectedScene, scenes, selectedRun);
+	$: if (!selectedRunId) changingClip = false;
+	let changingClip = false;
+
+	// Open in visualiser: the run in the macOS app, paused on the frame on
+	// screen here. The frame is the run's VRLOG index, which only the server
+	// can read, so it is looked up once playback rests and again on click.
+	let visualiserFrame: number | null = null;
+	let visualiserNote: string | null = null;
+	let frameLookupTimer: ReturnType<typeof setTimeout> | null = null;
+	$: visualiserURL = selectedRunId ? visualiserLink(selectedRunId, visualiserFrame) : null;
+	$: scheduleFrameLookup(selectedRunId, Math.round(selectedTime), isPlaying);
+
+	function scheduleFrameLookup(runId: string | null, timeMs: number, playing: boolean) {
+		if (frameLookupTimer) clearTimeout(frameLookupTimer);
+		frameLookupTimer = null;
+		if (!runId) {
+			visualiserFrame = null;
+			visualiserNote = null;
+			return;
+		}
+		if (playing) return;
+		frameLookupTimer = setTimeout(() => void lookUpFrame(runId, timeMs), 300);
+	}
+
+	async function lookUpFrame(runId: string, timeMs: number): Promise<number | null> {
+		try {
+			const found = await getRunVrlogFrame(runId, timeMs);
+			if (runId !== selectedRunId) return null;
+			visualiserFrame = found.frame;
+			visualiserNote = null;
+			return found.frame;
+		} catch {
+			if (runId !== selectedRunId) return null;
+			visualiserFrame = null;
+			visualiserNote =
+				'No recording to find the frame in; the visualiser opens the run at its start.';
+			return null;
+		}
+	}
+
+	async function openInVisualiser() {
+		if (!selectedRunId) return;
+		const runId = selectedRunId;
+		const frame = await lookUpFrame(runId, Math.round(selectedTime));
+		window.location.assign(visualiserLink(runId, frame));
+	}
+
+	function runOptionLabel(run: Run): string {
+		const when = run.created_at
+			? new Date(run.created_at).toLocaleString()
+			: run.run_id.substring(0, 8);
+		const digest = run.params_hash ? ` · ${shortDigest(run.params_hash)}` : '';
+		return `${when} · ${run.total_tracks} tracks${digest}`;
+	}
 
 	$: if (browser && mounted) {
 		void syncSelectionFromUrl(querySceneId, queryRunId);
@@ -732,6 +792,7 @@
 		if (playbackInterval !== null) {
 			clearInterval(playbackInterval);
 		}
+		if (frameLookupTimer) clearTimeout(frameLookupTimer);
 	});
 </script>
 
@@ -772,40 +833,80 @@
 			</div>
 
 			<div class="flex flex-none items-center gap-4 pl-4">
-				<!-- Clip selection -->
-				<SelectField
-					label="Clip"
-					bind:value={selectedSceneId}
-					on:change={handleSceneChange}
-					options={[
-						{ label: 'None (Historical)', value: null },
-						...scenes.map((s) => ({
-							label: s.description || s.clip_id,
-							value: s.clip_id
-						}))
-					]}
-					disabled={scenesLoading || scenes.length === 0}
-					size="sm"
-					class="w-56"
-				/>
-
-				<!-- Run selection (only shown when a clip is selected) -->
-				{#if selectedScene}
+				<!-- The clip: a run replayed from one names it as a link, with
+				     Change for another clip; otherwise a picker, where "None"
+				     reads the historical tracks. -->
+				{#if runClip && !changingClip}
+					<div class="flex flex-col text-sm">
+						<span class="text-surface-content/60 text-xs">Clip</span>
+						<span class="flex items-center gap-2 whitespace-nowrap">
+							<!-- eslint-disable svelte/no-navigation-without-resolve -->
+							<a
+								href={`${resolve('/lidar/clips')}?${clipQuery(runClip.clip_id)}`}
+								class="text-primary max-w-48 truncate hover:underline"
+								title="The clip this run replayed"
+								>{runClip.description || runClip.clip_id.substring(0, 8)}</a
+							>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+							<button
+								type="button"
+								class="text-surface-content/50 hover:text-surface-content text-xs"
+								on:click={() => (changingClip = true)}>Change</button
+							>
+						</span>
+					</div>
+				{:else}
 					<SelectField
-						label="Run"
+						label="Clip"
+						bind:value={selectedSceneId}
+						on:change={handleSceneChange}
+						options={[
+							...(runClip ? [] : [{ label: 'None (Historical)', value: null }]),
+							...scenes.map((s) => ({
+								label: s.description || s.clip_id,
+								value: s.clip_id
+							}))
+						]}
+						disabled={scenesLoading || scenes.length === 0}
+						size="sm"
+						class="w-56"
+					/>
+				{/if}
+
+				<!-- The run: the clip's runs, or the runs no clip covers when a
+				     clipless run is open. -->
+				{#if selectedScene || selectedRun}
+					<SelectField
+						label={selectedScene ? 'Run of this clip' : 'Run (no clip)'}
 						bind:value={selectedRunId}
 						on:change={handleRunChange}
 						options={[
 							{ label: 'Select a run...', value: null },
-							...runs.map((r) => ({
-								label: `${r.run_id.substring(0, 8)} (${r.total_tracks} tracks)`,
+							...clipRuns.map((r) => ({
+								label: runOptionLabel(r),
 								value: r.run_id
 							}))
 						]}
-						disabled={runsLoading || runs.length === 0}
+						disabled={runsLoading || clipRuns.length === 0}
 						size="sm"
-						class="w-64"
+						class="w-72"
 					/>
+				{/if}
+
+				<!-- Open in visualiser: the macOS app at this run and frame. -->
+				{#if visualiserURL}
+					<div class="flex flex-col text-xs">
+						<button
+							type="button"
+							class="bg-primary text-primary-content rounded px-2 py-1 font-medium whitespace-nowrap hover:opacity-90"
+							title="Open this run in the macOS visualiser, paused on this frame"
+							on:click={openInVisualiser}>Open in visualiser</button
+						>
+						<code
+							class="text-surface-content/60 mt-0.5 max-w-64 truncate select-all"
+							title={visualiserNote ?? visualiserURL}>{visualiserURL}</code
+						>
+					</div>
 				{/if}
 
 				<!-- Missed regions are shown read-only: like labels, they are a

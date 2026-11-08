@@ -1,4 +1,12 @@
-import { clipQuery, linkedId, linkedRun, runQuery, tracksQuery, windowsQuery } from './lidarLinks';
+import {
+	clipQuery,
+	linkedId,
+	linkedRun,
+	runQuery,
+	tracksQuery,
+	visualiserLink,
+	windowsQuery
+} from './lidarLinks';
 
 describe('clipQuery and runQuery', () => {
 	it('carry the record as id', () => {
@@ -51,5 +59,25 @@ describe('windowsQuery and linkedRun', () => {
 	it('is null when no run was linked', () => {
 		expect(linkedRun(new URL('http://x/app/lidar/windows'))).toBeNull();
 		expect(linkedRun(new URL('http://x/app/lidar/windows?run=%20'))).toBeNull();
+	});
+});
+
+describe('visualiserLink', () => {
+	it('opens a run at a frame in the decided scheme', () => {
+		expect(visualiserLink('b4ca577a-7f05', 412)).toBe(
+			'velocityreport://run/b4ca577a-7f05?frame=412'
+		);
+		expect(visualiserLink('run-1', 0)).toBe('velocityreport://run/run-1?frame=0');
+	});
+
+	it('opens at the start without a usable frame', () => {
+		expect(visualiserLink('run-1')).toBe('velocityreport://run/run-1');
+		expect(visualiserLink('run-1', null)).toBe('velocityreport://run/run-1');
+		expect(visualiserLink('run-1', -1)).toBe('velocityreport://run/run-1');
+		expect(visualiserLink('run-1', 2.5)).toBe('velocityreport://run/run-1');
+	});
+
+	it('encodes a run id a URL cannot carry as is', () => {
+		expect(visualiserLink('a b/c', 1)).toBe('velocityreport://run/a%20b%2Fc?frame=1');
 	});
 });

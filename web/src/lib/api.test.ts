@@ -2282,6 +2282,29 @@ describe('api', () => {
 			});
 		});
 
+		describe('getRunVrlogFrame', () => {
+			it('asks for the frame at an instant in nanoseconds, as text', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ frame: 412, total_frames: 9000 })
+				});
+				const { getRunVrlogFrame } = await import('./api');
+				await expect(getRunVrlogFrame('run 1', 1_794_153_505_434.4)).resolves.toEqual({
+					frame: 412,
+					total_frames: 9000
+				});
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/runs/run%201/vrlog-frame?at_ns=1794153505434000000'
+				);
+			});
+
+			it('throws when the run has no recording', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getRunVrlogFrame } = await import('./api');
+				await expect(getRunVrlogFrame('r', 1)).rejects.toThrow(/frame/);
+			});
+		});
+
 		describe('getRunScene', () => {
 			it('names the export when the run has a recording', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
