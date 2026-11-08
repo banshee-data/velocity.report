@@ -13,15 +13,15 @@
 # and internal/cmd/lidar were tested only by the nightly run.)
 #
 # The split follows measured cost, not architecture. replayeval replays kirk0
-# for about eighteen minutes under -race on a slow runner, so it is cut in two
-# by test name; -run and -skip take the same pattern, so each top-level test
-# runs in exactly one half. Re-balance from a CI log when a shard drifts past
+# past the 25-minute package timeout under -race, so it is cut in three by
+# test name. replay-b skips the union of replay-a and replay-c, so each
+# top-level test runs once. Re-balance from a CI log when a shard drifts past
 # the others: `go test -json` per-test Elapsed is the evidence.
 
 set -euo pipefail
 
 MODULE="github.com/banshee-data/velocity.report"
-SHARDS="core replay-a replay-b lidar-a lidar-b lidar-rest api other"
+SHARDS="core replay-a replay-b replay-c lidar-a lidar-b lidar-rest api other"
 
 # Package patterns, matched against the import path with the module prefix removed.
 CORE='^internal/(db|radar|serialmux|security|units|timeutil|httputil|testutil|fsutil|monitoring|ctl|cmd/device)(/|$)'
@@ -34,8 +34,20 @@ LIDAR_B='^internal/lidar/(segments|lidarbench|storage/sqlite|pcapsplit)$'
 LIDAR='^(internal/lidar|internal/cmd/(root|server|tune)|cmd/velocity)(/|$)'
 API='^internal/api(/|$)'
 
-# The replayeval tests that make up replay-a: about half the package's time.
+# The original long-running replay tests stay in replay-a. The solid-body,
+# near-edge and fragment-join tests added since that split get replay-c:
+# replay-b timed out after 25 minutes on #986 while replay-a took 9.4 minutes.
 REPLAY_A_TESTS='^(TestWarmupPrefixAndScoringManifest|TestObservationStoragePreservesReplayBaseline|TestCampaignMetricsPreserveTrackingBaseline)$'
+REPLAY_C_TESTS='^(TestSolidBody.*OnKirk0|TestNearEdgeTrack.*OnKirk0|TestBoxExtentFromSolidBodyOnKirk0|TestFixedLagRTSWithNearEdgeTrackOnKirk0|TestFragmentJoinTrackMembershipOnKirk0)$'
+REPLAY_NAMED_TESTS="$REPLAY_A_TESTS|$REPLAY_C_TESTS"
+
+replay_args() {
+	case "$1" in
+	replay-a) printf '%s\n' -run "$REPLAY_A_TESTS" ;;
+	replay-b) printf '%s\n' -skip "$REPLAY_NAMED_TESTS" ;;
+	replay-c) printf '%s\n' -run "$REPLAY_C_TESTS" ;;
+	esac
+}
 
 all_packages() {
 	# The module root itself becomes ".", so "./." names it on the command line.
@@ -48,7 +60,7 @@ packages() {
 	all=$(all_packages)
 	case "$1" in
 	core) grep -E "$CORE" <<<"$all" ;;
-	replay-a | replay-b) grep -E "$REPLAY" <<<"$all" ;;
+	replay-a | replay-b | replay-c) grep -E "$REPLAY" <<<"$all" ;;
 	lidar-a) grep -E "$LIDAR_A" <<<"$all" ;;
 	lidar-b) grep -E "$LIDAR_B" <<<"$all" ;;
 	lidar-rest) grep -E "$LIDAR" <<<"$all" | grep -vE "$REPLAY|$LIDAR_A|$LIDAR_B" ;;
@@ -65,8 +77,8 @@ check() {
 	local all assigned
 	all=$(all_packages | sort)
 	assigned=$(for s in $SHARDS; do
-		# replay-b repeats replay-a's package with the complementary test filter.
-		[ "$s" = replay-b ] && continue
+		# The replay shards repeat the package with different test filters.
+		[[ "$s" = replay-b || "$s" = replay-c ]] && continue
 		packages "$s"
 	done | sort)
 	if [ "$all" != "$assigned" ]; then
@@ -75,6 +87,26 @@ check() {
 		exit 1
 	fi
 	echo "ok: $(wc -l <<<"$all" | tr -d ' ') packages, each in exactly one shard"
+	# Check the replay filter patterns too: no test may be duplicated or
+	# omitted when a named group changes. -list ignores -run and -skip,
+	# so use the run pattern as -list's pattern and filter the skip pattern.
+	local tests selected shard
+	local -a filters
+	tests=$(go test -tags=pcap -list '^Test' ./internal/lidar/replayeval | grep '^Test' | sort)
+	selected=$(for shard in replay-a replay-b replay-c; do
+		mapfile -t filters < <(replay_args "$shard")
+		if [ "${filters[0]}" = -run ]; then
+			go test -tags=pcap -list "${filters[1]}" ./internal/lidar/replayeval | grep '^Test'
+		else
+			grep -vE "${filters[1]}" <<<"$tests"
+		fi
+	done | sort)
+	if [ "$tests" != "$selected" ]; then
+		echo "replay test assignment is not a partition:" >&2
+		diff <(echo "$tests") <(echo "$selected") >&2 || true
+		exit 1
+	fi
+	echo "ok: $(wc -l <<<"$tests" | tr -d ' ') replay tests, each in exactly one shard"
 }
 
 run() {
@@ -89,15 +121,16 @@ run() {
 	# run lives in nightly-full-ci.yml, and other was not run on PRs at all.
 	local -a args=(-tags=pcap -covermode=atomic -coverprofile="coverage-${shard}.out")
 	case "$shard" in
-	core | replay-a | replay-b | lidar-a | lidar-b | lidar-rest) args+=(-race) ;;
+	core | replay-a | replay-b | replay-c | lidar-a | lidar-b | lidar-rest) args+=(-race) ;;
 	esac
 	case "$shard" in
 	lidar-a | lidar-b | lidar-rest) args+=(-p 2) ;;
 	esac
-	case "$shard" in
-	replay-a) args+=(-run "$REPLAY_A_TESTS") ;;
-	replay-b) args+=(-skip "$REPLAY_A_TESTS") ;;
-	esac
+	if [[ "$shard" = replay-* ]]; then
+		local -a filters
+		mapfile -t filters < <(replay_args "$shard")
+		args+=("${filters[@]}")
+	fi
 	# The replay shards each hold one long-running package; Go's default
 	# 10-minute per-package timeout is too tight for them on a slow runner.
 	args+=(-timeout 25m)
