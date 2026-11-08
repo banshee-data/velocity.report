@@ -161,6 +161,10 @@ final class VisualiserURLParseTests: XCTestCase {
             if request.url!.path == "/api/lidar/runs" {
                 return Self.respond(request, 200, #"{"runs": [], "count": 0}"#)
             }
+            // Fetching the runs also fetches the clips that name their groups.
+            if request.url!.path == "/api/lidar/clips" {
+                return Self.respond(request, 200, #"{"clips": [], "count": 0}"#)
+            }
             XCTAssertEqual(request.url!.path, "/api/lidar/runs/old-run")
             return Self.respond(request, 200, Self.runJSON)
         }

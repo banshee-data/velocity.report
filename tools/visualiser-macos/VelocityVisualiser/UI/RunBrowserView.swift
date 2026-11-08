@@ -13,8 +13,8 @@ private enum RunBrowserLayout {
     static let runStatusSpacing: CGFloat = 4
     static let runWidth: CGFloat = 80
     static let dateWidth: CGFloat = 120
-    static let fileWidth: CGFloat = 226
-    static let clipWidth: CGFloat = 110
+    // The clip is the group's header now, so the file takes its column.
+    static let fileWidth: CGFloat = 336
     static let framesWidth: CGFloat = 44
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
@@ -56,6 +56,8 @@ private enum RunBrowserLayout {
     @StateObject private var runBrowserState: RunBrowserState
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
+    /// The rows whose folded repeats are shown, by the lead run's ID.
+    @State private var expandedFolds: Set<String> = []
 
     init() { _runBrowserState = StateObject(wrappedValue: RunBrowserState()) }
 
@@ -108,22 +110,25 @@ private enum RunBrowserLayout {
                 Divider()
 
                 ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(runBrowserState.runs) { run in
-                            RunRowView(
-                                run: run, isSelected: runBrowserState.selectedRunID == run.runId
-                            ) {
-                                Task {
-                                    if runBrowserState.selectedRunID == run.runId {
-                                        dismiss()
-                                        return
-                                    }
-                                    guard run.hasVRLog else { return }
-                                    await loadRunForReplayAndUpdateAppState(
-                                        runID: run.runId, appState: appState,
-                                        runBrowserState: runBrowserState
-                                    ) { await runBrowserState.loadRunForReplay(run.runId) }
-                                    if runBrowserState.selectedRunID == run.runId { dismiss() }
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(
+                            RunGrouping.groups(runBrowserState.runs, clips: runBrowserState.clips)
+                        ) { group in
+                            RunClipGroupHeader(group: group)
+                            ForEach(group.rows) { row in
+                                runRow(row.run)
+                                if let label = row.foldLabel {
+                                    // The open run is never hidden in a fold.
+                                    let holdsOpenRun = row.folds(runBrowserState.selectedRunID)
+                                    let expanded = holdsOpenRun || expandedFolds.contains(row.id)
+                                    RunFoldToggle(label: label, isExpanded: expanded) {
+                                        if expandedFolds.contains(row.id) {
+                                            expandedFolds.remove(row.id)
+                                        } else {
+                                            expandedFolds.insert(row.id)
+                                        }
+                                    }.inert(holdsOpenRun, hint: "The open run is in this fold")
+                                    if expanded { ForEach(row.folded) { run in runRow(run) } }
                                 }
                             }
                         }
@@ -161,6 +166,62 @@ private enum RunBrowserLayout {
         }.frame(width: 760, height: 700).task { await runBrowserState.fetchRuns() }
     }
 
+    /// A run's row: tapping it opens the run, or closes the sheet when it is
+    /// the run already open.
+    private func runRow(_ run: Run) -> some View {
+        RunRowView(run: run, isSelected: runBrowserState.selectedRunID == run.runId) {
+            Task {
+                if runBrowserState.selectedRunID == run.runId {
+                    dismiss()
+                    return
+                }
+                guard run.hasVRLog else { return }
+                await loadRunForReplayAndUpdateAppState(
+                    runID: run.runId, appState: appState, runBrowserState: runBrowserState
+                ) { await runBrowserState.loadRunForReplay(run.runId) }
+                if runBrowserState.selectedRunID == run.runId { dismiss() }
+            }
+        }
+    }
+}
+
+/// A clip's header: its name, its site when known, and how many runs it has.
+struct RunClipGroupHeader: View {
+    let group: RunClipGroup
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(group.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+            if let site = group.site {
+                Text(site).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer()
+            Text(group.runCount == 1 ? "1 run" : "\(group.runCount) runs").font(.caption)
+                .foregroundStyle(.secondary)
+        }.padding(.top, 10).padding(.bottom, 3).padding(
+            .horizontal, RunBrowserLayout.rowInset.leading
+        ).frame(maxWidth: .infinity, alignment: .leading).background(Color.primary.opacity(0.04))
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// The line under a row with folded repeats, which shows or hides them.
+struct RunFoldToggle: View {
+    let label: String
+    let isExpanded: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 4) {
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right").font(.caption2)
+                Text(label).font(.caption)
+            }.foregroundStyle(.secondary)
+        }.buttonStyle(.borderless).padding(.leading, RunBrowserLayout.rowInset.leading + 12)
+            .padding(.vertical, 2).help(
+                isExpanded
+                    ? "Hide the repeats" : "Show the runs with the same capture and parameters")
+    }
 }
 
 private struct RunBrowserHeaderRow: View {
@@ -173,7 +234,6 @@ private struct RunBrowserHeaderRow: View {
             }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
             Text("Date").frame(width: RunBrowserLayout.dateWidth, alignment: .leading)
             Text("File").frame(width: RunBrowserLayout.fileWidth, alignment: .leading)
-            Text("Clip").frame(width: RunBrowserLayout.clipWidth, alignment: .leading)
             Text("Frames").frame(width: RunBrowserLayout.framesWidth, alignment: .leading).help(
                 "What the VRLOG holds: FG, foreground points only; Full, background and foreground in every frame"
             )
@@ -184,7 +244,7 @@ private struct RunBrowserHeaderRow: View {
     }
 }
 
-/// Row view for a single run — 8-column table layout.
+/// Row view for a single run — 7-column table layout; its clip is the group's.
 @available(macOS 15.0, *) struct RunRowView: View {
     let run: Run
     let isSelected: Bool
@@ -220,12 +280,6 @@ private struct RunBrowserHeaderRow: View {
             Text(run.fileDisplay).font(.caption).frame(
                 width: RunBrowserLayout.fileWidth, alignment: .leading
             ).lineLimit(1).truncationMode(.middle).help(run.sourcePath ?? run.fileDisplay)
-
-            // Col 4: the clip, if the run was started from one; runs started
-            // from a capture record none.
-            Text(run.clipDisplay).font(.caption).frame(
-                width: RunBrowserLayout.clipWidth, alignment: .leading
-            ).lineLimit(1).truncationMode(.middle).help(run.clipDisplay)
 
             // Col 5: what the VRLOG's frames hold.
             Text(run.frameModeDisplay).font(.caption2.weight(.medium)).foregroundStyle(
