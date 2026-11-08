@@ -63,7 +63,10 @@ func boxFingerprintScenarios() []solidBodyFingerprintScenario {
 			name:   "box_truck_face_state",
 			pass:   throughTruckPass,
 			config: faceStateConfig,
-			golden: "81bbdf735afb751e",
+			// Span bounds as a projection (#989): faceStateConfig applies
+			// bounds, so this pass moved with that fix and nothing else; with
+			// SpanBoundsBelief and CensoredExtent off it hashes as before.
+			golden: "dab1c76a63b6fc6c",
 		},
 		{
 			name: "box_truck_face_state_rectangle_held",
@@ -79,7 +82,8 @@ func boxFingerprintScenarios() []solidBodyFingerprintScenario {
 				cfg.BoxModel.DisplacementLabelMetres = 2
 				return cfg
 			},
-			golden: "6dc9023db17a8b67",
+			// Moved with the span-bound projection (#989), as above.
+			golden: "164ca110ef6a341a",
 		},
 	}
 }
