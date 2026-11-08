@@ -368,6 +368,11 @@ type TrackingPipelineConfig struct {
 	// FragmentJoinTrackerConfig reads the same current noise law used by L5,
 	// including runtime changes, even when instrumentation wraps the tracker.
 	FragmentJoinTrackerConfig func() l5tracks.TrackerConfig
+	// FragmentJoinTrackMembership widens each motion footprint by its
+	// projected position uncertainty along and across the body
+	// (motionFragmentHints, l4clus0010). Default off; it changes nothing
+	// unless FragmentJoin is enabled.
+	FragmentJoinTrackMembership bool
 	// OnFragmentJoin is an optional offline counter hook, called only when
 	// the joining experiment runs. It does not control the partition.
 	OnFragmentJoin func(componentsJoined int)
@@ -1113,7 +1118,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if fragmentJoin.Enabled && profile.RunsLayer(5) && !isNilInterface(cfg.Tracker) {
 			var hints []l4perception.FragmentHint
 			if cfg.FragmentJoinTrackerConfig != nil {
-				hints = motionFragmentHints(cfg.Tracker.GetConfirmedTracks(), frame.StartTimestamp, fragmentJoin, cfg.FragmentJoinTrackerConfig())
+				hints = motionFragmentHints(cfg.Tracker.GetConfirmedTracks(), frame.StartTimestamp, fragmentJoin, cfg.FragmentJoinTrackerConfig(), cfg.FragmentJoinTrackMembership)
 			}
 			var joined int
 			clusters, trace, joined = l4perception.JoinMotionFragments(clusters, trace, dbscanParams, hints, fragmentJoin.MaxGapMetres, fragmentJoin.MarginMetres)

@@ -61,6 +61,9 @@ func ValidateExperiments(experiments []string, tuningFile string, mode l5tracks.
 	if err != nil {
 		return fmt.Errorf("load tuning config %s: %w", tuningFile, err)
 	}
+	if err := fragmentJoinTrackMembershipRefusal(experiments, tuningCfg.GetFragmentJoin()); err != nil {
+		return fmt.Errorf("tuning config %s: %w", tuningFile, err)
+	}
 	_, err = trackerConfigFor(tuningCfg.L5.CvKfV1, mode, experiments, coverage)
 	return err
 }

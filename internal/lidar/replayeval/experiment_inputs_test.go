@@ -96,3 +96,34 @@ func TestValidateExperimentsRefusesWhatRunRefuses(t *testing.T) {
 		t.Error("a malformed tuning file was accepted")
 	}
 }
+
+// fragment_join_track_membership widens the fragment join's footprints, so it
+// is refused with a tuning file whose join is off, as Run refuses it, and
+// accepted with the registered join set.
+func TestFragmentJoinTrackMembershipNeedsTheJoin(t *testing.T) {
+	membership := []string{ExperimentFragmentJoinTrackMembership}
+	err := ValidateExperiments(membership, filepath.Join("..", "..", "..", "config", "tuning.defaults.json"), "", nil)
+	if err == nil || !strings.Contains(err.Error(), "fragment_join is not enabled") {
+		t.Fatalf("membership without the join: %v", err)
+	}
+	if err := ValidateExperiments(membership, filepath.Join("..", "..", "..", "config", "experiments", "motion-fragment-join.json"), "", nil); err != nil {
+		t.Fatalf("membership with the registered join set refused: %v", err)
+	}
+	// Without the option the join's own set and the defaults both stand.
+	if err := fragmentJoinTrackMembershipRefusal(nil, nil); err != nil {
+		t.Fatalf("no option refused: %v", err)
+	}
+}
+
+// Run refuses the option before it reads a capture.
+func TestRunRefusesTrackMembershipWithoutTheJoin(t *testing.T) {
+	_, err := Run(Config{
+		PCAPFile:    filepath.Join(t.TempDir(), "absent.pcapng"),
+		OutDir:      t.TempDir(),
+		TuningFile:  filepath.Join("..", "..", "..", "config", "tuning.defaults.json"),
+		Experiments: []string{ExperimentFragmentJoinTrackMembership},
+	})
+	if err == nil || !strings.Contains(err.Error(), "fragment_join is not enabled") {
+		t.Fatalf("Run accepted the option without the join: %v", err)
+	}
+}

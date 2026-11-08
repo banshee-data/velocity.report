@@ -378,7 +378,8 @@ The other replay experiments have no config key yet, so a set cannot carry
 them, and the server cannot run them: `adaptive_uncertainty`,
 `likelihood_cost`, `robust_likelihood_cost` (the Student-t likelihood the multiple-model filter
 uses, at ν = 4; refused with `likelihood_cost`, named or from the tuning file, and allowed with
-`near_edge_track` because it reads the gate's own S), `cascade`, `density_cap`, `border_classes`, `held_to_l4`, `radius_graph_xy`, `radius_graph_xy_overlap`, `range_adaptive_eps`,
+`near_edge_track` because it reads the gate's own S), `cascade`, `density_cap`, `border_classes`, `held_to_l4`,
+`fragment_join_track_membership` (which needs a set that enables `fragment_join`), `radius_graph_xy`, `radius_graph_xy_overlap`, `range_adaptive_eps`,
 `flip_rule`, `no_region_overrides`, `region_overrides_volatile_only`,
 `region_overrides_quiet_only`, `region_overrides_cell_tercile`,
 `volatile_window_cap_1m`, `volatile_window_cap_2m`, `support_filter`,
@@ -714,7 +715,10 @@ minimum speed at least 2 m/s and position standard deviation at most 0.75 m.
 Startup and the offline tools carry these settings; they are not a new runtime
 parameter API. Detection-only and L3-only profiles do not borrow L5 priors.
 See the [cloud screen](../docs/lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md)
-for the rule, member lineage and remaining acceptance gates.
+for the rule, member lineage and remaining acceptance gates. The replay experiment
+`fragment_join_track_membership` widens each footprint by two standard deviations of
+the body's projected position along and across it; it has no config key and is refused
+without an enabled join ([l4clus0010](../docs/lidar/operations/w3-truck-membership-extent-kirk0-2026-11.md)).
 
 ## Default-off identity acceptance options
 
