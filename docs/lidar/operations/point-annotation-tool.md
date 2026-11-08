@@ -1177,7 +1177,10 @@ references may be used for a later comparison, never as a hidden solver input.
 3. Tick the manual-correspondence confirmation and choose **Propose body pose · read-only
    assisted**. Go resolves the exact facet revision/digest, current membership and pinned source
    body. A compact spot constrains planar position given prior yaw. An edge constrains normal
-   displacement; its tangential position and yaw remain from the prior.
+   displacement and measures yaw from the edge's normal and the saved body-frame normal. The
+   measured yaw's bound is the two normal bounds; the prior only chooses between the two
+   half-turn readings and must agree with the measurement. Tangential position remains from the
+   prior.
 4. Inspect the pink matched returns and orange dashed Top footprint. The footprint uses the
    unchanged source body's full length/width intervals; absent or partial dimensions withhold
    it. Height remains unmeasured. Hidden ends are body predictions, not fresh endpoint returns.
@@ -1189,13 +1192,15 @@ references may be used for a later comparison, never as a hidden solver input.
 For a worked compact example, let the fixed body offset be 2 m forwards and 1 m right. With
 prior yaw 90°, a confirmed return at (11, 7) implies centre (10, 5). A declared prior at
 (9.8, 5.2) ±0.4 m is compatible; yaw remains prior-only. For an edge with body normal (0, 1)
-and offset −1 m at prior yaw 0°, returns along y=2 constrain centre y=3. Prior centre x=10
-remains x=10; changing the visible segment's midpoint does not set the body's tangential origin.
+and offset −1 m at prior yaw 0°, returns along y=2 measure yaw 0° and constrain centre y=3.
+Prior centre x=10 remains x=10; changing the visible segment's midpoint does not set the body's
+tangential origin.
 
 Bounds propagate conservatively and do not shrink below the declared prior position bound.
-Uncertain points are excluded. Sparse/non-straight edges, broad or contradictory directions,
-missing/occluded support, stale membership/revisions and hard-bound prior conflicts refuse the
-proposal. No correspondence search or joint yaw fit is performed. Viewing the result persists
+Uncertain points are excluded. Straightness is tested in plan view, so a flat side whose ring
+sags in height still registers. Sparse edges, edges not straight in plan view, broad or
+contradictory directions, missing/occluded support, stale membership/revisions and hard-bound
+prior conflicts refuse the proposal. No correspondence search or joint yaw fit is performed. Viewing the result persists
 assistance for later authoring without rewriting saved masks, facets or Physical references.
 This experiment cannot update a live tracker or spend its future reanchor budget.
 
