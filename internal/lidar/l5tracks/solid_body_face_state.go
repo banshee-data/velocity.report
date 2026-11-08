@@ -482,14 +482,8 @@ func (t *Tracker) applyEdgeMeasurementsJoint(js *jointState, edges []EdgeMeasure
 	var faces VisibleFaces
 	next := *js
 	for i, e := range edges {
-		r := float64(t.Config.MeasurementNoise)
-		if heading != nil {
-			r += heading[i]
-		}
-		var h [jointStates]float64
-		h[0], h[1] = float64(e.NormalX), float64(e.NormalY)
-		h[4+extentIndex(e.Face)] = 1
-		term, ok := next.scalarUpdateNIS(h, float64(e.PlaneOffsetMetres), r)
+		h, z, r := t.faceMeasurementRow(e, true, nil, heading, i)
+		term, ok := next.scalarUpdateNIS(h, z, r)
 		if !ok {
 			return 0, 0, false
 		}

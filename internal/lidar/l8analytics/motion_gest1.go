@@ -507,8 +507,10 @@ type OcclusionReport struct {
 // Gap starts are chosen once per track, from the observations alone, so every
 // model is scored on the same cases: an observation at least WarmupSecs after
 // the track's first and at least StrideSecs after the previous start. For each
-// start and horizon H the gap ends at the first observation at or after
-// start + H, provided it is within MaxOvershootSecs of that time. Each model
+// start and horizon H the gap ends at the first two-dimensional observation
+// at or after start + H, provided it is within MaxOvershootSecs of that time;
+// a rank-one observation (a face fix) is never a gap's end, though it may be
+// its start. Each model
 // runs once over the whole track; at a start it is cloned and the clone
 // predicts to the gap's end with nothing observed in between, which is
 // exactly what withholding the gap's observations would give.
@@ -563,6 +565,12 @@ func occlusionCases(track motion.TrackObservations, models []OcclusionModel, cfg
 		for _, h := range cfg.HorizonsSecs {
 			target := obs[k].UnixNanos + int64(math.Round(h*1e9))
 			j := sort.Search(len(obs), func(i int) bool { return obs[i].UnixNanos >= target })
+			// A rank-one observation measures one direction only, so a
+			// Euclidean error against it would mix a measured component with
+			// a predicted one: the gap ends at the first two-dimensional one.
+			for j < len(obs) && obs[j].RankOne {
+				j++
+			}
 			if j < len(obs) && obs[j].UnixNanos-target <= overshoot {
 				cuts = append(cuts, gapCut{start: k, end: j, horizon: h})
 				found = true

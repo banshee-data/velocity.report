@@ -227,6 +227,11 @@ type Config struct {
 	// It reads tracker state and changes no estimate and no hash: a
 	// measurement tool scores the published geometry from it.
 	TrackerTap func(TrackerTapFrame)
+	// FilterStepObserver, when set, watches the tracker's filter-step record
+	// beside the recording's filter record (l5tracks.FilterStepObservers),
+	// attached before the first frame so every chain is seen whole. Like the
+	// recorder it only reads, so it changes no estimate and no hash.
+	FilterStepObserver l5tracks.FilterStepObserver
 	// KeepClusterMembers hands every cluster its members for the frame
 	// (l4perception.DBSCANParams.KeepMembers), for a TrackerTap that measures
 	// against every return. Nothing but the solid body and the box model
@@ -1062,6 +1067,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	observers := l5tracks.FilterStepObservers{filterRecord}
 	if refinement != nil {
 		observers = append(observers, refinement)
+	}
+	if cfg.FilterStepObserver != nil {
+		observers = append(observers, cfg.FilterStepObserver)
 	}
 	tracker.SetFilterStepObserver(observers)
 	if cfg.IncludeDebug {

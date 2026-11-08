@@ -108,6 +108,9 @@ type caseSummary struct {
 	// (stationary_drift_metres, stationary_anchor); identical on the repeat
 	// by check.
 	DwellPolicy *pipeline.DwellReport `json:"dwell_policy,omitempty"`
+	// GEST1Report is the first run's gest1_report.json, relative to -out,
+	// when -gest1-report was passed.
+	GEST1Report string `json:"gest1_report,omitempty"`
 }
 
 func main() {
@@ -145,6 +148,7 @@ func main() {
 		caseFilter          = flag.String("case", "", "replay only these corpus case IDs (comma separated); empty replays every case")
 		experimentFlag      = flag.String("experiment", "", "default-off options to switch on, comma separated ("+strings.Join(replayeval.KnownExperiments(), ", ")+"); folded into the parameter hash and echoed in the summary")
 		uncertaintyReport   = flag.Bool("uncertainty-report", false, "write each case's uncertainty_calibration.json (pre-gate NIS, G-UNC-1 label-free checks, fitted noise table) and pool every case into "+pooledUncertaintyFile)
+		gest1Report         = flag.Bool("gest1-report", false, "write each case's "+gest1ReportFile+": G-EST-1's criteria 2 to 5 (state plan 7.3) over the first run's tracked-filter residuals and, when the solid_body experiment runs with an evidence output, the shadow solid body's face-referenced residuals (l5est0005)")
 		uncertaintyCalFile  = flag.String("uncertainty-calibration", "", "replay with the fitted noise table in this uncertainty report (a case's or the pooled one); requires -experiment "+replayeval.ExperimentAdaptiveUncertainty)
 		coverageFile        = flag.String("continuity-coverage", "", "JSON object from case ID to sensor coverage declaration (source, sensor_x_m, sensor_y_m, min_range_m, max_range_m, azimuth_centre_deg, azimuth_half_width_deg); required by the "+replayeval.ExperimentCoastSupport+", "+replayeval.ExperimentClassCoastBounds+" and "+replayeval.ExperimentOcclusionContinuity+" experiments")
 		splitPath           = flag.String("split-manifest", "", "frozen split (velocity lidar annotation-split freeze) giving every selected case a role; recorded in the summary and in each replay manifest")
@@ -280,6 +284,14 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	var gest1 *gest1Options
+	if *gest1Report {
+		variance, maxCoast, err := gest1Settings(*tuning)
+		if err != nil {
+			fatal(err)
+		}
+		gest1 = &gest1Options{measurementVariance: variance, maxCoastSecs: maxCoast}
+	}
 	replay := corpusReplay{
 		base: replayeval.Config{
 			TuningFile: *tuning, SensorID: *sensorID, UDPPort: 2369, StartSeconds: *warmup, WarmupSeconds: *warmup,
@@ -292,8 +304,8 @@ func main() {
 		outDir: *outDir, observationDBPath: observationDBPath, evidenceDir: *evidenceDir,
 		evidencePerCase: *evidencePerCase, discardEvidence: *discardEvidence, samplePoints: *samplePoints,
 		evidenceProfile: *evidenceProfile, cpuProfileDir: *cpuProfileDir, groundReport: *groundReport,
-		settlingTrajectory: *settlingTrajectory,
-		coverage:           coverage, splitUses: split.uses, sourceManifest: verifiedSourceManifest, index: index,
+		settlingTrajectory: *settlingTrajectory, gest1: gest1,
+		coverage: coverage, splitUses: split.uses, sourceManifest: verifiedSourceManifest, index: index,
 		survey: survey, identity: identity, resume: *resume,
 		prepare: replayeval.PrepareCaptureSequence, replay: replayeval.Run,
 	}
@@ -332,15 +344,17 @@ type corpusReplay struct {
 	groundReport      bool
 	// settlingTrajectory writes each case's settling_trajectory.json.
 	settlingTrajectory bool
-	coverage           map[string]replayeval.ContinuityCoverage
-	splitUses          map[string]*replayeval.SplitUse
-	sourceManifest     *sourceManifest
-	index              map[string]indexEntry
-	survey             surveyFlags
-	identity           caseIdentity
-	resume             bool
-	prepare            func(files []string, udpPort int) (*capseq.Sequence, error)
-	replay             func(replayeval.Config) (*replayeval.Result, error)
+	// gest1, when set, writes each case's gest1_report.json.
+	gest1          *gest1Options
+	coverage       map[string]replayeval.ContinuityCoverage
+	splitUses      map[string]*replayeval.SplitUse
+	sourceManifest *sourceManifest
+	index          map[string]indexEntry
+	survey         surveyFlags
+	identity       caseIdentity
+	resume         bool
+	prepare        func(files []string, udpPort int) (*capseq.Sequence, error)
+	replay         func(replayeval.Config) (*replayeval.Result, error)
 }
 
 // evidencePath is where a case's first run writes its evidence, or "" when
@@ -402,6 +416,12 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			ground = newGroundReporter()
 			first.GroundSurfaceReport, first.TrackerTap = true, ground.observe
 		}
+		var gest1 *gest1Reporter
+		if r.gest1 != nil {
+			gest1 = newGEST1Reporter(r.gest1.measurementVariance, r.gest1.maxCoastSecs, first.ContinuityCoverage)
+			first.TrackerTap = chainTaps(first.TrackerTap, gest1.observe)
+			first.FilterStepObserver = gest1.collector
+		}
 		fmt.Printf("%s: first run across %d capture(s)\n", selectedCase.ID, len(paths))
 		firstResult, err := r.replay(first)
 		if err != nil {
@@ -425,6 +445,8 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 		// below also shows that fitting and reading the surface changed
 		// nothing.
 		repeat.GroundSurfaceReport, repeat.TrackerTap = false, nil
+		// Nor the G-EST-1 collector: the baseline check shows it read only.
+		repeat.FilterStepObserver = nil
 		fmt.Printf("%s: repeat run\n", selectedCase.ID)
 		var repeatResult *replayeval.Result
 		err = profiled(cpuProfilePath(r.cpuProfileDir, selectedCase.ID), func() error {
@@ -535,6 +557,14 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 		}
 		if first.UncertaintyReport {
 			summary.UncertaintyReport = filepath.Join(selectedCase.ID, "first", "uncertainty_calibration.json")
+		}
+		if gest1 != nil {
+			report, err := gest1.write(first.OutDir)
+			if err != nil {
+				return nil, nil, fmt.Errorf("G-EST-1 report %s: %w", selectedCase.ID, err)
+			}
+			summary.GEST1Report = filepath.Join(selectedCase.ID, "first", gest1ReportFile)
+			fmt.Printf("%s: G-EST-1 %s\n", selectedCase.ID, gest1Line(report))
 		}
 		// The solid body runs from the tuning file's block as well as from the
 		// named experiment; summarising only the latter dropped the section

@@ -315,8 +315,9 @@ is over 5 % of moving tracks.
 **Criterion 5: synthetic occlusion.** Gap starts are chosen once per track, from the observations
 alone, so every model is scored on the same cases. A start must be an observation at least 1 s
 after the first and at least 1 s after the previous start. For each start and horizon `H`
-(0.5 s, 1.0 s and the longest permitted coast), the gap ends at the first observation at or after
-`start + H`. That observation must fall within 0.25 s of the target, or the case is skipped. Each
+(0.5 s, 1.0 s and the longest permitted coast), the gap ends at the first two-dimensional
+observation at or after `start + H`; a rank-one face fix measures one direction and is never a
+gap's end. That observation must fall within 0.25 s of the target, or the case is skipped. Each
 model runs once over the track. At a start it is cloned, and the clone predicts to the gap's end
 with nothing observed, which is what withholding the gap's observations would give. The error is
 the Euclidean distance from the predicted position to the observed one. A signed longitudinal
@@ -335,6 +336,39 @@ vehicle in 14 of the 28 decelerating 2.5 s gaps. Where braking continues through
 is the true model and the decay costs accuracy: at 2.5 s, decelerating, the medians are 0.98 m
 bare against 2.11 m with the rule and 9.00 m for CV. That trade is what `τ` is selected on.
 
+**Two measurements, one replay.** `GEST1Collector` (`motion_gest1_face.go`) records, per track
+and frame, the residuals of the tracked filter, from the filter-step record, and of the shadow
+solid body's near-edge fixes, from the tracker after each update. A fix records each applied
+face's innovation against the state the faces updated, `y_k = z_k − h_k·x⁻`, with the joint
+`S = H P⁻ Hᵀ + R` (`l5tracks.FaceInnovation`); `yᵀS⁻¹y` equals the sequential NIS the update
+reports, to rounding. A two-face fix's normals are perpendicular, so its residual in the site frame
+is `Nᵀy` with covariance `Nᵀ S N`; a rank-one fix has only its normal component, attributed to
+the course axis its normal lies nearer. Point count is joined from the cluster associated with the
+track that frame. Each source's observations feed the offline models: a face's implied centre
+along its normal is `n·c⁻ + y`, with variance its noise plus the predicted half-extent's variance.
+
+**The smoothed acceleration** for both sources is the same estimator on each source's own
+observations: the offline CV filter, smoothed over the whole chain (`motion.SmoothCV`, the
+Rauch–Tung–Striebel pass), then the centred difference of the smoothed velocity at the nearest
+observations at or beyond ±0.5 s, at most 1.5 s apart, projected on the smoothed course. It is
+centred, so it has no filter lag; within about 1.5 s of a chain's end the smoothed velocity is
+the filter's and the estimate is attenuated toward zero (to about 0.55 to 0.8 of a constant
+deceleration's 0.5 s from the end, at the shipped measurement noise). The report's interior read
+keeps only samples beyond that margin. Criterion 2's response is NIS divided by its degrees of
+freedom, with the dimension as a covariate.
+
+**Samples within a track are not independent.** Consecutive residuals of one track share its
+range, aspect and manoeuvre, so the Fisher-z interval, which counts every sample as independent,
+is too narrow when the samples come from few tracks. The report gives beside it a percentile
+interval over 2,000 resamples of whole tracks with replacement (seeded). On four tracks sharing a
+track-level effect the bootstrap is more than five times the Fisher interval's width; on forty
+independent tracks the two agree.
+
+The first replay of both sources, kirk0 under l5est0005, is in the
+[G-EST-1 face-state screen](../../docs/lidar/operations/gest1-face-state-kirk0-2026-11.md): both
+filters' NIS correlates with acceleration and neither is over-dispersed, so the criterion's
+over-dispersion premise is not met there.
+
 ## 11. What this does not establish
 
 - No capture was replayed. Every figure is a noise-free or seeded-noise simulation under the
@@ -344,8 +378,11 @@ bare against 2.11 m with the rule and 9.00 m for CV. That trade is what `τ` is 
   0.011. It falls to 0.63, below the stationary 0.67, if the modes take the single-model noise
   levels.
 - The adapter carries the scalar `R` the live gain used, or the cluster-shape covariance as an
-  option. The filter-step record holds no rank-one direction or point count, so criterion 2's
-  point-count covariate must be joined from the observation store.
+  option. The filter-step record holds no rank-one direction or point count; `GEST1Collector`
+  joins the point count from the tracker's input and reads the solid body's face record for the
+  direction.
+- A face fix converted to a centre observation drops the position–extent covariance the solid
+  body carries; the offline models are labels and comparisons, not the solid body.
 - Velocity is initialised at zero with a 5 m/s sd. The review's two-point initialisation (its
   Section 4.2) is a separate change and is not implemented here. The first second of each track
   is therefore a poorer basis for criterion 5 than later seconds; the 1 s warm-up limits that.
