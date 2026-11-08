@@ -54,6 +54,10 @@ type Clip struct {
 	// Storage is what a replay of the clip opens: "sources", its capture
 	// list and offsets, or "extract", its latest completed extract.
 	Storage string `json:"storage"`
+	// SiteID and SiteLabel are the site a located clip is at and the
+	// operator's name for it, when a list attaches them (AttachClipSites).
+	SiteID    string `json:"site_id,omitempty"`
+	SiteLabel string `json:"site_label,omitempty"`
 }
 
 // What a clip replays.

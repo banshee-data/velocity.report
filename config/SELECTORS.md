@@ -106,6 +106,14 @@ on everything around it. A `min_gap` of 0 makes a following pair of the two halv
 vehicle, and ranking following smallest first finds one-frame pairs. Widening the rule is a change
 to the code, with its reason recorded.
 
+One widening is recorded. The random draw may also run at a width the code lists
+(`HeldOutRandomWindowSeconds`, now 180 s), every other parameter at its default, which is the
+`random_180s` selector. The draw reads no track: it places its windows from the capture's packet
+times and keeps one per capture by a fixed seed, so its width cannot steer it toward a failure.
+A held-out window a person labels whole needs more than ten seconds of road users, and 180 s is
+label0001's three-minute window. A traffic finder at another width stays refused, because it
+ranks windows by what the tracker reports inside them.
+
 Every chosen window records the selector that chose it, as it ran, and whether it could choose a
 held-out window. The database refuses a held-out window whose selector could not. The record goes
 into the pack's `segment.json`, so the evaluation can say how its references were chosen.
