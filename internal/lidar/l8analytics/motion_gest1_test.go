@@ -264,6 +264,42 @@ func TestScoreOcclusionHandComputed(t *testing.T) {
 	}
 }
 
+// A face fix measures one direction, so a gap never ends on one: the gap
+// whose end would be a rank-one observation runs on to the next
+// two-dimensional observation within the overshoot, or is not cut.
+func TestScoreOcclusionEndsAGapAtATwoDimensionalObservation(t *testing.T) {
+	tr := sampledTrack("a", 1, 3, func(t float64) float64 { return 10 * t })
+	rankOne := func(k int) {
+		o := &tr.Observations[k]
+		o.RankOne, o.NX, o.NY = true, 1, 0
+	}
+	rankOne(15) // the 0.5 s gap from 1.0 s would end here, at 1.5 s
+	rankOne(20) // the 1.0 s gap from 1.0 s at 2.0 s, and the next two
+	rankOne(21)
+	rankOne(22)
+	cfg := DefaultOcclusionConfig(1.0)
+	cfg.HorizonsSecs = []float64{0.5, 1.0}
+	models := []OcclusionModel{{Name: "hold", New: func() (motion.Estimator, error) { return &holdEstimator{}, nil }}}
+	rep, err := ScoreOcclusion([]motion.TrackObservations{tr}, models, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fromOne []OcclusionCase
+	for _, c := range rep.Cases {
+		if c.StartUnixNanos == 1e9 {
+			fromOne = append(fromOne, c)
+		}
+	}
+	// 0.5 s: ends at 1.6 s, 0.1 s past, inside the 0.25 s overshoot. 1.0 s:
+	// 2.0 to 2.2 s are rank one, 2.3 s is past the overshoot: no case.
+	if len(fromOne) != 1 || fromOne[0].HorizonSecs != 0.5 || fromOne[0].EndUnixNanos != 1_600_000_000 {
+		t.Fatalf("cases from 1.0 s: %+v", fromOne)
+	}
+	if math.Abs(fromOne[0].Errors[0]-6) > 1e-9 {
+		t.Errorf("error %.6f, want 6 m (0.6 s at 10 m/s)", fromOne[0].Errors[0])
+	}
+}
+
 func TestOcclusionNoWorseThan(t *testing.T) {
 	rep := OcclusionReport{Summary: []OcclusionSummary{
 		{Model: "cv", HorizonSecs: 0.5, Split: SplitAll, Median: 1, P95: 3},

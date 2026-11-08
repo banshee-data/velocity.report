@@ -433,6 +433,18 @@ type SolidBodyMeasurement struct {
 	// degrees of freedom. The faces are applied sequentially with
 	// independent noise, so the sum of the per-face terms is the joint NIS.
 	NIS float32
+	// FaceInnovations are a near-edge fix's first FaceInnovationCount faces'
+	// innovations against the state the faces updated (PriorX, PriorY,
+	// PriorVX, PriorVY: the prediction, after any re-reference translation),
+	// in the order the update applied them, and FaceInnovationCross is the
+	// joint S's off-diagonal for a two-face fix. FaceInnovationCount is Rank
+	// for a near-edge fix and zero otherwise: a medoid update, a lapse or a
+	// coast records none. See solid_body_face_innovation.go.
+	FaceInnovations     [maxFixFaces]FaceInnovation
+	FaceInnovationCount int
+	FaceInnovationCross float32
+	PriorX, PriorY      float32
+	PriorVX, PriorVY    float32
 	// FallbackReason says why no near-edge fix was made, when none was.
 	FallbackReason string
 	// ReferenceChange is the reference change this instant made, if any.
@@ -984,16 +996,24 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		var nis float32
 		var faces VisibleFaces
 		var ok bool
+		// The record is taken from the state the faces update, before they
+		// do, and kept only if the fix applies.
+		var record SolidBodyMeasurement
 		if sb.ext.on {
 			js = sb.jointOf(startState, startP)
+			t.recordFaceInnovations(&record, &js, usable, true, nil, heading)
 			nis, faces, ok = t.applyEdgeMeasurementsJoint(&js, usable, heading)
 		} else {
+			flat := flatJoint(startState, startP)
+			t.recordFaceInnovations(&record, &flat, usable, false, consider, heading)
 			state, p, nis, faces, ok = t.applyEdgeMeasurements(startState, startP, usable, consider, heading)
 		}
 		if !ok {
 			m.FallbackReason = "singular_innovation"
 			break
 		}
+		m.FaceInnovations, m.FaceInnovationCount, m.FaceInnovationCross = record.FaceInnovations, record.FaceInnovationCount, record.FaceInnovationCross
+		m.PriorX, m.PriorY, m.PriorVX, m.PriorVY = record.PriorX, record.PriorY, record.PriorVX, record.PriorVY
 		applied = applicationOf(sb.state, startState, usable)
 		loose, ok := t.endFaceCentringTerm(usable, f, cluster)
 		if !ok {
@@ -1733,15 +1753,8 @@ func (t *Tracker) applyEdgeMeasurements(state [4]float32, p [16]float32, edges [
 	next := state
 	nextP := p
 	for i, e := range edges {
-		r := float64(t.Config.MeasurementNoise)
-		if consider != nil {
-			r += consider[i]
-		}
-		if heading != nil {
-			r += heading[i]
-		}
-		term, ok := scalarPositionUpdate(&next, &nextP,
-			float64(e.NormalX), float64(e.NormalY), float64(e.ImpliedCentreOffset()), r)
+		h, z, r := t.faceMeasurementRow(e, false, consider, heading, i)
+		term, ok := scalarPositionUpdate(&next, &nextP, h[0], h[1], z, r)
 		if !ok {
 			return state, p, 0, 0, false
 		}

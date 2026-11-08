@@ -108,7 +108,7 @@ func (c *ObservationCollector) ObserveFilterFrame(frame l5tracks.FilterFrame) {
 			track = &TrackObservations{TrackID: step.TrackID, CreationSequence: step.CreationSequence}
 			c.tracks[key] = track
 		}
-		obs := c.observationOf(step)
+		obs := c.cfg.Observation(step)
 		if n := len(track.Observations); n > 0 && obs.UnixNanos <= track.Observations[n-1].UnixNanos {
 			track.Skipped++
 			continue
@@ -117,7 +117,16 @@ func (c *ObservationCollector) ObserveFilterFrame(frame l5tracks.FilterFrame) {
 	}
 }
 
-func (c *ObservationCollector) observationOf(step l5tracks.FilterStep) Observation {
+// Observation is the observation a filter step's evidence becomes: its
+// measured position at its measurement time (the state time, then the frame
+// time, when the step carries none), with the scalar R, or the cluster-shape
+// covariance under UseGeometryCovariance where it is a valid covariance, and
+// the live NIS when the step has an innovation. It does not decide whether
+// the step is evidence; ObservationCollector does.
+func (cfg AdapterConfig) Observation(step l5tracks.FilterStep) Observation {
+	if cfg.MeasurementVariance <= 0 {
+		cfg.MeasurementVariance = DefaultMeasurementVariance
+	}
 	o := step.Observation
 	t := o.MeasurementUnixNanos
 	if t <= 0 {
@@ -128,13 +137,13 @@ func (c *ObservationCollector) observationOf(step l5tracks.FilterStep) Observati
 	}
 	obs := Observation{
 		UnixNanos: t, X: float64(o.X), Y: float64(o.Y),
-		R:         IsotropicR(c.cfg.MeasurementVariance),
+		R:         IsotropicR(cfg.MeasurementVariance),
 		ClusterID: o.ClusterID,
 	}
 	if o.HasInnovation {
 		obs.LiveNIS, obs.HasLiveNIS = float64(o.NIS), true
 	}
-	if c.cfg.UseGeometryCovariance {
+	if cfg.UseGeometryCovariance {
 		g := o.GeometryCovariance
 		xx, xy, yy := float64(g.XX), float64(g.XY), float64(g.YY)
 		if xx > 0 && yy > 0 && xx*yy-xy*xy > 0 && !math.IsInf(xx+yy, 0) {
