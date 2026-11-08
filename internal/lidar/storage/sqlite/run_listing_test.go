@@ -66,6 +66,22 @@ func TestSweepsForRunsReadsACheckpointedSweep(t *testing.T) {
 	}
 }
 
+// HINT stores no results; each round names the reference run it replayed.
+func TestSweepsForRunsReadsAHINTSweepsRounds(t *testing.T) {
+	db := setupClipFilesDB(t)
+	if _, err := db.Exec(`INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, round_results, started_at)
+		VALUES ('sweep-h', 'hesai-pandar40p', 'hint', 'completed', '{}', '[{"round":1,"reference_run_id":"run-r1"},{"round":2,"reference_run_id":"run-r2"},{"round":3,"reference_run_id":""}]', '2026-11-07T00:00:00Z')`); err != nil {
+		t.Fatalf("insert hint sweep: %v", err)
+	}
+	got, err := SweepsForRuns(db, []string{"run-r1", "run-r2", ""})
+	if err != nil {
+		t.Fatalf("SweepsForRuns: %v", err)
+	}
+	if len(got) != 2 || got["run-r1"].SweepID != "sweep-h" || got["run-r2"].Mode != "hint" {
+		t.Errorf("got %+v, want run-r1 and run-r2 under sweep-h/hint", got)
+	}
+}
+
 func TestAttachRunSweepsLeavesUnmatchedRunsAlone(t *testing.T) {
 	db := setupClipFilesDB(t)
 	insertListingSweep(t, NewSweepStore(db), "sweep-a", "sweep", `[{"run_id":"run-1"}]`)

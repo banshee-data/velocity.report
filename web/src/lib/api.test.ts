@@ -2266,6 +2266,13 @@ describe('api', () => {
 				);
 			});
 
+			it('asks for each run’s sweep only when told to', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+				const { getLidarRuns } = await import('./api');
+				await getLidarRuns({ sweeps: true });
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/?sweeps=1');
+			});
+
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getLidarRuns } = await import('./api');
@@ -2329,6 +2336,13 @@ describe('api', () => {
 				const { getLidarRun } = await import('./api');
 				await expect(getLidarRun('r1')).resolves.toEqual({ run_id: 'r1', sensor_id: 'hesai' });
 				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/r1');
+			});
+
+			it('asks for the run’s sweep only when told to', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+				const { getLidarRun } = await import('./api');
+				await getLidarRun('r 1', { sweeps: true });
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/r%201?sweeps=1');
 			});
 
 			it('names the run it could not load', async () => {

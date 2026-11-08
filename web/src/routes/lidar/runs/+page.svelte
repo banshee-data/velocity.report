@@ -23,6 +23,7 @@
 		differenceDetail,
 		differenceSummary,
 		groupRunsByClip,
+		insertRunByCreated,
 		type RunRow
 	} from '#lib/runGroups.js';
 	import { resolve } from '$app/paths';
@@ -98,7 +99,10 @@
 		loading = true;
 		error = null;
 		try {
-			const [runsResult, scenesResult] = await Promise.all([getLidarRuns(), getLidarClips()]);
+			const [runsResult, scenesResult] = await Promise.all([
+				getLidarRuns({ sweeps: true }),
+				getLidarClips()
+			]);
 			runs = runsResult;
 			scenes = scenesResult;
 		} catch (e) {
@@ -244,8 +248,8 @@
 		let run = runs.find((r) => r.run_id === runId);
 		if (!run) {
 			try {
-				run = await getLidarRun(runId);
-				runs = [run, ...runs];
+				run = await getLidarRun(runId, { sweeps: true });
+				runs = insertRunByCreated(runs, run);
 			} catch (e) {
 				error = e instanceof Error ? e.message : 'Could not load the run.';
 				return;

@@ -3,15 +3,16 @@
 // parameters compared with the parameters its clip recommends.
 
 import { clipForRun } from '#lib/lidarRecords.js';
+import { normaliseParamMap } from '#lib/sweepSetup.js';
 import type { LidarClip, Run } from '#lib/types/lidar.js';
 
 /** One parameter that differs between a run and its clip's recommended set. */
 export type ParamDifference = {
-	/** Dotted path into the parameter set, e.g. l3.ema_baseline_v1.noise_relative. */
+	/** Canonical dotted key, e.g. l3.ema_baseline_v1.noise_relative. */
 	key: string;
 	/** The run's value as JSON, or undefined when the run's set lacks the key. */
 	run: string | undefined;
-	/** The recommended value as JSON, or undefined when the recommended set lacks it. */
+	/** The recommended value as JSON. */
 	recommended: string | undefined;
 };
 
@@ -26,31 +27,26 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/**
- * flattenParams lists a parameter set's leaves by dotted path, each value as
- * JSON. An array is one leaf: a list of gates or regions changes as a whole.
- */
-export function flattenParams(value: unknown, prefix = ''): Map<string, string> {
-	const out = new Map<string, string>();
-	if (!isPlainObject(value)) {
-		if (prefix) out.set(prefix, JSON.stringify(value));
-		return out;
-	}
-	for (const key of Object.keys(value).sort()) {
-		const path = prefix ? `${prefix}.${key}` : key;
-		for (const [leaf, leafValue] of flattenParams(value[key], path)) out.set(leaf, leafValue);
-	}
-	return out;
+function asJSON(value: unknown): string | undefined {
+	return value === undefined ? undefined : JSON.stringify(value);
 }
 
-/** paramDifferences lists the leaves that differ between two parameter sets, by path. */
+/**
+ * paramDifferences lists the keys a recommended set names on which a run's
+ * parameters disagree. Both sets are flattened to canonical dotted keys, so a
+ * recommendation written by suffix (noise_relative) or nested (l3 → …) reads
+ * the same. Only the recommended set's keys are compared: it is a partial set
+ * of the parameters a sweep tuned, while a run records every parameter it ran
+ * with, and the rest are not a difference from the recommendation.
+ */
 export function paramDifferences(run: unknown, recommended: unknown): ParamDifference[] {
-	const a = flattenParams(run);
-	const b = flattenParams(recommended);
-	const keys = [...new Set([...a.keys(), ...b.keys()])].sort();
+	const mine = normaliseParamMap(run);
+	const theirs = normaliseParamMap(recommended);
 	const out: ParamDifference[] = [];
-	for (const key of keys) {
-		if (a.get(key) !== b.get(key)) out.push({ key, run: a.get(key), recommended: b.get(key) });
+	for (const key of Object.keys(theirs).sort()) {
+		const want = asJSON(theirs[key]);
+		const got = asJSON(mine[key]);
+		if (got !== want) out.push({ key, run: got, recommended: want });
 	}
 	return out;
 }
@@ -61,27 +57,25 @@ export function runParams(run: Run): Record<string, unknown> | null {
 	return isPlainObject(params) ? params : null;
 }
 
-function recommendedParams(clip: LidarClip): Record<string, unknown> | null {
-	const params = clip.recommended_params;
-	return isPlainObject(params) ? params : null;
-}
-
 /**
  * compareWithRecommended says whether a run used its clip's recommended
- * parameters and, when it did not, which keys differ. Equal digests settle
- * it without reading either set.
+ * parameters and, when it did not, which of them differ. The digests cannot
+ * settle it: a run's params_hash is its effective set's envelope and the
+ * clip's the requested one's, which hash differently even for the same
+ * values. A run that requested the recommended set itself matches; otherwise
+ * the recommended keys are compared with the run's values.
  */
 export function compareWithRecommended(run: Run, clip: LidarClip | null): ParamComparison {
-	if (!clip?.recommended_params_hash || !run.params_hash) return { kind: 'unknown' };
-	if (clip.recommended_params_hash === run.params_hash) return { kind: 'recommended' };
+	if (!clip) return { kind: 'unknown' };
+	const recommendedId = clip.recommended_param_set_id;
+	if (recommendedId && run.requested_param_set_id === recommendedId) return { kind: 'recommended' };
+	const theirs = clip.recommended_params;
 	const mine = runParams(run);
-	const theirs = recommendedParams(clip);
-	if (!mine || !theirs) return { kind: 'unknown' };
+	if (!isPlainObject(theirs) || Object.keys(normaliseParamMap(theirs)).length === 0 || !mine) {
+		return { kind: 'unknown' };
+	}
 	const differences = paramDifferences(mine, theirs);
-	// The digests differ but no value does: the same parameters, canonicalised
-	// differently when stored. Read it as the recommended set.
-	if (differences.length === 0) return { kind: 'recommended' };
-	return { kind: 'differs', differences };
+	return differences.length === 0 ? { kind: 'recommended' } : { kind: 'differs', differences };
 }
 
 /** One row of runs: the newest, then the identical runs folded under it. */
@@ -106,25 +100,34 @@ export type ClipGroup = {
 	rows: GroupRow[];
 };
 
+function sameRepeat(a: Run, b: Run): boolean {
+	return (
+		a.params_hash === b.params_hash &&
+		a.status === b.status &&
+		(a.source_path ?? '') === (b.source_path ?? '') &&
+		(a.frame_mode ?? 'foreground') === (b.frame_mode ?? 'foreground') &&
+		(a.build_git_sha ?? '') === (b.build_git_sha ?? '') &&
+		(a.config_hash ?? '') === (b.config_hash ?? '') &&
+		(a.frame_start_ns ?? null) === (b.frame_start_ns ?? null) &&
+		(a.frame_end_ns ?? null) === (b.frame_end_ns ?? null) &&
+		a.total_tracks === b.total_tracks
+	);
+}
+
 /**
- * foldRepeats folds each run into the row above it when it repeats that row
- * exactly: the same source, frame mode, parameter digest and status. Under one
- * clip the same digest means the same difference from the recommended set, so
- * the folded row hides nothing the row above shows. A run with no digest is
- * never folded, since nothing says it repeats another.
+ * foldRepeats folds each run into the row above it when it repeats that row:
+ * the same source, frame mode, parameter digest and status, the same build
+ * (a replay before a perception commit is not a repeat of one after it), the
+ * same frame span (live runs on different days are not repeats), and the same
+ * track count. Under one clip the same digest means the same difference from
+ * the recommended set, so the folded row hides nothing the row above shows. A
+ * run with no digest is never folded, since nothing says it repeats another.
  */
 export function foldRepeats(runs: Run[]): RunRow[] {
 	const rows: RunRow[] = [];
 	for (const run of runs) {
 		const last = rows[rows.length - 1];
-		if (
-			last &&
-			run.params_hash &&
-			last.run.params_hash === run.params_hash &&
-			last.run.status === run.status &&
-			(last.run.source_path ?? '') === (run.source_path ?? '') &&
-			(last.run.frame_mode ?? 'foreground') === (run.frame_mode ?? 'foreground')
-		) {
+		if (last && run.params_hash && sameRepeat(last.run, run)) {
 			last.repeats.push(run);
 		} else {
 			rows.push({ kind: 'run', run, repeats: [] });
@@ -220,4 +223,14 @@ export function differenceDetail(differences: ParamDifference[]): string {
 	return differences
 		.map((d) => `${d.key}: ${d.run ?? '(unset)'} (recommended ${d.recommended ?? '(unset)'})`)
 		.join('\n');
+}
+
+/**
+ * insertRunByCreated places a run fetched on its own (a link to a run past
+ * the listed page) into a newest-first list at its own time, so it neither
+ * heads a fold of newer runs nor moves its clip's group up.
+ */
+export function insertRunByCreated(list: Run[], run: Run): Run[] {
+	const at = list.findIndex((r) => r.created_at < run.created_at);
+	return at < 0 ? [...list, run] : [...list.slice(0, at), run, ...list.slice(at)];
 }

@@ -17,6 +17,7 @@
 	import SweepResults from '#lib/components/lidar/SweepResults.svelte';
 	import { clipQuery, linkedId, runQuery } from '#lib/lidarLinks.js';
 	import { objectiveText } from '#lib/lidarRecords.js';
+	import { sweepSummaryOf } from '#lib/sweepResults.js';
 	import type { HINTState, LidarClip, SweepRecord, SweepSummary } from '#lib/types/lidar.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -293,8 +294,19 @@
 		await loadData();
 		// The Runs page links to one sweep with ?id=; open it once the list is in.
 		const linked = linkedId(page.url);
-		const summary = linked ? sweeps.find((s) => s.sweep_id === linked) : undefined;
-		if (summary) await selectSweep(summary);
+		if (!linked) return;
+		let summary = sweeps.find((s) => s.sweep_id === linked);
+		if (!summary) {
+			// Older than the listed page: fetch it by id and list it.
+			try {
+				summary = sweepSummaryOf(await getSweep(linked));
+				sweeps = [...sweeps, summary];
+			} catch (e) {
+				error = e instanceof Error ? e.message : 'Could not load the linked sweep.';
+				return;
+			}
+		}
+		await selectSweep(summary);
 	});
 </script>
 

@@ -4,14 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
-// The runs list names the sweep whose stored results list a run, so the Runs
-// page can fold a sweep's runs under it; a run no sweep lists names none.
+// With sweeps=1 the runs list names the sweep whose stored results list a
+// run, so the Runs page can fold a sweep's runs under it; a run no sweep
+// lists names none, and without sweeps=1 no run names one.
 func TestListRunsNamesEachRunsSweep(t *testing.T) {
 	sqlDB, cleanup := setupTestDB(t)
 	defer cleanup()
@@ -25,8 +27,16 @@ func TestListRunsNamesEachRunsSweep(t *testing.T) {
 	}
 
 	ws := &Server{db: &db.DB{DB: sqlDB}}
+
+	// Without sweeps=1 the scan is skipped.
 	w := httptest.NewRecorder()
 	ws.handleListRuns(w, httptest.NewRequest(http.MethodGet, "/api/lidar/runs?limit=10", nil))
+	if strings.Contains(w.Body.String(), "sweep_id") {
+		t.Errorf("a list that did not ask names sweeps: %s", w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	ws.handleListRuns(w, httptest.NewRequest(http.MethodGet, "/api/lidar/runs?limit=10&sweeps=1", nil))
 	if w.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", w.Code, w.Body.String())
 	}
@@ -60,7 +70,7 @@ func TestListRunsNamesEachRunsSweep(t *testing.T) {
 
 	// One run, as a link to a run past the listed page fetches it.
 	w = httptest.NewRecorder()
-	ws.handleGetRun(w, httptest.NewRequest(http.MethodGet, "/api/lidar/runs/run-swept", nil), "run-swept")
+	ws.handleGetRun(w, httptest.NewRequest(http.MethodGet, "/api/lidar/runs/run-swept?sweeps=1", nil), "run-swept")
 	var one struct {
 		SweepID string `json:"sweep_id"`
 	}
