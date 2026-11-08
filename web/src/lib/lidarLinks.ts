@@ -24,6 +24,11 @@ export function runQuery(runId: string): string {
 	return new URLSearchParams({ [ID_PARAM]: runId }).toString();
 }
 
+/** sweepQuery opens one sweep on the Sweeps page. */
+export function sweepQuery(sweepId: string): string {
+	return new URLSearchParams({ [ID_PARAM]: sweepId }).toString();
+}
+
 /** windowsQuery opens the Windows page on one run. */
 export function windowsQuery(runId: string): string {
 	return new URLSearchParams({ [RUN_PARAM]: runId }).toString();
@@ -60,7 +65,7 @@ export function tracksQuery(link: TracksLink): string {
 }
 
 /**
- * linkedId reads the record a clipQuery or runQuery link opened, if any. It
+ * linkedId reads the record a clipQuery, runQuery or sweepQuery link opened, if any. It
  * takes anything with search parameters, since SvelteKit's page.url is a
  * read-only URL rather than a URL.
  */

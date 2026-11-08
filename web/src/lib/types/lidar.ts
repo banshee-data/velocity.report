@@ -329,6 +329,10 @@ export interface LidarClip {
 	registration?: ClipRegistration;
 	/** Its lane proposals; only from the lanes list. */
 	lanes?: ClipLaneStatus;
+	/** The site a located clip is at (its L16 cell); from the clips list. */
+	site_id?: string;
+	/** The operator's name for that site, when one has been given. */
+	site_label?: string;
 }
 
 /** What a clip replays. */
@@ -398,6 +402,10 @@ export interface Run {
 		tagged_only: number;
 		unlabelled: number;
 	};
+	/** The sweep whose stored results list this run; derived by the runs list. */
+	sweep_id?: string;
+	/** That sweep's mode: sweep, auto or hint. */
+	sweep_mode?: string;
 }
 
 /** Run track with labelling fields */
