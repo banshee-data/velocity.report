@@ -96,7 +96,10 @@ export interface BarDatum {
 export interface HeatmapCell {
 	x: string;
 	y: string;
+	/** Mean of the values that fell in this cell, or 0 when none did. */
 	value: number;
+	/** How many values the mean is over; above 1 when other swept keys vary. */
+	count: number;
 	colour: string;
 }
 
@@ -120,12 +123,36 @@ export function sortCategories(labels: Iterable<string>): string[] {
 }
 
 /**
- * Lay out a heatmap from cells keyed by category. The colour scale runs from
- * the smallest positive value to the largest, as the sweep dashboard's did,
- * so a column of zeros does not wash the rest out; with no spread it runs
- * from zero.
+ * Lay out a heatmap from cells keyed by category. Entries that share an
+ * (x, y) pair become one cell holding the mean of their values, nulls left
+ * out, so a sweep over more parameters than the two drawn shows each pair
+ * once. A pair with no value is drawn as 0. The colour scale runs from the
+ * smallest positive value to the largest, as the sweep dashboard's did, so a
+ * column of zeros does not wash the rest out; with no spread it runs from
+ * zero.
  */
-export function buildHeatmap(cells: Array<{ x: string; y: string; value: number }>): HeatmapData {
+export function buildHeatmap(
+	entries: Array<{ x: string; y: string; value: number | null }>
+): HeatmapData {
+	const groups = new Map<string, { x: string; y: string; sum: number; count: number }>();
+	for (const e of entries) {
+		const key = JSON.stringify([e.x, e.y]);
+		let g = groups.get(key);
+		if (!g) {
+			g = { x: e.x, y: e.y, sum: 0, count: 0 };
+			groups.set(key, g);
+		}
+		if (e.value != null && Number.isFinite(e.value)) {
+			g.sum += e.value;
+			g.count += 1;
+		}
+	}
+	const cells = [...groups.values()].map((g) => ({
+		x: g.x,
+		y: g.y,
+		value: g.count > 0 ? g.sum / g.count : 0,
+		count: g.count
+	}));
 	let max = 0;
 	let min = Infinity;
 	for (const c of cells) {

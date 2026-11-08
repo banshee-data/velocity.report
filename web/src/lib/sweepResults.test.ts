@@ -87,6 +87,32 @@ describe('charts', () => {
 		expect(paramHeatmap(results, EPS, POINTS, 'missing').cells.map((c) => c.value)).toEqual([0, 0]);
 	});
 
+	it('gives one heatmap cell per parameter pair when other swept keys vary', () => {
+		// Two parameters drawn, a third swept underneath: four runs, two cells.
+		const runs = [0.3, 0.6].flatMap((eps) =>
+			[1, 2].map((noise) => ({
+				param_values: {
+					foreground_dbscan_eps: eps,
+					foreground_min_cluster_points: 4,
+					measurement_noise: noise
+				},
+				overall_accept_mean: eps + noise / 10
+			}))
+		);
+		const hm = paramHeatmap(runs, EPS, POINTS, 'overall_accept_mean');
+		expect(hm.cells.map((c) => [c.x, c.y, c.count])).toEqual([
+			['0.3', '4', 2],
+			['0.6', '4', 2]
+		]);
+		expect(hm.cells[0].value).toBeCloseTo(0.45);
+		expect(hm.cells[1].value).toBeCloseTo(0.75);
+		const charts = defaultSweepCharts(runs).filter((c) => c.kind === 'heatmap');
+		for (const chart of charts) {
+			const keys = chart.data.cells.map((c) => `${c.x}|${c.y}`);
+			expect(new Set(keys).size).toBe(keys.length);
+		}
+	});
+
 	it('finds the numeric parameters', () => {
 		expect(numericParams(results)).toEqual([EPS, POINTS]);
 		expect(numericParams([])).toEqual([]);

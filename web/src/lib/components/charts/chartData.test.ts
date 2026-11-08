@@ -86,6 +86,24 @@ describe('buildHeatmap', () => {
 		expect(hm.max).toBe(3);
 	});
 
+	it('merges repeated category pairs into one cell holding their mean', () => {
+		const hm = buildHeatmap([
+			{ x: 'a', y: 'a', value: 1 },
+			{ x: 'b', y: 'a', value: 5 },
+			{ x: 'a', y: 'a', value: 3 },
+			{ x: 'a', y: 'a', value: null },
+			{ x: 'b', y: 'b', value: null }
+		]);
+		expect(hm.cells.map((c) => [c.x, c.y, c.value, c.count])).toEqual([
+			['a', 'a', 2, 2],
+			['b', 'a', 5, 1],
+			['b', 'b', 0, 0]
+		]);
+		expect(new Set(hm.cells.map((c) => `${c.x}|${c.y}`)).size).toBe(hm.cells.length);
+		expect(hm.min).toBe(2);
+		expect(hm.max).toBe(5);
+	});
+
 	it('handles no cells', () => {
 		expect(buildHeatmap([])).toEqual({ xValues: [], yValues: [], cells: [], min: 0, max: 0 });
 	});

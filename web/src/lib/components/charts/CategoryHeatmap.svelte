@@ -2,7 +2,8 @@
 	/**
 	 * Heatmap over two category axes, such as two swept parameters, with a
 	 * third value as colour. Cells are drawn from band scales; a combination
-	 * that was not run is left blank.
+	 * that was not run is left blank. buildHeatmap gives one cell per pair,
+	 * which the keyed each below relies on.
 	 */
 	import { scaleBand } from 'd3-scale';
 	import { Axis, Chart, Layer } from 'layerchart/svg';
@@ -55,7 +56,7 @@
 							><title
 								>{xLabel}: {cell.x}, {yLabel}: {cell.y} — {valueLabel}: {formatValue(
 									cell.value
-								)}</title
+								)}{cell.count > 1 ? ` (mean of ${cell.count})` : ''}</title
 							></rect
 						>
 					{/each}
