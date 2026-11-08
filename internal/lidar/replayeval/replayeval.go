@@ -767,6 +767,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err := tuningCfg.ValidateImplementedEngines(); err != nil {
 		return nil, fmt.Errorf("tuning config %s: %w", cfg.TuningFile, err)
 	}
+	if err := fragmentJoinTrackMembershipRefusal(experiments, tuningCfg.GetFragmentJoin()); err != nil {
+		return nil, fmt.Errorf("tuning config %s: %w", cfg.TuningFile, err)
+	}
 	sequence, err := configuredCaptureSequence(cfg, pcapFiles)
 	if err != nil {
 		return nil, err
@@ -942,30 +945,32 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		ClusterCentre:             tuningCfg.GetClusterCentre(),
 		FragmentJoin:              tuningCfg.GetFragmentJoin(),
 		FragmentJoinTrackerConfig: tracker.GetConfig,
-		HeightBandFloor:           tuningCfg.GetHeightBandFloor(),
-		HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
-		RemoveGround:              tuningCfg.GetRemoveGround(),
-		UseSurfaceGround:          useSurfaceGround,
-		SurfaceGround:             surfaceSettings,
-		GroundSurfaceForTracker:   hasExperiment(experiments, ExperimentBoxGround),
-		GroundSurfaceForReport:    cfg.GroundSurfaceReport,
-		SurfaceGroundFloor:        cfg.SurfaceGroundFloor,
-		SurfaceGroundCeiling:      cfg.SurfaceGroundCeiling,
-		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
-		DensityPreservingCap:      hasExperiment(experiments, ExperimentDensityCap),
-		BorderClasses:             hasExperiment(experiments, ExperimentBorderClasses),
-		HeldToL4:                  hasExperiment(experiments, ExperimentHeldToL4),
-		RadiusGraph:               hasExperiment(experiments, ExperimentRadiusGraphXY) || hasExperiment(experiments, ExperimentRadiusGraphXYOverlap),
-		RadiusGraphOverlap:        hasExperiment(experiments, ExperimentRadiusGraphXYOverlap),
-		Dwell:                     dwell,
-		RangeAdaptiveEps:          hasExperiment(experiments, ExperimentRangeAdaptiveEps),
-		MaxSamplePoints:           maxSamplePoints,
-		KeepClusterMembers:        cfg.KeepClusterMembers || solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments) || boxModelMembers(tuningCfg.L5.CvKfV1),
-		ObservationSourceID:       observationSourceID,
-		ObservationCalibrationID:  observationCalibrationID,
-		StateEstimatorID:          "cv_kf_v1",
-		StateObservationModelID:   stateObservationModelID,
-		StateParameterHash:        paramsHash,
+		// Refused above unless the tuning file enables the join it widens.
+		FragmentJoinTrackMembership: hasExperiment(experiments, ExperimentFragmentJoinTrackMembership),
+		HeightBandFloor:             tuningCfg.GetHeightBandFloor(),
+		HeightBandCeiling:           tuningCfg.GetHeightBandCeiling(),
+		RemoveGround:                tuningCfg.GetRemoveGround(),
+		UseSurfaceGround:            useSurfaceGround,
+		SurfaceGround:               surfaceSettings,
+		GroundSurfaceForTracker:     hasExperiment(experiments, ExperimentBoxGround),
+		GroundSurfaceForReport:      cfg.GroundSurfaceReport,
+		SurfaceGroundFloor:          cfg.SurfaceGroundFloor,
+		SurfaceGroundCeiling:        cfg.SurfaceGroundCeiling,
+		SurfaceGroundRegionMetres:   cfg.SurfaceGroundRegionMetres,
+		DensityPreservingCap:        hasExperiment(experiments, ExperimentDensityCap),
+		BorderClasses:               hasExperiment(experiments, ExperimentBorderClasses),
+		HeldToL4:                    hasExperiment(experiments, ExperimentHeldToL4),
+		RadiusGraph:                 hasExperiment(experiments, ExperimentRadiusGraphXY) || hasExperiment(experiments, ExperimentRadiusGraphXYOverlap),
+		RadiusGraphOverlap:          hasExperiment(experiments, ExperimentRadiusGraphXYOverlap),
+		Dwell:                       dwell,
+		RangeAdaptiveEps:            hasExperiment(experiments, ExperimentRangeAdaptiveEps),
+		MaxSamplePoints:             maxSamplePoints,
+		KeepClusterMembers:          cfg.KeepClusterMembers || solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments) || boxModelMembers(tuningCfg.L5.CvKfV1),
+		ObservationSourceID:         observationSourceID,
+		ObservationCalibrationID:    observationCalibrationID,
+		StateEstimatorID:            "cv_kf_v1",
+		StateObservationModelID:     stateObservationModelID,
+		StateParameterHash:          paramsHash,
 	}
 	if frameEvidenceSink != nil {
 		pipeCfg.FrameEvidenceSink = frameEvidenceSink

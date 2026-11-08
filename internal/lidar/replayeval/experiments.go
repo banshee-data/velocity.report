@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
@@ -394,6 +395,11 @@ const (
 	// track guard holds this frame (l3bg0027; l3grid.BackgroundManager.MaskWithHeld).
 	// The background model and the published mask are untouched.
 	ExperimentHeldToL4 = "held_to_l4"
+	// ExperimentFragmentJoinTrackMembership: pipeline FragmentJoinTrackMembership, each motion
+	// footprint of the fragment join widened by two standard deviations of its projected position
+	// along and across the body (l4clus0010's fix (c)). It qualifies the join, so the tuning file
+	// must enable l4.dbscan_xy_v1.fragment_join; without it the replay is refused.
+	ExperimentFragmentJoinTrackMembership = "fragment_join_track_membership"
 )
 
 var knownExperiments = map[string]bool{
@@ -405,6 +411,9 @@ var knownExperiments = map[string]bool{
 	ExperimentBorderClasses:        true,
 	ExperimentHeldToL4:             true,
 	ExperimentRadiusGraphXY:        true,
+
+	ExperimentFragmentJoinTrackMembership: true,
+
 	ExperimentRadiusGraphXYOverlap: true,
 	ExperimentRangeAdaptiveEps:     true,
 	ExperimentFlipRule:             true,
@@ -713,6 +722,18 @@ func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []s
 		}
 	}
 	return nil
+}
+
+// fragmentJoinTrackMembershipRefusal refuses fragment_join_track_membership
+// with a tuning file whose fragment join is absent or off: the option widens
+// the join's footprints, so without the join it would run as the control and
+// be reported as the option.
+func fragmentJoinTrackMembershipRefusal(experiments []string, join *config.L4FragmentJoin) error {
+	if !hasExperiment(experiments, ExperimentFragmentJoinTrackMembership) || (join != nil && join.Enabled) {
+		return nil
+	}
+	return fmt.Errorf("replay experiment %s widens the fragment join's footprints, and l4.dbscan_xy_v1.fragment_join is not enabled; use a parameter set that enables it, such as config/experiments/motion-fragment-join.json",
+		ExperimentFragmentJoinTrackMembership)
 }
 
 func hasExperiment(experiments []string, name string) bool {

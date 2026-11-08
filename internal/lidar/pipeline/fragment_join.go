@@ -26,10 +26,25 @@ func (s *FragmentJoinStats) Observe(joined int) {
 	}
 }
 
+// trackMembershipSigmas is how many standard deviations of the projected
+// position the footprint grows by on each side under track-conditioned
+// membership (TrackingPipelineConfig.FragmentJoinTrackMembership): two per
+// axis, about 95 % of a Gaussian position along it. A hint is refused when its
+// largest position standard deviation exceeds MaxPositionStddevMetres, so the
+// growth is at most twice that bound per side (1.5 m at the registered 0.75 m),
+// under the join's 2 m gap.
+const trackMembershipSigmas = 2
+
 // motionFragmentHints projects recent observed rigid vehicles to one common
 // capture time. Stale, coasted, stopped, uncertain and unclassified bodies
 // cannot join clusters. A footprint is only experimental support, not truth.
-func motionFragmentHints(tracks []*l5tracks.TrackedObject, at time.Time, cfg config.L4FragmentJoin, trackerCfg l5tracks.TrackerConfig) []l4perception.FragmentHint {
+//
+// trackMembership widens each footprint by trackMembershipSigmas of the
+// projected position covariance along and across the body (l4clus0010's fix
+// (c)): a member the predicted box misses only by the body's own position
+// uncertainty is treated as the body's. Off, the footprint is the predicted
+// box exactly as before.
+func motionFragmentHints(tracks []*l5tracks.TrackedObject, at time.Time, cfg config.L4FragmentJoin, trackerCfg l5tracks.TrackerConfig, trackMembership bool) []l4perception.FragmentHint {
 	tracks = append([]*l5tracks.TrackedObject(nil), tracks...)
 	sort.SliceStable(tracks, func(i, j int) bool { return tracks[i].CreationSequence < tracks[j].CreationSequence })
 	var hints []l4perception.FragmentHint
@@ -69,10 +84,28 @@ func motionFragmentHints(tracks []*l5tracks.TrackedObject, at time.Time, cfg con
 		if !(xx >= 0 && yy >= 0 && xx*yy >= xy*xy && variance <= cfg.MaxPositionStddevMetres*cfg.MaxPositionStddevMetres) {
 			continue
 		}
-		hints = append(hints, l4perception.FragmentHint{ID: tr.TrackID, Rect: l4perception.Rect{
+		rect := l4perception.Rect{
 			X: float64(tr.BoxX) + dt*float64(tr.VX), Y: float64(tr.BoxY) + dt*float64(tr.VY),
 			HeadingRad: float64(tr.BoxHeadingRad), Length: float64(tr.BoxLength), Width: float64(tr.BoxWidth),
-		}})
+		}
+		if trackMembership {
+			along, across := axisStddevs(xx, xy, yy, rect.HeadingRad)
+			rect.Length += 2 * trackMembershipSigmas * along
+			rect.Width += 2 * trackMembershipSigmas * across
+		}
+		hints = append(hints, l4perception.FragmentHint{ID: tr.TrackID, Rect: rect})
 	}
 	return hints
+}
+
+// axisStddevs is the position standard deviation along the body axis at
+// heading and across it, from the planar covariance [xx xy; xy yy]: the
+// square roots of uᵀΣu and vᵀΣv for u the axis and v its normal. The caller
+// has already checked the covariance is positive semi-definite; rounding that
+// leaves a projection a hair below zero reads as zero.
+func axisStddevs(xx, xy, yy, heading float64) (along, across float64) {
+	c, s := math.Cos(heading), math.Sin(heading)
+	alongVar := xx*c*c + 2*xy*c*s + yy*s*s
+	acrossVar := xx*s*s - 2*xy*c*s + yy*c*c
+	return math.Sqrt(math.Max(alongVar, 0)), math.Sqrt(math.Max(acrossVar, 0))
 }
