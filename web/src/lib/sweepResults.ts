@@ -60,21 +60,24 @@ export function comboBars(results: SweepResult[], metric: string): BarDatum[] {
 	}));
 }
 
-/** A metric over two swept parameters. */
+/**
+ * A metric over two swept parameters. When the sweep varies other keys too,
+ * several combinations share a pair; the cell shows their mean.
+ */
 export function paramHeatmap(
 	results: SweepResult[],
 	xKey: string,
 	yKey: string,
 	metric: string
 ): HeatmapData {
-	const cells = [];
+	const entries = [];
 	for (const r of results) {
 		const x = extractValue(r, xKey);
 		const y = extractValue(r, yKey);
 		if (x == null || y == null) continue;
-		cells.push({ x: String(x), y: String(y), value: numberOrNull(extractValue(r, metric)) ?? 0 });
+		entries.push({ x: String(x), y: String(y), value: numberOrNull(extractValue(r, metric)) });
 	}
-	return buildHeatmap(cells);
+	return buildHeatmap(entries);
 }
 
 /** The swept parameters that are numbers, from the first result. */
