@@ -979,11 +979,14 @@ export async function getLidarRuns(params?: {
 	sensor_id?: string;
 	status?: string;
 	limit?: number;
+	/** Name the sweep that ran each run (sweep_id), for folding by sweep. */
+	sweeps?: boolean;
 }): Promise<Run[]> {
 	const searchParams = new URLSearchParams();
 	if (params?.sensor_id) searchParams.set('sensor_id', params.sensor_id);
 	if (params?.status) searchParams.set('status', params.status);
 	if (params?.limit) searchParams.set('limit', String(params.limit));
+	if (params?.sweeps) searchParams.set('sweeps', '1');
 	// The trailing slash is the list's route; without it the server answers
 	// with a redirect to it, a round trip before every list.
 	const url = `${API_BASE}/lidar/runs/${searchParams.toString() ? '?' + searchParams : ''}`;
@@ -994,8 +997,9 @@ export async function getLidarRuns(params?: {
 }
 
 /** getLidarRun fetches one run, for a link to a run the paged list does not hold. */
-export async function getLidarRun(runId: string): Promise<Run> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}`);
+export async function getLidarRun(runId: string, options?: { sweeps?: boolean }): Promise<Run> {
+	const query = options?.sweeps ? '?sweeps=1' : '';
+	const res = await fetch(`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}${query}`);
 	if (!res.ok) throw apiError('Could not load the run', res.status);
 	return res.json();
 }

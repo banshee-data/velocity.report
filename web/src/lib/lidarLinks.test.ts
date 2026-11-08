@@ -4,6 +4,7 @@ import {
 	linkedId,
 	linkedRun,
 	runQuery,
+	sweepQuery,
 	tracksQuery,
 	visualiserLink,
 	windowsQuery
@@ -13,6 +14,7 @@ describe('clipQuery and runQuery', () => {
 	it('carry the record as id', () => {
 		expect(clipQuery('case-1')).toBe('id=case-1');
 		expect(runQuery('run-1')).toBe('id=run-1');
+		expect(sweepQuery('sweep-1')).toBe('id=sweep-1');
 	});
 
 	it('encode what a URL cannot carry as is', () => {

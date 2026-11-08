@@ -93,8 +93,44 @@ var selectorID = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 // vehicle, and ranking following smallest first finds one-frame pairs. The
 // file cannot say otherwise; widening this is a change to the code, with its
 // reason recorded.
+//
+// One widening is recorded: the random draw may also run at a width
+// HeldOutRandomWindowSeconds names, every other parameter at its default.
 func (s Selector) HeldOut() bool {
-	return Allowed(s.Finder, "held_out") && s.standard()
+	return Allowed(s.Finder, "held_out") && HeldOutParameters(s.Finder, s.Parameters) &&
+		s.Score == (Score{nativeMeasure[s.Finder], "descending"}) && len(s.Require) == 0
+}
+
+// HeldOutRandomWindowSeconds are the widths, besides the default, at which
+// the random draw may choose a held-out window. The draw reads no track and
+// places its windows from the capture's packet times alone, so its width
+// cannot steer it toward a failure; a held-out window a person labels whole
+// needs to be wider than ten seconds to hold enough road users. 180 s is
+// label0001's three-minute window.
+var HeldOutRandomWindowSeconds = []float64{180}
+
+// HeldOutParameters reports whether a finder at these parameters may choose a
+// held-out window: at its defaults, or for the random draw, at its defaults
+// with one of the widths HeldOutRandomWindowSeconds names.
+func HeldOutParameters(finder string, p Params) bool {
+	d := DefaultParams()
+	if p == d {
+		return true
+	}
+	if finder != "random" {
+		return false
+	}
+	width := p.WindowSeconds
+	p.WindowSeconds = d.WindowSeconds
+	if p != d {
+		return false
+	}
+	for _, w := range HeldOutRandomWindowSeconds {
+		if width == w {
+			return true
+		}
+	}
+	return false
 }
 
 // standard reports whether the selector ranks exactly as its finder does on

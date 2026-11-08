@@ -115,6 +115,10 @@ type orphanedSweepRecoverer interface {
 	RecoverOrphanedSweeps() (int64, error)
 }
 
+type orphanedRunRecoverer interface {
+	RecoverOrphanedRuns() (int64, error)
+}
+
 var marshalTuningJSON = json.Marshal
 
 func isNilHelperTarget(target any) bool {
@@ -381,6 +385,20 @@ func recoverOrphanedSweepsOnStart(sweepStore orphanedSweepRecoverer, logger *log
 		logger.Printf("WARNING: failed to recover orphaned sweeps: %v", err)
 	} else if n > 0 {
 		logger.Printf("Recovered %d orphaned sweep(s) from previous run", n)
+	}
+}
+
+// recoverOrphanedRunsOnStart fails the runs a previous process left running:
+// their replays died with it. Without this they stay "running" for good.
+func recoverOrphanedRunsOnStart(runStore orphanedRunRecoverer, logger *log.Logger) {
+	if logger == nil {
+		logger = log.Default()
+	}
+
+	if n, err := runStore.RecoverOrphanedRuns(); err != nil {
+		logger.Printf("WARNING: failed to recover orphaned runs: %v", err)
+	} else if n > 0 {
+		logger.Printf("Marked %d orphaned run(s) from previous run as failed", n)
 	}
 }
 
