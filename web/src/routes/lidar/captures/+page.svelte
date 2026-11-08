@@ -19,6 +19,7 @@
 		getCapturePeriods,
 		getCaptureRoots,
 		getCaptureSessions,
+		getLidarClips,
 		queueMissingMotionPasses,
 		scanCaptureRoots,
 		setCaptureSessionLabel,
@@ -56,6 +57,8 @@
 		composerSummary,
 		describePlannedClip,
 		isClipPeriod,
+		clipsOverlapping,
+		planKey,
 		planPeriodClips,
 		type PlannedClip
 	} from '#lib/captures/periodClips.js';
@@ -84,6 +87,7 @@
 		type MotionPeriod,
 		type PeriodClip
 	} from '#lib/types/captures.js';
+	import type { LidarClip } from '#lib/types/lidar.js';
 	import { resolve } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -169,6 +173,17 @@
 	let makingPeriodClips = false;
 	let madePeriodClips: { clip_id: string; description: string }[] = [];
 	let periodClipErrors: string[] = [];
+	// Every clip, to warn when a planned clip's window overlaps one already
+	// made, whatever period it was cut from.
+	let existingClips: LidarClip[] = [];
+
+	async function loadExistingClips() {
+		try {
+			existingClips = await getLidarClips();
+		} catch {
+			existingClips = [];
+		}
+	}
 
 	// Publishing: the survey id the dataset will know the clip by, the scene
 	// viewer's north azimuth, and whether to cut the standalone extract now.
@@ -227,13 +242,10 @@
 	$: periodPlans = planPeriodClips(expandedPeriods, selectedPeriodIds);
 	$: periodPlanRows = periodPlans.map((plan) => ({
 		plan,
-		key: plan.periods[0].period_id,
+		key: planKey(plan),
 		window: clipWindow(plan, sessionFiles),
-		description:
-			periodDescriptionEdits[plan.periods[0].period_id] ?? describePlannedClip(periodSite, plan),
-		existing: plan.periods
-			.map((p) => clipsByPeriod[p.period_id]?.clip_id)
-			.filter((id): id is string => !!id)
+		description: periodDescriptionEdits[planKey(plan)] ?? describePlannedClip(periodSite, plan),
+		existing: clipsOverlapping(plan, existingClips, sessionFiles).map((c) => c.clip_id)
 	}));
 	$: makeablePlanRows = periodPlanRows.filter((row) => row.window?.usable);
 	$: activeJobs = jobs.filter((j) => j.state === JOB_QUEUED || j.state === JOB_RUNNING);
@@ -558,7 +570,7 @@
 		if (made.length > 0) {
 			selectedPeriodIds = [];
 			periodDescriptionEdits = {};
-			await refreshPeriods([sessionId]);
+			await Promise.all([refreshPeriods([sessionId]), loadExistingClips()]);
 		}
 		if (extractQueued) {
 			jobs = await getCaptureJobs({ limit: jobListLimit() });
@@ -769,6 +781,7 @@
 	}
 
 	onMount(() => {
+		void loadExistingClips();
 		loadIndex().then(() => {
 			if (destroyed) return;
 			if (jobs.some(isActiveJob)) startJobPolling();
@@ -1341,7 +1354,7 @@
 																{/if}
 																{#if row.existing.length > 0}
 																	<p class="text-surface-content/60 mt-1">
-																		Already cut as
+																		Overlaps clip
 																		{#each row.existing as clipId, i (clipId)}
 																			<!-- eslint-disable svelte/no-navigation-without-resolve -->
 																			<a
@@ -1350,7 +1363,7 @@
 																				>{clipId.substring(0, 8)}</a
 																			>{i < row.existing.length - 1 ? ', ' : ''}
 																			<!-- eslint-enable svelte/no-navigation-without-resolve -->
-																		{/each}; making it again adds another clip.
+																		{/each}; making it adds another clip over the same stretch.
 																	</p>
 																{/if}
 															</li>
