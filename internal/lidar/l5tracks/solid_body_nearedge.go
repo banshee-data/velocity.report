@@ -1084,7 +1084,8 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 	var touched [2]bool
 	if sb.ext.on && f.fallback == "" {
 		// The frame's lower bounds first, so the faces see half-extents the
-		// frame does not contradict.
+		// frame does not contradict; the floor with them. Every joint step
+		// below ends at the floor too (holdHalfExtentsAbove).
 		touched = sb.applyExtentBounds(f.spanBound)
 		f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
 	}
@@ -1213,6 +1214,7 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			m.ContainmentShiftAlongMetres, m.ContainmentShiftAcrossMetres = along, across
 		}
 		if sb.ext.on {
+			js.holdHalfExtentsAbove(extentFloor)
 			sb.setJoint(js)
 			for _, e := range usable {
 				touched[extentIndex(e.Face)] = true
@@ -1243,6 +1245,7 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		if sb.ext.on {
 			js := sb.jointOf(sb.state, sb.p)
 			along, across = t.containmentTruncationJoint(&js, f, cluster, true, true)
+			js.holdHalfExtentsAbove(extentFloor)
 			sb.setJoint(js)
 		} else {
 			along, across = t.containmentTruncation(&sb.state, &sb.p, f, cluster, true, true)
@@ -1941,6 +1944,7 @@ func (t *Tracker) applyMedoidMeasurement(sb *solidBodyTrack, cluster WorldCluste
 		if !okX || !okY {
 			return 0, false
 		}
+		js.holdHalfExtentsAbove(extentFloor)
 		sb.setJoint(js)
 		return float32(nx + ny), true
 	}

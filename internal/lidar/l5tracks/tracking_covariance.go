@@ -324,6 +324,11 @@ func constrainSpeedConsistentJoint(x *[4]float32, p *[16]float32, ext *solidBody
 			p[i*4+j] = float32(v)
 		}
 	}
+	if ext != nil {
+		// The half-extents moved by their covariance with the speed: held at
+		// their floor before the residue's rescale, so the speed bound holds.
+		holdExtentFloor(x, *p, ext)
+	}
 	rescaleVelocity(x, vmax)
 }
 

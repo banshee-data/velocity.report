@@ -131,6 +131,11 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		// joint step holds it (near_edge_tracking.go).
 		sb.ext.applyMedoidGain(K, [4]float32{invS00, invS01, invS10, invS11}, yX, yY)
 		symmetriseFour(&track.P)
+		// The half-extents moved by their covariance with the position, so
+		// they are held at their floor as every joint step holds them.
+		state := [4]float32{track.X, track.Y, track.VX, track.VY}
+		holdExtentFloor(&state, track.P, &sb.ext)
+		track.X, track.Y, track.VX, track.VY = state[0], state[1], state[2], state[3]
 	}
 
 	// Guard: reset state if update produced NaN/Inf (task 2.4).
