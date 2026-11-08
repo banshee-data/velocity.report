@@ -291,13 +291,33 @@ func (s *SweepStore) DeleteSweep(sweepID string) error {
 	})
 }
 
-// RecoverOrphanedSweeps marks any "running" sweeps as "failed" on startup.
-// This handles the case where the server was restarted mid-sweep, leaving
-// database records stuck in "running" status with no in-memory counterpart.
+// RecoverOrphanedSweeps settles the sweeps a previous process left
+// "running" when it stopped. One with a checkpoint becomes "suspended", so
+// Resume carries on from the checkpointed round; its error is cleared and it
+// stays incomplete. One without a checkpoint is marked "failed" with
+// "incomplete: server restarted", as before. It returns how many sweeps it
+// settled either way. Call once during server startup, before any new sweeps
+// begin.
 func (s *SweepStore) RecoverOrphanedSweeps() (int64, error) {
 	var affected int64
 	err := retryOnBusy(func() error {
-		res, err := s.db.Exec(`
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() { _ = tx.Rollback() }()
+
+		suspended, err := tx.Exec(`
+			UPDATE lidar_tuning_sweeps
+			SET status = 'suspended',
+			    error = NULL
+			WHERE status = 'running'
+			  AND checkpoint_round IS NOT NULL
+		`)
+		if err != nil {
+			return err
+		}
+		failed, err := tx.Exec(`
 			UPDATE lidar_tuning_sweeps
 			SET status = 'failed',
 			    error = 'incomplete: server restarted',
@@ -307,7 +327,12 @@ func (s *SweepStore) RecoverOrphanedSweeps() (int64, error) {
 		if err != nil {
 			return err
 		}
-		affected, _ = res.RowsAffected()
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		ns, _ := suspended.RowsAffected()
+		nf, _ := failed.RowsAffected()
+		affected = ns + nf
 		return nil
 	})
 	if err != nil {
@@ -352,6 +377,31 @@ func (s *SweepStore) SaveSweepCheckpoint(sweepID string, round int, bounds, resu
 	})
 	if err != nil {
 		return fmt.Errorf("saving checkpoint for sweep %s: %w", sweepID, err)
+	}
+	return nil
+}
+
+// SaveSweepRoundCheckpoint implements sweep.SweepRoundCheckpointer. It
+// records a running auto-tune's progress at a round boundary in the
+// checkpoint columns and leaves the status as it is, so the sweep still reads
+// as running (or as suspended, for one resumed from a suspension) until it
+// finishes or a restart recovers it.
+func (s *SweepStore) SaveSweepRoundCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error {
+	query := `
+		UPDATE lidar_tuning_sweeps
+		SET checkpoint_round = ?,
+		    checkpoint_bounds = ?,
+		    checkpoint_results = ?,
+		    checkpoint_request = ?
+		WHERE sweep_id = ?
+		  AND status IN ('running', 'suspended')
+	`
+	err := retryOnBusy(func() error {
+		_, err := s.db.Exec(query, round, nullJSON(bounds), nullJSON(results), nullJSON(request), sweepID)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("saving round checkpoint for sweep %s: %w", sweepID, err)
 	}
 	return nil
 }

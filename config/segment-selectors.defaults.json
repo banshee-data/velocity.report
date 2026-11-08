@@ -63,6 +63,20 @@
       "require": []
     },
     {
+      "id": "random_180s",
+      "label": "Random three minutes per capture",
+      "category": "Random",
+      "description": "One seeded 180 s draw from each capture, quiet road included, after the 35 s warm-up: a held-out window labelled whole.",
+      "finder": "random",
+      "parameters": {
+        "window_seconds": 180,
+        "min_speed": 3,
+        "random_seed": 1
+      },
+      "score": { "measure": "draw", "order": "descending" },
+      "require": []
+    },
+    {
       "id": "leader_changes",
       "label": "Leader changes",
       "category": "Tracker failure",

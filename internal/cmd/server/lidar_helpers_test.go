@@ -285,6 +285,34 @@ func TestRecoverOrphanedSweepsOnStart_LogsRecoveredCount(t *testing.T) {
 	}
 }
 
+type orphanedRunRecovererStub struct {
+	affected int64
+	err      error
+}
+
+func (s orphanedRunRecovererStub) RecoverOrphanedRuns() (int64, error) {
+	return s.affected, s.err
+}
+
+func TestRecoverOrphanedRunsOnStart_Logs(t *testing.T) {
+	var logs bytes.Buffer
+	recoverOrphanedRunsOnStart(orphanedRunRecovererStub{err: errors.New("boom")}, log.New(&logs, "", 0))
+	if !strings.Contains(logs.String(), "failed to recover orphaned runs") {
+		t.Fatalf("expected recovery error log, got %q", logs.String())
+	}
+	logs.Reset()
+	recoverOrphanedRunsOnStart(orphanedRunRecovererStub{affected: 2}, log.New(&logs, "", 0))
+	if !strings.Contains(logs.String(), "Marked 2 orphaned run(s)") {
+		t.Fatalf("expected recovery count log, got %q", logs.String())
+	}
+	logs.Reset()
+	recoverOrphanedRunsOnStart(orphanedRunRecovererStub{}, log.New(&logs, "", 0))
+	if logs.Len() != 0 {
+		t.Fatalf("expected no log when nothing was recovered, got %q", logs.String())
+	}
+	recoverOrphanedRunsOnStart(orphanedRunRecovererStub{}, nil) // nil logger falls back
+}
+
 func TestHintSceneAdapter_GetClip(t *testing.T) {
 	testDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()

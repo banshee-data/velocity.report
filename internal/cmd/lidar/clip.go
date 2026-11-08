@@ -178,9 +178,9 @@ func readClipSelection(path, id, role string) (segments.Window, segments.Params,
 	if err := report.Parameters.Validate(); err != nil {
 		return segments.Window{}, segments.Params{}, nil, err
 	}
-	// A held-out window is chosen at its selector's own parameters, which for
-	// every selector that may choose one are the defaults.
-	if role == "held_out" && (report.Parameters != segments.DefaultParams() || (report.Selector != nil && !report.Selector.HeldOutEligible)) {
+	// A held-out window is chosen at its selector's own parameters: the
+	// defaults, or for the random draw a width the code allows.
+	if role == "held_out" && (!segments.HeldOutParameters(report.Finder, report.Parameters) || (report.Selector != nil && !report.Selector.HeldOutEligible)) {
 		return segments.Window{}, segments.Params{}, nil, fmt.Errorf("a held-out window must be chosen by a standard selector at its own parameters")
 	}
 	if report.Selector != nil && (report.Selector.Finder != report.Finder || report.Selector.Parameters != report.Parameters) {

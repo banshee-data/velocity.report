@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -147,6 +148,16 @@ type SweepPersister interface {
 	LoadSweepCheckpoint(sweepID string) (round int, bounds, results, request json.RawMessage, err error)
 	// GetSuspendedSweep returns the most recent suspended sweep info, or nil.
 	GetSuspendedSweep() (sweepID string, checkpointRound int, err error)
+}
+
+// SweepRoundCheckpointer is implemented by a persister that can record a
+// running auto-tune's progress at each round boundary without changing its
+// status. A sweep with such a checkpoint is suspended rather than failed when
+// the server restarts under it, so Resume carries on from the next round.
+// It is a separate interface so persisters that cannot do this still satisfy
+// SweepPersister.
+type SweepRoundCheckpointer interface {
+	SaveSweepRoundCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error
 }
 
 // SweepState holds the current state and results of a sweep
@@ -323,7 +334,31 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 		return fmt.Errorf("params is required: provide at least one SweepParam")
 	}
 
+	if err := r.checkClip(req); err != nil {
+		return err
+	}
+
 	return r.startGeneric(ctx, req, interval, settleTime)
+}
+
+// checkClip refuses a sweep that would write a clip on runs that did not
+// replay it: the backend finds the clip missing, or the capture and window
+// the sweep replays are not the clip's (see SweepClipChecker). A sweep
+// without a clip passes, and so does one that replays no capture, since only
+// a replay's run records the clip.
+func (r *Runner) checkClip(req SweepRequest) error {
+	clipID := strings.TrimSpace(req.ClipID)
+	if clipID == "" || req.DataSource != "capture" || req.PCAPFile == "" {
+		return nil
+	}
+	checker, ok := r.backend.(SweepClipChecker)
+	if !ok {
+		return nil
+	}
+	if err := checker.CheckSweepClip(clipID, req.PCAPFile, req.PCAPStartSecs, req.PCAPDurationSecs); err != nil {
+		return fmt.Errorf("clip_id %s: %w", clipID, err)
+	}
+	return nil
 }
 
 // startGeneric handles the generic N-dimensional parameter sweep.

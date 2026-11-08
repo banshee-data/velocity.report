@@ -742,6 +742,7 @@ func TestSweepStore_SaveSweepStart(t *testing.T) {
 
 func TestSweepStore_RecoverOrphanedSweeps_HappyPath(t *testing.T) {
 	db := setupTestSweepDB(t)
+	addCheckpointColumns(t, db)
 	defer db.Close()
 
 	store := NewSweepStore(db)
@@ -790,6 +791,7 @@ func TestSweepStore_RecoverOrphanedSweeps_HappyPath(t *testing.T) {
 
 func TestSweepStore_RecoverOrphanedSweeps_NoneRunning(t *testing.T) {
 	db := setupTestSweepDB(t)
+	addCheckpointColumns(t, db)
 	defer db.Close()
 
 	store := NewSweepStore(db)

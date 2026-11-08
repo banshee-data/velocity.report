@@ -38,3 +38,8 @@ held-out window both lines can be scored on?
 **Method.** Entirely manual: select by lot, label, review, freeze. Its product is a frozen split
 digest that l3bg0009 and the geometry line's W7 score read. `reclaim: never` because a person's
 half-finished labels are not work another worker can resume.
+
+**The draw.** Made on November 8, 2026, under label0003, which shares this window: 575 to 755 s of
+the embarcadero-folsom capture, drawn by the `random_180s` selector. Its record is
+[label0003's draw](label0003.md#the-draw-select-step-november-8-2026), and it closes this spec's
+select step too.
