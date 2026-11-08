@@ -606,6 +606,8 @@ func (at *AutoTuner) runFromRound(
 			at.mu.Unlock()
 
 			at.logger.Printf("[sweep] Narrowed bounds for round %d: %v", round+1, currentBounds)
+
+			at.saveRoundCheckpoint(round+1, currentBounds, allResults, req)
 		}
 	}
 
@@ -762,4 +764,35 @@ func sortScoredResults(scored []ScoredResult) []ScoredResult {
 		return result[i].Score > result[j].Score
 	})
 	return result
+}
+
+// saveRoundCheckpoint records where a running auto-tune would resume once a
+// round has finished: the next round, its narrowed bounds and every result so
+// far. The sweep keeps its status. A restart before the next checkpoint is
+// recovered as suspended at this round instead of failed, and Resume replays
+// only the round that was in progress. A failure to save is logged and the
+// sweep carries on; it is then recovered as failed, as before.
+func (at *AutoTuner) saveRoundCheckpoint(nextRound int, bounds map[string][2]float64, results []ComboResult, req AutoTuneRequest) {
+	cp, ok := at.persister.(SweepRoundCheckpointer)
+	if !ok || at.sweepID == "" {
+		return
+	}
+	boundsJSON, err := json.Marshal(bounds)
+	if err != nil {
+		at.logger.Printf("[sweep] WARNING: round checkpoint skipped, bounds: %v", err)
+		return
+	}
+	resultsJSON, err := json.Marshal(results)
+	if err != nil {
+		at.logger.Printf("[sweep] WARNING: round checkpoint skipped, results: %v", err)
+		return
+	}
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		at.logger.Printf("[sweep] WARNING: round checkpoint skipped, request: %v", err)
+		return
+	}
+	if err := cp.SaveSweepRoundCheckpoint(at.sweepID, nextRound, boundsJSON, resultsJSON, reqJSON); err != nil {
+		at.logger.Printf("[sweep] WARNING: failed to save round %d checkpoint: %v", nextRound, err)
+	}
 }

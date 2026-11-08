@@ -144,6 +144,16 @@ type SweepPersister interface {
 	GetSuspendedSweep() (sweepID string, checkpointRound int, err error)
 }
 
+// SweepRoundCheckpointer is implemented by a persister that can record a
+// running auto-tune's progress at each round boundary without changing its
+// status. A sweep with such a checkpoint is suspended rather than failed when
+// the server restarts under it, so Resume carries on from the next round.
+// It is a separate interface so persisters that cannot do this still satisfy
+// SweepPersister.
+type SweepRoundCheckpointer interface {
+	SaveSweepRoundCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error
+}
+
 // SweepState holds the current state and results of a sweep
 type SweepState struct {
 	Status          SweepStatus   `json:"status"`
