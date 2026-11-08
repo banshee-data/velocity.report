@@ -15,10 +15,11 @@
 		listSweeps
 	} from '#lib/api.js';
 	import SweepResults from '#lib/components/lidar/SweepResults.svelte';
-	import { clipQuery, runQuery } from '#lib/lidarLinks.js';
+	import { clipQuery, linkedId, runQuery } from '#lib/lidarLinks.js';
 	import { objectiveText } from '#lib/lidarRecords.js';
 	import type { HINTState, LidarClip, SweepRecord, SweepSummary } from '#lib/types/lidar.js';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
@@ -288,7 +289,13 @@
 		return { params, metrics };
 	}
 
-	onMount(loadData);
+	onMount(async () => {
+		await loadData();
+		// The Runs page links to one sweep with ?id=; open it once the list is in.
+		const linked = linkedId(page.url);
+		const summary = linked ? sweeps.find((s) => s.sweep_id === linked) : undefined;
+		if (summary) await selectSweep(summary);
+	});
 </script>
 
 <svelte:head>

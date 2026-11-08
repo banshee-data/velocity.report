@@ -465,6 +465,12 @@ func (ws *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 		filteredRuns = append(filteredRuns, run)
 	}
 
+	// Name the sweep that ran each run, so the Runs page can fold a sweep's
+	// runs under it. A failed lookup leaves the runs unfolded, not unlisted.
+	if err := sqlite.AttachRunSweeps(ws.db, filteredRuns); err != nil {
+		opsf("Warning: could not attach sweeps to runs: %v", err)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"runs":  filteredRuns,
@@ -489,6 +495,9 @@ func (ws *Server) handleGetRun(w http.ResponseWriter, r *http.Request, runID str
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve run: %v", err))
 		return
+	}
+	if err := sqlite.AttachRunSweeps(ws.db, []*sqlite.Run{run}); err != nil {
+		opsf("Warning: could not attach a sweep to run %s: %v", runID, err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

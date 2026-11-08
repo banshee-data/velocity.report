@@ -55,6 +55,10 @@ type Run struct {
 	// Derived fields (not persisted in DB, computed on retrieval)
 	SourceName  string          `json:"source_name,omitempty"`  // Derived from SourcePath filename
 	LabelRollup *RunLabelRollup `json:"label_rollup,omitempty"` // Derived from run-track labels
+	// SweepID and SweepMode name the sweep whose stored results list this
+	// run, when a list attaches them (AttachRunSweeps). Not stored on the run.
+	SweepID   string `json:"sweep_id,omitempty"`
+	SweepMode string `json:"sweep_mode,omitempty"`
 }
 
 // The frames a run's VRLOG holds (lidar_runs.frame_mode).
