@@ -16,7 +16,8 @@ the repository already has, so the design can be built without reopening settled
   [segment finder](lidar-annotation-segment-finder-plan.md),
   [review workflow](lidar-review-workflow-plan.md),
   [surface consolidation](web-frontend-consolidation-plan.md),
-  [run-list labelling rollup](lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
+  [run-list labelling rollup](lidar-visualiser-run-list-labelling-rollup-icon-plan.md),
+  [the November audit and T13 to T16](lidar-ui-workflow-audit-plan.md)
 - **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)
 
 ## Motivation
