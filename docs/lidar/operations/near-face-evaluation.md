@@ -34,13 +34,47 @@ because a face edge-on to the sensor is not seen.
 A body whose extents are class priors is scored but kept in its own stratum: its residual mostly
 measures the prior. Strata are all instants, extents learnt or prior, and range bands.
 
+### Extent shortfall and placement
+
+A normal residual mixes two errors: where the box is, and how long it is. The
+[F0 report](facet-f0-attribution-kirk0-report.md#41-the-attribution-gate) separated them post hoc,
+and found most of kirk0's end error was an extent believed too short. Since schema version 2 the
+evaluator reports that decomposition on every scored instant.
+
+| Quantity              | What it is                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| Span along, across    | The labelled returns' extent along and across the believed heading, between the faces' trimmed extremes |
+| Half length shortfall | `max(0, span along − believed length)/2`; the half width shortfall the same across                      |
+| End placement         | End normal residual plus the half length shortfall                                                      |
+| Side placement        | Side normal residual plus the half width shortfall                                                      |
+
+The span is a lower bound on the object's extent, given the heading. A box shorter than the span
+cannot contain it: half the shortfall lies outside the box at one end or the other, wherever its
+centre sits. The placement residual removes that forced part, and what is left is centre, heading
+and the partial view. A box that exactly covers the trimmed returns has zero placement residual;
+a box longer than the span has no shortfall, and its placement is its residual. A car whose end
+normal reads −0.30 m with a 0.25 m half shortfall places its end face at −0.05 m.
+
+Each stratum carries `end_placement`, `side_placement`, `half_length_shortfall` and
+`half_width_shortfall`. Each shortfall is taken over the instants with that face's normal residual,
+so it sits on the same population as the placement it was added to. The paired comparison adds
+`end_placement` and `side_placement` after the two normal residuals, and the reading copy adds a
+mean absolute column. An attribution gate can compare placement with the extent term rather than
+read a raw residual: [geom0016](../../../data/experiments/geom/geom0016.md) restates the facet
+attribution gate on these quantities, before any run.
+
+Two limits. The half shortfall is a lower bound on the extent's part, because the span is a lower
+bound on the extent, so placement keeps any extent error the span cannot see. And a wrong heading
+inflates the span across it, which shows as a width shortfall that is really a heading error.
+
 ## What it does not answer
 
 - The centre along an axis whose face the sensor cannot see, the far bumper and yaw. Those need
   physical references ([review plan](../../plans/lidar-physical-reference-review-plan.md)).
 - Identity. Score that with the per-frame evaluator, on the same labels.
-- Whether a centre or an extent is wrong. A positive normal residual is either; the two are not
-  told apart.
+- Whether a centre or an extent is wrong, beyond the shortfall. A positive normal residual is
+  either; the placement residual removes only the part a box shorter than the labelled span
+  forces.
 - The size of a face the sensor sees only part of. The outermost return is a lower bound on it.
 
 Every mask is saved as partial by default, and a partial mask still certifies that its returns
@@ -108,9 +142,9 @@ go run ./cmd/tools/lidar-ground-truth-eval perframe -pack "$PACK" \
 ```
 
 The first arm is the one the others are compared with. Per arm the report gives what was labelled,
-matched and scored, the reasons for what was not, the residuals by stratum (mean, median, RMS, p95
-and p99 of the absolute value, and the share over 10 cm), and the paired difference against the
-first arm on the instants both scored. `-instants` keeps every scored instant in the JSON.
+matched and scored, the reasons for what was not, the residuals, placements and shortfalls by
+stratum (mean, median, RMS, the mean, p95 and p99 of the absolute value, and the share over
+10 cm), and the paired difference against the first arm on the instants both scored. `-instants` keeps every scored instant in the JSON.
 
 | Flag                                       | Meaning                                                                          |
 | ------------------------------------------ | -------------------------------------------------------------------------------- |

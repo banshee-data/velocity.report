@@ -276,3 +276,41 @@ reopening requires explicit recomputation. Assistance exposure persists separate
 not rewrite saved evidence. Editing inputs or switching frame/facet invalidates old and delayed
 results. Automatic matching, joint yaw, full 3D/articulation, runtime updates, reanchor lineage
 and a durable experimental review contract remain later work.
+
+### Bounds as measurements
+
+A proposal's bounds are worst-case half-widths; the tracker's update takes Gaussian variances.
+[`facet_measurement.go`](../../internal/lidar/annotation/facet_measurement.go) declares the one
+conversion a facet measurement uses before it enters a tracked state, as Section 3.6 of the
+[face-state maths review](../../data/maths/proposals/20261108-face-state-and-cv-ca-maths-review.md#36-the-facet-pose-proposal)
+asks and the [facet plan's](lidar-facet-registration-experiment-plan.md#5-scorecard-and-decisions)
+uncertainty row requires.
+
+| Rule                     | Standard deviation from a half-width `b` | Reading                                        |
+| ------------------------ | ---------------------------------------- | ---------------------------------------------- |
+| `uniform_sqrt3`, default | `b/√3`                                   | The error is uniform within the bound          |
+| `three_sigma`            | `b/3`                                    | The bound is a Gaussian's three sigma: tighter |
+
+- **What becomes a measurement.** A compact spot gives a planar body-centre position. Its bound is
+  a radius, and each axis takes it as a half-width, which gives `b/√3` per axis under the default
+  (wider than the disc's own `b/2`). A segment gives a scalar measurement of the centre along its
+  normal, `z = n·c` with `H = [n_x, n_y, 0, 0]`, and a measured yaw, known modulo π.
+- **What does not.** A direction the proposal lists as unresolved gets no measurement under either
+  rule: a segment's tangent position (`tangent_from_prior_not_measured`), a compact spot's yaw
+  (`yaw_from_prior_not_measured`) and the height. Each is the prior's value, and a prior reported
+  as a Gaussian sigma would be read as evidence. A proposal whose constraint, yaw status and
+  unresolved list disagree, or that names an unresolved direction the rule does not know, is
+  refused rather than guessed at.
+- **Set membership.** A consumer that truncates rather than updates takes `FacetIntervals`: the
+  reported value plus or minus the bound, along a stated direction, unchanged by either rule. That
+  is the form `truncateAxis` applies in the tracker. A spot's disc becomes its two axis intervals,
+  and truncating both keeps the square that contains the disc.
+- **What the conversion leaves to the consumer.** The segment's normal offset and yaw are given
+  as independent. The normal bound already holds the yaw error's lever-arm term at its worst case,
+  so this is conservative in the normal direction, not exact. A compact spot is conditioned on its
+  prior yaw, and its position bound never falls below the prior's. If the prior came from the
+  tracked state, the measurement is not independent of that state, and updating with it counts
+  the prior twice.
+
+No tracker consumes the measurement yet. The conversion is declared first so that the first arm
+that does consume it cannot pick its own.

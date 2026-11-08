@@ -26,7 +26,8 @@ func RenderNearFaceMarkdown(r NearFaceReport) string {
 	fmt.Fprintf(&b, "| Gate | %.2f m plus half the mask's footprint diagonal; frame tolerance %.1f ms |\n", o.GateSlackMetres, float64(o.FrameToleranceNanos)/1e6)
 	fmt.Fprintf(&b, "| Face | outermost return, %.0f%% trimmed; at least %d returns; tangent span %.2f to %.2f of the believed width, within %.2f m of the face |\n",
 		100*o.FaceQuantile, o.MinReturns, o.MinSpanCoverage, o.MaxSpanCoverage, o.FaceBandMetres)
-	fmt.Fprintf(&b, "| Sensor | (%.2f, %.2f) m in the pack's frame |\n\n", o.SensorXM, o.SensorYM)
+	fmt.Fprintf(&b, "| Sensor | (%.2f, %.2f) m in the pack's frame |\n", o.SensorXM, o.SensorYM)
+	fmt.Fprintf(&b, "| Placement | normal residual plus the half shortfall, max(0, labelled span - believed dimension)/2, on the same axis |\n\n")
 
 	for _, a := range r.Arms {
 		fmt.Fprintf(&b, "## %s\n\n", a.Arm.Label)
@@ -46,17 +47,21 @@ func RenderNearFaceMarkdown(r NearFaceReport) string {
 			fmt.Fprintf(&b, "\n\n")
 		}
 		if len(a.Strata) > 0 {
-			fmt.Fprintf(&b, "| Stratum | Face | N | Mean | Median | RMS | p95 abs | p99 abs | Over 10 cm |\n|---|---|---|---|---|---|---|---|---|\n")
+			fmt.Fprintf(&b, "| Stratum | Face | N | Mean | Median | RMS | Mean abs | p95 abs | p99 abs | Over 10 cm |\n|---|---|---|---|---|---|---|---|---|---|\n")
 			for _, s := range a.Strata {
 				for _, row := range []struct {
 					name string
 					st   FaceStats
-				}{{"end normal", s.EndNormal}, {"side normal", s.SideNormal}, {"end tangent (abs)", s.EndTangent}} {
+				}{
+					{"end normal", s.EndNormal}, {"side normal", s.SideNormal}, {"end tangent (abs)", s.EndTangent},
+					{"end placement", s.EndPlacement}, {"side placement", s.SidePlacement},
+					{"half length shortfall", s.HalfLengthShortfall}, {"half width shortfall", s.HalfWidthShortfall},
+				} {
 					if row.st.N == 0 {
 						continue
 					}
-					fmt.Fprintf(&b, "| %s | %s | %d | %+.3f | %+.3f | %.3f | %.3f | %.3f | %.0f%% |\n",
-						s.Name, row.name, row.st.N, milli(row.st.Mean), milli(row.st.Median), row.st.RMS, row.st.P95Abs, row.st.P99Abs, 100*row.st.Over10cm)
+					fmt.Fprintf(&b, "| %s | %s | %d | %+.3f | %+.3f | %.3f | %.3f | %.3f | %.3f | %.0f%% |\n",
+						s.Name, row.name, row.st.N, milli(row.st.Mean), milli(row.st.Median), row.st.RMS, row.st.MeanAbs, row.st.P95Abs, row.st.P99Abs, 100*row.st.Over10cm)
 				}
 			}
 			fmt.Fprintf(&b, "\n")

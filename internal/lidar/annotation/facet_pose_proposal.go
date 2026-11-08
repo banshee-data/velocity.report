@@ -168,7 +168,7 @@ func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation,
 	// measured yaw; a single return cannot measure it.
 	yaw := *prior.YawRad
 	c, s := math.Cos(yaw), math.Sin(yaw)
-	result := &FacetPoseProposal{Schema: "velocity.report/facet-pose-proposal", SchemaVersion: FacetPoseProposalSchemaVersion, Status: "read_only_assisted_proposal", Request: req, ObjectID: feature.ObjectId, SourcePhysicalRevision: a.PhysicalRevision, SourcePhysicalDigest: a.PhysicalDigest, SourceSample: a.SourceSample, SourceOrigin: a.Origin, TargetOrigin: target.Origin, Body: body, Yaw: AngleBound{Rad: *prior.YawRad, BoundRad: *prior.YawBoundRad, Axis: AxisResolved, Status: EvidencePriorOnly}, Unresolved: []string{"yaw_from_prior_not_measured", "height_not_measured"}}
+	result := &FacetPoseProposal{Schema: "velocity.report/facet-pose-proposal", SchemaVersion: FacetPoseProposalSchemaVersion, Status: "read_only_assisted_proposal", Request: req, ObjectID: feature.ObjectId, SourcePhysicalRevision: a.PhysicalRevision, SourcePhysicalDigest: a.PhysicalDigest, SourceSample: a.SourceSample, SourceOrigin: a.Origin, TargetOrigin: target.Origin, Body: body, Yaw: AngleBound{Rad: *prior.YawRad, BoundRad: *prior.YawBoundRad, Axis: AxisResolved, Status: EvidencePriorOnly}, Unresolved: []string{UnresolvedYawFromPrior, UnresolvedHeight}}
 	if a.Line == nil {
 		if req.EndIndex != nil {
 			return nil, fmt.Errorf("compact spot takes one matched return")
@@ -239,7 +239,7 @@ func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation,
 		result.Normal = &[2]float64{nx, ny}
 		result.NormalBoundM = &normalBound
 		result.TangentBoundM = prior.PositionBoundM
-		result.Unresolved = []string{"height_not_measured", "tangent_from_prior_not_measured"}
+		result.Unresolved = []string{UnresolvedHeight, UnresolvedTangentFromPrior}
 		result.MatchedIndices = indices
 	}
 	values := []float64{result.Centre.XM, result.Centre.YM, result.Centre.BoundM, result.Yaw.Rad, result.Yaw.BoundRad}

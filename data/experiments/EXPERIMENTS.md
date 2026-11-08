@@ -84,8 +84,8 @@ for; by default the one before it, `-` for none), `over` (`arms`, `cases` or bot
 - **Job kinds**, which a worker runs: the closed set in
   [internal/lidar/jobs](../../internal/lidar/jobs/kinds.go), never a command line.
 - **Planned kinds**, designed but not yet runnable by a worker: `bench_sweep`,
-  `ground_truth_eval`, `corpus_screen`, `scene_variants`, `pi_timing` and `chart`. An experiment
-  with one is not ready for a worker until the kind is built.
+  `ground_truth_eval`, `corpus_screen`, `scene_variants`, `pi_timing`, `chart`, `box_eval` and
+  `near_face_eval`. An experiment with one is not ready for a worker until the kind is built.
 - **Manual kinds**, which a person closes by recording an artefact the queue checks:
   `manual:implement` (a commit on main), `manual:capture` (a registered capture),
   `manual:label` (track labels meeting the step's `gate`), `manual:annotate` (a pack digest),

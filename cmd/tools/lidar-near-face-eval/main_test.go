@@ -63,7 +63,7 @@ func TestScoresTwoArmsAndWritesBothCopies(t *testing.T) {
 	if code != 0 || out != "" {
 		t.Fatalf("exit %d, stdout %q: %s", code, out, errs)
 	}
-	for _, want := range []string{"labels: pack", "sensorward: 6 labelled, 6 matched, 6 scored", "end face mean +0.300 m", "caveat:"} {
+	for _, want := range []string{"labels: pack", "sensorward: 6 labelled, 6 matched, 6 scored", "end face mean +0.300 m", "end placement mean abs 0.300 m, half length shortfall mean 0.000 m (n=6)", "caveat:"} {
 		if !strings.Contains(errs, want) {
 			t.Fatalf("stderr lacks %q:\n%s", want, errs)
 		}

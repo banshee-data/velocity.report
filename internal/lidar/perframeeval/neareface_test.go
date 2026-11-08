@@ -163,6 +163,160 @@ func TestNearFaceResidualsAreTheOffsetOfTheBelievedFaces(t *testing.T) {
 	nfNear(t, "centre distance", byLabel["exact"].Accounting.CentreDistance.Median, 1.2)
 }
 
+// F0's Section 4.1 arithmetic on one constructed instant: a car whose end
+// normal reads -0.30 m with a 0.25 m half shortfall places its end face at
+// -0.05 m. The body is believed 4.0 m long at the origin, heading +x; the
+// labelled returns run 4.5 m along it, from -2.30 to +2.20, and 1.8 m across,
+// the believed width. The sensor is behind and to the right.
+func f0Instant(t *testing.T, alongLo, alongHi, length, width float64) NearFaceInstant {
+	t.Helper()
+	var m nearFaceMask
+	for k := 0; k < 10; k++ {
+		f := float64(k) / 9
+		m.x, m.y = append(m.x, alongLo), append(m.y, -0.9+1.8*f) // the rear face, across the width
+	}
+	for k := 0; k < 10; k++ {
+		f := float64(k) / 9
+		m.x, m.y = append(m.x, alongLo+(alongHi-alongLo)*f), append(m.y, -0.9) // the right face, the whole span
+	}
+	body := PredictedBody{
+		Physical: true, Heading: &PredictedHeading{Rad: 0, Resolved: true},
+		Length: &PredictedExtent{Metres: length, Evidence: true}, Width: &PredictedExtent{Metres: width, Evidence: true},
+	}
+	opts := DefaultNearFaceOptions()
+	opts.SensorXM, opts.SensorYM = -20, -5
+	inst, reason, _ := scoreBodyFaces(body, m, opts)
+	if reason != "" || inst.EndNormalM == nil || inst.SideNormalM == nil || inst.EndPlacementM == nil || inst.SidePlacementM == nil ||
+		inst.HalfLengthShortfallM == nil || inst.HalfWidthShortfallM == nil {
+		t.Fatalf("instant not scored on both faces (%q): %+v", reason, inst)
+	}
+	return inst
+}
+
+func TestNearFacePlacementRemovesTheShortfallTheExtentForces(t *testing.T) {
+	inst := f0Instant(t, -2.30, 2.20, 4.0, 1.8)
+	nfNear(t, "end normal", *inst.EndNormalM, -0.30)
+	nfNear(t, "span along", inst.SpanAlongM, 4.50)
+	nfNear(t, "half length shortfall", *inst.HalfLengthShortfallM, 0.25)
+	nfNear(t, "end placement", *inst.EndPlacementM, -0.05)
+	// The width is the span across: no shortfall, and placement is the residual.
+	nfNear(t, "span across", inst.SpanAcrossM, 1.8)
+	nfNear(t, "half width shortfall", *inst.HalfWidthShortfallM, 0)
+	nfNear(t, "side placement", *inst.SidePlacementM, *inst.SideNormalM)
+
+	// A short box centred on the span: its whole residual is the extent's.
+	centred := f0Instant(t, -2.25, 2.25, 4.0, 1.8)
+	nfNear(t, "centred end normal", *centred.EndNormalM, -0.25)
+	nfNear(t, "centred end placement", *centred.EndPlacementM, 0)
+
+	// A box longer than the span has no shortfall: placement is the residual,
+	// never credited for length it has to spare.
+	long := f0Instant(t, -2.30, 2.20, 5.0, 1.8)
+	nfNear(t, "long half shortfall", *long.HalfLengthShortfallM, 0)
+	nfNear(t, "long end placement", *long.EndPlacementM, *long.EndNormalM)
+	nfNear(t, "long end normal", *long.EndNormalM, 0.20)
+
+	// A narrow box: the side residual is the width's, and placement is zero.
+	narrow := f0Instant(t, -2.30, 2.20, 4.0, 1.4)
+	nfNear(t, "narrow side normal", *narrow.SideNormalM, -0.2)
+	nfNear(t, "narrow half width shortfall", *narrow.HalfWidthShortfallM, 0.2)
+	nfNear(t, "narrow side placement", *narrow.SidePlacementM, 0)
+
+	// The span uses the same trimmed extremes as the face: with fifty or more
+	// returns a stray one beyond the face moves neither.
+	if got := trimmedSpan(append(make([]float64, 49), 9), 0.02); got != 0 {
+		t.Fatalf("a stray return moved the trimmed span: %g", got)
+	}
+	if got := trimmedSpan([]float64{1, 3}, 0.02); got != 2 {
+		t.Fatalf("span %g, want 2", got)
+	}
+	if got := halfShortfall(1, 3); got != 0 {
+		t.Fatalf("a box longer than the span has a shortfall: %g", got)
+	}
+}
+
+func TestNearFaceReportsPlacementByStratumAndPair(t *testing.T) {
+	f := writeNearFacePack(t, nfOptions{})
+	dbPath := filepath.Join(t.TempDir(), "e.db")
+	// The labelled returns span 2.0 m along the car (the rear face and 2 m of
+	// the right side) and 1.8 m across it.
+	writeNearFaceDB(t, dbPath, map[string]nfBody{
+		"exact": {},
+		// 1.6 m long, centred on the labelled span: the end residual is all
+		// shortfall, so placement is zero.
+		"short": {Length: 1.6, DX: -1.2},
+		// 1.4 m wide at the true centre: the side residual is all shortfall.
+		"narrow": {Width: 1.4},
+	})
+	opts := nfOpts(f)
+	opts.IncludeInstants = true
+	report, err := ScoreNearFaces(opts, []ArmSpec{nfArm("exact", dbPath, "exact"), nfArm("short", dbPath, "short"), nfArm("narrow", dbPath, "narrow")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.SchemaVersion != 2 {
+		t.Fatalf("schema version %d", report.SchemaVersion)
+	}
+	byLabel := map[string]NearFaceArmResult{}
+	for _, a := range report.Arms {
+		byLabel[a.Arm.Label] = a
+	}
+	exact := nfStratum(t, byLabel["exact"], "all")
+	nfNear(t, "exact end placement", exact.EndPlacement.MeanAbs, 0)
+	nfNear(t, "exact half length shortfall", exact.HalfLengthShortfall.Mean, 0)
+	nfNear(t, "exact half width shortfall", exact.HalfWidthShortfall.Mean, 0)
+
+	short := nfStratum(t, byLabel["short"], "all")
+	nfNear(t, "short end normal", short.EndNormal.Mean, -0.2)
+	nfNear(t, "short half length shortfall", short.HalfLengthShortfall.Mean, 0.2)
+	nfNear(t, "short end placement", short.EndPlacement.MeanAbs, 0)
+	// The shortfall and placement sit on the end residual's population, and
+	// on the extent stratum the gate reads.
+	if short.EndPlacement.N != short.EndNormal.N || short.HalfLengthShortfall.N != short.EndNormal.N || short.EndNormal.N != nfSamples {
+		t.Fatalf("populations differ: %+v", short)
+	}
+	ev := nfStratum(t, byLabel["short"], "extent_evidence")
+	nfNear(t, "evidence placement", ev.EndPlacement.MeanAbs, 0)
+	nfNear(t, "evidence shortfall", ev.HalfLengthShortfall.Mean, 0.2)
+
+	narrow := nfStratum(t, byLabel["narrow"], "all")
+	nfNear(t, "narrow side normal", narrow.SideNormal.Mean, -0.2)
+	nfNear(t, "narrow half width shortfall", narrow.HalfWidthShortfall.Mean, 0.2)
+	nfNear(t, "narrow side placement", narrow.SidePlacement.MeanAbs, 0)
+
+	// Paired against the first arm, the short arm is 0.2 m worse on the raw
+	// end residual and no worse on placement.
+	var raw, placed *NearFacePair
+	for i, p := range byLabel["short"].Paired {
+		switch p.Face {
+		case "end_normal":
+			raw = &byLabel["short"].Paired[i]
+		case "end_placement":
+			placed = &byLabel["short"].Paired[i]
+		}
+	}
+	if raw == nil || placed == nil || placed.Both != nfSamples {
+		t.Fatalf("pairs %+v", byLabel["short"].Paired)
+	}
+	nfNear(t, "raw delta", raw.Delta, 0.2)
+	nfNear(t, "placement delta", placed.Delta, 0)
+
+	// Each instant carries its spans, shortfalls and placements.
+	in := byLabel["short"].Instants[0]
+	if in.HalfLengthShortfallM == nil || in.EndPlacementM == nil || in.SidePlacementM == nil {
+		t.Fatalf("instant %+v", in)
+	}
+	nfNear(t, "instant span along", in.SpanAlongM, 2.0)
+	nfNear(t, "instant span across", in.SpanAcrossM, nfWidth)
+
+	md := RenderNearFaceMarkdown(*report)
+	for _, want := range []string{"| Placement |", "| all | end placement | 6 |", "| all | half length shortfall | 6 |", "| exact | end_placement | 6 |", "Mean abs |"} {
+		if !strings.Contains(md, want) {
+			t.Fatalf("markdown lacks %q:\n%s", want, md)
+		}
+	}
+}
+
 func TestNearFaceAccountsForWhatItDoesNotScore(t *testing.T) {
 	f := writeNearFacePack(t, nfOptions{})
 	dbPath := filepath.Join(t.TempDir(), "e.db")
@@ -536,7 +690,9 @@ func TestNearFaceInstantsAreOrderedAndPairsSkipWhatOneArmLacks(t *testing.T) {
 		{0, "o"}: {EndNormalM: &b, SideNormalM: &b}, {1, "o"}: {EndNormalM: &a}, // no side residual at 1; sample 2 absent
 	}}
 	pairs := pairNearFaces(this, other)
-	if len(pairs) != 2 || pairs[0].Both != 2 || pairs[1].Both != 1 {
+	// The version 1 pairs keep their places; the placements follow them.
+	if len(pairs) != 4 || pairs[0].Face != "end_normal" || pairs[1].Face != "side_normal" || pairs[2].Face != "end_placement" || pairs[3].Face != "side_placement" ||
+		pairs[0].Both != 2 || pairs[1].Both != 1 || pairs[2].Both != 0 {
 		t.Fatalf("pairs %+v", pairs)
 	}
 	nfNear(t, "end delta", pairs[0].Delta, 0)         // |0.1|,|0.3| against |0.3|,|0.1|
