@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -323,7 +324,31 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 		return fmt.Errorf("params is required: provide at least one SweepParam")
 	}
 
+	if err := r.checkClip(req); err != nil {
+		return err
+	}
+
 	return r.startGeneric(ctx, req, interval, settleTime)
+}
+
+// checkClip refuses a sweep that would write a clip on runs that did not
+// replay it: the backend finds the clip missing, or the capture and window
+// the sweep replays are not the clip's (see SweepClipChecker). A sweep
+// without a clip passes, and so does one that replays no capture, since only
+// a replay's run records the clip.
+func (r *Runner) checkClip(req SweepRequest) error {
+	clipID := strings.TrimSpace(req.ClipID)
+	if clipID == "" || req.DataSource != "capture" || req.PCAPFile == "" {
+		return nil
+	}
+	checker, ok := r.backend.(SweepClipChecker)
+	if !ok {
+		return nil
+	}
+	if err := checker.CheckSweepClip(clipID, req.PCAPFile, req.PCAPStartSecs, req.PCAPDurationSecs); err != nil {
+		return fmt.Errorf("clip_id %s: %w", clipID, err)
+	}
+	return nil
 }
 
 // startGeneric handles the generic N-dimensional parameter sweep.

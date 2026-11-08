@@ -87,6 +87,15 @@ type PCAPReplayConfig struct {
 	ClipID string
 }
 
+// SweepClipChecker is implemented by a backend that can look clips up. A
+// sweep that names a clip is checked against it when it starts: the clip
+// must exist, and the capture file and window the sweep replays must be the
+// clip's, or the sweep's runs would name a clip they did not replay. A
+// backend without it starts such a sweep unchecked.
+type SweepClipChecker interface {
+	CheckSweepClip(clipID, pcapFile string, startSecs, durationSecs float64) error
+}
+
 // WaitForPCAPDone blocks on a channel until it is closed or ctx is cancelled.
 // Helper used by DirectBackend; also available to tests.
 func WaitForPCAPDone(ctx context.Context, done <-chan struct{}) error {

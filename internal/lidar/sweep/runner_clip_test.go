@@ -2,6 +2,8 @@ package sweep
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -139,5 +141,77 @@ func TestAutoTuner_RoundSweepsCarryTheClip(t *testing.T) {
 		if id != "clip-auto" {
 			t.Errorf("replay %d clip = %q, want clip-auto", i, id)
 		}
+	}
+}
+
+// clipCheckingBackend refuses every clip but "known".
+type clipCheckingBackend struct {
+	*clipRecordingBackend
+	checked []string
+}
+
+var errUnknownClip = errors.New("no such clip")
+
+func (b *clipCheckingBackend) CheckSweepClip(clipID, pcapFile string, _, _ float64) error {
+	b.checked = append(b.checked, clipID+"@"+pcapFile)
+	if clipID != "known" {
+		return errUnknownClip
+	}
+	return nil
+}
+
+// A sweep for a clip the backend refuses does not start; one it accepts
+// does; a sweep that replays no capture is not checked, since none of its
+// runs records the clip.
+func TestRunner_ChecksTheSweepClipAtStart(t *testing.T) {
+	backend := &clipCheckingBackend{clipRecordingBackend: newClipRecordingBackend()}
+	r := newQuietRunner(backend)
+
+	req := replaySlotSweepRequest()
+	req.ClipID = "deleted"
+	err := r.Start(context.Background(), req)
+	if !errors.Is(err, errUnknownClip) || !strings.Contains(err.Error(), "clip_id deleted") {
+		t.Fatalf("Start = %v, want the backend's refusal naming the clip", err)
+	}
+	if got := r.GetSweepState().Status; got != SweepStatusIdle {
+		t.Fatalf("status after a refused start = %q, want idle", got)
+	}
+
+	live := req
+	live.DataSource, live.PCAPFile = "live", ""
+	if err := r.checkClip(live); err != nil {
+		t.Fatalf("checkClip(live) = %v, want unchecked", err)
+	}
+
+	req.ClipID = "known"
+	if err := r.Start(context.Background(), req); err != nil {
+		t.Fatalf("Start(known) = %v", err)
+	}
+	waitForRunnerStatus(t, r, 10*time.Second, SweepStatusComplete, SweepStatusError)
+	if len(backend.checked) != 2 || backend.checked[1] != "known@test.pcap" {
+		t.Fatalf("checked = %v, want the deleted then the known clip", backend.checked)
+	}
+}
+
+// An auto-tune checks its clip before it begins, not in round 1.
+func TestAutoTuner_ChecksTheClipAtStart(t *testing.T) {
+	backend := &clipCheckingBackend{clipRecordingBackend: newClipRecordingBackend()}
+	at := newQuietAutoTuner(newQuietRunner(backend))
+	err := at.start(context.Background(), AutoTuneRequest{
+		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
+		MaxRounds:      1,
+		ValuesPerParam: 2,
+		DataSource:     "capture",
+		PCAPFile:       "test.pcap",
+		ClipID:         "deleted",
+	})
+	if !errors.Is(err, errUnknownClip) {
+		t.Fatalf("start = %v, want the backend's refusal", err)
+	}
+	if got := at.GetAutoTuneState().Status; got == SweepStatusRunning {
+		t.Fatal("a refused auto-tune is running")
+	}
+	if replays := backend.clipIDs(); len(replays) != 0 {
+		t.Fatalf("a refused auto-tune replayed %d times", len(replays))
 	}
 }

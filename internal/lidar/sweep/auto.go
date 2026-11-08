@@ -288,6 +288,18 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 		req.Params[i] = p
 	}
 
+	// A clip is checked once here, so a bad one is refused at the start
+	// rather than failing round 1 after the tune has begun.
+	if err := at.runner.checkClip(SweepRequest{
+		ClipID:           req.ClipID,
+		DataSource:       req.DataSource,
+		PCAPFile:         req.PCAPFile,
+		PCAPStartSecs:    req.PCAPStartSecs,
+		PCAPDurationSecs: req.PCAPDurationSecs,
+	}); err != nil {
+		return err
+	}
+
 	// Now acquire lock for state modification
 	at.mu.Lock()
 	if at.state.Status == SweepStatusRunning {
