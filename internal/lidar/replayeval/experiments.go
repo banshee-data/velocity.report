@@ -295,6 +295,32 @@ const (
 	// takes the course as a second observation of the axis at speed and
 	// holds the label through turns (SolidBodyOptions.RectangleCourseFusion).
 	ExperimentSolidBodyRectangleCourseFusion = "solid_body_rectangle_course_fusion"
+	// The face-state options of the November 2026 maths review (state plan
+	// Section 9.2.4), each qualifying solid_body like the remedies:
+	//   - ExperimentSolidBodyExtentState: the half-extents in the shadow
+	//     body's filter, a face measuring its plane as n·c + h
+	//     (SolidBodyOptions.ExtentState). The tracked filter carries no
+	//     extents, so it is refused with near_edge_track;
+	//   - ExperimentSolidBodyCensoredExtent: the extent belief as the class
+	//     prior truncated below at the largest lower bound, not a sigma
+	//     shrinking with frame count (CensoredExtent);
+	//   - ExperimentSolidBodySpanBoundsBelief: the frame's window-minimum
+	//     span, less its noise, as a lower bound on the belief the faces use
+	//     (SpanBoundsBelief);
+	//   - ExperimentSolidBodyHeadingFaceNoise: the orientation variance times
+	//     the face's squared tangential lever arm added to its noise
+	//     (HeadingFaceNoise);
+	//   - ExperimentSolidBodyAnisotropicReferenceBias: the medoid's bias as
+	//     (L/2)^2 along the body and (W/2)^2 across it
+	//     (AnisotropicReferenceBias).
+	// ExperimentSolidBodyFaceState switches all five on, the one arm the
+	// review says to score; naming it with any of them is the same arm.
+	ExperimentSolidBodyExtentState              = "solid_body_extent_state"
+	ExperimentSolidBodyCensoredExtent           = "solid_body_censored_extent"
+	ExperimentSolidBodySpanBoundsBelief         = "solid_body_span_bounds_belief"
+	ExperimentSolidBodyHeadingFaceNoise         = "solid_body_heading_face_noise"
+	ExperimentSolidBodyAnisotropicReferenceBias = "solid_body_anisotropic_reference_bias"
+	ExperimentSolidBodyFaceState                = "solid_body_face_state"
 	// ExperimentNearEdgeTrack is l5tracks.TrackerConfig.NearEdgeTracking,
 	// S2.2 of the near-edge plan: the solid body's state machine runs on the
 	// tracked filter, with A2 face-residual association, so unlike the
@@ -412,6 +438,12 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyRectangleSigmaWide:       true,
 	ExperimentSolidBodyRectangleSigmaMid:        true,
 	ExperimentSolidBodyRectangleCourseFusion:    true,
+	ExperimentSolidBodyExtentState:              true,
+	ExperimentSolidBodyCensoredExtent:           true,
+	ExperimentSolidBodySpanBoundsBelief:         true,
+	ExperimentSolidBodyHeadingFaceNoise:         true,
+	ExperimentSolidBodyAnisotropicReferenceBias: true,
+	ExperimentSolidBodyFaceState:                true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
 	ExperimentSurfaceGround:                     true,

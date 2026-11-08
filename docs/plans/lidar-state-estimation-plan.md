@@ -1375,6 +1375,103 @@ motivates competing axis hypotheses, but its extent averages and count-based unc
 full Bayesian treatment. The visibility-aware review supplies the revised contract: axis identity,
 censoring, association, and pose uncertainty are coupled rather than independent sequential truths.
 
+#### 9.2.4 Extents in the state and censored extent evidence (delivered, default-off)
+
+Sections 3.1 to 3.5 of the November 2026 face-state and CV/CA maths review, which is proposed on
+its own branch under `data/maths/proposals/`, found the near-edge face update sound in form and
+wrong in one input. It subtracts a believed
+half-extent that it treats as exact, and that belief is short: the
+[F0 attribution report](../lidar/operations/facet-f0-attribution-kirk0-report.md#41-the-attribution-gate)
+measured the believed length short of the labelled span in 83 % of car and 97 % of truck instants.
+The fixes are five default-off `l5tracks.SolidBodyOptions` fields, each reached by a replay
+experiment name. They are not tuning keys, because a key would move the tuning fingerprint.
+`solid_body_face_state` switches all five on. That is the arm the review says to score as one.
+
+| Option                     | Replay experiment                       | What changes                                                       |
+| -------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| `ExtentState`              | `solid_body_extent_state`               | Half-extents in the shadow filter's state; a face measures `n·c+h` |
+| `CensoredExtent`           | `solid_body_censored_extent`            | The extent belief is the prior truncated at the largest bound      |
+| `SpanBoundsBelief`         | `solid_body_span_bounds_belief`         | The frame's window-minimum span bounds the belief the faces use    |
+| `HeadingFaceNoise`         | `solid_body_heading_face_noise`         | `σψ²·t_eff²` added to each face's variance                         |
+| `AnisotropicReferenceBias` | `solid_body_anisotropic_reference_bias` | Medoid bias `(L/2)²` along the body and `(W/2)²` across it         |
+
+**Measurement equation.** Under `ExtentState` the shadow solid body's state is
+`x = [x, y, vx, vy, hL, hW]`, with a 6x6 covariance. The half-extents are constant in the
+transition, with process noise `(0.02 m)²/s` each to cover membership drift and articulation. A
+face with outward unit normal `n` measures its plane offset:
+
+```
+end face:   z = n·c + hL,   H = [n_x, n_y, 0, 0, 1, 0]
+side face:  z = n·c + hW,   H = [n_x, n_y, 0, 0, 0, 1]
+```
+
+Each face is one scalar Joseph-form update with the tracked noise `R`. A single face cannot
+separate `n·c` from `h`: in information form it adds exactly `H Hᵀ / R`. A rear face seen on
+approach and a front face on departure have rows `+n` and `−n` against the same `hL`, so together
+they fix both. This is the Section 8.1 correction. The half-extent's error is estimated, not
+excluded or covered by a wider `R`. So a face whose half-extent is only the class prior is used,
+because the prior's uncertainty is in `P`. The four-state block is unchanged, and the extent block
+with its 4x2 cross-covariance is held beside it. Every step that touches the extents (a face,
+the medoid update, a loose term, containment, a lower bound, the prediction) runs on the joint
+6x6 matrix, so the position-extent correlation is carried. The reported length and width are
+`2hL` and `2hW`, with sigma `2·sqrt(P_hh)`. Each is a class prior until a face or bound has
+updated it, and accumulated from then on. `FaceEntryConsider` is not applied, because its
+one-frame term is what the state replaces. The seed is the class prior, `L/2` and `W/2` with
+sigma `σ0/2` each, or the extent belief where it already has evidence.
+
+**Truncation rule.** A frame's span along a body axis is a lower bound on the dimension. The span
+is the window-minimum span the containment floor computes, less the noise
+`ε = sqrt(0.1² + (r·0.0035)²)` m at range `r`. It is taken only when the track is not a merge
+candidate, the lifecycle is not initialising, and the course does not contradict the axis (the
+9.2.1 rules).
+
+- Without `ExtentState`, `CensoredExtent` reports the class prior `N(μ0, σ0²)` truncated below at
+  the largest bound. The bounds are the frame's span, under `SpanBoundsBelief`, and the belief's
+  corroborated maximum, read at its bin's lower edge less 0.1 m. The mean and standard deviation
+  come from the one-sided truncated normal. The raw maximum is not used, because one merged frame
+  would hold it for the rest of the track (9.2.3). The posterior narrows only when a bound moves
+  into the prior's mass, never with frame count alone. Its mean lies above the bound by
+  `σ0·λ(α)`, where `α = (bound − μ0)/σ0` and `λ` is the inverse Mills ratio. For a rigid vehicle
+  bounded at the prior mean, 4.5 m, that is 1.2 m. Without `ExtentState` the arm therefore trades
+  a short half-extent for a long one, and places the centre too far from the sensor. Read it
+  inside `solid_body_face_state`, where a second face can pull the extent back, and not as a
+  replacement for the shipped belief on its own.
+- Under `ExtentState`, with `CensoredExtent` or `SpanBoundsBelief`, the frame's bound truncates the
+  `hL` or `hW` marginal below at half the bound. The truncation goes through the joint state's
+  regression on it, in the same form `truncateAxis` uses for position. A truncation moment-matched
+  back to a Gaussian still has mass below the bound. Applying the same bound on every frame would
+  therefore narrow the posterior every frame, and so would applying the history's maximum on every
+  frame. So a frame's bound is applied once, and only when it is higher than every bound already
+  applied. The containment truncation reads the state's `hL` and `hW`, with their standard
+  deviations as the upper tail, and also truncates the joint state.
+- `SpanBoundsBelief` alone raises the belief's estimate to the bound, so the face update on the
+  same frame uses a half-extent at least half the bound. It does not change the belief's
+  provenance, so a class-prior face is still excluded.
+
+**Heading term.** `HeadingFaceNoise` adds `σψ²·t_eff²` to a face's variance. Here `σψ²` is the
+orientation variance of the axis the faces were measured along: the belief's, or the course's
+under `CourseAlignedFaces`. `t_eff` is the RMS offset along the face plane of the face's supporting
+returns from the predicted position, recorded as `EdgeMeasurement.TangentialLeverArmMetres`. This
+is a variance, which Section 8.1 permits. The association gate is unchanged.
+
+**Reference bias.** `AnisotropicReferenceBias` changes how a re-reference to the body centre, or a
+lapse back to the medoid, inflates position. It adds `R diag((L/2)², (W/2)²) Rᵀ` from the class
+prior along the believed axis, instead of `(W/2)²` on both axes. The seed has no resolved axis,
+and nor does a lapse with no orientation. In those cases the inflation is isotropic at `(L/2)²`.
+
+**Tracked path.** Under `NearEdgeTracking` the filter is the tracked one, which neither predicts
+nor gates on extents. So `ExtentState` is ignored there, and the replay refuses
+`solid_body_extent_state` and `solid_body_face_state` with `near_edge_track`. The other four apply
+to the tracked path. With every option off the arithmetic is unchanged bit for bit. A test pins the
+digests of four shadow and tracked scenarios on amd64.
+
+**Evidence so far.** The evidence is synthetic only. A 4.5 m box passes 5 m from the sensor, with
+its length seeded at 3.125 m (σ 0.75 m on the half-length). Driving the state machine directly, the
+shipped update holds the centre 0.71 m from truth on both end faces, which is half the shortfall.
+With `ExtentState` the second end face brings the half-length to 2.21 m (truth 2.25 m), and the
+departure centre error to 0.05 m. No replay arm has run. Scoring `solid_body_face_state` against
+geom0015's box rows on kirk0 is in the checklist.
+
 ### 9.3 Decision gate G-GEO-1
 
 The historical 0.316 m and 11.3% baseline figures below are not a current paired comparator.
@@ -3028,6 +3125,11 @@ architecture; it does not relitigate findings.
       versions, and label-free kirk0 wiring evidence (Phase 2 above)
 - [ ] Cover `lidar_track_solid_bodies` in the lossless-batch evidence oracle, then run G-GEO-1
       on held-out geometry with the solid body as the candidate arm
+- [x] Extents in the state and censored extent evidence (9.2.4, default-off): `ExtentState`,
+      `CensoredExtent`, `SpanBoundsBelief`, `HeadingFaceNoise` and `AnisotropicReferenceBias`, with
+      replay experiments and the combined `solid_body_face_state`
+- [ ] Score `solid_body_face_state` against geom0015's box rows on kirk0, then on a held-out
+      capture, beside the shipped solid body (9.2.4)
 - [x] Identity options (Sprint 0.5.2.2, default-off): `TentativePriority` (S2, confirmed tracks
       first inside their 99% ellipse), `ClassIdentity` (K4, L6's envelope refuses a merge) and
       `ContestedRejoin`, with unit tests and a K4 scene scored by the per-frame evaluator. See the

@@ -1481,6 +1481,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
+	faceState := faceStateFor(experiments)
 	// The experiments are aliases for the tuning file's solid_body block:
 	// each switches its option on over whatever the block set, so a block
 	// and a name that agree are one configuration, and a name adds to a
@@ -1515,11 +1516,25 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		if sigmaScale > 0 {
 			opts.RectangleSigmaScale = sigmaScale
 		}
+		opts.ExtentState = opts.ExtentState || faceState.ExtentState
+		opts.CensoredExtent = opts.CensoredExtent || faceState.CensoredExtent
+		opts.SpanBoundsBelief = opts.SpanBoundsBelief || faceState.SpanBoundsBelief
+		opts.HeadingFaceNoise = opts.HeadingFaceNoise || faceState.HeadingFaceNoise
+		opts.AnisotropicReferenceBias = opts.AnisotropicReferenceBias || faceState.AnisotropicReferenceBias
 		trackerConfig.SolidBody = opts
 		trackerConfig.NearEdgeTracking = trackerConfig.NearEdgeTracking || hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = trackerConfig.NearEdgeMedoidGate || hasExperiment(experiments, ExperimentNearEdgeTrackA1)
+		if trackerConfig.NearEdgeTracking && opts.ExtentState {
+			// The tracked filter carries no extents and ignores the option,
+			// so the arm would run as near_edge_track without it and be
+			// reported under its name.
+			return l5tracks.TrackerConfig{}, fmt.Errorf(
+				"replay experiments %s and %s put the extents in the shadow solid body's filter, which %s replaces with the tracked one; name one",
+				ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState, ExperimentNearEdgeTrack)
+		}
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
 		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment || rectangle || rectangleHeading || courseFusion || sigmaScale > 0 ||
+		faceState != (l5tracks.SolidBodyOptions{}) ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
@@ -1605,6 +1620,20 @@ func rankOneMedoidScaleFor(experiments []string) (float32, error) {
 		return 0.25, nil
 	}
 	return 0, nil
+}
+
+// faceStateFor is the face-state options the named experiments switch on, as
+// the SolidBodyOptions fields they set and nothing else: each option by its
+// own name, and all five by solid_body_face_state.
+func faceStateFor(experiments []string) l5tracks.SolidBodyOptions {
+	all := hasExperiment(experiments, ExperimentSolidBodyFaceState)
+	return l5tracks.SolidBodyOptions{
+		ExtentState:              all || hasExperiment(experiments, ExperimentSolidBodyExtentState),
+		CensoredExtent:           all || hasExperiment(experiments, ExperimentSolidBodyCensoredExtent),
+		SpanBoundsBelief:         all || hasExperiment(experiments, ExperimentSolidBodySpanBoundsBelief),
+		HeadingFaceNoise:         all || hasExperiment(experiments, ExperimentSolidBodyHeadingFaceNoise),
+		AnisotropicReferenceBias: all || hasExperiment(experiments, ExperimentSolidBodyAnisotropicReferenceBias),
+	}
 }
 
 // rectangleSigmaScaleFor reads the rectangle fit's sigma scale from its two

@@ -230,6 +230,10 @@ func TestSolidBodyFaceRemediesOnKirk0(t *testing.T) {
 		{"t1_t3", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces}},
 		{"t1_t3_t5", []string{ExperimentSolidBody, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyCourseFaces,
 			ExperimentSolidBodyRankOneMedoid}},
+		// The face-state arm is a shadow change too: the extents in the
+		// state, the censored extent, the span bounds, the heading term and
+		// the anisotropic reference bias leave every track alone.
+		{"face_state", []string{ExperimentSolidBody, ExperimentSolidBodyFaceState}},
 	}
 	var plain solidBodyArm
 	var table strings.Builder
