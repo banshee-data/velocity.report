@@ -834,3 +834,65 @@ func BenchmarkSolidBodyFaceState(b *testing.B) {
 		})
 	}
 }
+
+// Under ExtentState the joint cap scales the capped rows and columns of the
+// whole 6x6 covariance, so ConsistentCovarianceCap must not scale the 4x4
+// block a second time, in the prediction or in a coast. Both settings must
+// give the same joint covariance, and it must stay positive semi-definite
+// with every correlation, the position-extent ones included, at most one.
+func TestExtentStateWithConsistentCovarianceCapScalesOnce(t *testing.T) {
+	run := func(consistent bool) jointState {
+		cfg := DefaultTrackerConfig()
+		cfg.CoupledProcessNoise = true
+		cfg.MaxCovarianceDiag = 2
+		cfg.ConsistentCovarianceCap = consistent
+		tr := NewTracker(cfg)
+		track := &TrackedObject{TrackID: "trk_joint_cap"}
+		sb := &track.solidBody
+		sb.seeded = true
+		sb.state = [4]float32{0, 0, 5, 0}
+		sb.p = [16]float32{
+			1.5, 0, 0.6, 0,
+			0, 1.5, 0, 0.6,
+			0.6, 0, 0.5, 0,
+			0, 0.6, 0, 0.5,
+		}
+		sb.ext = solidBodyExtent{
+			on:  true,
+			h:   [2]float32{2.25, 0.9},
+			phh: [4]float32{0.5, 0, 0, 0.2},
+			// x with hL, and y with hW: correlations of 0.92 and 0.73.
+			pxh: [8]float32{0.8, 0, 0, 0.4, 0, 0, 0, 0},
+		}
+		for i := 0; i < 40; i++ {
+			tr.predictSolidBodyStep(track, 0.1)
+			tr.coastSolidBody(track, 0.5)
+			if !sb.seeded {
+				t.Fatalf("consistent=%v: the solid body was dropped at step %d", consistent, i)
+			}
+			js := sb.jointOf(sb.state, sb.p)
+			if e := minEigenvalue(js.p, jointStates); e < -1e-5 {
+				t.Fatalf("consistent=%v step %d: joint covariance not PSD, least eigenvalue %v", consistent, i, e)
+			}
+			for a := 0; a < jointStates; a++ {
+				for b := a + 1; b < jointStates; b++ {
+					paa, pbb := js.p[a*jointStates+a], js.p[b*jointStates+b]
+					if paa <= 0 || pbb <= 0 {
+						continue
+					}
+					if c := math.Abs(js.p[a*jointStates+b]) / math.Sqrt(paa*pbb); c > 1+1e-5 {
+						t.Fatalf("consistent=%v step %d: correlation (%d,%d) = %v above one", consistent, i, a, b, c)
+					}
+				}
+			}
+		}
+		return sb.jointOf(sb.state, sb.p)
+	}
+	off, on := run(false), run(true)
+	if off.p != on.p {
+		t.Errorf("ConsistentCovarianceCap changed the joint covariance under ExtentState, so it scaled twice:\noff %v\non  %v", off.p, on.p)
+	}
+	if on.p[0] > 2+1e-6 {
+		t.Errorf("position variance %v above the cap 2", on.p[0])
+	}
+}

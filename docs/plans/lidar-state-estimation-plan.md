@@ -1377,8 +1377,8 @@ censoring, association, and pose uncertainty are coupled rather than independent
 
 #### 9.2.4 Extents in the state and censored extent evidence (delivered, default-off)
 
-Sections 3.1 to 3.5 of the November 2026 face-state and CV/CA maths review, which is proposed on
-its own branch under `data/maths/proposals/`, found the near-edge face update sound in form and
+Sections 3.1 to 3.5 of the November 2026
+[face-state and CV/CA maths review](../../data/maths/proposals/20261108-face-state-and-cv-ca-maths-review.md) found the near-edge face update sound in form and
 wrong in one input. It subtracts a believed
 half-extent that it treats as exact, and that belief is short: the
 [F0 attribution report](../lidar/operations/facet-f0-attribution-kirk0-report.md#41-the-attribution-gate)
