@@ -248,3 +248,40 @@ func TestSharedOrientationNeedsALabelledBoxOfThisFrame(t *testing.T) {
 		t.Fatal("the option off shared a heading")
 	}
 }
+
+// Shared heading must not run a box ahead of the tracked near-edge update,
+// or create an estimator while the box model is disabled. An empty initial
+// frame must also leave no pending placement or invented heading.
+func TestSharedHeadingSkipsDisabledTrackedAndEmptyBoxes(t *testing.T) {
+	for _, tracked := range []bool{false, true} {
+		cfg := solidBodyConfig()
+		cfg.SolidBody.SharedOrientation = true
+		cfg.NearEdgeTracking = tracked
+		cfg.BoxModel.Enabled = tracked
+		tracker := NewTracker(cfg)
+		track := boxPassBody(0, 5, 7)
+		tracker.advanceBoxHeading(track, nil, 5e8)
+		if track.box != nil {
+			t.Fatalf("tracked %v: a skipped heading update created a box", tracked)
+		}
+		// The guard must also leave an existing estimator untouched.
+		track.box = NewBoxEstimator(cfg.BoxModel)
+		track.box.seeded, track.box.lastNanos = true, 4e8
+		tracker.advanceBoxHeading(track, nil, 5e8)
+		if track.box.lastNanos != 4e8 || track.box.pending.valid {
+			t.Fatalf("tracked %v: a skipped heading update advanced an existing box", tracked)
+		}
+	}
+	cfg := solidBodyConfig()
+	cfg.SolidBody.SharedOrientation = true
+	tracker := NewTracker(cfg)
+	track := boxPassBody(0, 5, 7)
+	tracker.advanceBoxHeading(track, nil, 5e8)
+	if track.box == nil || track.box.seeded || track.box.pending.valid {
+		t.Fatal("an empty initial frame seeded a heading or a placement")
+	}
+	tracker.updateBox(track, nil, 5e8)
+	if track.BoxLength != 0 || track.BoxWidth != 0 || track.box.seeded {
+		t.Fatal("an empty initial frame published a box")
+	}
+}
