@@ -409,8 +409,9 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s and %s were accepted together", ExperimentSolidBodyEndFaceCentring, ExperimentSolidBodyEndFaceCentringOpenPrior)
 	}
 	// The combined face-state arm named with one of its parts is the same
-	// arm; the extents in the state are refused on the tracked filter, which
-	// does not carry them, and the other four combine with it.
+	// arm. On the tracked filter the extents in the state are carried by the
+	// tracked filter itself, so both names combine with near_edge_track, as
+	// the other four do.
 	combined, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFaceState}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -419,9 +420,9 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s with %s is not the combined arm (%v)", ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentState, err)
 	}
 	for _, name := range []string{ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState} {
-		if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack, name}, nil); err == nil ||
-			!strings.Contains(err.Error(), ExperimentNearEdgeTrack) {
-			t.Errorf("%s with %s: want a refusal, got %v", name, ExperimentNearEdgeTrack, err)
+		cfg, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack, name}, nil)
+		if err != nil || !cfg.NearEdgeTracking || !cfg.SolidBody.ExtentState {
+			t.Errorf("%s with %s: want the tracked extent state, got %v (%+v)", name, ExperimentNearEdgeTrack, err, cfg.SolidBody)
 		}
 	}
 	tracked, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack,

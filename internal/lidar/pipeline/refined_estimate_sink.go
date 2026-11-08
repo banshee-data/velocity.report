@@ -146,6 +146,10 @@ func RefinedStateEstimate(id RefinedEstimateIdentity, paramHash string, state l5
 // or returns nil when the state carries none. The reading's dynamic state is
 // replaced by the revised one; every belief is the online body's, which
 // fixed assignment and a smoother over position and velocity do not revise.
+// Under ExtentState the online reading also carries the position-extent
+// cross covariance, which describes the online position and not the revised
+// one; the smoother does not revise it, so the refined reading drops the
+// extent blocks (WithoutExtentCovariance) and its surface bound is not joint.
 // It refuses a reading that does not describe the online state the smoother
 // revised, since then the revised state is another filter's.
 func refinedSolidBody(estimate sqlite.TrackEstimate, state l5tracks.SmoothedState) (*sqlite.TrackSolidBody, error) {
@@ -161,6 +165,7 @@ func refinedSolidBody(estimate sqlite.TrackEstimate, state l5tracks.SmoothedStat
 			state.Reference, online.X, online.Y)
 	}
 	m := state.Smoothed
+	reading = reading.WithoutExtentCovariance()
 	reading.Estimate.X, reading.Estimate.Y, reading.VX, reading.VY = m.X, m.Y, m.VX, m.VY
 	reading.Covariance = m.P
 	reading.Estimate.PositionCovariance = [4]float32{m.P[0*4+0], m.P[0*4+1], m.P[1*4+0], m.P[1*4+1]}

@@ -125,6 +125,13 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	} else {
 		track.P = naiveCovarianceUpdate(track.P, K)
 	}
+	if sb := &track.solidBody; sb.tracksExtent() {
+		// The tracked extent state: the same update's extent rows and
+		// columns, and the joint matrix held exactly symmetric, as every
+		// joint step holds it (near_edge_tracking.go).
+		sb.ext.applyMedoidGain(K, [4]float32{invS00, invS01, invS10, invS11}, yX, yY)
+		symmetriseFour(&track.P)
+	}
 
 	// Guard: reset state if update produced NaN/Inf (task 2.4).
 	if t.refuseNonFiniteUpdate(track) {

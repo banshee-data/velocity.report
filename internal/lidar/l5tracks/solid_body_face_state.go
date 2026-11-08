@@ -199,11 +199,18 @@ func (sb *solidBodyTrack) predictExtent(dt float32) {
 // deviation, P <- D P D, instead of leaving the off-diagonals as they were.
 // It runs only under ExtentState; the four-state paths keep their cap.
 func (sb *solidBodyTrack) scaleCappedRows(uncapped [4]float32) {
+	scaleCappedJoint(&sb.p, &sb.ext, uncapped)
+}
+
+// scaleCappedJoint is scaleCappedRows on a given four-state block and extent
+// block: the shadow's own, or under NearEdgeTracking the tracked filter's P
+// and the body's extent block.
+func scaleCappedJoint(p *[16]float32, ext *solidBodyExtent, uncapped [4]float32) {
 	var d [4]float64
 	scaled := false
 	for i := range d {
 		d[i] = 1
-		if c, u := sb.p[i*4+i], uncapped[i]; c < u && u > 0 {
+		if c, u := p[i*4+i], uncapped[i]; c < u && u > 0 {
 			d[i] = math.Sqrt(float64(c) / float64(u))
 			scaled = true
 		}
@@ -214,13 +221,22 @@ func (sb *solidBodyTrack) scaleCappedRows(uncapped [4]float32) {
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {
 			if i != j {
-				sb.p[i*4+j] = float32(float64(sb.p[i*4+j]) * d[i] * d[j])
+				p[i*4+j] = float32(float64(p[i*4+j]) * d[i] * d[j])
 			}
 		}
 		for j := 0; j < 2; j++ {
-			sb.ext.pxh[i*2+j] = float32(float64(sb.ext.pxh[i*2+j]) * d[i])
+			ext.pxh[i*2+j] = float32(float64(ext.pxh[i*2+j]) * d[i])
 		}
 	}
+}
+
+// extentBlock is the body's extent block when it carries one, and nil
+// otherwise, for the helpers that take the block optionally.
+func (sb *solidBodyTrack) extentBlock() *solidBodyExtent {
+	if !sb.ext.on {
+		return nil
+	}
+	return &sb.ext
 }
 
 // jointState is the solid body's joint state under ExtentState, in float64:
@@ -340,6 +356,47 @@ func (js *jointState) scalarUpdateNIS(h [jointStates]float64, z, r float64) (flo
 	}
 	js.symmetrise()
 	return innovation * innovation / s, true
+}
+
+// applyMedoidGain carries a two-dimensional position update of the
+// four-state filter, with gain K (4x2, row-major) and inverse innovation
+// covariance invS (2x2), to the extent block: the joint update the tracked
+// filter's medoid update is the four-state part of. With A = H P_xh, the
+// position rows of the cross block, the half-extents' gain is
+// K_h = Aᵀ S⁻¹, and
+//
+//	h ← h + K_h y,   P_hh ← P_hh − K_h A,   P_xh ← P_xh − K A,
+//
+// the optimal-gain update's extent rows and columns, which is what the Joseph
+// form gives at that gain too. P_hh is symmetrised after, as the joint matrix
+// is held exactly symmetric.
+func (e *solidBodyExtent) applyMedoidGain(k [8]float32, invS [4]float32, yX, yY float32) {
+	var a [4]float64
+	for i := range a {
+		a[i] = float64(e.pxh[i])
+	}
+	y := [2]float64{float64(yX), float64(yY)}
+	var kh [4]float64 // kh[j*2+r]
+	for j := 0; j < 2; j++ {
+		for r := 0; r < 2; r++ {
+			kh[j*2+r] = a[0*2+j]*float64(invS[0*2+r]) + a[1*2+j]*float64(invS[1*2+r])
+		}
+		e.h[j] = float32(float64(e.h[j]) + kh[j*2+0]*y[0] + kh[j*2+1]*y[1])
+	}
+	var phh [4]float64
+	for j := 0; j < 2; j++ {
+		for l := 0; l < 2; l++ {
+			phh[j*2+l] = float64(e.phh[j*2+l]) - (kh[j*2+0]*a[0*2+l] + kh[j*2+1]*a[1*2+l])
+		}
+	}
+	off := (phh[1] + phh[2]) / 2
+	e.phh = [4]float32{float32(math.Max(phh[0], 0)), float32(off), float32(off), float32(math.Max(phh[3], 0))}
+	for i := 0; i < 4; i++ {
+		for l := 0; l < 2; l++ {
+			v := float64(e.pxh[i*2+l]) - (float64(k[i*2+0])*a[0*2+l] + float64(k[i*2+1])*a[1*2+l])
+			e.pxh[i*2+l] = float32(v)
+		}
+	}
 }
 
 // truncate holds the linear functional g·x of the joint state to

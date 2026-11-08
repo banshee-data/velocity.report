@@ -297,10 +297,11 @@ const (
 	ExperimentSolidBodyRectangleCourseFusion = "solid_body_rectangle_course_fusion"
 	// The face-state options of the November 2026 maths review (state plan
 	// Section 9.2.4), each qualifying solid_body like the remedies:
-	//   - ExperimentSolidBodyExtentState: the half-extents in the shadow
+	//   - ExperimentSolidBodyExtentState: the half-extents in the solid
 	//     body's filter, a face measuring its plane as n·c + h
-	//     (SolidBodyOptions.ExtentState). The tracked filter carries no
-	//     extents, so it is refused with near_edge_track;
+	//     (SolidBodyOptions.ExtentState). With near_edge_track the filter is
+	//     the tracked one, which then carries the extent block too; its gate
+	//     stays the 2x2 position innovation and does not see the extents;
 	//   - ExperimentSolidBodyCensoredExtent: the extent belief as the class
 	//     prior truncated below at the largest lower bound, not a sigma
 	//     shrinking with frame count (CensoredExtent);

@@ -466,6 +466,14 @@ func (t *Tracker) inflateCoastCovariance(track *TrackedObject) float32 {
 	if add > 0 {
 		track.P[0*4+0] += add
 		track.P[1*4+1] += add
+		if sb := &track.solidBody; sb.tracksExtent() {
+			// The tracked extent state: the joint matrix's cap, whatever
+			// ConsistentCovarianceCap says (near_edge_tracking.go). The
+			// added variance is the position's own, so the cross block is
+			// unchanged by it.
+			sb.capTrackedExtent(&track.P, t.Config.MaxCovarianceDiag)
+			return add
+		}
 		if t.Config.ConsistentCovarianceCap {
 			// Only the position diagonals grew here; the prediction has
 			// already capped the velocity ones, so in practice only the
