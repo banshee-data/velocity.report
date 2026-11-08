@@ -21,11 +21,12 @@ type RunSweep struct {
 }
 
 // SweepsForRuns maps each run ID to the sweep that ran it, read from the
-// run_id each combination records in a persisted sweep's results. A sweep
-// records results when it completes, fails or suspends, so the runs of one
-// still running are not matched until then. When a run appears in several
-// sweeps' results (a replay that failed to start leaves the previous run's ID
-// on the next combination) the earliest sweep is the one that ran it.
+// run_id each combination records in a stored sweep: its results, written
+// when it completes or fails, and its checkpoint results, written at each
+// round boundary of a checkpointed sweep and kept when one is suspended. The
+// runs of a sweep that stores neither yet are not matched. When a run appears
+// in several sweeps (a replay that failed to start leaves the previous run's
+// ID on the next combination) the earliest sweep is the one that ran it.
 func SweepsForRuns(db DBClient, runIDs []string) (map[string]RunSweep, error) {
 	out := make(map[string]RunSweep)
 	for start := 0; start < len(runIDs); start += listingBatch {
@@ -40,13 +41,21 @@ func SweepsForRuns(db DBClient, runIDs []string) (map[string]RunSweep, error) {
 			args[i] = id
 		}
 		query := fmt.Sprintf(`
-			SELECT JSON_EXTRACT(r.value, '$.run_id'), s.sweep_id, s.mode
-			  FROM lidar_tuning_sweeps s, JSON_EACH(s.results) r
-			 WHERE s.results IS NOT NULL AND JSON_VALID(s.results)
-			   AND JSON_TYPE(s.results) = 'array'
-			   AND JSON_TYPE(r.value, '$.run_id') = 'text'
-			   AND JSON_EXTRACT(r.value, '$.run_id') IN (%s)
-			 ORDER BY s.id`, placeholders)
+			SELECT run_id, sweep_id, mode FROM (
+				SELECT JSON_EXTRACT(r.value, '$.run_id') AS run_id, s.sweep_id, s.mode, s.id AS sid
+				  FROM lidar_tuning_sweeps s, JSON_EACH(s.results) r
+				 WHERE s.results IS NOT NULL AND JSON_VALID(s.results)
+				   AND JSON_TYPE(s.results) = 'array'
+				   AND JSON_TYPE(r.value, '$.run_id') = 'text'
+				UNION ALL
+				SELECT JSON_EXTRACT(r.value, '$.run_id'), s.sweep_id, s.mode, s.id
+				  FROM lidar_tuning_sweeps s, JSON_EACH(s.checkpoint_results) r
+				 WHERE s.checkpoint_results IS NOT NULL AND JSON_VALID(s.checkpoint_results)
+				   AND JSON_TYPE(s.checkpoint_results) = 'array'
+				   AND JSON_TYPE(r.value, '$.run_id') = 'text'
+			)
+			 WHERE run_id IN (%s)
+			 ORDER BY sid`, placeholders)
 		rows, err := db.Query(query, args...)
 		if err != nil {
 			return nil, fmt.Errorf("sweeps for runs: %w", err)

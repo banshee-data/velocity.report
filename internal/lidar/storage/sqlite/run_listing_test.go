@@ -41,6 +41,31 @@ func TestSweepsForRunsReadsEachCombinationsRun(t *testing.T) {
 	}
 }
 
+// A checkpointed sweep stores its runs in checkpoint_results at each round
+// and keeps them there when a restart suspends it; its runs still fold.
+func TestSweepsForRunsReadsACheckpointedSweep(t *testing.T) {
+	db := setupClipFilesDB(t)
+	if _, err := db.Exec(`INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, checkpoint_round, checkpoint_results, started_at)
+		VALUES ('sweep-s', 'hesai-pandar40p', 'auto', 'suspended', '{}', 2, '[{"run_id":"run-7","score":0.4},{"run_id":"run-8"}]', '2026-11-07T00:00:00Z')`); err != nil {
+		t.Fatalf("insert suspended sweep: %v", err)
+	}
+	// A completed sweep whose final results repeat its checkpoint's runs.
+	insertListingSweep(t, NewSweepStore(db), "sweep-c", "auto", `[{"run_id":"run-9"}]`)
+	if _, err := db.Exec(`UPDATE lidar_tuning_sweeps SET checkpoint_results = '[{"run_id":"run-9"}]' WHERE sweep_id = 'sweep-c'`); err != nil {
+		t.Fatalf("set checkpoint: %v", err)
+	}
+
+	got, err := SweepsForRuns(db, []string{"run-7", "run-8", "run-9"})
+	if err != nil {
+		t.Fatalf("SweepsForRuns: %v", err)
+	}
+	for id, want := range map[string]string{"run-7": "sweep-s", "run-8": "sweep-s", "run-9": "sweep-c"} {
+		if got[id].SweepID != want || got[id].Mode != "auto" {
+			t.Errorf("%s: got %+v, want %s/auto", id, got[id], want)
+		}
+	}
+}
+
 func TestAttachRunSweepsLeavesUnmatchedRunsAlone(t *testing.T) {
 	db := setupClipFilesDB(t)
 	insertListingSweep(t, NewSweepStore(db), "sweep-a", "sweep", `[{"run_id":"run-1"}]`)
