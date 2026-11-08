@@ -224,7 +224,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
-		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentContainmentClaim, ExperimentContestedRejoin,
+		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentConsistentCovarianceCap, ExperimentConsistentSpeedClamp, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
 		ExperimentFixedLagRTS, ExperimentFlipRule,
@@ -243,7 +243,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyRectangleSigmaWide,
 		ExperimentSolidBodyReferenceTranslation,
 		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentSurfaceGround, ExperimentSurfaceGround5m, ExperimentSurfaceGroundGlobal, ExperimentTentativePriority,
-		ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
+		ExperimentTwoPointVelocityInit, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -271,6 +271,15 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentFlipRule:          func(c *l5tracks.TrackerConfig) { c.OBBHeadingFlipRule = true },
 		ExperimentMeasurementTime:   func(c *l5tracks.TrackerConfig) { c.MeasurementTimePrediction = true },
 		ExperimentCaptureGapPredict: func(c *l5tracks.TrackerConfig) { c.CaptureGapPrediction = true },
+		ExperimentTwoPointVelocityInit: func(c *l5tracks.TrackerConfig) {
+			c.TwoPointVelocityInit = true
+		},
+		ExperimentConsistentCovarianceCap: func(c *l5tracks.TrackerConfig) {
+			c.ConsistentCovarianceCap = true
+		},
+		ExperimentConsistentSpeedClamp: func(c *l5tracks.TrackerConfig) {
+			c.ConsistentSpeedClamp = true
+		},
 		ExperimentCoastTimeInflation: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.CaptureTimeInflation = true })
 		},
