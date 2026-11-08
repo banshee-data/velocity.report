@@ -33,7 +33,7 @@ func TestTheServerStartsOnlyWithTheCatalogueItWasGiven(t *testing.T) {
 		return func(format string, args ...any) { *into = append(*into, fmt.Sprintf(format, args...)) }
 	}
 	c := mustLoadSegmentSelectors("", record(&fatal), record(&logged))
-	if c == nil || len(fatal) != 0 || len(logged) != 1 || !strings.HasPrefix(logged[0], "Loaded 7 segment selectors from embedded (sha256:") {
+	if c == nil || len(fatal) != 0 || len(logged) != 1 || !strings.HasPrefix(logged[0], "Loaded 8 segment selectors from embedded (sha256:") {
 		t.Fatalf("the binary's own copy: %v, fatal %q, logged %q", c, fatal, logged)
 	}
 	fatal, logged = nil, nil

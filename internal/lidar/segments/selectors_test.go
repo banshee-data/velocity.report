@@ -60,7 +60,7 @@ func TestTheShippedSelectorFileParses(t *testing.T) {
 	for _, s := range c.Selectors {
 		ids = append(ids, s.ID)
 	}
-	if want := []string{"following", "close_following", "exposure", "random", "leader_changes", "lateral_jump", "split_flags"}; !reflect.DeepEqual(ids, want) {
+	if want := []string{"following", "close_following", "exposure", "random", "random_180s", "leader_changes", "lateral_jump", "split_flags"}; !reflect.DeepEqual(ids, want) {
 		t.Fatalf("selectors %v, want %v in file order", ids, want)
 	}
 	if c.Version != SelectorsVersion || c.Source != filepath.Clean(shippedSelectorFile) || !strings.HasPrefix(c.Digest, "sha256:") || len(c.Digest) != 71 {
@@ -70,7 +70,7 @@ func TestTheShippedSelectorFileParses(t *testing.T) {
 	for _, s := range c.ForRole("held_out") {
 		heldOut = append(heldOut, s.ID)
 	}
-	if want := []string{"following", "exposure", "random"}; !reflect.DeepEqual(heldOut, want) {
+	if want := []string{"following", "exposure", "random", "random_180s"}; !reflect.DeepEqual(heldOut, want) {
 		t.Fatalf("held-out selectors %v, want %v", heldOut, want)
 	}
 	if len(c.ForRole("tuning")) != len(c.Selectors) || len(c.ForRole("validation")) != 0 {
@@ -208,7 +208,7 @@ func TestTheSelectorFileIsStrict(t *testing.T) {
 func TestOnlyAStandardDefinitionChoosesHeldOutWindows(t *testing.T) {
 	c := shippedCatalogue(t)
 	for id, want := range map[string]bool{
-		"following": true, "exposure": true, "random": true,
+		"following": true, "exposure": true, "random": true, "random_180s": true,
 		"close_following": false, "leader_changes": false, "lateral_jump": false, "split_flags": false,
 	} {
 		if got := selectorFrom(t, c, id).HeldOut(); got != want {
@@ -232,6 +232,56 @@ func TestOnlyAStandardDefinitionChoosesHeldOutWindows(t *testing.T) {
 		if s.HeldOut() {
 			t.Errorf("%s: still held-out eligible", name)
 		}
+	}
+}
+
+func TestOnlyTheRandomDrawWidensForHeldOutAndOnlyToListedWidths(t *testing.T) {
+	c := shippedCatalogue(t)
+	wide := selectorFrom(t, c, "random_180s")
+	if wide.Parameters.WindowSeconds != 180 || !HeldOutParameters("random", wide.Parameters) {
+		t.Fatalf("random_180s as read: %+v", wide.Parameters)
+	}
+	for name, change := range map[string]func(*Selector){
+		"an unlisted width":  func(s *Selector) { s.Parameters.WindowSeconds = 60 },
+		"another seed":       func(s *Selector) { s.Parameters.RandomSeed = 7 },
+		"another min speed":  func(s *Selector) { s.Parameters.MinSpeed = 0 },
+		"the smallest first": func(s *Selector) { s.Score.Order = "ascending" },
+		"a requirement":      func(s *Selector) { s.Require = []Requirement{{Measure: "draw", Min: new(float64)}} },
+	} {
+		s := wide
+		s.Require = append([]Requirement(nil), wide.Require...)
+		change(&s)
+		if s.HeldOut() {
+			t.Errorf("%s: still held-out eligible", name)
+		}
+	}
+	// The width is the random draw's alone: a traffic finder at 180 s could
+	// rank a window by what the tracker does inside it.
+	for _, finder := range []string{"following", "exposure"} {
+		p := DefaultParams()
+		p.WindowSeconds = 180
+		if HeldOutParameters(finder, p) {
+			t.Errorf("%s at 180 s may choose a held-out window", finder)
+		}
+	}
+	if !HeldOutParameters("following", DefaultParams()) {
+		t.Error("the defaults stopped being held-out parameters")
+	}
+	// The draw places 180 s windows from the capture's packet times alone and
+	// keeps one per capture, as at 10 s.
+	capture := Capture{Path: "/captures/a.pcapng", FirstNs: 1_000_000_000_000, LastNs: 1_000_000_000_000 + 1200*1_000_000_000}
+	windows, err := Rank(nil, wide, "src", "held_out", []Capture{capture})
+	if err != nil || len(windows) != 1 {
+		t.Fatalf("draw: %v %+v", err, windows)
+	}
+	w := windows[0]
+	if w.EndNs-w.StartNs != 180*1_000_000_000 || w.StartNs < capture.FirstNs+35_000_000_000 || w.EndNs > capture.LastNs ||
+		w.Capture != capture.Path || w.Role != "held_out" {
+		t.Fatalf("drawn window: %+v", w)
+	}
+	again, _ := Rank(nil, wide, "src", "held_out", []Capture{capture})
+	if again[0].ID != w.ID {
+		t.Fatal("the same draw on the same capture chose another window")
 	}
 }
 
@@ -313,7 +363,7 @@ func TestSelectorFilesAreFoundAndRead(t *testing.T) {
 	if _, err := LoadSelectorsOrEmbedded(bad, shipped); err == nil {
 		t.Fatal("an invalid file fell back to the embedded copy")
 	}
-	if c, err := LoadSelectorsOrEmbedded(filepath.Join(dir, "missing.json"), shipped); err != nil || c.Source != "embedded" || len(c.Selectors) != 7 {
+	if c, err := LoadSelectorsOrEmbedded(filepath.Join(dir, "missing.json"), shipped); err != nil || c.Source != "embedded" || len(c.Selectors) != 8 {
 		t.Fatalf("embedded fallback: %v", err)
 	}
 	if _, err := LoadSelectorsOrEmbedded(filepath.Join(dir, "missing.json"), nil); err == nil || !strings.Contains(err.Error(), "none is embedded") {
