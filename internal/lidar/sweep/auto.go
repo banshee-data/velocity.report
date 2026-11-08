@@ -466,6 +466,7 @@ func (at *AutoTuner) runFromRound(
 			PCAPStartSecs:    req.PCAPStartSecs,
 			PCAPDurationSecs: req.PCAPDurationSecs,
 			SettleMode:       req.SettleMode,
+			ClipID:           req.ClipID,
 		}
 
 		// Start the sweep for this round
