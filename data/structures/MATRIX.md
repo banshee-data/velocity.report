@@ -141,6 +141,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Runs           | `run_track_api.go`      | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | -   | ✅  |
 | Runs           | `run_track_api.go`      | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`   | ✅  | -   | -   |
 | Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}/labelling-progress`   | ✅  | ✅  | ✅  |
+| Runs           | `run_frame_api.go`      | `GET /api/lidar/runs/{id}/vrlog-frame`          | ✅  | ✅  | -   |
 | Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}/statistics`           | ✅  | 🔶  | -   |
 | Runs           | `run_track_api.go`      | `POST /api/lidar/runs/{id}/reprocess`           | ✅  | -   | -   |
 | Runs           | `run_track_api.go`      | `POST /api/lidar/runs/{id}/evaluate`            | ✅  | -   | -   |

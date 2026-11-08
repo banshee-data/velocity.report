@@ -28,7 +28,7 @@
 	import TimelinePane from '#lib/components/lidar/TimelinePane.svelte';
 	import TrackList from '#lib/components/lidar/TrackList.svelte';
 	import { unixNanosToMillis } from '#lib/dateUtils.js';
-	import { clipQuery, runQuery, visualiserLink } from '#lib/lidarLinks.js';
+	import { clipQuery, frameInstantNs, runQuery, visualiserLink } from '#lib/lidarLinks.js';
 	import { clipForRun, runsOfClip, shortDigest } from '#lib/lidarRecords.js';
 	import type { PageClock } from '#lib/scene/sceneClock.js';
 	import type {
@@ -89,46 +89,59 @@
 
 	// Open in visualiser: the run in the macOS app, paused on the frame on
 	// screen here. The frame is the run's VRLOG index, which only the server
-	// can read, so it is looked up once playback rests and again on click.
+	// can read, so it is looked up once the clock has rested (never while
+	// playing or mid-scrub) and again on click. Each lookup is numbered, and
+	// only the latest one's answer is kept, so a slow reply for an earlier
+	// instant cannot overwrite a later one.
+	const FRAME_LOOKUP_REST_MS = 600;
 	let visualiserFrame: number | null = null;
 	let visualiserNote: string | null = null;
 	let frameLookupTimer: ReturnType<typeof setTimeout> | null = null;
+	let frameLookupSeq = 0;
 	$: visualiserURL = selectedRunId ? visualiserLink(selectedRunId, visualiserFrame) : null;
-	$: scheduleFrameLookup(selectedRunId, Math.round(selectedTime), isPlaying);
+	$: scheduleFrameLookup(selectedRunId, selectedTime, isPlaying);
 
 	function scheduleFrameLookup(runId: string | null, timeMs: number, playing: boolean) {
 		if (frameLookupTimer) clearTimeout(frameLookupTimer);
 		frameLookupTimer = null;
+		frameLookupSeq += 1; // whatever is in flight is now stale
 		if (!runId) {
 			visualiserFrame = null;
 			visualiserNote = null;
 			return;
 		}
 		if (playing) return;
-		frameLookupTimer = setTimeout(() => void lookUpFrame(runId, timeMs), 300);
+		frameLookupTimer = setTimeout(() => void lookUpFrame(runId, timeMs), FRAME_LOOKUP_REST_MS);
 	}
 
+	/** The frame on screen at timeMs, or null; kept only if no later lookup began. */
 	async function lookUpFrame(runId: string, timeMs: number): Promise<number | null> {
+		const seq = ++frameLookupSeq;
+		const current = () => seq === frameLookupSeq && runId === selectedRunId;
+		let frame: number | null = null;
+		let note: string | null = null;
 		try {
-			const found = await getRunVrlogFrame(runId, timeMs);
-			if (runId !== selectedRunId) return null;
-			visualiserFrame = found.frame;
-			visualiserNote = null;
-			return found.frame;
-		} catch {
-			if (runId !== selectedRunId) return null;
-			visualiserFrame = null;
-			visualiserNote =
-				'No recording to find the frame in; the visualiser opens the run at its start.';
-			return null;
+			const found = await getRunVrlogFrame(runId, frameInstantNs(timeMs));
+			if (found.frame === null) {
+				note = `No frame to name (${found.reason}); the visualiser opens the run at its start.`;
+			} else {
+				frame = found.frame;
+			}
+		} catch (e) {
+			note = `${e instanceof Error ? e.message : 'Could not find the frame'}; the visualiser opens the run at its start.`;
 		}
+		if (!current()) return null;
+		visualiserFrame = frame;
+		visualiserNote = note;
+		return frame;
 	}
 
 	async function openInVisualiser() {
 		if (!selectedRunId) return;
 		const runId = selectedRunId;
-		const frame = await lookUpFrame(runId, Math.round(selectedTime));
-		window.location.assign(visualiserLink(runId, frame));
+		const frame = await lookUpFrame(runId, selectedTime);
+		if (runId !== selectedRunId) return;
+		window.location.assign(visualiserLink(runId, frame ?? visualiserFrame));
 	}
 
 	function runOptionLabel(run: Run): string {

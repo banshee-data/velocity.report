@@ -1,5 +1,6 @@
 import {
 	clipQuery,
+	frameInstantNs,
 	linkedId,
 	linkedRun,
 	runQuery,
@@ -79,5 +80,21 @@ describe('visualiserLink', () => {
 
 	it('encodes a run id a URL cannot carry as is', () => {
 		expect(visualiserLink('a b/c', 1)).toBe('velocityreport://run/a%20b%2Fc?frame=1');
+	});
+});
+
+describe('frameInstantNs', () => {
+	it('floors the player clock to the millisecond and adds its slack, as nanosecond text', () => {
+		expect(frameInstantNs(1_794_153_505_434.9)).toBe('1794153505436000000');
+		expect(frameInstantNs(1_794_153_505_434)).toBe('1794153505436000000');
+	});
+
+	it('reaches the frame the clock shows, which can sit just over a millisecond later', () => {
+		// The clock starts from the recording's start truncated to whole ms.
+		const startNs = 1_788_290_733_019_394_330n;
+		const frameNs = startNs + 300_000_123n;
+		const clockMs = Number(startNs / 1_000_000n) + Number((frameNs - startNs) / 1_000n) / 1000;
+		expect(BigInt(frameInstantNs(clockMs))).toBeGreaterThanOrEqual(frameNs);
+		expect(BigInt(frameInstantNs(clockMs))).toBeLessThan(frameNs + 100_000_000n);
 	});
 });

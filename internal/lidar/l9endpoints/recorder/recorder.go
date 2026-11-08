@@ -640,16 +640,23 @@ func (r *Replayer) CurrentFrame() uint64 {
 const frameAtCandidates = 8
 
 // FrameAt names the record a link to an instant should open at: the 0-based
-// index of a rotation frame, as a velocityreport:// link counts. Of the
-// records stamped inside the log's own span (StartNs to EndNs, which only
-// rotation frames set), it takes the earliest at or after the instant, else
-// the latest before it, and steps past background snapshots. A snapshot can
-// carry a wall-clock time outside the span when a capture is replayed, or
-// share a rotation's time inside it, so the index alone cannot tell them
-// apart: each candidate is read to check its type, and one that cannot be
-// read is taken as it is. A log without a recorded span considers every
-// record. The read position is left where it was. ok is false when no
+// index of the rotation frame on screen at that instant, as the web player
+// and a velocityreport:// link count it. That is the latest record at or
+// before the instant, or the earliest after it when none is.
+//
+// Only records stamped inside the log's own span (StartNs to EndNs, which
+// only rotation frames set) are considered, and background snapshots are
+// stepped past. A snapshot can carry a wall-clock time outside the span when
+// a capture is replayed, or a rotation's own time inside it. The index holds
+// no frame type, so a candidate is read to check its type only when its place
+// in the record order is ambiguous: a rotation recorded in time order is
+// stamped strictly between the records either side of it, and a snapshot that
+// copies a time is not. A candidate that cannot be read is taken as it is. A
+// log without a recorded span considers every record. ok is false when no
 // record qualifies.
+//
+// FrameAt moves the read position to check a candidate and puts it back, so
+// it must not share a Replayer with playback: open one for the lookup.
 func (r *Replayer) FrameAt(timestampNs int64) (frame uint64, ok bool) {
 	type stamped struct {
 		idx int
@@ -657,9 +664,11 @@ func (r *Replayer) FrameAt(timestampNs int64) (frame uint64, ok bool) {
 	}
 	r.mu.Lock()
 	bounded := r.header.StartNs != 0 || r.header.EndNs != 0
+	byIndex := make([]int64, len(r.index))
 	entries := make([]stamped, 0, len(r.index))
 	for i, entry := range r.index {
 		ts := entry.TimestampNs
+		byIndex[i] = ts
 		if bounded && (ts < r.header.StartNs || ts > r.header.EndNs) {
 			continue
 		}
@@ -677,25 +686,49 @@ func (r *Replayer) FrameAt(timestampNs int64) (frame uint64, ok bool) {
 		}
 		return entries[a].idx < entries[b].idx
 	})
-	pos := sort.Search(len(entries), func(i int) bool { return entries[i].ts >= timestampNs })
-	// Forward from the first at or after the instant, then back from it.
+	// The first entry after the instant; the one before it is on screen.
+	after := sort.Search(len(entries), func(i int) bool { return entries[i].ts > timestampNs })
 	order := make([]int, 0, 2*frameAtCandidates)
-	for i := pos; i < len(entries) && i < pos+frameAtCandidates; i++ {
-		order = append(order, i)
-	}
-	for i := pos - 1; i >= 0 && i >= pos-frameAtCandidates; i-- {
-		order = append(order, i)
+	if after > 0 {
+		// Back from the latest at or before the instant, then forward.
+		for i := after - 1; i >= 0 && i >= after-frameAtCandidates; i-- {
+			order = append(order, i)
+		}
+		for i := after; i < len(entries) && i < after+frameAtCandidates; i++ {
+			order = append(order, i)
+		}
+	} else {
+		for i := 0; i < len(entries) && i < frameAtCandidates; i++ {
+			order = append(order, i)
+		}
 	}
 
+	inOrder := func(idx int) bool {
+		ts := byIndex[idx]
+		if idx > 0 && byIndex[idx-1] >= ts {
+			return false
+		}
+		if idx < len(byIndex)-1 && byIndex[idx+1] <= ts {
+			return false
+		}
+		return true
+	}
+	moved := false
 	defer func() {
-		r.mu.Lock()
-		r.currentFrame = saved
-		r.mu.Unlock()
+		if moved {
+			r.mu.Lock()
+			r.currentFrame = saved
+			r.mu.Unlock()
+		}
 	}()
 	for _, i := range order {
-		idx := uint64(entries[i].idx)
-		if !r.isBackgroundAt(idx) {
-			return idx, true
+		idx := entries[i].idx
+		if inOrder(idx) {
+			return uint64(idx), true
+		}
+		moved = true
+		if !r.isBackgroundAt(uint64(idx)) {
+			return uint64(idx), true
 		}
 	}
 	return uint64(entries[order[0]].idx), true

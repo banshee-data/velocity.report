@@ -8,8 +8,9 @@ import (
 )
 
 // A replay records background snapshots stamped with the wall clock, far
-// after the capture's own times. FrameAt must name rotation frames by the
-// capture's clock and never land on such a snapshot.
+// after the capture's own times, or with a rotation's own time. FrameAt must
+// name the rotation on screen at an instant (the latest at or before it) and
+// never land on a snapshot.
 func TestFrameAtSkipsSnapshotsStampedOutsideTheSpan(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "run.vrlog")
 	rec, err := NewRecorder(path, "hesai-pandar40p")
@@ -54,11 +55,12 @@ func TestFrameAtSkipsSnapshotsStampedOutsideTheSpan(t *testing.T) {
 	}{
 		{"the first rotation, not the snapshot stamped with its time", start, 1},
 		{"an exact rotation", start + 200_000_000, 3},
-		{"between rotations: the next", start + 150_000_000, 3},
+		{"between rotations: the one on screen, at or before", start + 150_000_000, 2},
+		{"just before a rotation: the one before it", start + 299_999_999, 3},
 		{"after the snapshot inside the record order", start + 500_000_000, 7},
 		{"the last rotation, not a later-stamped snapshot", start + 600_000_000, 8},
 		{"past the end: the last rotation", wall + 1_000, 8},
-		{"before the start: the first rotation", start - 1_000_000_000, 1},
+		{"before the start: falls forward to the first rotation", start - 1_000_000_000, 1},
 	}
 	for _, c := range cases {
 		got, ok := rep.FrameAt(c.at)

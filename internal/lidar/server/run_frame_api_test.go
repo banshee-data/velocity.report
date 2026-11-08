@@ -15,8 +15,8 @@ func getRunFrame(ws *Server, runID, query string) *httptest.ResponseRecorder {
 	return rec
 }
 
-// An instant maps to the index of the first recorded frame at or after it,
-// which is the frame a velocityreport:// link opens the visualiser on.
+// An instant maps to the index of the frame on screen at it, the latest
+// recorded at or before it, which a velocityreport:// link opens on.
 func TestRunFrameMapsAnInstantToTheRecordingsFrameIndex(t *testing.T) {
 	dir := t.TempDir()
 	vrlog := writeSceneTestVRLOG(t, dir, 10)
@@ -29,7 +29,7 @@ func TestRunFrameMapsAnInstantToTheRecordingsFrameIndex(t *testing.T) {
 	}{
 		{start, 0},
 		{start + 300_000_000, 3},
-		{start + 250_000_000, 3}, // between frames: the next one
+		{start + 250_000_000, 2}, // between frames: the one on screen
 		{start - 1_000_000_000, 0},
 		{start + 60_000_000_000, 9}, // past the end: the last
 	}

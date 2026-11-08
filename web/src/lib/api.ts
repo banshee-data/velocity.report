@@ -1008,19 +1008,26 @@ export async function getRunTracks(runId: string): Promise<RunTrack[]> {
 }
 
 /**
- * getRunVrlogFrame names the frame of a run's recording at an instant: the
- * 0-based VRLOG index the macOS visualiser counts in, for a velocityreport://
- * link. `atMs` is whole Unix milliseconds; the server takes nanoseconds, built
- * here as text since they pass Number.MAX_SAFE_INTEGER.
+ * getRunVrlogFrame names the frame of a run's recording on screen at an
+ * instant: the 0-based VRLOG index the macOS visualiser counts in, for a
+ * velocityreport:// link. `atNs` is Unix nanoseconds as text (frameInstantNs).
+ * A run with no recording to read answers `{ frame: null, reason }`; any other
+ * failure throws.
  */
 export async function getRunVrlogFrame(
 	runId: string,
-	atMs: number
-): Promise<{ frame: number; total_frames: number }> {
-	const atNs = `${Math.round(atMs)}000000`;
+	atNs: string
+): Promise<{ frame: number; total_frames: number } | { frame: null; reason: string }> {
 	const res = await fetch(
-		`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}/vrlog-frame?at_ns=${atNs}`
+		`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}/vrlog-frame?at_ns=${encodeURIComponent(atNs)}`
 	);
+	if (res.status === 404) {
+		const body = await res.json().catch(() => ({}));
+		return {
+			frame: null,
+			reason: typeof body?.error === 'string' ? body.error : 'this run has no recording'
+		};
+	}
 	if (!res.ok) throw apiError('Could not find the frame in the run’s recording', res.status);
 	return res.json();
 }
