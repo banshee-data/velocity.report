@@ -19,6 +19,7 @@
 		getCapturePeriods,
 		getCaptureRoots,
 		getCaptureSessions,
+		getLidarClips,
 		queueMissingMotionPasses,
 		scanCaptureRoots,
 		setCaptureSessionLabel,
@@ -33,10 +34,8 @@
 		formatWindow,
 		gradeSelection,
 		jobProgressPercent,
-		periodTrim,
 		captureFolder,
 		probeCounts,
-		probedFiles,
 		sessionShare,
 		trimWindow,
 		zoneLabel
@@ -52,6 +51,17 @@
 		sessionName,
 		sessionsWithoutMotionPass
 	} from '#lib/captures/progress.js';
+	import {
+		clipDurationText,
+		clipWindow,
+		composerSummary,
+		describePlannedClip,
+		isClipPeriod,
+		clipsOverlapping,
+		planKey,
+		planPeriodClips,
+		type PlannedClip
+	} from '#lib/captures/periodClips.js';
 	import { pickActiveRoot, rootLabel } from '#lib/captures/roots.js';
 	import { clipQuery } from '#lib/lidarLinks.js';
 	import {
@@ -77,6 +87,7 @@
 		type MotionPeriod,
 		type PeriodClip
 	} from '#lib/types/captures.js';
+	import type { LidarClip } from '#lib/types/lidar.js';
 	import { resolve } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -154,6 +165,26 @@
 	// hand-picked set of captures has none.
 	let casePeriodId: string | null = null;
 
+	// Clips from periods: the static periods toggled on in the expanded
+	// session, the descriptions the operator has edited by each planned clip's
+	// first period, and what the last make produced.
+	let selectedPeriodIds: string[] = [];
+	let periodDescriptionEdits: Record<string, string> = {};
+	let makingPeriodClips = false;
+	let madePeriodClips: { clip_id: string; description: string }[] = [];
+	let periodClipErrors: string[] = [];
+	// Every clip, to warn when a planned clip's window overlaps one already
+	// made, whatever period it was cut from.
+	let existingClips: LidarClip[] = [];
+
+	async function loadExistingClips() {
+		try {
+			existingClips = await getLidarClips();
+		} catch {
+			existingClips = [];
+		}
+	}
+
 	// Publishing: the survey id the dataset will know the clip by, the scene
 	// viewer's north azimuth, and whether to cut the standalone extract now.
 	let datasetIdDraft = '';
@@ -202,6 +233,21 @@
 		sequenceStartNs != null ? trimWindow(sequenceStartNs, caseStartSecs, caseDurationSecs) : null;
 	$: expandedPeriods = expandedSessionId ? (periodsBySession[expandedSessionId] ?? []) : [];
 	$: expandedShare = sessionShare(expandedPeriods);
+	// Until a session takes its site from a deployment, the site is the
+	// operator's name for the session, else the folder its captures sit in.
+	$: periodSite =
+		expandedSession?.label ||
+		(expandedSessionId ? folderBySession[expandedSessionId] : '') ||
+		sessionName(expandedSession ?? undefined, 'Unnamed site');
+	$: periodPlans = planPeriodClips(expandedPeriods, selectedPeriodIds);
+	$: periodPlanRows = periodPlans.map((plan) => ({
+		plan,
+		key: planKey(plan),
+		window: clipWindow(plan, sessionFiles),
+		description: periodDescriptionEdits[planKey(plan)] ?? describePlannedClip(periodSite, plan),
+		existing: clipsOverlapping(plan, existingClips, sessionFiles).map((c) => c.clip_id)
+	}));
+	$: makeablePlanRows = periodPlanRows.filter((row) => row.window?.usable);
 	$: activeJobs = jobs.filter((j) => j.state === JOB_QUEUED || j.state === JOB_RUNNING);
 	$: runningJobs = activeJobs.filter((j) => j.state === JOB_RUNNING);
 	$: queuedJobs = activeJobs.filter((j) => j.state === JOB_QUEUED);
@@ -411,6 +457,8 @@
 		}
 		expandedSessionId = sessionId;
 		selectedFileIds = [];
+		clearPeriodSelection();
+		madePeriodClips = [];
 		caseStartSecs = '';
 		caseDurationSecs = '';
 		createdMessage = null;
@@ -437,37 +485,98 @@
 		createError = null;
 	}
 
-	/**
-	 * Select every capture the period covers. This is the common case by a
-	 * distance: an operator wants the stretch the motion pass found, not an
-	 * arbitrary set of files, and the stretch usually spans a boundary.
-	 */
-	function selectPeriod(period: MotionPeriod) {
-		const matched = sessionFiles.filter(
-			(f) =>
-				f.first_packet_ns != null &&
-				f.last_packet_ns != null &&
-				f.last_packet_ns > period.start_ns &&
-				f.first_packet_ns < period.end_ns
-		);
-		selectedFileIds = matched.map((f) => f.capture_file_id);
-		casePeriodId = period.period_id;
-		caseDescription = `${expandedSession?.label || 'session'} ${period.label}`;
+	/** Toggle a static period in or out of the clips the composer will make. */
+	function togglePeriod(period: MotionPeriod) {
+		if (!isClipPeriod(period)) return;
+		selectedPeriodIds = selectedPeriodIds.includes(period.period_id)
+			? selectedPeriodIds.filter((id) => id !== period.period_id)
+			: [...selectedPeriodIds, period.period_id];
+		madePeriodClips = [];
+		periodClipErrors = [];
+	}
 
-		// The period usually starts after the first matched file's own start —
-		// that file's leading seconds are motion, from before the sensor
-		// settled. Defaulting the trim to the period's own bounds excludes
-		// them, rather than replaying the whole first file.
-		const ordered = probedFiles(matched);
-		const firstNs = ordered[0]?.first_packet_ns;
-		if (firstNs != null) {
-			const trim = periodTrim(period, firstNs);
-			caseStartSecs = trim.startSecs.toFixed(2);
-			caseDurationSecs = trim.durationSecs.toFixed(2);
-		}
+	function clearPeriodSelection() {
+		selectedPeriodIds = [];
+		periodDescriptionEdits = {};
+		periodClipErrors = [];
+	}
+
+	function editPeriodDescription(key: string, value: string) {
+		periodDescriptionEdits = { ...periodDescriptionEdits, [key]: value };
+	}
+
+	/**
+	 * Load one planned clip into the capture form below, for a clip that
+	 * needs a location, publishing settings or a trim of its own.
+	 */
+	function openPlanInForm(plan: PlannedClip, description: string) {
+		const window = clipWindow(plan, sessionFiles);
+		if (!window) return;
+		selectedFileIds = window.files.map((f) => f.capture_file_id);
+		casePeriodId = plan.periods[0].period_id;
+		caseDescription = description;
+		caseStartSecs = window.startSecs.toFixed(2);
+		caseDurationSecs = window.durationSecs.toFixed(2);
 		createdMessage = null;
 		createdClipId = null;
 		createError = null;
+	}
+
+	/**
+	 * Make one clip per planned run of static periods, in order. Each clip
+	 * records its first period as its source; a refusal is reported beside
+	 * the others rather than stopping them.
+	 */
+	async function makePeriodClips() {
+		if (!expandedSessionId || makeablePlanRows.length === 0) return;
+		const sessionId = expandedSessionId;
+		makingPeriodClips = true;
+		madePeriodClips = [];
+		periodClipErrors = [];
+		const made: { clip_id: string; description: string }[] = [];
+		const errors: string[] = [];
+		let extractQueued = false;
+		for (const row of makeablePlanRows) {
+			const window = row.window;
+			if (!window) continue;
+			const labels = row.plan.periods.map((p) => p.label).join(', ');
+			try {
+				const created = await createClipFromCaptures({
+					sensor_id: caseSensorId,
+					pcap_files: window.files.map((f) => f.rel_path),
+					pcap_start_secs: Number(window.startSecs.toFixed(3)),
+					pcap_duration_secs: Number(window.durationSecs.toFixed(3)),
+					description: row.description.trim() || undefined,
+					session_id: sessionId,
+					source_period_id: row.plan.periods[0].period_id
+				});
+				made.push({ clip_id: created.clip_id, description: row.description });
+				if (extractAfterCreate) {
+					try {
+						await startClipExtract(created.clip_id);
+						extractQueued = true;
+					} catch (e) {
+						errors.push(
+							`${labels}: clip made, extract not queued: ${e instanceof Error ? e.message : 'unknown error'}`
+						);
+					}
+				}
+			} catch (e) {
+				errors.push(`${labels}: ${e instanceof Error ? e.message : 'could not make the clip'}`);
+			}
+		}
+		madePeriodClips = made;
+		periodClipErrors = errors;
+		if (made.length > 0) {
+			selectedPeriodIds = [];
+			periodDescriptionEdits = {};
+			await Promise.all([refreshPeriods([sessionId]), loadExistingClips()]);
+		}
+		if (extractQueued) {
+			jobs = await getCaptureJobs({ limit: jobListLimit() });
+			startJobPolling();
+		}
+		makingPeriodClips = false;
 	}
 
 	async function queueMotionPass() {
@@ -672,6 +781,7 @@
 	}
 
 	onMount(() => {
+		void loadExistingClips();
 		loadIndex().then(() => {
 			if (destroyed) return;
 			if (jobs.some(isActiveJob)) startJobPolling();
@@ -1138,23 +1248,41 @@
 											<div class="flex flex-wrap gap-1.5">
 												{#each expandedPeriods as p (p.period_id)}
 													{@const pc = clipsByPeriod[p.period_id]}
+													{@const chosen = selectedPeriodIds.includes(p.period_id)}
 													<span class="inline-flex items-center gap-1">
-														<button
-															class="rounded border px-2 py-1 font-mono text-xs {p.type === 'static'
-																? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-																: 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'}"
-															title="{formatClock(p.start_ns, true)} → {formatClock(
-																p.end_ns,
-																true
-															)}"
-															on:click={() => selectPeriod(p)}
-														>
-															{p.label}
-															<span class="opacity-60"
-																>{formatDuration(p.duration_ns / 1_000_000_000)}</span
+														{#if p.type === 'static'}
+															<button
+																class="rounded border px-2 py-1 font-mono text-xs {chosen
+																	? 'border-emerald-600 bg-emerald-600 text-white'
+																	: 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}"
+																title="{formatClock(p.start_ns, true)} → {formatClock(
+																	p.end_ns,
+																	true
+																)}{pc ? ' · already cut as a clip' : ''}"
+																aria-pressed={chosen}
+																on:click={() => togglePeriod(p)}
 															>
-															{#if pc?.located}<span title="Located">📍</span>{/if}
-														</button>
+																{p.label}
+																<span class="opacity-60"
+																	>{formatDuration(p.duration_ns / 1_000_000_000)}</span
+																>
+																{#if pc}<span title="Already cut as a clip">✂</span>{/if}
+																{#if pc?.located}<span title="Located">📍</span>{/if}
+															</button>
+														{:else}
+															<span
+																class="rounded border border-amber-300 bg-amber-50 px-2 py-1 font-mono text-xs text-amber-800"
+																title="{formatClock(p.start_ns, true)} → {formatClock(
+																	p.end_ns,
+																	true
+																)} · the sensor was moving, so no clip includes this period"
+															>
+																{p.label}
+																<span class="opacity-60"
+																	>{formatDuration(p.duration_ns / 1_000_000_000)}</span
+																>
+															</span>
+														{/if}
 														{#if p.type === 'static' && expandedSessionId}
 															<!-- eslint-disable svelte/no-navigation-without-resolve -->
 															<a
@@ -1168,9 +1296,121 @@
 												{/each}
 											</div>
 											<p class="text-surface-content/40 mt-1 text-xs">
-												Selecting a period picks every capture it covers — which for a static
-												stretch is usually more than one.
+												Select static periods to make clips from them: one clip per period, or one
+												per run of periods with no motion between them. Motion is never part of a
+												clip.
 											</p>
+
+											<!-- Clips from the selected periods -->
+											{#if periodPlanRows.length > 0}
+												<div class="border-primary/40 bg-primary/5 mt-3 rounded border p-3">
+													<div class="mb-2 flex items-center justify-between gap-2">
+														<h3 class="text-surface-content text-sm font-medium">
+															{composerSummary(periodPlans)}
+														</h3>
+														<button
+															class="text-surface-content/60 hover:text-surface-content text-xs"
+															on:click={clearPeriodSelection}>Clear</button
+														>
+													</div>
+													<ul class="space-y-2">
+														{#each periodPlanRows as row (row.key)}
+															<li class="text-xs">
+																<div class="flex flex-wrap items-center gap-2">
+																	<span class="text-surface-content font-mono"
+																		>{row.plan.periods.map((p) => p.label).join(' + ')}</span
+																	>
+																	<span class="text-surface-content/60"
+																		>{clipDurationText(row.plan.durationSecs)}{row.window
+																			? ` across ${row.window.files.length} capture${row.window.files.length === 1 ? '' : 's'}`
+																			: ''}</span
+																	>
+																	{#if row.window}
+																		<button
+																			class="text-primary hover:underline"
+																			title="Load this clip into the capture form below, to set its location, publishing or trim"
+																			on:click={() => openPlanInForm(row.plan, row.description)}
+																			>Open in form</button
+																		>
+																	{/if}
+																</div>
+																{#if !row.window}
+																	<p class="mt-1 text-red-600">
+																		No probed capture covers this period, so it cannot be a clip
+																		yet.
+																	</p>
+																{:else if !row.window.usable}
+																	<p class="mt-1 text-red-600">{row.window.reason}</p>
+																{:else}
+																	<input
+																		class="border-surface-300 bg-surface-100 mt-1 w-full rounded border px-2 py-1 text-xs"
+																		aria-label="Description for {row.plan.periods
+																			.map((p) => p.label)
+																			.join(' + ')}"
+																		value={row.description}
+																		on:input={(e) =>
+																			editPeriodDescription(row.key, e.currentTarget.value)}
+																	/>
+																{/if}
+																{#if row.existing.length > 0}
+																	<p class="text-surface-content/60 mt-1">
+																		Overlaps clip
+																		{#each row.existing as clipId, i (clipId)}
+																			<!-- eslint-disable svelte/no-navigation-without-resolve -->
+																			<a
+																				class="text-primary hover:underline"
+																				href={`${resolve('/lidar/clips')}?${clipQuery(clipId)}`}
+																				>{clipId.substring(0, 8)}</a
+																			>{i < row.existing.length - 1 ? ', ' : ''}
+																			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+																		{/each}; making it adds another clip over the same stretch.
+																	</p>
+																{/if}
+															</li>
+														{/each}
+													</ul>
+													<div class="mt-3 flex flex-wrap items-center gap-3">
+														<label class="text-surface-content/70 flex items-center gap-1 text-xs">
+															<input type="checkbox" bind:checked={extractAfterCreate} />
+															Cut each extract after making it
+														</label>
+														<Button
+															variant="fill"
+															color="primary"
+															size="sm"
+															disabled={makingPeriodClips || makeablePlanRows.length === 0}
+															on:click={makePeriodClips}
+														>
+															{makingPeriodClips
+																? 'Making…'
+																: `Make ${makeablePlanRows.length} clip${makeablePlanRows.length === 1 ? '' : 's'}`}
+														</Button>
+													</div>
+												</div>
+											{/if}
+											{#if madePeriodClips.length > 0 || periodClipErrors.length > 0}
+												<div class="mt-3 text-xs" role="status">
+													{#if madePeriodClips.length > 0}
+														<p class="text-green-700">
+															Made {madePeriodClips.length} clip{madePeriodClips.length === 1
+																? ''
+																: 's'}:
+															{#each madePeriodClips as made, i (made.clip_id)}
+																<!-- eslint-disable svelte/no-navigation-without-resolve -->
+																<a
+																	class="text-primary hover:underline"
+																	href={`${resolve('/lidar/clips')}?${clipQuery(made.clip_id)}`}
+																	>{made.description || made.clip_id.substring(0, 8)}</a
+																>{i < madePeriodClips.length - 1 ? ', ' : ''}
+																<!-- eslint-enable svelte/no-navigation-without-resolve -->
+															{/each}
+														</p>
+													{/if}
+													{#each periodClipErrors as message (message)}
+														<p class="text-red-600">{message}</p>
+													{/each}
+												</div>
+											{/if}
 										</div>
 									{/if}
 
