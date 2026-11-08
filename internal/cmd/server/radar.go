@@ -1440,9 +1440,20 @@ func (a *hintLabelAdapter) UpdateTrackLabel(runID, trackID, userLabel, qualityLa
 // It creates a single-combo sweep run to generate a reference run with given params.
 type hintRunCreator struct {
 	runner *sweep.Runner
+
+	// pollInterval is how often the runner's state is read while the
+	// reference run replays; zero means every 2 s. timeout bounds the whole
+	// run; zero means 5 minutes. Tests shorten both.
+	pollInterval time.Duration
+	timeout      time.Duration
+	// settleTime, interval and iterations override the runner's sampling
+	// defaults (5 s settle, 30 samples 2 s apart) when set. Tests shorten them.
+	settleTime string
+	interval   string
+	iterations int
 }
 
-func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error) {
+func (a *hintRunCreator) CreateSweepRun(run sweep.ReferenceRun) (string, error) {
 	// Stop any lingering sweep in the Runner before starting the reference run.
 	// HINT owns the orchestration at this point, so it's safe to reclaim the Runner.
 	a.runner.StopAndWait(5 * time.Second)
@@ -1450,9 +1461,9 @@ func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 	// For HINT reference runs, we start a single-combo sweep with the given params.
 	// Parse paramsJSON into a single-combination sweep: one SweepParam per key with a single fixed value.
 	var sweepParams []sweep.SweepParam
-	if len(paramsJSON) > 0 && string(paramsJSON) != "null" {
+	if len(run.ParamsJSON) > 0 && string(run.ParamsJSON) != "null" {
 		var rawParams map[string]interface{}
-		if err := json.Unmarshal(paramsJSON, &rawParams); err != nil {
+		if err := json.Unmarshal(run.ParamsJSON, &rawParams); err != nil {
 			return "", fmt.Errorf("parsing paramsJSON for reference run: %w", err)
 		}
 		for name, value := range rawParams {
@@ -1473,24 +1484,38 @@ func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 		}
 	}
 
+	// "capture" is the data source the runner replays; any other value runs
+	// the sweep against the live sensor, which starts no analysis run and
+	// leaves the reference run without an ID.
 	req := sweep.SweepRequest{
-		DataSource:       "pcap",
-		PCAPFile:         pcapFile,
-		PCAPStartSecs:    pcapStartSecs,
-		PCAPDurationSecs: pcapDurationSecs,
+		DataSource:       "capture",
+		PCAPFile:         run.PCAPFile,
+		PCAPStartSecs:    run.PCAPStartSecs,
+		PCAPDurationSecs: run.PCAPDurationSecs,
+		ClipID:           run.ClipID,
 		Params:           sweepParams,
 		EnableRecording:  true,
+		SettleTime:       a.settleTime,
+		Interval:         a.interval,
+		Iterations:       a.iterations,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	timeout := a.timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	if err := a.runner.StartWithRequest(ctx, req); err != nil {
 		return "", fmt.Errorf("creating reference run: %w", err)
 	}
 
-	// Poll for completion using a ticker
-	ticker := time.NewTicker(2 * time.Second)
+	pollInterval := a.pollInterval
+	if pollInterval <= 0 {
+		pollInterval = 2 * time.Second
+	}
+	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
 	for {
@@ -1502,6 +1527,14 @@ func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 			if state.Status == sweep.SweepStatusComplete || state.Status == sweep.SweepStatusError {
 				if len(state.Results) > 0 && state.Results[0].RunID != "" {
 					return state.Results[0].RunID, nil
+				}
+				// Say why, when the runner knows: a replay that failed to
+				// start is recorded as an error or a warning.
+				if state.Error != "" {
+					return "", fmt.Errorf("reference run completed without run ID: %s", state.Error)
+				}
+				if len(state.Warnings) > 0 {
+					return "", fmt.Errorf("reference run completed without run ID: %s", strings.Join(state.Warnings, "; "))
 				}
 				return "", fmt.Errorf("reference run completed without run ID")
 			}

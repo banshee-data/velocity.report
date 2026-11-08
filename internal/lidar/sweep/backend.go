@@ -82,6 +82,9 @@ type PCAPReplayConfig struct {
 	// directory to apply before the replay; empty keeps the parameters the
 	// server has.
 	TuningConfigPath string
+	// ClipID names the clip this replay belongs to, so the run record it
+	// starts names the clip as a clip replay's does. Empty leaves it null.
+	ClipID string
 }
 
 // WaitForPCAPDone blocks on a channel until it is closed or ctx is cancelled.

@@ -142,8 +142,7 @@ func TestHintRunCreatorRejectsMalformedParams(t *testing.T) {
 
 	// Malformed params are caught before any sweep is started, so this
 	// returns without touching the backend.
-	_, err := creator.CreateSweepRun("test-sensor", "scene.pcap",
-		json.RawMessage("{not json"), 0, 1)
+	_, err := creator.CreateSweepRun(sweep.ReferenceRun{SensorID: "test-sensor", PCAPFile: "scene.pcap", ParamsJSON: json.RawMessage("{not json"), PCAPStartSecs: 0, PCAPDurationSecs: 1})
 	if err == nil {
 		t.Fatal("CreateSweepRun with malformed params succeeded, want an error")
 	}
@@ -160,7 +159,7 @@ func TestHintRunCreatorInfersParamTypes(t *testing.T) {
 	// the run right after the request is built, which is all this needs.
 	params := json.RawMessage(`{"seed_from_first":true,"mode":"fast","noise_relative":0.01}`)
 
-	_, err := creator.CreateSweepRun("test-sensor", "scene.pcap", params, 0, 1)
+	_, err := creator.CreateSweepRun(sweep.ReferenceRun{SensorID: "test-sensor", PCAPFile: "scene.pcap", ParamsJSON: params, PCAPStartSecs: 0, PCAPDurationSecs: 1})
 	if err == nil {
 		t.Fatal("CreateSweepRun succeeded against a failing backend, want an error")
 	}
@@ -176,7 +175,7 @@ func TestHintRunCreatorAcceptsNullParams(t *testing.T) {
 
 	// A literal JSON null means "no parameter overrides" and must be treated
 	// as an empty sweep rather than a parse error.
-	_, err := creator.CreateSweepRun("test-sensor", "scene.pcap", json.RawMessage("null"), 0, 1)
+	_, err := creator.CreateSweepRun(sweep.ReferenceRun{SensorID: "test-sensor", PCAPFile: "scene.pcap", ParamsJSON: json.RawMessage("null"), PCAPStartSecs: 0, PCAPDurationSecs: 1})
 	if err == nil {
 		t.Fatal("CreateSweepRun succeeded against a failing backend, want an error")
 	}

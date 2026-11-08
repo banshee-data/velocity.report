@@ -55,10 +55,15 @@ type SweepRequest struct {
 	Params []SweepParam `json:"params,omitempty"`
 
 	// Data source
-	DataSource       string  `json:"data_source,omitempty"`        // "live" (default) or "pcap"
+	DataSource       string  `json:"data_source,omitempty"`        // "live" (default) or "capture" (replay PCAPFile)
 	PCAPFile         string  `json:"pcap_file,omitempty"`          // filename (basename only)
 	PCAPStartSecs    float64 `json:"pcap_start_secs,omitempty"`    // start offset in seconds
 	PCAPDurationSecs float64 `json:"pcap_duration_secs,omitempty"` // duration in seconds (-1 = full)
+
+	// ClipID names the clip the capture window belongs to. Every run the
+	// sweep starts records it, as a clip replay's run does; empty leaves the
+	// runs without one.
+	ClipID string `json:"clip_id,omitempty"`
 
 	// Sampling
 	Iterations int    `json:"iterations"`  // samples per combo
@@ -502,6 +507,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 				AnalysisMode:     true,
 				SpeedMode:        "realtime",
 				DisableRecording: !req.EnableRecording,
+				ClipID:           req.ClipID,
 			}
 
 			// If speed_ratio is a sweep variable, use "scaled" mode with the specified ratio
