@@ -89,6 +89,7 @@ flowchart TB
     l4clus0007["<b>l4clus0007</b><br/>The mean of a cluster's returns on the…<br/>answered · 8m machine + 30m person (took 20m)<br/>manual: write"]:::answered
     l4clus0008["<b>l4clus0008</b><br/>Bounded motion-supported joining of…<br/>approved · 14m machine + 5h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
     l4clus0009["<b>l4clus0009</b><br/>Why more returns make more switches, and…<br/>answered · 24m machine + 1h person (took 25m)<br/>manual: write"]:::answered
+    l4clus0010["<b>l4clus0010</b><br/>Does motion-supported joining carry a…<br/>approved · 16m machine + 4h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
   end
   subgraph area_l5est ["l5est: L5 state estimation"]
     l5est0001["<b>l5est0001</b><br/>The trail's noise model: what the…<br/>proposed · 2h30m machine + 5h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::proposed
@@ -212,6 +213,7 @@ flowchart TB
   l3bg0029 --> l4clus0006
   l4clus0003 --> l4clus0008
   l4clus0005 --> l4clus0009
+  l4clus0008 --> l4clus0010
   figure0002 --> l5est0003
   l5est0003 --> l5est0004
   geom0008 --> l5id0001
@@ -270,6 +272,7 @@ flowchart TB
 - [l3bg0026](l3bg/l3bg0026.md) A boundary vote on the L3 grid: the dilated foreground edge decided by 3-D distance to its neighbours, in both directions, scored on W3 retention against false foreground: proposed, awaiting approval; 4h6m machine + 5h30m person; asks [lidar-processing-v2-segmentation-review #refine-the-boundary-not-the-win…](../../docs/lidar/operations/lidar-processing-v2-segmentation-review.md#refine-the-boundary-not-the-window), [w3-return-fate-stage-b-kirk0-2026-10](../../docs/lidar/operations/w3-return-fate-stage-b-kirk0-2026-10.md), [lidar-tracker-geometry-convergence-plan #43-what-they-expose](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#43-what-they-expose).
 - [l3bg0030](l3bg/l3bg0030.md) A convergence criterion relative to the scene's spread: does the background settle by it, and at what cost: proposed, awaiting approval; 3h4m machine + 4h person; after l3bg0022; asks [settling-convergence-corpus-2026-11 #recommendations](../../docs/lidar/operations/settling-convergence-corpus-2026-11.md#recommendations), [experiment-review-2026-11-05 #d-what-counts-as-noise](../../docs/lidar/operations/experiment-review-2026-11-05.md#d-what-counts-as-noise).
 - [l4clus0008](l4clus/l4clus0008.md) Bounded motion-supported joining of vehicle fragments: ready, but a step needs tooling; 14m machine + 5h person; after l4clus0003; asks [BACKLOG](../../docs/BACKLOG.md), [spatialrust-segmentation-review #proposed-experiments-and-coding…](../../docs/lidar/operations/spatialrust-segmentation-review.md#proposed-experiments-and-coding-sequence).
+- [l4clus0010](l4clus/l4clus0010.md) Does motion-supported joining carry a truck's extent evidence to the solid body, and which gap stops it: waiting on a dependency; 16m machine + 4h person; after l4clus0008; asks [lidar-tracker-geometry-convergence-plan #w3-cloud-joining-candidate](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#w3-cloud-joining-candidate), [w3-motion-fragment-joining-cloud-2026-11](../../docs/lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md), [facet-f0-attribution-kirk0-report](../../docs/lidar/operations/facet-f0-attribution-kirk0-report.md).
 - [l5est0001](l5est/l5est0001.md) The trail's noise model: what the filter's process noise does to the published trail, and what it costs: proposed, awaiting approval; 2h30m machine + 5h person; asks [lidar-state-estimation-plan #54-what-is-in-the-state-and-wha…](../../docs/plans/lidar-state-estimation-plan.md#54-what-is-in-the-state-and-what-is-not), [adaptive-uncertainty-criteria #evidence-so-far](../../docs/lidar/operations/adaptive-uncertainty-criteria.md#evidence-so-far), [geom0012](../../data/experiments/geom/geom0012.md).
 - [l5est0002](l5est/l5est0002.md) The published trail as the whole-track smoother's estimate, not the online posterior: proposed, awaiting approval; 10h44m machine + 4h person; asks [lidar-web-scene-export-plan](../../docs/plans/lidar-web-scene-export-plan.md), [retrospective-refinement-criteria #selection-rule](../../docs/lidar/operations/retrospective-refinement-criteria.md#selection-rule), [lidar-state-estimation-plan #10-retrospective-refinement](../../docs/plans/lidar-state-estimation-plan.md#10-retrospective-refinement).
 - [l5est0004](l5est/l5est0004.md) A looser velocity process noise as an identity lever: does kirk0's gain hold on the corpus, label-free, and on the held-out window?: proposed, awaiting approval; 2h38m machine + 1h person; after l5est0003; asks [cloud-run-kirk0-labelled-2026-11 #l5est0003-the-filters-velocity-…](../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md#l5est0003-the-filters-velocity-on-kirk0s-trucks).
@@ -370,5 +373,5 @@ flowchart TB
 
 ## Totals
 
-- 40 open experiments: 73h45m machine + 261h40m person estimated.
+- 41 open experiments: 74h1m machine + 265h40m person estimated.
 - Longest chain of open work, machine and person time together: lane0001 → l5id0008 → l5id0009 → l5id0010, 69h57m.
