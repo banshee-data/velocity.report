@@ -416,6 +416,7 @@ Deployment, reporting and publishing (October 26, 2026): the slots that were v0.
 
 ## Parked (outside the slot cap)
 
+- **P1** Lane review across the city: travel-lane proposals and authored lanes keyed by city street segment (CNN) and direction rather than by site, one Approve that Gerardus authors and velocity.report pulls on a schedule (Send removed), segments coloured by review state in city mode, each proposal's grade shown with its arithmetic and the gap to the next, stop lines proposed from where traffic stops, and direction names derived from the street; OSM a backdrop and export mapping only; the owner places it in a slot: [design doc](plans/lidar-lane-review-citywide-plan.md) `L` {frontend} `S-UI`
 - **P1** Broadway–Franklin registration correction: restore the indexed 3DEP source, prepare the reference bundle for `808580c27`, and rerun the original registration arms and four background windows from `(37.7955, -122.4249)`; the prior failures used a point about 179 m away and do not qualify the corrected site. Preserve the old evidence and publish the corrected site and dataset identifiers together: [correction record](lidar/operations/broadway-franklin-location-correction.md) `S` `S-REF`
 
 - **P2** Causal validation of hard-braking crash surrogates: once physical/derivative gates and independent multi-site crash/outcome exposure data exist, test intervention-specific mediation, the surrogate paradox and transportability before safety claims: [research note](research/2026-11-05-causal-surrogate-validation.md) `S` {math} `S-MET`

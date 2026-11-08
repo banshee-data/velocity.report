@@ -13,7 +13,8 @@ comes from static files: no new server endpoints.
 - **Layers:** macOS visualiser; web scene player (`public_html/`); offline scene tooling
   (`tools/s2-archive/`, `tools/s2-hilbert/`)
 - **Target:** unscheduled; owner decision, 2026-11-04
-- **Companion plans:** [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md) (scene format),
+- **Companion plans:** [lidar-lane-review-citywide-plan](lidar-lane-review-citywide-plan.md)
+  (lane review state drawn on the city's street segments), [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md) (scene format),
   [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md) (which scenes
   exist), [lidar-visualiser-gerardus-alignment-plan](lidar-visualiser-gerardus-alignment-plan.md)
   (accepted poses); Gerardus
