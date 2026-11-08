@@ -34,11 +34,12 @@ LIDAR_B='^internal/lidar/(segments|lidarbench|storage/sqlite|pcapsplit)$'
 LIDAR='^(internal/lidar|internal/cmd/(root|server|tune)|cmd/velocity)(/|$)'
 API='^internal/api(/|$)'
 
-# The original long-running replay tests stay in replay-a. The solid-body,
-# near-edge and fragment-join tests added since that split get replay-c:
-# replay-b timed out after 25 minutes on #986 while replay-a took 9.4 minutes.
+# The original long-running replay tests stay in replay-a. Move observation
+# frame/tap, likelihood and fragment-join replays to replay-c: replay-b timed
+# out after 25 minutes on #986 while replay-a took 9.4 minutes. These tests
+# compile under -race; the full solid-body evidence tests explicitly do not.
 REPLAY_A_TESTS='^(TestWarmupPrefixAndScoringManifest|TestObservationStoragePreservesReplayBaseline|TestCampaignMetricsPreserveTrackingBaseline)$'
-REPLAY_C_TESTS='^(TestSolidBody.*OnKirk0|TestNearEdgeTrack.*OnKirk0|TestBoxExtentFromSolidBodyOnKirk0|TestFixedLagRTSWithNearEdgeTrackOnKirk0|TestFragmentJoinTrackMembershipOnKirk0)$'
+REPLAY_C_TESTS='^(TestObservationFrames.*|TestFrameTapReadsWithoutChanging|TestLikelihoodCostsOnKirk0|TestFragmentJoinTrackMembershipOnKirk0)$'
 REPLAY_NAMED_TESTS="$REPLAY_A_TESTS|$REPLAY_C_TESTS"
 
 replay_args() {
@@ -87,16 +88,21 @@ check() {
 		exit 1
 	fi
 	echo "ok: $(wc -l <<<"$all" | tr -d ' ') packages, each in exactly one shard"
+	check_replay
+	check_replay -race
+}
+
+check_replay() {
 	# Check the replay filter patterns too: no test may be duplicated or
 	# omitted when a named group changes. -list ignores -run and -skip,
 	# so use the run pattern as -list's pattern and filter the skip pattern.
 	local tests selected shard
 	local -a filters
-	tests=$(go test -tags=pcap -list '^Test' ./internal/lidar/replayeval | grep '^Test' | sort)
+	tests=$(go test "$@" -tags=pcap -list '^Test' ./internal/lidar/replayeval | grep '^Test' | sort)
 	selected=$(for shard in replay-a replay-b replay-c; do
 		mapfile -t filters < <(replay_args "$shard")
 		if [ "${filters[0]}" = -run ]; then
-			go test -tags=pcap -list "${filters[1]}" ./internal/lidar/replayeval | grep '^Test'
+			go test "$@" -tags=pcap -list "${filters[1]}" ./internal/lidar/replayeval | grep '^Test'
 		else
 			grep -vE "${filters[1]}" <<<"$tests"
 		fi
@@ -106,7 +112,7 @@ check() {
 		diff <(echo "$tests") <(echo "$selected") >&2 || true
 		exit 1
 	fi
-	echo "ok: $(wc -l <<<"$tests" | tr -d ' ') replay tests, each in exactly one shard"
+	echo "ok: $(wc -l <<<"$tests" | tr -d ' ') replay tests (${*:-without race}), each in exactly one shard"
 }
 
 run() {
@@ -129,7 +135,8 @@ run() {
 	if [[ "$shard" = replay-* ]]; then
 		local -a filters
 		mapfile -t filters < <(replay_args "$shard")
-		args+=("${filters[@]}")
+		# Include per-test durations so future rebalancing can use CI logs.
+		args+=(-v "${filters[@]}")
 	fi
 	# The replay shards each hold one long-running package; Go's default
 	# 10-minute per-package timeout is too tight for them on a slow runner.
