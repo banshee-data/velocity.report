@@ -40,16 +40,27 @@ struct FacetPoseProposalPane: View {
                         !ready || features.poseProposalBusy)
                     if features.poseProposalBusy { ProgressView().controlSize(.small) }
                     if let result = session.currentFacetPoseProposal {
+                        let measuredYaw =
+                            result.constraint == FacetPoseProposal.normalPositionAndYaw
+                        let yawSource: String =
+                            measuredYaw ? "measured from the edge normals" : "prior only"
+                        let yawDegrees: Double = result.yaw.rad * 180 / Double.pi
+                        let yawBoundDegrees: Double = result.yaw.boundRad * 180 / Double.pi
                         Text(
-                            result.constraint == "normal_position_given_prior_yaw"
-                                ? "Edge normal constrained · tangential position retained from prior"
+                            measuredYaw
+                                ? "Edge normal and yaw measured · tangential position retained from prior"
                                 : "Planar position constrained given prior yaw"
                         ).font(.caption.bold())
                         Text(
                             "Centre \(result.centre.xM, specifier: "%.2f"), \(result.centre.yM, specifier: "%.2f") ± \(result.centre.boundM, specifier: "%.2f") m"
                         ).font(.caption.monospacedDigit())
                         Text(
-                            "Yaw remains prior-only; height is not measured. Orange footprint and hidden ends are predictions from the fixed source body."
+                            "Yaw \(yawDegrees, specifier: "%.1f")° ± \(yawBoundDegrees, specifier: "%.1f")° · \(yawSource)"
+                        ).font(.caption2.monospacedDigit())
+                        Text(
+                            measuredYaw
+                                ? "Height is not measured. Orange footprint and hidden ends are predictions from the fixed source body."
+                                : "Yaw remains prior-only; height is not measured. Orange footprint and hidden ends are predictions from the fixed source body."
                         ).font(.caption2).foregroundStyle(.orange)
                         if let normal = result.normal, let bound = result.normalBoundM,
                             let tangent = result.tangentBoundM

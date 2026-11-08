@@ -41,6 +41,32 @@ func TestSegmentRelationLeavesTangentUnresolvedAndPropagatesBounds(t *testing.T)
 	}
 }
 
+// A constant-elevation ring on a flat vertical side sags in z across the
+// face. Straightness is a plan-view property, so a 0.2 m sag passes a 0.05 m
+// return bound while a 0.2 m bend in plan view is refused.
+func TestSegmentRelationTestsStraightnessInPlanView(t *testing.T) {
+	flat := Points{X: []float32{8, 9.5, 11, 12.5}, Y: []float32{-0.9, -0.9, -0.9, -0.9}, Z: []float32{1, .8, .8, 1}}
+	indices := []uint32{0, 1, 2, 3}
+	centre := PlanarBound{XM: 10, BoundM: 0.2}
+	yaw := AngleBound{BoundRad: 0.05}
+	line, _, err := featureSegmentRelation(flat, indices, 0, 3, centre, yaw, 0.05)
+	if err != nil {
+		t.Fatal("flat panel with an elevation sag refused:", err)
+	}
+	if math.Abs(line.NormalX) > 1e-9 || math.Abs(line.NormalY-1) > 1e-9 {
+		t.Fatal("sag tilted the horizontal normal", line)
+	}
+	// Endpoints at different heights do not tilt the plan-view line either.
+	flat.Z[3] = 2
+	if _, _, err = featureSegmentRelation(flat, indices, 0, 3, centre, yaw, 0.05); err != nil {
+		t.Fatal("endpoint height difference refused a flat panel:", err)
+	}
+	bent := Points{X: []float32{8, 9.5, 11, 12.5}, Y: []float32{-0.9, -0.7, -0.7, -0.9}, Z: []float32{1, 1, 1, 1}}
+	if _, _, err = featureSegmentRelation(bent, indices, 0, 3, centre, yaw, 0.05); err == nil || !strings.Contains(err.Error(), "plan view") {
+		t.Fatal("plan-view bend accepted", err)
+	}
+}
+
 func TestSegmentRelationRefusesDegenerateUnsupportedAndNonfiniteInputs(t *testing.T) {
 	cases := []string{"same", "missing", "sparse", "duplicate", "outside", "nonfinite", "zero bound", "bad centre", "bad yaw", "short", "vertical", "curve", "large return bound", "wide yaw", "overflow"}
 	for _, name := range cases {
