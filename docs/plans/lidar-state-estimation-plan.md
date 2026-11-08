@@ -1436,14 +1436,11 @@ candidate, the lifecycle is not initialising, and the course does not contradict
   a short half-extent for a long one, and places the centre too far from the sensor. Read it
   inside `solid_body_face_state`, where a second face can pull the extent back, and not as a
   replacement for the shipped belief on its own.
-- Under `ExtentState`, with `CensoredExtent` or `SpanBoundsBelief`, the frame's bound truncates the
-  `hL` or `hW` marginal below at half the bound. The truncation goes through the joint state's
-  regression on it, in the same form `truncateAxis` uses for position. A truncation moment-matched
-  back to a Gaussian still has mass below the bound. Applying the same bound on every frame would
-  therefore narrow the posterior every frame, and so would applying the history's maximum on every
-  frame. So a frame's bound is applied once, and only when it is higher than every bound already
-  applied. The containment truncation reads the state's `hL` and `hW`, with their standard
-  deviations as the upper tail, and also truncates the joint state.
+- Under `ExtentState`, with `CensoredExtent` or `SpanBoundsBelief`, the frame's bound holds `hL`
+  or `hW` at or above half the bound by projection, through the joint state's regression on it,
+  and leaves the covariance unchanged (see "Defects fixed" below). The containment truncation
+  reads the state's `hL` and `hW`, with their standard deviations as the upper tail, and also
+  truncates the joint state.
 - `SpanBoundsBelief` alone raises the belief's estimate to the bound, so the face update on the
   same frame uses a half-extent at least half the bound. It does not change the belief's
   provenance, so a class-prior face is still excluded.
@@ -1471,6 +1468,29 @@ shipped update holds the centre 0.71 m from truth on both end faces, which is ha
 With `ExtentState` the second end face brings the half-length to 2.21 m (truth 2.25 m), and the
 departure centre error to 0.05 m. No replay arm has run. Scoring `solid_body_face_state` against
 geom0015's box rows on kirk0 is in the checklist.
+
+**Defects fixed.** Two defects in the extent state, both on `ExtentState` alone, both default-off.
+
+- _Span bounds overshot._ The bound was a moment-matched lower truncation. Its mean lands above
+  the bound by `σ·λ(α)`. On the box pass the first frame's bound, `hL ≥ 2.186 m`, took `hL` from
+  1.562 m (σ 0.75 m) to 2.606 m: a 5.21 m length against the 4.494 m span the frame observed. The
+  returned Gaussian then had mass below the bound again. So the next frame's bound, a few
+  millimetres higher and from the same returns, truncated it again as if it were new evidence: a
+  5 mm rise moved `hL` 78 mm and cut its sigma from 0.294 m to 0.237 m. The pass ended at
+  `hL` 2.457 m with a departure error of 0.190 m, against 2.214 m and 0.054 m without bounds. The
+  bound is now an inequality projection. When `hL` is below `l = b/2` the state moves by
+  `P g (l − gᵀx̂)/(gᵀPg)`, which puts `hL` exactly on the bound: the mode of the truncated
+  Gaussian. `P` is unchanged. Any sequence of bounds now leaves the mean where the highest alone
+  puts it, and no number of bounds narrows sigma. The apply-once rule is gone. With bounds the
+  pass now ends at `hL` 2.262 m, with approach and departure errors of 0.024 m and 0.006 m, on
+  the shadow and the tracked filter alike.
+- _Half-extents could reach zero._ Nothing held `h` positive. A face whose plane jumps inboard
+  moves `h` by its gain, and the medoid update and the speed clamp move it by its covariance. Under
+  the fragment join on kirk0 this wrote a 0 m length on three rows (the W3 truck-membership kirk0
+  report, PR #986). Every step that moves
+  the extents now ends with the same projection at a floor of 0.10 m, half the extent belief's
+  floor. A frame's bounds are taken together with that floor, as the two-constraint problem
+  `min (h − ĥ)ᵀ P_hh⁻¹ (h − ĥ)` subject to `h ≥ l`, solved by its active set.
 
 ### 9.3 Decision gate G-GEO-1
 

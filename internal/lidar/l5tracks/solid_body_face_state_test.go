@@ -497,38 +497,6 @@ func TestLowerTruncatedMomentsMatchTheTwoSidedFormAndTheTail(t *testing.T) {
 	}
 }
 
-// Under ExtentState a bound truncates the half-extent once; repeating it
-// narrows nothing, and a higher bound applies.
-func TestExtentStateAppliesABoundOnceAndAHigherOneAgain(t *testing.T) {
-	var sb solidBodyTrack
-	sb.p = [16]float32{0.1, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
-	sb.ext = solidBodyExtent{on: true, h: [2]float32{2.25, 0.95}, phh: [4]float32{0.5625, 0, 0, 0.5625},
-		pxh: [8]float32{0.05, 0, 0, 0, 0, 0, 0, 0}}
-	bounds := [2]float32{6, 0}
-	if touched := sb.applyExtentBounds(bounds); !touched[0] || touched[1] {
-		t.Fatalf("touched %v, want the length alone", touched)
-	}
-	h, v := sb.ext.h[0], sb.ext.phh[0]
-	if h < 3 || v >= 0.5625 {
-		t.Fatalf("after a 6 m bound hL %.3f m with variance %.3f, want at least 3 m and narrower", h, v)
-	}
-	// The position moved by its covariance with hL.
-	if sb.state[0] == 0 {
-		t.Fatal("the bound did not move the correlated position")
-	}
-	for i := 0; i < 20; i++ {
-		if touched := sb.applyExtentBounds(bounds); touched[0] {
-			t.Fatalf("the same bound applied again on repeat %d", i)
-		}
-	}
-	if sb.ext.h[0] != h || sb.ext.phh[0] != v {
-		t.Fatalf("repeated bounds moved hL to %.4f with variance %.4f", sb.ext.h[0], sb.ext.phh[0])
-	}
-	if touched := sb.applyExtentBounds([2]float32{6.5, 0}); !touched[0] || sb.ext.h[0] <= h {
-		t.Fatalf("a higher bound did not apply: %v, hL %.3f", touched, sb.ext.h[0])
-	}
-}
-
 func TestSpanBoundsBeliefHoldsTheBeliefAtTheFramesSpan(t *testing.T) {
 	cfg := solidBodyConfig()
 	cfg.SolidBody.SpanBoundsBelief = true
