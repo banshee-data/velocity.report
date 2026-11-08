@@ -1045,6 +1045,7 @@ func Main(args []string) int {
 		// Set up sweep persistence
 		sweepStore := sqlite.NewSweepStore(lidarDB)
 		recoverOrphanedSweepsOnStart(sweepStore, log.Default())
+		recoverOrphanedRunsOnStart(sqlite.NewRunStore(lidarDB), log.Default())
 		lidarServer.SetSweepStore(sweepStore)
 		sweepRunner.SetPersister(sweepStore)
 		autoTuner.SetPersister(sweepStore)
