@@ -131,6 +131,11 @@ The production pipeline uses four math-heavy layers:
   tail, negative information from the L3 baseline, prior work from Petrovskaya to X-ICP, expected
   shortcomings, side effects, and the revisions made to the plan. Arithmetic checks recorded; no
   implementation or measured result.
+- [Face state estimation and CV/CA tracking](proposals/20261108-face-state-and-cv-ca-maths-review.md):
+  November review of the near-edge face update, the extent belief and the CV filter's dynamics:
+  extents as state, a censored extent posterior, orientation variance in the face noise,
+  two-point velocity initialisation, the facet proposal's discarded yaw, and the coast rule and
+  likelihood an IMM over CV and CA needs. Derivations and simulations; no replay run.
 - [Positional uncertainty for exported scene geometry](proposals/20261027-geometry-prior-positional-uncertainty.md):
   Linear worst-case half-widths for a vertex in a geometry-prior file: one return's range, azimuth
   and elevation terms, edge sampling, fit residual, simplification, storage and registration,
