@@ -1524,14 +1524,11 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		trackerConfig.SolidBody = opts
 		trackerConfig.NearEdgeTracking = trackerConfig.NearEdgeTracking || hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = trackerConfig.NearEdgeMedoidGate || hasExperiment(experiments, ExperimentNearEdgeTrackA1)
-		if trackerConfig.NearEdgeTracking && opts.ExtentState {
-			// The tracked filter carries no extents and ignores the option,
-			// so the arm would run as near_edge_track without it and be
-			// reported under its name.
-			return l5tracks.TrackerConfig{}, fmt.Errorf(
-				"replay experiments %s and %s put the extents in the shadow solid body's filter, which %s replaces with the tracked one; name one",
-				ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState, ExperimentNearEdgeTrack)
-		}
+		// With near_edge_track the extent state is the tracked filter's: it
+		// carries the extent block through prediction, the cap, the speed
+		// clamp and the medoid update, and the faces update it jointly
+		// (l5tracks near_edge_tracking.go), so the combination is an arm of
+		// its own and needs no refusal.
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
 		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment || rectangle || rectangleHeading || courseFusion || sigmaScale > 0 ||
 		faceState != (l5tracks.SolidBodyOptions{}) ||

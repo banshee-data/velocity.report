@@ -526,7 +526,46 @@ first later cluster explained at least twice as well by one of them decides: the
 continuing is a genuine manoeuvre (persistent), the track's own path continuing is a spurious
 measurement (transient); nothing within three association frames is unresolved.
 
-## 13. References
+## 13. Joint extent covariance and the projected surface
+
+Behind `SolidBodyOptions.ExtentState` (experiment `solid_body_extent_state`), from
+[the face-state maths review §3.1](proposals/20261108-face-state-and-cv-ca-maths-review.md#31-the-half-extent-is-a-state-not-a-constant).
+Default off: with it off every output is unchanged, which a digest test pins.
+
+**State.** `x = [x, y, vx, vy, hL, hW]`. The transition is the constant-velocity `F` on the first
+four states and the identity on the half-extents, with process noise `(0.02 m)²/s` on each. With
+the cross block `P_xh = Cov([x, y, vx, vy], [hL, hW])`, prediction gives
+`P_xh ← F₄ P_xh` (the position rows gain `Δt` times the velocity rows) and
+`P_hh ← P_hh + q_h Δt`. A face with outward normal `n` measures `z = n·c + h` with
+`H = [n_x, n_y, 0, 0, 1, 0]`, or the `hW` column for a side face.
+
+**Tracked filter.** Under `NearEdgeTracking` the same block is the tracked filter's. The 4×4
+stays `TrackedObject.P`; every step that changes it changes the extent rows too. The covariance cap
+scales the joint matrix's capped rows and columns, `P ← D P D`. The consistent speed clamp regresses
+all six states on the along-track speed. The medoid update, with tracked gain `K` and `A = H P_xh`,
+applies `h ← h + Aᵀ S⁻¹ y`, `P_hh ← P_hh − Aᵀ S⁻¹ A` and `P_xh ← P_xh − K A`. Association is
+unchanged: the A2 gate is the 2×2 position innovation against the 4×4, with the state's `h` as if
+exact. Along a face normal its variance therefore differs from the joint innovation's by
+`Var(h) + 2 nᵀP_ch`.
+
+**Projected surface.** With body axis `u`, `d = +u` for the front and `−u` for the rear, the
+surface is `c + hL d`. Along `d` its variance is
+
+`Var(d·c + hL) = uᵀ P_cc u + Var(hL) + 2 dᵀ P_ch`
+
+where `P_ch` is the position's covariance with `hL`. The orientation term `hL² σ_ψ²` is added as
+before. An end face measures `d·c + hL` directly, so after it the two parts are negatively
+correlated along `d`. The joint bound on that surface is then tighter than the independent sum
+`uᵀ P_cc u + Var(hL)`. When the parts are positively correlated along `d`, the joint bound is wider.
+`SurfaceProjection.JointBound` says which form was used. `ProjectSurfaceJoint` refuses the
+independent form, which is the suppression Section 5.4 of the state plan asks for.
+
+**Published and persisted.** The reading carries `P_xh` and `P_hh` beside its 4×4. A store writes
+the 6×6 under `state_model = cv_cartesian_extent_v1` and reads it back by that name, never by its
+length. A smoothed reading drops the extent blocks, because the smoother revises only
+`[x, y, vx, vy]` and the online `P_xh` describes the online position.
+
+## 14. References
 
 | Reference                       | BibTeX key        | Relevance                                                                                     |
 | ------------------------------- | ----------------- | --------------------------------------------------------------------------------------------- |

@@ -36,6 +36,10 @@ func isFiniteState(track *TrackedObject) bool {
 			return false
 		}
 	}
+	// Under the tracked extent state the half-extents are tracked state too.
+	if sb := &track.solidBody; sb.tracksExtent() && !sb.ext.finite() {
+		return false
+	}
 	return true
 }
 
@@ -51,7 +55,11 @@ func (t *Tracker) clampVelocity(track *TrackedObject) {
 	if speed > t.Config.MaxReasonableSpeedMps {
 		if t.Config.ConsistentSpeedClamp {
 			state := [4]float32{track.X, track.Y, track.VX, track.VY}
-			constrainSpeedConsistent(&state, &track.P, t.Config.MaxReasonableSpeedMps)
+			var ext *solidBodyExtent
+			if track.solidBody.tracksExtent() {
+				ext = &track.solidBody.ext
+			}
+			constrainSpeedConsistentJoint(&state, &track.P, ext, t.Config.MaxReasonableSpeedMps)
 			track.X, track.Y, track.VX, track.VY = state[0], state[1], state[2], state[3]
 			return
 		}
@@ -124,8 +132,16 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	// Cap covariance diagonal elements to prevent unbounded gating ellipse
 	// growth from accumulated prediction steps and occlusion inflation.
 	// ConsistentCovarianceCap scales the row and column instead of clamping
-	// the diagonal alone, so P stays positive semi-definite.
-	if t.Config.ConsistentCovarianceCap {
+	// the diagonal alone, so P stays positive semi-definite. Under the
+	// tracked extent state the joint matrix is capped consistently after the
+	// diagonal clamp below, so ConsistentCovarianceCap's 4x4 scaling would
+	// apply twice; the four-state filter keeps it.
+	trackedExtent := track.solidBody.tracksExtent()
+	var uncapped [4]float32
+	if trackedExtent {
+		uncapped = [4]float32{track.P[0], track.P[5], track.P[10], track.P[15]}
+	}
+	if t.Config.ConsistentCovarianceCap && !trackedExtent {
 		capCovarianceConsistent(&track.P, t.Config.MaxCovarianceDiag)
 	} else {
 		for i := 0; i < 4; i++ {
@@ -133,6 +149,9 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 				track.P[i*4+i] = t.Config.MaxCovarianceDiag
 			}
 		}
+	}
+	if trackedExtent {
+		track.solidBody.predictTrackedExtent(&track.P, dt, uncapped)
 	}
 
 	// Guard: reset state if prediction produced NaN/Inf (task 2.4).

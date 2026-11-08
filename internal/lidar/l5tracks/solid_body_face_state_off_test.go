@@ -86,6 +86,38 @@ func solidBodyFingerprintScenarios() []solidBodyFingerprintScenario {
 			},
 			golden: "70a3e339552f53da",
 		},
+		// The shadow with the face-state options on. These two digests were
+		// taken on the code before the tracked path carried the extent
+		// block: extending ExtentState to the tracked filter, and publishing
+		// the joint covariance, must leave the shadow's arithmetic as it was.
+		{
+			name: "shadow_face_state_end_on_truck",
+			pass: endOnTruckPass,
+			config: func() TrackerConfig {
+				cfg := solidBodyConfig()
+				cfg.SolidBody.ExtentState = true
+				cfg.SolidBody.CensoredExtent = true
+				cfg.SolidBody.SpanBoundsBelief = true
+				cfg.SolidBody.HeadingFaceNoise = true
+				cfg.SolidBody.AnisotropicReferenceBias = true
+				cfg.SolidBody.CourseAlignedFaces = true
+				cfg.SolidBody.Containment = true
+				return cfg
+			},
+			golden: "6af1d1fdad6d35e2",
+		},
+		{
+			name: "shadow_extent_state_default_pass_consistent",
+			pass: l4perception.DefaultSyntheticPass,
+			config: func() TrackerConfig {
+				cfg := solidBodyConfig()
+				cfg.SolidBody.ExtentState = true
+				cfg.ConsistentCovarianceCap = true
+				cfg.ConsistentSpeedClamp = true
+				return cfg
+			},
+			golden: "e2f3bec4f40b6cc0",
+		},
 	}
 }
 

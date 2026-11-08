@@ -392,8 +392,9 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `solid_body_containment` and `solid_body_full_members`), `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
 `overlap_end_body` and `overlap_end_older`, `birth_gate_body` (which needs `overlap_end_body`), `fixed_lag_rts`, `surface_ground` (the
 replay tools' surface-ground flags by name), `box_ground` (which needs the box model), and the solid
-body's face-state options, each needing `solid_body`: `solid_body_extent_state` (refused with
-`near_edge_track`), `solid_body_censored_extent`, `solid_body_span_bounds_belief`,
+body's face-state options, each needing `solid_body`: `solid_body_extent_state` (with
+`near_edge_track` the tracked filter carries the extents, and its gate does not see them),
+`solid_body_censored_extent`, `solid_body_span_bounds_belief`,
 `solid_body_heading_face_noise`, `solid_body_anisotropic_reference_bias` and
 `solid_body_face_state`, which is all five. An arm that uses one runs through the offline replay tools,
 and its report names the experiment beside the set. `velocity lidar pcap-replay --experiment`

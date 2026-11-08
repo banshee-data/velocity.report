@@ -46,6 +46,69 @@ func (sb *solidBodyTrack) writeToTrack(track *TrackedObject) {
 	track.P = sb.p
 }
 
+// The tracked extent state: NearEdgeTracking with SolidBodyOptions.ExtentState.
+//
+// The tracked filter's state is then [x, y, vx, vy, hL, hW]. The four-state
+// block stays where the tracked filter keeps it (track.X ... track.P), and the
+// extent block in the solid body (sb.ext), which state and p copy to and from
+// around each near-edge step, so the state machine's joint updates
+// (solid_body_face_state.go) run on the tracked state unchanged. What must not
+// be left to chance is every step outside the state machine that changes
+// track.P, since each one has its extent rows and columns too:
+//
+//   - prediction (Tracker.predict): F applied to the position and velocity
+//     rows of the cross block, the extents constant with their process noise
+//     (predictTrackedExtent);
+//   - the covariance cap, in prediction and in coast inflation: always the
+//     consistent one, on the joint matrix, so P stays positive semi-definite
+//     whatever ConsistentCovarianceCap says (scaleCappedJoint);
+//   - the consistent speed clamp: a regression over all six states
+//     (constrainSpeedConsistentJoint); the shipped rescale changes no
+//     covariance;
+//   - the medoid update, before the first fix and after a lapse: the extents
+//     move by their covariance with the position (applyMedoidGain);
+//   - the non-finite guard, which counts the extent block as tracked state.
+//
+// Coast inflation adds variance to the position diagonal alone, which leaves
+// the cross block as it was. Association does not see the extents: the A2 gate
+// (faceResidualDistanceSquared) is the 2x2 position innovation against the
+// four-state P, with the state's half-extents as if exact, exactly as without
+// the option. Along a face's normal n its variance therefore differs from the
+// joint innovation variance by Var(h) + 2 nᵀP_ch, which is positive while the
+// extent is uncertain and can be negative once one face has correlated the
+// two. A gate that read the extent block is a separate change, with its own
+// evidence on association.
+
+// tracksExtent says the tracked filter carries the body's extent block.
+func (sb *solidBodyTrack) tracksExtent() bool {
+	return sb.tracked && sb.ext.on
+}
+
+// predictTrackedExtent is the extent part of the tracked prediction over dt,
+// with the four-state covariance p after its process noise and diagonal cap
+// and uncapped its diagonal before the cap: p is symmetrised, the cross block
+// propagated and the extents' process noise added (predictExtent), and the
+// capped rows of the joint matrix scaled, as the shadow does.
+func (sb *solidBodyTrack) predictTrackedExtent(p *[16]float32, dt float32, uncapped [4]float32) {
+	symmetriseFour(p)
+	sb.predictExtent(dt)
+	scaleCappedJoint(p, &sb.ext, uncapped)
+}
+
+// capTrackedExtent is the tracked coast inflation's cap under the tracked
+// extent state, the shadow's coast rule: the position diagonals clamped at
+// maxDiag and the capped rows of the joint matrix scaled to match.
+func (sb *solidBodyTrack) capTrackedExtent(p *[16]float32, maxDiag float32) {
+	uncapped := [4]float32{p[0], p[5], p[10], p[15]}
+	if p[0*4+0] > maxDiag {
+		p[0*4+0] = maxDiag
+	}
+	if p[1*4+1] > maxDiag {
+		p[1*4+1] = maxDiag
+	}
+	scaleCappedJoint(p, &sb.ext, uncapped)
+}
+
 // nearEdgePriorFor is the class dimension prior the state machine reads for a
 // track this frame.
 func nearEdgePriorFor(track *TrackedObject) classDimensionPrior {
@@ -236,7 +299,10 @@ func (t *Tracker) faceResidualDistanceSquared(track *TrackedObject, cluster Worl
 // given prediction, with the body's beliefs and class prior.
 func (t *Tracker) faceResidualDistanceSquaredAt(predicted trackedPrediction, sb *solidBodyTrack, prior classDimensionPrior, cluster WorldCluster, f nearEdgeFrame) float32 {
 	length, width := f.length, f.width
-	if f.fallback != "" {
+	if f.fallback != "" && sb.ext.on {
+		// The half-extents the state holds, as a measured frame's are.
+		length, width = sb.extentDimension(0), sb.extentDimension(1)
+	} else if f.fallback != "" {
 		length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres)
 		width = t.widthOf(sb, prior)
 	}

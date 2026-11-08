@@ -260,6 +260,51 @@ func insertObservationFor(t *testing.T, database *db.DB, id RefinedEstimateIdent
 	}
 }
 
+// Under ExtentState the online reading's position-extent cross block
+// describes the online position. The smoother revises [x, y, vx, vy] only, so
+// the refined reading drops the extent blocks rather than pair them with the
+// revised covariance: it files the 4x4 layout, and its surface bound is not
+// joint. The online reading is left as it was.
+func TestRefinedSolidBodyDropsTheOnlineExtentCovariance(t *testing.T) {
+	state := trackedBodyState(l5tracks.RefinementFixedLag)
+	online := *state.SolidBody
+	cross := [8]float32{-0.01, 0.002, 0.001, -0.003, 0.004, 0, 0, 0.001}
+	extent := [4]float32{0.0625, 0, 0, 0.04}
+	var joint [l5tracks.JointCovarianceSize]float32
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			joint[i*6+j] = online.Covariance[i*4+j]
+		}
+		for j := 0; j < 2; j++ {
+			joint[i*6+4+j], joint[(4+j)*6+i] = cross[i*2+j], cross[i*2+j]
+		}
+	}
+	joint[4*6+4], joint[5*6+5] = extent[0], extent[3]
+	withExtent, err := online.WithJointCovariance(joint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.SolidBody = &withExtent
+	row, err := RefinedStateEstimate(refinedIdentity(), "sha256:extent", state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := row.SolidBody.Reading
+	if r.ExtentState || r.Estimate.ExtentState || r.ExtentCrossCovariance != [8]float32{} || r.ExtentCovariance != [4]float32{} ||
+		r.Estimate.PositionExtentCovariance != [4]float32{} || r.CovarianceStateModel() != l5tracks.StateModelCVCartesianV1 {
+		t.Fatalf("the refined reading kept extent blocks: %+v", r)
+	}
+	if r.Covariance != state.Smoothed.P {
+		t.Fatalf("refined covariance %v, want the smoothed %v", r.Covariance, state.Smoothed.P)
+	}
+	if !state.SolidBody.ExtentState || state.SolidBody.ExtentCrossCovariance != cross {
+		t.Fatal("building the refined row modified the online reading")
+	}
+	if p, ok := r.Estimate.ProjectSurface(l5tracks.SurfaceFront); !ok || p.JointBound {
+		t.Fatalf("refined front surface: ok %v, joint %v; want a bound that is not joint", ok, p.JointBound)
+	}
+}
+
 // A reading that is not the state the smoother revised belongs to another
 // filter, whose revision this is not: refused rather than filed.
 func TestRefinedStateEstimateRefusesAReadingOfAnotherState(t *testing.T) {

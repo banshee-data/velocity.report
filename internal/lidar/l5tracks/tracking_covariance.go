@@ -253,6 +253,15 @@ const millsContinuedFractionFrom = 30
 // minSpeedConstraintVariance, or a non-finite one, falls back to the shipped
 // rescale outright. The caller has already found the speed above vmax.
 func constrainSpeedConsistent(x *[4]float32, p *[16]float32, vmax float32) {
+	constrainSpeedConsistentJoint(x, p, nil, vmax)
+}
+
+// constrainSpeedConsistentJoint is constrainSpeedConsistent with, when ext is
+// not nil, the half-extent block of the joint state under ExtentState: the
+// regression runs over all six states, so hL and hW move by their covariance
+// with the along-track speed, P_hh gains (s² − σ²) k_h k_hᵀ and the cross
+// block (s² − σ²) k k_hᵀ. The four-state arithmetic is the same either way.
+func constrainSpeedConsistentJoint(x *[4]float32, p *[16]float32, ext *solidBodyExtent, vmax float32) {
 	vx, vy := float64(x[2]), float64(x[3])
 	speed := math.Hypot(vx, vy)
 	if !(speed > 0) || math.IsInf(speed, 0) {
@@ -281,6 +290,30 @@ func constrainSpeedConsistent(x *[4]float32, p *[16]float32, vmax float32) {
 	for i := range k {
 		k[i] /= sigma2
 		x[i] = float32(float64(x[i]) + k[i]*shift)
+	}
+	if ext != nil {
+		// The half-extents' regression on the speed, from their covariance
+		// with the velocity rows, which the four-state update below does not
+		// touch.
+		var kh [2]float64
+		for j := 0; j < 2; j++ {
+			kh[j] = (float64(ext.pxh[2*2+j])*ux + float64(ext.pxh[3*2+j])*uy) / sigma2
+			ext.h[j] = float32(float64(ext.h[j]) + kh[j]*shift)
+		}
+		for i := 0; i < 4; i++ {
+			for j := 0; j < 2; j++ {
+				ext.pxh[i*2+j] = float32(float64(ext.pxh[i*2+j]) + d*k[i]*kh[j])
+			}
+		}
+		for i := 0; i < 2; i++ {
+			for j := 0; j < 2; j++ {
+				v := float64(ext.phh[i*2+j]) + d*kh[i]*kh[j]
+				if i == j && v < 0 {
+					v = 0
+				}
+				ext.phh[i*2+j] = float32(v)
+			}
+		}
 	}
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {

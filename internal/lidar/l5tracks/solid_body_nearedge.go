@@ -49,9 +49,9 @@ package l5tracks
 // ProjectSurface adds the dimension's own variance when it bounds a bumper, but
 // the correlation between anchor and dimension is not represented; carrying it
 // needs the dimension in the state or a consider-parameter treatment, which
-// SolidBodyOptions.ExtentState provides on the shadow (solid_body_face_state.go),
-// default-off and not on the tracked path. The published reading's 4x4
-// covariance still omits the extent block. And the
+// SolidBodyOptions.ExtentState provides (solid_body_face_state.go), default-off,
+// on the shadow and on the tracked path; the reading then publishes the extent
+// blocks and ProjectSurface's bound is joint. And the
 // heading that selects a face is the tracked one, which lags a real turn by its
 // smoothing: a heading error tilts the face normal and biases the plane, so the
 // heading is the first thing to stratify by when the anchor disagrees with
@@ -271,9 +271,18 @@ type SolidBodyOptions struct {
 	// class prior is used rather than excluded, the prior's uncertainty
 	// being in P. FaceEntryConsider, whose one-frame term this replaces, is
 	// not applied. The reported length and width are 2hL and 2hW with sigma
-	// 2·sqrt(P_hh). The tracked path under NearEdgeTracking keeps the
-	// four-state filter and ignores this option: its covariance is the
-	// tracked filter's, which neither predicts nor gates on the extents.
+	// 2·sqrt(P_hh), and the reading publishes the extent blocks of the
+	// covariance, so ProjectSurface bounds a bumper jointly.
+	//
+	// Under NearEdgeTracking the tracked filter carries the extent block in
+	// the same way: its prediction propagates the cross block and adds the
+	// extents' process noise, its covariance cap and consistent speed clamp
+	// act on the joint covariance, its medoid update moves the extents by
+	// their covariance with the position, and a face updates the joint state
+	// through its joint row (near_edge_tracking.go). Association is unchanged:
+	// the A2 gate is the 2x2 position innovation against the four-state P,
+	// with the state's half-extents as if exact, so it does not see the
+	// extents' uncertainty or their correlation with the position.
 	// Default false.
 	ExtentState bool
 	// CensoredExtent reports each extent belief as the class prior
@@ -480,11 +489,120 @@ type SolidBodyMeasurement struct {
 // and the dynamic state it was read with. Covariance is the shadow filter's
 // full 4x4 over [x, y, vx, vy], row-major; its position block is the
 // estimate's PositionCovariance, so the two cannot describe different frames.
+//
+// Under ExtentState the filter's state is [x, y, vx, vy, hL, hW], and the
+// rest of its covariance is here too: ExtentCrossCovariance is
+// Cov([x, y, vx, vy], [hL, hW]), 4x2 row-major, and ExtentCovariance is
+// Cov([hL, hW]), 2x2. Covariance keeps its four-state meaning either way;
+// JointCovariance assembles the 6x6. The estimate's PositionExtentCovariance
+// and HalfExtentCovariance are the same blocks' position rows and extent
+// block. Without ExtentState the extent fields are zero and ExtentState false.
 type SolidBodyReading struct {
 	Estimate    SolidBodyEstimate
 	VX, VY      float32
 	Covariance  [16]float32
 	Measurement SolidBodyMeasurement
+
+	ExtentState           bool
+	ExtentCrossCovariance [8]float32
+	ExtentCovariance      [4]float32
+}
+
+// JointCovarianceSize is the element count of a joint covariance under
+// ExtentState: 6x6 over [x, y, vx, vy, hL, hW].
+const JointCovarianceSize = jointStates * jointStates
+
+// CovarianceStateModel names the layout the reading's covariance is persisted
+// in: StateModelCVCartesianExtentV1 for the 6x6 joint covariance when the
+// reading carries the extent state, and the estimate's own state model, the
+// 4x4, otherwise.
+func (r SolidBodyReading) CovarianceStateModel() string {
+	if r.ExtentState {
+		return StateModelCVCartesianExtentV1
+	}
+	return r.Estimate.StateModel
+}
+
+// JointCovariance is the 6x6 covariance over [x, y, vx, vy, hL, hW],
+// row-major, assembled from Covariance and the extent blocks, and false when
+// the reading carries no extent state. The cross block is stored once, so the
+// result is symmetric wherever Covariance is.
+func (r SolidBodyReading) JointCovariance() ([JointCovarianceSize]float32, bool) {
+	var p [JointCovarianceSize]float32
+	if !r.ExtentState {
+		return p, false
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			p[i*jointStates+j] = r.Covariance[i*4+j]
+		}
+		for j := 0; j < 2; j++ {
+			v := r.ExtentCrossCovariance[i*2+j]
+			p[i*jointStates+4+j] = v
+			p[(4+j)*jointStates+i] = v
+		}
+	}
+	for i := 0; i < 2; i++ {
+		for j := 0; j < 2; j++ {
+			p[(4+i)*jointStates+4+j] = r.ExtentCovariance[i*2+j]
+		}
+	}
+	return p, true
+}
+
+// WithJointCovariance returns the reading with every covariance block taken
+// from a 6x6 joint covariance over [x, y, vx, vy, hL, hW], row-major: the
+// reading's Covariance and extent blocks and the estimate's position and
+// extent blocks, so none can describe a different matrix. It is an error for
+// the position-extent blocks not to be each other's transpose, since then p
+// is not one covariance and no block of it can be read as the cross block.
+func (r SolidBodyReading) WithJointCovariance(p [JointCovarianceSize]float32) (SolidBodyReading, error) {
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 2; j++ {
+			if a, b := p[i*jointStates+4+j], p[(4+j)*jointStates+i]; a != b {
+				return r, fmt.Errorf("joint covariance is not symmetric: P[%d][%d] = %v, P[%d][%d] = %v", i, 4+j, a, 4+j, i, b)
+			}
+		}
+	}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			r.Covariance[i*4+j] = p[i*jointStates+j]
+		}
+		for j := 0; j < 2; j++ {
+			r.ExtentCrossCovariance[i*2+j] = p[i*jointStates+4+j]
+		}
+	}
+	for i := 0; i < 2; i++ {
+		for j := 0; j < 2; j++ {
+			r.ExtentCovariance[i*2+j] = p[(4+i)*jointStates+4+j]
+		}
+	}
+	r.ExtentState = true
+	r.Estimate.PositionCovariance = [4]float32{r.Covariance[0], r.Covariance[1], r.Covariance[4], r.Covariance[5]}
+	r.Estimate.setExtentBlocks(r.ExtentCrossCovariance, r.ExtentCovariance)
+	return r, nil
+}
+
+// WithoutExtentCovariance returns the reading with no extent state: the
+// extent blocks zeroed on the reading and the estimate, and the flags false.
+// A smoother that revises only [x, y, vx, vy] leaves the online cross block
+// describing another position, so a refined reading drops it rather than
+// pair it with the revised covariance.
+func (r SolidBodyReading) WithoutExtentCovariance() SolidBodyReading {
+	r.ExtentState = false
+	r.ExtentCrossCovariance, r.ExtentCovariance = [8]float32{}, [4]float32{}
+	r.Estimate.ExtentState = false
+	r.Estimate.PositionExtentCovariance, r.Estimate.HalfExtentCovariance = [4]float32{}, [4]float32{}
+	return r
+}
+
+// setExtentBlocks sets the estimate's extent fields from a 4x2 cross block
+// and a 2x2 extent block: the cross block's position rows, and the extent
+// block itself.
+func (e *SolidBodyEstimate) setExtentBlocks(cross [8]float32, extent [4]float32) {
+	e.ExtentState = true
+	e.PositionExtentCovariance = [4]float32{cross[0], cross[1], cross[2], cross[3]}
+	e.HalfExtentCovariance = extent
 }
 
 // solidBodyTrack is one track's solid-body estimator state. It is held by
@@ -673,7 +791,11 @@ func (t *Tracker) seedSolidBody(track *TrackedObject, cluster WorldCluster) {
 	if t.Config.NearEdgeTracking {
 		sb.tracked = true
 		sb.syncFromTrack(track)
-	} else if t.Config.SolidBody.ExtentState {
+	}
+	if t.Config.SolidBody.ExtentState {
+		// Under NearEdgeTracking the block is the tracked filter's from here
+		// on: near_edge_tracking.go's hooks carry it through every step that
+		// changes the tracked covariance.
 		seedSolidBodyExtent(sb, prior)
 	}
 	t.publishSolidBody(track, class, SolidBodyMeasurement{
@@ -790,8 +912,8 @@ func (t *Tracker) finishSolidBodyState(track *TrackedObject, step string) {
 	if speed > t.Config.MaxReasonableSpeedMps && speed > 0 {
 		if t.Config.ConsistentSpeedClamp {
 			// The tracked filter's consistent clamp, on the body's own
-			// state and covariance.
-			constrainSpeedConsistent(&sb.state, &sb.p, t.Config.MaxReasonableSpeedMps)
+			// state and covariance, and under ExtentState on the joint one.
+			constrainSpeedConsistentJoint(&sb.state, &sb.p, sb.extentBlock(), t.Config.MaxReasonableSpeedMps)
 			return
 		}
 		scale := t.Config.MaxReasonableSpeedMps / speed
@@ -2122,6 +2244,9 @@ func (t *Tracker) assembleSolidBody(track *TrackedObject, class MotionClassBelie
 		LastObservedUnixNanos: sb.lastObservedNanos,
 		Support:               sb.support,
 	}
+	if sb.ext.on {
+		e.setExtentBlocks(sb.ext.pxh, sb.ext.phh)
+	}
 	// Containment's floor: the reported box is never shorter than the points
 	// this frame measured along its axes. The beliefs are read above and
 	// never see it.
@@ -2149,6 +2274,10 @@ func (t *Tracker) publishSolidBody(track *TrackedObject, class MotionClassBelief
 		VY:          sb.state[3],
 		Covariance:  sb.p,
 		Measurement: m,
+	}
+	if sb.ext.on {
+		sb.reading.ExtentState = true
+		sb.reading.ExtentCrossCovariance, sb.reading.ExtentCovariance = sb.ext.pxh, sb.ext.phh
 	}
 }
 

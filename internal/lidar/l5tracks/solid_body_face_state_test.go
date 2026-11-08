@@ -374,26 +374,66 @@ func TestFaceStateOptionsLeaveTheTrackedStateAlone(t *testing.T) {
 	}
 }
 
-// Under NearEdgeTracking the tracked filter is the body's, and it carries no
-// extents: ExtentState is ignored there, so the tracked arm with it is the
-// tracked arm without it, bit for bit.
-func TestTheTrackedPathIgnoresExtentState(t *testing.T) {
+// Under NearEdgeTracking with ExtentState the tracked filter carries the
+// extent block: every tracked body has one, the joint covariance stays a
+// covariance through the whole tracker, and the published reading's joint
+// covariance is the tracked filter's 4x4 with the body's extent blocks.
+func TestTheTrackedPathCarriesExtentState(t *testing.T) {
 	frames := syntheticPassFrames(t, endOnTruckPass())
 	cfg := nearEdgeTrackingConfig()
 	cfg.SolidBody.CourseAlignedFaces = true
 	plain := solidBodyFingerprint(t, cfg, frames)
 	cfg.SolidBody.ExtentState = true
-	if got := solidBodyFingerprint(t, cfg, frames); got != plain {
-		t.Fatalf("ExtentState changed the tracked path: %s against %s", got, plain)
+	withExtent := solidBodyFingerprint(t, cfg, frames)
+	if withExtent == plain {
+		t.Fatal("ExtentState left the tracked path unchanged; the faces should measure n·c + h")
+	}
+	if again := solidBodyFingerprint(t, cfg, frames); again != withExtent {
+		t.Fatalf("the tracked extent state is not deterministic: %s then %s", withExtent, again)
 	}
 	tracker := NewTracker(cfg)
-	for _, f := range frames[:10] {
+	fixes := 0
+	for i, f := range frames {
 		tracker.Update(f.clusters, f.at)
-	}
-	for _, tr := range tracker.GetAllTracks() {
-		if tr.solidBody.ext.on {
-			t.Fatal("a tracked body carries an extent block")
+		for _, tr := range tracker.GetAllTracks() {
+			sb := &tr.solidBody
+			if !sb.seeded || tr.TrackState == TrackDeleted {
+				continue
+			}
+			if !sb.tracked || !sb.ext.on {
+				t.Fatalf("frame %d: a tracked body without its extent block (tracked %v, ext %v)", i, sb.tracked, sb.ext.on)
+			}
+			js := sb.jointOf([4]float32{tr.X, tr.Y, tr.VX, tr.VY}, tr.P)
+			if asym := maxAsymmetry(js.p[:], jointStates); asym != 0 {
+				t.Fatalf("frame %d: tracked joint covariance asymmetric by %.3g", i, asym)
+			}
+			if e := minEigenvalue(js.p, jointStates); e < -1e-5 {
+				t.Fatalf("frame %d: tracked joint covariance eigenvalue %.3g", i, e)
+			}
+			r, ok := tr.SolidBody()
+			if !ok || !r.ExtentState || !r.Estimate.ExtentState {
+				t.Fatalf("frame %d: reading without the extent state", i)
+			}
+			if r.Measurement.Source != MeasurementNearEdgeCandidateV1 {
+				continue
+			}
+			// At a fix the reading was published after the tracked step, so
+			// its blocks are the tracked filter's.
+			fixes++
+			joint, _ := r.JointCovariance()
+			for k := range joint {
+				if float64(joint[k]) != float64(float32(js.p[k])) {
+					t.Fatalf("frame %d: published joint covariance [%d] %v, tracked %v", i, k, joint[k], js.p[k])
+				}
+			}
+			if r.Estimate.PositionExtentCovariance != [4]float32{sb.ext.pxh[0], sb.ext.pxh[1], sb.ext.pxh[2], sb.ext.pxh[3]} ||
+				r.Estimate.HalfExtentCovariance != sb.ext.phh {
+				t.Fatalf("frame %d: the estimate's extent blocks are not the reading's", i)
+			}
 		}
+	}
+	if fixes == 0 {
+		t.Fatal("no tracked near-edge fix with the extent state on")
 	}
 }
 

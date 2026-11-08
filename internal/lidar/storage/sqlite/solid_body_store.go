@@ -51,10 +51,48 @@ func stageAgrees(s l5tracks.EstimateStage, stage string) bool {
 	return stage == EstimateStageOnline
 }
 
-// knownStateModel reports whether this store can read a covariance blob back
-// under the named layout.
+// knownStateModel reports whether this store can file an in-memory estimate
+// of the named state model.
 func knownStateModel(stateModel string) bool {
 	return stateModel == l5tracks.StateModelCVCartesianV1
+}
+
+// Persisted covariance layouts. A row's state_model names the layout of its
+// covariance_json blob: the reading's CovarianceStateModel.
+//
+//   - cv_cartesian_v1: the 4x4 over [x, y, vx, vy].
+//   - cv_cartesian_extent_v1: the 6x6 joint covariance over
+//     [x, y, vx, vy, hL, hW] of a reading whose filter carried the
+//     half-extents (SolidBodyOptions.ExtentState). It reads back as the
+//     reading's Covariance and extent blocks, and the estimate's
+//     StateModel is cv_cartesian_v1 again, as it was in memory.
+//
+// The 4x4 layout decodes as it always has, into the fixed array. The joint
+// layout's element count must be thirty-six, never inferred the other way
+// round.
+func decodeSolidBodyCovariance(stateModel string, blob []byte, r *l5tracks.SolidBodyReading) error {
+	switch stateModel {
+	case l5tracks.StateModelCVCartesianV1:
+		return json.Unmarshal(blob, &r.Covariance)
+	case l5tracks.StateModelCVCartesianExtentV1:
+		var values []float32
+		if err := json.Unmarshal(blob, &values); err != nil {
+			return err
+		}
+		var joint [l5tracks.JointCovarianceSize]float32
+		if len(values) != len(joint) {
+			return fmt.Errorf("%s covariance has %d elements, want %d", stateModel, len(values), len(joint))
+		}
+		copy(joint[:], values)
+		decoded, err := r.WithJointCovariance(joint)
+		if err != nil {
+			return err
+		}
+		*r = decoded
+		r.Estimate.StateModel = l5tracks.StateModelCVCartesianV1
+		return nil
+	}
+	return fmt.Errorf("unknown covariance layout %q", stateModel)
 }
 
 func validateSolidBody(sb TrackSolidBody) error {
@@ -75,6 +113,22 @@ func validateSolidBody(sb TrackSolidBody) error {
 	block := [4]float32{sb.Reading.Covariance[0], sb.Reading.Covariance[1], sb.Reading.Covariance[4], sb.Reading.Covariance[5]}
 	if block != e.PositionCovariance {
 		return fmt.Errorf("solid-body estimate %s: covariance position block %v disagrees with the estimate's %v", sb.EstimateID, block, e.PositionCovariance)
+	}
+	// The extent blocks, like the position block, are one matrix's: the
+	// reading's and the estimate's must agree, or the persisted 6x6 would
+	// describe a covariance the estimate does not.
+	r := sb.Reading
+	if r.ExtentState != e.ExtentState {
+		return fmt.Errorf("solid-body estimate %s: the reading's extent state %v disagrees with the estimate's %v", sb.EstimateID, r.ExtentState, e.ExtentState)
+	}
+	if r.ExtentState {
+		cross := [4]float32{r.ExtentCrossCovariance[0], r.ExtentCrossCovariance[1], r.ExtentCrossCovariance[2], r.ExtentCrossCovariance[3]}
+		if cross != e.PositionExtentCovariance || r.ExtentCovariance != e.HalfExtentCovariance {
+			return fmt.Errorf("solid-body estimate %s: the reading's extent blocks disagree with the estimate's", sb.EstimateID)
+		}
+	} else if r.ExtentCrossCovariance != [8]float32{} || r.ExtentCovariance != [4]float32{} ||
+		e.PositionExtentCovariance != [4]float32{} || e.HalfExtentCovariance != [4]float32{} {
+		return fmt.Errorf("solid-body estimate %s carries extent blocks without the extent state", sb.EstimateID)
 	}
 	return nil
 }
@@ -112,7 +166,7 @@ func solidBodyInsertArgs(sb TrackSolidBody, covariance []byte, insertedAtNanos i
 	return []any{
 		sb.EstimateID, sb.TrackID, sb.CreationSequence, sb.ObservationID, sb.SourceID, sb.CalibrationID,
 		sb.FrameUnixNanos, sb.MeasurementUnixNanos, sb.EstimatorID, sb.ObservationModelID, sb.ParamHash, sb.Stage,
-		e.StateModel, e.Reference.String(), e.X, e.Y, sb.Reading.VX, sb.Reading.VY, covariance,
+		sb.Reading.CovarianceStateModel(), e.Reference.String(), e.X, e.Y, sb.Reading.VX, sb.Reading.VY, covariance,
 		e.Orientation.PsiRad, e.Orientation.VarianceRad2, e.Orientation.AmbiguousModeWeight, e.Orientation.Provenance.String(),
 		e.Length.Metres, e.Length.SigmaMetres, e.Length.AdmissibleFrames, e.Length.Provenance.String(),
 		e.Width.Metres, e.Width.SigmaMetres, e.Width.AdmissibleFrames, e.Width.Provenance.String(),
@@ -133,7 +187,13 @@ func marshalSolidBody(sb TrackSolidBody) ([]byte, error) {
 	if err := validateSolidBody(sb); err != nil {
 		return nil, err
 	}
-	covariance, err := json.Marshal(sb.Reading.Covariance)
+	var covariance []byte
+	var err error
+	if joint, ok := sb.Reading.JointCovariance(); ok {
+		covariance, err = json.Marshal(joint)
+	} else {
+		covariance, err = json.Marshal(sb.Reading.Covariance)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("marshal solid-body covariance: %w", err)
 	}
@@ -255,10 +315,10 @@ func scanSolidBody(rows *sql.Rows, extra ...any) (TrackSolidBody, error) {
 	if err := rows.Scan(append(dest, extra...)...); err != nil {
 		return sb, fmt.Errorf("scan solid-body estimate: %w", err)
 	}
-	if !knownStateModel(e.StateModel) {
+	if e.StateModel != l5tracks.StateModelCVCartesianV1 && e.StateModel != l5tracks.StateModelCVCartesianExtentV1 {
 		return sb, fmt.Errorf("solid-body estimate %s has state model %q; refusing to decode its covariance", sb.EstimateID, e.StateModel)
 	}
-	if err := json.Unmarshal(covariance, &sb.Reading.Covariance); err != nil {
+	if err := decodeSolidBodyCovariance(e.StateModel, covariance, &sb.Reading); err != nil {
 		return sb, fmt.Errorf("unmarshal solid-body covariance %s: %w", sb.EstimateID, err)
 	}
 	var err error
