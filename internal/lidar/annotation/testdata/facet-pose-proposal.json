@@ -1,6 +1,6 @@
 {
   "schema": "velocity.report/facet-pose-proposal",
-  "schema_version": 1,
+  "schema_version": 2,
   "status": "read_only_assisted_proposal",
   "request": {
     "schema_version": 1,

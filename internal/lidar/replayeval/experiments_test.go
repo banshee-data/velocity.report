@@ -224,26 +224,27 @@ func TestExperimentsHashSuffix(t *testing.T) {
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
-		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentContainmentClaim, ExperimentContestedRejoin,
+		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentConsistentCovarianceCap, ExperimentConsistentSpeedClamp, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
 		ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentHeldToL4, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentOverlapEndBody,
-		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody,
+		ExperimentSolidBodyAnisotropicReferenceBias, ExperimentSolidBodyCensoredExtent, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
-		ExperimentSolidBodyExtentPriorFloor,
+		ExperimentSolidBodyExtentPriorFloor, ExperimentSolidBodyExtentState,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
-		ExperimentSolidBodyFullMembers,
+		ExperimentSolidBodyFaceState, ExperimentSolidBodyFullMembers, ExperimentSolidBodyHeadingFaceNoise,
 		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyRectangleCourseFusion,
 		ExperimentSolidBodyRectangleFit, ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyRectangleSigmaMid,
 		ExperimentSolidBodyRectangleSigmaWide,
-		ExperimentSolidBodyReferenceTranslation,
+		ExperimentSolidBodyReferenceTranslation, ExperimentSolidBodySpanBoundsBelief,
 		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentSurfaceGround, ExperimentSurfaceGround5m, ExperimentSurfaceGroundGlobal, ExperimentTentativePriority,
-		ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
+		ExperimentTwoPointVelocityInit, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -271,6 +272,15 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentFlipRule:          func(c *l5tracks.TrackerConfig) { c.OBBHeadingFlipRule = true },
 		ExperimentMeasurementTime:   func(c *l5tracks.TrackerConfig) { c.MeasurementTimePrediction = true },
 		ExperimentCaptureGapPredict: func(c *l5tracks.TrackerConfig) { c.CaptureGapPrediction = true },
+		ExperimentTwoPointVelocityInit: func(c *l5tracks.TrackerConfig) {
+			c.TwoPointVelocityInit = true
+		},
+		ExperimentConsistentCovarianceCap: func(c *l5tracks.TrackerConfig) {
+			c.ConsistentCovarianceCap = true
+		},
+		ExperimentConsistentSpeedClamp: func(c *l5tracks.TrackerConfig) {
+			c.ConsistentSpeedClamp = true
+		},
 		ExperimentCoastTimeInflation: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.CaptureTimeInflation = true })
 		},
@@ -357,6 +367,18 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentSolidBodyEndFaceCentringOpenPrior: func(o *l5tracks.SolidBodyOptions) {
 			o.EndFaceCentring, o.EndFaceCentringOpenPrior = true, true
 		},
+		ExperimentSolidBodyExtentState:      func(o *l5tracks.SolidBodyOptions) { o.ExtentState = true },
+		ExperimentSolidBodyCensoredExtent:   func(o *l5tracks.SolidBodyOptions) { o.CensoredExtent = true },
+		ExperimentSolidBodySpanBoundsBelief: func(o *l5tracks.SolidBodyOptions) { o.SpanBoundsBelief = true },
+		ExperimentSolidBodyHeadingFaceNoise: func(o *l5tracks.SolidBodyOptions) { o.HeadingFaceNoise = true },
+		ExperimentSolidBodyAnisotropicReferenceBias: func(o *l5tracks.SolidBodyOptions) {
+			o.AnisotropicReferenceBias = true
+		},
+		// The combined arm is the five together, and nothing else.
+		ExperimentSolidBodyFaceState: func(o *l5tracks.SolidBodyOptions) {
+			o.ExtentState, o.CensoredExtent, o.SpanBoundsBelief = true, true, true
+			o.HeadingFaceNoise, o.AnisotropicReferenceBias = true, true
+		},
 	} {
 		want := shipped
 		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity}
@@ -385,6 +407,29 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior}, nil); err == nil {
 		t.Errorf("%s and %s were accepted together", ExperimentSolidBodyEndFaceCentring, ExperimentSolidBodyEndFaceCentringOpenPrior)
+	}
+	// The combined face-state arm named with one of its parts is the same
+	// arm; the extents in the state are refused on the tracked filter, which
+	// does not carry them, and the other four combine with it.
+	combined, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFaceState}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentState}, nil); err != nil || again != combined {
+		t.Errorf("%s with %s is not the combined arm (%v)", ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentState, err)
+	}
+	for _, name := range []string{ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState} {
+		if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack, name}, nil); err == nil ||
+			!strings.Contains(err.Error(), ExperimentNearEdgeTrack) {
+			t.Errorf("%s with %s: want a refusal, got %v", name, ExperimentNearEdgeTrack, err)
+		}
+	}
+	tracked, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack,
+		ExperimentSolidBodyCensoredExtent, ExperimentSolidBodySpanBoundsBelief, ExperimentSolidBodyHeadingFaceNoise,
+		ExperimentSolidBodyAnisotropicReferenceBias}, nil)
+	if err != nil || !tracked.NearEdgeTracking || tracked.SolidBody.ExtentState || !tracked.SolidBody.CensoredExtent ||
+		!tracked.SolidBody.SpanBoundsBelief || !tracked.SolidBody.HeadingFaceNoise || !tracked.SolidBody.AnisotropicReferenceBias {
+		t.Errorf("the four tracked face-state options: %v %+v", err, tracked.SolidBody)
 	}
 	// Full members change what L4 hands over, not the tracker's options, and
 	// are refused without a solid body to read them.

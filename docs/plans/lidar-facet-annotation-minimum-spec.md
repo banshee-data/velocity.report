@@ -239,8 +239,8 @@ not implement the runtime accepted-event ledger or PR #657's controlled ablation
 
 ## Offline manual-correspondence pose proposal increment
 
-A schema-1 JSON request/result now supports a bounded read-only offline experiment through
-`POST /api/annotations/features/pose-proposal`. The request pins the facet revision/digest,
+A schema-1 JSON request and schema-2 result now support a bounded read-only offline experiment
+through `POST /api/annotations/features/pose-proposal`. The request pins the facet revision/digest,
 current membership revision/digest, exact target sample/timestamp, manually chosen definite
 return(s), confirmed physical identity, author, explicit return bound and named prior
 centre/yaw/uncertainty. The result retains those inputs, pinned source Physical revision/digest,
@@ -249,12 +249,25 @@ Physical keyframe, review or online measurement.
 
 The solver reads the registered source body and a different target frame's accepted support.
 It does not select a target Physical pose. A compact spot supplies planar position given the
-explicit prior yaw. A straight edge supplies a horizontal normal constraint; tangential position
-and yaw retain their declared priors. Combined angular uncertainty is propagated through the
-normal relation, including its near-perpendicular conditioning. Incompatible direction or
+explicit prior yaw. A straight edge supplies a horizontal normal constraint and a measured yaw;
+tangential position retains its declared prior. Combined angular uncertainty is propagated
+through the normal relation, including its near-perpendicular conditioning. Incompatible direction or
 hard-bound prior evidence refuses the result. Conservative position bounds never shrink below
 the stated prior bound. Body dimensions remain unchanged, including their evidence status.
 Only full length/width intervals can draw a footprint; hidden ends are predictions.
+
+**Delivered: segment proposals measure yaw, and straightness is tested in plan view.** A segment
+result reports `yaw.status: "observed"` under the constraint `normal_position_and_yaw`. The yaw
+is the target normal's angle less the body-frame normal's, folded over π to the reading nearest
+the prior. Its bound is the two normal bounds, independent of the prior's yaw bound, which no
+longer widens the normal bound. A yaw outside both bounds of the prior is refused, as before.
+Compact spots keep `planar_position_given_prior_yaw` and report the prior yaw as `prior_only`.
+The result's schema version is 2; the request stays at version 1. Go's `featureSegmentRelation`
+and the visualiser's `makeSegment` measure each return's distance from the endpoint line in
+plan view, so a flat side whose constant-elevation ring sags 0.13 to 0.22 m in height is no
+longer refused. There is no vertical test. The plan-view distance never exceeds the 3D one, so
+saved segment registrations remain valid. Source: Section 3.6 of the face-state and CV/CA maths
+review.
 
 Native controls show matched returns, the proposed Top footprint, source pins, weak directions
 and refusal messages. The operator can correct inputs/recompute or discard. This first

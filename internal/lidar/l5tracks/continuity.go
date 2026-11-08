@@ -466,6 +466,13 @@ func (t *Tracker) inflateCoastCovariance(track *TrackedObject) float32 {
 	if add > 0 {
 		track.P[0*4+0] += add
 		track.P[1*4+1] += add
+		if t.Config.ConsistentCovarianceCap {
+			// Only the position diagonals grew here; the prediction has
+			// already capped the velocity ones, so in practice only the
+			// position rows and columns are scaled.
+			capCovarianceConsistent(&track.P, t.Config.MaxCovarianceDiag)
+			return add
+		}
 		if track.P[0*4+0] > t.Config.MaxCovarianceDiag {
 			track.P[0*4+0] = t.Config.MaxCovarianceDiag
 		}

@@ -58,6 +58,8 @@ func TestValidateExperimentsRefusesWhatRunRefuses(t *testing.T) {
 		{ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesVolatileOnly},
 		{ExperimentOverlapEnd1, ExperimentOverlapEndBody},
 		{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack},
+		{ExperimentSolidBody, ExperimentSolidBodyFaceState},
+		{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack, ExperimentSolidBodySpanBoundsBelief},
 	}
 	for _, experiments := range accepted {
 		if err := ValidateExperiments(experiments, "", "", nil); err != nil {
@@ -74,6 +76,9 @@ func TestValidateExperimentsRefusesWhatRunRefuses(t *testing.T) {
 		{ExperimentSolidBodyFaceHysteresis},
 		{ExperimentNearEdgeTrack},
 		{ExperimentSolidBody, ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight},
+		{ExperimentSolidBodyFaceState},
+		{ExperimentSolidBodyHeadingFaceNoise},
+		{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack, ExperimentSolidBodyExtentState},
 	}
 	for _, experiments := range refused {
 		if err := ValidateExperiments(experiments, "", "", nil); err == nil {

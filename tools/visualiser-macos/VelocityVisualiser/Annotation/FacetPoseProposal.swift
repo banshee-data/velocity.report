@@ -149,23 +149,52 @@ struct FacetPoseProposal: Decodable, Equatable {
         }
     }
 
+    /// Version 2 reports a segment's measured yaw; version 1 always echoed the
+    /// prior. The request keeps version 1.
+    static let currentSchemaVersion = 2
+    /// A compact spot fixes planar position at the prior yaw.
+    static let planarPositionGivenPriorYaw = "planar_position_given_prior_yaw"
+    /// A straight segment fixes the normal position and measures yaw from the
+    /// two normals; tangent position stays at the prior.
+    static let normalPositionAndYaw = "normal_position_and_yaw"
+
     func validate(request expected: FacetPoseRequest, feature: FeatureCandidate) throws {
-        guard schema == "velocity.report/facet-pose-proposal", schemaVersion == 1,
+        guard schema == "velocity.report/facet-pose-proposal",
+            schemaVersion == FacetPoseProposal.currentSchemaVersion,
             status == "read_only_assisted_proposal", request == expected,
             objectID == feature.objectID, body.bodyID == feature.anchor.bodyID,
             sourcePhysicalRevision == feature.anchor.physicalRevision,
             sourcePhysicalDigest == feature.anchor.physicalDigest,
             sourceSample == feature.anchor.sourceSample, Int(sourceSample) != expected.sampleID,
             sourceOrigin == feature.anchor.origin,
-            ["planar_position_given_prior_yaw", "normal_position_given_prior_yaw"].contains(
-                constraint), centre.xM.isFinite, centre.yM.isFinite, centre.boundM.isFinite,
-            centre.boundM >= expected.prior.positionBoundM, yaw.rad == expected.prior.yawRad,
-            yaw.boundRad == expected.prior.yawBoundRad, yaw.axis == "resolved",
-            yaw.status == "prior_only", unresolved.contains("yaw_from_prior_not_measured"),
-            unresolved.contains("height_not_measured")
+            [FacetPoseProposal.planarPositionGivenPriorYaw, FacetPoseProposal.normalPositionAndYaw]
+                .contains(constraint), centre.xM.isFinite, centre.yM.isFinite,
+            centre.boundM.isFinite, centre.boundM >= expected.prior.positionBoundM,
+            yaw.axis == "resolved", unresolved.contains("height_not_measured")
         else {
             throw FeatureError.message(
                 "The service returned an incompatible or stale pose proposal")
+        }
+        if constraint == FacetPoseProposal.planarPositionGivenPriorYaw {
+            // One return cannot measure yaw: the prior must come back verbatim.
+            guard yaw.rad == expected.prior.yawRad, yaw.boundRad == expected.prior.yawBoundRad,
+                yaw.status == "prior_only", unresolved.contains("yaw_from_prior_not_measured")
+            else {
+                throw FeatureError.message("A compact spot must keep the prior yaw it was given")
+            }
+        } else {
+            // A segment's yaw is measured, folded to the mode nearest the
+            // prior, and must agree with it within both bounds. Under pi/2
+            // the other mode, pi away, is excluded.
+            guard yaw.status == "observed", yaw.rad.isFinite, yaw.boundRad.isFinite,
+                yaw.boundRad >= 0, yaw.boundRad + expected.prior.yawBoundRad < .pi / 2,
+                abs(yaw.rad - expected.prior.yawRad)
+                    <= yaw.boundRad + expected.prior.yawBoundRad + 1e-9,
+                !unresolved.contains("yaw_from_prior_not_measured")
+            else {
+                throw FeatureError.message(
+                    "The segment's measured yaw is missing or contradicts the prior")
+            }
         }
         if let box {
             guard
@@ -175,19 +204,19 @@ struct FacetPoseProposal: Decodable, Equatable {
                 box.lengthM == body.length.best?.value, box.widthM == body.width.best?.value
             else { throw FeatureError.message("Invalid proposal footprint") }
         }
-        guard feature.anchor.hasLine == (constraint == "normal_position_given_prior_yaw"),
+        guard feature.anchor.hasLine == (constraint == FacetPoseProposal.normalPositionAndYaw),
             expected.confirmed, !expected.author.isEmpty,
             matchedIndices.contains(expected.pointIndex)
         else {
             throw FeatureError.message(
                 "The returned constraint disagrees with the confirmed correspondence")
         }
-        if constraint == "planar_position_given_prior_yaw" {
+        if constraint == FacetPoseProposal.planarPositionGivenPriorYaw {
             guard expected.endIndex == nil, matchedIndices == [expected.pointIndex] else {
                 throw FeatureError.message("A compact spot must keep its single named return")
             }
         }
-        if constraint == "normal_position_given_prior_yaw" {
+        if constraint == FacetPoseProposal.normalPositionAndYaw {
             guard let normal, normal.count == 2, normal.allSatisfy(\.isFinite),
                 abs(hypot(normal[0], normal[1]) - 1) < 1e-6, let normalBoundM,
                 normalBoundM.isFinite, normalBoundM >= 0,

@@ -38,9 +38,24 @@ type FacetPoseRequest struct {
 	Prior              FacetPosePrior `json:"prior"`
 }
 
+// FacetPoseProposalSchemaVersion is the result's wire version. Version 2
+// reports a segment's measured yaw (status observed, constraint
+// ConstraintNormalPositionAndYaw); version 1 always echoed the prior yaw.
+// The request keeps its own version 1: its meaning has not changed.
+const FacetPoseProposalSchemaVersion = 2
+
+// Constraint names a proposal's evidence carries. A compact spot fixes planar
+// position at the prior yaw; a straight segment fixes the normal position and
+// measures yaw, leaving tangent position at the prior.
+const (
+	ConstraintPlanarPositionGivenPriorYaw = "planar_position_given_prior_yaw"
+	ConstraintNormalPositionAndYaw        = "normal_position_and_yaw"
+)
+
 // A proposal is not a PhysicalKeyframe and has no review/write semantics.
-// The prior is retained verbatim, yaw is never estimated, and hidden ends are
-// predictions from the fixed source body, not newly measured endpoints.
+// The prior is retained verbatim. A compact spot reports the prior yaw; a
+// segment reports the yaw its normals measure. Hidden ends are predictions
+// from the fixed source body, not newly measured endpoints.
 type FacetPoseProposal struct {
 	Schema                 string           `json:"schema"`
 	SchemaVersion          int              `json:"schema_version"`
@@ -149,8 +164,11 @@ func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation,
 	if int(*req.PointIndex) >= len(points.X) || int(*req.PointIndex) >= len(points.Y) || int(*req.PointIndex) >= len(points.Z) {
 		return nil, fmt.Errorf("matched return outside sample")
 	}
-	c, s := math.Cos(*prior.YawRad), math.Sin(*prior.YawRad)
-	result := &FacetPoseProposal{Schema: "velocity.report/facet-pose-proposal", SchemaVersion: 1, Status: "read_only_assisted_proposal", Request: req, ObjectID: feature.ObjectId, SourcePhysicalRevision: a.PhysicalRevision, SourcePhysicalDigest: a.PhysicalDigest, SourceSample: a.SourceSample, SourceOrigin: a.Origin, TargetOrigin: target.Origin, Body: body, Yaw: AngleBound{Rad: *prior.YawRad, BoundRad: *prior.YawBoundRad, Axis: AxisResolved, Status: EvidencePriorOnly}, Unresolved: []string{"yaw_from_prior_not_measured", "height_not_measured"}}
+	// yaw, c and s start at the prior. Only a segment replaces them with the
+	// measured yaw; a single return cannot measure it.
+	yaw := *prior.YawRad
+	c, s := math.Cos(yaw), math.Sin(yaw)
+	result := &FacetPoseProposal{Schema: "velocity.report/facet-pose-proposal", SchemaVersion: FacetPoseProposalSchemaVersion, Status: "read_only_assisted_proposal", Request: req, ObjectID: feature.ObjectId, SourcePhysicalRevision: a.PhysicalRevision, SourcePhysicalDigest: a.PhysicalDigest, SourceSample: a.SourceSample, SourceOrigin: a.Origin, TargetOrigin: target.Origin, Body: body, Yaw: AngleBound{Rad: *prior.YawRad, BoundRad: *prior.YawBoundRad, Axis: AxisResolved, Status: EvidencePriorOnly}, Unresolved: []string{"yaw_from_prior_not_measured", "height_not_measured"}}
 	if a.Line == nil {
 		if req.EndIndex != nil {
 			return nil, fmt.Errorf("compact spot takes one matched return")
@@ -165,7 +183,7 @@ func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation,
 		if math.Hypot(result.Centre.XM-*prior.XM, result.Centre.YM-*prior.YM) > *prior.PositionBoundM+evidenceBound {
 			return nil, fmt.Errorf("matched spot contradicts the declared prior bounds; correct the prior or correspondence")
 		}
-		result.Constraint = "planar_position_given_prior_yaw"
+		result.Constraint = ConstraintPlanarPositionGivenPriorYaw
 		result.MatchedIndices = []uint32{i}
 	} else {
 		if req.EndIndex == nil || !definite[*req.EndIndex] {
@@ -181,15 +199,32 @@ func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation,
 		if err != nil {
 			return nil, err
 		}
-		nx, ny := c*a.Line.NormalX-s*a.Line.NormalY, s*a.Line.NormalX+c*a.Line.NormalY
-		angular := a.Line.NormalBoundRad + *prior.YawBoundRad + targetLine.NormalBoundRad
-		if angular >= math.Pi/2 {
+		// The target's world normal and the anchor's body-frame normal measure
+		// the body yaw directly: psi = angle(n_target) - angle(n_body). A line
+		// normal carries no sign, so psi is known only modulo pi; it is folded
+		// to the mode nearest the prior. Its bound is the two normal bounds and
+		// does not depend on the prior's yaw bound.
+		// An angle needs a unit body normal; a degenerate one would read as 0.
+		if norm := math.Hypot(a.Line.NormalX, a.Line.NormalY); !finiteFeature(norm) || math.Abs(norm-1) > 1e-6 {
+			return nil, fmt.Errorf("saved segment normal is not a unit vector")
+		}
+		yawBound := a.Line.NormalBoundRad + targetLine.NormalBoundRad
+		// The prior must still choose one mode. The other lies pi away, so a
+		// combined tolerance under pi/2 leaves exactly one admissible.
+		consistency := yawBound + *prior.YawBoundRad
+		if consistency >= math.Pi/2 {
 			return nil, fmt.Errorf("combined normal uncertainty is unconstrained")
 		}
-		dot := nx*targetLine.NormalX + ny*targetLine.NormalY
-		if math.Acos(math.Min(1, math.Abs(dot))) > angular+1e-9 {
-			return nil, fmt.Errorf("target edge direction contradicts the prior; yaw is not solved")
+		measured := *prior.YawRad + math.Remainder(math.Atan2(targetLine.NormalY, targetLine.NormalX)-math.Atan2(a.Line.NormalY, a.Line.NormalX)-*prior.YawRad, math.Pi)
+		if math.Abs(measured-*prior.YawRad) > consistency+1e-9 {
+			return nil, fmt.Errorf("target edge direction contradicts the prior yaw; correct the prior or correspondence")
 		}
+		yaw, c, s = measured, math.Cos(measured), math.Sin(measured)
+		// Rotated by the measured yaw, the body normal is the target normal up
+		// to sign, so its direction error is within the measured yaw bound and
+		// the prior's yaw bound no longer enters the normal bound.
+		nx, ny := c*a.Line.NormalX-s*a.Line.NormalY, s*a.Line.NormalX+c*a.Line.NormalY
+		angular := yawBound
 		start, end := *req.PointIndex, *req.EndIndex
 		mx, my := (float64(points.X[start])+float64(points.X[end]))/2, (float64(points.Y[start])+float64(points.Y[end]))/2
 		displacement := nx*(mx-*prior.XM) + ny*(my-*prior.YM) - a.Line.OffsetM
@@ -199,19 +234,20 @@ func solveFacetPose(feature *pb.FeatureCandidate, target *pb.FeatureObservation,
 			return nil, fmt.Errorf("matched edge contradicts the declared prior normal bounds; correct the prior or correspondence")
 		}
 		result.Centre = PlanarBound{XM: *prior.XM + nx*displacement, YM: *prior.YM + ny*displacement, BoundM: *prior.PositionBoundM + normalBound}
-		result.Constraint = "normal_position_given_prior_yaw"
+		result.Constraint = ConstraintNormalPositionAndYaw
+		result.Yaw = AngleBound{Rad: measured, BoundRad: yawBound, Axis: AxisResolved, Status: EvidenceObserved}
 		result.Normal = &[2]float64{nx, ny}
 		result.NormalBoundM = &normalBound
 		result.TangentBoundM = prior.PositionBoundM
-		result.Unresolved = append(result.Unresolved, "tangent_from_prior_not_measured")
+		result.Unresolved = []string{"height_not_measured", "tangent_from_prior_not_measured"}
 		result.MatchedIndices = indices
 	}
-	values := []float64{result.Centre.XM, result.Centre.YM, result.Centre.BoundM}
+	values := []float64{result.Centre.XM, result.Centre.YM, result.Centre.BoundM, result.Yaw.Rad, result.Yaw.BoundRad}
 	length, width := proposalDimension(body.Length), proposalDimension(body.Width)
 	if length == nil || width == nil {
 		result.BoxUnavailable = "source body lacks full length/width intervals"
 	} else {
-		result.Box = &BoxBound{CentreXM: result.Centre.XM, CentreYM: result.Centre.YM, YawRad: *prior.YawRad, LengthM: *length, WidthM: *width}
+		result.Box = &BoxBound{CentreXM: result.Centre.XM, CentreYM: result.Centre.YM, YawRad: yaw, LengthM: *length, WidthM: *width}
 		result.FrontPrediction = &[2]float64{result.Centre.XM + c**length/2, result.Centre.YM + s**length/2}
 		result.RearPrediction = &[2]float64{result.Centre.XM - c**length/2, result.Centre.YM - s**length/2}
 		values = append(values, *length, *width, result.FrontPrediction[0], result.FrontPrediction[1], result.RearPrediction[0], result.RearPrediction[1])

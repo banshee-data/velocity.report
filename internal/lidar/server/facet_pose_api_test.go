@@ -71,6 +71,11 @@ func TestFacetPoseAPIIsBoundedReadOnlyAndUsesSourceEvidence(t *testing.T) {
 	if err := json.Unmarshal(res.Body.Bytes(), &proposal); err != nil || proposal.Box == nil || proposal.Centre.XM != 11 || proposal.Yaw.Status != annotation.EvidencePriorOnly {
 		t.Fatal(err, proposal)
 	}
+	// The wire carries the result's version 2 contract; a compact spot still
+	// reports the prior yaw and says so.
+	if proposal.SchemaVersion != 2 || proposal.Constraint != annotation.ConstraintPlanarPositionGivenPriorYaw || proposal.Yaw.Rad != *req.Prior.YawRad || len(proposal.Unresolved) == 0 || proposal.Unresolved[0] != "yaw_from_prior_not_measured" {
+		t.Fatal("API lost the proposal contract", proposal.SchemaVersion, proposal.Constraint, proposal.Unresolved)
+	}
 	for f, b := range before {
 		after, _ := os.ReadFile(f)
 		if !bytes.Equal(b, after) {

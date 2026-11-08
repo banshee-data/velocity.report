@@ -42,9 +42,19 @@ func isFiniteState(track *TrackedObject) bool {
 // clampVelocity scales VX/VY proportionally so the speed magnitude does not
 // exceed MaxReasonableSpeedMps. This prevents teleport-like extrapolation
 // from noisy Kalman updates or degenerate associations.
+//
+// Under ConsistentSpeedClamp the same trigger applies the limit as a
+// Gaussian truncation of the along-track speed, through the state's
+// regression on it, instead; see constrainSpeedConsistent.
 func (t *Tracker) clampVelocity(track *TrackedObject) {
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
 	if speed > t.Config.MaxReasonableSpeedMps {
+		if t.Config.ConsistentSpeedClamp {
+			state := [4]float32{track.X, track.Y, track.VX, track.VY}
+			constrainSpeedConsistent(&state, &track.P, t.Config.MaxReasonableSpeedMps)
+			track.X, track.Y, track.VX, track.VY = state[0], state[1], state[2], state[3]
+			return
+		}
 		scale := t.Config.MaxReasonableSpeedMps / speed
 		track.VX *= scale
 		track.VY *= scale
@@ -113,9 +123,15 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 
 	// Cap covariance diagonal elements to prevent unbounded gating ellipse
 	// growth from accumulated prediction steps and occlusion inflation.
-	for i := 0; i < 4; i++ {
-		if track.P[i*4+i] > t.Config.MaxCovarianceDiag {
-			track.P[i*4+i] = t.Config.MaxCovarianceDiag
+	// ConsistentCovarianceCap scales the row and column instead of clamping
+	// the diagonal alone, so P stays positive semi-definite.
+	if t.Config.ConsistentCovarianceCap {
+		capCovarianceConsistent(&track.P, t.Config.MaxCovarianceDiag)
+	} else {
+		for i := 0; i < 4; i++ {
+			if track.P[i*4+i] > t.Config.MaxCovarianceDiag {
+				track.P[i*4+i] = t.Config.MaxCovarianceDiag
+			}
 		}
 	}
 

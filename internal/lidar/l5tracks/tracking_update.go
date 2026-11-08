@@ -67,6 +67,24 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	invS10 := -S10 / det
 	invS11 := S00 / det
 
+	// TwoPointVelocityInit: a track's second measurement initialises its
+	// velocity instead of updating a zero-velocity prior. See
+	// initialiseTwoPoint; when it declines, the shipped update follows.
+	if t.Config.TwoPointVelocityInit {
+		var r *MeasurementCovariance
+		if t.Config.AdaptiveMeasurementNoise {
+			r = &adaptiveR
+		}
+		if t.initialiseTwoPoint(track, cluster, measurement, r, [4]float32{invS00, invS01, invS10, invS11}) {
+			if t.refuseNonFiniteUpdate(track) {
+				return
+			}
+			t.clampVelocity(track)
+			t.recordUpdate(track, cluster, measurement, nowNanos)
+			return
+		}
+	}
+
 	// Filter-consistency instrumentation. Taken here because the innovation is
 	// still measured against the prediction, and the inverse covariance the
 	// gain needs is exactly what NIS needs.
@@ -116,6 +134,95 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Clamp velocity magnitude after update (task 2.3).
 	t.clampVelocity(track)
 	t.recordUpdate(track, cluster, measurement, nowNanos)
+}
+
+// initialiseTwoPoint is TwoPointVelocityInit: on a track's second accepted
+// association it sets the state from the two measurements rather than
+// updating the zero-velocity prior initTrack gave it, and reports whether it
+// did. With z1 the founding measurement, z2 this one and Δt the capture
+// interval between their acquisition times:
+//
+//	x = z2,   v = (z2 − z1) / Δt,
+//	P = | R      R/Δt   |   per axis,
+//	    | R/Δt   2R/Δt² |
+//
+// which is the exact mean and covariance of that pair when both carry noise
+// R and nothing is known of the velocity beforehand. R is the isotropic
+// MeasurementNoise, so the axes stay uncorrelated. Under
+// AdaptiveMeasurementNoise it is this measurement's R, taken as both
+// measurements' (the founding one's is not retained), and its own x–y term
+// carries into the blocks; nothing else adds a cross-axis term.
+//
+// It applies only while the track has had exactly one measurement and its
+// velocity is still initTrack's zero, and not to a track whose state the
+// near-edge state machine owns (NearEdgeTracking): there the reference point
+// can move between the two frames, and a difference across a re-reference
+// would read the translation as motion. It declines, leaving the shipped
+// update to run, when either acquisition time is missing, Δt is not
+// positive and finite, the implied velocity is not finite, the implied speed
+// exceeds MaxReasonableSpeedMps (a pair that implies an impossible speed is
+// not evidence of one), or the velocity variance 2R/Δt² exceeds
+// MaxCovarianceDiag (at the shipped R and cap, a Δt under about 32 ms).
+//
+// The residual is recorded with ResidualTwoPointInit: the innovation against
+// the prediction and the NIS the gate saw, so the frame keeps its estimate
+// row, but not the consistency accumulators, since no gain was applied.
+func (t *Tracker) initialiseTwoPoint(track *TrackedObject, cluster WorldCluster, measurement PositionMeasurement, adaptiveR *MeasurementCovariance, invS [4]float32) bool {
+	if track.ObservationCount != 1 || track.VX != 0 || track.VY != 0 || track.solidBody.tracked {
+		return false
+	}
+	first := track.foundingMeasurement
+	if first.UnixNanos <= 0 || measurement.UnixNanos <= 0 {
+		return false
+	}
+	dt := float64(measurement.UnixNanos-first.UnixNanos) / 1e9
+	if !(dt > 0) || math.IsInf(dt, 0) {
+		return false
+	}
+	vx := (float64(measurement.X) - float64(first.X)) / dt
+	vy := (float64(measurement.Y) - float64(first.Y)) / dt
+	speed := math.Hypot(vx, vy)
+	if math.IsNaN(speed) || math.IsInf(speed, 0) || speed > float64(t.Config.MaxReasonableSpeedMps) {
+		return false
+	}
+
+	r := MeasurementCovariance{XX: t.Config.MeasurementNoise, YY: t.Config.MeasurementNoise}
+	if adaptiveR != nil {
+		r = *adaptiveR
+	}
+	// A pair too close in time carries a velocity variance above the cap.
+	// Capping it would claim a velocity the pair does not support, and the
+	// shipped diagonal clamp would leave P indefinite at the next prediction.
+	if 2*math.Max(float64(r.XX), float64(r.YY))/(dt*dt) > float64(t.Config.MaxCovarianceDiag) {
+		return false
+	}
+
+	yX, yY := measurement.X-track.X, measurement.Y-track.Y
+	track.LastResidual = FilterResidual{
+		Valid: true, PredictedX: track.X, PredictedY: track.Y, Measurement: measurement,
+		InnovationX: yX, InnovationY: yY,
+		NIS:                float32(float64(yX)*float64(invS[0]*yX+invS[1]*yY) + float64(yY)*float64(invS[2]*yX+invS[3]*yY)),
+		GeometryCovariance: covarianceForCluster(cluster, t.Config.MeasurementNoise),
+		Disposition:        ResidualTwoPointInit, Reason: "two_point_velocity_init",
+	}
+
+	track.X, track.Y = measurement.X, measurement.Y
+	track.VX, track.VY = float32(vx), float32(vy)
+	// Row-major [x, y, vx, vy]: each 2×2 position block of the pair's
+	// covariance is R scaled by 1, 1/Δt or 2/Δt².
+	block := func(scale float64) (xx, xy, yy float32) {
+		return float32(float64(r.XX) * scale), float32(float64(r.XY) * scale), float32(float64(r.YY) * scale)
+	}
+	pxx, pxy, pyy := block(1)
+	cxx, cxy, cyy := block(1 / dt)
+	vxx, vxy, vyy := block(2 / (dt * dt))
+	track.P = [16]float32{
+		pxx, pxy, cxx, cxy,
+		pxy, pyy, cxy, cyy,
+		cxx, cxy, vxx, vxy,
+		cxy, cyy, vxy, vyy,
+	}
+	return true
 }
 
 // recordUpdate does an associated frame's bookkeeping once the filter's state

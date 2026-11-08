@@ -1,4 +1,4 @@
-// Presentation helpers for the Segments page. The selectors, their rules and
+// Presentation helpers for the Windows page (once Segments). The selectors, their rules and
 // every ranking come from the server (GET /api/lidar/segments/selectors and
 // GET /api/lidar/segments), which reads config/segment-selectors.defaults.json.
 // These helpers group and label what the server served and decide nothing:

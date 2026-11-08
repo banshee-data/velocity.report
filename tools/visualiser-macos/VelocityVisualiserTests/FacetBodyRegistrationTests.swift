@@ -223,6 +223,30 @@ extension FacetBodyRegistrationTests {
         }
     }
 
+    /// A constant-elevation ring on a flat side sags in z across the face.
+    /// Straightness is a plan-view property, matching the Go relation: a
+    /// 0.2 m sag passes a 0.05 m return bound, a 0.2 m plan-view bend does not.
+    @Test func segmentStraightnessIsTestedInPlanView() throws {
+        let (feature, _, physical) = segmentFixture()
+        let sagging = PackPoints(x: [8, 10.25, 12.5], y: [-0.9, -0.9, -0.9], z: [1, 0.8, 1])
+        let anchor = try FacetBodyRegistration.makeSegment(
+            feature: feature, sampleID: 0, startIndex: 0, endIndex: 2, points: sagging,
+            physical: physical, returnBoundM: 0.05, identityNote: "flat lower door panel")
+        #expect(abs(anchor.line.normalX - 1) < 1e-9 && abs(anchor.line.normalY) < 1e-9)
+        let tilted = PackPoints(x: sagging.x, y: sagging.y, z: [1, 0.8, 2])
+        #expect(
+            try FacetBodyRegistration.makeSegment(
+                feature: feature, sampleID: 0, startIndex: 0, endIndex: 2, points: tilted,
+                physical: physical, returnBoundM: 0.05, identityNote: "flat lower door panel"
+            ).line == anchor.line, "endpoint heights moved the horizontal relation")
+        let bent = PackPoints(x: sagging.x, y: [-0.9, -0.7, -0.9], z: [1, 1, 1])
+        #expect(throws: (any Error).self) {
+            try FacetBodyRegistration.makeSegment(
+                feature: feature, sampleID: 0, startIndex: 0, endIndex: 2, points: bent,
+                physical: physical, returnBoundM: 0.05, identityNote: "bent edge")
+        }
+    }
+
     @Test func segmentKeepsAssistedOriginAndDoesNotRescaleWithDimensions() throws {
         var (feature, points, physical) = segmentFixture()
         physical.document.objects[0].body?.review.origin = .trackerAssisted
