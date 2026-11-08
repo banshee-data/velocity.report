@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"path/filepath"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
 
@@ -28,7 +31,10 @@ func NewDirectBackend(sensorID string, ws *Server) *DirectBackend {
 }
 
 // Compile-time check.
-var _ sweep.SweepBackend = (*DirectBackend)(nil)
+var (
+	_ sweep.SweepBackend     = (*DirectBackend)(nil)
+	_ sweep.SweepClipChecker = (*DirectBackend)(nil)
+)
 
 // SensorID returns the sensor identifier.
 func (d *DirectBackend) SensorID() string { return d.sensorID }
@@ -246,10 +252,66 @@ func (d *DirectBackend) StartPCAPReplayWithConfig(cfg sweep.PCAPReplayConfig) er
 			return err
 		}
 	}
-	return d.ws.StartPCAPForSweep(
-		cfg.PCAPFile, cfg.AnalysisMode, speedMode, speedRatio,
-		cfg.StartSeconds, cfg.DurationSeconds, cfg.MaxRetries,
-		cfg.DisableRecording)
+	return d.ws.startPCAPForSweep(cfg.PCAPFile, ReplayConfig{
+		StartSeconds:     cfg.StartSeconds,
+		DurationSeconds:  cfg.DurationSeconds,
+		SpeedMode:        speedMode,
+		SpeedRatio:       speedRatio,
+		AnalysisMode:     cfg.AnalysisMode,
+		DisableRecording: cfg.DisableRecording,
+		ClipID:           cfg.ClipID,
+	}, cfg.MaxRetries)
+}
+
+// CheckSweepClip implements sweep.SweepClipChecker. A sweep's runs name its
+// clip only when the sweep replays the clip: its one capture file, from the
+// clip's start for the clip's duration. A clip that spans several files is
+// refused, since a sweep replays one file. Without a database there are no
+// clips or run records, so nothing is checked.
+func (d *DirectBackend) CheckSweepClip(clipID, pcapFile string, startSecs, durationSecs float64) error {
+	if d.ws == nil || d.ws.db == nil {
+		return nil
+	}
+	store := sqlite.NewClipStore(d.ws.db)
+	clip, err := store.GetClip(clipID)
+	if err != nil {
+		return fmt.Errorf("no such clip: %w", err)
+	}
+	paths, err := store.ClipPaths(clipID)
+	if err != nil {
+		return fmt.Errorf("reading the clip's captures: %w", err)
+	}
+	switch {
+	case len(paths) == 0:
+		return fmt.Errorf("the clip names no captures")
+	case len(paths) > 1:
+		return fmt.Errorf("the clip spans %d capture files and a sweep replays one; sweep a single-file clip, or the capture without a clip", len(paths))
+	}
+	if filepath.Clean(pcapFile) != filepath.Clean(paths[0]) {
+		return fmt.Errorf("the sweep replays %q but the clip's capture is %q", pcapFile, paths[0])
+	}
+	clipStart, clipDuration := 0.0, -1.0
+	if clip.PCAPStartSecs != nil {
+		clipStart = *clip.PCAPStartSecs
+	}
+	if clip.PCAPDurationSecs != nil && *clip.PCAPDurationSecs > 0 {
+		clipDuration = *clip.PCAPDurationSecs
+	}
+	if durationSecs <= 0 {
+		durationSecs = -1 // the whole capture, however the request says it
+	}
+	const tolerance = 1e-3
+	if math.Abs(startSecs-clipStart) > tolerance || math.Abs(durationSecs-clipDuration) > tolerance {
+		return fmt.Errorf("the sweep replays %s, but the clip is %s", describeWindow(startSecs, durationSecs), describeWindow(clipStart, clipDuration))
+	}
+	return nil
+}
+
+func describeWindow(start, duration float64) string {
+	if duration <= 0 {
+		return fmt.Sprintf("from %gs to the end", start)
+	}
+	return fmt.Sprintf("%gs from %gs", duration, start)
 }
 
 // StopPCAPReplay cancels the running PCAP replay and restores live mode.

@@ -67,3 +67,27 @@ with more care than cars; the second pass of label0001 grades every span as it g
 
 **What it does not establish.** Per-frame identity; the box's geometry; anything a mask would
 show. Those are label0001's and label0002's.
+
+## The draw (select step, November 8, 2026)
+
+Made once, for label0003 and label0001 both. The only selector that could draw a held-out window at
+random was fixed at 10 s, too short to hold the road users a whole-window label needs, so the
+draw waited on `random_180s`: the same seeded draw, one window per capture, at 180 s, the one
+width the code lets the random draw widen to (`HeldOutRandomWindowSeconds`, commit 4739950d5).
+Nothing about the window's contents entered the draw. It placed 180 s windows from 35 s into the
+capture by packet time alone and kept the one with the highest seeded score.
+
+| Field      | Value                                                                                                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Capture    | `sf-street-speeds/raw/lidar/20260903T1317_80858-06c_embarcadero-folsom.pcapng`, the whole 20 minutes                                                                                        |
+| Selector   | `random_180s`, digest `sha256:4f18bbad767482a7a78ed3e0da92b549df223c13ce8ec64b16b5fcfc3bf633f8`                                                                                             |
+| Parameters | `window_seconds` 180, `random_seed` 1, every other parameter at its default                                                                                                                 |
+| Window     | `seg-955587a76c49fe5c6bd735c4`, 575 to 755 s into the capture, draw score 0.700438                                                                                                          |
+| Role       | `held_out`                                                                                                                                                                                  |
+| Run        | `6324d632-8cff-4b6a-a28d-bfec3ce1b082`: the first 40 s replayed at default parameters (fingerprint `ab0c4035780d`) so that a run named the capture; its tracks were not read                |
+| Build      | `velocity` v0.5.1-pre52 at 4739950d5, stamped by `make build-radar-local`                                                                                                                   |
+| Pack       | `sha256:ffdee4d37bdd34e78afa5bc91927adc0e4509279e1caad56f7c2dcee41c2a132`: 1,800 samples (version 2, foreground-only coverage with the settled background snapshots, as every clip records) |
+
+The draw report and the clip (its VRLOG and pack) are outside the checkout, in
+`/Volumes/lidar/lidar/work/label0003-20261107/`. The pack is labelled blind, with tracker previews
+hidden. No second window is drawn: label0001's masks and review go on this one.

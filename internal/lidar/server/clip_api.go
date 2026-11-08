@@ -181,6 +181,11 @@ func (ws *Server) handleListClips(w http.ResponseWriter, r *http.Request) {
 		clips = located
 	}
 
+	// Name each located clip's site, for the Runs page's clip headers.
+	if err := sqlite.AttachClipSites(ws.db, clips); err != nil {
+		opsf("Warning: could not attach clip sites: %v", err)
+	}
+
 	// Ensure we return an empty array instead of null when no clips
 	if clips == nil {
 		clips = []*sqlite.Clip{}

@@ -15,8 +15,17 @@
 		getRunTracks
 	} from '#lib/api.js';
 	import type { Run, LabellingProgress, LidarClip, RunTrack } from '#lib/types/lidar.js';
-	import { clipQuery, linkedId, tracksQuery } from '#lib/lidarLinks.js';
+	import { clipQuery, linkedId, sweepQuery, tracksQuery } from '#lib/lidarLinks.js';
 	import { clipForRun, frameModeLabel, labelShare, shortDigest } from '#lib/lidarRecords.js';
+	import {
+		clipSiteName,
+		compareWithRecommended,
+		differenceDetail,
+		differenceSummary,
+		groupRunsByClip,
+		insertRunByCreated,
+		type RunRow
+	} from '#lib/runGroups.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
@@ -33,11 +42,67 @@
 	let labellingProgress: LabellingProgress | null = null;
 	let tracksLoading = false;
 
+	/** The table's column count, for the rows that span it. */
+	const COLUMNS = 8;
+
+	/** Which folded rows and sweeps are open, by row key. */
+	let expanded: Record<string, boolean> = {};
+
+	$: groups = groupRunsByClip(runs, scenes);
+	$: selectedComparison = selectedRun
+		? compareWithRecommended(selectedRun, clipForRun(selectedRun, scenes))
+		: null;
+
+	function toggle(key: string) {
+		expanded = { ...expanded, [key]: !expanded[key] };
+	}
+
+	/** Open the folds that hide a run, so a linked run shows in its group. */
+	function revealRun(runId: string) {
+		const open: Record<string, boolean> = {};
+		for (const group of groupRunsByClip(runs, scenes)) {
+			for (const row of group.rows) {
+				const inner = row.kind === 'sweep' ? row.rows : [row];
+				for (const r of inner) {
+					const hidden = r.repeats.some((x) => x.run_id === runId);
+					if (row.kind === 'sweep' && (hidden || r.run.run_id === runId)) {
+						open[`sweep:${row.sweepId}`] = true;
+					}
+					if (hidden) open[`fold:${r.run.run_id}`] = true;
+				}
+			}
+		}
+		expanded = { ...expanded, ...open };
+	}
+
+	function clipName(clip: LidarClip): string {
+		return clip.description || clip.clip_id.substring(0, 8);
+	}
+
+	function sweepModeName(mode: string): string {
+		switch (mode) {
+			case 'auto':
+				return 'Auto-tune';
+			case 'hint':
+				return 'HINT tune';
+			default:
+				return 'Sweep';
+		}
+	}
+
+	/** Build href for one sweep on the Sweeps page. */
+	function sweepHref(sweepId: string): string {
+		return `${resolve('/lidar/sweeps')}?${sweepQuery(sweepId)}`;
+	}
+
 	async function loadData() {
 		loading = true;
 		error = null;
 		try {
-			const [runsResult, scenesResult] = await Promise.all([getLidarRuns(), getLidarClips()]);
+			const [runsResult, scenesResult] = await Promise.all([
+				getLidarRuns({ sweeps: true }),
+				getLidarClips()
+			]);
 			runs = runsResult;
 			scenes = scenesResult;
 		} catch (e) {
@@ -183,13 +248,14 @@
 		let run = runs.find((r) => r.run_id === runId);
 		if (!run) {
 			try {
-				run = await getLidarRun(runId);
-				runs = [run, ...runs];
+				run = await getLidarRun(runId, { sweeps: true });
+				runs = insertRunByCreated(runs, run);
 			} catch (e) {
 				error = e instanceof Error ? e.message : 'Could not load the run.';
 				return;
 			}
 		}
+		revealRun(run.run_id);
 		selectRun(run);
 	}
 
@@ -204,6 +270,150 @@
 <svelte:head>
 	<title>Runs — velocity.report</title>
 </svelte:head>
+
+{#snippet runRows(row: RunRow, clip: LidarClip | null, nested: boolean)}
+	{@render runRow(row.run, clip, nested)}
+	{#if row.repeats.length > 0}
+		{@const key = `fold:${row.run.run_id}`}
+		<tr class="border-surface-content/10 border-b">
+			<td colspan={COLUMNS} class="px-4 py-1 text-xs {nested ? 'pl-10' : ''}">
+				<button
+					type="button"
+					class="text-surface-content/60 hover:text-primary"
+					aria-expanded={!!expanded[key]}
+					on:click={() => toggle(key)}
+				>
+					{expanded[key]
+						? `Hide ${row.repeats.length} identical`
+						: `+ ${row.repeats.length} more, identical`}
+				</button>
+			</td>
+		</tr>
+		{#if expanded[key]}
+			{#each row.repeats as repeat (repeat.run_id)}
+				{@render runRow(repeat, clip, true)}
+			{/each}
+		{/if}
+	{/if}
+{/snippet}
+
+{#snippet runRow(run: Run, clip: LidarClip | null, nested: boolean)}
+	{@const share = labelShare(run.label_rollup)}
+	{@const comparison = compareWithRecommended(run, clip)}
+	{@const isSelected = selectedRun?.run_id === run.run_id}
+	<tr
+		class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors {isSelected
+			? 'bg-primary/5'
+			: ''}"
+	>
+		<td
+			class="cursor-pointer px-4 py-3 {nested ? 'pl-10' : ''}"
+			on:click={() => selectRun(run)}
+			on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+			role="button"
+			tabindex="0"
+		>
+			<span class="rounded px-2 py-0.5 text-xs font-medium {statusColour(run.status)}">
+				{run.status}
+			</span>
+		</td>
+		<td
+			class="text-surface-content cursor-pointer px-4 py-3 text-sm"
+			on:click={() => selectRun(run)}
+			on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+			role="button"
+			tabindex="0"
+		>
+			{run.source_path ? basename(run.source_path) : run.source_type}
+		</td>
+		<td class="px-4 py-3 text-sm">
+			<span
+				class="rounded px-2 py-0.5 text-xs font-medium {run.frame_mode === 'full'
+					? 'bg-primary/15 text-primary'
+					: 'bg-surface-content/10 text-surface-content/70'}"
+				title={run.frame_mode === 'full'
+					? 'Full frames: background and foreground in every frame'
+					: 'Foreground points only'}
+			>
+				{frameModeLabel(run.frame_mode)}
+			</span>
+		</td>
+		<td
+			class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm whitespace-nowrap"
+			on:click={() => selectRun(run)}
+			on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+			role="button"
+			tabindex="0"
+		>
+			{#if run.params_hash}
+				<code class="text-xs" title={run.params_hash}>{shortDigest(run.params_hash)}</code>
+				{#if comparison.kind === 'recommended'}
+					<span
+						class="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
+						title="The clip's recommended parameters">= recommended</span
+					>
+				{:else if comparison.kind === 'differs'}
+					<span
+						class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800"
+						title={differenceDetail(comparison.differences)}
+						>≠ {differenceSummary(comparison.differences)}</span
+					>
+				{/if}
+			{:else}
+				-
+			{/if}
+		</td>
+		<td
+			class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+			on:click={() => selectRun(run)}
+			on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+			role="button"
+			tabindex="0"
+		>
+			{run.total_tracks} / {run.confirmed_tracks}
+		</td>
+		<td
+			class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+			on:click={() => selectRun(run)}
+			on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+			role="button"
+			tabindex="0"
+		>
+			{#if share}
+				<div
+					class="flex items-center gap-2 whitespace-nowrap"
+					title="{share.labelled} of {share.total} tracks labelled in the macOS visualiser"
+				>
+					<div class="bg-surface-200 h-1.5 w-12 overflow-hidden rounded">
+						<div class="h-full bg-green-500" style="width: {share.fraction * 100}%"></div>
+					</div>
+					<span class="text-xs">{share.labelled}/{share.total}</span>
+				</div>
+			{:else}
+				-
+			{/if}
+		</td>
+		<td
+			class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+			on:click={() => selectRun(run)}
+			on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+			role="button"
+			tabindex="0"
+		>
+			{formatDate(run.created_at)}
+		</td>
+		<td class="px-4 py-3 text-center">
+			<button
+				type="button"
+				class="text-surface-content/40 rounded px-2 py-1 text-xs transition-colors hover:bg-red-50 hover:text-red-600"
+				on:click|stopPropagation={() => handleDeleteRun(run)}
+				title="Delete run"
+			>
+				Delete
+			</button>
+		</td>
+	</tr>
+{/snippet}
 
 <main id="main-content" class="vr-page">
 	<!-- Header -->
@@ -242,182 +452,122 @@
 					<p class="mt-1 text-sm">Runs appear when a clip is replayed or live analysis starts.</p>
 				</div>
 			{:else}
-				<div class="bg-surface-100 border-surface-content/10 overflow-hidden rounded-lg border">
-					<table class="w-full">
-						<thead>
-							<tr class="border-surface-content/10 border-b">
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Status</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Source</th
-								>
-								<th
-									class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									title="What the run's VRLOG frames hold: foreground points only (FG), or background and foreground (Full)"
-									>Frames</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium">Clip</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Parameters</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Tracks</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Labels</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Created</th
-								>
-								<th class="text-surface-content/70 px-4 py-3 text-center text-sm font-medium"
-									>Actions</th
-								>
-							</tr>
-						</thead>
-						<tbody>
-							{#each runs as run (run.run_id)}
-								{@const scene = clipForRun(run, scenes)}
-								{@const share = labelShare(run.label_rollup)}
-								{@const isSelected = selectedRun?.run_id === run.run_id}
-								<tr
-									class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors last:border-b-0 {isSelected
-										? 'bg-primary/5'
-										: ''}"
-								>
-									<td
-										class="cursor-pointer px-4 py-3"
-										on:click={() => selectRun(run)}
-										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
-										role="button"
-										tabindex="0"
-									>
-										<span
-											class="rounded px-2 py-0.5 text-xs font-medium {statusColour(run.status)}"
-										>
-											{run.status}
-										</span>
-									</td>
-									<td
-										class="text-surface-content cursor-pointer px-4 py-3 text-sm"
-										on:click={() => selectRun(run)}
-										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
-										role="button"
-										tabindex="0"
-									>
-										{run.source_path ? basename(run.source_path) : run.source_type}
-									</td>
-									<td class="px-4 py-3 text-sm">
-										<span
-											class="rounded px-2 py-0.5 text-xs font-medium {run.frame_mode === 'full'
-												? 'bg-primary/15 text-primary'
-												: 'bg-surface-content/10 text-surface-content/70'}"
-											title={run.frame_mode === 'full'
-												? 'Full frames: background and foreground in every frame'
-												: 'Foreground points only'}
-										>
-											{frameModeLabel(run.frame_mode)}
-										</span>
-									</td>
-									<td
-										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
-										on:click={() => selectRun(run)}
-										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
-										role="button"
-										tabindex="0"
-									>
-										{#if scene}
-											<!-- eslint-disable svelte/no-navigation-without-resolve -->
-											<a
-												href={clipHref(scene)}
-												class="text-primary hover:underline"
-												on:click|stopPropagation
+				<div class="space-y-6">
+					{#each groups as group (group.key)}
+						<section
+							class="bg-surface-100 border-surface-content/10 overflow-hidden rounded-lg border"
+							aria-label={group.clip ? clipName(group.clip) : 'Runs with no clip'}
+						>
+							<header
+								class="border-surface-content/10 bg-surface-200/60 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b px-4 py-3"
+							>
+								{#if group.clip}
+									<h2 class="text-surface-content text-base font-semibold">
+										{clipName(group.clip)}
+									</h2>
+									{#if clipSiteName(group.clip)}
+										<span class="text-surface-content/60 text-sm">{clipSiteName(group.clip)}</span>
+									{/if}
+									<span class="text-surface-content/60 text-sm">
+										{#if group.clip.recommended_params_hash}
+											recommended
+											<code class="text-xs" title={group.clip.recommended_params_hash}
+												>{shortDigest(group.clip.recommended_params_hash)}</code
 											>
-												{scene.description || scene.clip_id.substring(0, 8)}
-											</a>
-											<!-- eslint-enable svelte/no-navigation-without-resolve -->
 										{:else}
-											-
+											no recommended parameters
 										{/if}
-									</td>
-									<td
-										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm whitespace-nowrap"
-										on:click={() => selectRun(run)}
-										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
-										role="button"
-										tabindex="0"
+									</span>
+									<span class="text-surface-content/60 text-sm"
+										>{group.runCount} {group.runCount === 1 ? 'run' : 'runs'}</span
 									>
-										{#if run.params_hash}
-											<code class="text-xs" title={run.params_hash}
-												>{shortDigest(run.params_hash)}</code
-											>
-											{#if scene?.recommended_params_hash === run.params_hash}
-												<span
-													class="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
-													title="The clip's recommended parameters">recommended</span
-												>
+									<!-- eslint-disable svelte/no-navigation-without-resolve -->
+									<a
+										href={clipHref(group.clip)}
+										class="text-primary ml-auto text-sm hover:underline">Open clip →</a
+									>
+									<!-- eslint-enable svelte/no-navigation-without-resolve -->
+								{:else}
+									<h2 class="text-surface-content text-base font-semibold">No clip</h2>
+									<span class="text-surface-content/60 text-sm"
+										>{group.runCount}
+										{group.runCount === 1 ? 'run' : 'runs'} from a capture or live data no clip covers</span
+									>
+								{/if}
+							</header>
+							<table class="w-full">
+								<thead>
+									<tr class="border-surface-content/10 border-b">
+										<th class="text-surface-content/70 px-4 py-2 text-left text-sm font-medium"
+											>Status</th
+										>
+										<th class="text-surface-content/70 px-4 py-2 text-left text-sm font-medium"
+											>Source</th
+										>
+										<th
+											class="text-surface-content/70 px-4 py-2 text-left text-sm font-medium"
+											title="What the run's VRLOG frames hold: foreground points only (FG), or background and foreground (Full)"
+											>Frames</th
+										>
+										<th
+											class="text-surface-content/70 px-4 py-2 text-left text-sm font-medium"
+											title="The parameter set's digest, and how it differs from the clip's recommended set"
+											>Parameters</th
+										>
+										<th class="text-surface-content/70 px-4 py-2 text-left text-sm font-medium"
+											>Tracks</th
+										>
+										<th class="text-surface-content/70 px-4 py-2 text-left text-sm font-medium"
+											>Labels</th
+										>
+										<th class="text-surface-content/70 px-4 py-2 text-left text-sm font-medium"
+											>Created</th
+										>
+										<th class="text-surface-content/70 px-4 py-2 text-center text-sm font-medium"
+											>Actions</th
+										>
+									</tr>
+								</thead>
+								<tbody>
+									{#each group.rows as row (row.kind === 'sweep' ? `sweep:${row.sweepId}` : row.run.run_id)}
+										{#if row.kind === 'sweep'}
+											{@const key = `sweep:${row.sweepId}`}
+											<tr class="border-surface-content/10 bg-surface-200/30 border-b">
+												<td colspan={COLUMNS} class="px-4 py-2 text-sm">
+													<button
+														type="button"
+														class="text-surface-content hover:text-primary mr-3 font-medium"
+														aria-expanded={!!expanded[key]}
+														on:click={() => toggle(key)}
+													>
+														{expanded[key] ? '▾' : '▸'}
+														{sweepModeName(row.mode)}
+														<code class="text-xs">{row.sweepId.substring(0, 8)}</code>
+													</button>
+													<span class="text-surface-content/60"
+														>{row.runs.length} {row.runs.length === 1 ? 'run' : 'runs'}</span
+													>
+													<!-- eslint-disable svelte/no-navigation-without-resolve -->
+													<a
+														href={sweepHref(row.sweepId)}
+														class="text-primary ml-3 text-xs hover:underline">Open sweep →</a
+													>
+													<!-- eslint-enable svelte/no-navigation-without-resolve -->
+												</td>
+											</tr>
+											{#if expanded[key]}
+												{#each row.rows as inner (inner.run.run_id)}
+													{@render runRows(inner, group.clip, true)}
+												{/each}
 											{/if}
 										{:else}
-											-
+											{@render runRows(row, group.clip, false)}
 										{/if}
-									</td>
-									<td
-										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
-										on:click={() => selectRun(run)}
-										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
-										role="button"
-										tabindex="0"
-									>
-										{run.total_tracks} / {run.confirmed_tracks}
-									</td>
-									<td
-										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
-										on:click={() => selectRun(run)}
-										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
-										role="button"
-										tabindex="0"
-									>
-										{#if share}
-											<div
-												class="flex items-center gap-2 whitespace-nowrap"
-												title="{share.labelled} of {share.total} tracks labelled in the macOS visualiser"
-											>
-												<div class="bg-surface-200 h-1.5 w-12 overflow-hidden rounded">
-													<div
-														class="h-full bg-green-500"
-														style="width: {share.fraction * 100}%"
-													></div>
-												</div>
-												<span class="text-xs">{share.labelled}/{share.total}</span>
-											</div>
-										{:else}
-											-
-										{/if}
-									</td>
-									<td
-										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
-										on:click={() => selectRun(run)}
-										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
-										role="button"
-										tabindex="0"
-									>
-										{formatDate(run.created_at)}
-									</td>
-									<td class="px-4 py-3 text-center">
-										<button
-											type="button"
-											class="text-surface-content/40 rounded px-2 py-1 text-xs transition-colors hover:bg-red-50 hover:text-red-600"
-											on:click|stopPropagation={() => handleDeleteRun(run)}
-											title="Delete run"
-										>
-											Delete
-										</button>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
+									{/each}
+								</tbody>
+							</table>
+						</section>
+					{/each}
 				</div>
 			{/if}
 		</div>
@@ -569,6 +719,29 @@
 							<p class="text-surface-content/50 text-sm">No clip found for this run</p>
 						{/if}
 					</div>
+
+					{#if selectedComparison && selectedComparison.kind !== 'unknown'}
+						<div>
+							<div class="text-surface-content/70 mb-1 block text-sm font-medium">
+								Against the clip's recommended parameters
+							</div>
+							{#if selectedComparison.kind === 'recommended'}
+								<p class="text-sm text-green-700">The recommended set.</p>
+							{:else}
+								<ul class="space-y-1 text-xs">
+									{#each selectedComparison.differences as difference (difference.key)}
+										<li>
+											<code class="text-surface-content">{difference.key}</code>
+											<span class="text-surface-content/70">
+												{difference.run ?? '(unset)'}, recommended {difference.recommended ??
+													'(unset)'}</span
+											>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					{/if}
 
 					{#if selectedRun.run_config_id || selectedRun.requested_param_set_id}
 						<div>

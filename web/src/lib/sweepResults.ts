@@ -4,6 +4,7 @@
  */
 import { buildHeatmap, type BarDatum, type HeatmapData } from '#lib/components/charts/chartData.js';
 import { canonicalParamKey, normaliseParamMap, PARAM_SCHEMA, paramLabel } from '#lib/sweepSetup.js';
+import type { SweepRecord, SweepSummary } from '#lib/types/lidar.js';
 
 export type SweepResult = Record<string, unknown>;
 
@@ -408,4 +409,27 @@ export function parseScoreComponents(raw: unknown): Record<string, unknown> | nu
 	return raw && typeof raw === 'object' && !Array.isArray(raw)
 		? (raw as Record<string, unknown>)
 		: null;
+}
+
+/**
+ * sweepSummaryOf is the list's summary of a sweep fetched on its own, for a
+ * link to a sweep older than the listed page. The clip and capture come from
+ * the stored request, as the server reads them for the list.
+ */
+export function sweepSummaryOf(record: SweepRecord): SweepSummary {
+	const request = record.request ?? {};
+	const text = (value: unknown) => (typeof value === 'string' && value !== '' ? value : undefined);
+	return {
+		id: record.id,
+		sweep_id: record.sweep_id,
+		sensor_id: record.sensor_id,
+		mode: record.mode,
+		status: record.status,
+		error: record.error,
+		started_at: record.started_at,
+		completed_at: record.completed_at,
+		objective_name: text(request.objective),
+		clip_id: text(request.clip_id),
+		pcap_file: text(request.pcap_file)
+	};
 }

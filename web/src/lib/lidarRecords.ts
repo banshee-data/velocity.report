@@ -31,6 +31,25 @@ export function clipForRun(run: Run | null | undefined, clips: LidarClip[]): Lid
 }
 
 /**
+ * runsOfClip is the runs replayed from one clip, as clipForRun matches them,
+ * keeping the selected run even when the match cannot place it (a run fetched
+ * on its own, past the listed page). With no clip it is every run that no
+ * clip covers.
+ */
+export function runsOfClip(
+	runs: Run[],
+	clip: LidarClip | null,
+	clips: LidarClip[],
+	selected?: Run | null
+): Run[] {
+	const out = runs.filter(
+		(run) => (clipForRun(run, clips)?.clip_id ?? null) === (clip?.clip_id ?? null)
+	);
+	if (selected && !out.some((run) => run.run_id === selected.run_id)) out.unshift(selected);
+	return out;
+}
+
+/**
  * sameCapture compares a run's source with a clip's capture. A clip records
  * its capture relative to the capture volume (s2/s2_sf_3_….pcap) and a run the
  * absolute path it read, so the clip's path must end the run's, on a path

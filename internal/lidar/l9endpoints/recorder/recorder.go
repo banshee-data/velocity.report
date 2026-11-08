@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -632,6 +633,118 @@ func (r *Replayer) CurrentFrame() uint64 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.currentFrame
+}
+
+// frameAtCandidates bounds how many neighbouring records FrameAt reads to
+// step past background snapshots; a replay writes one every few seconds.
+const frameAtCandidates = 8
+
+// FrameAt names the record a link to an instant should open at: the 0-based
+// index of the rotation frame on screen at that instant, as the web player
+// and a velocityreport:// link count it. That is the latest record at or
+// before the instant, or the earliest after it when none is.
+//
+// Only records stamped inside the log's own span (StartNs to EndNs, which
+// only rotation frames set) are considered, and background snapshots are
+// stepped past. A snapshot can carry a wall-clock time outside the span when
+// a capture is replayed, or a rotation's own time inside it. The index holds
+// no frame type, so a candidate is read to check its type only when its place
+// in the record order is ambiguous: a rotation recorded in time order is
+// stamped strictly between the records either side of it, and a snapshot that
+// copies a time is not. A candidate that cannot be read is taken as it is. A
+// log without a recorded span considers every record. ok is false when no
+// record qualifies.
+//
+// FrameAt moves the read position to check a candidate and puts it back, so
+// it must not share a Replayer with playback: open one for the lookup.
+func (r *Replayer) FrameAt(timestampNs int64) (frame uint64, ok bool) {
+	type stamped struct {
+		idx int
+		ts  int64
+	}
+	r.mu.Lock()
+	bounded := r.header.StartNs != 0 || r.header.EndNs != 0
+	byIndex := make([]int64, len(r.index))
+	entries := make([]stamped, 0, len(r.index))
+	for i, entry := range r.index {
+		ts := entry.TimestampNs
+		byIndex[i] = ts
+		if bounded && (ts < r.header.StartNs || ts > r.header.EndNs) {
+			continue
+		}
+		entries = append(entries, stamped{i, ts})
+	}
+	saved := r.currentFrame
+	r.mu.Unlock()
+	if len(entries) == 0 {
+		return 0, false
+	}
+
+	sort.SliceStable(entries, func(a, b int) bool {
+		if entries[a].ts != entries[b].ts {
+			return entries[a].ts < entries[b].ts
+		}
+		return entries[a].idx < entries[b].idx
+	})
+	// The first entry after the instant; the one before it is on screen.
+	after := sort.Search(len(entries), func(i int) bool { return entries[i].ts > timestampNs })
+	order := make([]int, 0, 2*frameAtCandidates)
+	if after > 0 {
+		// Back from the latest at or before the instant, then forward.
+		for i := after - 1; i >= 0 && i >= after-frameAtCandidates; i-- {
+			order = append(order, i)
+		}
+		for i := after; i < len(entries) && i < after+frameAtCandidates; i++ {
+			order = append(order, i)
+		}
+	} else {
+		for i := 0; i < len(entries) && i < frameAtCandidates; i++ {
+			order = append(order, i)
+		}
+	}
+
+	inOrder := func(idx int) bool {
+		ts := byIndex[idx]
+		if idx > 0 && byIndex[idx-1] >= ts {
+			return false
+		}
+		if idx < len(byIndex)-1 && byIndex[idx+1] <= ts {
+			return false
+		}
+		return true
+	}
+	moved := false
+	defer func() {
+		if moved {
+			r.mu.Lock()
+			r.currentFrame = saved
+			r.mu.Unlock()
+		}
+	}()
+	for _, i := range order {
+		idx := entries[i].idx
+		if inOrder(idx) {
+			return uint64(idx), true
+		}
+		moved = true
+		if !r.isBackgroundAt(uint64(idx)) {
+			return uint64(idx), true
+		}
+	}
+	return uint64(entries[order[0]].idx), true
+}
+
+// isBackgroundAt reports whether the record at idx is a background snapshot.
+// A record that cannot be read is not called one. Moves the read position.
+func (r *Replayer) isBackgroundAt(idx uint64) bool {
+	if err := r.Seek(idx); err != nil {
+		return false
+	}
+	frame, err := r.ReadFrame()
+	if err != nil || frame == nil {
+		return false
+	}
+	return frame.FrameType == l9endpoints.FrameTypeBackground
 }
 
 // Seek seeks to a specific frame by index.
