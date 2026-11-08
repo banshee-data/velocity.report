@@ -22,7 +22,8 @@ package l5tracks
 //     the filter is updated once per face along that normal, so a rank-one
 //     frame moves nothing across it (Section 9.1), unless remedy T5 is on
 //     (SolidBodyOptions.RankOneMedoidScale). A face whose half-extent
-//     is only the class prior is excluded, not downweighted (Section 8.1).
+//     is only the class prior is excluded, not downweighted (Section 8.1),
+//     unless ExtentState estimates the half-extent with the position.
 //   - Extents. A face never measures the far side, so a frame's span along a
 //     body axis is admitted only as lower-bound evidence, and only on an axis
 //     whose near face was found (Section 9.2.1, "one face only"). The span is
@@ -47,7 +48,10 @@ package l5tracks
 // consistently from frame to frame, which is a bias the filter cannot see.
 // ProjectSurface adds the dimension's own variance when it bounds a bumper, but
 // the correlation between anchor and dimension is not represented; carrying it
-// needs the dimension in the state or a consider-parameter treatment. And the
+// needs the dimension in the state or a consider-parameter treatment, which
+// SolidBodyOptions.ExtentState provides on the shadow (solid_body_face_state.go),
+// default-off and not on the tracked path. The published reading's 4x4
+// covariance still omits the extent block. And the
 // heading that selects a face is the tracked one, which lags a real turn by its
 // smoothing: a heading error tilts the face normal and biases the plane, so the
 // heading is the first thing to stratify by when the anchor disagrees with
@@ -252,6 +256,57 @@ type SolidBodyOptions struct {
 	// widen the cluster across the body; one seen more fully lengthens it
 	// along the body. Default false.
 	ExtentGrowthAdmission bool
+
+	// The face-state options, Sections 3.1 to 3.5 of the November 2026
+	// face-state maths review and Section 9.2.4 of the state-estimation
+	// plan. Each is default-off; solid_body_face_state.go holds their
+	// arithmetic.
+	//
+	// ExtentState carries the two half-extents in the shadow solid body's
+	// filter, jointly with position and velocity: x = [x, y, vx, vy, hL, hW]
+	// with a 6x6 covariance. A face with outward normal n then measures its
+	// plane offset n·c + h, with H = [n_x, n_y, 0, 0, 1, 0] for an end face
+	// and the hW column for a side face, instead of n·c given a half-extent
+	// the filter treats as exact; so a face whose half-extent is only the
+	// class prior is used rather than excluded, the prior's uncertainty
+	// being in P. FaceEntryConsider, whose one-frame term this replaces, is
+	// not applied. The reported length and width are 2hL and 2hW with sigma
+	// 2·sqrt(P_hh). The tracked path under NearEdgeTracking keeps the
+	// four-state filter and ignores this option: its covariance is the
+	// tracked filter's, which neither predicts nor gates on the extents.
+	// Default false.
+	ExtentState bool
+	// CensoredExtent reports each extent belief as the class prior
+	// N(mu0, sigma0^2) truncated below at the largest lower bound the
+	// evidence gives, with the truncated normal's mean and standard
+	// deviation, instead of the corroborated maximum with sigma shrinking as
+	// the prior's over the square root of the frame count. It narrows only
+	// when a bound moves into the prior's mass. Under ExtentState it switches
+	// on the per-frame lower-bound truncation of the half-extents instead.
+	// Default false.
+	CensoredExtent bool
+	// SpanBoundsBelief feeds the frame's window-minimum span along and
+	// across the face axis, less its noise, to the extent belief as a lower
+	// bound before the faces are measured, so the half-extent the face
+	// update uses is never below what the frame shows. With CensoredExtent
+	// the bound joins the censored posterior; under ExtentState it is the
+	// per-frame truncation of hL and hW; alone it raises the belief's
+	// estimate to the bound. Default false.
+	SpanBoundsBelief bool
+	// HeadingFaceNoise adds sigma_psi^2 · t_eff^2 to each face's
+	// measurement variance: the orientation variance of the axis the faces
+	// were measured along times the squared RMS tangential lever arm of the
+	// face's supporting returns about the predicted position. An axis error
+	// moves the face plane by the lever arm times the error, which is
+	// variance, not bias. The association gate is unchanged. Default false.
+	HeadingFaceNoise bool
+	// AnisotropicReferenceBias states the medoid's bias along the body as
+	// well as across it: a re-reference to the body centre, and a lapse back
+	// to the medoid, add (L/2)^2 along the believed axis and (W/2)^2 across
+	// it, from the class prior, instead of (W/2)^2 on both axes. Without a
+	// resolved axis (the seed, and a lapse with no orientation) the
+	// inflation is isotropic at the larger, (L/2)^2. Default false.
+	AnisotropicReferenceBias bool
 }
 
 // extentGrowthLateralMarginMetres is how much wider than the believed width
@@ -452,6 +507,12 @@ type solidBodyTrack struct {
 	// spans under Containment, the floor assembleSolidBody reports the
 	// dimensions at; zero on a frame without points.
 	floorAlong, floorAcross float32
+	// spanBound is this frame's lower bound on length and width under
+	// SpanBoundsBelief (the window-minimum span less its noise), read by the
+	// reported beliefs; zero when none was taken.
+	spanBound [2]float32
+	// ext is the half-extent block of the joint state under ExtentState.
+	ext solidBodyExtent
 
 	// axis is the filtered body axis under RectangleHeading, and fit the
 	// frame's rectangle fit it read, kept so the row records the same fit.
@@ -510,6 +571,13 @@ type nearEdgeFrame struct {
 	// frame's for the shadow, the previous frame's under NearEdgeTracking,
 	// where the flags follow the update.
 	mergeCandidate bool
+	// spanBound is the frame's lower bound on length and width under
+	// SpanBoundsBelief, or under ExtentState with CensoredExtent; zero when
+	// none was taken (frameSpanBounds).
+	spanBound [2]float32
+	// axisVarianceRad2 is the orientation variance of axis, read by
+	// HeadingFaceNoise; zero when that option is off.
+	axisVarianceRad2 float32
 }
 
 // nearEdgeOutcome is what one step of the state machine did to the dynamic
@@ -593,9 +661,20 @@ func (t *Tracker) seedSolidBody(track *TrackedObject, cluster WorldCluster) {
 		support:           SupportState{PointCount: cluster.PointsCount, Instant: SupportObserved},
 	}
 	sb.orientation = orientationFromTrack(track, OrientationBelief{})
+	effective, _ := class.Effective()
+	prior := dimensionPriorFor(effective)
+	if t.Config.SolidBody.AnisotropicReferenceBias {
+		// At birth the axis is a PCA axis of one partial view, which for an
+		// end-on vehicle runs across it, so it is not a resolved axis: the
+		// medoid's bias is stated at the larger half-extent on both axes.
+		bias := isotropicReferenceBias(prior)
+		sb.p[0*4+0], sb.p[1*4+1] = bias, bias
+	}
 	if t.Config.NearEdgeTracking {
 		sb.tracked = true
 		sb.syncFromTrack(track)
+	} else if t.Config.SolidBody.ExtentState {
+		seedSolidBodyExtent(sb, prior)
 	}
 	t.publishSolidBody(track, class, SolidBodyMeasurement{
 		Source:         MeasurementMedoidV0,
@@ -640,7 +719,12 @@ func (t *Tracker) predictSolidBodyStep(track *TrackedObject, dt float32) {
 	sb.state[1] += sb.state[3] * dt
 	sb.p = propagateConstantVelocity(sb.p, dt)
 	addProcessNoise(&sb.p, t.Config.ProcessNoisePos, t.Config.ProcessNoiseVel, dt, t.Config.CoupledProcessNoise)
-	if t.Config.ConsistentCovarianceCap {
+	uncapped := [4]float32{sb.p[0], sb.p[5], sb.p[10], sb.p[15]}
+	// Under ExtentState the joint cap below scales the capped rows and
+	// columns of the whole 6x6 covariance, the 4x4 block included, so
+	// ConsistentCovarianceCap's 4x4 scaling would apply twice; it covers the
+	// four-state body only.
+	if t.Config.ConsistentCovarianceCap && !sb.ext.on {
 		capCovarianceConsistent(&sb.p, t.Config.MaxCovarianceDiag)
 	} else {
 		for i := 0; i < 4; i++ {
@@ -648,6 +732,11 @@ func (t *Tracker) predictSolidBodyStep(track *TrackedObject, dt float32) {
 				sb.p[i*4+i] = t.Config.MaxCovarianceDiag
 			}
 		}
+	}
+	if sb.ext.on {
+		symmetriseFour(&sb.p)
+		sb.predictExtent(dt)
+		sb.scaleCappedRows(uncapped)
 	}
 	t.finishSolidBodyState(track, "predict")
 }
@@ -691,6 +780,11 @@ func (t *Tracker) finishSolidBodyState(track *TrackedObject, step string) {
 			*sb = solidBodyTrack{}
 			return
 		}
+	}
+	if sb.ext.on && !sb.ext.finite() {
+		opsf("Solid body %s produced a non-finite extent state: track_id=%s dropping solid body", step, track.TrackID)
+		*sb = solidBodyTrack{}
+		return
 	}
 	speed := float32(math.Hypot(float64(sb.state[2]), float64(sb.state[3])))
 	if speed > t.Config.MaxReasonableSpeedMps && speed > 0 {
@@ -770,21 +864,32 @@ func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster,
 	case sb.orientation.Provenance == ProvenanceNone:
 		f.fallback = "missing_heading"
 	default:
-		f.length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres)
-		f.width = t.widthOf(sb, prior)
 		f.axis, f.axisIsCourse = t.faceAxis(sb)
+		if t.takesSpanBounds(sb) {
+			f.spanBound = t.frameSpanBounds(sb, cluster, f.axis, f.axisIsCourse, mergeCandidate)
+		}
+		if sb.ext.on {
+			f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
+		} else {
+			f.length = t.boundedDimension(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres, f.spanBound[0])
+			f.width = t.boundedWidth(sb, prior, f.spanBound[1])
+		}
+		if t.Config.SolidBody.HeadingFaceNoise {
+			f.axisVarianceRad2 = faceAxisVariance(sb, f.axis)
+		}
 		f.edges = MeasureNearEdge(NearEdgeInput{
-			Cluster:          cluster,
-			Points:           nearEdgePoints(cluster),
-			SensorX:          t.Config.SolidBody.SensorX,
-			SensorY:          t.Config.SolidBody.SensorY,
-			HeadingRad:       f.axis,
-			HalfLength:       f.length.Metres / 2,
-			HalfWidth:        f.width.Metres / 2,
-			LengthProvenance: f.length.Provenance,
-			WidthProvenance:  f.width.Provenance,
-			PredictedX:       sb.state[0],
-			PredictedY:       sb.state[1],
+			Cluster:             cluster,
+			Points:              nearEdgePoints(cluster),
+			SensorX:             t.Config.SolidBody.SensorX,
+			SensorY:             t.Config.SolidBody.SensorY,
+			HeadingRad:          f.axis,
+			HalfLength:          f.length.Metres / 2,
+			HalfWidth:           f.width.Metres / 2,
+			LengthProvenance:    f.length.Provenance,
+			WidthProvenance:     f.width.Provenance,
+			PredictedX:          sb.state[0],
+			PredictedY:          sb.state[1],
+			TangentialLeverArms: t.Config.SolidBody.HeadingFaceNoise,
 		})
 	}
 	return f
@@ -805,6 +910,15 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 	// facesCounted records whether this frame's usable faces reached the
 	// hysteresis counts; any frame that did not is a frame without them.
 	facesCounted := false
+	// touched names the half-extents this frame's bound or faces updated,
+	// under ExtentState.
+	var touched [2]bool
+	if sb.ext.on && f.fallback == "" {
+		// The frame's lower bounds first, so the faces see half-extents the
+		// frame does not contradict.
+		touched = sb.applyExtentBounds(f.spanBound)
+		f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
+	}
 
 	switch {
 	case f.fallback != "":
@@ -815,8 +929,15 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		// Section 8.1: a face whose half-extent is only the class prior
 		// cannot have its dimension-derived bias corrected, so it is excluded
 		// rather than downweighted. It still counts as a seen face for the
-		// extent evidence, which is how the prior stops being one.
-		usable := evidenceBackedEdges(f.edges.Edges)
+		// extent evidence, which is how the prior stops being one. Under
+		// ExtentState the bias is corrected, by estimating the half-extent
+		// the face measures, so every face is used (extentStateEdges).
+		var usable []EdgeMeasurement
+		if sb.ext.on {
+			usable = sb.extentStateEdges(f.edges.Edges)
+		} else {
+			usable = evidenceBackedEdges(f.edges.Edges)
+		}
 		inferred := len(usable) < len(f.edges.Edges)
 		if t.Config.SolidBody.FaceHysteresis {
 			found := len(usable)
@@ -842,16 +963,33 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			if t.translatesReference(sb) {
 				startState = translateToFaces(startState, usable, cluster)
 			}
-			bias := (prior.widthMetres / 2) * (prior.widthMetres / 2)
-			startP[0*4+0] += bias
-			startP[1*4+1] += bias
+			if t.Config.SolidBody.AnisotropicReferenceBias {
+				addReferenceBias(&startP, anisotropicReferenceBias(prior, float64(f.axis)))
+			} else {
+				bias := (prior.widthMetres / 2) * (prior.widthMetres / 2)
+				startP[0*4+0] += bias
+				startP[1*4+1] += bias
+			}
 			change = ReferenceToBodyCentre
 		}
 		var consider []float64
-		if t.Config.SolidBody.FaceEntryConsider {
+		if t.Config.SolidBody.FaceEntryConsider && !sb.ext.on {
 			consider = sb.entryConsider(usable, f.length, f.width)
 		}
-		state, p, nis, faces, ok := t.applyEdgeMeasurements(startState, startP, usable, consider)
+		var headingBuf [2]float64
+		heading := headingFaceVariance(t.Config.SolidBody.HeadingFaceNoise, usable, f.axisVarianceRad2, headingBuf[:0])
+		var state [4]float32
+		var p [16]float32
+		var js jointState
+		var nis float32
+		var faces VisibleFaces
+		var ok bool
+		if sb.ext.on {
+			js = sb.jointOf(startState, startP)
+			nis, faces, ok = t.applyEdgeMeasurementsJoint(&js, usable, heading)
+		} else {
+			state, p, nis, faces, ok = t.applyEdgeMeasurements(startState, startP, usable, consider, heading)
+		}
 		if !ok {
 			m.FallbackReason = "singular_innovation"
 			break
@@ -867,7 +1005,12 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			// face; its innovation is biased toward the sensor, so its NIS
 			// would not be chi-square anyway; and the per-rank NIS check is
 			// about the faces' R.
-			if _, ok := scalarPositionUpdate(&state, &p, loose.hx, loose.hy, loose.z, loose.variance); ok {
+			if sb.ext.on {
+				ok = js.scalarUpdate([jointStates]float64{loose.hx, loose.hy}, loose.z, loose.variance)
+			} else {
+				_, ok = scalarPositionUpdate(&state, &p, loose.hx, loose.hy, loose.z, loose.variance)
+			}
+			if ok {
 				applied.addLooseTerm(loose)
 			}
 		}
@@ -883,11 +1026,24 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 					acrossOpen = false
 				}
 			}
-			along, across := t.containmentTruncation(&state, &p, f, cluster, alongOpen, acrossOpen)
+			var along, across float32
+			if sb.ext.on {
+				along, across = t.containmentTruncationJoint(&js, f, cluster, alongOpen, acrossOpen)
+			} else {
+				along, across = t.containmentTruncation(&state, &p, f, cluster, alongOpen, acrossOpen)
+			}
 			applied.addShift(f.axis, along, across)
 			m.ContainmentShiftAlongMetres, m.ContainmentShiftAcrossMetres = along, across
 		}
-		sb.state, sb.p, sb.reference = state, p, ReferenceBodyCentre
+		if sb.ext.on {
+			sb.setJoint(js)
+			for _, e := range usable {
+				touched[extentIndex(e.Face)] = true
+			}
+		} else {
+			sb.state, sb.p = state, p
+		}
+		sb.reference = ReferenceBodyCentre
 		sb.lastFixFaces = faces
 		m.Source = MeasurementNearEdgeCandidateV1
 		m.Rank = len(usable)
@@ -906,7 +1062,14 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		t.Config.SolidBody.Containment && !f.mergeCandidate && f.fallback == "" && len(nearEdgePoints(cluster)) >= DefaultMinFaceSupport {
 		// Under Containment the points can still hold the box: the claim
 		// stands, held to them, and lapses only when there are no points.
-		along, across := t.containmentTruncation(&sb.state, &sb.p, f, cluster, true, true)
+		var along, across float32
+		if sb.ext.on {
+			js := sb.jointOf(sb.state, sb.p)
+			along, across = t.containmentTruncationJoint(&js, f, cluster, true, true)
+			sb.setJoint(js)
+		} else {
+			along, across = t.containmentTruncation(&sb.state, &sb.p, f, cluster, true, true)
+		}
 		m.ContainmentShiftAlongMetres, m.ContainmentShiftAcrossMetres = along, across
 		applied.startX, applied.startY = sb.state[0], sb.state[1]
 		applied.measuredX, applied.measuredY = sb.state[0], sb.state[1]
@@ -928,6 +1091,11 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 	}
 	if outcome == nearEdgeCoast && sb.reference == ReferenceClusterMedoid {
 		outcome = nearEdgeMedoid
+	}
+	for i, hit := range touched {
+		if hit {
+			sb.ext.updates[i]++
+		}
 	}
 	return m, outcome, applied
 }
@@ -1060,6 +1228,7 @@ func translateToFaces(state [4]float32, faces []EdgeMeasurement, cluster WorldCl
 func (t *Tracker) completeSolidBodyFrame(track *TrackedObject, class MotionClassBelief, cluster WorldCluster, f nearEdgeFrame, m SolidBodyMeasurement, measured bool) {
 	sb := &track.solidBody
 	sb.floorAlong, sb.floorAcross = 0, 0
+	sb.spanBound = f.spanBound
 	// Extent evidence comes from every face the model found, used or not.
 	t.admitSolidBodyExtents(track, cluster, f.edges, f.axis, f.axisIsCourse)
 	if measured {
@@ -1249,21 +1418,10 @@ func (t *Tracker) containmentTruncation(state *[4]float32, p *[16]float32, f nea
 // velocity rows are untouched. It returns the move along the direction.
 func truncateAxis(state *[4]float32, p *[16]float32, points []l4perception.WorldPoint, scratch []float64,
 	ux, uy float64, belief DimensionBelief, rangeMetres float64) float32 {
-	lo, hi, ok := trimmedExtremes(points, scratch, ux, uy)
+	a, b, ok := containmentInterval(points, scratch, ux, uy, ux*float64(state[0])+uy*float64(state[1]), belief, rangeMetres)
 	if !ok {
 		return 0
 	}
-	centre := ux*float64(state[0]) + uy*float64(state[1])
-	lo, hi = lo-centre, hi-centre
-	upper := float64(belief.Metres + belief.SigmaMetres)
-	a, b := hi-upper/2, lo+upper/2
-	if a > b {
-		return 0
-	}
-	shortfall := (upper - (hi - lo)) / 2
-	spacing := rangeMetres * containmentAngularSpacingRad
-	boundSigma := math.Sqrt(containmentExtremeNoiseMetres*containmentExtremeNoiseMetres + spacing*spacing + shortfall*shortfall)
-	a, b = a-boundSigma, b+boundSigma
 	// The marginal along the direction, and the whole state's regression on
 	// it: k = P u / sigma^2, so u·k = 1. The truncated marginal replaces the
 	// prior one through that regression, the conditional form, which moves
@@ -1301,6 +1459,29 @@ func truncateAxis(state *[4]float32, p *[16]float32, points []l4perception.World
 		}
 	}
 	return float32(mean)
+}
+
+// containmentInterval is the interval, relative to centre (the position's
+// projection on the unit direction), that truncateAxis holds the position's
+// offset to: [hi - h, lo + h] for the points' trimmed extremes lo and hi and
+// h half the belief's upper tail, widened by the bound's noise. It is false
+// for too few points, and when the belief cannot hold the span.
+func containmentInterval(points []l4perception.WorldPoint, scratch []float64, ux, uy, centre float64,
+	belief DimensionBelief, rangeMetres float64) (a, b float64, ok bool) {
+	lo, hi, ok := trimmedExtremes(points, scratch, ux, uy)
+	if !ok {
+		return 0, 0, false
+	}
+	lo, hi = lo-centre, hi-centre
+	upper := float64(belief.Metres + belief.SigmaMetres)
+	a, b = hi-upper/2, lo+upper/2
+	if a > b {
+		return 0, 0, false
+	}
+	shortfall := (upper - (hi - lo)) / 2
+	spacing := rangeMetres * containmentAngularSpacingRad
+	boundSigma := math.Sqrt(containmentExtremeNoiseMetres*containmentExtremeNoiseMetres + spacing*spacing + shortfall*shortfall)
+	return a - boundSigma, b + boundSigma, true
 }
 
 // truncatedNormalMoments is the mean and variance of N(mu, sigma^2)
@@ -1394,7 +1575,24 @@ func (t *Tracker) lapseSolidBodyToMedoid(sb *solidBodyTrack, cluster WorldCluste
 			}
 		}
 	}
-	sb.p[0*4+0], sb.p[1*4+1] = bias, bias
+	if t.Config.SolidBody.AnisotropicReferenceBias {
+		// Along the believed axis when there is one; otherwise isotropic at
+		// the larger half-extent, as at the seed.
+		b := [3]float32{isotropicReferenceBias(prior), 0, isotropicReferenceBias(prior)}
+		if sb.orientation.Provenance != ProvenanceNone {
+			b = anisotropicReferenceBias(prior, float64(sb.orientation.PsiRad))
+		}
+		addReferenceBias(&sb.p, b)
+	} else {
+		sb.p[0*4+0], sb.p[1*4+1] = bias, bias
+	}
+	if sb.ext.on {
+		// The re-seeded position is uncorrelated with everything, the
+		// half-extents included; velocity keeps its correlation with them.
+		for j := 0; j < 2; j++ {
+			sb.ext.pxh[0*2+j], sb.ext.pxh[1*2+j] = 0, 0
+		}
+	}
 	sb.reference = ReferenceClusterMedoid
 	sb.lastFixFaces = 0
 }
@@ -1527,8 +1725,9 @@ func evidenceBackedEdges(edges []EdgeMeasurement) []EdgeMeasurement {
 // half-extent's error is a bias, not noise: Section 8.1 forbids widening the
 // measurement variance to cover it, and a variance that did would also turn
 // the filter into a smoother that lags a real manoeuvre. consider, when not
-// nil, adds a one-off variance to each face's noise (FaceEntryConsider).
-func (t *Tracker) applyEdgeMeasurements(state [4]float32, p [16]float32, edges []EdgeMeasurement, consider []float64) ([4]float32, [16]float32, float32, VisibleFaces, bool) {
+// nil, adds a one-off variance to each face's noise (FaceEntryConsider), and
+// heading, when not nil, the orientation's (HeadingFaceNoise).
+func (t *Tracker) applyEdgeMeasurements(state [4]float32, p [16]float32, edges []EdgeMeasurement, consider, heading []float64) ([4]float32, [16]float32, float32, VisibleFaces, bool) {
 	var nis float64
 	var faces VisibleFaces
 	next := state
@@ -1537,6 +1736,9 @@ func (t *Tracker) applyEdgeMeasurements(state [4]float32, p [16]float32, edges [
 		r := float64(t.Config.MeasurementNoise)
 		if consider != nil {
 			r += consider[i]
+		}
+		if heading != nil {
+			r += heading[i]
 		}
 		term, ok := scalarPositionUpdate(&next, &nextP,
 			float64(e.NormalX), float64(e.NormalY), float64(e.ImpliedCentreOffset()), r)
@@ -1554,6 +1756,18 @@ func (t *Tracker) applyEdgeMeasurements(state [4]float32, p [16]float32, edges [
 // isotropic noise: exactly its two-dimensional update.
 func (t *Tracker) applyMedoidMeasurement(sb *solidBodyTrack, cluster WorldCluster) (float32, bool) {
 	r := float64(t.Config.MeasurementNoise)
+	if sb.ext.on {
+		// The same two updates on the joint state, so the half-extents move
+		// by their covariance with the position, which is zero until a fix.
+		js := sb.jointOf(sb.state, sb.p)
+		nx, okX := js.scalarUpdateNIS([jointStates]float64{1, 0}, float64(cluster.CentroidX), r)
+		ny, okY := js.scalarUpdateNIS([jointStates]float64{0, 1}, float64(cluster.CentroidY), r)
+		if !okX || !okY {
+			return 0, false
+		}
+		sb.setJoint(js)
+		return float32(nx + ny), true
+	}
 	next := sb.state
 	nextP := sb.p
 	nx, okX := scalarPositionUpdate(&next, &nextP, 1, 0, float64(cluster.CentroidX), r)
@@ -1642,22 +1856,9 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 	// Section 9.2: a span is lower-bound evidence only along believed axes.
 	// Where the body is moving fast enough for its course to mean something,
 	// an axis further from the course than the span search covers is not
-	// believed: an axis swap reads the length as the width, and the
-	// corroborated maximum would keep it for the rest of the track. On kirk0
-	// the tracked heading was over ten degrees off the course on 59% of
-	// moving near-edge frames. The axis is undirected, so the comparison is
-	// folded; for a pedestrian stepping sideways this refuses evidence
-	// rather than admitting it, which is the safe direction.
-	//
-	// An axis taken from the course is believed by construction. It is the
-	// course before this frame's update, and the update can turn the
-	// velocity, so comparing it with the course after the update would refuse
-	// spans measured along exactly the axis the faces were.
-	if speed := math.Hypot(float64(sb.state[2]), float64(sb.state[3])); !axisIsCourse && speed >= CourseAlignmentMinSpeedMps {
-		course := math.Atan2(float64(sb.state[3]), float64(sb.state[2]))
-		if FoldAxisAngleDeg(float64(axis)-course) > spanSearchHalfWindowDeg {
-			return
-		}
+	// believed (spanAxisBelieved).
+	if !spanAxisBelieved(sb, axis, axisIsCourse) {
+		return
 	}
 	for _, e := range set.Edges {
 		// Under FacePlaneSpans a face gives the dimension it lies across: an
@@ -1680,6 +1881,30 @@ func (t *Tracker) admitSolidBodyExtents(track *TrackedObject, cluster WorldClust
 			sb.widthBelief.Observe(span)
 		}
 	}
+}
+
+// spanAxisBelieved says whether a span along axis may be read as lower-bound
+// evidence, per Section 9.2: where the body is moving fast enough for its
+// course to mean something, an axis further from the course than the span
+// search covers is not believed: an axis swap reads the length as the width,
+// and the corroborated maximum would keep it for the rest of the track. On
+// kirk0 the tracked heading was over ten degrees off the course on 59% of
+// moving near-edge frames. The axis is undirected, so the comparison is
+// folded; for a pedestrian stepping sideways this refuses evidence rather
+// than admitting it, which is the safe direction.
+//
+// An axis taken from the course is believed by construction. It is the
+// course before this frame's update, and the update can turn the velocity,
+// so comparing it with the course after the update would refuse spans
+// measured along exactly the axis the faces were.
+func spanAxisBelieved(sb *solidBodyTrack, axis float32, axisIsCourse bool) bool {
+	if speed := math.Hypot(float64(sb.state[2]), float64(sb.state[3])); !axisIsCourse && speed >= CourseAlignmentMinSpeedMps {
+		course := math.Atan2(float64(sb.state[3]), float64(sb.state[2]))
+		if FoldAxisAngleDeg(float64(axis)-course) > spanSearchHalfWindowDeg {
+			return false
+		}
+	}
+	return true
 }
 
 // spanCouldExceed says whether the points' trimmed span straight along axisRad
@@ -1811,18 +2036,24 @@ func (t *Tracker) coastSolidBody(track *TrackedObject, inflation float32) {
 	if sb.tracked {
 		// The tracked covariance has had the same inflation.
 		sb.syncFromTrack(track)
-	} else if inflation > 0 && t.Config.ConsistentCovarianceCap {
+	} else if inflation > 0 && t.Config.ConsistentCovarianceCap && !sb.ext.on {
+		// Under ExtentState the branch below scales the joint covariance,
+		// the position-extent cross block included.
 		sb.p[0*4+0] += inflation
 		sb.p[1*4+1] += inflation
 		capCovarianceConsistent(&sb.p, t.Config.MaxCovarianceDiag)
 	} else if inflation > 0 {
 		sb.p[0*4+0] += inflation
 		sb.p[1*4+1] += inflation
+		uncapped := [4]float32{sb.p[0], sb.p[5], sb.p[10], sb.p[15]}
 		if sb.p[0*4+0] > t.Config.MaxCovarianceDiag {
 			sb.p[0*4+0] = t.Config.MaxCovarianceDiag
 		}
 		if sb.p[1*4+1] > t.Config.MaxCovarianceDiag {
 			sb.p[1*4+1] = t.Config.MaxCovarianceDiag
+		}
+		if sb.ext.on {
+			sb.scaleCappedRows(uncapped)
 		}
 	}
 	sb.support.CoastedFrames++
@@ -1832,6 +2063,8 @@ func (t *Tracker) coastSolidBody(track *TrackedObject, inflation float32) {
 		sb.admitFaces(nil)
 	}
 	class := solidBodyClass(track)
+	// A coast has no frame to bound the extents with.
+	sb.spanBound = [2]float32{}
 	t.advanceSolidBodyLifecycle(track, class, true)
 	sb.floorAlong, sb.floorAcross = 0, 0
 	t.publishSolidBody(track, class, SolidBodyMeasurement{FallbackReason: "no_association"})
@@ -1856,6 +2089,13 @@ func (t *Tracker) assembleSolidBody(track *TrackedObject, class MotionClassBelie
 	sb := &track.solidBody
 	effective, _ := class.Effective()
 	prior := dimensionPriorFor(effective)
+	var length, width DimensionBelief
+	if sb.ext.on {
+		length, width = sb.extentDimension(0), sb.extentDimension(1)
+	} else {
+		length = t.boundedDimension(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres, sb.spanBound[0])
+		width = t.boundedWidth(sb, prior, sb.spanBound[1])
+	}
 	e := SolidBodyEstimate{
 		StateModel: StateModelCVCartesianV1,
 		Reference:  sb.reference,
@@ -1866,8 +2106,8 @@ func (t *Tracker) assembleSolidBody(track *TrackedObject, class MotionClassBelie
 			sb.p[1*4+0], sb.p[1*4+1],
 		},
 		Orientation: sb.orientation,
-		Length:      t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres),
-		Width:       t.widthOf(sb, prior),
+		Length:      length,
+		Width:       width,
 		// Height stays the class prior, as in SolidBodyFromTrack: vertical
 		// extent is corrupted by the P11 grade artefact on any slope.
 		Height: DimensionBelief{
@@ -2004,6 +2244,28 @@ func courseOrientation(state [4]float32, p [16]float32) (OrientationBelief, bool
 // the prior standing; with VehicleExtentFloor, one shorter than the class's
 // smallest member is raised to it.
 func (t *Tracker) dimensionOf(b extentBelief, priorMetres, priorSigma, minimumMetres float32) DimensionBelief {
+	return t.boundedDimension(b, priorMetres, priorSigma, minimumMetres, 0)
+}
+
+// boundedDimension is dimensionOf with a lower bound from the current frame
+// (SpanBoundsBelief), zero for none. Under CensoredExtent the dimension is the
+// censored posterior over the belief and the bound (censoredDimension), which
+// replaces the shrinking sigma and both floors; otherwise the bound raises
+// whatever the floors leave.
+func (t *Tracker) boundedDimension(b extentBelief, priorMetres, priorSigma, minimumMetres, bound float32) DimensionBelief {
+	if t.Config.SolidBody.CensoredExtent {
+		return censoredDimension(b, priorMetres, priorSigma, bound)
+	}
+	d := t.flooredDimension(b, priorMetres, priorSigma, minimumMetres)
+	if bound > d.Metres {
+		d.Metres = bound
+	}
+	return d
+}
+
+// flooredDimension is dimensionFromBelief under ExtentPriorFloor and
+// VehicleExtentFloor.
+func (t *Tracker) flooredDimension(b extentBelief, priorMetres, priorSigma, minimumMetres float32) DimensionBelief {
 	d := dimensionFromBelief(b, priorMetres, priorSigma)
 	if d.Provenance != ProvenanceAccumulated {
 		return d
@@ -2024,10 +2286,16 @@ func (t *Tracker) dimensionOf(b extentBelief, priorMetres, priorSigma, minimumMe
 // across a sliver of its rear is not 0.4 m wide. A cyclist, at under 2 m,
 // is not reached.
 func (t *Tracker) widthOf(sb *solidBodyTrack, prior classDimensionPrior) DimensionBelief {
+	return t.boundedWidth(sb, prior, 0)
+}
+
+// boundedWidth is widthOf with the current frame's lower bound, as
+// boundedDimension.
+func (t *Tracker) boundedWidth(sb *solidBodyTrack, prior classDimensionPrior, bound float32) DimensionBelief {
 	minimum := prior.minWidthMetres
 	if vehicle := dimensionPriorFor(MotionRigidVehicle); minimum == 0 &&
 		t.Config.SolidBody.VehicleExtentFloor && sb.lengthBelief.Estimate() >= vehicle.minLengthMetres {
 		minimum = vehicle.minWidthMetres
 	}
-	return t.dimensionOf(sb.widthBelief, prior.widthMetres, prior.sigmaMetres, minimum)
+	return t.boundedDimension(sb.widthBelief, prior.widthMetres, prior.sigmaMetres, minimum, bound)
 }

@@ -79,6 +79,12 @@ type EdgeMeasurement struct {
 	HalfExtentProvenance Provenance
 	// SupportPoints is how many returns were attributed to this face.
 	SupportPoints int
+	// TangentialLeverArmMetres is the RMS offset, along the face plane
+	// (perpendicular to the normal), of the face's supporting returns from
+	// the predicted position: the lever arm through which an orientation
+	// error moves the plane. Zero when NearEdgeInput.TangentialLeverArms
+	// was not set.
+	TangentialLeverArmMetres float32
 }
 
 // ImpliedCentreOffset is the body centre's position along this face's normal,
@@ -144,6 +150,10 @@ type NearEdgeInput struct {
 	FaceToleranceMetres float32
 	// MinFaceSupport is the fewest returns that may define a face.
 	MinFaceSupport int
+	// TangentialLeverArms asks for each face's TangentialLeverArmMetres,
+	// about (PredictedX, PredictedY). Off, the field is zero and no extra
+	// pass over the returns is made.
+	TangentialLeverArms bool
 }
 
 // DefaultFaceToleranceMetres is how near a face plane a return must sit to
@@ -259,19 +269,46 @@ func MeasureNearEdge(in NearEdgeInput) EdgeMeasurementSet {
 		if !ok || support < minSupport {
 			continue
 		}
+		var lever float32
+		if in.TangentialLeverArms {
+			lever = tangentialLeverArm(points, normalX, normalY, plane-tolerance, in.PredictedX, in.PredictedY)
+		}
 
 		out.Edges = append(out.Edges, EdgeMeasurement{
-			Face:                 face,
-			NormalX:              normalX,
-			NormalY:              normalY,
-			PlaneOffsetMetres:    plane,
-			HalfExtentMetres:     axis.halfExtent,
-			HalfExtentProvenance: axis.provenance,
-			SupportPoints:        support,
+			Face:                     face,
+			NormalX:                  normalX,
+			NormalY:                  normalY,
+			PlaneOffsetMetres:        plane,
+			HalfExtentMetres:         axis.halfExtent,
+			HalfExtentProvenance:     axis.provenance,
+			SupportPoints:            support,
+			TangentialLeverArmMetres: lever,
 		})
 	}
 
 	return assembleCentre(out, in)
+}
+
+// tangentialLeverArm is the RMS tangential offset from (cx, cy), along the
+// plane of the face with the given outward normal, of the returns
+// facePlaneOffset counted as its support: those projecting at least minimum
+// on the normal, by the same float32 projection.
+func tangentialLeverArm(points []l4perception.WorldPoint, normalX, normalY, minimum, cx, cy float32) float32 {
+	tx, ty := -float64(normalY), float64(normalX)
+	var sum float64
+	n := 0
+	for _, p := range points {
+		if float32(p.X*float64(normalX)+p.Y*float64(normalY)) < minimum {
+			continue
+		}
+		t := (p.X-float64(cx))*tx + (p.Y-float64(cy))*ty
+		sum += t * t
+		n++
+	}
+	if n == 0 {
+		return 0
+	}
+	return float32(math.Sqrt(sum / float64(n)))
 }
 
 // facePlaneOffset locates the face plane nearest the sensor along a normal, and

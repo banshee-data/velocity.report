@@ -343,8 +343,8 @@ The commit a report cites still holds the file as it ran.
 ### Replay experiment names
 
 The offline replay tools name default-off options as experiments
-(`-experiment solid_body,near_edge_track,...`). Each solid-body name has a
-key in the `l5.cv_kf_v1.solid_body` block. A replay that names experiments
+(`-experiment solid_body,near_edge_track,...`). Each solid-body name in the
+table has a key in the `l5.cv_kf_v1.solid_body` block. A replay that names experiments
 combines them with the block it loaded: a name turns its option on, and a
 named scale replaces the block's.
 
@@ -391,7 +391,11 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `class_identity`, `containment_claim` (which needs `solid_body`,
 `solid_body_containment` and `solid_body_full_members`), `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
 `overlap_end_body` and `overlap_end_older`, `birth_gate_body` (which needs `overlap_end_body`), `fixed_lag_rts`, `surface_ground` (the
-replay tools' surface-ground flags by name) and `box_ground` (which needs the box model). An arm that uses one runs through the offline replay tools,
+replay tools' surface-ground flags by name), `box_ground` (which needs the box model), and the solid
+body's face-state options, each needing `solid_body`: `solid_body_extent_state` (refused with
+`near_edge_track`), `solid_body_censored_extent`, `solid_body_span_bounds_belief`,
+`solid_body_heading_face_noise`, `solid_body_anisotropic_reference_bias` and
+`solid_body_face_state`, which is all five. An arm that uses one runs through the offline replay tools,
 and its report names the experiment beside the set. `velocity lidar pcap-replay --experiment`
 takes the same names and combination rules as `lidar-state-estimation-baseline -experiment`,
 and is the tool that records such an arm's foreground-complete observation VRLOG
