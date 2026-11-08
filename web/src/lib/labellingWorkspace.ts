@@ -645,12 +645,12 @@ export function handoff(row: WorkspaceRow): Handoff {
 	if (row.segments.some((s) => s.pack_missing))
 		return {
 			kind: 'none',
-			reason: 'The pack the database names is not on disk: queue it again on the Segments page.'
+			reason: 'The pack the database names is not on disk: queue it again on the Windows page.'
 		};
 	if (row.segments.length)
 		return {
 			kind: 'none',
-			reason: "No pack yet: queue the clip's pack on the Segments page, then refresh."
+			reason: "No pack yet: queue the clip's pack on the Windows page, then refresh."
 		};
 	return { kind: 'none', reason: 'No readable pack.' };
 }

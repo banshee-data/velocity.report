@@ -53,7 +53,7 @@ Every bound plan and every item says exactly what to load:
 3. To follow the frames in the main window, replay the run's recording (the VRLOG path shown).
 4. Save in the window, then **Refresh** the page: progress is read from what was saved.
 
-An item with no pack yet says so: queue the clip's pack on the Segments page.
+An item with no pack yet says so: queue the clip's pack on the Windows page.
 
 ![Protection status and progress by layer](labelling-workspace-1-overview.jpg)
 

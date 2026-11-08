@@ -430,7 +430,7 @@
 					parameters. Make one from a session on
 					<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a>
 					or from a ranked window on
-					<a href={resolve('/lidar/segments')} class="text-primary hover:underline">Segments</a>;
+					<a href={resolve('/lidar/windows')} class="text-primary hover:underline">Windows</a>;
 					<a href={resolve('/lidar/clip-locations')} class="text-primary hover:underline"
 						>Locations</a
 					>

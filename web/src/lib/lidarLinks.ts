@@ -1,15 +1,18 @@
 // Links between the LiDAR pages. They run in the order the work does —
-// Captures, Clips, Segments, Runs, Tracks, Sweeps — and each page names the
+// Captures, Clips, Runs, Windows, Tracks, Sweeps — and each page names the
 // records the next starts from: a clip its reference run, a run its clip, both
 // the Tracks view of them. A link carries those identities as a query, and the
 // page it opens reads them back here, so a parameter is named in one place.
 //
 // svelte/no-navigation-without-resolve accepts only a bare resolve() call as
 // an href, so a page writes `${resolve('/lidar/runs')}?${runQuery(id)}` inside
-// an eslint-disable for that rule, as the Segments page already does.
+// an eslint-disable for that rule, as the Windows page already does.
 
 /** The parameter that opens one record on the Clips and Runs pages. */
 const ID_PARAM = 'id';
+
+/** The parameter that opens the Windows page on a run's ranked windows. */
+const RUN_PARAM = 'run';
 
 /** clipQuery opens one clip on the Clips page. */
 export function clipQuery(clipId: string): string {
@@ -19,6 +22,19 @@ export function clipQuery(clipId: string): string {
 /** runQuery opens one run on the Runs page. */
 export function runQuery(runId: string): string {
 	return new URLSearchParams({ [ID_PARAM]: runId }).toString();
+}
+
+/** windowsQuery opens the Windows page on one run. */
+export function windowsQuery(runId: string): string {
+	return new URLSearchParams({ [RUN_PARAM]: runId }).toString();
+}
+
+/** linkedRun reads the run a windowsQuery link opened, if any. */
+export function linkedRun(url: {
+	searchParams: { get(name: string): string | null };
+}): string | null {
+	const id = url.searchParams.get(RUN_PARAM)?.trim();
+	return id ? id : null;
 }
 
 export type TracksLink = {
