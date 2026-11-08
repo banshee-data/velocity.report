@@ -15,7 +15,7 @@ accepted lanes to velocity.report as the snapshot the speed reports read.
 - **Layers:** macOS visualiser (alignment pane, street painter, Metal overlay); the vendored Gerardus
   proto; velocity.report's HTTP API as a client
 - **Target:** unscheduled; proposed as the v0.7.19 slot with its companions
-- **Companion plans:** [lane fields across the corpus](lidar-lane-field-batch-plan.md) (the batch that fills Send lane field's job for every site), [lanes from tracks](lidar-lane-proposals-from-tracks-plan.md) (the lane field
+- **Companion plans:** [lane review across the city](lidar-lane-review-citywide-plan.md) (the street segment as the unit, one Approve, the queue on the city grid), [lane fields across the corpus](lidar-lane-field-batch-plan.md) (the batch that fills Send lane field's job for every site), [lanes from tracks](lidar-lane-proposals-from-tracks-plan.md) (the lane field
   and its route), [lane snapshot and attribution](lidar-lane-snapshot-and-attribution-plan.md) (what
   Send writes), [speed by direction and lane](platform-speed-by-direction-reporting-plan.md),
   [posted speed limits](posted-speed-limits-plan.md), [visualiser alignment client](lidar-visualiser-gerardus-alignment-plan.md),
