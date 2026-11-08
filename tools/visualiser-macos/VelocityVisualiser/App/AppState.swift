@@ -518,6 +518,86 @@ private let logger = DevLogger(category: "AppState")
         ) { await self.runBrowserState.loadRunForReplay(runID) }
     }
 
+    // MARK: - Links (velocityreport://)
+
+    /// Why the last link was refused, shown until dismissed. Nil when the
+    /// last link opened, or none has arrived.
+    @Published var linkMessage: String?
+
+    /// The frame a link asked for, shown once its run's replay is seekable.
+    private(set) var pendingLinkFrame: (runID: String, frame: UInt64)?
+
+    /// Open a velocityreport:// link: load the run it names as the run
+    /// browser's Open does, then show the frame it names. A link that cannot
+    /// be opened says why in `linkMessage` and changes nothing else.
+    func openLink(_ url: URL) async {
+        logger.info("Opening link \(url.absoluteString)")
+        switch VisualiserURL.parse(url) {
+        case .failure(let error): linkMessage = error.message
+        case .success(.run(let runID, let frame)): await openLinkedRun(runID, frame: frame)
+        }
+    }
+
+    private func openLinkedRun(_ runID: String, frame: UInt64?) async {
+        let server = VelocityReportServer.saved(in: serverDefaults).urlDescription
+        let run: Run
+        switch await runBrowserState.findRun(runID) {
+        case .success(let found): run = found
+        case .failure(.notFound):
+            linkMessage = "The server at \(server) has no run \(runID)."
+            return
+        case .failure(.unreachable(let reason)):
+            linkMessage = "Could not ask the server at \(server) for run \(runID): \(reason)"
+            return
+        }
+        guard run.hasVRLog else {
+            linkMessage = "Run \(runID) has no recording to replay."
+            return
+        }
+        // Set before the load: the new stream's first frames can arrive
+        // while the load is still finishing its bookkeeping.
+        pendingLinkFrame = frame.map { (runID, $0) }
+        await openRun(runID)
+        guard runBrowserState.selectedRunID == runID, currentRunID == runID else {
+            pendingLinkFrame = nil
+            linkMessage =
+                runBrowserState.error.map { "Could not open run \(runID): \($0)" }
+                ?? "Could not open run \(runID): another run is still loading."
+            return
+        }
+        linkMessage = nil
+    }
+
+    /// Show the frame a link asked for, once the linked run's replay is
+    /// seekable and its length known. Called with every frame; does nothing
+    /// until then, and nothing once the frame has been asked for.
+    func applyPendingLinkFrame() {
+        guard let pending = pendingLinkFrame else { return }
+        guard currentRunID == pending.runID else {
+            // Another run was opened before this one's frames arrived.
+            if currentRunID != nil { pendingLinkFrame = nil }
+            return
+        }
+        guard displayPlaybackMode == .replaySeekable, totalFrames > 0, !playbackControlsBusy else {
+            return
+        }
+        pendingLinkFrame = nil
+        let last = totalFrames - 1
+        if pending.frame > last {
+            linkMessage =
+                "Run \(pending.runID) has \(totalFrames) frames (0 to \(last)); the link asked for frame \(pending.frame). Showing the last."
+        }
+        showFrame(min(pending.frame, last))
+    }
+
+    /// Pause on a frame index (from 0), as stepping does.
+    func showFrame(_ frame: UInt64) {
+        guard displayPlaybackMode == .replaySeekable, totalFrames > 0, !playbackControlsBusy else {
+            return
+        }
+        runStepCommand(kind: .seek, targetFrame: min(frame, totalFrames - 1))
+    }
+
     // MARK: - Alignment (Gerardus)
 
     /// The optional client for the Gerardus alignment service. Until a server
@@ -658,6 +738,11 @@ private let logger = DevLogger(category: "AppState")
             Task {
                 await city.loadIndex()
                 await city.loadTileset()
+            }
+            // velocityreport:// links, from the app delegate. Links that
+            // launched the app wait in the inbox until this point.
+            VisualiserURLInbox.shared.setHandler { [weak self] url in
+                Task { await self?.openLink(url) }
             }
         }
 
@@ -1875,6 +1960,8 @@ private let logger = DevLogger(category: "AppState")
             }
             currentFrameIndex = playbackInfo.currentFrameIndex
             if totalFrames != playbackInfo.totalFrames { totalFrames = playbackInfo.totalFrames }
+            // A link's frame, once its run is seekable.
+            applyPendingLinkFrame()
             // Note: isPaused is NOT updated from frame to allow optimistic UI updates.
             // The server confirms pause state via the RPC response.
 

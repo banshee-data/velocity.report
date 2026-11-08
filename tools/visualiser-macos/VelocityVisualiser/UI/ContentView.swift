@@ -155,6 +155,16 @@ struct ContentView: View {
                 // Share the app-level RunBrowserState so local rollup updates stay in sync
                 // with the run-browser sheet and replay-loading helper.
                 RunBrowserView(state: appState.runBrowserState).environmentObject(appState)
+            }  // A velocityreport:// link that could not be opened says why.
+            .alert(
+                "Cannot open link",
+                isPresented: Binding(
+                    get: { appState.linkMessage != nil },
+                    set: { if !$0 { appState.linkMessage = nil } })
+            ) {
+                Button("OK") { appState.linkMessage = nil }
+            } message: {
+                Text(appState.linkMessage ?? "")
             }
     }
 }

@@ -56,3 +56,21 @@ final class QuitGuard: NSObject, NSApplicationDelegate {
         }
     }
 }
+
+// MARK: - Links
+
+extension QuitGuard {
+    /// velocityreport:// links, from Launch Services. Handled here rather
+    /// than by a view's onOpenURL so a link still opens when the main window
+    /// is closed, or launches the app; AppState picks them up from the inbox.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        MainActor.assumeIsolated {
+            VisualiserURLInbox.shared.receive(urls)
+            // Bring the main window forward: the run opens there.
+            NSApp.activate()
+            // SwiftUI names the window for its scene's id ("main-AppWindow-1").
+            NSApp.windows.first { $0.identifier?.rawValue.hasPrefix("main") == true }?
+                .makeKeyAndOrderFront(nil)
+        }
+    }
+}

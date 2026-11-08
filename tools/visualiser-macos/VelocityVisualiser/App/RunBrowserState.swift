@@ -117,6 +117,32 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
         isLoading = false
     }
 
+    /// Find a run a link names: in the list, else asked of the server, so a
+    /// run older than the latest 50 still opens. A run found on the server
+    /// joins the list, where `loadRunForReplay` looks for it. Returns the
+    /// run, or why it could not be found.
+    func findRun(_ runID: String) async -> Result<Run, RunLookupError> {
+        if runs.isEmpty { await fetchRuns() }
+        if let run = runs.first(where: { $0.runId == runID }) { return .success(run) }
+        do {
+            let run = try await apiClient.getRun(runID)
+            runs.append(run)
+            return .success(run)
+        } catch let RunTrackLabelAPIClient.APIError.requestFailed(response)
+            where (response as? HTTPURLResponse)?.statusCode == 404
+        { return .failure(.notFound) } catch let RunTrackLabelAPIClient.APIError.server(status, _)
+            where status == 404
+        { return .failure(.notFound) } catch {
+            return .failure(.unreachable(error.localizedDescription))
+        }
+    }
+
+    /// Why `findRun` found no run.
+    enum RunLookupError: Error, Equatable {
+        case notFound
+        case unreachable(String)
+    }
+
     /// Load a run for VRLOG replay.
     func loadRunForReplay(_ runID: String) async -> VRLogLoadResponse? {
         guard !isLoadingReplay else { return nil }
