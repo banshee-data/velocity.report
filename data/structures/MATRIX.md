@@ -1312,7 +1312,7 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 118   | 75  | 94  | 14  |
+| HTTP endpoints (LiDAR)  | 119   | 76  | 95  | 14  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
 | DB tables               | 53    | -   | 40  | 8   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
