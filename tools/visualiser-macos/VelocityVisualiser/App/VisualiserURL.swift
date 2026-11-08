@@ -128,6 +128,11 @@ extension Character { fileprivate var isASCIIDigit: Bool { isASCII && isNumber }
     private var pending: [URL] = []
     private var handler: ((URL) -> Void)?
 
+    /// Reopens the main window, which a link's run and its messages need.
+    /// Set by the main window when it first appears; SwiftUI's openWindow
+    /// action keeps working after that window is closed.
+    var openMainWindow: (() -> Void)?
+
     /// Set the handler and hand it every link that arrived before it.
     func setHandler(_ handler: @escaping (URL) -> Void) {
         self.handler = handler

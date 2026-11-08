@@ -486,7 +486,7 @@ private let logger = DevLogger(category: "AppState")
     private var runTrackLabelClient: RunTrackLabelAPIClient {
         runTrackLabelClientOverride ?? defaultRunTrackLabelClient
     }
-    let runBrowserState = RunBrowserState()
+    let runBrowserState: RunBrowserState
     private var queuedSeekProgress: Double?
     private var seekWaitFrameCount: Int = 0  // Frames since seek RPC completed; safety valve
     private var playbackStateGeneration: UInt64 = 0
@@ -520,62 +520,123 @@ private let logger = DevLogger(category: "AppState")
 
     // MARK: - Links (velocityreport://)
 
-    /// Why the last link was refused, shown until dismissed. Nil when the
-    /// last link opened, or none has arrived.
-    @Published var linkMessage: String?
+    /// What the last link left to say, shown until dismissed: why it was
+    /// refused, or a notice about how it opened. Nil when there is nothing.
+    @Published var linkAlert: LinkAlert?
 
-    /// The frame a link asked for, shown once its run's replay is seekable.
-    private(set) var pendingLinkFrame: (runID: String, frame: UInt64)?
+    struct LinkAlert: Equatable {
+        enum Kind: Equatable {
+            /// The link opened nothing.
+            case refused
+            /// The link opened its run, not quite as asked.
+            case notice
+        }
+        let kind: Kind
+        let message: String
+
+        static func refused(_ message: String) -> LinkAlert {
+            .init(kind: .refused, message: message)
+        }
+        static func notice(_ message: String) -> LinkAlert {
+            .init(kind: .notice, message: message)
+        }
+
+        var title: String { kind == .refused ? "Cannot open link" : "Link opened" }
+    }
+
+    /// A frame a link asked for, waiting for the replay its own load started.
+    /// `generation` is the playback generation that load's stream restart
+    /// began, so frames from the replay that was playing before the link, or
+    /// from one opened after it, never apply it.
+    struct PendingLinkFrame: Equatable {
+        let runID: String
+        let frame: UInt64
+        let generation: UInt64
+    }
+
+    private(set) var pendingLinkFrame: PendingLinkFrame?
+
+    /// The run a link is loading, with the frame the latest link for that
+    /// run asked for: a second link to the same run while it loads replaces
+    /// the frame rather than failing.
+    private struct LinkLoad {
+        let runID: String
+        var frame: UInt64?
+    }
+
+    private var linkLoad: LinkLoad?
 
     /// Open a velocityreport:// link: load the run it names as the run
     /// browser's Open does, then show the frame it names. A link that cannot
-    /// be opened says why in `linkMessage` and changes nothing else.
+    /// be opened says why in `linkAlert` and changes nothing else.
     func openLink(_ url: URL) async {
         logger.info("Opening link \(url.absoluteString)")
         switch VisualiserURL.parse(url) {
-        case .failure(let error): linkMessage = error.message
+        case .failure(let error): linkAlert = .refused(error.message)
         case .success(.run(let runID, let frame)): await openLinkedRun(runID, frame: frame)
         }
     }
 
     private func openLinkedRun(_ runID: String, frame: UInt64?) async {
+        if let load = linkLoad {
+            guard load.runID == runID else {
+                linkAlert = .refused(
+                    "Run \(load.runID) is still loading from an earlier link. Open this link again once it has."
+                )
+                return
+            }
+            // The same run, linked again while it loads: the latest frame wins.
+            linkLoad?.frame = frame
+            return
+        }
+        linkLoad = LinkLoad(runID: runID, frame: frame)
+        defer { linkLoad = nil }
+
         let server = VelocityReportServer.saved(in: serverDefaults).urlDescription
         let run: Run
         switch await runBrowserState.findRun(runID) {
         case .success(let found): run = found
         case .failure(.notFound):
-            linkMessage = "The server at \(server) has no run \(runID)."
+            linkAlert = .refused("The server at \(server) has no run \(runID).")
             return
         case .failure(.unreachable(let reason)):
-            linkMessage = "Could not ask the server at \(server) for run \(runID): \(reason)"
+            linkAlert = .refused(
+                "Could not ask the server at \(server) for run \(runID): \(reason)")
             return
         }
         guard run.hasVRLog else {
-            linkMessage = "Run \(runID) has no recording to replay."
+            linkAlert = .refused("Run \(runID) has no recording to replay.")
             return
         }
-        // Set before the load: the new stream's first frames can arrive
-        // while the load is still finishing its bookkeeping.
-        pendingLinkFrame = frame.map { (runID, $0) }
+        // Whatever an earlier list or load left there is not this link's.
+        runBrowserState.error = nil
+        // Any frame still waiting belongs to a replay this load replaces.
+        pendingLinkFrame = nil
         await openRun(runID)
         guard runBrowserState.selectedRunID == runID, currentRunID == runID else {
-            pendingLinkFrame = nil
-            linkMessage =
+            linkAlert = .refused(
                 runBrowserState.error.map { "Could not open run \(runID): \($0)" }
-                ?? "Could not open run \(runID): another run is still loading."
+                    ?? "Could not open run \(runID): another run is still loading.")
             return
         }
-        linkMessage = nil
+        linkAlert = nil
+        // After the load, not before: until the load restarts the stream,
+        // frames still come from whatever was playing, and its length and
+        // position are not this run's. The restart bumped the generation.
+        if let wanted = linkLoad?.frame {
+            pendingLinkFrame = PendingLinkFrame(
+                runID: runID, frame: wanted, generation: playbackStateGeneration)
+        }
     }
 
-    /// Show the frame a link asked for, once the linked run's replay is
-    /// seekable and its length known. Called with every frame; does nothing
-    /// until then, and nothing once the frame has been asked for.
+    /// Show the frame a link asked for, once the replay the link's load
+    /// started is seekable and its length known. Called with every frame;
+    /// does nothing until then, and nothing once the frame has been asked for.
     func applyPendingLinkFrame() {
         guard let pending = pendingLinkFrame else { return }
-        guard currentRunID == pending.runID else {
-            // Another run was opened before this one's frames arrived.
-            if currentRunID != nil { pendingLinkFrame = nil }
+        guard pending.generation == playbackStateGeneration, currentRunID == pending.runID else {
+            // Another replay started before this one's frames arrived.
+            pendingLinkFrame = nil
             return
         }
         guard displayPlaybackMode == .replaySeekable, totalFrames > 0, !playbackControlsBusy else {
@@ -584,8 +645,9 @@ private let logger = DevLogger(category: "AppState")
         pendingLinkFrame = nil
         let last = totalFrames - 1
         if pending.frame > last {
-            linkMessage =
-                "Run \(pending.runID) has \(totalFrames) frames (0 to \(last)); the link asked for frame \(pending.frame). Showing the last."
+            linkAlert = .notice(
+                "Run \(pending.runID) has \(totalFrames) frames (0 to \(last)); the link asked for frame \(pending.frame), so the last is shown."
+            )
         }
         showFrame(min(pending.frame, last))
     }
@@ -597,6 +659,9 @@ private let logger = DevLogger(category: "AppState")
         }
         runStepCommand(kind: .seek, targetFrame: min(frame, totalFrames - 1))
     }
+
+    /// The playback generation, for tests that deliver frames.
+    var playbackGenerationForTesting: UInt64 { playbackStateGeneration }
 
     // MARK: - Alignment (Gerardus)
 
@@ -660,8 +725,12 @@ private let logger = DevLogger(category: "AppState")
     /// under XCTest, so a test never reads or writes the operator's own.
     init(
         autoConnectOnStartup: Bool? = nil, alignment injected: AlignmentSession? = nil,
-        serverDefaults: UserDefaults? = AppState.defaultServerDefaults
+        serverDefaults: UserDefaults? = AppState.defaultServerDefaults,
+        runBrowserState: RunBrowserState? = nil
     ) {
+        // The run browser's state, shared with the sheet; injected by tests
+        // so its server can be mocked.
+        self.runBrowserState = runBrowserState ?? RunBrowserState()
         // FPS is calculated per-frame using exponential moving average
 
         self.serverDefaults = serverDefaults
