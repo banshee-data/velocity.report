@@ -86,7 +86,7 @@ that closes it. The last column names the item or disposition that already cover
 | G14 | A Packs column on Clips; pack counts on the visualiser's groups              | web, macOS         | not started | Clips columns: Description, PCAP, Files, Registered, Lanes, Created | same item                                                                |
 | G15 | Visualiser sheet grouped by clip, "Awaiting review", pack chip in Labels     | macOS              | not started | flat list by date; footer "Select a run to load for labelling"      | "macOS run browser grouped by clip" (v0.5.11); no assignee, one operator |
 | G16 | Annotation window titled by clip, pack and window                            | macOS              | not started | not visible in this capture; assumed unchanged                      | same item                                                                |
-| G17 | Segments offers "Make clip" per row, against clips from periods (T11)        | web                | partial     | Segments actions: Details, Preview in Tracks, Make clip, Hide       | Open question 4                                                          |
+| G17 | Segments offers "Make clip" per row, against clips from periods (T11)        | web                | partial     | Segments actions: Details, Preview in Tracks, Make clip, Hide       | Open question 3                                                          |
 | G18 | Clips still offers "New Clip" and "Scan PCAP Folder"; no "Make from periods" | web                | not started | header buttons                                                      | "Captures makes clips from selected periods" (v0.5.10)                   |
 
 #### Captures and Clips structuring
@@ -100,15 +100,15 @@ that closes it. The last column names the item or disposition that already cover
 
 #### Tracks and the shared view (T13, T14)
 
-| #   | Gap                                                                              | Owner      | Status | Evidence                                               | Covered by                                      |
-| --- | -------------------------------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------ | ----------------------------------------------- |
-| G23 | No view record (run, time, camera, layers, filters, selection)                   | server     | new    |                                                        | Item 1                                          |
-| G24 | Tracks has no run context in its header                                          | web        | new    | title "LiDAR Tracks · 0 tracks visible"                | Item 2                                          |
-| G25 | Two play bars with duplicated speed controls                                     | web        | new    | "Play 1x 0:00/0:00" and "Play Speed 0.5x 1x 2x 5x 10x" | Item 2                                          |
-| G26 | A filter panel (Class, State, Min observations) where a selected track should be | web        | new    | the right panel                                        | Item 2                                          |
-| G27 | No window or pack marks on the timeline; no keyboard                             | web        | new    |                                                        | Item 2                                          |
-| G28 | No "Open in visualiser" or "Copy view link"; no "Share view" in macOS            | web, macOS | new    |                                                        | Item 1, with "Open in visualiser" (v0.5.11)     |
-| G29 | The macOS URL scheme is not registered                                           | macOS      | new    | no `CFBundleURLTypes` in the app                       | "Open in visualiser" (v0.5.11); Open question 1 |
+| #   | Gap                                                                              | Owner      | Status | Evidence                                               | Covered by                                                          |
+| --- | -------------------------------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------ | ------------------------------------------------------------------- |
+| G23 | No view record (run, time, camera, layers, filters, selection)                   | server     | new    |                                                        | Item 1                                                              |
+| G24 | Tracks has no run context in its header                                          | web        | new    | title "LiDAR Tracks · 0 tracks visible"                | Item 2                                                              |
+| G25 | Two play bars with duplicated speed controls                                     | web        | new    | "Play 1x 0:00/0:00" and "Play Speed 0.5x 1x 2x 5x 10x" | Item 2                                                              |
+| G26 | A filter panel (Class, State, Min observations) where a selected track should be | web        | new    | the right panel                                        | Item 2                                                              |
+| G27 | No window or pack marks on the timeline; no keyboard                             | web        | new    |                                                        | Item 2                                                              |
+| G28 | No "Open in visualiser" or "Copy view link"; no "Share view" in macOS            | web, macOS | new    |                                                        | Item 1, with "Open in visualiser" (v0.5.11)                         |
+| G29 | The macOS URL scheme is not registered                                           | macOS      | new    | no `CFBundleURLTypes` in the app                       | "Open in visualiser" (v0.5.11); scheme decided: `velocityreport://` |
 
 #### City navigator (T15)
 
@@ -117,7 +117,7 @@ that closes it. The last column names the item or disposition that already cover
 | G30 | No derived task feed                                                  | server | new    | the Labelling page shows plan steps, not tasks   | Item 4                                                   |
 | G31 | No web City page with a map and a To do list                          | web    | new    | the Site viewer shows one site at a time         | Item 5, on the [city view plan](lidar-city-view-plan.md) |
 | G32 | The visualiser's "Lanes to review" is lanes only, computed in the app | macOS  | new    | City view panel: Site, High, Medium, Outstanding | Item 5                                                   |
-| G33 | The Labelling page overlaps City and the review surface               | web    | new    | plans label0001 and label0002, "bind window"     | Open question 3                                          |
+| G33 | The Labelling page overlaps City and the review surface               | web    | new    | plans label0001 and label0002, "bind window"     | Open question 2                                          |
 
 #### Held-out review (T16)
 
@@ -203,7 +203,7 @@ or belonged to macOS:
 The web sidebar's LiDAR group gains the pages the design did not place. Proposed order: Status,
 City, Captures, Clips, Runs, Tracks, Sweeps; then a Sensor group of Site viewer, Regions, Debug
 and Settings. There is no Windows page (Item 6 of the vocabulary plan) and no Review page (see
-[not adopted](#not-adopted)). Where the Labelling page goes is Open question 3.
+[not adopted](#not-adopted)). Where the Labelling page goes is Open question 2.
 
 ### Item 4: a derived task feed
 
@@ -272,7 +272,7 @@ PR, smallest and least contested first.
    G20 and retires the Clips header's "New Clip"; one clip per static period, never spanning
    motion, as the UI workflow plan decided.
 5. **The URL scheme and "Open in visualiser"** (macOS and web, `M`, v0.5.11). Pick the scheme's
-   name first (Open question 1); the run-and-frame form ships now and Item 1 adds the view form
+   name first (decided: `velocityreport://`, see Design decisions); the run-and-frame form ships now and Item 1 adds the view form
    later without a second scheme.
 6. **The visualiser's run browser grouped by clip, the Annotation window titled by clip and pack**
    (macOS, `M`, v0.5.11). Depends on 1; the audit's sheet shows forty rows with no clip.
@@ -326,17 +326,20 @@ either writes a parser.
   second home for them. Implemented facts: `params_hash` on param sets, `replay_case_id` on run
   records, the derived pack status on Segments, the pack job, `suspended` with checkpoint columns.
 - The handoff's five files are replaced by this plan; the design project in Claude Design remains
-  the visual reference, as the UI workflow plan's Open question 3 records.
+  the visual reference, as the UI workflow plan's Open question 2 records.
+- **The URL scheme is `velocityreport://`**, chosen by the owner on November 7, 2026 over the
+  mockup's `velocity.report://`. The run form is `velocityreport://run/<run_id>?frame=<n>`, where
+  `n` is the 0-based index of a record in the run's VRLOG, background snapshots included, as the
+  visualiser counts; without `frame` the run opens at its start. The view and pack forms use the
+  same scheme when they are specified.
 
 ## Open questions
 
-1. **The URL scheme's name.** The mockup shows `velocity.report://`, the handoff `velocityreport://`.
-   Pick one before priority 5; it carries the run form now and the view form later.
-2. **Where a view lives.** A table of its own, or a JSON column on the pack window plus a table for
+1. **Where a view lives.** A table of its own, or a JSON column on the pack window plus a table for
    saved views only. The unsaved query form needs neither; decide when Item 1 is placed.
-3. **The Labelling page.** Keep it as the editor for a labelling plan's binding and notes with its
+2. **The Labelling page.** Keep it as the editor for a labelling plan's binding and notes with its
    progress read from the pack (Item 6), or retire it once the task feed carries its "next" copy.
-4. **A clip from a window.** Segments' "Make clip" makes a clip from one ranked span. Clips from
+3. **A clip from a window.** Segments' "Make clip" makes a clip from one ranked span. Clips from
    periods is the normal path; decide whether a "moment clip" is a real need before removing it.
 
 ## Checklist

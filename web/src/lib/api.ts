@@ -979,11 +979,14 @@ export async function getLidarRuns(params?: {
 	sensor_id?: string;
 	status?: string;
 	limit?: number;
+	/** Name the sweep that ran each run (sweep_id), for folding by sweep. */
+	sweeps?: boolean;
 }): Promise<Run[]> {
 	const searchParams = new URLSearchParams();
 	if (params?.sensor_id) searchParams.set('sensor_id', params.sensor_id);
 	if (params?.status) searchParams.set('status', params.status);
 	if (params?.limit) searchParams.set('limit', String(params.limit));
+	if (params?.sweeps) searchParams.set('sweeps', '1');
 	// The trailing slash is the list's route; without it the server answers
 	// with a redirect to it, a round trip before every list.
 	const url = `${API_BASE}/lidar/runs/${searchParams.toString() ? '?' + searchParams : ''}`;
@@ -994,8 +997,9 @@ export async function getLidarRuns(params?: {
 }
 
 /** getLidarRun fetches one run, for a link to a run the paged list does not hold. */
-export async function getLidarRun(runId: string): Promise<Run> {
-	const res = await fetch(`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}`);
+export async function getLidarRun(runId: string, options?: { sweeps?: boolean }): Promise<Run> {
+	const query = options?.sweeps ? '?sweeps=1' : '';
+	const res = await fetch(`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}${query}`);
 	if (!res.ok) throw apiError('Could not load the run', res.status);
 	return res.json();
 }
@@ -1005,6 +1009,31 @@ export async function getRunTracks(runId: string): Promise<RunTrack[]> {
 	if (!res.ok) throw new Error(`Could not load tracks: ${res.status}`);
 	const data = await res.json();
 	return data.tracks || [];
+}
+
+/**
+ * getRunVrlogFrame names the frame of a run's recording on screen at an
+ * instant: the 0-based VRLOG index the macOS visualiser counts in, for a
+ * velocityreport:// link. `atNs` is Unix nanoseconds as text (frameInstantNs).
+ * A run with no recording to read answers `{ frame: null, reason }`; any other
+ * failure throws.
+ */
+export async function getRunVrlogFrame(
+	runId: string,
+	atNs: string
+): Promise<{ frame: number; total_frames: number } | { frame: null; reason: string }> {
+	const res = await fetch(
+		`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}/vrlog-frame?at_ns=${encodeURIComponent(atNs)}`
+	);
+	if (res.status === 404) {
+		const body = await res.json().catch(() => ({}));
+		return {
+			frame: null,
+			reason: typeof body?.error === 'string' ? body.error : 'this run has no recording'
+		};
+	}
+	if (!res.ok) throw apiError('Could not find the frame in the run’s recording', res.status);
+	return res.json();
 }
 
 /** Where a run's recording, exported by the server as a scene, is served. */

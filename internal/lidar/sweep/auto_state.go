@@ -76,6 +76,8 @@ func (at *AutoTuner) Suspend() error {
 	round := checkpointRoundForSuspend(at.state)
 	results := make([]ComboResult, len(at.state.Results))
 	copy(results, at.state.Results)
+	rounds := make([]RoundSummary, len(at.state.RoundResults))
+	copy(rounds, at.state.RoundResults)
 	bounds := copyBounds(at.currentBounds)
 
 	// Cancel the running goroutine
@@ -96,7 +98,7 @@ func (at *AutoTuner) Suspend() error {
 			boundsJSON = []byte("{}")
 		}
 
-		resultsJSON, err := json.Marshal(results)
+		resultsJSON, err := encodeAutoCheckpoint(results, rounds)
 		if err != nil {
 			at.logger.Printf("[sweep] WARNING: Failed to marshal results for checkpoint: %v", err)
 			resultsJSON = []byte("[]")
@@ -163,6 +165,12 @@ func (at *AutoTuner) Resume(ctx context.Context, sweepID string) error {
 		return fmt.Errorf("cannot resume: no persister configured")
 	}
 
+	// A runner busy with another sweep would fail the first round. Refuse
+	// here instead, leaving the sweep suspended on its checkpoint.
+	if at.runner != nil && at.runner.GetSweepState().Status == SweepStatusRunning {
+		return fmt.Errorf("cannot resume sweep %s: %w", sweepID, ErrSweepAlreadyRunning)
+	}
+
 	// Load checkpoint from database
 	checkpointRound, boundsJSON, resultsJSON, reqJSON, err := at.persister.LoadSweepCheckpoint(sweepID)
 	if err != nil {
@@ -181,12 +189,14 @@ func (at *AutoTuner) Resume(ctx context.Context, sweepID string) error {
 		return fmt.Errorf("no request found in checkpoint; cannot resume")
 	}
 
-	// Deserialise accumulated results
-	var priorResults []ComboResult
-	if len(resultsJSON) > 0 {
-		if err := json.Unmarshal(resultsJSON, &priorResults); err != nil {
-			return fmt.Errorf("failed to unmarshal checkpoint results: %w", err)
-		}
+	// Deserialise accumulated results and the finished rounds' summaries.
+	prior, err := decodeAutoCheckpoint(resultsJSON)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal checkpoint results: %w", err)
+	}
+	priorResults, priorRounds := prior.Results, prior.RoundResults
+	if priorRounds == nil {
+		priorRounds = []RoundSummary{} // non-nil marks the run as resumed
 	}
 
 	// Deserialize checkpoint bounds (for resuming mid-round with narrowed bounds).
@@ -220,7 +230,7 @@ func (at *AutoTuner) Resume(ctx context.Context, sweepID string) error {
 		Round:               startRound,
 		TotalRounds:         req.MaxRounds,
 		Results:             priorResults,
-		RoundResults:        make([]RoundSummary, 0),
+		RoundResults:        append(make([]RoundSummary, 0, len(priorRounds)), priorRounds...),
 		CumulativeCompleted: len(priorResults),
 	}
 	if len(checkpointBounds) > 0 {
@@ -236,7 +246,7 @@ func (at *AutoTuner) Resume(ctx context.Context, sweepID string) error {
 	at.logger.Printf("[sweep] Auto-tune resuming from round %d with %d prior results (sweepID=%s)", startRound, len(priorResults), sweepID)
 
 	// Run remaining rounds in background
-	go at.runFromRound(runCtx, req, startRound, priorResults, checkpointBounds)
+	go at.runFromRound(runCtx, req, startRound, priorResults, checkpointBounds, priorRounds)
 
 	return nil
 }

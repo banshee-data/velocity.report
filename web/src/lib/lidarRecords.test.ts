@@ -1,4 +1,11 @@
-import { clipForRun, frameModeLabel, labelShare, objectiveText, shortDigest } from './lidarRecords';
+import {
+	clipForRun,
+	frameModeLabel,
+	labelShare,
+	objectiveText,
+	runsOfClip,
+	shortDigest
+} from './lidarRecords';
 import type { Run, LidarClip } from './types/lidar';
 
 function clip(id: string, extra: Partial<LidarClip> = {}): LidarClip {
@@ -129,5 +136,31 @@ describe('frameModeLabel', () => {
 		// Runs from servers before frame_mode, and every VRLOG they recorded.
 		expect(frameModeLabel(undefined)).toBe('FG');
 		expect(frameModeLabel(null)).toBe('FG');
+	});
+});
+
+describe('runsOfClip', () => {
+	const kirk0 = clip('kirk0');
+	const kirk1 = clip('kirk1');
+	const clips = [kirk0, kirk1];
+	const a = run({ run_id: 'a', clip_id: 'kirk0' });
+	const b = run({ run_id: 'b', source_path: '/vol/c/kirk1.pcapng' });
+	const c = run({ run_id: 'c', source_path: '/vol/c/kirk0.pcapng' });
+	const loose = run({ run_id: 'loose', source_path: '/elsewhere.pcap' });
+	const runs = [a, b, c, loose];
+
+	it('lists the runs replayed from one clip', () => {
+		expect(runsOfClip(runs, kirk0, clips).map((r) => r.run_id)).toEqual(['a', 'c']);
+		expect(runsOfClip(runs, kirk1, clips).map((r) => r.run_id)).toEqual(['b']);
+	});
+
+	it('lists the runs no clip covers when there is no clip', () => {
+		expect(runsOfClip(runs, null, clips).map((r) => r.run_id)).toEqual(['loose']);
+	});
+
+	it('keeps the selected run when the list cannot place it', () => {
+		const fetched = run({ run_id: 'old', clip_id: 'gone' });
+		expect(runsOfClip(runs, kirk0, clips, fetched).map((r) => r.run_id)).toEqual(['old', 'a', 'c']);
+		expect(runsOfClip(runs, kirk0, clips, a).map((r) => r.run_id)).toEqual(['a', 'c']);
 	});
 });
