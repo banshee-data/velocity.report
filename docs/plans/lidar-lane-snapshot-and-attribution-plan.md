@@ -329,7 +329,7 @@ filled, so a picture of a site's lanes, limits and traffic exists without a file
   provenance, or is the proposal id on each approved lane enough?
 - Which runs count for a published survey's directions: the survey's own export run only, as the
   scene timeline does today?
-- Does `lanes pull` run on a schedule on a deployed device, or only by hand?
+- Does `lanes pull` run on a schedule on a deployed device, or only by hand? The [citywide lane review plan](lidar-lane-review-citywide-plan.md#one-approve-and-velocityreport-pulls-gerardus-server-painter) proposes a schedule plus a poll of Gerardus's street-use version, replacing the painter's Send.
 
 ## Checklist
 
