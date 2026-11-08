@@ -136,7 +136,7 @@ func shortExtentState(sb *solidBodyTrack) {
 // corrects a fixed-extent belief by itself: the tracked filter without the
 // option is the control, not a strawman. The extent state alone cannot use
 // that span (only CensoredExtent or SpanBoundsBelief turn it into a bound on
-// hL), so on approach one end face leaves n·c and hL confounded and the
+// hL, solid_body_extent_bounds_test.go), so on approach one end face leaves n·c and hL confounded and the
 // centre carries part of the shortfall; the second end face separates them,
 // and the error falls.
 func TestTrackedExtentStateRecoversAShortLengthAndTheCentre(t *testing.T) {
@@ -144,14 +144,10 @@ func TestTrackedExtentStateRecoversAShortLengthAndTheCentre(t *testing.T) {
 	cfg := nearEdgeTrackingConfig()
 	cfg.SolidBody.ExtentState = true
 	state := runTrackedBoxPass(t, cfg, shortExtentState)
-	cfg.SolidBody.SpanBoundsBelief = true
-	bounded := runTrackedBoxPass(t, cfg, shortExtentState)
 	t.Logf("tracked, extents fixed (span admission on): approach %.3f m, departure %.3f m, half-length %.3f m, %d fixes",
 		fixed.approachErr, fixed.departureErr, fixed.finalHalfLen, fixed.fixes)
 	t.Logf("tracked, extent state: approach %.3f m, departure %.3f m, half-length %.3f m (true 2.25), %d fixes, worst asymmetry %.2g, least eigenvalue %.3g",
 		state.approachErr, state.departureErr, state.finalHalfLen, state.fixes, state.worstAsym, state.worstEigen)
-	t.Logf("tracked, extent state with span bounds: approach %.3f m, departure %.3f m, half-length %.3f m, least eigenvalue %.3g",
-		bounded.approachErr, bounded.departureErr, bounded.finalHalfLen, bounded.worstEigen)
 
 	// The second end face fixes the length and the tracked centre comes with
 	// it: below the approach's error, and no worse than the fixed extent's.
@@ -181,12 +177,8 @@ func TestTrackedExtentStateRecoversAShortLengthAndTheCentre(t *testing.T) {
 			t.Errorf("tracked %s differs from the shadow's by %.3g", name, d)
 		}
 	}
-	// The span bound is logged, not asserted: on this pass its truncation
-	// overshoots hL on the shadow exactly as here (#970's behaviour, not the
-	// tracked path's). Its covariance must still be a covariance.
-	if bounded.worstAsym != 0 || bounded.worstEigen < -1e-6 {
-		t.Errorf("with span bounds the joint covariance had asymmetry %.3g and eigenvalue %.3g", bounded.worstAsym, bounded.worstEigen)
-	}
+	// The span bounds on this pass, on both paths, are
+	// TestSpanBoundsDoNotCarryTheExtentStatePastTheFaces's.
 	if state.worstAsym != 0 {
 		t.Errorf("the tracked joint covariance was asymmetric by %.3g", state.worstAsym)
 	}
