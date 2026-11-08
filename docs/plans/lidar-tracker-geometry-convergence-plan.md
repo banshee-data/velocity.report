@@ -463,3 +463,4 @@ arms. Recent observed vehicle priors may support a current membership join;
 ambiguous ownership and shape failures preserve the original partition. Synthetic
 correctness and unlabelled replay counts cannot close W3, G-GEO-1, the reviewed
 merge/identity gates or the target-hardware cost requirement.
+Truck membership and the extent state, scored on kirk0's labels: [l4clus0010](../lidar/operations/w3-truck-membership-extent-kirk0-2026-11.md).
