@@ -30,6 +30,15 @@ const (
 	ExperimentAdaptiveUncertainty = "adaptive_uncertainty"
 	// ExperimentLikelihoodCost: l5tracks.TrackerConfig.LikelihoodAssociationCost (gap analysis S3).
 	ExperimentLikelihoodCost = "likelihood_cost"
+	// ExperimentRobustLikelihoodCost:
+	// l5tracks.TrackerConfig.RobustLikelihoodAssociationCost at the default
+	// ν (4): the Student-t negative log-likelihood the multiple-model filter
+	// weighs its modes with, as the assignment cost (gap analysis S3 and K9).
+	// It is a second likelihood cost, so it is refused with likelihood_cost,
+	// from the name or the tuning file, rather than resolved. Unlike
+	// likelihood_cost it reads the gate's own S, so it combines with
+	// near_edge_track.
+	ExperimentRobustLikelihoodCost = "robust_likelihood_cost"
 	// ExperimentCascade: l5tracks.TrackerConfig.CascadedAssociation (S2).
 	ExperimentCascade = "cascade"
 	// ExperimentDensityCap: pipeline DensityPreservingCap (D6).
@@ -371,6 +380,7 @@ const (
 var knownExperiments = map[string]bool{
 	ExperimentAdaptiveUncertainty:  true,
 	ExperimentLikelihoodCost:       true,
+	ExperimentRobustLikelihoodCost: true,
 	ExperimentCascade:              true,
 	ExperimentDensityCap:           true,
 	ExperimentBorderClasses:        true,
