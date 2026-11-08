@@ -83,6 +83,18 @@ class RunTrackLabelAPIClient {
         return try Self.goDecoder.decode(Run.self, from: data)
     }
 
+    /// List the clips, for naming the run browser's groups.
+    func listClips() async throws -> [ClipSummary] {
+        let url = baseURL.appendingPathComponent("api/lidar/clips")
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse,
+            (200...299).contains(httpResponse.statusCode)
+        else { throw APIError.requestFailed(response) }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(ClipsResponse.self, from: data).clips
+    }
+
     // MARK: - Track Operations
 
     /// List tracks for a run.
@@ -287,6 +299,36 @@ struct RunsResponse: Codable {
     let count: Int
 }
 
+/// Wrapper for /api/lidar/clips response.
+struct ClipsResponse: Codable { let clips: [ClipSummary] }
+
+/// What the run browser shows of a clip: its name and, when the clip has a
+/// recorded location, its site.
+struct ClipSummary: Codable, Equatable {
+    let clipId: String
+    var description: String? = nil
+    var location: Location? = nil
+
+    struct Location: Codable, Equatable {
+        var siteId: String? = nil
+        var s2L16Display: String? = nil
+    }
+
+    /// The clip's name: its description, else the start of its ID.
+    var name: String {
+        let trimmed = description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "Clip \(clipId.prefix(8))" : trimmed
+    }
+
+    /// The site the clip was captured at, when known.
+    var site: String? {
+        for value in [location?.s2L16Display, location?.siteId] {
+            if let value, !value.isEmpty { return value }
+        }
+        return nil
+    }
+}
+
 /// Wrapper for /api/lidar/runs/{run_id}/tracks response
 struct TracksResponse: Codable {
     let runId: String
@@ -358,6 +400,9 @@ struct Run: Codable, Identifiable {
     let notes: String?
     let sourceName: String?
     var clipId: String? = nil
+    /// The digest of the parameters the run was made with. Runs with the same
+    /// digest on the same capture are repeats; older servers omit it.
+    var paramsHash: String? = nil
     var labelRollup: RunLabelRollup? = nil
     /// What the run's VRLOG frames hold: "full" (background and foreground in
     /// every frame) or "foreground". Servers before frame_mode omit it, and

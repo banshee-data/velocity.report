@@ -316,6 +316,16 @@ func annotationFramingHalfHeight(
 struct AnnotationWindow: View {
     @StateObject private var controller = AnnotationController()
     @State private var showGenerateSheet = false
+    @EnvironmentObject private var appState: AppState
+    /// The clip the open pack's run was made from, read when a pack opens.
+    @State private var packClip: String?
+
+    /// The run the open pack was cut from.
+    private var packRunID: String? {
+        controller.session.flatMap {
+            AnnotationWindowTitle.runID(ofVRLogPath: $0.pack.manifest.source.vrlogPath)
+        }
+    }
 
     var body: some View {
         Group {
@@ -326,8 +336,15 @@ struct AnnotationWindow: View {
                 emptyState
             }
         }.frame(minWidth: 1180, minHeight: 700).navigationTitle(
-            controller.packName.map { "Annotation — \($0)" } ?? "Annotation"
-        ).sheet(isPresented: $showGenerateSheet) {
+            // The pack's window position is not shown: the app does not read
+            // the clip job's windows, so it does not know it.
+            AnnotationWindowTitle.format(
+                clip: packClip, pack: controller.packName, runID: packRunID)
+        ).task(id: controller.packName) {
+            packClip = nil
+            guard let runID = packRunID else { return }
+            packClip = await appState.runBrowserState.clipName(forRun: runID)
+        }.sheet(isPresented: $showGenerateSheet) {
             GenerateAnnotationPackSheet { packDir in controller.openGeneratedPack(at: packDir) }
         }
     }

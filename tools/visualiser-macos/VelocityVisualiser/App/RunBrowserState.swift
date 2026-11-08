@@ -81,6 +81,8 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
     // MARK: - Published State
 
     @Published var runs: [Run] = []
+    /// The clips the runs name, by clip ID, for the groups' headers.
+    @Published var clips: [String: ClipSummary] = [:]
     @Published var isLoading: Bool = false
     @Published var error: String?
     @Published var selectedRunID: String?
@@ -109,12 +111,37 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
             let fetchedRuns = try await apiClient.listRuns(limit: 50)
             runs = fetchedRuns
             logger.info("Fetched \(fetchedRuns.count) runs")
+            await fetchClips()
         } catch {
             self.error = "Failed to fetch runs: \(error.localizedDescription)"
             logger.error("Failed to fetch runs: \(error.localizedDescription)")
         }
 
         isLoading = false
+    }
+
+    /// Fetch the clips, for naming the groups. A server that cannot list them
+    /// leaves the groups named by clip ID, so a failure here is logged only.
+    func fetchClips() async {
+        do {
+            let list = try await apiClient.listClips()
+            clips = Dictionary(
+                list.map { ($0.clipId, $0) }, uniquingKeysWith: { first, _ in first })
+        } catch { logger.error("Failed to fetch clips: \(error.localizedDescription)") }
+    }
+
+    /// The name of the clip a run was made from, for the Annotation window's
+    /// title, or nil when the run has none or cannot be found.
+    func clipName(forRun runID: String) async -> String? {
+        if runs.isEmpty { await fetchRuns() }
+        var run = runs.first { $0.runId == runID }
+        if run == nil, let fetched = try? await apiClient.getRun(runID) {
+            runs.append(fetched)
+            run = fetched
+        }
+        guard let run, let clip = RunGrouping.clipID(of: run) else { return nil }
+        if clips[clip] == nil { await fetchClips() }
+        return clips[clip]?.name ?? "Clip \(clip.prefix(8))"
     }
 
     /// Load a run for VRLOG replay.
