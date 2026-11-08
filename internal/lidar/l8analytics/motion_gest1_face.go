@@ -68,6 +68,16 @@ type GEST1Residual struct {
 	// Points is the associated cluster's point count, zero when the tap did
 	// not see the frame.
 	Points int `json:"points"`
+	// PriorSecs is the interval the prior was predicted across: the tracked
+	// filter's PredictedSecs, or for a face fix the time since the solid
+	// body's previous update of any kind; NaN when unknown. G-EST-1's
+	// criteria 2 to 4 are one-step tests, which this lets a read restrict to.
+	PriorSecs float64 `json:"prior_s"`
+	// ReferenceChange marks a face fix that re-referenced a
+	// medoid-referenced body to its centre: its prior described a point on
+	// the near surface, so its innovation carries the medoid's offset and is
+	// not a face-referenced residual.
+	ReferenceChange bool `json:"reference_change"`
 }
 
 // GEST1Chain is one track chain's record from one source: its live residuals
@@ -105,6 +115,9 @@ type GEST1Collector struct {
 	// lastFix is the capture time of each chain's latest recorded face fix:
 	// a reading persists between updates, so a fix is new only once.
 	lastFix map[string]int64
+	// lastUpdate is each chain's solid-body update time as last read, of any
+	// source, so a fix's prior interval is the time since the one before.
+	lastUpdate map[string]int64
 	// nisRecompute is the largest relative difference between a tracked
 	// residual's live NIS and yᵀS⁻¹y from its record, and solidRecompute
 	// the same for a face fix's joint NIS: the checks that the record is
@@ -128,6 +141,7 @@ func NewGEST1Collector(cfg GEST1CollectorConfig) *GEST1Collector {
 	return &GEST1Collector{
 		cfg: cfg, chains: map[string]map[string]*GEST1Chain{GEST1SourceTracked: {}, GEST1SourceSolidBody: {}},
 		points: map[pointKey]int{}, scored: map[int64]bool{}, lastFix: map[string]int64{},
+		lastUpdate: map[string]int64{},
 	}
 }
 
@@ -170,7 +184,8 @@ func (c *GEST1Collector) ObserveFilterFrame(frame l5tracks.FilterFrame) {
 			{float64(pr.P[0]) + r, float64(pr.P[1])},
 			{float64(pr.P[4]), float64(pr.P[5]) + r},
 		}
-		res := GEST1Residual{UnixNanos: obs.UnixNanos, FrameUnixNanos: step.FrameUnixNanos, Dim: 2, NIS: float64(o.NIS)}
+		res := GEST1Residual{UnixNanos: obs.UnixNanos, FrameUnixNanos: step.FrameUnixNanos, Dim: 2, NIS: float64(o.NIS),
+			PriorSecs: float64(step.PredictedSecs)}
 		c.decomposeTwo(&res, y, s, float64(pr.VX), float64(pr.VY))
 		if nis, ok := quadForm2(y, s); ok {
 			c.nisRecompute = math.Max(c.nisRecompute, relDiff(nis, res.NIS))
@@ -195,18 +210,25 @@ func (c *GEST1Collector) ObserveTap(frameNanos int64, scored bool, clusters []l5
 		if !ok {
 			continue
 		}
-		m := reading.Measurement
+		key := gest1ChainKey(tr.TrackID, tr.CreationSequence)
+		at := reading.Estimate.LastObservedUnixNanos
+		prior := math.NaN()
+		if prev, seen := c.lastUpdate[key]; seen && at > prev {
+			prior = float64(at-prev) / 1e9
+		}
+		c.lastUpdate[key] = at
 		c.ObserveSolidBodyFix(tr.TrackID, tr.CreationSequence, tr.TrackState == l5tracks.TrackConfirmed,
-			m, reading.Estimate.LastObservedUnixNanos, frameNanos)
+			reading.Measurement, at, frameNanos, prior)
 	}
 }
 
 // ObserveSolidBodyFix records one near-edge fix of a track's solid body,
-// captured at unixNanos and read in the update of frameNanos. A reading
+// captured at unixNanos and read in the update of frameNanos, its prior
+// predicted across priorSecs (NaN when unknown). A reading
 // persists between updates, so a fix no later than the chain's last recorded
 // one is the same fix and is ignored, as is a measurement with no face
 // innovations.
-func (c *GEST1Collector) ObserveSolidBodyFix(trackID string, seq int64, confirmed bool, m l5tracks.SolidBodyMeasurement, unixNanos, frameNanos int64) {
+func (c *GEST1Collector) ObserveSolidBodyFix(trackID string, seq int64, confirmed bool, m l5tracks.SolidBodyMeasurement, unixNanos, frameNanos int64, priorSecs float64) {
 	if m.Source != l5tracks.MeasurementNearEdgeCandidateV1 || m.FaceInnovationCount == 0 {
 		return
 	}
@@ -217,7 +239,7 @@ func (c *GEST1Collector) ObserveSolidBodyFix(trackID string, seq int64, confirme
 	c.lastFix[key] = unixNanos
 	ch := c.chain(GEST1SourceSolidBody, trackID, seq)
 	ch.Confirmed = ch.Confirmed || confirmed
-	c.addFaceFix(ch, m, unixNanos, frameNanos)
+	c.addFaceFix(ch, m, unixNanos, frameNanos, priorSecs)
 }
 
 // addFaceFix records one fix's residual and its observation for the offline
@@ -228,8 +250,9 @@ func (c *GEST1Collector) ObserveSolidBodyFix(trackID string, seq int64, confirme
 // carry no extents, are told how far the centre the face implies can be from
 // it. The position–extent covariance is not carried over; the offline
 // filters are labels and comparisons, not the solid body.
-func (c *GEST1Collector) addFaceFix(ch *GEST1Chain, m l5tracks.SolidBodyMeasurement, at, frame int64) {
-	res := GEST1Residual{UnixNanos: at, FrameUnixNanos: frame, Dim: m.FaceInnovationCount, NIS: float64(m.NIS)}
+func (c *GEST1Collector) addFaceFix(ch *GEST1Chain, m l5tracks.SolidBodyMeasurement, at, frame int64, priorSecs float64) {
+	res := GEST1Residual{UnixNanos: at, FrameUnixNanos: frame, Dim: m.FaceInnovationCount, NIS: float64(m.NIS),
+		PriorSecs: priorSecs, ReferenceChange: m.ReferenceChange == l5tracks.ReferenceToBodyCentre}
 	if joint, ok := m.JointFaceNIS(); ok {
 		c.solidRecompute = math.Max(c.solidRecompute, relDiff(joint, res.NIS))
 	}
@@ -497,7 +520,79 @@ type GEST1SourceReport struct {
 	// Criterion5Violations are NoWorseThan's for each model against CV.
 	Criterion5Violations map[string][]string `json:"criterion5_violations"`
 	Criterion5Cases      int                 `json:"criterion5_cases"`
+	// PostHoc are reads added after l5est0005's first replay, not part of
+	// its rule: see GEST1PostHoc.
+	PostHoc GEST1PostHoc `json:"post_hoc"`
 }
+
+// GEST1PostHoc are diagnostic reads added after l5est0005's declared
+// replay showed three things its rule did not anticipate, kept apart from
+// the declared criteria so neither can be mistaken for the other:
+//
+//   - the NIS is under-dispersed in total, so the along- and across-track
+//     normalised residuals are given separately (RMS, share beyond 1.96);
+//   - G-EST-1's criteria 2 to 4 are one-step tests, and residuals after a
+//     gap (a miss, or frames without a usable face) are not one-step;
+//   - a face fix that re-references a medoid-referenced body carries the
+//     medoid's offset in its innovation.
+//
+// The one-step reads keep residuals whose prior interval is at most
+// OneStepMaxSecs and that changed no reference, and criterion 4's offline
+// steps whose interval is at most the same.
+type GEST1PostHoc struct {
+	OneStepMaxSecs float64 `json:"one_step_max_s"`
+	// The moving tracks' scored residuals by what the one-step reads drop.
+	MultiStep       int `json:"multi_step"`
+	ReferenceChange int `json:"reference_change"`
+	OneStep         int `json:"one_step"`
+	// Normalised along and across residuals, over every scored residual of
+	// the moving tracks and over the one-step ones.
+	Along        GEST1ZSummary      `json:"along"`
+	Across       GEST1ZSummary      `json:"across"`
+	AlongOneStep GEST1ZSummary      `json:"along_one_step"`
+	AcrossOne    GEST1ZSummary      `json:"across_one_step"`
+	ByDimOneStep []GEST1DimSummary  `json:"nis_by_dim_one_step"`
+	Criterion2   GEST1Correlation   `json:"criterion2_one_step"`
+	Criterion3   RunLengthResult    `json:"criterion3_one_step"`
+	Criterion4   GEST1ResidualTails `json:"criterion4_one_step"`
+}
+
+// GEST1ZSummary describes normalised residuals z = component / its sd: a
+// consistent filter has RMS 1 and 5 % beyond 1.96.
+type GEST1ZSummary struct {
+	N        int     `json:"n"`
+	RMS      float64 `json:"rms"`
+	Mean     float64 `json:"mean"`
+	Beyond   float64 `json:"share_beyond_1_96"`
+	MedianAb float64 `json:"median_abs"`
+}
+
+func zSummary(z []float64) GEST1ZSummary {
+	out := GEST1ZSummary{N: len(z)}
+	if len(z) == 0 {
+		return out
+	}
+	var ss, sum float64
+	beyond := 0
+	abs := make([]float64, len(z))
+	for i, v := range z {
+		ss += v * v
+		sum += v
+		if math.Abs(v) > 1.959963984540054 {
+			beyond++
+		}
+		abs[i] = math.Abs(v)
+	}
+	sort.Float64s(abs)
+	n := float64(len(z))
+	out.RMS, out.Mean, out.Beyond = math.Sqrt(ss/n), sum/n, float64(beyond)/n
+	out.MedianAb = stats.NearestRank(abs, 0.5)
+	return out
+}
+
+// gest1OneStepSecs is the post-hoc reads' one-step bound: one 10 Hz frame
+// with the same margin the offline filters' coast threshold allows.
+const gest1OneStepSecs = 0.15
 
 // GEST1Report is criteria 2 to 5 for every source the replay recorded, and
 // the cross-read when both were: the tracked filter's NIS against the solid
@@ -567,6 +662,11 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 	var scoredTracks []motion.TrackObservations
 	var along [2][]float64
 	var across [2][]float64
+	var alongOne, acrossOne [2][]float64
+	var oneStepSamples []gest1Sample
+	var oneStepRuns [][]float64
+	var zAlong, zAcross, zAlongOne, zAcrossOne []float64
+	ph := GEST1PostHoc{OneStepMaxSecs: gest1OneStepSecs}
 	for _, ch := range chains {
 		sr.LeadingRankOne += ch.LeadingRankOne
 		key := gest1ChainKey(ch.TrackID, ch.CreationSequence)
@@ -580,14 +680,34 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 			continue
 		}
 		sr.MovingTracks++
-		var run []float64
+		var run, runOne []float64
 		for _, r := range ch.Residuals {
 			if !c.Scored(r.FrameUnixNanos) {
 				continue
 			}
 			sr.Residuals++
+			oneStep := r.PriorSecs <= gest1OneStepSecs && !r.ReferenceChange
+			switch {
+			case r.ReferenceChange:
+				ph.ReferenceChange++
+			case !(r.PriorSecs <= gest1OneStepSecs):
+				ph.MultiStep++
+			default:
+				ph.OneStep++
+			}
 			if r.HasAlong {
 				run = append(run, r.Along/r.AlongSD)
+				zAlong = append(zAlong, r.Along/r.AlongSD)
+				if oneStep {
+					runOne = append(runOne, r.Along/r.AlongSD)
+					zAlongOne = append(zAlongOne, r.Along/r.AlongSD)
+				}
+			}
+			if r.HasAcross {
+				zAcross = append(zAcross, r.Across/r.AcrossSD)
+				if oneStep {
+					zAcrossOne = append(zAcrossOne, r.Across/r.AcrossSD)
+				}
 			}
 			s := gest1Sample{res: r, chainKey: key, unixNanos: r.UnixNanos}
 			margin := int64(cfg.InteriorMarginSecs * 1e9)
@@ -613,10 +733,16 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 				sr.NoPoints++
 			default:
 				samples = append(samples, s)
+				if oneStep {
+					oneStepSamples = append(oneStepSamples, s)
+				}
 			}
 		}
 		if len(run) > 0 {
 			runs = append(runs, run)
+		}
+		if len(runOne) > 0 {
+			oneStepRuns = append(oneStepRuns, runOne)
 		}
 		scored := motion.TrackObservations{TrackID: ch.TrackID, CreationSequence: ch.CreationSequence}
 		for i, o := range ch.Observations {
@@ -629,13 +755,25 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 		}
 		if len(scored.Observations) >= 2 {
 			scoredTracks = append(scoredTracks, scored)
-			a, x, err := oneStepTails(scored.Observations, cfg.MinCourseSpeed)
+			tails, err := oneStepTails(scored.Observations, cfg.MinCourseSpeed)
 			if err != nil {
 				sr.FilterErrors++
 			} else {
 				for m := 0; m < 2; m++ {
-					along[m] = append(along[m], a[m]...)
-					across[m] = append(across[m], x[m]...)
+					for _, v := range tails[m] {
+						if v.hasAlong {
+							along[m] = append(along[m], v.along)
+							if v.dt <= gest1OneStepSecs {
+								alongOne[m] = append(alongOne[m], v.along)
+							}
+						}
+						if v.hasAcross {
+							across[m] = append(across[m], v.across)
+							if v.dt <= gest1OneStepSecs {
+								acrossOne[m] = append(acrossOne[m], v.across)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -667,6 +805,14 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 	sr.Criterion2By = append(sr.Criterion2By, ranks)
 	sr.Criterion3 = RunLengthSignature(runs, 3, 1)
 	sr.Criterion4 = residualTails(along, across)
+	ph.Along, ph.Across = zSummary(zAlong), zSummary(zAcross)
+	ph.AlongOneStep, ph.AcrossOne = zSummary(zAlongOne), zSummary(zAcrossOne)
+	ph.ByDimOneStep = dimSummaries(oneStepSamples)
+	ph.Criterion2 = correlate("one_step", oneStepSamples, cfg.Level)
+	bootstrapTracks(&ph.Criterion2, oneStepSamples, cfg)
+	ph.Criterion3 = RunLengthSignature(oneStepRuns, 3, 1)
+	ph.Criterion4 = residualTails(alongOne, acrossOne)
+	sr.PostHoc = ph
 	if len(scoredTracks) > 0 {
 		occ, err := ScoreOcclusion(scoredTracks, DefaultOcclusionModels(), cfg.Occlusion)
 		if err != nil {
@@ -915,15 +1061,24 @@ func dimSummaries(samples []gest1Sample) []GEST1DimSummary {
 	return out
 }
 
+// offlineStep is one offline innovation's absolute components and the
+// interval its prior was predicted across.
+type offlineStep struct {
+	along, across       float64
+	hasAlong, hasAcross bool
+	dt                  float64
+}
+
 // oneStepTails runs offline CV and CA with the coast rule over the
-// observations and returns each model's |along| and |across| one-step
-// innovations, against its own prior course, rank-aware as the live
-// residuals are.
-func oneStepTails(obs []motion.Observation, minCourse float64) (along, across [2][]float64, err error) {
+// observations and returns each model's |along| and |across| innovations,
+// against its own prior course, rank-aware as the live residuals are, with
+// each step's prediction interval. The declared criterion 4 reads them all;
+// the post-hoc read keeps the one-step ones.
+func oneStepTails(obs []motion.Observation, minCourse float64) (out [2][]offlineStep, err error) {
 	for m, cfg := range []motion.FilterConfig{motion.DefaultCVConfig(), motion.DefaultCAConfig()} {
 		steps, err := motion.RunFilter(cfg, obs)
 		if err != nil {
-			return along, across, err
+			return out, err
 		}
 		dec := &GEST1Collector{cfg: GEST1CollectorConfig{MinCourseSpeed: minCourse}}
 		for i, s := range steps {
@@ -940,15 +1095,13 @@ func oneStepTails(obs []motion.Observation, minCourse float64) (along, across [2
 				norm := math.Hypot(nx, ny)
 				dec.decomposeOne(&r, in.Y[0], in.S[0][0], [2]float64{nx / norm, ny / norm}, vx, vy)
 			}
-			if r.HasAlong {
-				along[m] = append(along[m], math.Abs(r.Along))
-			}
-			if r.HasAcross {
-				across[m] = append(across[m], math.Abs(r.Across))
+			if r.HasAlong || r.HasAcross {
+				out[m] = append(out[m], offlineStep{along: math.Abs(r.Along), across: math.Abs(r.Across),
+					hasAlong: r.HasAlong, hasAcross: r.HasAcross, dt: s.DtSecs})
 			}
 		}
 	}
-	return along, across, nil
+	return out, nil
 }
 
 func residualTails(along, across [2][]float64) GEST1ResidualTails {

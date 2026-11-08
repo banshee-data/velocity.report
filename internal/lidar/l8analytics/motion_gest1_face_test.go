@@ -40,19 +40,26 @@ func TestGEST1AdapterReadsFaceFixesByRank(t *testing.T) {
 		NoiseVariance: 0.05}
 	const ms = int64(time.Millisecond)
 	two := faceFix(prior, []l5tracks.FaceInnovation{rear, left}, 0.01, 1.4)
-	c.ObserveSolidBodyFix("a", 1, true, two, 100*ms, 100*ms)
-	c.ObserveSolidBodyFix("a", 1, true, two, 100*ms, 200*ms) // the same fix, read again
-	c.ObserveSolidBodyFix("a", 1, true, faceFix(prior, []l5tracks.FaceInnovation{rear}, 0, 1.0), 300*ms, 300*ms)
-	c.ObserveSolidBodyFix("a", 1, true, faceFix(prior, []l5tracks.FaceInnovation{left}, 0, 0.16), 400*ms, 400*ms)
+	rereference := two
+	rereference.ReferenceChange = l5tracks.ReferenceToBodyCentre
+	c.ObserveSolidBodyFix("a", 1, true, rereference, 100*ms, 100*ms, math.NaN())
+	c.ObserveSolidBodyFix("a", 1, true, two, 100*ms, 200*ms, 0.1) // the same fix, read again
+	c.ObserveSolidBodyFix("a", 1, true, faceFix(prior, []l5tracks.FaceInnovation{rear}, 0, 1.0), 300*ms, 300*ms, 0.2)
+	c.ObserveSolidBodyFix("a", 1, true, faceFix(prior, []l5tracks.FaceInnovation{left}, 0, 0.16), 400*ms, 400*ms, 0.1)
 	medoid := two
 	medoid.Source = l5tracks.MeasurementMedoidV0
-	c.ObserveSolidBodyFix("a", 1, true, medoid, 500*ms, 500*ms) // not face-referenced
+	c.ObserveSolidBodyFix("a", 1, true, medoid, 500*ms, 500*ms, 0.1) // not face-referenced
 
 	chains := c.Chains(GEST1SourceSolidBody)
 	if len(chains) != 1 || len(chains[0].Residuals) != 3 || len(chains[0].Observations) != 3 {
 		t.Fatalf("chains %+v", chains)
 	}
 	r := chains[0].Residuals
+	// The prior interval and the re-reference are carried as given: the
+	// first fix re-referenced, the second spanned a missed frame.
+	if !r[0].ReferenceChange || !math.IsNaN(r[0].PriorSecs) || r[1].ReferenceChange || r[1].PriorSecs != 0.2 || r[2].PriorSecs != 0.1 {
+		t.Errorf("prior intervals %v %v %v, re-reference %v %v", r[0].PriorSecs, r[1].PriorSecs, r[2].PriorSecs, r[0].ReferenceChange, r[1].ReferenceChange)
+	}
 	near := func(got, want float64) bool { return math.Abs(got-want) < 1e-6 }
 	// Rank two: y = (−0.3, −0.1) in the site frame; along u = +x is −0.3, across
 	// (+y) is −0.1; S in the site frame is [[0.09, −0.01], [−0.01, 0.0625]].
@@ -80,8 +87,8 @@ func TestGEST1AdapterReadsFaceFixesByRank(t *testing.T) {
 
 	// A chain whose first fixes are rank one keeps them as residuals and
 	// drops them as observations until a two-dimensional one founds it.
-	c.ObserveSolidBodyFix("b", 2, true, faceFix(prior, []l5tracks.FaceInnovation{rear}, 0, 1), 100*ms, 100*ms)
-	c.ObserveSolidBodyFix("b", 2, true, two, 200*ms, 200*ms)
+	c.ObserveSolidBodyFix("b", 2, true, faceFix(prior, []l5tracks.FaceInnovation{rear}, 0, 1), 100*ms, 100*ms, 0.1)
+	c.ObserveSolidBodyFix("b", 2, true, two, 200*ms, 200*ms, 0.1)
 	b := c.Chains(GEST1SourceSolidBody)[1]
 	if b.LeadingRankOne != 1 || len(b.Residuals) != 2 || len(b.Observations) != 1 || b.Observations[0].RankOne {
 		t.Errorf("chain b %+v", b)
@@ -228,6 +235,23 @@ func TestBuildGEST1ReportOnASyntheticRun(t *testing.T) {
 		}
 		if s.FilterErrors != 0 {
 			t.Errorf("%s: %d offline filter errors", s.Source, s.FilterErrors)
+		}
+		// The post-hoc reads partition the residuals and read the one-step
+		// ones: every synthetic frame is 0.1 s, and every body's first fix
+		// re-references it from the medoid.
+		ph := s.PostHoc
+		if ph.OneStep+ph.MultiStep+ph.ReferenceChange != s.Residuals || ph.OneStep == 0 {
+			t.Errorf("%s: one-step %d + multi-step %d + re-reference %d against %d residuals",
+				s.Source, ph.OneStep, ph.MultiStep, ph.ReferenceChange, s.Residuals)
+		}
+		if (s.Source == GEST1SourceSolidBody) != (ph.ReferenceChange > 0) {
+			t.Errorf("%s: %d re-referencing fixes", s.Source, ph.ReferenceChange)
+		}
+		if ph.Along.N == 0 || !(ph.Along.RMS > 0) || ph.AlongOneStep.N > ph.Along.N || ph.Criterion2.N > s.Samples {
+			t.Errorf("%s: along %+v one-step %+v criterion 2 %d", s.Source, ph.Along, ph.AlongOneStep, ph.Criterion2.N)
+		}
+		if ph.Criterion4.NAlong == 0 || ph.Criterion4.NAlong > s.Criterion4.NAlong {
+			t.Errorf("%s: one-step criterion 4 over %d of %d", s.Source, ph.Criterion4.NAlong, s.Criterion4.NAlong)
 		}
 	}
 	if rep.CrossRead == nil || rep.CrossRead.N == 0 {
