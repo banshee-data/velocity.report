@@ -45,9 +45,22 @@ type HINTClip struct {
 	RecommendedParams json.RawMessage
 }
 
+// ReferenceRun is the analysis run HINT asks for at the start of a round:
+// a replay of the clip's capture window with the round's parameters.
+type ReferenceRun struct {
+	// ClipID is the clip the run replays. The run record names it, so the
+	// clip's reference run is listed among the clip's runs.
+	ClipID           string
+	SensorID         string
+	PCAPFile         string
+	PCAPStartSecs    float64
+	PCAPDurationSecs float64 // -1 replays to the end of the capture
+	ParamsJSON       json.RawMessage
+}
+
 // ReferenceRunCreator creates analysis runs for HINT reference.
 type ReferenceRunCreator interface {
-	CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error)
+	CreateSweepRun(run ReferenceRun) (string, error)
 }
 
 // HINTSweepRequest defines the request for an HINT tuning sweep.
@@ -569,7 +582,14 @@ func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, clip *H
 		return nil, 0, fmt.Errorf("run creator not configured")
 	}
 
-	runID, err := rt.runCreator.CreateSweepRun(clip.SensorID, clip.PCAPFile, paramsJSON, clipPCAPStart(clip), clipPCAPDuration(clip))
+	runID, err := rt.runCreator.CreateSweepRun(ReferenceRun{
+		ClipID:           req.ClipID,
+		SensorID:         clip.SensorID,
+		PCAPFile:         clip.PCAPFile,
+		PCAPStartSecs:    clipPCAPStart(clip),
+		PCAPDurationSecs: clipPCAPDuration(clip),
+		ParamsJSON:       paramsJSON,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create reference run: %w", err)
 	}

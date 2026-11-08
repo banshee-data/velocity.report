@@ -56,7 +56,7 @@ type SweepRequest struct {
 	Params []SweepParam `json:"params,omitempty"`
 
 	// Data source
-	DataSource       string  `json:"data_source,omitempty"`        // "live" (default) or "pcap"
+	DataSource       string  `json:"data_source,omitempty"`        // "live" (default) or "capture" (replay PCAPFile)
 	PCAPFile         string  `json:"pcap_file,omitempty"`          // filename (basename only)
 	PCAPStartSecs    float64 `json:"pcap_start_secs,omitempty"`    // start offset in seconds
 	PCAPDurationSecs float64 `json:"pcap_duration_secs,omitempty"` // duration in seconds (-1 = full)

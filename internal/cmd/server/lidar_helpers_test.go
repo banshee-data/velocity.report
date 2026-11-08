@@ -359,7 +359,7 @@ func TestHintSceneAdapter_GetClip(t *testing.T) {
 
 func TestHintRunCreator_CreateSweepRun_InvalidJSON(t *testing.T) {
 	creator := &hintRunCreator{runner: sweep.NewRunner(nil)}
-	_, err := creator.CreateSweepRun("sensor-1", "capture.pcap", json.RawMessage(`{"bad"`), 0, 0)
+	_, err := creator.CreateSweepRun(sweep.ReferenceRun{SensorID: "sensor-1", PCAPFile: "capture.pcap", ParamsJSON: json.RawMessage(`{"bad"`), PCAPStartSecs: 0, PCAPDurationSecs: 0})
 	if err == nil || !strings.Contains(err.Error(), "parsing paramsJSON for reference run") {
 		t.Fatalf("expected paramsJSON parse error, got %v", err)
 	}

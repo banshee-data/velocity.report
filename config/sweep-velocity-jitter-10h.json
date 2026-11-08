@@ -75,6 +75,6 @@
   "iterations": 35,
   "settle_time": "2s",
   "settle_mode": "warmup",
-  "data_source": "pcap",
+  "data_source": "capture",
   "pcap_file": "static/kirk0.pcapng"
 }

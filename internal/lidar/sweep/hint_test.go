@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -61,14 +62,25 @@ func (m *mockClipGetter) SetReferenceRun(clipID, runID string) error {
 }
 
 type mockRunCreator struct {
+	mu    sync.Mutex
 	runID string
 	err   error
 	calls int
+	last  ReferenceRun
 }
 
-func (m *mockRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error) {
+func (m *mockRunCreator) CreateSweepRun(run ReferenceRun) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.calls++
+	m.last = run
 	return m.runID, m.err
+}
+
+func (m *mockRunCreator) lastRun() (ReferenceRun, int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.last, m.calls
 }
 
 type mockClipSaver struct {
@@ -1229,6 +1241,53 @@ func TestRunRecordsRound(t *testing.T) {
 
 	cancel()
 	time.Sleep(100 * time.Millisecond)
+}
+
+// The reference run names the clip the HINT request is for and replays that
+// clip's capture window, so the run that becomes the clip's reference run
+// records the clip.
+func TestRunReferenceRunNamesTheClip(t *testing.T) {
+	start, duration := 12.5, 40.0
+	tuner := newQuietHINTTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{ClipID: "clip-7", SensorID: "sensor1", PCAPFile: "site/a.pcap",
+			PCAPStartSecs: &start, PCAPDurationSecs: &duration},
+	})
+	rc := &mockRunCreator{runID: "run-ref"}
+	tuner.SetRunCreator(rc)
+	tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 0})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := tuner.Start(ctx, HINTSweepRequest{
+		ClipID:            "clip-7",
+		NumRounds:         1,
+		MinLabelThreshold: 0.9,
+		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	}); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if _, calls := rc.lastRun(); calls > 0 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	got, calls := rc.lastRun()
+	if calls == 0 {
+		t.Fatal("HINT never asked for a reference run")
+	}
+	want := ReferenceRun{ClipID: "clip-7", SensorID: "sensor1", PCAPFile: "site/a.pcap",
+		PCAPStartSecs: 12.5, PCAPDurationSecs: 40}
+	got.ParamsJSON = nil
+	if got.ClipID != want.ClipID || got.SensorID != want.SensorID || got.PCAPFile != want.PCAPFile ||
+		got.PCAPStartSecs != want.PCAPStartSecs || got.PCAPDurationSecs != want.PCAPDurationSecs {
+		t.Errorf("reference run = %+v, want %+v", got, want)
+	}
+	tuner.Stop()
 }
 
 // --- Test 30: waitForAutoTuneComplete returns on completion ---
