@@ -154,6 +154,11 @@ registers. The [segment finder](lidar-annotation-segment-finder-plan.md#api-and-
 already plans an "Open in macOS" link naming a pack; both use the one scheme, with a run form and
 a pack form.
 
+Decided: the scheme is `velocityreport://`, chosen by the owner on November 7, 2026 over the
+mockup's `velocity.report://`. The run form is `velocityreport://run/<run_id>?frame=<n>`, where `n`
+is the 0-based index of a record in the run's VRLOG, background snapshots included, as the
+visualiser counts; without `frame` the run opens at its start.
+
 ## Data the screens need
 
 | Need                            | Exists                                                                   | Gap                                                                       |
@@ -228,7 +233,5 @@ Each line is one backlog item, linked to this plan unless it is a vocabulary ite
 
 1. **Several windows per clip.** Is a clip of several static periods worth the schema change in
    P2-B, or are one-per-period clips enough for replay and annotation?
-2. **The URL scheme's name.** The mockup shows `velocity.report://`, the handoff
-   `velocityreport://`. Both are valid; pick one before the macOS item.
-3. **The prototype in the docs.** Export a standalone copy from Claude Design and add it to
+2. **The prototype in the docs.** Export a standalone copy from Claude Design and add it to
    `docs/ui/design/` beside the Butterfly Net sketch, or keep it in the design project only.

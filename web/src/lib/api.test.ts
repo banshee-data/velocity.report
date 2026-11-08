@@ -2289,6 +2289,43 @@ describe('api', () => {
 			});
 		});
 
+		describe('getRunVrlogFrame', () => {
+			it('asks for the frame at an instant given in nanoseconds', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					status: 200,
+					json: async () => ({ frame: 412, total_frames: 9000 })
+				});
+				const { getRunVrlogFrame } = await import('./api');
+				await expect(getRunVrlogFrame('run 1', '1794153505436000000')).resolves.toEqual({
+					frame: 412,
+					total_frames: 9000
+				});
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/runs/run%201/vrlog-frame?at_ns=1794153505436000000'
+				);
+			});
+
+			it('says why when the run has no recording to read', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 404,
+					json: async () => ({ error: 'this run has no recording' })
+				});
+				const { getRunVrlogFrame } = await import('./api');
+				await expect(getRunVrlogFrame('r', '1')).resolves.toEqual({
+					frame: null,
+					reason: 'this run has no recording'
+				});
+			});
+
+			it('throws on a server error rather than calling it no recording', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getRunVrlogFrame } = await import('./api');
+				await expect(getRunVrlogFrame('r', '1')).rejects.toThrow(/HTTP 500/);
+			});
+		});
+
 		describe('getRunScene', () => {
 			it('names the export when the run has a recording', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
