@@ -95,6 +95,36 @@ func TestGEST1AdapterReadsFaceFixesByRank(t *testing.T) {
 	}
 }
 
+// A tracked residual's prior interval is the time since the chain's previous
+// applied observation, so the residual after a missed frame spans two frames
+// although its filter step predicted across one.
+func TestGEST1TrackedPriorIntervalSpansAMiss(t *testing.T) {
+	const frame = int64(100_000_000)
+	step := func(k int64, observed bool) l5tracks.FilterStep {
+		s := l5tracks.FilterStep{TrackID: "a", CreationSequence: 1, FrameUnixNanos: k * frame, StateUnixNanos: k * frame,
+			Linked: k > 0, Observed: observed, Confirmed: true, PredictedSecs: 0.1}
+		s.Prior.P = [16]float32{0.03, 0, 0, 0, 0, 0.03, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+		s.Prior.VX = 5
+		if observed {
+			s.Observation = l5tracks.FilterObservation{MeasurementUnixNanos: k * frame, X: float32(k) / 2,
+				InnovationX: 0.1, NIS: 0.125, HasInnovation: k > 0}
+		}
+		return s
+	}
+	c := NewGEST1Collector(GEST1CollectorConfig{})
+	for _, s := range []l5tracks.FilterStep{step(0, true), step(1, true), step(2, false), step(3, true)} {
+		c.ObserveFilterFrame(l5tracks.FilterFrame{FrameUnixNanos: s.FrameUnixNanos, Steps: []l5tracks.FilterStep{s}})
+	}
+	r := c.Chains(GEST1SourceTracked)[0].Residuals
+	if len(r) != 2 || math.Abs(r[0].PriorSecs-0.1) > 1e-9 || math.Abs(r[1].PriorSecs-0.2) > 1e-9 {
+		t.Fatalf("residual intervals %+v, want 0.1 s then 0.2 s: frame 1 to frame 3, frame 2 missed", r)
+	}
+	// NIS = 0.1² / (0.03 + 0.05): the record reproduces the filter's.
+	if math.Abs(r[0].NIS-0.125) > 1e-9 || c.nisRecompute > 1e-6 {
+		t.Errorf("NIS %v, recompute difference %v", r[0].NIS, c.nisRecompute)
+	}
+}
+
 // syntheticTrackerRun replays a synthetic pass through a tracker with the
 // shadow solid body under the face-state options, feeding a collector as the
 // replay harness does, and returns every fix the bodies published, by track.

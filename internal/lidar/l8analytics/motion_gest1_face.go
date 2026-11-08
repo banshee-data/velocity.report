@@ -68,10 +68,13 @@ type GEST1Residual struct {
 	// Points is the associated cluster's point count, zero when the tap did
 	// not see the frame.
 	Points int `json:"points"`
-	// PriorSecs is the interval the prior was predicted across: the tracked
-	// filter's PredictedSecs, or for a face fix the time since the solid
-	// body's previous update of any kind; NaN when unknown. G-EST-1's
-	// criteria 2 to 4 are one-step tests, which this lets a read restrict to.
+	// PriorSecs is the time since the filter's previous update, which its
+	// prior was predicted across: for the tracked filter since the chain's
+	// previous applied observation, for a face fix since the solid body's
+	// previous update of any kind; NaN when unknown. It is not the filter
+	// step's PredictedSecs, which counts one frame however many frames went
+	// unobserved before it. G-EST-1's criteria 2 to 4 are one-step tests,
+	// which this lets a read restrict to.
 	PriorSecs float64 `json:"prior_s"`
 	// ReferenceChange marks a face fix that re-referenced a
 	// medoid-referenced body to its centre: its prior described a point on
@@ -169,8 +172,12 @@ func (c *GEST1Collector) ObserveFilterFrame(frame l5tracks.FilterFrame) {
 		ch := c.chain(GEST1SourceTracked, step.TrackID, step.CreationSequence)
 		ch.Confirmed = ch.Confirmed || step.Confirmed
 		obs := adapter.Observation(step)
-		if n := len(ch.Observations); n > 0 && obs.UnixNanos <= ch.Observations[n-1].UnixNanos {
-			continue
+		prior := math.NaN()
+		if n := len(ch.Observations); n > 0 {
+			if obs.UnixNanos <= ch.Observations[n-1].UnixNanos {
+				continue
+			}
+			prior = float64(obs.UnixNanos-ch.Observations[n-1].UnixNanos) / 1e9
 		}
 		ch.Observations = append(ch.Observations, obs)
 		ch.ObservationFrame = append(ch.ObservationFrame, step.FrameUnixNanos)
@@ -185,7 +192,7 @@ func (c *GEST1Collector) ObserveFilterFrame(frame l5tracks.FilterFrame) {
 			{float64(pr.P[4]), float64(pr.P[5]) + r},
 		}
 		res := GEST1Residual{UnixNanos: obs.UnixNanos, FrameUnixNanos: step.FrameUnixNanos, Dim: 2, NIS: float64(o.NIS),
-			PriorSecs: float64(step.PredictedSecs)}
+			PriorSecs: prior}
 		c.decomposeTwo(&res, y, s, float64(pr.VX), float64(pr.VY))
 		if nis, ok := quadForm2(y, s); ok {
 			c.nisRecompute = math.Max(c.nisRecompute, relDiff(nis, res.NIS))
