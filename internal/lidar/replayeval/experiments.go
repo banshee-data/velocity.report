@@ -128,7 +128,8 @@ const (
 	//     covariance cap applied as P <- D P D so P stays positive
 	//     semi-definite;
 	//   - ExperimentConsistentSpeedClamp: ConsistentSpeedClamp, the speed
-	//     limit applied as a conditional update of the state and covariance.
+	//     limit applied as a Gaussian truncation of the along-track speed
+	//     through the state's regression, so P stays consistent with it.
 	ExperimentTwoPointVelocityInit    = "two_point_velocity_init"
 	ExperimentConsistentCovarianceCap = "consistent_covariance_cap"
 	ExperimentConsistentSpeedClamp    = "consistent_speed_clamp"

@@ -152,10 +152,10 @@ type TrackerConfig struct {
 	// can leave a correlation above one and P indefinite. See
 	// capCovarianceConsistent.
 	//
-	// ConsistentSpeedClamp applies the speed limit as a conditional update
-	// of the state and covariance along the current velocity direction,
-	// rather than rescaling the velocity and leaving P. See
-	// constrainSpeedConsistent.
+	// ConsistentSpeedClamp applies the speed limit as a Gaussian truncation
+	// of the speed along the current velocity direction, carried through the
+	// state's regression on it, rather than rescaling the velocity and
+	// leaving P. See constrainSpeedConsistent.
 	TwoPointVelocityInit    bool
 	ConsistentCovarianceCap bool
 	ConsistentSpeedClamp    bool

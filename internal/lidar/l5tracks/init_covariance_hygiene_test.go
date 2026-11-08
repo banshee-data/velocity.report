@@ -543,7 +543,71 @@ func speedClampCovariance() [16]float32 {
 	}
 }
 
-func TestConstrainSpeedConsistentIsAProjection(t *testing.T) {
+// numericUpperTruncatedMoments integrates N(mu, sigma²) on (−∞, upper] by
+// Simpson's rule over twelve standard deviations below the bound, an
+// independent check on the closed form.
+func numericUpperTruncatedMoments(mu, sigma, upper float64) (mean, variance float64) {
+	lo := math.Min(upper, mu) - 12*sigma
+	const n = 20000
+	h := (upper - lo) / n
+	var m0, m1, m2 float64
+	for i := 0; i <= n; i++ {
+		x := lo + float64(i)*h
+		w := 2.0
+		switch {
+		case i == 0 || i == n:
+			w = 1
+		case i%2 == 1:
+			w = 4
+		}
+		f := w * math.Exp(-0.5*((x-mu)/sigma)*((x-mu)/sigma))
+		m0 += f
+		m1 += f * x
+		m2 += f * x * x
+	}
+	mean = m1 / m0
+	return mean, m2/m0 - mean*mean
+}
+
+func TestUpperTruncatedNormalMoments(t *testing.T) {
+	for _, c := range []struct{ mu, sigma, upper float64 }{
+		{32, 0.7, 30}, {30.1, 2, 30}, {28, 1, 30}, {35, 0.5, 30}, {30, 1, 30},
+	} {
+		mean, variance := upperTruncatedNormalMoments(c.mu, c.sigma, c.upper)
+		wantMean, wantVar := numericUpperTruncatedMoments(c.mu, c.sigma, c.upper)
+		if math.Abs(mean-wantMean) > 1e-6*c.sigma || math.Abs(variance-wantVar) > 1e-5*c.sigma*c.sigma {
+			t.Errorf("%+v: moments (%v, %v), want (%v, %v)", c, mean, variance, wantMean, wantVar)
+		}
+		if mean > c.upper || !(variance > 0) || variance >= c.sigma*c.sigma {
+			t.Errorf("%+v: mean %v above the bound or variance %v outside (0, σ²)", c, mean, variance)
+		}
+	}
+	// Far past the bound the continued fraction takes over; the two forms
+	// agree across the switch, and the moments approach the bound with
+	// variance σ²/z².
+	const sigma = 0.1
+	below, _ := upperTruncatedNormalMoments(30+(millsContinuedFractionFrom-1e-9)*sigma, sigma, 30)
+	above, _ := upperTruncatedNormalMoments(30+(millsContinuedFractionFrom+1e-9)*sigma, sigma, 30)
+	if math.Abs(below-above) > 1e-9 {
+		t.Errorf("mean jumps across the continued-fraction switch: %v, %v", below, above)
+	}
+	for _, z := range []float64{40, 1e3, 1e6} {
+		mean, variance := upperTruncatedNormalMoments(30+z*sigma, sigma, 30)
+		if math.IsNaN(mean) || math.IsNaN(variance) || mean > 30 || variance < 0 {
+			t.Fatalf("z=%v: moments (%v, %v)", z, mean, variance)
+		}
+		if want := 30 - sigma/z; math.Abs(mean-want) > 3*sigma/(z*z*z)+1e-9 {
+			t.Errorf("z=%v: mean %v, want about %v", z, mean, want)
+		}
+		if z <= 1e3 {
+			if want := sigma * sigma / (z * z); math.Abs(variance-want) > 0.2*want {
+				t.Errorf("z=%v: variance %v, want about %v", z, variance, want)
+			}
+		}
+	}
+}
+
+func TestConstrainSpeedConsistentIsATruncation(t *testing.T) {
 	const vmax = 30
 	x := [4]float32{10, 4, 32, 9}
 	p := speedClampCovariance()
@@ -554,17 +618,18 @@ func TestConstrainSpeedConsistentIsAProjection(t *testing.T) {
 	if speed > vmax+1e-4 {
 		t.Errorf("speed %v above the limit", speed)
 	}
-	// The along-track component is at the limit, and every component moved
-	// by its regression on it.
+	// The along-track marginal is replaced by its truncation to (−∞, vmax],
+	// and every component moves by its regression on it.
 	s0 := math.Hypot(float64(x0[2]), float64(x0[3]))
 	ux, uy := float64(x0[2])/s0, float64(x0[3])/s0
 	var ph [4]float64
 	for i := 0; i < 4; i++ {
 		ph[i] = float64(p0[i*4+2])*ux + float64(p0[i*4+3])*uy
 	}
-	s := ph[2]*ux + ph[3]*uy
+	sigma2 := ph[2]*ux + ph[3]*uy
+	mean, variance := numericUpperTruncatedMoments(s0, math.Sqrt(sigma2), vmax)
 	for i := 0; i < 2; i++ {
-		want := float64(x0[i]) + ph[i]/s*(vmax-s0)
+		want := float64(x0[i]) + ph[i]/sigma2*(mean-s0)
 		if math.Abs(float64(x[i])-want) > 1e-4 {
 			t.Errorf("x[%d] = %v, want %v from the regression", i, x[i], want)
 		}
@@ -572,21 +637,20 @@ func TestConstrainSpeedConsistentIsAProjection(t *testing.T) {
 	if x[0] == x0[0] {
 		t.Error("position did not move with the clamped speed despite their covariance")
 	}
-	// The covariance is the projection's: symmetric, positive semi-definite,
-	// with no variance left along the constrained direction.
+	along := ux*ux*float64(p[10]) + 2*ux*uy*float64(p[11]) + uy*uy*float64(p[15])
+	if math.Abs(along-variance) > 1e-5 {
+		t.Errorf("along-track velocity variance %v, want the truncated %v", along, variance)
+	}
+	if !(along > 0) || along >= sigma2 {
+		t.Errorf("along-track velocity variance %v, want within (0, %v)", along, sigma2)
+	}
+	t.Logf("along-track speed %.3f ± %.3f m/s truncated at %v: %.3f ± %.3f m/s",
+		s0, math.Sqrt(sigma2), vmax, mean, math.Sqrt(variance))
 	if a := covarianceAsymmetry(p); a != 0 {
 		t.Errorf("asymmetry %v", a)
 	}
-	along := ux*ux*float64(p[10]) + 2*ux*uy*float64(p[11]) + uy*uy*float64(p[15])
-	if math.Abs(along) > 1e-6 {
-		t.Errorf("along-track velocity variance %v, want zero after the projection", along)
-	}
-	jittered := symmetric64(p)
-	for d := 0; d < 4; d++ {
-		jittered[d*4+d] += 1e-6
-	}
-	if _, ok := cholesky4(jittered); !ok {
-		t.Errorf("projected P is not positive semi-definite: %v", p)
+	if _, ok := cholesky4(symmetric64(p)); !ok {
+		t.Errorf("truncated P is not positive definite: %v", p)
 	}
 	for d := 0; d < 4; d++ {
 		if p[d*4+d] < 0 || p[d*4+d] > p0[d*4+d] {
@@ -612,9 +676,10 @@ func TestConstrainSpeedConsistentFallsBackWithoutVelocityVariance(t *testing.T) 
 
 // Through the tracker: the shipped clamp leaves P as it was, so the next
 // update's velocity gain is the unclamped one and pulls the velocity back
-// toward the measurement; the consistent clamp leaves P positive
-// semi-definite and the next gain along the course bounded by the variance
-// prediction restores.
+// toward the measurement. The consistent clamp leaves P positive
+// semi-definite, and because the truncation keeps some along-track velocity
+// variance, the next gain along the course is smaller but still positive: a
+// projection onto the limit would have left it at zero.
 func TestConsistentSpeedClampBoundsTheNextVelocityGain(t *testing.T) {
 	gains := map[bool]float64{}
 	for _, consistent := range []bool{false, true} {
@@ -660,21 +725,22 @@ func TestConsistentSpeedClampBoundsTheNextVelocityGain(t *testing.T) {
 			kv[a][1] = pa0*i01 + pa1*i11
 		}
 		g := u[0]*(kv[0][0]*u[0]+kv[0][1]*u[1]) + u[1]*(kv[1][0]*u[0]+kv[1][1]*u[1])
-		// The projection leaves no velocity variance along the course, so
-		// one prediction's diagonal Q restores none of its covariance with
-		// position, and the gain is zero up to rounding.
-		if math.IsNaN(g) || math.IsInf(g, 0) || g < -1e-3 {
+		if math.IsNaN(g) || math.IsInf(g, 0) {
 			t.Fatalf("consistent=%v: along-course velocity gain %v", consistent, g)
 		}
 		gains[consistent] = g
 	}
 	t.Logf("along-course velocity gain after the clamp: shipped %.3f s⁻¹, consistent %.3f s⁻¹", gains[false], gains[true])
-	if gains[true] >= gains[false] {
-		t.Errorf("the consistent clamp left a velocity gain %.3f no smaller than the shipped %.3f", gains[true], gains[false])
+	// Positive: the truncation leaves the speed free to move, unlike a
+	// projection, whose gain here was zero to rounding.
+	if !(gains[true] > 0.01) {
+		t.Errorf("consistent along-course velocity gain %.4f s⁻¹, want clearly positive", gains[true])
 	}
-	// Bounded by what one prediction restores: the along-course velocity
-	// variance is q·dt and its position covariance about q·dt², so the gain
-	// is at most (q·dt²)/R per second of innovation, well under 1/dt.
+	// Bounded: no larger than the shipped gain, which the truncation's
+	// smaller variance and covariance can only reduce, and below 1/dt.
+	if gains[true] > gains[false] {
+		t.Errorf("the consistent clamp left a velocity gain %.3f above the shipped %.3f", gains[true], gains[false])
+	}
 	if gains[true] > 1/0.1 {
 		t.Errorf("consistent along-course velocity gain %.3f s⁻¹ is not bounded by 1/dt", gains[true])
 	}

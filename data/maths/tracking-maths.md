@@ -176,30 +176,54 @@ the shipped 100 m² cap and 25 confirmed misses the cap is not reached, so the d
 #### Speed clamp consistent with the covariance
 
 The shipped clamp scales `v` to `MaxReasonableSpeedMps` along its own direction and leaves `P`.
-It runs in the tracked filter's `clampVelocity` and in the solid body's state step. Under
-`ConsistentSpeedClamp` the limit is a perfect measurement of the speed along the current
-velocity direction `u`. With `h = [0, 0, u_x, u_y]`, so that `h·x` is that speed:
+It runs in the tracked filter's `clampVelocity` and in the solid body's state step.
 
-- `k = P hᵀ / (h P hᵀ)`
-- `x ← x + k (v_max − h·x)`
-- `P ← P − k h P`
+The limit is an inequality: the speed along the current velocity direction `u` is at most
+`v_max`. Under `ConsistentSpeedClamp` the clamp is a Gaussian truncation of that speed, carried
+through the state's regression on it. This is the same form the containment truncation
+(`truncateAxis`) uses for a position bound. With `h = [0, 0, u_x, u_y]`, the speed's marginal is
+`N(μ, σ²)`, where `μ = h·x` and `σ² = h P hᵀ`. Truncated to `(−∞, v_max]`, with
+`β = (v_max − μ)/σ` and the inverse Mills ratio `λ = φ(β)/Φ(β)`, its moments are:
 
-Every component moves by its regression on the constrained one. Position moves too, by its
-covariance with the along-track speed. `P` is symmetrised and any diagonal below zero is floored
-at zero.
+- `m = μ − σ λ`
+- `s² = σ² (1 − β λ − λ²)`
 
-This is a projection of the estimate onto the constraint surface `h·x = v_max`, not a truncation
-of the density. The along-track velocity variance becomes zero, and only prediction's process
-noise restores it. That is the burden of the form: for a frame or two after the clamp, the
-along-track velocity gain is close to zero, so a track held at the limit follows a faster body
-less readily than the shipped clamp lets it. In the unit test the next update's along-course
-velocity gain was 1.15 s⁻¹ under the shipped clamp and zero, to rounding, under this one
-(`TestConsistentSpeedClampBoundsTheNextVelocityGain`).
+They replace the marginal's through every component's regression on it:
+
+- `k = P hᵀ / σ²`
+- `x ← x + k (m − μ)`
+- `P ← P + (s² − σ²) k kᵀ`
+
+The lower bound is infinite, and it is taken explicitly. The two-sided moments would form
+`α φ(α) = ∞ · 0` at `α = −∞`. `Φ` comes from `erfc`. Beyond 30 standard deviations, where `Φ`
+nears underflow, `λ` comes from its continued fraction, `z + 1/(z + 2/(z + …))` at `z = −β`.
+
+The along-track speed moves to `m`, just below the limit, and keeps the variance `s²`. That is
+less than `σ²` but not zero, so the next update can still move the speed. Position moves too, by
+its covariance with the along-track speed. `P` is symmetrised first. `s²` is floored at
+(1 cm/s)², never above `σ²`, and any diagonal below zero is floored at zero.
+
+A projection onto `h·x = v_max` would treat the limit as an equality. It would zero the
+along-track variance and, with it, the next update's along-track velocity gain. In the unit test
+(`TestConsistentSpeedClampBoundsTheNextVelocityGain`), the shipped clamp left that gain at
+1.15 s⁻¹, a projection left it at zero to rounding, and the truncation leaves it at 0.063 s⁻¹. In
+that case a speed of 33.24 ± 0.72 m/s is truncated at 30 m/s to 29.85 ± 0.14 m/s.
 
 The cross-track velocity also moves by its covariance with the along-track one. That can leave
-the speed a little above `v_max`. The excess is second order in the clamped amount, and the
-shipped rescale removes it, so the speed bound holds as it always has. If the velocity variance
-along `u` is below 1e-9 m²/s² or not finite, the clamp falls back to the shipped rescale.
+the speed a little above `v_max`, and the shipped rescale then removes the excess, so the speed
+bound holds as it always has. If the velocity variance along `u` is below 1e-9 m²/s² or not
+finite, the clamp falls back to the shipped rescale.
+
+The truncation does not stop a body that really travels above the limit from outrunning its
+track. In the synthetic scene of `TestHygieneOptionsOffKeepTheShippedArithmetic`, a vehicle
+accelerates at 5 m/s² to 37 m/s. The clamp first binds at a true speed of 34 m/s. Each truncation
+puts the speed just below 30 m/s with a small variance, so the track falls behind faster than
+under the shipped clamp. That clamp holds the speed at 30 m/s with its untouched variance and
+lets the position update catch up. At a true speed of 36 m/s, after four clamped frames, the
+truncated track misses one frame and a stray track is born. The original track reacquires the
+vehicle on the next frame. Under the shipped clamp the same track holds throughout, its lag
+growing from 0.62 m to 0.98 m. A body above `MaxReasonableSpeedMps` is outside the model by
+definition.
 
 On kirk0's six-second moving window, neither covariance option changed the recording. The
 two-point option did (`TestHygieneExperimentsOnKirk0`, `pcap` build tag). That run checks the

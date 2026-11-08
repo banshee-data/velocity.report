@@ -44,8 +44,8 @@ func isFiniteState(track *TrackedObject) bool {
 // from noisy Kalman updates or degenerate associations.
 //
 // Under ConsistentSpeedClamp the same trigger applies the limit as a
-// conditional update of the state and covariance instead; see
-// constrainSpeedConsistent.
+// Gaussian truncation of the along-track speed, through the state's
+// regression on it, instead; see constrainSpeedConsistent.
 func (t *Tracker) clampVelocity(track *TrackedObject) {
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
 	if speed > t.Config.MaxReasonableSpeedMps {
