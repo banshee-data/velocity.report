@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
@@ -38,7 +39,15 @@ type Analysis struct {
 	TotalFrames  int
 	FirstTime    time.Time
 	LastTime     time.Time
-	Capture      CaptureStats
+	// FirstPacket and LastPacket are the capture times of the first and last
+	// decoded packets in the window, which is what the writer copies; the
+	// frame times above start at the first whole rotation.
+	FirstPacket time.Time
+	LastPacket  time.Time
+	// Steps are the per-file reads the analysis replayed. WriteSegments reads
+	// the same steps, so the segments hold the packets counted here.
+	Steps   []capseq.ReadStep
+	Capture CaptureStats
 }
 
 // Analyse replays the PCAP through a BackgroundManager and records, per frame,
@@ -130,7 +139,8 @@ func AnalyseContext(ctx context.Context, cfg SplitConfig) (*Analysis, error) {
 	// Wrap the frame builder so the scan pass captures motor RPM (reported per
 	// packet via SetMotorSpeed); point assembly still flows to the real builder.
 	sb := &statsBuilder{inner: fb}
-	if err := replayForAnalysis(ctx, cfg, parser, sb, reader); err != nil {
+	steps, err := replayForAnalysis(ctx, cfg, parser, sb, reader)
+	if err != nil {
 		return nil, err
 	}
 
@@ -148,7 +158,9 @@ func AnalyseContext(ctx context.Context, cfg SplitConfig) (*Analysis, error) {
 		Samples:      samples,
 		TotalPackets: stats.count(),
 		TotalFrames:  len(frames),
+		Steps:        steps,
 	}
+	a.FirstPacket, a.LastPacket = stats.extent()
 	if len(samples) > 0 {
 		a.FirstTime = samples[0].T
 		a.LastTime = samples[len(samples)-1].T
@@ -188,10 +200,27 @@ func wrapProgress(cfg SplitConfig, inner network.PacketStatsInterface, label str
 	return network.NewProgressStats(inner, size, interval, label, os.Stderr)
 }
 
-// countingStats is a minimal network.PacketStatsInterface that counts packets.
+// countingStats is a minimal network.PacketStatsInterface that counts packets
+// and, as a network.ProgressObserver, records the first and last capture time.
 type countingStats struct {
-	mu      sync.Mutex
-	packets int
+	mu          sync.Mutex
+	packets     int
+	first, last time.Time
+}
+
+func (s *countingStats) ObserveProgress(t time.Time, _ uint16) {
+	s.mu.Lock()
+	if s.first.IsZero() {
+		s.first = t
+	}
+	s.last = t
+	s.mu.Unlock()
+}
+
+func (s *countingStats) extent() (first, last time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.first, s.last
 }
 
 func (s *countingStats) AddPacket(int) {

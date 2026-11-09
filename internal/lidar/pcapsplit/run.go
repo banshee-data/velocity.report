@@ -52,7 +52,7 @@ func Run(cfg SplitConfig) error {
 		// The complete list goes to the writer even when only some of it is
 		// wanted: routing packets by time needs the whole timeline, and the
 		// writer applies the selection itself. See WriteSegments.
-		if err := WriteSegments(cfg, segments); err != nil {
+		if err := writeSegmentSteps(cfg, analysis.Steps, segments); err != nil {
 			return err
 		}
 	}
@@ -62,6 +62,8 @@ func Run(cfg SplitConfig) error {
 		InputFile:        cfg.PCAPFile,
 		ProcessingTimeMs: time.Since(start).Milliseconds(),
 		TotalPackets:     analysis.TotalPackets,
+		FirstPacket:      analysis.FirstPacket,
+		LastPacket:       analysis.LastPacket,
 		TotalFrames:      analysis.TotalFrames,
 		TotalDurationSec: analysis.LastTime.Sub(analysis.FirstTime).Seconds(),
 		Config:           cfg,

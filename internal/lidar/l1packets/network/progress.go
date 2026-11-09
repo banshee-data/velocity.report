@@ -93,7 +93,13 @@ func (p *ProgressStats) AddPacket(bytes int) {
 // progress line when the wall-clock interval has elapsed. Points-per-frame is
 // computed over the interval from the capture-time span and the motor speed
 // (frames = capture-seconds * RPM / 60).
+//
+// It forwards to the inner stats when they observe progress too, as AddPacket
+// and AddPoints forward their counts.
 func (p *ProgressStats) ObserveProgress(captureTime time.Time, motorRPM uint16) {
+	if obs, ok := p.inner.(ProgressObserver); ok {
+		obs.ObserveProgress(captureTime, motorRPM)
+	}
 	p.mu.Lock()
 	if motorRPM > 0 {
 		p.rpm = motorRPM

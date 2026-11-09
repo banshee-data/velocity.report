@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -25,8 +26,27 @@ const defaultSnaplen uint32 = 262144
 // empty segments produce no file, and packets stream straight to disk (no
 // buffering). It updates each segment's PacketCount in place.
 //
+// Only packets inside cfg's window (StartSeconds, DurationSeconds) are copied,
+// by the rule the analysis applied when it read them — network.ReplayWindow,
+// per file — so the segments together hold exactly the packets the analysis
+// (and a --dry-run) counted, and none from outside the window.
+//
 // Segments must be the time-ordered, contiguous output of BuildSegments.
 func WriteSegments(cfg SplitConfig, segs []Segment) error {
+	if len(segs) == 0 {
+		return nil
+	}
+	steps, err := planReplay(cfg)
+	if err != nil {
+		return err
+	}
+	return writeSegmentSteps(cfg, steps, segs)
+}
+
+// writeSegmentSteps is WriteSegments over read steps already planned, normally
+// the analysis's own (Analysis.Steps), which spares a multi-file run from
+// counting its captures a second time.
+func writeSegmentSteps(cfg SplitConfig, steps []capseq.ReadStep, segs []Segment) error {
 	if len(segs) == 0 {
 		return nil
 	}
@@ -34,10 +54,12 @@ func WriteSegments(cfg SplitConfig, segs []Segment) error {
 	// segs must be the run's complete, contiguous segment list, because
 	// segmentIndexForTime deliberately clamps: a packet before the first
 	// segment routes to the first and one after the last routes to the last, so
-	// that no packet is silently dropped. Handing it a filtered subset would
-	// make every out-of-range packet land in whichever segment survived the
-	// filter. Selection is therefore applied here, on the write side, leaving
-	// routing to see the whole timeline.
+	// that no packet in the window is silently dropped. (The window itself is
+	// applied before routing; the clamp only places the packets between the
+	// window's edges and the first or last whole rotation.) Handing it a
+	// filtered subset would make every out-of-range packet land in whichever
+	// segment survived the filter. Selection is therefore applied here, on the
+	// write side, leaving routing to see the whole timeline.
 	wanted := selectionMask(segs, cfg.SelectSegments)
 
 	writers := make([]*segWriter, len(segs))
@@ -54,23 +76,23 @@ func WriteSegments(cfg SplitConfig, segs []Segment) error {
 	// Segments are routed by packet timestamp, so a segment spanning a
 	// capture-file boundary needs no special handling here: the writers stay
 	// open across the sources and the packets simply keep arriving.
-	for _, source := range cfg.InputFiles() {
-		if err := writeSegmentsFrom(cfg, source, segs, wanted, writers, prog); err != nil {
+	for _, step := range steps {
+		if err := writeSegmentsFrom(cfg, step, segs, wanted, writers, prog); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// writeSegmentsFrom copies one capture's matching packets into the segment
-// writers, opening each output lazily so a segment that draws nothing from this
-// source does not produce an empty file.
-func writeSegmentsFrom(cfg SplitConfig, source string, segs []Segment, wanted []bool,
+// writeSegmentsFrom copies one read step's packets into the segment writers,
+// opening each output lazily so a segment that draws nothing from this source
+// does not produce an empty file.
+func writeSegmentsFrom(cfg SplitConfig, step capseq.ReadStep, segs []Segment, wanted []bool,
 	writers []*segWriter, prog *network.ProgressStats) error {
 
-	handle, err := pcap.OpenOffline(source)
+	handle, err := pcap.OpenOffline(step.Path)
 	if err != nil {
-		return fmt.Errorf("open pcap %s: %w", source, err)
+		return fmt.Errorf("open pcap %s: %w", step.Path, err)
 	}
 	defer handle.Close()
 
@@ -84,13 +106,31 @@ func writeSegmentsFrom(cfg SplitConfig, source string, segs []Segment, wanted []
 		snaplen = defaultSnaplen
 	}
 
+	// The same window, anchored on the same first packet, as the analysis's
+	// ReadPCAPFile for this step.
+	window := network.NewReplayWindow(step.StartSecs, step.DurationSecs)
+
+	// Read in place, as ReadPCAPFile does, rather than through Packets(): the
+	// error handling is then the replay's, and stopping at the window's end
+	// leaves no reader goroutine blocked on a channel send.
 	packets := gopacket.NewPacketSource(handle, handle.LinkType())
-	for packet := range packets.Packets() {
-		data := packet.Data()
-		if len(data) == 0 {
+	for packet := network.NextPacket(packets); packet != nil; packet = network.NextPacket(packets) {
+		ci := packet.Metadata().CaptureInfo
+
+		action := window.Admit(ci.Timestamp)
+		if action == network.WindowSkip {
 			continue
 		}
-		ci := packet.Metadata().CaptureInfo
+		if action == network.WindowStop {
+			break
+		}
+		// The analysis counts a packet only when it carries a UDP payload;
+		// copy the same set so the counts agree.
+		if !hasUDPPayload(packet) {
+			continue
+		}
+		data := packet.Data()
+
 		// Re-reading can leave CaptureLength/Length unset on some inputs;
 		// pcapgo rejects a mismatch, so align them with the raw bytes.
 		ci.CaptureLength = len(data)
@@ -122,6 +162,13 @@ func writeSegmentsFrom(cfg SplitConfig, source string, segs []Segment, wanted []
 		segs[idx].PacketCount++
 	}
 	return nil
+}
+
+// hasUDPPayload reports whether packet decodes to a UDP layer with a non-empty
+// payload: the packets network.ReadPCAPFile counts.
+func hasUDPPayload(packet gopacket.Packet) bool {
+	udp, ok := packet.Layer(layers.LayerTypeUDP).(*layers.UDP)
+	return ok && len(udp.Payload) > 0
 }
 
 // segWriter pairs an output file with its legacy-pcap writer.

@@ -214,10 +214,14 @@ func AssignFrameStates(frames []FrameMetrics, segs []Segment) {
 
 // Report is the top-level result bundle for metadata export and the summary.
 type Report struct {
-	BuildVersion     string       `json:"build_version"`
-	InputFile        string       `json:"input_file"`
-	ProcessingTimeMs int64        `json:"processing_time_ms"`
-	TotalPackets     int          `json:"total_packets"`
+	BuildVersion     string `json:"build_version"`
+	InputFile        string `json:"input_file"`
+	ProcessingTimeMs int64  `json:"processing_time_ms"`
+	TotalPackets     int    `json:"total_packets"`
+	// FirstPacket and LastPacket bound the window's decoded packets in capture
+	// time. The written segments run from the first to the last of them.
+	FirstPacket      time.Time    `json:"first_packet_time,omitzero"`
+	LastPacket       time.Time    `json:"last_packet_time,omitzero"`
 	TotalFrames      int          `json:"total_frames"`
 	TotalDurationSec float64      `json:"total_duration_sec"`
 	Config           SplitConfig  `json:"config"`

@@ -13,7 +13,9 @@ import (
 )
 
 // replayForAnalysis feeds the analysis pass, from one capture or from several
-// joined into a continuous stream.
+// joined into a continuous stream, and returns the per-file read steps it
+// replayed. The writer reads the same steps with the same window, so it admits
+// exactly the packets the analysis counted.
 //
 // Joining matters more than it looks. A per-file analysis restarts the model at
 // every capture boundary and can manufacture a transition while it settles.
@@ -21,31 +23,23 @@ import (
 // MotionClassifier refreshes its baseline on capture time, independently of the
 // file boundaries, so it can recognise a stop after a long drive.
 func replayForAnalysis(ctx context.Context, cfg SplitConfig, parser network.Parser,
-	frameBuilder network.FrameBuilder, stats network.PacketStatsInterface) error {
+	frameBuilder network.FrameBuilder, stats network.PacketStatsInterface) ([]capseq.ReadStep, error) {
 
-	files := cfg.PCAPFiles
-	if len(files) <= 1 {
-		var total uint64
-		if extents, ok := knownExtents(cfg, []string{cfg.PCAPFile}); ok {
-			total = extents[0].PacketCount
-		}
+	steps, err := planReplay(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(cfg.PCAPFiles) <= 1 {
+		step := steps[0]
 		if err := network.ReadPCAPFile(
-			ctx, cfg.PCAPFile, cfg.UDPPort,
+			ctx, step.Path, cfg.UDPPort,
 			parser, frameBuilder, stats, nil,
-			cfg.StartSeconds, cfg.DurationSeconds, 0, total, cfg.OnProgress,
+			step.StartSecs, step.DurationSecs, 0, step.PacketCount, cfg.OnProgress,
 		); err != nil {
-			return fmt.Errorf("pcap replay: %w", err)
+			return nil, fmt.Errorf("pcap replay: %w", err)
 		}
-		return nil
-	}
-
-	seq, err := sequenceForAnalysis(cfg, files)
-	if err != nil {
-		return err
-	}
-	steps, err := seq.Plan(cfg.StartSeconds, normaliseReplayDuration(cfg.DurationSeconds))
-	if err != nil {
-		return fmt.Errorf("planning the replay window: %w", err)
+		return steps, nil
 	}
 
 	if _, err := network.ReadPCAPSequence(ctx, steps,
@@ -56,9 +50,39 @@ func replayForAnalysis(ctx context.Context, cfg SplitConfig, parser network.Pars
 			Stats:        stats,
 			OnProgress:   cfg.OnProgress,
 		}); err != nil {
-		return fmt.Errorf("pcap sequence replay: %w", err)
+		return nil, fmt.Errorf("pcap sequence replay: %w", err)
 	}
-	return nil
+	return steps, nil
+}
+
+// planReplay turns cfg's window into per-file read steps. One capture is one
+// step carrying the window as given; ReadPCAPFile anchors it on that file's
+// first packet. Several captures are joined and the window planned across
+// them, which counts the captures unless cfg.Extents already describes them.
+func planReplay(cfg SplitConfig) ([]capseq.ReadStep, error) {
+	files := cfg.PCAPFiles
+	if len(files) <= 1 {
+		var total uint64
+		if extents, ok := knownExtents(cfg, []string{cfg.PCAPFile}); ok {
+			total = extents[0].PacketCount
+		}
+		return []capseq.ReadStep{{
+			Path:         cfg.PCAPFile,
+			StartSecs:    cfg.StartSeconds,
+			DurationSecs: normaliseReplayDuration(cfg.DurationSeconds),
+			PacketCount:  total,
+		}}, nil
+	}
+
+	seq, err := sequenceForAnalysis(cfg, files)
+	if err != nil {
+		return nil, err
+	}
+	steps, err := seq.Plan(cfg.StartSeconds, normaliseReplayDuration(cfg.DurationSeconds))
+	if err != nil {
+		return nil, fmt.Errorf("planning the replay window: %w", err)
+	}
+	return steps, nil
 }
 
 // sequenceForAnalysis joins the captures from the extents the caller gave, or

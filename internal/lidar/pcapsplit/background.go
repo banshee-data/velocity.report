@@ -51,7 +51,7 @@ func SettledBackground(ctx context.Context, cfg SplitConfig) (*Background, error
 		FrameChCapacity: 32,
 	})
 	fb.SetBlockOnFrameChannel(true)
-	if err := replayForAnalysis(ctx, cfg, parser, fb, &countingStats{}); err != nil {
+	if _, err := replayForAnalysis(ctx, cfg, parser, fb, &countingStats{}); err != nil {
 		fb.Close()
 		return nil, err
 	}

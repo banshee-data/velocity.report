@@ -91,6 +91,10 @@ func FormatSummary(r Report) string {
 	fmt.Fprintf(&b, "Input File:      %s\n", r.InputFile)
 	fmt.Fprintf(&b, "Processing Time: %s\n", time.Duration(r.ProcessingTimeMs)*time.Millisecond)
 	fmt.Fprintf(&b, "Total Packets:   %d\n", r.TotalPackets)
+	if !r.FirstPacket.IsZero() {
+		fmt.Fprintf(&b, "Packet Window:   %s → %s\n",
+			r.FirstPacket.UTC().Format(time.RFC3339Nano), r.LastPacket.UTC().Format(time.RFC3339Nano))
+	}
 	fmt.Fprintf(&b, "Total Frames:    %d\n", r.TotalFrames)
 	fmt.Fprintf(&b, "Total Duration:  %s\n", minSec(r.TotalDurationSec))
 	if r.Capture.TotalFrames > 0 {

@@ -49,3 +49,9 @@ func nextPacket(src *gopacket.PacketSource) gopacket.Packet {
 		time.Sleep(pcapRetryPause)
 	}
 }
+
+// NextPacket is nextPacket for readers outside this package that must see the
+// same packet sequence as ReadPCAPFile — pcap-split's writer re-reads a capture
+// and has to stop where the replay stopped. It returns nil when src is
+// exhausted.
+func NextPacket(src *gopacket.PacketSource) gopacket.Packet { return nextPacket(src) }

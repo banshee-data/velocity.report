@@ -42,10 +42,9 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 	startTime := time.Now()
 	skippingToOffset := packetOffset > 0
 
-	var firstPacketTime time.Time
-	var startThreshold time.Time
-	var endThreshold time.Time
-	skippingToStart := startSeconds > 0
+	// The window is shared with readers that must admit the same packets as
+	// this replay (pcap-split's writer); see ReplayWindow for the rule.
+	window := NewReplayWindow(startSeconds, durationSeconds)
 
 	for {
 		// Packets are read on this goroutine (nextPacket), not through
@@ -82,36 +81,19 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 			onProgress(packetIndex, totalPackets)
 		}
 
-		// Calculate start/end thresholds on first packet
+		// Window thresholds are anchored on the first packet read here.
 		captureTime := packet.Metadata().Timestamp
-		if firstPacketTime.IsZero() {
-			firstPacketTime = captureTime
-			if startSeconds > 0 {
-				startThreshold = firstPacketTime.Add(time.Duration(startSeconds * float64(time.Second)))
-			} else {
-				// When no start offset, use first packet time as the baseline
-				// so duration thresholds are relative to the actual capture.
-				startThreshold = firstPacketTime
-			}
-			if durationSeconds > 0 {
-				endThreshold = startThreshold.Add(time.Duration(durationSeconds * float64(time.Second)))
-			}
-		}
-
-		// Skip packets before start threshold
-		if skippingToStart && !startThreshold.IsZero() && captureTime.Before(startThreshold) {
+		wasSkipping := window.Skipping()
+		switch window.Admit(captureTime) {
+		case WindowSkip:
 			continue
-		}
-		if skippingToStart {
-			skippingToStart = false
-			diagf("PCAP replay: started at %.2fs offset", startSeconds)
-		}
-
-		// Stop if we've reached the end threshold
-		if !endThreshold.IsZero() && captureTime.After(endThreshold) {
+		case WindowStop:
 			elapsed := time.Since(startTime)
 			diagf("PCAP replay complete: reached duration limit of %.2fs (processed %d packets in %v)", durationSeconds, packetCount, elapsed)
 			return nil
+		}
+		if wasSkipping {
+			diagf("PCAP replay: started at %.2fs offset", startSeconds)
 		}
 
 		packetCount++

@@ -134,6 +134,43 @@ func TestWriteSegments_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestWriteSegments_AppliesTheWindow: packets outside the replay window must
+// not be clamped into the first or last segment. The window is ReadPCAPFile's,
+// closed at both ends: [2 s, 6 s] of a 0..9 s capture is five packets.
+func TestWriteSegments_AppliesTheWindow(t *testing.T) {
+	dir := t.TempDir()
+	const port = 2369
+	input := filepath.Join(dir, "in.pcap")
+
+	base := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	times := make([]time.Time, 10)
+	for i := range times {
+		times[i] = base.Add(time.Duration(i) * time.Second)
+	}
+	writeInputPCAP(t, input, port, times)
+
+	// The analysis's segments start at the window's first whole rotation, so
+	// they need not reach its edges; the clamp places those edge packets.
+	periods := []MotionPeriod{
+		{Type: StaticLabel, StartTime: base.Add(3 * time.Second), EndTime: base.Add(4 * time.Second)},
+		{Type: MotionLabel, StartTime: base.Add(4 * time.Second), EndTime: base.Add(5 * time.Second)},
+	}
+	segs := BuildSegments(periods, "out")
+	cfg := SplitConfig{PCAPFile: input, OutputDir: dir, UDPPort: port, StartSeconds: 2, DurationSeconds: 4}
+
+	if err := WriteSegments(cfg, segs); err != nil {
+		t.Fatalf("WriteSegments: %v", err)
+	}
+	// static: 2 s, 3 s; motion: 4 s, 5 s, 6 s.
+	if segs[0].PacketCount != 2 || segs[1].PacketCount != 3 {
+		t.Errorf("PacketCount static/motion = %d/%d, want 2/3", segs[0].PacketCount, segs[1].PacketCount)
+	}
+	n1, last1 := countPackets(t, filepath.Join(dir, segs[1].Filename), port)
+	if n1 != 3 || !last1.Equal(base.Add(6*time.Second)) {
+		t.Errorf("motion file holds %d packets ending %v, want 3 ending at 6 s", n1, last1)
+	}
+}
+
 func TestWriteSegments_Empty(t *testing.T) {
 	if err := WriteSegments(SplitConfig{}, nil); err != nil {
 		t.Errorf("empty segments should be a no-op, got %v", err)
