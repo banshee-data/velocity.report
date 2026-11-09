@@ -343,6 +343,16 @@ const (
 	ExperimentSolidBodyHeadingFaceNoise         = "solid_body_heading_face_noise"
 	ExperimentSolidBodyAnisotropicReferenceBias = "solid_body_anisotropic_reference_bias"
 	ExperimentSolidBodyFaceState                = "solid_body_face_state"
+	// ExperimentSolidBodyExtentAccrual:
+	// l5tracks.SolidBodyOptions.ExtentBoundAccrual, the extent state's span
+	// bounds taken only along a believed axis (the course when the face axis
+	// is not) and accrued over the track's life as the largest bound three
+	// admitted frames reached, a merge candidate one body wide giving its
+	// length to that record. It needs solid_body with the extent state and
+	// the span bounds (solid_body_face_state, or solid_body_extent_state with
+	// solid_body_censored_extent or solid_body_span_bounds_belief), and is
+	// refused without them, where it would run as the arm it qualifies.
+	ExperimentSolidBodyExtentAccrual = "solid_body_extent_accrual"
 	// ExperimentSolidBodySharedOrientation:
 	// l5tracks.SolidBodyOptions.SharedOrientation, the shadow solid body's
 	// orientation belief (psi and its variance) the published box's heading
@@ -504,6 +514,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyHeadingFaceNoise:         true,
 	ExperimentSolidBodyAnisotropicReferenceBias: true,
 	ExperimentSolidBodyFaceState:                true,
+	ExperimentSolidBodyExtentAccrual:            true,
 	ExperimentSolidBodySharedOrientation:        true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
