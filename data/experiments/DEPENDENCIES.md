@@ -32,6 +32,7 @@ flowchart TB
     geom0014["<b>geom0014</b><br/>What the defaults and the solid-body…<br/>answered · 15m machine + 1h person (took 17m)<br/>manual: write"]:::answered
     geom0015["<b>geom0015</b><br/>D2 refreshed on kirk0's frozen split…<br/>answered · 33m machine + 4h person (took 1h10m)<br/>manual: implement, write"]:::answered
     geom0016["<b>geom0016</b><br/>The facet attribution gate, restated…<br/>proposed · 24m machine + 5h person<br/>manual: implement, write<br/>needs tooling: near_face_eval"]:::proposed
+    geom0017["<b>geom0017</b><br/>Extent bound accrual on kirk0: does the…<br/>approved · 35m machine + 6h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
   end
   subgraph area_ground ["ground: Ground model and the plane the tracks live in"]
     ground0001["<b>ground0001</b><br/>Where the ground is: each site's surface…<br/>answered · 1h9m machine + 4h person (took 1h38m)<br/>manual: implement, write"]:::answered
@@ -163,6 +164,7 @@ flowchart TB
   geom0007 --> geom0009
   l5id0004 --> geom0009
   geom0009 --> geom0010
+  geom0015 --> geom0017
   ground0001 --> ground0003
   ground0002 --> ground0003
   ground0002 --> ground0004
@@ -262,6 +264,7 @@ flowchart TB
 - [geom0012](geom/geom0012.md) Three centres a frame: the tracked position, the cluster and the published box, against each other and the references: proposed, awaiting approval; 5h3m machine + 6h person; asks [state-estimation-e1-lateral-error #verdict](../../docs/lidar/operations/state-estimation-e1-lateral-error.md#verdict), [d2-medoid-obb-current-solver-2026-10 #answer](../../docs/lidar/operations/d2-medoid-obb-current-solver-2026-10.md#answer), [lidar-web-scene-export-plan](../../docs/plans/lidar-web-scene-export-plan.md), [geometry-convergence-criteria](../../docs/lidar/operations/geometry-convergence-criteria.md).
 - [geom0013](geom/geom0013.md) How far the published box's faces sit from the visible hull: the bound on what a hull could add to gaps and clearance: proposed, awaiting approval; 4m machine + 6h person; asks [pcl-algorithm-review #q2-can-per-track-hulls-improve-…](../../docs/lidar/operations/pcl-algorithm-review.md#q2-can-per-track-hulls-improve-clearance-and-following-distance-over-boxes), [lidar-pcl-algorithm-candidates-plan #item-4-q2-the-hull-bound-geom00…](../../docs/plans/lidar-pcl-algorithm-candidates-plan.md#item-4-q2-the-hull-bound-geom0013), [physical-reference-pilot-kirk0-2026-10](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md).
 - [geom0016](geom/geom0016.md) The facet attribution gate, restated: face placement against the extent shortfall, with the extent from the solid body's extent state: proposed, awaiting approval; 24m machine + 5h person; asks [facet-f0-attribution-kirk0-report #41-the-attribution-gate](../../docs/lidar/operations/facet-f0-attribution-kirk0-report.md#41-the-attribution-gate), [facet-f0-attribution-kirk0-report #6-recommendations](../../docs/lidar/operations/facet-f0-attribution-kirk0-report.md#6-recommendations), [lidar-facet-registration-experiment-plan #5-scorecard-and-decisions](../../docs/plans/lidar-facet-registration-experiment-plan.md#5-scorecard-and-decisions).
+- [geom0017](geom/geom0017.md) Extent bound accrual on kirk0: does the extent state build truck 2's length across frames again, and keep widths off an unsettled heading?: ready, but a step needs tooling; 35m machine + 6h person; after geom0015; asks [lidar-state-estimation-plan #924-extents-in-the-state-and-ce…](../../docs/plans/lidar-state-estimation-plan.md#924-extents-in-the-state-and-censored-extent-evidence-delivered-default-off), [20261108-face-state-and-cv-ca-maths-review #31-the-half-extent-is-a-state-n…](../../data/maths/proposals/20261108-face-state-and-cv-ca-maths-review.md#31-the-half-extent-is-a-state-not-a-constant).
 - [ground0002](ground/ground0002.md) The vertical clip follows the ground: the surface clip against the height band, on jitter, the labelled score and cost: proposed, awaiting approval; 6h20m machine + 6h person; asks [BACKLOG](../../docs/BACKLOG.md), [lidar-state-estimation-plan #21-p11-is-a-correctness-problem…](../../docs/plans/lidar-state-estimation-plan.md#21-p11-is-a-correctness-problem-not-a-future-refinement), [paper-implementation-gap-analysis #8-patchwork-lim-et-al-2022](../../data/maths/paper-implementation-gap-analysis.md#8-patchwork-lim-et-al-2022), [l5-tracking-noise-parameter-sweep](../../data/experiments/try/l5-tracking-noise-parameter-sweep.md).
 - [ground0003](ground/ground0003.md) The planar state in the ground's frame: x and y of the fitted surface instead of the sensor's horizontal plane: waiting on a dependency; 56m machine + 6h person; after ground0001, ground0002; asks [lidar-state-estimation-plan #54-what-is-in-the-state-and-wha…](../../docs/plans/lidar-state-estimation-plan.md#54-what-is-in-the-state-and-what-is-not), [research-briefing-2025-01-to-2026-10 #schäfer-alrifaee-and-hashemi-ad…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#schäfer-alrifaee-and-hashemi-advanced-intelligent-systems-2026), [BACKLOG](../../docs/BACKLOG.md).
 - [ground0004](ground/ground0004.md) The published box on the ground: its base from the surface and its height from a held belief, not the frame's cluster: waiting on a dependency; 1h24m machine + 3h person; after ground0002; asks [lidar-state-estimation-plan #54-what-is-in-the-state-and-wha…](../../docs/plans/lidar-state-estimation-plan.md#54-what-is-in-the-state-and-what-is-not), [published-box-refinement-2026-10 #recommendations](../../docs/lidar/operations/published-box-refinement-2026-10.md#recommendations), [BACKLOG](../../docs/BACKLOG.md).
@@ -377,5 +380,5 @@ flowchart TB
 
 ## Totals
 
-- 40 open experiments: 73h45m machine + 261h40m person estimated.
+- 41 open experiments: 74h20m machine + 267h40m person estimated.
 - Longest chain of open work, machine and person time together: lane0001 → l5id0008 → l5id0009 → l5id0010, 69h57m.
