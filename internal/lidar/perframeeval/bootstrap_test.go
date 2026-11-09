@@ -137,3 +137,44 @@ func TestBootstrapIsDeterministicForASeed(t *testing.T) {
 		t.Fatal("zero draws were accepted")
 	}
 }
+
+// shortened follows a whole and b only on frames 0 to 6, so b loses three
+// matched frames to false negatives.
+func shortened() Hypothesis {
+	return Hypothesis{Identity: ArmIdentity{Label: "shortened"}, Series: []l8analytics.TrackSeries{
+		bsTrack("ta", 0, 0, 9), bsTrack("tb", 20, 0, 6),
+	}}
+}
+
+// The false negatives' paired spread, and each object's own point, show a
+// loss on one object that the pooled figures carry at half weight.
+func TestBootstrapReportsFalseNegativesAndEachObject(t *testing.T) {
+	res, err := Bootstrap(bsReference(), [2]Hypothesis{perfect(), shortened()}, bsScore(), BootstrapOptions{Draws: 400, Seed: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.B.Point.FN != 3 || res.A.Point.FN != 0 {
+		t.Fatalf("point false negatives: a %d b %d, want 0 and 3", res.A.Point.FN, res.B.Point.FN)
+	}
+	// A draw holds b zero, one or two times: 0, 3 or 6 more missed points.
+	if d := res.Delta.FN; d.P5 != 0 || d.P50 != 3 || d.P95 != 6 {
+		t.Errorf("false-negative delta %+v, want 0, 3, 6", d)
+	}
+	if res.DeltaStands["fn"] {
+		t.Error("a delta whose 5th percentile is zero is reported as standing")
+	}
+	want := map[string][2]int{"a": {10, 10}, "b": {10, 7}}
+	for i, arm := range []BootstrapArm{res.A, res.B} {
+		if len(arm.ByObject) != len(res.Objects) {
+			t.Fatalf("arm %s: %d objects scored alone, want %d", arm.Label, len(arm.ByObject), len(res.Objects))
+		}
+		for j, o := range arm.ByObject {
+			if o.Object != res.Objects[j] {
+				t.Errorf("arm %s object %d is %s, want %s", arm.Label, j, o.Object, res.Objects[j])
+			}
+			if o.Point.Matches != want[o.Object][i] {
+				t.Errorf("arm %s object %s: %d matched frames, want %d", arm.Label, o.Object, o.Point.Matches, want[o.Object][i])
+			}
+		}
+	}
+}
