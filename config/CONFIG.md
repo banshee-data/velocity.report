@@ -404,7 +404,12 @@ body's face-state options, each needing `solid_body`: `solid_body_extent_state` 
 `solid_body_face_state`, which is all five; and `solid_body_shared_orientation` (the solid body's
 orientation and its variance from the box model's heading filter; it needs `solid_body` and the box
 model, and is refused with `near_edge_track`, `solid_body_rectangle_heading`,
-`solid_body_course_heading` and `solid_body_course_faces`). An arm that uses one runs through the offline replay tools,
+`solid_body_course_heading` and `solid_body_course_faces`). With `box_extent_solid_body` the box's
+test of the solid body's axis reads the axis the body would hold without the shared orientation;
+`box_extent_shared_axis` reads it against the shared heading instead, which is the box's own, so the
+test refuses nothing on a shared frame
+([shared-orientation duplicates](../docs/lidar/operations/shared-orientation-duplicates-2026-11.md));
+it needs both `box_extent_solid_body` and `solid_body_shared_orientation`. An arm that uses one runs through the offline replay tools,
 and its report names the experiment beside the set. `velocity lidar pcap-replay --experiment`
 takes the same names and combination rules as `lidar-state-estimation-baseline -experiment`,
 and is the tool that records such an arm's foreground-complete observation VRLOG

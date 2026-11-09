@@ -374,6 +374,13 @@ heading. With `solid_body_shared_orientation` as well
 holds the returns inside it, so the tracks changed. This is wiring, not a score; geom0015's
 reviewed centres are the score.
 
+The fall to 567 was the defect behind the shared orientation's duplicates
+([shared-orientation duplicates](../lidar/operations/shared-orientation-duplicates-2026-11.md)).
+On a shared frame the body's axis is the box's own heading, so the axis test could not refuse.
+The test now reads the axis the body would hold without the shared orientation. Beside it the box
+refuses 3660 frames on kirk0 against 3459 for the box extent alone. The old reading is the replay
+experiment `box_extent_shared_axis`.
+
 ## 5. Upcoming work that addresses these
 
 | Planned item                                                                            | Where                                                                                                                              | What it covers                                                                                       | What it leaves                                                                                                       |
