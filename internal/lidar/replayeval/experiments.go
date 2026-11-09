@@ -198,6 +198,14 @@ const (
 	// reads the overlap end's on-body test and is refused without
 	// overlap_end_body.
 	ExperimentBirthGateBody = "birth_gate_body"
+	// ExperimentRobustBirthGate is TrackerConfig.FragmentBirthGate: an
+	// unassociated cluster the fragment guard refuses a confirmed track, and
+	// which lies inside that track's drawn box grown by its position
+	// uncertainty, seeds no track (experiment l5id0021). It is built for the
+	// population robust_likelihood_cost leaves (the duplicates that used to
+	// take these fragments are gone), so it qualifies that cost and is
+	// refused without it.
+	ExperimentRobustBirthGate = "robust_birth_gate"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.
 	ExperimentOcclusionContinuity = "occlusion_continuity"
@@ -440,6 +448,7 @@ var knownExperiments = map[string]bool{
 	ExperimentOverlapEndBody:       true,
 	ExperimentOverlapEndOlder:      true,
 	ExperimentBirthGateBody:        true,
+	ExperimentRobustBirthGate:      true,
 	ExperimentFixedLagRTS:          true,
 	ExperimentSolidBody:            true,
 

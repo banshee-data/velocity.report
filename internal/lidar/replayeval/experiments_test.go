@@ -231,7 +231,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentHeldToL4, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentOverlapEndBody,
-		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentRobustLikelihoodCost, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody,
+		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentRobustBirthGate, ExperimentRobustLikelihoodCost, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody,
 		ExperimentSolidBodyAnisotropicReferenceBias, ExperimentSolidBodyCensoredExtent, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
@@ -767,6 +767,40 @@ func TestBirthGateNeedsTheOnBodyTest(t *testing.T) {
 	}
 	if off.BirthGateOnBody {
 		t.Fatal("the birth gate is on without its name")
+	}
+}
+
+// robust_birth_gate is the birth rule for the robust likelihood cost's
+// population: refused without that cost, and with it reaches
+// TrackerConfig.FragmentBirthGate alone.
+func TestRobustBirthGateNeedsTheRobustCost(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	_, err := trackerConfigFor(l5, "", []string{ExperimentRobustBirthGate}, nil)
+	if err == nil || !strings.Contains(err.Error(), ExperimentRobustLikelihoodCost) {
+		t.Fatalf("robust_birth_gate without robust_likelihood_cost gave %v, want the refusal naming it", err)
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentLikelihoodCost, ExperimentRobustBirthGate}, nil); err == nil {
+		t.Fatal("robust_birth_gate was accepted with the Gaussian likelihood cost")
+	}
+	got, err := trackerConfigFor(l5, "", []string{ExperimentRobustLikelihoodCost, ExperimentRobustBirthGate}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.FragmentBirthGate || !got.RobustLikelihoodAssociationCost {
+		t.Fatalf("robust birth gate: gate %v robust %v", got.FragmentBirthGate, got.RobustLikelihoodAssociationCost)
+	}
+	if got.BirthGateOnBody || got.OverlapEndFrames != 0 || got.TentativePriority || got.CascadedAssociation {
+		t.Fatalf("robust_birth_gate switched on another identity option: %+v", got)
+	}
+	off, err := trackerConfigFor(l5, "", []string{ExperimentRobustLikelihoodCost}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off.FragmentBirthGate {
+		t.Fatal("the fragment birth gate is on without its name")
+	}
+	if names, err := NormaliseExperiments([]string{ExperimentRobustBirthGate, ExperimentRobustLikelihoodCost}); err != nil || len(names) != 2 {
+		t.Fatalf("robust_birth_gate is not a known experiment: %v %v", names, err)
 	}
 }
 

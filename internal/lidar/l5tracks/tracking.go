@@ -802,6 +802,10 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 	newTracks := 0
 	for clusterIdx, trackID := range associations {
 		if trackID == "" && len(t.Tracks) < t.Config.MaxTracks {
+			if t.Config.FragmentBirthGate && t.absorbsFragment(&clusters[clusterIdx]) {
+				t.continuity.FragmentBirthsAbsorbed++
+				continue
+			}
 			t.initTrack(clusters[clusterIdx], nowNanos)
 			newTracks++
 		}

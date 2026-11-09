@@ -393,7 +393,9 @@ uses, at ν = 4; refused with `likelihood_cost`, named or from the tuning file, 
 `contested_rejoin` (with the reacquisition guard it needs), `tentative_priority`,
 `class_identity`, `containment_claim` (which needs `solid_body`,
 `solid_body_containment` and `solid_body_full_members`), `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
-`overlap_end_body` and `overlap_end_older`, `birth_gate_body` (which needs `overlap_end_body`), `fixed_lag_rts`, `surface_ground` (the
+`overlap_end_body` and `overlap_end_older`, `birth_gate_body` (which needs `overlap_end_body`),
+`robust_birth_gate` (a fragment the fragment guard refuses a confirmed track, inside that track's
+grown box, seeds no track; it needs `robust_likelihood_cost`), `fixed_lag_rts`, `surface_ground` (the
 replay tools' surface-ground flags by name), `box_ground` (which needs the box model),
 `box_extent_solid_body` (the published box's length and width from the solid body's extent state;
 it needs the box model, `solid_body` and `solid_body_extent_state` or `solid_body_face_state`), and the solid

@@ -1435,6 +1435,12 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			"replay experiment %s replaces the Gaussian likelihood cost with the Student-t one, and %s (named, or association.likelihood_cost in the tuning file) asks for the Gaussian; name one",
 			ExperimentRobustLikelihoodCost, ExperimentLikelihoodCost)
 	}
+	trackerConfig.FragmentBirthGate = hasExperiment(experiments, ExperimentRobustBirthGate)
+	if trackerConfig.FragmentBirthGate && !trackerConfig.RobustLikelihoodAssociationCost {
+		return l5tracks.TrackerConfig{}, fmt.Errorf(
+			"replay experiment %s is the birth rule for the clusters %s leaves; name %s with it",
+			ExperimentRobustBirthGate, ExperimentRobustLikelihoodCost, ExperimentRobustLikelihoodCost)
+	}
 	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
