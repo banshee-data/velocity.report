@@ -18,7 +18,7 @@ The [current-default reacquisition refresh](l5id0013.md) registers reproducible 
 
 The [S3 likelihood/containment comparison](l5id0011.md) has checked-in parameter sets and a [cloud report](../../../docs/lidar/operations/l5-likelihood-containment-2026-10.md).
 
-The [November fixes benchmark](l5id0019.md) reads every option landed November 6 to 8 on kirk0 and ranks the next L3, L4 and L5 fixes ([report](../../../docs/lidar/operations/tracking-geometry-fixes-benchmark-2026-11.md)).
+The [November fixes benchmark](l5id0019.md) reads every option landed November 6 to 8 on kirk0 and two placements and ranks the next L3, L4 and L5 fixes ([report](../../../docs/lidar/operations/tracking-geometry-fixes-benchmark-2026-11.md)).
 
 The [robust cost's birth rule](l5id0021.md) (`robust_birth_gate`) keeps the robust likelihood
 cost's identity gain on kirk0 and brings its brief tracks and clutter within l5id0019's bounds of
