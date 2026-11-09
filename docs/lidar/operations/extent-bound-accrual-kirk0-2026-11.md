@@ -5,11 +5,11 @@
 The November benchmark bisected a 1.64 m loss in truck 2's solid-body length on kirk0 to #989.
 This report traces that loss to its cause and reads a default-off fix,
 `solid_body_extent_accrual`, against a rule committed before any scored replay. It answers
-[geom0017](../../../data/experiments/geom/geom0017.md).
+[geom0018](../../../data/experiments/geom/geom0018.md).
 
 - **Status:** Measured on kirk0, 2026-11-09. The rule fails in both reads. Nothing adopted, no
   default changed
-- **Spec:** [geom0017](../../../data/experiments/geom/geom0017.md); rule at `016ebacc`, restated
+- **Spec:** [geom0018](../../../data/experiments/geom/geom0018.md); rule at `016ebacc`, restated
   for the second read at `f6ce2843`, each before its replays
 - **Layers:** L5, the shadow solid body's extent state, and the published box through
   `box_extent_solid_body`; scored against L10 physical references
@@ -49,7 +49,7 @@ This report traces that loss to its cause and reads a default-off fix,
 
 ## Question and rule
 
-The rule is in the [spec](../../../data/experiments/geom/geom0017.md). R0 is binding: `face-state`
+The rule is in the [spec](../../../data/experiments/geom/geom0018.md). R0 is binding: `face-state`
 reproduces l5id0019's solid-body rows, `a0` its box rows, and the option leaves the tracks
 byte-identical. R1: truck 2's solid-body length is at least 6.24 m, and its error is below #989's
 5.03 m. R2: car 8's length error is no worse than `face-state`'s plus 0.005 m. R3: no more rows

@@ -2,7 +2,7 @@ package l5tracks
 
 // ExtentBoundAccrual (SolidBodyOptions.ExtentBoundAccrual): the extent
 // state's span bounds accrue over the track's life. Section 9.2.4 of
-// docs/plans/lidar-state-estimation-plan.md; geom0017 scores it on kirk0.
+// docs/plans/lidar-state-estimation-plan.md; geom0018 scores it on kirk0.
 //
 // Under ExtentState a frame's span bound holds hL or hW at or above half the
 // bound by projection, and leaves P unchanged (applyExtentBounds). The bound
@@ -43,7 +43,7 @@ package l5tracks
 // 2.8 m body spans over 8 m.
 //
 // The first version of this option refused a bound off an unsettled axis
-// instead of widening its window (geom0017's first read). Without the width
+// instead of widening its window (geom0018's first read). Without the width
 // bounds the faces carried widths to the half-extent floor on twelve times
 // as many rows, and without the length bounds truck 1 and car 8 read shorter.
 //

@@ -1539,7 +1539,7 @@ the six poses, adds two rows at the floor and does not move car 8's width. Its f
 refused off-axis bounds instead of widening them, and sent 106 widths to the floor: a bound is
 what holds `h` against a face. See the
 [extent bound accrual report](../lidar/operations/extent-bound-accrual-kirk0-2026-11.md)
-([geom0017](../../data/experiments/geom/geom0017.md)). The record cannot be revised (9.2.3): it
+([geom0018](../../data/experiments/geom/geom0018.md)). The record cannot be revised (9.2.3): it
 keeps bounds, not the frames that gave them.
 
 ### 9.3 Decision gate G-GEO-1
