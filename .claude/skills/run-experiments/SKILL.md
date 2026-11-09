@@ -100,7 +100,12 @@ point ([cloud run report](../../../docs/lidar/operations/cloud-run-kirk0-labelle
 Say in each report that the pack was reconstructed.
 
 Cut five-minute segments from a placement with `cmd/tools/pcap-split` when the question is scored
-on segments. A cloud host has no Pi, no NAS and no labels beyond kirk0's: choose
+on segments: `--start-seconds` and `--duration-seconds` bound what is written as well as what is
+analysed, and the window's motion and static pieces together hold the packets a `--dry-run` of the
+same window counts (`Total Packets`, `Packet Window` in its summary). Check that the written
+segments' `packet_count`s sum to the dry run's before replaying them. A build from before
+2026-11-09 wrote the whole capture into every window: rebuild with `make build-pcap-split`.
+A cloud host has no Pi, no NAS and no labels beyond kirk0's: choose
 questions that kirk0 and a few placements can answer, and say in the report which corpus stood in.
 
 **Locally, keep reads and writes on different drives.** A replay that reads its capture from a
