@@ -155,15 +155,19 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 // interval between their acquisition times:
 //
 //	x = z2,   v = (z2 − z1) / Δt,
-//	P = | R      R/Δt   |   per axis,
-//	    | R/Δt   2R/Δt² |
+//	P = | R      R/Δt             |
+//	    | R/Δt   (2R + G) / Δt²   |
 //
-// which is the exact mean and covariance of that pair when both carry noise
-// R and nothing is known of the velocity beforehand. R is the isotropic
-// MeasurementNoise, so the axes stay uncorrelated. Under
-// AdaptiveMeasurementNoise it is this measurement's R, taken as both
-// measurements' (the founding one's is not retained), and its own x–y term
-// carries into the blocks; nothing else adds a cross-axis term.
+// with G = σ_g² u uᵀ the reference point's geometric slack along the unit
+// displacement u: σ_g is half the change in the two clusters' extent along
+// u (referenceSlack), how far a body's cluster mean moves when it is seen
+// first as a fragment and then whole, without the body moving. With G = 0
+// this is the exact mean and covariance of the pair when both carry noise R
+// and nothing is known of the velocity beforehand. R is the isotropic
+// MeasurementNoise. Under AdaptiveMeasurementNoise it is this measurement's
+// R, taken as both measurements' (the founding one's is not retained), and
+// its own x–y term carries into the blocks. G is the only other cross-axis
+// term, and it reaches only the velocity block.
 //
 // It applies only while the track has had exactly one measurement and its
 // velocity is still initTrack's zero, and not to a track whose state the
@@ -173,8 +177,12 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 // update to run, when either acquisition time is missing, Δt is not
 // positive and finite, the implied velocity is not finite, the implied speed
 // exceeds MaxReasonableSpeedMps (a pair that implies an impossible speed is
-// not evidence of one), or the velocity variance 2R/Δt² exceeds
-// MaxCovarianceDiag (at the shipped R and cap, a Δt under about 32 ms).
+// not evidence of one), this measurement lies in another confirmed track's
+// shadow as the sensor sees it (inConfirmedShadow: there it is a reflection
+// or a fragment, not a body seen directly), or a diagonal of the velocity
+// block exceeds MaxCovarianceDiag (at the shipped R and cap and no slack, a
+// Δt under about 32 ms; at Δt = 0.1 s, a slack above about 0.95 m, an
+// extent change along the displacement of about 1.9 m).
 //
 // The residual is recorded with ResidualTwoPointInit: the innovation against
 // the prediction and the NIS the gate saw, so the frame keeps its estimate
@@ -197,15 +205,35 @@ func (t *Tracker) initialiseTwoPoint(track *TrackedObject, cluster WorldCluster,
 	if math.IsNaN(speed) || math.IsInf(speed, 0) || speed > float64(t.Config.MaxReasonableSpeedMps) {
 		return false
 	}
+	if t.inConfirmedShadow(track, measurement.X, measurement.Y) {
+		return false
+	}
 
 	r := MeasurementCovariance{XX: t.Config.MeasurementNoise, YY: t.Config.MeasurementNoise}
 	if adaptiveR != nil {
 		r = *adaptiveR
 	}
-	// A pair too close in time carries a velocity variance above the cap.
-	// Capping it would claim a velocity the pair does not support, and the
-	// shipped diagonal clamp would leave P indefinite at the next prediction.
-	if 2*math.Max(float64(r.XX), float64(r.YY))/(dt*dt) > float64(t.Config.MaxCovarianceDiag) {
+	// The reference point's slack along the displacement, as a variance on
+	// the difference: G = σ_g² u uᵀ.
+	var ux, uy float64
+	disp := math.Hypot(float64(measurement.X)-float64(first.X), float64(measurement.Y)-float64(first.Y))
+	if disp > 0 {
+		ux, uy = (float64(measurement.X)-float64(first.X))/disp, (float64(measurement.Y)-float64(first.Y))/disp
+	}
+	slack := referenceSlack(track.foundingExtent, footprintOf(cluster), ux, uy, disp > 0)
+	g := slack * slack
+	gxx, gxy, gyy := g*ux*ux, g*ux*uy, g*uy*uy
+	if disp == 0 {
+		gxx, gxy, gyy = g, 0, g
+	}
+	vxx := (2*float64(r.XX) + gxx) / (dt * dt)
+	vxy := (2*float64(r.XY) + gxy) / (dt * dt)
+	vyy := (2*float64(r.YY) + gyy) / (dt * dt)
+	// A pair too close in time, or whose reference point can slide too far,
+	// carries a velocity variance above the cap. Capping it would claim a
+	// velocity the pair does not support, and the shipped diagonal clamp
+	// would leave P indefinite at the next prediction.
+	if !(math.Max(vxx, vyy) <= float64(t.Config.MaxCovarianceDiag)) {
 		return false
 	}
 
@@ -220,19 +248,19 @@ func (t *Tracker) initialiseTwoPoint(track *TrackedObject, cluster WorldCluster,
 
 	track.X, track.Y = measurement.X, measurement.Y
 	track.VX, track.VY = float32(vx), float32(vy)
-	// Row-major [x, y, vx, vy]: each 2×2 position block of the pair's
-	// covariance is R scaled by 1, 1/Δt or 2/Δt².
+	// Row-major [x, y, vx, vy]: the position block is R, the cross block
+	// R/Δt, and the velocity block (2R + G)/Δt².
 	block := func(scale float64) (xx, xy, yy float32) {
 		return float32(float64(r.XX) * scale), float32(float64(r.XY) * scale), float32(float64(r.YY) * scale)
 	}
 	pxx, pxy, pyy := block(1)
 	cxx, cxy, cyy := block(1 / dt)
-	vxx, vxy, vyy := block(2 / (dt * dt))
+	wxx, wxy, wyy := float32(vxx), float32(vxy), float32(vyy)
 	track.P = [16]float32{
 		pxx, pxy, cxx, cxy,
 		pxy, pyy, cxy, cyy,
-		cxx, cxy, vxx, vxy,
-		cxy, cyy, vxy, vyy,
+		cxx, cxy, wxx, wxy,
+		cxy, cyy, wxy, wyy,
 	}
 	return true
 }

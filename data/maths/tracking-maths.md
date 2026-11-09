@@ -123,13 +123,18 @@ times:
 
 - `x = z₂`
 - `v = (z₂ − z₁) / Δt`
-- per axis, `P = [[R, R/Δt], [R/Δt, 2R/Δt²]]`
+- `P_xx = R`, `P_xv = R/Δt`, `P_vv = (2R + G)/Δt²`, with `G = σ_g² u uᵀ`
 
-This is the exact mean and covariance of the pair when both measurements carry noise `R` and
-nothing is known of the velocity beforehand. At the shipped `R = 0.05 m²` and `Δt = 0.1 s` the
-velocity variance is 10 m²/s². `R` is the isotropic `MeasurementNoise`, so the two axes stay
-uncorrelated. Under the adaptive model it is this measurement's `R`, used for both measurements
-because the founding one's `R` is not retained, and `R`'s own x–y term carries into each block.
+`u` is the unit displacement `(z₂ − z₁)/|z₂ − z₁|`. `σ_g` is the reference point's slack: half
+the change between the two clusters' extents along `u`, each read from its cluster's OBB as
+`L|cos(θ − φ)| + W|sin(θ − φ)|`. A body seen first as a fragment and then whole moves its cluster
+mean by up to that much without moving. Without an OBB the extent is the larger dimension, and
+with no displacement `G = σ_g² I`. With `G = 0` this is the exact mean and covariance of the pair
+when both measurements carry noise `R` and nothing is known of the velocity beforehand. At the
+shipped `R = 0.05 m²` and `Δt = 0.1 s` the velocity variance is then 10 m²/s². `R` is the
+isotropic `MeasurementNoise`. Under the adaptive model it is this measurement's `R`, used for both
+measurements because the founding one's `R` is not retained, and `R`'s own x–y term carries into
+each block. `G` is the only other cross-axis term, and it reaches only the velocity block.
 
 It applies only while the track has exactly one measurement and its velocity is still zero. It
 declines, and the shipped update runs, when:
@@ -138,8 +143,24 @@ declines, and the shipped update runs, when:
 - `Δt` is not positive and finite;
 - the implied velocity is not finite;
 - the implied speed exceeds `MaxReasonableSpeedMps`;
-- `2R/Δt²` exceeds `MaxCovarianceDiag`. At the shipped `R` and cap that is a `Δt` under about
-  32 ms, too short a baseline to carry a velocity the covariance can represent.
+- `z₂` lies in another confirmed track's shadow as the sensor sees it: on a bearing between its
+  box's corner bearings and farther than its nearest corner. The sensor is at `NoiseSensorX`,
+  `NoiseSensorY`, zero while the pipeline clusters without a pose. A tentative track, or a box
+  without positive, finite extent, casts no shadow;
+- a diagonal of `P_vv` exceeds `MaxCovarianceDiag`. At the shipped `R` and cap with no slack that
+  is a `Δt` under about 32 ms, too short a baseline to carry a velocity the covariance can
+  represent. At `Δt = 0.1 s` it is a slack above about 0.95 m, an extent change of about 1.9 m.
+
+The shadow and slack conditions were added after
+[l5est0006](../../docs/lidar/operations/two-point-init-guards-2026-11.md) traced the option's
+published speed defect. Without them, every track over 15 m/s on kirk0 and ashbury-downey's first
+segment was a thin cluster on a nearer car's bearing. Its range ratio to the car matched its speed
+ratio, 1.6 to 3.0, and the inferred cause is a reflection. The shipped tracker cannot hold a mover
+born above about 14 m/s, so it never confirmed one. The pair initialised it exactly, and it
+confirmed and coasted at that speed. With the guards no row exceeds 15 m/s on either case. kirk0's
+identity is then within one fragmentation of the defaults, and the shadow test declines about half
+the pairs. The guards are a fallback, not a reflection filter. A pair they decline is treated as
+the defaults treat it.
 
 It does not apply to a track whose state the near-edge state machine owns (`NearEdgeTracking`).
 That reference point can move between the two frames, and a difference across a re-reference
@@ -155,7 +176,9 @@ vehicle born at 14 m/s or faster. The second update leaves the velocity near zer
 position variance is then near `R`, so by the third or fourth frame the vehicle is outside the
 gate and is born again. At 20 m/s it was born 10 times in 3 s and never confirmed. With the
 option on it was born once and confirmed (`TestTwoPointVelocityInitHoldsAFastVehicleFromBirth`).
-This is a property of the synthetic scene. It is not a measurement on a capture.
+This is a property of the synthetic scene. It is not a measurement on a capture. The same limit
+is what kept reflections from confirming under the shipped tracker
+(`TestTwoPointVelocityInitDoesNotHoldAReflection`).
 
 #### Covariance cap that keeps `P` positive semi-definite
 
