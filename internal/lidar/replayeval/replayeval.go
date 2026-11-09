@@ -1472,6 +1472,8 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	if trackerConfig.BirthGateOnBody && !trackerConfig.OverlapEndOnBody {
 		return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s reads the overlap end's on-body test; name overlap_end_body with it", ExperimentBirthGateBody)
 	}
+	trackerConfig.ArtefactBirthGate = hasExperiment(experiments, ExperimentArtefactBirthGate)
+	trackerConfig.ArtefactAbsorb = hasExperiment(experiments, ExperimentArtefactAbsorb)
 	if trackerConfig.OverlapEndFrames == 0 && (trackerConfig.OverlapEndOnBody || trackerConfig.OverlapEndKeepOlder) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiments %q qualify the overlap end without it; name overlap_end_1 or overlap_end_3", experiments)
 	}
