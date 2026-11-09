@@ -17,3 +17,6 @@ Answered in the exp-20261020 run: [geom0011](geom0011.md), centre against extent
 Answered on November 1, 2026: [geom0014](geom0014.md), what the defaults and the solid-body
 configs draw on kirk0 on main
 ([report](../../../docs/lidar/operations/scene-variants-kirk0-2026-11.md)).
+
+Answered on November 9, 2026: [geom0017](geom0017.md), extent bound accrual on kirk0
+([report](../../../docs/lidar/operations/extent-bound-accrual-kirk0-2026-11.md)).
