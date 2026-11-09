@@ -116,6 +116,9 @@ times its size, and a selection rule in place of a search. The
 plan's first observation model, the box held to its points, on kirk0 and the 23 sites. The [assignment-cardinality safeguard](operations/containment-cardinality-guard-cloud-2026-11.md)
 preserves global matching size during claim filtering; its guarded arms improve the unguarded
 claims on kirk0 but still fail the local duplicate/HOTA screen and remain off. The
+[robust cost's birth rule](operations/robust-birth-gate-kirk0-2026-11.md) absorbs the fragments
+the robust likelihood cost leaves to seed brief tracks; on kirk0 it keeps that cost's identity
+gain with brief tracks and clutter within l5id0019's bounds, and it stays off. The
 [rectangle heading screen](operations/solid-body-rectangle-heading-2026-10.md) scores the
 second, the heading observed from each frame's rectangle fit. The
 [held-out replication](operations/geometry-convergence-heldout-2026-10.md) replays the

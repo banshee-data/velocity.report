@@ -18,6 +18,10 @@ The [current-default reacquisition refresh](l5id0013.md) registers reproducible 
 
 The [S3 likelihood/containment comparison](l5id0011.md) has checked-in parameter sets and a [cloud report](../../../docs/lidar/operations/l5-likelihood-containment-2026-10.md).
 
+The [robust cost's birth rule](l5id0021.md) (`robust_birth_gate`) keeps the robust likelihood
+cost's identity gain on kirk0 and brings its brief tracks and clutter within l5id0019's bounds of
+`a0`'s ([report](../../../docs/lidar/operations/robust-birth-gate-kirk0-2026-11.md)).
+
 ## The kirk0 anchor
 
 l5id0015 (2026-11-05) bootstrapped the defaults on kirk0's tuning split (19 scored objects, the
