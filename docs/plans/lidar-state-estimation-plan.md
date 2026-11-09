@@ -3227,6 +3227,10 @@ architecture; it does not relitigate findings.
 - [ ] Label the jump tracks in VRLOG `f84105d8` (primary, 2,038 tracks) into the held-out
       regression set, then `0fb02f22` and `60a4774c`
 - [ ] Re-measure durations and frame counts for the re-split soma captures and `clar0-1`
+- [x] Trace and guard two-point initialisation's speed defect (l5est0006): the fast rows were
+      reflections the shipped cold start never confirmed; the guarded option passes its rule on
+      kirk0 and ashbury-downey, stays off, and is not shown to help
+      ([report](../lidar/operations/two-point-init-guards-2026-11.md))
 
 ### Deferred
 
