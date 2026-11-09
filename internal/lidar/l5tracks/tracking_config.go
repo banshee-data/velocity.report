@@ -298,9 +298,9 @@ type TrackerConfig struct {
 	// ArtefactAbsorb seeds no track from an unassociated cluster under
 	// 1.5 m long and wide with under 24 returns whose centroid lies within
 	// 1.25 m of the drawn box of a confirmed track matched this frame: the
-	// cluster is taken as that body's returns. The track's state is not
-	// updated from it (experiment l6cls0005). Default false. See
-	// artefact_birth.go.
+	// cluster is treated as part of that body and seeds no track, but it is
+	// not associated with the track and the track's state is not updated
+	// from it (experiment l6cls0005). Default false. See artefact_birth.go.
 	ArtefactAbsorb bool
 
 	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,

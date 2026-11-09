@@ -217,8 +217,9 @@ const (
 	ExperimentArtefactBirthGate = "artefact_birth_gate"
 	// ExperimentArtefactAbsorb is TrackerConfig.ArtefactAbsorb: an
 	// unassociated cluster that small and sparse, within 1.25 m of a live
-	// confirmed track's drawn box, is taken as that body's returns and
-	// seeds no track (experiment l6cls0005).
+	// confirmed track's drawn box, is treated as part of that body and
+	// seeds no track; it is not associated with the track (experiment
+	// l6cls0005).
 	ExperimentArtefactAbsorb = "artefact_absorb"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.
