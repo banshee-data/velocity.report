@@ -875,6 +875,24 @@ centre. It runs once on the tuning partition beside S2a, with T1 and T3:
 `$BASE,near_edge_track,near_edge_track_a1` against `$BASE,near_edge_track`, compared on confirmed
 tracks, births per confirmation, lapses and the lateral residual.
 
+#### l5id0022: where the tracked arm loses identity
+
+The November benchmark (l5id0019, PR #994) measured the tracked arm with the face state on kirk0 at
+HOTA −0.061 and IDF1 −0.106 against the defaults, with duplicate pairs 10 to 23. The
+[l5id0022 report](../lidar/operations/near-edge-identity-kirk0-2026-11.md) locates the loss. No
+zero-code control recovers it: A1 is worse, which clears A2's distance; the robust cost and
+tentative priority gain a little; the overlap end removes the duplicates and not the loss. The
+cause is the plausibility check that runs before A2. It bounds the distance from the predicted
+body centre to the cluster's medoid at 3 m (30 m/s over a 0.1 s frame), and a long body's medoid
+sits further than that from its own centre. So the body's own cluster was refused as a jump, and
+it seeded a second track on the same body. That was 32 of 183 births on kirk0, and none of the
+defaults'. Invariant 4 (like with like) held for the gate and not for the check in front of it.
+
+`near_edge_track_common_gate` (`TrackerConfig.NearEdgeCommonGate`, default off, bit-identical
+off) bounds instead the medoid's distance outside the predicted body's rectangle. The report
+gives its kirk0 rows against the rule. The residual burden is named there too: the bound admits
+any jump along a long body that the medoid alone cannot rule out, and A2's d² must judge it.
+
 ### S2.4: persistence, refined stages and oracle
 
 Per-row reference and support columns; smoother chain breaks and refined solid-body rows;
@@ -1047,6 +1065,12 @@ revisable association (S4 and later); a new default, which waits for labelled G-
 - [x] S2.2 shared state machine, reference translations, A2 association, `near_edge_track`
 - [x] S2.3 A1 ablation arm (`near_edge_track_a1`), default-off
 - [x] S2.3 A1 ablation on the tuning partition, on the Mac: A2 has 56 % and 46 % fewer lapses
+- [x] l5id0022 on kirk0: no zero-code control recovers the tracked arm's identity loss; the
+      medoid plausibility check seeded duplicates on long bodies, and
+      `near_edge_track_common_gate` (default off) removes those births but fails its rule. The
+      loss is association accuracy ([report](../lidar/operations/near-edge-identity-kirk0-2026-11.md))
+- [ ] Per-object AssA for the tracked arm on kirk0: which objects lose it, and whether body-centre
+      tracks take neighbours' clusters on faceless frames
 - [x] S2.4 per-row reference and support columns on `lidar_track_estimates` (migration 000057);
       the adapter reads them
 - [x] S2.4 refined-stage solid bodies, oracle coverage of `lidar_track_solid_bodies`: the smoother
