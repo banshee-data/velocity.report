@@ -520,6 +520,14 @@ type SolidBodyMeasurement struct {
 	HeadingNIS      float32
 	HeadingNISGated bool
 	HeadingNISKnown bool
+	// HeadingInnovationSq, HeadingPriorVariance and HeadingFitVariance are
+	// HeadingNIS's parts: r², the predicted P_psi-psi, and the axis source's
+	// variance before the box model's AxisSigmaScale, so that HeadingNIS is
+	// r² / (P + scale²·fit). Read only, like HeadingNIS; HeadingNISAtScale
+	// uses them.
+	HeadingInnovationSq  float32
+	HeadingPriorVariance float32
+	HeadingFitVariance   float32
 }
 
 // SolidBodyReading is a track's solid body at its latest update: the estimate,
@@ -653,8 +661,11 @@ type solidBodyTrack struct {
 	reference   ReferencePoint
 	orientation OrientationBelief
 	// shared says this frame's orientation is the box's heading posterior
-	// under SharedOrientation.
+	// under SharedOrientation. own is the orientation the body would hold
+	// without that option, carried as orientation is when it is off; only
+	// the box's agreement test reads it (boxBodyExtent).
 	shared     bool
+	own        OrientationBelief
 	estimation EstimationState
 
 	// lengthBelief and widthBelief are lower-bound extent evidence admitted
@@ -819,6 +830,7 @@ func (t *Tracker) seedSolidBody(track *TrackedObject, cluster WorldCluster) {
 		support:           SupportState{PointCount: cluster.PointsCount, Instant: SupportObserved},
 	}
 	sb.orientation = orientationFromTrack(track, OrientationBelief{})
+	sb.own = sb.orientation
 	effective, _ := class.Effective()
 	prior := dimensionPriorFor(effective)
 	if t.Config.SolidBody.AnisotropicReferenceBias {
@@ -985,9 +997,11 @@ func (t *Tracker) updateSolidBody(track *TrackedObject, cluster WorldCluster) {
 	prior := dimensionPriorFor(effective)
 	t.observeAxis(track, sb, cluster)
 	if o, ok := t.sharedOrientation(track); ok {
+		sb.own = t.ownOrientation(track, sb)
 		sb.orientation, sb.shared = o, true
 	} else {
 		sb.orientation, sb.shared = t.solidBodyOrientation(track, sb), false
+		sb.own = sb.orientation
 	}
 
 	frame := t.measureNearEdgeFrame(sb, cluster, prior, track.ObservationCount, track.MergeCandidate)

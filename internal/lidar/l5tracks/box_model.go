@@ -154,6 +154,17 @@ type BoxModelConfig struct {
 	// clusters and can change the tracks. Not a tuning key: the replay
 	// experiment box_extent_solid_body scores it.
 	BoxExtentFromSolidBody bool
+	// BodyExtentSharedAxis, under BoxExtentFromSolidBody and
+	// SolidBodyOptions.SharedOrientation, lets the axis test that guards the
+	// solid body's extent read the shared heading. That heading is the box's
+	// own, so on a shared frame the test cannot refuse, and every settled
+	// extent reaches the box: on kirk0 the refusals fall from 3,459 to 567.
+	// Off, the test reads the axis the body would hold without
+	// SharedOrientation (solidBodyTrack.own), so the shared heading changes
+	// which frames take the body's extent no more than box_extent_solid_body
+	// alone decides. Default false. Not a tuning key: the replay experiment
+	// box_extent_shared_axis names it (shared-orientation-duplicates-2026-11).
+	BodyExtentSharedAxis bool
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -241,9 +252,11 @@ type BoxInput struct {
 // BoxBodyExtent is the solid body's joint extent state as the box reads it:
 // the full dimensions 2·hL and 2·hW, their standard deviations 2·sqrt(P_hh),
 // whether a face or a bound has updated each (rather than the class prior
-// alone), the axis hL is measured along, and the standard deviation of the
-// class prior for the body's current motion class (the same for length and
-// width). Known is false when there is no such state to read: no solid body,
+// alone), the axis the box's agreement test compares with its heading (the
+// one hL is measured along, except on a shared frame: boxBodyExtent), and
+// the standard deviation of the class prior for the body's current motion
+// class (the same for length and width). Known is false when there is no
+// such state to read: no solid body,
 // no ExtentState, or a body still referenced to its medoid, whose faces have
 // not placed it.
 type BoxBodyExtent struct {
@@ -367,7 +380,7 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 	if t.Config.BoxModel.BoxExtentFromSolidBody {
 		// The solid body was updated in step 3c, before this step, so its
 		// extent state is this frame's.
-		in.Body = boxBodyExtent(track)
+		in.Body = boxBodyExtent(track, t.Config.BoxModel.BodyExtentSharedAxis)
 	}
 	var b BoxState
 	if p := track.box.pending; p.valid && p.nanos == nowNanos {
@@ -431,15 +444,28 @@ func (t *Tracker) advanceBoxHeading(track *TrackedObject, cluster *WorldCluster,
 // re-referenced from its medoid by a face. A medoid-referenced body's
 // half-extents have been moved by no face, only by the prior and bounds, and
 // the box keeps its own belief then.
-func boxBodyExtent(track *TrackedObject) BoxBodyExtent {
+//
+// AxisRad is the axis the box's agreement test reads. On a frame whose
+// orientation is shared (SolidBodyOptions.SharedOrientation) the body's
+// orientation is the box's heading, and a test against it always passes;
+// unless sharedAxis (BoxModelConfig.BodyExtentSharedAxis) says to read it
+// anyway, the test reads the axis the body would hold without the option.
+func boxBodyExtent(track *TrackedObject, sharedAxis bool) BoxBodyExtent {
 	sb := &track.solidBody
 	if !sb.seeded || !sb.ext.on || sb.reference != ReferenceBodyCentre || sb.orientation.Provenance == ProvenanceNone {
 		return BoxBodyExtent{}
 	}
+	axis := sb.orientation
+	if sb.shared && !sharedAxis {
+		if sb.own.Provenance == ProvenanceNone {
+			return BoxBodyExtent{}
+		}
+		axis = sb.own
+	}
 	l, w := sb.extentDimension(0), sb.extentDimension(1)
 	effective, _ := solidBodyClass(track).Effective()
 	return BoxBodyExtent{
-		Known: true, AxisRad: float64(sb.orientation.PsiRad), PriorSigma: float64(dimensionPriorFor(effective).sigmaMetres),
+		Known: true, AxisRad: float64(axis.PsiRad), PriorSigma: float64(dimensionPriorFor(effective).sigmaMetres),
 		Length: float64(l.Metres), Width: float64(w.Metres),
 		LengthSigma: float64(l.SigmaMetres), WidthSigma: float64(w.SigmaMetres),
 		LengthEvidence: l.Provenance.IsEvidence(), WidthEvidence: w.Provenance.IsEvidence(),
@@ -609,10 +635,15 @@ func (e *BoxEstimator) finish(in BoxInput, step boxStep) BoxState {
 // innovation variance before the update, and whether the gate refused it.
 // Known is false on a frame with no axis observation (a coast, an abstaining
 // fit) and on the seeding frame, which has no prediction to innovate on. A
-// calibrated filter's accepted innovations average one.
+// calibrated filter's accepted innovations average one. r2, prior and fit
+// are its parts: r², the predicted P_ψψ, and the axis source's own variance
+// before AxisSigmaScale, so that nis = r2 / (prior + scale²·fit) and a
+// replay can read what it would be with another scale on the same
+// innovations (SolidBodyMeasurement.HeadingNISAtScale).
 type boxAxisInnovation struct {
-	known, gated bool
-	nis          float64
+	known, gated   bool
+	nis            float64
+	r2, prior, fit float64
 }
 
 // boxScratchKeep is the most points a box keeps its scratch buffer for
@@ -690,7 +721,8 @@ func (e *BoxEstimator) correct(in BoxInput, pts [][2]float64, speed float64) *[2
 			// Read only: recorded for the calibration diagnostic, and used
 			// by nothing the filter computes.
 			e.axisInnovation = boxAxisInnovation{known: true, nis: r * r / s,
-				gated: gate > 0 && r*r > gate*gate*s}
+				gated: gate > 0 && r*r > gate*gate*s,
+				r2:    r * r, prior: e.p[0][0], fit: v / (e.axisSigmaScale() * e.axisSigmaScale())}
 		}
 		if gate <= 0 || r*r <= gate*gate*(e.p[0][0]+v) {
 			e.refusals = 0
@@ -1309,10 +1341,7 @@ func (e *BoxEstimator) axisWithSpans(cluster *WorldCluster, pts [][2]float64) (f
 	if cluster == nil {
 		return 0, 0, [2]float64{}, false
 	}
-	scale := e.cfg.AxisSigmaScale
-	if scale <= 0 {
-		scale = 1
-	}
+	scale := e.axisSigmaScale()
 	if e.cfg.AxisSource == BoxAxisMinArea && (len(cluster.Members) > 0 || len(cluster.RetainedPoints) > 0) {
 		members := cluster.Members
 		if len(members) == 0 {
@@ -1356,6 +1385,15 @@ func (e *BoxEstimator) axisWithSpans(cluster *WorldCluster, pts [][2]float64) (f
 		return 0, 0, [2]float64{}, false
 	}
 	return fit.AxisRad, fit.SigmaRad * scale, [2]float64{fit.Span1, fit.Span2}, true
+}
+
+// axisSigmaScale is the factor on the axis source's sigma: AxisSigmaScale,
+// or one when that is unset.
+func (e *BoxEstimator) axisSigmaScale() float64 {
+	if e.cfg.AxisSigmaScale <= 0 {
+		return 1
+	}
+	return e.cfg.AxisSigmaScale
 }
 
 // courseObservation is the direction of travel and its own spread, from the

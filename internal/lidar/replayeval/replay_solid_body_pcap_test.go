@@ -548,7 +548,17 @@ type headingArmSummary struct {
 	bodyFrames, disagree int       // body-centre frames, and those over 10° from the box
 	nis                  []float64 // accepted axis innovations' r²/S
 	gated                int
+	// atScale holds, per scale in sharedNISScales, the accepted innovations
+	// read against that AxisSigmaScale (HeadingNISAtScale); priorShare is
+	// each accepted innovation's share of S that is the predicted P.
+	atScale    [][]float64
+	priorShare []float64
 }
+
+// sharedNISScales are the AxisSigmaScale values the kirk0 calibration reads
+// the shared heading's innovations against, the tuning default first. The
+// tuning key stays at 1.5: these are readings of that filter's innovations.
+var sharedNISScales = []float64{1.5, 1.0, 0.75, 0.5}
 
 func (s *headingArmSummary) tap(f TrackerTapFrame) {
 	if !f.Scored {
@@ -565,6 +575,17 @@ func (s *headingArmSummary) tap(f TrackerTapFrame) {
 				s.gated++
 			} else {
 				s.nis = append(s.nis, float64(m.HeadingNIS))
+				if s.atScale == nil {
+					s.atScale = make([][]float64, len(sharedNISScales))
+				}
+				for i, k := range sharedNISScales {
+					if v, ok := m.HeadingNISAtScale(k); ok {
+						s.atScale[i] = append(s.atScale[i], v)
+					}
+				}
+				if total := float64(m.HeadingPriorVariance) + sharedNISScales[0]*sharedNISScales[0]*float64(m.HeadingFitVariance); total > 0 {
+					s.priorShare = append(s.priorShare, float64(m.HeadingPriorVariance)/total)
+				}
 			}
 		}
 		e := r.Estimate
@@ -583,10 +604,12 @@ func (s *headingArmSummary) tap(f TrackerTapFrame) {
 // shadow change, so its tracks are the face-state arm's exactly; the solid
 // body's axis then agrees with the box's on the body-centre frames it is
 // shared on, and the axis innovation's mean NIS says how the box filter's
-// variance stands against its errors on a real capture. With
-// box_extent_solid_body as well, it reports how many of the refusals on axis
-// that the box extent met in its own wiring check remain. Label-free, like
-// the other kirk0 arms.
+// variance stands against its errors on a real capture, and against smaller
+// axis_sigma_scale values on the same innovations. With
+// box_extent_solid_body as well, it reports the refusals on axis against the
+// box extent alone, with the agreement test on the body's own axis (the
+// default) and on the shared heading (box_extent_shared_axis). Label-free,
+// like the other kirk0 arms (shared-orientation-duplicates-2026-11).
 func TestSolidBodySharedOrientationOnKirk0(t *testing.T) {
 	dir := t.TempDir()
 	faceState := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState}
@@ -594,9 +617,12 @@ func TestSolidBodySharedOrientationOnKirk0(t *testing.T) {
 	plainHeading, sharedHeading := &headingArmSummary{}, &headingArmSummary{}
 	plain := runSolidBodyArmTapped(t, dir, "face_state", faceState, plainHeading.tap)
 	shared := runSolidBodyArmTapped(t, dir, "shared_orientation", with(ExperimentSolidBodySharedOrientation), sharedHeading.tap)
-	bothBox := newBoxArmSummary()
+	aloneBox, bothBox, sharedAxisBox := newBoxArmSummary(), newBoxArmSummary(), newBoxArmSummary()
+	alone := runSolidBodyArmTapped(t, dir, "box_extent", with(ExperimentBoxExtentSolidBody), aloneBox.tap)
 	both := runSolidBodyArmTapped(t, dir, "shared_orientation_box_extent",
 		with(ExperimentSolidBodySharedOrientation, ExperimentBoxExtentSolidBody), bothBox.tap)
+	sharedAxis := runSolidBodyArmTapped(t, dir, "shared_orientation_box_extent_shared_axis",
+		with(ExperimentSolidBodySharedOrientation, ExperimentBoxExtentSolidBody, ExperimentBoxExtentSharedAxis), sharedAxisBox.tap)
 
 	if !bytes.Equal(plain.baseline, shared.baseline) {
 		t.Fatal("solid_body_shared_orientation changed the tracking baseline: the shadow body's orientation reached the tracks")
@@ -618,10 +644,57 @@ func TestSolidBodySharedOrientationOnKirk0(t *testing.T) {
 		t.Errorf("sharing the heading left %d body-centre frames over 10° from the box, against %d without",
 			sharedHeading.disagree, plainHeading.disagree)
 	}
-	total := bothBox.totals()
-	t.Logf("kirk0 shared orientation with box_extent_solid_body: tracking baseline equal to the face state %v; associated frames: "+
-		"%d took the solid body's extent, %d had none to read, %d refused on axis, %d not yet settled",
-		bytes.Equal(plain.baseline, both.baseline), total.BodyExtentFrames, total.BodyExtentUnknown, total.BodyExtentAxisRefusals, total.BodyExtentUnsettled)
+	for i, k := range sharedNISScales {
+		v := sharedHeading.atScale[i]
+		t.Logf("kirk0 shared heading NIS read at axis_sigma_scale %.2f: mean %.3f, median %.3f, p90 %.3f, share over the 3-sigma gate %.1f %% "+
+			"(a calibrated chi-square(1) has median 0.455 and p90 2.71)",
+			k, meanFloat(v), evidenceMedian(v), evidenceQuantile(v, 0.9), 100*shareOver(v, 9))
+	}
+	t.Logf("kirk0 shared heading: predicted P_psi-psi's share of S at 1.5, median %.3f, p10 %.3f, p90 %.3f",
+		evidenceMedian(sharedHeading.priorShare), evidenceQuantile(sharedHeading.priorShare, 0.1), evidenceQuantile(sharedHeading.priorShare, 0.9))
+	if got, want := evidenceMedian(sharedHeading.atScale[0]), evidenceMedian(nis); math.Abs(got-want) > 1e-3*math.Max(1, want) {
+		t.Errorf("the reading at the filter's own scale has median %.4f, HeadingNIS %.4f", got, want)
+	}
+
+	// Beside box_extent_solid_body the box draws the solid body's extent, so
+	// the shared orientation reaches the box. Read against the body's own
+	// axis the agreement test refuses about as box_extent_solid_body alone
+	// does; read against the shared heading it can refuse only on unshared
+	// frames.
+	logArm := func(name string, arm solidBodyArm, s *boxArmSummary) l5tracks.BoxStats {
+		total := s.totals()
+		t.Logf("kirk0 %s: tracking baseline equal to box_extent_solid_body alone %v; associated frames: "+
+			"%d took the solid body's extent, %d had none to read, %d refused on axis, %d not yet settled",
+			name, bytes.Equal(alone.baseline, arm.baseline), total.BodyExtentFrames, total.BodyExtentUnknown, total.BodyExtentAxisRefusals, total.BodyExtentUnsettled)
+		return total
+	}
+	aloneTotal := logArm("box_extent_solid_body alone", alone, aloneBox)
+	ownTotal := logArm("shared orientation with box_extent_solid_body (own axis)", both, bothBox)
+	sharedTotal := logArm("shared orientation with box_extent_solid_body and box_extent_shared_axis", sharedAxis, sharedAxisBox)
+	logBoxLengthShift(t, aloneBox, bothBox)
+	logBoxLengthShift(t, aloneBox, sharedAxisBox)
+	if sharedTotal.BodyExtentAxisRefusals >= ownTotal.BodyExtentAxisRefusals {
+		t.Errorf("against the shared heading the test refused %d frames, against the own axis %d; want fewer",
+			sharedTotal.BodyExtentAxisRefusals, ownTotal.BodyExtentAxisRefusals)
+	}
+	if aloneTotal.BodyExtentAxisRefusals == 0 || ownTotal.BodyExtentAxisRefusals == 0 {
+		t.Errorf("no axis refusal with the own axis (%d) or with the box extent alone (%d)",
+			ownTotal.BodyExtentAxisRefusals, aloneTotal.BodyExtentAxisRefusals)
+	}
+}
+
+// shareOver is the share of v above x.
+func shareOver(v []float64, x float64) float64 {
+	if len(v) == 0 {
+		return math.NaN()
+	}
+	n := 0
+	for _, e := range v {
+		if e > x {
+			n++
+		}
+	}
+	return float64(n) / float64(len(v))
 }
 
 func meanFloat(v []float64) float64 {

@@ -1491,6 +1491,16 @@ The axis sigma's 1.5 scale, which stands in for the correlation between consecut
 first suspect. That is a G-UNC-1-style finding to resolve before the shared variance is trusted as
 `σψ²`.
 
+Read against smaller scales on the same innovations, the scale is not the whole cause
+([shared-orientation duplicates](../lidar/operations/shared-orientation-duplicates-2026-11.md)).
+The predicted `P_ψψ` is a median 41 % of the innovation variance. At a scale of 0.5 the median
+NIS is still 0.20 while the mean is already 1.52, so no axis scale brings both near χ²₁. Most
+innovations are smaller than the prediction allows, and a tail is larger than any scale admits.
+The prediction's variance and the tail need reading before a scale is chosen. Beside
+`box_extent_solid_body` the shared orientation also emptied the box's axis test, which reached the
+published box and, through the track guard, the tracks. The test now reads the body's own axis;
+the old reading is `box_extent_shared_axis`.
+
 **Defects fixed.** Two defects in the extent state, both on `ExtentState` alone, both default-off.
 
 - _Span bounds overshot._ The bound was a moment-matched lower truncation. Its mean lands above

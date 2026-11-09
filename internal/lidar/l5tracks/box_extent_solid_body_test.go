@@ -108,7 +108,7 @@ func runPartialTruck(t *testing.T, boxCfg BoxModelConfig) partialTruckResult {
 		mx, my := medoid(cluster.Members)
 		b := box.Observe(BoxInput{
 			Nanos: int64(k) * 1e8, X: mx, Y: my, VX: speed, VelCov: [3]float64{0.02, 0, 0.02},
-			Cluster: &cluster, Body: boxBodyExtent(track),
+			Cluster: &cluster, Body: boxBodyExtent(track, false),
 		})
 		assertContains(t, k, b, cluster.Members)
 		r.lengths = append(r.lengths, b.Length)
@@ -213,11 +213,11 @@ func TestBoxExtentFromSolidBodyFallsBackToTheShippedBox(t *testing.T) {
 func TestBoxBodyExtentNeedsABodyCentreExtentState(t *testing.T) {
 	track := boxPassBody(0, 5, 7)
 	sb := &track.solidBody
-	if boxBodyExtent(track).Known {
+	if boxBodyExtent(track, false).Known {
 		t.Fatal("a body without ExtentState has an extent to read")
 	}
 	seedSolidBodyExtent(sb, dimensionPriorFor(MotionRigidVehicle))
-	got := boxBodyExtent(track)
+	got := boxBodyExtent(track, false)
 	if !got.Known || got.Length != 4.5 || got.LengthEvidence || got.LengthSigma != 1.5 {
 		t.Fatalf("seeded at the prior: %+v, want 4.5 ± 1.5 m with no evidence", got)
 	}
@@ -226,15 +226,15 @@ func TestBoxBodyExtentNeedsABodyCentreExtentState(t *testing.T) {
 		t.Fatalf("an unclassified body's prior sigma %.2f m, want the unknown class's", got.PriorSigma)
 	}
 	track.ObjectClass, track.ObjectConfidence = "car", 0.9
-	if got := boxBodyExtent(track); got.PriorSigma != float64(dimensionPriorFor(MotionRigidVehicle).sigmaMetres) {
+	if got := boxBodyExtent(track, false); got.PriorSigma != float64(dimensionPriorFor(MotionRigidVehicle).sigmaMetres) {
 		t.Fatalf("a car's prior sigma %.2f m, want the rigid vehicle's", got.PriorSigma)
 	}
 	sb.ext.updates[0] = 3
-	if !boxBodyExtent(track).LengthEvidence {
+	if !boxBodyExtent(track, false).LengthEvidence {
 		t.Fatal("a half-extent updated by a face is not evidence")
 	}
 	sb.reference = ReferenceClusterMedoid
-	if boxBodyExtent(track).Known {
+	if boxBodyExtent(track, false).Known {
 		t.Fatal("a medoid-referenced body has an extent to read")
 	}
 }
