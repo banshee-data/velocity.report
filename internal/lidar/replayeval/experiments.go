@@ -381,6 +381,15 @@ const (
 	// and solid_body_extent_state (or solid_body_face_state, which includes
 	// it) and is refused without them.
 	ExperimentBoxExtentSolidBody = "box_extent_solid_body"
+	// ExperimentBoxExtentSharedAxis: l5tracks.BoxModelConfig.
+	// BodyExtentSharedAxis, box_extent_solid_body's axis test read against
+	// the shared heading under solid_body_shared_orientation. That heading is
+	// the box's own, so the test refuses nothing on a shared frame and every
+	// settled extent reaches the box, as the two options together did before
+	// shared-orientation-duplicates-2026-11; without this name the test reads
+	// the body's own axis. It needs box_extent_solid_body and
+	// solid_body_shared_orientation and is refused without either.
+	ExperimentBoxExtentSharedAxis = "box_extent_shared_axis"
 	// ExperimentBorderClasses: pipeline BorderClasses, foreground returns carrying the veil
 	// trait (a mixed return between a nearer and a farther neighbour in the same channel)
 	// withheld from L4 (l3bg0028). A treatment to test, not a claim that a veil bit is a mixed
@@ -491,6 +500,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSurfaceGround5m:                   true,
 	ExperimentBoxGround:                         true,
 	ExperimentBoxExtentSolidBody:                true,
+	ExperimentBoxExtentSharedAxis:               true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

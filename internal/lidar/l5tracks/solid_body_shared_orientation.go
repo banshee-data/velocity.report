@@ -34,7 +34,38 @@ package l5tracks
 // The calibration. Each frame's axis observation leaves its normalised
 // innovation r²/S on the solid body's measurement (HeadingNIS), S being the
 // filter's own innovation variance, so a replay can read whether the shared
-// variance is the variance the errors have.
+// variance is the variance the errors have. Its parts go with it, so the
+// same innovations can be read against another AxisSigmaScale
+// (HeadingNISAtScale) without changing the tuning key or the filter.
+//
+// The published box. Alone the option is a shadow: the box's heading half
+// and placement half are Observe's code split in two, with the same inputs,
+// so the box, and through L3's track guard the tracks, are what they are
+// without it. Beside BoxExtentFromSolidBody it is not, because the box then
+// draws the solid body's extent, and the solid body is what the option
+// changes. Two things reach the box that way. The extents themselves, now
+// found along the box's heading; that is the extent state the two options
+// together describe. And which frames take them: the box refuses an extent
+// measured along an axis more than the span window from its heading, and
+// on a shared frame the body's axis is the box's heading, so the test cannot
+// refuse. That second effect is gated on its own
+// (BoxModelConfig.BodyExtentSharedAxis): without it the test reads the
+// orientation the body would hold without the option (own), so the shared
+// heading does not also widen box_extent_solid_body's admission.
+// shared-orientation-duplicates-2026-11 measures both on kirk0.
+
+// ownOrientation is the orientation the body would hold this frame without
+// SharedOrientation: solidBodyOrientation with last frame's own orientation
+// as its previous belief, which is what orientation is when the option is
+// off. solidBodyOrientation reads the previous belief from sb.orientation,
+// so it is swapped in for the call and restored; nothing else is written.
+func (t *Tracker) ownOrientation(track *TrackedObject, sb *solidBodyTrack) OrientationBelief {
+	held := sb.orientation
+	sb.orientation = sb.own
+	own := t.solidBodyOrientation(track, sb)
+	sb.orientation = held
+	return own
+}
 
 // sharedOrientation is the box's heading posterior as the solid body's
 // orientation belief, and false when the option is off, the body is the
@@ -58,6 +89,26 @@ func (t *Tracker) sharedOrientation(track *TrackedObject) (OrientationBelief, bo
 // a solid body measurement, under SharedOrientation.
 func headingInnovation(track *TrackedObject, m *SolidBodyMeasurement) {
 	if b := track.box; b != nil && b.axisInnovation.known {
-		m.HeadingNIS, m.HeadingNISGated, m.HeadingNISKnown = float32(b.axisInnovation.nis), b.axisInnovation.gated, true
+		a := b.axisInnovation
+		m.HeadingNIS, m.HeadingNISGated, m.HeadingNISKnown = float32(a.nis), a.gated, true
+		m.HeadingInnovationSq, m.HeadingPriorVariance, m.HeadingFitVariance = float32(a.r2), float32(a.prior), float32(a.fit)
 	}
+}
+
+// HeadingNISAtScale is this frame's heading innovation normalised as if the
+// box model's AxisSigmaScale were scale: r² / (P + scale²·fit), on the
+// innovation and predicted variance the filter actually had. It is a reading
+// only. A filter run at that scale would carry another P and other
+// innovations, so this is not that filter's NIS: it reads how far the
+// observation variance alone is from the errors, with the filter's
+// prediction as it ran. False when the frame has no heading innovation.
+func (m SolidBodyMeasurement) HeadingNISAtScale(scale float64) (float64, bool) {
+	if !m.HeadingNISKnown {
+		return 0, false
+	}
+	s := float64(m.HeadingPriorVariance) + scale*scale*float64(m.HeadingFitVariance)
+	if !(s > 0) {
+		return 0, false
+	}
+	return float64(m.HeadingInnovationSq) / s, true
 }

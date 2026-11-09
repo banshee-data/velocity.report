@@ -223,7 +223,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentSharedAxis, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentConsistentCovarianceCap, ExperimentConsistentSpeedClamp, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
@@ -890,6 +890,39 @@ func TestSolidBodySharedOrientationRefusals(t *testing.T) {
 	}
 	if err := ValidateExperiments([]string{ExperimentSolidBodySharedOrientation}, "", "", nil); err == nil {
 		t.Errorf("%s was accepted without %s", ExperimentSolidBodySharedOrientation, ExperimentSolidBody)
+	}
+}
+
+// box_extent_shared_axis sets only its own option over the shared
+// orientation and the box extent, and is refused without either, under
+// which it would run as the arm the other name gives.
+func TestBoxExtentSharedAxisNeedsTheBoxExtentAndTheSharedOrientation(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	stack := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentSolidBodySharedOrientation, ExperimentBoxExtentSolidBody}
+	base, err := trackerConfigFor(l5, "", stack, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.BoxModel.BodyExtentSharedAxis {
+		t.Fatal("the stack without the name read the shared axis")
+	}
+	want := base
+	want.BoxModel.BodyExtentSharedAxis = true
+	got, err := trackerConfigFor(l5, "", append(append([]string{}, stack...), ExperimentBoxExtentSharedAxis), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("%s:\n got %+v\nwant %+v", ExperimentBoxExtentSharedAxis, got, want)
+	}
+	for _, without := range [][]string{
+		{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentBoxExtentSolidBody, ExperimentBoxExtentSharedAxis},
+		{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentSolidBodySharedOrientation, ExperimentBoxExtentSharedAxis},
+		{ExperimentBoxExtentSharedAxis},
+	} {
+		if _, err := trackerConfigFor(l5, "", without, nil); err == nil || !strings.Contains(err.Error(), ExperimentBoxExtentSharedAxis) {
+			t.Errorf("%q: want a refusal naming %s, got %v", without, ExperimentBoxExtentSharedAxis, err)
+		}
 	}
 }
 

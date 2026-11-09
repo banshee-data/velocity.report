@@ -1576,6 +1576,16 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		}
 		trackerConfig.BoxModel.BoxExtentFromSolidBody = true
 	}
+	if hasExperiment(experiments, ExperimentBoxExtentSharedAxis) {
+		// The axis test it changes is box_extent_solid_body's, and the axis
+		// it reads is the shared one: without either it would run as the
+		// arm the other names.
+		if !trackerConfig.BoxModel.BoxExtentFromSolidBody || !trackerConfig.SolidBody.SharedOrientation {
+			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s reads box_extent_solid_body's axis test against the shared heading, so it needs %s and %s, and %q lacks one",
+				ExperimentBoxExtentSharedAxis, ExperimentBoxExtentSolidBody, ExperimentSolidBodySharedOrientation, experiments)
+		}
+		trackerConfig.BoxModel.BodyExtentSharedAxis = true
+	}
 	if trackerConfig.ContainmentClaim || hasExperiment(experiments, ExperimentContainmentClaim) {
 		// The claim changes which track takes a cluster, so the returns it
 		// judges must reach the tracker on every replay, the determinism
