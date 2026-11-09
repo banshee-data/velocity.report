@@ -270,6 +270,20 @@ type TrackerConfig struct {
 	// it leaves no brief confirmed track behind (experiment l5id0014). It
 	// reads the on-body test and is refused without OverlapEndOnBody.
 	BirthGateOnBody bool
+	// FragmentBirthGate stops a fragment of a confirmed body seeding a
+	// track. An unassociated cluster seeds no track when, for some
+	// confirmed track, it is a fragment the fragment guard refuses
+	// (isFragmentFor) and it lies within that track's drawn box grown by a
+	// quarter metre plus one standard deviation of the track's position,
+	// at most fragmentBirthMaxSigmaMetres. The cluster is absorbed: no
+	// track is born and no track is updated with it. It is built for the
+	// robust likelihood cost, which removes the duplicate tracks that used
+	// to take these fragments, so they are left to seed brief tracks
+	// (experiment l5id0021); the replay names it robust_birth_gate and
+	// refuses it without that cost. It has no effect with the fragment
+	// guard off (MinAssociableExtentMetres zero). Default false; see
+	// fragment_birth_gate.go.
+	FragmentBirthGate bool
 
 	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,
 	// cyclist or motorcyclist with a cluster outside that label's geometric

@@ -1038,6 +1038,10 @@ type ContinuityStats struct {
 	// refusals would lower maximum matching cardinality. Restored edges are
 	// excluded from ContainmentClaimRefusals.
 	ContainmentClaimGuardFallbacks int64 `json:"containment_claim_guard_fallbacks,omitempty"`
+	// FragmentBirthsAbsorbed counts unassociated clusters FragmentBirthGate
+	// kept from seeding a track: fragments inside a confirmed track's grown
+	// box. Zero, and omitted, with the option off.
+	FragmentBirthsAbsorbed int64 `json:"fragment_births_absorbed,omitempty"`
 }
 
 // ContinuityStats returns a snapshot of the continuity diagnostics.
