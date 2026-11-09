@@ -376,6 +376,11 @@ type TrackingPipelineConfig struct {
 	// OnFragmentJoin is an optional offline counter hook, called only when
 	// the joining experiment runs. It does not control the partition.
 	OnFragmentJoin func(componentsJoined int)
+	// OnFragmentJoinRecords is an optional offline hook, called on each frame
+	// where the join changed the partition, with one record per joined
+	// cluster (fragmentJoinRecords; l4clus0011's merge reference). It does
+	// not control the partition.
+	OnFragmentJoinRecords func([]FragmentJoinRecord)
 
 	// FeatureExportFunc, when non-nil, is called for every confirmed track
 	// after classification. This hook allows exporting feature vectors for
@@ -1117,13 +1122,21 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 		if fragmentJoin.Enabled && profile.RunsLayer(5) && !isNilInterface(cfg.Tracker) {
 			var hints []l4perception.FragmentHint
+			var confirmed []*l5tracks.TrackedObject
 			if cfg.FragmentJoinTrackerConfig != nil {
-				hints = motionFragmentHints(cfg.Tracker.GetConfirmedTracks(), frame.StartTimestamp, fragmentJoin, cfg.FragmentJoinTrackerConfig(), cfg.FragmentJoinTrackMembership)
+				confirmed = cfg.Tracker.GetConfirmedTracks()
+				hints = motionFragmentHints(confirmed, frame.StartTimestamp, fragmentJoin, cfg.FragmentJoinTrackerConfig(), cfg.FragmentJoinTrackMembership)
 			}
+			// JoinMotionFragments neither mutates its input partition nor its
+			// trace's labels, so the record reads the partition it was given.
+			before, beforeTrace := clusters, trace
 			var joined int
 			clusters, trace, joined = l4perception.JoinMotionFragments(clusters, trace, dbscanParams, hints, fragmentJoin.MaxGapMetres, fragmentJoin.MarginMetres)
 			if cfg.OnFragmentJoin != nil {
 				cfg.OnFragmentJoin(joined)
+			}
+			if joined > 0 && cfg.OnFragmentJoinRecords != nil {
+				cfg.OnFragmentJoinRecords(fragmentJoinRecords(before, beforeTrace, clusters, trace, hints, confirmed, frame.FrameID, frame.StartTimestamp, fragmentJoin.MarginMetres))
 			}
 		}
 		if len(lowerGroundRejected) > 0 {

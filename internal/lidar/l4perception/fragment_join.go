@@ -149,6 +149,13 @@ func validFragmentRect(r Rect) bool {
 	return r.Length > 0 && r.Width > 0
 }
 
+// FragmentFootprintContains reports whether p lies inside r grown by margin
+// on every side: the membership test JoinMotionFragments applies, exported so
+// an offline reader judges a join by the same rule rather than a copy of it.
+func FragmentFootprintContains(r Rect, p WorldPoint, margin float64) bool {
+	return fragmentContains(r, p, margin)
+}
+
 func fragmentContains(r Rect, p WorldPoint, margin float64) bool {
 	if math.IsNaN(p.X) || math.IsNaN(p.Y) || math.IsNaN(p.Z) || math.IsInf(p.X, 0) || math.IsInf(p.Y, 0) || math.IsInf(p.Z, 0) {
 		return false
