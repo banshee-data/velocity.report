@@ -463,8 +463,61 @@ func (s *boxArmSummary) totals() l5tracks.BoxStats {
 		sum.BodyExtentUnknown += st.BodyExtentUnknown
 		sum.BodyExtentAxisRefusals += st.BodyExtentAxisRefusals
 		sum.BodyExtentUnsettled += st.BodyExtentUnsettled
+		sum.BodyExtentWidthFrames += st.BodyExtentWidthFrames
+		sum.BodyExtentOneSided += st.BodyExtentOneSided
 	}
 	return sum
+}
+
+// TestBoxExtentMeasuredLengthOnKirk0 is box_extent_measured_length's wiring
+// check against box_extent_solid_body on the face-state solid body: #984's
+// arm takes the extent state's width on some frames (the width that widened
+// car 8's box in l5id0019), and the measured-only arm takes it on fewer,
+// keeps the box's own width on frames the state settled from one side, and
+// still takes the length. Label-free: geom0017 scores the boxes against
+// geom0015's reviewed poses.
+func TestBoxExtentMeasuredLengthOnKirk0(t *testing.T) {
+	dir := t.TempDir()
+	arm := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentBoxExtentSolidBody}
+	allBox, measuredBox := newBoxArmSummary(), newBoxArmSummary()
+	all := runSolidBodyArmTapped(t, dir, "box_extent_solid_body", arm, allBox.tap)
+	measured := runSolidBodyArmTapped(t, dir, "box_extent_measured_length",
+		append(append([]string{}, arm...), ExperimentBoxExtentMeasuredLength), measuredBox.tap)
+	if measured.params == all.params {
+		t.Error("box_extent_measured_length shares box_extent_solid_body's parameter hash")
+	}
+	a, m := allBox.totals(), measuredBox.totals()
+	vehicleWidths := func(s *boxArmSummary) []float64 {
+		var w []float64
+		for seq, l := range s.maxLength {
+			if l >= 3.5 && s.maxWidth[seq] >= 1.5 {
+				w = append(w, s.maxWidth[seq])
+			}
+		}
+		return w
+	}
+	aw, mw := vehicleWidths(allBox), vehicleWidths(measuredBox)
+	t.Logf("kirk0 box_extent_solid_body: %d took the state (%d the width), %d none to read, %d axis refusals, %d unsettled; "+
+		"vehicle tracks %d, width at the longest box median %.2f m, p90 %.2f m",
+		a.BodyExtentFrames, a.BodyExtentWidthFrames, a.BodyExtentUnknown, a.BodyExtentAxisRefusals, a.BodyExtentUnsettled,
+		len(aw), evidenceMedian(aw), evidenceQuantile(aw, 0.9))
+	t.Logf("kirk0 box_extent_measured_length: %d took the state (%d the width), %d kept a one-sided dimension, %d none to read, "+
+		"%d axis refusals, %d unsettled; vehicle tracks %d, width at the longest box median %.2f m, p90 %.2f m; tracking baseline equal %v",
+		m.BodyExtentFrames, m.BodyExtentWidthFrames, m.BodyExtentOneSided, m.BodyExtentUnknown, m.BodyExtentAxisRefusals, m.BodyExtentUnsettled,
+		len(mw), evidenceMedian(mw), evidenceQuantile(mw, 0.9), bytes.Equal(all.baseline, measured.baseline))
+	if a.BodyExtentOneSided != 0 {
+		t.Errorf("box_extent_solid_body counted %d one-sided frames without the qualifier", a.BodyExtentOneSided)
+	}
+	if a.BodyExtentWidthFrames == 0 {
+		t.Fatal("box_extent_solid_body took no width from the state on kirk0: the comparison has nothing to show")
+	}
+	if m.BodyExtentWidthFrames >= a.BodyExtentWidthFrames || m.BodyExtentOneSided == 0 {
+		t.Errorf("measured only took the width on %d frames against %d, with %d one-sided: want fewer, and one-sided frames kept",
+			m.BodyExtentWidthFrames, a.BodyExtentWidthFrames, m.BodyExtentOneSided)
+	}
+	if m.BodyExtentFrames == 0 {
+		t.Error("measured only took no length from the state on kirk0")
+	}
 }
 
 // TestBoxExtentFromSolidBodyOnKirk0 is box_extent_solid_body's wiring check:

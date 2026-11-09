@@ -85,6 +85,32 @@ func boxFingerprintScenarios() []solidBodyFingerprintScenario {
 			// Moved with the span-bound projection (#989), as above.
 			golden: "164ca110ef6a341a",
 		},
+		{
+			// BoxExtentFromSolidBody as #984 built it, both dimensions from
+			// the extent state: BoxExtentMeasuredOnly off must leave it as it
+			// was, so the box_extent_solid_body arm stays reproducible. Taken
+			// on the code before BoxExtentMeasuredOnly existed.
+			name: "box_truck_extent_from_solid_body",
+			pass: throughTruckPass,
+			config: func() TrackerConfig {
+				cfg := faceStateConfig()
+				cfg.BoxModel.BoxExtentFromSolidBody = true
+				return cfg
+			},
+			golden: "f27a0b5b991eb1d0",
+		},
+		{
+			// BoxExtentMeasuredOnly without BoxExtentFromSolidBody qualifies
+			// nothing: box_truck_face_state's digest.
+			name: "box_truck_measured_only_alone",
+			pass: throughTruckPass,
+			config: func() TrackerConfig {
+				cfg := faceStateConfig()
+				cfg.BoxModel.BoxExtentMeasuredOnly = true
+				return cfg
+			},
+			golden: "dab1c76a63b6fc6c",
+		},
 	}
 }
 
