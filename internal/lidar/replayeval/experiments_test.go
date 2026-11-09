@@ -228,7 +228,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
 		ExperimentFixedLagRTS, ExperimentFlipRule, ExperimentFragmentJoinTrackMembership,
-		ExperimentHeldToL4, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
+		ExperimentHeldToL4, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1, ExperimentNearEdgeTrackCommonGate,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentOverlapEndBody,
 		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentRobustBirthGate, ExperimentRobustLikelihoodCost, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody,
@@ -559,6 +559,19 @@ func TestNearEdgeTrackReachesItsOptionAndRefusesWhatItCannotCarry(t *testing.T) 
 	}
 	if _, err := trackerConfigFor(l5, "", append([]string{ExperimentNearEdgeTrackA1}, arm[:2]...), nil); err == nil {
 		t.Error("near_edge_track_a1 was accepted without near_edge_track")
+	}
+	// The common gate (l5id0022) qualifies A2's gate: it reaches its own
+	// option and nothing else, and is refused alone and with A1.
+	want.NearEdgeMedoidGate = false
+	want.NearEdgeCommonGate = true
+	if got, err := trackerConfigFor(l5, "", append([]string{ExperimentNearEdgeTrackCommonGate}, arm...), nil); err != nil || got != want {
+		t.Errorf("near_edge_track_common_gate (%v):\n got %+v\nwant %+v", err, got, want)
+	}
+	if _, err := trackerConfigFor(l5, "", append([]string{ExperimentNearEdgeTrackCommonGate}, arm[:2]...), nil); err == nil {
+		t.Error("near_edge_track_common_gate was accepted without near_edge_track")
+	}
+	if _, err := trackerConfigFor(l5, "", append([]string{ExperimentNearEdgeTrackCommonGate, ExperimentNearEdgeTrackA1}, arm...), nil); err == nil {
+		t.Error("near_edge_track_common_gate was accepted with near_edge_track_a1")
 	}
 }
 

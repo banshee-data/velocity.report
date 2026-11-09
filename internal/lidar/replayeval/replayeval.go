@@ -1553,6 +1553,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		trackerConfig.SolidBody = opts
 		trackerConfig.NearEdgeTracking = trackerConfig.NearEdgeTracking || hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = trackerConfig.NearEdgeMedoidGate || hasExperiment(experiments, ExperimentNearEdgeTrackA1)
+		trackerConfig.NearEdgeCommonGate = trackerConfig.NearEdgeCommonGate || hasExperiment(experiments, ExperimentNearEdgeTrackCommonGate)
 		// With near_edge_track the extent state is the tracked filter's: it
 		// carries the extent block through prediction, the cap, the speed
 		// clamp and the medoid update, and the faces update it jointly
@@ -1760,7 +1761,15 @@ func nearEdgeTrackRefusal(experiments []string, tuningNearEdge bool, mode l5trac
 			return fmt.Errorf("replay experiment %s is an ablation of %s and is refused without it",
 				ExperimentNearEdgeTrackA1, ExperimentNearEdgeTrack)
 		}
+		if hasExperiment(experiments, ExperimentNearEdgeTrackCommonGate) {
+			return fmt.Errorf("replay experiment %s qualifies the gate of %s and is refused without it",
+				ExperimentNearEdgeTrackCommonGate, ExperimentNearEdgeTrack)
+		}
 		return nil
+	}
+	if hasExperiment(experiments, ExperimentNearEdgeTrackCommonGate) && hasExperiment(experiments, ExperimentNearEdgeTrackA1) {
+		return fmt.Errorf("replay experiment %s takes the A2 gate on a common point, and %s replaces A2 with the medoid gate; name one",
+			ExperimentNearEdgeTrackCommonGate, ExperimentNearEdgeTrackA1)
 	}
 	if named {
 		// The tuning file's block validated its own needs; a named

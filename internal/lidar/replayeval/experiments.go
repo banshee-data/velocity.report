@@ -368,6 +368,14 @@ const (
 	// a medoid-referenced track is, instead of A2's face residual. It
 	// qualifies near_edge_track and is refused without it.
 	ExperimentNearEdgeTrackA1 = "near_edge_track_a1"
+	// ExperimentNearEdgeTrackCommonGate (l5tracks.TrackerConfig.
+	// NearEdgeCommonGate, l5id0022): near_edge_track with the plausibility
+	// check of a body-centre track's A2 pairing taken on the same point as
+	// the gate, the least the body must have moved, instead of the medoid's
+	// distance from the body centre. It qualifies near_edge_track and is
+	// refused without it and with near_edge_track_a1, whose gate is the
+	// medoid's by definition.
+	ExperimentNearEdgeTrackCommonGate = "near_edge_track_common_gate"
 	// ExperimentSurfaceGround: Config.UseSurfaceGround by name, P11's lower
 	// clip on height above the surface fitted from the settled background
 	// rather than on absolute sensor Z, so a spec's arm can name it as it
@@ -507,6 +515,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodySharedOrientation:        true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
+	ExperimentNearEdgeTrackCommonGate:           true,
 	ExperimentSurfaceGround:                     true,
 	ExperimentSurfaceGroundGlobal:               true,
 	ExperimentSurfaceGround5m:                   true,
