@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 9, 2026 - Weekly research briefing
+
+- {claude/research-briefing-2026-11-09} Ran the weekly research briefing for November 2 to 9: a structured review of surrogate safety measures from roadside sensing (Salah, Li and Wang, arXiv 2611.04988), read in full, agrees with the behaviour plan's interaction-type rule and PET gates and is adopted as a reference, its 6 s PET and 1.15 s TTC values held out of Section 5.1 as secondary with two open questions; two UrbanTwin roadside LiDAR challenge reports confirm the L1 zero-distance skip and the state plan's visible-surface bias; no definition, threshold or metric changed ([briefing](lidar/operations/brief/research-briefing-2026-11-09.md)).
+
 ## November 8, 2026 - Maths review of face state estimation and CV/CA tracking, lane review across the city, LiDAR workflow audit
 
 - Split the replayeval race tests into a third CI shard, `replay-c` (observation frames and tap, likelihood costs, fragment-join membership), after replay-b hit its 25-minute `-timeout` on #986 at 26.8 minutes; `scripts/go-test-shard.sh --check` now proves the test partition under both builds, and the three shards ran 9.8 to 16.4 minutes (#985, #986)

@@ -1741,6 +1741,11 @@ document, that is stated at the point of use.
 - [October 19, 2026 research briefing](../lidar/operations/brief/research-briefing-2026-10-19.md):
   Chu et al. cited for the Waymo Open Motion caveat in Section 11; a roadside camera-radar extent
   paper and a sports tracker's gating finding, neither adopted.
+- [November 9, 2026 research briefing](../lidar/operations/brief/research-briefing-2026-11-09.md):
+  Salah, Li and Wang (`Salah2026`), a structured review of surrogate safety measures from roadside
+  sensing, agrees with the interaction-type rule in Section 8 and the PET gates; its 6 s PET and
+  1.15 s TTC values are secondary and do not enter Section 5.1. Open: Q1 (read Singh et al. 2024
+  for Section 5.1) and Q2 (a quantity for the longitudinal TTC rule from Li et al. 2024).
 
 **Roadside LiDAR perception**
 
