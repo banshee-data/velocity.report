@@ -321,12 +321,12 @@ type SolidBodyOptions struct {
 	// SpanBoundsBelief (solid_body_extent_accrual.go). Three changes, all to
 	// the bounds and none to the faces:
 	//
-	//   - A bound is taken only along a believed axis: the face axis when it
-	//     came from the course, or when its orientation variance is within
-	//     axisBelievedSigmaRad and the course does not contradict it;
-	//     otherwise the course itself, when its variance is within the same
-	//     bound; otherwise none. The width bound off an unsettled heading,
-	//     which only ever raised the width, is no longer taken.
+	//   - A bound is the window-minimum span over as wide a window of axes as
+	//     the axis is uncertain: about the face axis or, where its variance is
+	//     smaller, the course, with a half-window of twice the standard
+	//     deviation, from spanSearchHalfWindowDeg up to a quarter-turn. Off an
+	//     unsettled heading a width bound is then the returns' least width,
+	//     which no axis error can carry past the body's.
 	//   - Each half-extent keeps the largest lower bound that
 	//     extentBeliefCorroboration admitted frames reached, and every frame
 	//     holds the half-extent at or above it by the same projection as the

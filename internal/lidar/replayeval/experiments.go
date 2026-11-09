@@ -345,10 +345,10 @@ const (
 	ExperimentSolidBodyFaceState                = "solid_body_face_state"
 	// ExperimentSolidBodyExtentAccrual:
 	// l5tracks.SolidBodyOptions.ExtentBoundAccrual, the extent state's span
-	// bounds taken only along a believed axis (the course when the face axis
-	// is not) and accrued over the track's life as the largest bound three
-	// admitted frames reached, a merge candidate one body wide giving its
-	// length to that record. It needs solid_body with the extent state and
+	// bounds taken over a window of axes as wide as the axis is uncertain
+	// (about the course when it is the better believed) and accrued over the
+	// track's life as the largest bound three admitted frames reached, a
+	// merge candidate one body wide giving its length to that record. It needs solid_body with the extent state and
 	// the span bounds (solid_body_face_state, or solid_body_extent_state with
 	// solid_body_censored_extent or solid_body_span_bounds_belief), and is
 	// refused without them, where it would run as the arm it qualifies.

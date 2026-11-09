@@ -7,8 +7,9 @@ import (
 
 // Tests for ExtentBoundAccrual (solid_body_extent_accrual.go). What carries
 // the weight: the record holds the largest bound three admitted frames
-// reached and no single frame's; a bound is taken only along a believed
-// axis, the course standing in for an unsettled face axis; a merge
+// reached and no single frame's; a bound's window of axes is as wide as the
+// axis is uncertain, the course standing in for an unsettled face axis, and
+// a quarter-turn window cannot pass the body's width; a merge
 // candidate gives its length to the record, never its width and never as
 // the frame's own bound, and only when it is one body wide; and through the
 // state machine the record holds a half-extent after a face that would carry
@@ -72,42 +73,63 @@ func accrualBody(speed, psi, psiVariance float32) *solidBodyTrack {
 	return sb
 }
 
-func TestExtentAccrualTakesBoundsOnlyAlongABelievedAxis(t *testing.T) {
+func TestExtentAccrualWidensTheWindowAsTheAxisIsUncertain(t *testing.T) {
 	tracker := accrualTracker()
-	// A face axis 40 degrees off the course with a variance of 1 rad²: the
-	// course is used.
+	// A settled face axis the course agrees with: the face axis, at the fixed
+	// window, as main takes it.
+	settled := accrualBody(6, 0.05, 1e-4)
+	if axis, half := tracker.boundWindow(settled, 0.05, false); axis != 0.05 || half != spanSearchHalfWindowDeg {
+		t.Errorf("settled face axis: %.3f ±%d°, want 0.05 ±%d°", axis, half, spanSearchHalfWindowDeg)
+	}
+	// A face axis 40 degrees off at speed with a variance of 1 rad²: the
+	// course, whose sigma is under a degree, at the fixed window.
 	sb := accrualBody(6, 0.7, 1)
-	if axis, ok := tracker.boundAxis(sb, 0.7, false); !ok || math.Abs(float64(axis)) > 1e-6 {
-		t.Errorf("unsettled face axis at speed: bound axis %.3f (%v), want the course, 0", axis, ok)
+	if axis, half := tracker.boundWindow(sb, 0.7, false); math.Abs(float64(axis)) > 1e-6 || half != spanSearchHalfWindowDeg {
+		t.Errorf("unsettled face axis at speed: %.3f ±%d°, want the course, 0, ±%d°", axis, half, spanSearchHalfWindowDeg)
 	}
-	// The same body below the course speed: nothing is believed, where
-	// spanAxisBelieved alone believes any axis.
-	slow := accrualBody(1, 0.7, 1)
-	if _, ok := tracker.boundAxis(slow, 0.7, false); ok {
-		t.Error("an unsettled face axis below the course speed was believed")
-	}
-	if !spanAxisBelieved(slow, 0.7, false) {
-		t.Error("the case needs spanAxisBelieved to believe the slow body's axis")
-	}
-	// A settled face axis the course agrees with is the face axis.
-	settled := accrualBody(6, 0.05, 3e-4)
-	if axis, ok := tracker.boundAxis(settled, 0.05, false); !ok || axis != 0.05 {
-		t.Errorf("settled face axis: bound axis %.3f (%v), want 0.05", axis, ok)
-	}
-	// A settled face axis the course contradicts is not; the course is.
+	// A settled face axis the course contradicts is not a candidate.
 	contradicted := accrualBody(6, 0.5, 3e-4)
-	if axis, ok := tracker.boundAxis(contradicted, 0.5, false); !ok || math.Abs(float64(axis)) > 1e-6 {
-		t.Errorf("contradicted face axis: bound axis %.3f (%v), want the course", axis, ok)
+	if axis, _ := tracker.boundWindow(contradicted, 0.5, false); math.Abs(float64(axis)) > 1e-6 {
+		t.Errorf("contradicted face axis: %.3f, want the course", axis)
 	}
-	// An axis taken from the course is believed by construction.
-	if axis, ok := tracker.boundAxis(slow, 0.3, true); !ok || axis != 0.3 {
-		t.Errorf("course face axis: bound axis %.3f (%v), want 0.3", axis, ok)
+	// Below the course speed there is no course: the face axis, with twice
+	// its sigma, 0.4 rad, as the half-window, and a quarter-turn at most.
+	slow := accrualBody(1, 0.7, 0.04)
+	if axis, half := tracker.boundWindow(slow, 0.7, false); axis != 0.7 || half != 23 {
+		t.Errorf("slow body, sigma 0.2 rad: %.3f ±%d°, want 0.7 ±23°", axis, half)
 	}
-	// A course whose own variance is wide is not believed either.
-	loose := accrualBody(6, 0.7, 1)
-	loose.p[10], loose.p[15] = 4, 4
-	if _, ok := tracker.boundAxis(loose, 0.7, false); ok {
-		t.Error("a course with a 0.33 rad sigma was believed")
+	slow.orientation.VarianceRad2 = 1
+	if _, half := tracker.boundWindow(slow, 0.7, false); half != 90 {
+		t.Errorf("slow body, sigma 1 rad: ±%d°, want ±90°", half)
+	}
+	// An axis the faces took from the course takes the fixed window.
+	if axis, half := tracker.boundWindow(slow, 0.3, true); axis != 0.3 || half != spanSearchHalfWindowDeg {
+		t.Errorf("course face axis: %.3f ±%d°, want 0.3 ±%d°", axis, half, spanSearchHalfWindowDeg)
+	}
+}
+
+// A 9 m by 2.6 m side seen along an axis 40 degrees off: over the fixed
+// window its across-span is over 5.5 m, which as a width bound is the ratchet;
+// over a quarter-turn window both bounds are at most the true width, and
+// within a few centimetres of it.
+func TestExtentAccrualWideWindowBoundsCannotPassTheWidth(t *testing.T) {
+	points := strip(15.5, 9, 3.7, 2.6, 40)
+	_, fixed := windowSpans(points, 0.7, spanSearchHalfWindowDeg)
+	if !(fixed > 5.5) {
+		t.Fatalf("the fixed window 40 degrees off gave an across-span of %.2f m; the case needs one past 5.5 m", fixed)
+	}
+	along, across := windowSpans(points, 0.7, 90)
+	t.Logf("40 degrees off: fixed-window across-span %.2f m; quarter-turn window %.2f m along, %.2f m across", fixed, along, across)
+	for _, v := range []float32{along, across} {
+		if v > 2.6+1e-3 || v < 2.4 {
+			t.Errorf("quarter-turn window span %.3f m, want at most the 2.6 m width and within 0.2 m of it", v)
+		}
+	}
+	// At the fixed window it is exactly main's computation.
+	l, w := windowSpans(points, 0.05, spanSearchHalfWindowDeg)
+	ml, mw := windowMinimumSpans(points, 0.05)
+	if l != ml || w != mw {
+		t.Errorf("fixed window %.4f, %.4f against windowMinimumSpans' %.4f, %.4f", l, w, ml, mw)
 	}
 }
 
@@ -135,9 +157,11 @@ func TestExtentAccrualMergeCandidateGivesItsLengthToTheRecordOnly(t *testing.T) 
 	if frame, accrued = tracker.accrualSpanBounds(sb, longer, prior, 0.7, false, false); frame != ([2]float32{}) || accrued != ([2]float32{}) {
 		t.Fatalf("while initialising: bound %v, accrued %v; want nothing", frame, accrued)
 	}
+	// Below the course speed with an unsettled axis, both bounds are the
+	// least width.
 	slow := accrualBody(1, 0.7, 1)
-	if frame, accrued = tracker.accrualSpanBounds(slow, longer, prior, 0.7, false, false); frame != ([2]float32{}) || accrued != ([2]float32{}) {
-		t.Fatalf("on no believed axis: bound %v, accrued %v; want nothing", frame, accrued)
+	if frame, _ = tracker.accrualSpanBounds(slow, longer, prior, 0.7, false, false); frame[0] > 2.6 || frame[1] > 2.6 || !(frame[1] > 2.0) {
+		t.Fatalf("on an unsettled axis: bound %v, want both at most the 2.6 m width, the width's near it", frame)
 	}
 }
 

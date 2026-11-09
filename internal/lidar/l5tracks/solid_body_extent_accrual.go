@@ -25,17 +25,27 @@ package l5tracks
 // and the supported one, by the same projection, so the record cannot narrow
 // P either and a run of equal bounds moves the mean once.
 //
-// The axis. A span is a lower bound on a dimension only along the body's own
-// axis. The face axis is believed when it is the course (axisIsCourse), or
-// when its orientation variance is within axisBelievedSigmaRad and, at speed,
-// the course does not contradict it (spanAxisBelieved). Otherwise the course
-// is used when its own variance is within the same bound: at speed a road
-// vehicle moves along its axis, and the window-minimum span covers a course
-// within spanSearchHalfWindowDeg of the axis. Otherwise no bound is taken. On
-// kirk0 truck 2's face axis sat 12 to 60 degrees from its course, with an
-// orientation variance over 0.4 rad², for the first 20 s of its track, and
-// spanAxisBelieved, which compares nothing below CourseAlignmentMinSpeedMps,
-// admitted bounds there along an axis 40 to 50 degrees from the course.
+// The axis. A span along the body's axis is a lower bound on the dimension,
+// and the minimum over a window of axes is one too when the window contains
+// the true axis (minimumAxisSpan). Main takes the frame's bounds over a fixed
+// window of spanSearchHalfWindowDeg either side of the face axis, believed
+// unless the course contradicts it at speed (spanAxisBelieved), which
+// compares nothing below CourseAlignmentMinSpeedMps. Under this option the
+// window is as wide as the axis is uncertain: the face axis or, where it is
+// believed better, the course, each with its variance, and a half-window of
+// twice the standard deviation, never under spanSearchHalfWindowDeg and never
+// over a quarter-turn (boundWindow). At a quarter-turn the window holds every
+// axis, and both bounds are the visible returns' least width, which no axis
+// error can carry past the body's width. On kirk0 truck 2's face axis sat 12
+// to 60 degrees from its course, with an orientation variance over 0.4 rad²,
+// for the first 20 s of its track, and its bounds there were taken along an
+// axis 40 to 50 degrees from the course: across that axis a whole 9.6 m by
+// 2.8 m body spans over 8 m.
+//
+// The first version of this option refused a bound off an unsettled axis
+// instead of widening its window (geom0017's first read). Without the width
+// bounds the faces carried widths to the half-extent floor on twelve times
+// as many rows, and without the length bounds truck 1 and car 8 read shorter.
 //
 // Merges. Section 9.2.1 refuses a merge candidate's spans. The tracker's
 // merge flag is an area ratio against the track's running box (tracking.go),
@@ -112,44 +122,89 @@ func (t *Tracker) accruesExtentBounds(sb *solidBodyTrack) bool {
 	return t.Config.SolidBody.ExtentBoundAccrual && sb.ext.on && t.takesSpanBounds(sb)
 }
 
-// boundAxis is the axis a frame's span bounds are taken along under
-// ExtentBoundAccrual, and false when no axis is believed (see the file
-// comment).
-func (t *Tracker) boundAxis(sb *solidBodyTrack, axis float32, axisIsCourse bool) (float32, bool) {
-	const believed = axisBelievedSigmaRad * axisBelievedSigmaRad
+// boundWindow is the axis a frame's span bounds are taken about under
+// ExtentBoundAccrual and the half-window, in whole degrees, they are the
+// minimum over (see the file comment). Of the face axis and, at speed, the
+// course, the one with the smaller variance is taken; the face axis is not a
+// candidate where the course contradicts it (spanAxisBelieved). An axis the
+// faces took from the course, or that RectangleHeading or SharedOrientation
+// believe, takes the fixed window.
+func (t *Tracker) boundWindow(sb *solidBodyTrack, axis float32, axisIsCourse bool) (float32, int) {
+	best, variance := axis, math.Inf(1)
 	if axisIsCourse {
-		return axis, true
+		variance = axisBelievedSigmaRad * axisBelievedSigmaRad
+	} else if spanAxisBelieved(sb, axis, false) {
+		variance = float64(faceAxisVariance(sb, axis))
 	}
-	if faceAxisVariance(sb, axis) <= believed && spanAxisBelieved(sb, axis, false) {
-		return axis, true
+	if course, ok := courseOrientation(sb.state, sb.p); ok && float64(course.VarianceRad2) < variance {
+		best, variance = course.PsiRad, float64(course.VarianceRad2)
 	}
-	if course, ok := courseOrientation(sb.state, sb.p); ok && course.VarianceRad2 <= believed {
-		return course.PsiRad, true
+	half := spanSearchHalfWindowDeg
+	if v := 2 * math.Sqrt(math.Max(variance, 0)) * 180 / math.Pi; v > float64(half) {
+		half = int(math.Min(math.Ceil(v), 90))
 	}
-	return 0, false
+	return best, half
+}
+
+// boundWindowStepDeg is the angle step of a widened window's search: twice
+// the fixed window's, so a quarter-turn window costs 91 angles on the
+// floor's subset rather than 181. The span found can overstate the window's
+// minimum by at most the change over half a step (windowSpans takes it off).
+const boundWindowStepDeg = 2
+
+// windowSpans is windowMinimumSpans over a half-window of half degrees about
+// axis: exactly it at spanSearchHalfWindowDeg. Wider, the angle is searched
+// at boundWindowStepDeg on the floor's subset and the span read on every
+// point at the angle found, less the most a half-step can have saved: the
+// perpendicular span times the half-step's sine, since a span's rate of
+// change with angle is at most the extent across it.
+func windowSpans(points []l4perception.WorldPoint, axis float64, half int) (along, across float32) {
+	if half <= spanSearchHalfWindowDeg {
+		return windowMinimumSpans(points, axis)
+	}
+	sub := floorPoints(points)
+	scratch := make([]float64, len(points))
+	slack := math.Sin(float64(boundWindowStepDeg) / 2 * math.Pi / 180)
+	span := func(centre float64) float32 {
+		best, bestAngle := math.Inf(1), centre
+		for deg := -half; deg <= half; deg += boundWindowStepDeg {
+			a := centre + float64(deg)*math.Pi/180
+			if v, ok := trimmedSpan(sub, scratch[:len(sub)], math.Cos(a), math.Sin(a)); ok && v < best {
+				best, bestAngle = v, a
+			}
+		}
+		if math.IsInf(best, 0) {
+			return 0
+		}
+		c, s := math.Cos(bestAngle), math.Sin(bestAngle)
+		full, ok := trimmedSpan(points, scratch, c, s)
+		if !ok {
+			return 0
+		}
+		perpendicular, _ := trimmedSpan(points, scratch, -s, c)
+		return float32(math.Max(full-perpendicular*slack, 0))
+	}
+	return span(axis), span(axis + math.Pi/2)
 }
 
 // accrualSpanBounds is frameSpanBounds under ExtentBoundAccrual: the frame's
-// own bounds, along the believed axis (boundAxis), and the evidence it adds
-// to the record (accrued). A merge candidate has no frame bound, and gives
-// the record its length span when the cluster is one body wide. Nothing is
-// taken while the lifecycle is initialising. Zero is no bound.
+// own bounds, over the axis window boundWindow gives, and the evidence it
+// adds to the record (accrued). A merge candidate has no frame bound, and
+// gives the record its length span when the cluster is one body wide. Nothing
+// is taken while the lifecycle is initialising. Zero is no bound.
 func (t *Tracker) accrualSpanBounds(sb *solidBodyTrack, cluster WorldCluster, prior classDimensionPrior, axis float32, axisIsCourse, mergeCandidate bool) (frame, accrued [2]float32) {
 	if sb.estimation == EstimationInitialising {
-		return frame, accrued
-	}
-	along, ok := t.boundAxis(sb, axis, axisIsCourse)
-	if !ok {
 		return frame, accrued
 	}
 	points := nearEdgePoints(cluster)
 	if len(points) < DefaultMinFaceSupport {
 		return frame, accrued
 	}
+	along, half := t.boundWindow(sb, axis, axisIsCourse)
 	if mergeCandidate && !bodyWide(points, along, prior, sb.widthBelief) {
 		return frame, accrued
 	}
-	l, w := windowMinimumSpans(points, float64(along))
+	l, w := windowSpans(points, float64(along), half)
 	noise := spanBoundNoise(math.Hypot(float64(sb.state[0]-t.Config.SolidBody.SensorX), float64(sb.state[1]-t.Config.SolidBody.SensorY)))
 	for i, span := range [2]float32{l, w} {
 		if b := float64(span) - noise; b > 0 {

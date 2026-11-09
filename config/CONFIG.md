@@ -404,7 +404,8 @@ body's face-state options, each needing `solid_body`: `solid_body_extent_state` 
 `solid_body_censored_extent`, `solid_body_span_bounds_belief`,
 `solid_body_heading_face_noise`, `solid_body_anisotropic_reference_bias` and
 `solid_body_face_state`, which is all five; `solid_body_extent_accrual` (the extent state's span
-bounds taken only along a believed axis and accrued over the track's life; it needs `solid_body`
+bounds taken over a window of axes as wide as the axis is uncertain, and accrued over the track's
+life; it needs `solid_body`
 with `solid_body_face_state`, or `solid_body_extent_state` with `solid_body_censored_extent` or
 `solid_body_span_bounds_belief`); and `solid_body_shared_orientation` (the solid body's
 orientation and its variance from the box model's heading filter; it needs `solid_body` and the box
