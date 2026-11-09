@@ -144,7 +144,11 @@ type TrackerConfig struct {
 	// their difference over the capture interval between them, and the
 	// covariance that pair implies. The shipped track starts at zero velocity
 	// with unit variance, so a vehicle at 6.5 m/s is 6.5 sigma from its prior
-	// and its velocity takes about a second to converge. See
+	// and its velocity takes about a second to converge. It declines a pair
+	// whose second measurement lies in another confirmed track's shadow, as a
+	// reflection does, and widens the velocity covariance by how far the
+	// reference point can slide with the visible extent (two_point_init.go).
+	// The shadow is read from NoiseSensorX and NoiseSensorY. See
 	// initialiseTwoPoint for when it applies and when it falls back.
 	//
 	// ConsistentCovarianceCap caps a covariance diagonal by scaling its row
@@ -219,7 +223,8 @@ type TrackerConfig struct {
 	// assignment.
 	MeasurementNoiseCalibration *NoiseCalibration
 	// NoiseSensorX and NoiseSensorY are the sensor origin in the tracker's
-	// frame, which fixes each measurement's line of sight. The pipeline
+	// frame, which fixes each measurement's line of sight: the adaptive
+	// noise model's, and TwoPointVelocityInit's shadow test's. The pipeline
 	// clusters without a pose, so the tracker frame is the sensor frame and
 	// zero is correct today; a site transform must set them.
 	NoiseSensorX, NoiseSensorY float32

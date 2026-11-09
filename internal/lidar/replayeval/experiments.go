@@ -133,7 +133,10 @@ const (
 	// §2.3), each a TrackerConfig option the tuning file does not carry:
 	//   - ExperimentTwoPointVelocityInit: TwoPointVelocityInit, a track's
 	//     second measurement initialises its velocity and covariance from the
-	//     pair instead of updating a zero-velocity prior;
+	//     pair instead of updating a zero-velocity prior, unless it lies in a
+	//     confirmed track's shadow or its reference point can slide too far
+	//     (l5est0006; from that change the name runs the guarded option, and
+	//     a replay header's build sha says which ran);
 	//   - ExperimentConsistentCovarianceCap: ConsistentCovarianceCap, the
 	//     covariance cap applied as P <- D P D so P stays positive
 	//     semi-definite;
