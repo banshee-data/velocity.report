@@ -151,6 +151,7 @@ of the same works; its duplicate mentions use the same keys.
 | Checking vehicle trajectory accuracy (NGSIM)                              | `Punzo2011`        | [October 19 briefing][oct19], follow-up reading   |
 | Pedestrian fatality risk as a function of car impact speed                | `Rosen2009`        | Monfort and Mueller section                       |
 | Review of pedestrian fatality-risk curves and their sampling bias         | `Rosen2011`        | [October 19 briefing][oct19], follow-up reading   |
+| Surrogate safety measures from roadside sensing, structured review        | `Salah2026`        | [November 9 briefing][nov09], Salah section       |
 | From Stoplights to On-Ramps                                               | `Scanlon2026a`     | Benchmark-alignment family; sources checked       |
 | High-resolution urban fatal crash-rate benchmarks                         | `Scanlon2026b`     | Previously reviewed work; weekly sources checked  |
 | Impact speed and a pedestrian's risk of severe injury or death            | `Tefft2013`        | Monfort and Mueller section; also weekly briefing |
@@ -314,5 +315,6 @@ References inside the external papers themselves are outside the audit's scope.
 [oct19]: research-briefing-2026-10-19.md
 [oct26]: research-briefing-2026-10-26.md
 [nov02]: research-briefing-2026-11-02.md
+[nov09]: research-briefing-2026-11-09.md
 [fixed]: fixed-sensor-research-briefing-2026-10-09.md
 [lpv2]: ../lidar-processing-v2-segmentation-review.md
