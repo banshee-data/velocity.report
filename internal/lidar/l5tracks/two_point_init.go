@@ -3,8 +3,9 @@ package l5tracks
 import "math"
 
 // Guards for TwoPointVelocityInit (initialiseTwoPoint). A pair of
-// measurements differences two reference points, and that difference is a
-// velocity only when both are the same body's, seen the same way. Two
+// measurements gives the difference between two reference points, and that
+// difference is a velocity only when both are the same body's, seen the same
+// way. Two
 // conditions break that on real captures (l5est0006, kirk0 and the first
 // five minutes of ashbury-downey):
 //
