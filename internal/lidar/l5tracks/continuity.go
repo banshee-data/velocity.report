@@ -1043,6 +1043,10 @@ type ContinuityStats struct {
 	// kept from seeding a track: fragments inside a confirmed track's grown
 	// box. Zero, and omitted, with the option off.
 	FragmentBirthsAbsorbed int64 `json:"fragment_births_absorbed,omitempty"`
+	// ShadowPriorBirths counts births VelocityPriorShadowRefusal gave the
+	// shipped velocity prior because they lay in a confirmed track's shadow.
+	// Zero, and omitted, with the option off.
+	ShadowPriorBirths int64 `json:"shadow_prior_births,omitempty"`
 }
 
 // ContinuityStats returns a snapshot of the continuity diagnostics.

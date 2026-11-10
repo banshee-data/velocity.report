@@ -244,7 +244,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyRectangleSigmaWide,
 		ExperimentSolidBodyReferenceTranslation, ExperimentSolidBodySharedOrientation, ExperimentSolidBodySpanBoundsBelief,
 		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentSurfaceGround, ExperimentSurfaceGround5m, ExperimentSurfaceGroundGlobal, ExperimentTentativePriority,
-		ExperimentTwoPointVelocityInit, ExperimentVelocityPriorInit75, ExperimentVelocityPriorInit75Gated, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
+		ExperimentTwoPointVelocityInit, ExperimentVelocityPriorInit75, ExperimentVelocityPriorInit75Gated, ExperimentVelocityPriorInit75GatedShadow, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -290,6 +290,11 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentVelocityPriorInit75Gated: func(c *l5tracks.TrackerConfig) {
 			c.VelocityPriorInit = true
 			c.VelocityPriorGated = true
+		},
+		ExperimentVelocityPriorInit75GatedShadow: func(c *l5tracks.TrackerConfig) {
+			c.VelocityPriorInit = true
+			c.VelocityPriorGated = true
+			c.VelocityPriorShadowRefusal = true
 		},
 		ExperimentCoastTimeInflation: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.CaptureTimeInflation = true })
@@ -1172,5 +1177,14 @@ func TestVelocityPriorGatedRefusesTwoPointInit(t *testing.T) {
 	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
 	if _, err := trackerConfigFor(l5, "", []string{ExperimentVelocityPriorInit75Gated, ExperimentTwoPointVelocityInit}, nil); err == nil {
 		t.Fatal("velocity_prior_init_7p5_gated with two_point_velocity_init must be refused")
+	}
+}
+
+// The shadow form brings the gated form with it, so it is refused with the
+// two-point update too (experiment l5est0011).
+func TestVelocityPriorGatedShadowRefusesTwoPointInit(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentVelocityPriorInit75GatedShadow, ExperimentTwoPointVelocityInit}, nil); err == nil {
+		t.Fatal("velocity_prior_init_7p5_gated_shadow with two_point_velocity_init must be refused")
 	}
 }

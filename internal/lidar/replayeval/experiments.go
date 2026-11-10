@@ -156,6 +156,11 @@ const (
 	// the covariance it would hold under the shipped 1 m²/s² prior
 	// (experiment l5est0010).
 	ExperimentVelocityPriorInit75Gated = "velocity_prior_init_7p5_gated"
+	// ExperimentVelocityPriorInit75GatedShadow is the gated form with
+	// TrackerConfig.VelocityPriorShadowRefusal: a track born in a confirmed
+	// track's shadow takes the shipped birth velocity variance (experiment
+	// l5est0011).
+	ExperimentVelocityPriorInit75GatedShadow = "velocity_prior_init_7p5_gated_shadow"
 
 	// Occlusion continuity (state-estimation plan, Sprint 0.5.2.2): the
 	// switches in l5tracks.OcclusionContinuityConfig, each alone so a change
@@ -509,11 +514,12 @@ var knownExperiments = map[string]bool{
 	ExperimentFixedLagRTS:          true,
 	ExperimentSolidBody:            true,
 
-	ExperimentTwoPointVelocityInit:     true,
-	ExperimentConsistentCovarianceCap:  true,
-	ExperimentConsistentSpeedClamp:     true,
-	ExperimentVelocityPriorInit75:      true,
-	ExperimentVelocityPriorInit75Gated: true,
+	ExperimentTwoPointVelocityInit:           true,
+	ExperimentConsistentCovarianceCap:        true,
+	ExperimentConsistentSpeedClamp:           true,
+	ExperimentVelocityPriorInit75:            true,
+	ExperimentVelocityPriorInit75Gated:       true,
+	ExperimentVelocityPriorInit75GatedShadow: true,
 
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,

@@ -189,3 +189,71 @@ func TestVelocityPriorGatedConfirmedTrackGatesOnItsOwnCovariance(t *testing.T) {
 		}
 	}
 }
+
+// Tests for VelocityPriorShadowRefusal (experiment l5est0011): a birth in a
+// confirmed track's shadow takes the shipped prior, every other the wide one.
+
+func shadowRefusalTracker() *Tracker {
+	cfg := gatedPriorConfig()
+	cfg.VelocityPriorShadowRefusal = true
+	tr := NewTracker(cfg)
+	car := &TrackedObject{TrackID: "car", X: 10, Y: 0, OBBLength: 4.6, OBBWidth: 1.9}
+	car.TrackState = TrackConfirmed
+	tr.Tracks["car"] = car
+	return tr
+}
+
+// A cluster on the confirmed car's bearing at twice its range is born with
+// the shipped velocity variance and no gate shadow, as the shipped tracker
+// would found it, and the refusal is counted.
+func TestVelocityPriorShadowRefusalShadowBirthTakesTheShippedPrior(t *testing.T) {
+	tr := shadowRefusalTracker()
+	now := time.Unix(1_700_000_000, 0)
+	born := tr.initTrack(hygieneCluster(20, 0, now), now.UnixNano())
+	shipped := NewTracker(DefaultTrackerConfig()).initTrack(hygieneCluster(20, 0, now), now.UnixNano())
+	if born.P != shipped.P {
+		t.Errorf("shadow birth P %v, want the shipped founding covariance %v", born.P, shipped.P)
+	}
+	if born.gate.active || tr.gateP(born) != &born.P {
+		t.Error("a shadow birth must gate on its own (shipped) P")
+	}
+	if got := tr.ContinuityStats().ShadowPriorBirths; got != 1 {
+		t.Errorf("ShadowPriorBirths %d, want 1", got)
+	}
+}
+
+// A car in clear view, off every confirmed box's bearings, is born with the
+// wide variance and the shipped-prior gate shadow, as under VelocityPriorGated.
+func TestVelocityPriorShadowRefusalClearBirthTakesTheWidePrior(t *testing.T) {
+	tr := shadowRefusalTracker()
+	now := time.Unix(1_700_000_000, 0)
+	born := tr.initTrack(hygieneCluster(0, 15, now), now.UnixNano())
+	if born.P[10] != VelocityPriorInitVariance || born.P[15] != VelocityPriorInitVariance {
+		t.Errorf("clear birth velocity diagonal (%v, %v), want the wide prior", born.P[10], born.P[15])
+	}
+	shipped := [16]float32{10, 0, 0, 0, 0, 10, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+	if !born.gate.active || born.gate.p != shipped {
+		t.Errorf("clear birth gate shadow %v (active %v), want the shipped founding covariance", born.gate.p, born.gate.active)
+	}
+	if got := tr.ContinuityStats().ShadowPriorBirths; got != 0 {
+		t.Errorf("ShadowPriorBirths %d, want 0", got)
+	}
+}
+
+// Without the refusal the gated form widens a shadow birth as before: the
+// option changes nothing unless it is named.
+func TestVelocityPriorShadowRefusalIsOptIn(t *testing.T) {
+	if DefaultTrackerConfig().VelocityPriorShadowRefusal {
+		t.Fatal("VelocityPriorShadowRefusal must be off by default")
+	}
+	tr := shadowRefusalTracker()
+	tr.Config.VelocityPriorShadowRefusal = false
+	now := time.Unix(1_700_000_000, 0)
+	born := tr.initTrack(hygieneCluster(20, 0, now), now.UnixNano())
+	if born.P[10] != VelocityPriorInitVariance || !born.gate.active {
+		t.Error("without the refusal the gated form must widen a shadow birth")
+	}
+	if got := tr.ContinuityStats().ShadowPriorBirths; got != 0 {
+		t.Errorf("ShadowPriorBirths %d, want 0", got)
+	}
+}
