@@ -23,12 +23,15 @@ joining two pieces of one body cannot move the test the way a whole-life median 
 
 `--joins` (l5id0024) adds the join table. Each of A's moving tracks (under the chosen test) is
 paired with the B track of best single-track coverage by footprint (lidar_flip_cost.py `--match
-footprint`), when that share is 0.5 or more. A join is a B track paired so with two or more of A's
-moving tracks: B carries them in one track. Each join is listed with its members' and the B
-track's row times, in seconds from the first row of either arm, and whether the members overlap
-in time (concurrent, a duplicate in A) or follow one another (sequential, pieces). join_credit is
-the members less one per join, and credited_count_change adds it to count_change: a join's members
-count once each, as A counted them.
+footprint`), when that share is 0.5 or more; a tie goes to the B track whose own rows the A track
+covers most, so identical arms pair every track with itself. A join is a B track paired so with
+two or more of A's moving tracks: B carries them in one track. Each join is listed with its
+members' and the B track's row times, in seconds from the first row of either arm, and whether the
+members overlap in time (concurrent, a duplicate in A) or follow one another (sequential, pieces).
+A member that another moving B track also covers 0.5 or more still counts in B, so it is not
+credited. A join's credit is its other members less one (never below 0); join_credit sums them and
+credited_count_change adds it to count_change, so a joined body's pieces count as A counted them.
+members_less_one is the credit without that exception, reported beside it.
 
 Usage: lidar_figure_sensitivity.py A.db|A.csv B.db|B.csv [--moving median|peak] [--joins]
        [--json OUT]
@@ -95,6 +98,37 @@ def figures(tracks, moving="median"):
     }
 
 
+def shares(track, other_idx):
+    """Each other track's single-track footprint coverage of track's rows: {id: share}."""
+    rows = track["rows"]
+    per = {}
+    for row in rows:
+        hit = {
+            o[0] for o in other_idx.get(row[0], ()) if fc.covers(row, o, "footprint")
+        }
+        for oid in hit:
+            per[oid] = per.get(oid, 0) + 1
+    return {oid: n / len(rows) for oid, n in per.items()} if rows else {}
+
+
+def carrier(aid, a, b, a_shares):
+    """The B track that carries A's track aid: best single-track share, 0.5 or more.
+
+    Ties go to the B track whose own rows the A track covers most (the mutual best), so two
+    identical arms pair each track with itself and a duplicate in A is not read as a join.
+    """
+    if not a_shares:
+        return None
+    best = max(a_shares.values())
+    if best < fc.COVER_SHARE:
+        return None
+    tied = [bid for bid, v in a_shares.items() if v >= best - 1e-12]
+    if len(tied) == 1:
+        return tied[0]
+    a_idx = fc.by_time({aid: a[aid]})
+    return max(tied, key=lambda bid: (shares(b[bid], a_idx).get(aid, 0.0), str(bid)))
+
+
 def joins(a, b):
     """B tracks that carry two or more of A's moving tracks (fig_moving), by footprint."""
     bi = fc.by_time(b)
@@ -105,12 +139,20 @@ def joins(a, b):
         return round((ns - t0) / 1e9, 2)
 
     carried = {}
+    elsewhere = {}
     for aid, t in a.items():
         if not t["fig_moving"] or not t["rows"]:
             continue
-        _, best, bid = fc.coverage(t, bi, "footprint")
-        if bid is not None and best >= fc.COVER_SHARE:
-            carried.setdefault(bid, []).append((aid, best))
+        sh = shares(t, bi)
+        bid = carrier(aid, a, b, sh)
+        if bid is None:
+            continue
+        carried.setdefault(bid, []).append((aid, sh[bid]))
+        elsewhere[aid] = sorted(
+            str(o)
+            for o, v in sh.items()
+            if o != bid and v >= fc.COVER_SHARE and b[o]["fig_moving"]
+        )
     out = []
     for bid, members in carried.items():
         if len(members) < 2:
@@ -122,6 +164,7 @@ def joins(a, b):
             for i in range(len(spans))
             for j in range(i + 1, len(spans))
         )
+        only_here = sum(1 for m, _ in members if not elsewhere[m])
         bt = b[bid]
         out.append(
             {
@@ -132,6 +175,7 @@ def joins(a, b):
                 "b_max_speed": bt["max_speed"],
                 "b_median_speed": bt["p50"],
                 "concurrent": concurrent,
+                "credit": max(0, only_here - 1),
                 "members": [
                     {
                         "a_track": str(m),
@@ -140,6 +184,7 @@ def joins(a, b):
                         "max_speed": a[m]["max_speed"],
                         "median_speed": a[m]["p50"],
                         "coverage": share,
+                        "also_carried_by": elsewhere[m],
                     }
                     for m, share in members
                 ],
@@ -171,13 +216,19 @@ def compare(a_path, b_path, moving="median", with_joins=False):
         out["moving_test"] = moving
     if with_joins:
         js = joins(ta, tb)
-        credit = sum(len(j["members"]) - 1 for j in js)
+        credit = sum(j["credit"] for j in js)
         out["moving_test"] = moving
         out["joins"] = js
         out["join_credit"] = credit
         out["credited_count_change"] = out["count_change"] + credit
         out["credited_count_change_share"] = (
             out["credited_count_change"] / a["count"] if a["count"] else None
+        )
+        # Every member less one per join, whether or not B counts it elsewhere.
+        every = sum(len(j["members"]) - 1 for j in js)
+        out["members_less_one"] = every
+        out["members_less_one_count_change_share"] = (
+            (out["count_change"] + every) / a["count"] if a["count"] else None
         )
     return out
 

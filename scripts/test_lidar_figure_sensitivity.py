@@ -180,3 +180,32 @@ def test_unknown_moving_test_is_refused():
     except ValueError:
         return
     raise AssertionError("expected a ValueError")
+
+
+def test_identical_arms_with_a_duplicate_have_no_join(tmp_path):
+    # A duplicate lies wholly inside a longer track's footprint: both cover it fully,
+    # and the tie goes to the track itself.
+    tracks = {"long": car(drive(0, 8)), "twin": car(run(2, 5, 20.0, 10.0))}
+    a = make_box_rows(tmp_path / "a.csv", tracks)
+    b = make_box_rows(tmp_path / "b.csv", tracks)
+    out = fs.compare(a, b, "peak", with_joins=True)
+    assert out["joins"] == [] and out["join_credit"] == 0
+
+
+def test_a_member_still_counted_elsewhere_is_not_credited(tmp_path):
+    # B joins A's two pieces in one track but also keeps its own track on the later
+    # part of the second piece (60 % of its rows), so B's count already holds both:
+    # nothing is credited.
+    first, second = run(0, 6, 0.0, 3.0), run(6.1, 12, 18.3, 3.0)
+    a = make_box_rows(tmp_path / "a.csv", {"p1": car(first), "p2": car(second)})
+    b = make_box_rows(
+        tmp_path / "b.csv",
+        {"whole": car(first + second), "kept": car(run(8.4, 12, 25.2, 3.0, y=0.2))},
+    )
+    out = fs.compare(a, b, "peak", with_joins=True)
+    assert out["count_change"] == 0
+    (join,) = out["joins"]
+    assert join["b_track"] == "whole"
+    assert join["members"][1]["also_carried_by"] == ["kept"]
+    assert join["credit"] == 0 and out["credited_count_change"] == 0
+    assert out["members_less_one"] == 1
