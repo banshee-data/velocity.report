@@ -661,6 +661,11 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 				t.updateSolidBody(t.Tracks[trackID], clusters[clusterIdx])
 			}
 		}
+		if t.Config.SolidBody.ExtentProfile {
+			// The profile reads the updated bodies and writes only its own
+			// grids (solid_body_extent_profile.go).
+			t.updateExtentProfiles(clusters, associations, nowNanos)
+		}
 	}
 
 	// Step 3d: Update each matched track's published box (default off). It

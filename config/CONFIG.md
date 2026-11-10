@@ -407,7 +407,10 @@ body's face-state options, each needing `solid_body`: `solid_body_extent_state` 
 bounds taken over a window of axes as wide as the axis is uncertain, and accrued over the track's
 life; it needs `solid_body`
 with `solid_body_face_state`, or `solid_body_extent_state` with `solid_body_censored_extent` or
-`solid_body_span_bounds_belief`); and `solid_body_shared_orientation` (the solid body's
+`solid_body_span_bounds_belief`); `solid_body_extent_profile` (a shadow of the solid body: two
+one-dimensional log-odds occupancy grids along and across its axis, reported beside it and written
+by `lidar-box-eval -rows`; it needs `solid_body` and changes no track); and
+`solid_body_shared_orientation` (the solid body's
 orientation and its variance from the box model's heading filter; it needs `solid_body` and the box
 model, and is refused with `near_edge_track`, `solid_body_rectangle_heading`,
 `solid_body_course_heading` and `solid_body_course_faces`). With `box_extent_solid_body` the box's
