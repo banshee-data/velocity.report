@@ -71,11 +71,13 @@ func (p ReclaimPolicy) valid() bool {
 
 // Spec is the header of one experiment file.
 type Spec struct {
-	ID      string `yaml:"id"`
-	Title   string `yaml:"title"`
-	Status  Status `yaml:"status"`
-	Owner   string `yaml:"owner"`
-	Created string `yaml:"created"`
+	SpecVersion string   `yaml:"spec_version"`
+	NeedsRuns   []string `yaml:"needs_runs"`
+	ID          string   `yaml:"id"`
+	Title       string   `yaml:"title"`
+	Status      Status   `yaml:"status"`
+	Owner       string   `yaml:"owner"`
+	Created     string   `yaml:"created"`
 	// Asks names the questions the experiment answers: a repository path to
 	// the Markdown that poses each (a briefing, a plan, a report), with an
 	// optional #anchor, or a decision id such as D-29.
@@ -155,8 +157,9 @@ type Step struct {
 	Estimate Estimate       `yaml:"estimate"`
 	// Gate is a manual step's completion check, numeric thresholds the hub
 	// tests before it lets the experiment continue (HINT's label gates).
-	Gate map[string]float64 `yaml:"gate"`
-	Note string             `yaml:"note"`
+	Gate   map[string]float64 `yaml:"gate"`
+	Note   string             `yaml:"note"`
+	Closed string             `yaml:"closed"`
 }
 
 // Estimate is an authored expectation of a step's cost.
@@ -241,12 +244,27 @@ func ReadFile(path string) (*Spec, error) {
 	if err != nil {
 		return nil, err
 	}
+	return Parse(raw, path)
+}
+
+// Parse decodes one spec from bytes, keeping path in diagnostic messages.
+func Parse(raw []byte, path string) (*Spec, error) {
 	header, err := frontMatter(raw)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	dec := yaml.NewDecoder(bytes.NewReader(header))
-	dec.KnownFields(true)
+	var version struct {
+		SpecVersion string `yaml:"spec_version"`
+	}
+	if err := yaml.Unmarshal(header, &version); err != nil {
+		return nil, err
+	}
+	if err := CheckSpecVersion(version.SpecVersion); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	// New minor versions may add descriptive keys; execution params remain strict.
+	dec.KnownFields(version.SpecVersion == "" || version.SpecVersion == "1.0")
 	var s Spec
 	if err := dec.Decode(&s); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -269,4 +287,12 @@ func frontMatter(raw []byte) ([]byte, error) {
 		}
 	}
 	return []byte(rest[:end]), nil
+}
+
+// CasesName returns the declared corpus, or an empty string when absent.
+func (spec *Spec) CasesName() string {
+	if spec.Cases == nil {
+		return ""
+	}
+	return spec.Cases.Corpus
 }

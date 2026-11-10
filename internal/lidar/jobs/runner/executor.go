@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/jobs"
+	"github.com/banshee-data/velocity.report/internal/lidar/jobs/toolargs"
 )
 
 // Env is what an executor is given: where to write, the verified captures,
@@ -160,15 +161,11 @@ func baselineArgs(req jobs.JobRequest, env Env, tuningPath string) ([]string, er
 	if err != nil {
 		return nil, err
 	}
-	args := []string{
-		"-corpus", corpus, "-index", index, "-pcap-root", env.CaptureRoot,
-		"-case", p.Case, "-out", filepath.Join(env.BundleDir, "run"),
-		"-tuning", tuningPath,
-		"-duration", strconv.FormatFloat(req.Replay.DurationSeconds, 'f', -1, 64),
-		"-warmup", strconv.FormatFloat(req.Replay.WarmupSeconds, 'f', -1, 64),
-		"-evidence-dir", filepath.Join(env.BundleDir, "evidence"),
-		"-source-manifest", filepath.Join(env.BundleDir, "source-manifest.json"),
-	}
+
+	args := (toolargs.Baseline{Corpus: corpus, Index: index, CaptureRoot: env.CaptureRoot, Case: p.Case,
+		Out: filepath.Join(env.BundleDir, "run"), Tuning: tuningPath, Duration: req.Replay.DurationSeconds, Warmup: req.Replay.WarmupSeconds,
+		EvidenceDir: filepath.Join(env.BundleDir, "evidence"), SourceManifest: filepath.Join(env.BundleDir, "source-manifest.json")}).Args()
+
 	if len(req.Experiments) > 0 {
 		args = append(args, "-experiment", strings.Join(req.Experiments, ","))
 	}

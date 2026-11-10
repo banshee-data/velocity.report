@@ -1,0 +1,8 @@
+{
+  "repository": "banshee-data/velocity.report",
+  "app_id": 1,
+  "installation_id": 1,
+  "private_key": "/var/lib/velocity-harness/github-app.pem",
+  "bot_name": "velocity-harness[bot]",
+  "bot_email": "replace-with-the-installation-bot-email"
+}

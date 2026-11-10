@@ -53,6 +53,9 @@ results/
 app-*
 /backfill_ring_elevations
 /deploy
+!/deploy/
+/deploy/*
+!/deploy/harness/
 /gen-vrlog
 mock_serial_port*
 /pcap-analyse
@@ -227,6 +230,9 @@ tools/visualiser-macos/VelocityVisualiser/App/BuildInfo.swift
 data/**/*.csv
 data/**/*.db
 data/**/*.json
+# Checked-in harness input definitions, not generated run output.
+!data/experiments/corpora/first-segment-corpus.json
+!data/experiments/corpora/first-segment-site-index.json
 # Hand-authored section caps for the bibliography (data/maths/citation-rubric.md).
 !data/maths/bibliography-budget.json
 data/**/*.sqlite

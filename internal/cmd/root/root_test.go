@@ -63,7 +63,7 @@ func TestDispatchRouting(t *testing.T) {
 
 func TestDispatchHelpMentionsNamespaces(t *testing.T) {
 	_, stdout, _ := runDispatch(t, "velocity", nil)
-	for _, ns := range []string{"serve", "device", "lidar", "data", "report", "tune", "version"} {
+	for _, ns := range []string{"serve", "device", "lidar", "data", "report", "tune", "experiments", "version"} {
 		if !strings.Contains(stdout, ns) {
 			t.Errorf("top-level help missing namespace %q\nhelp:\n%s", ns, stdout)
 		}
@@ -162,5 +162,19 @@ func TestTheBinaryCarriesItsSelectorFile(t *testing.T) {
 	}
 	if c.Source != "embedded" || len(c.ForRole("held_out")) == 0 {
 		t.Fatalf("selectors from %q, %d for held-out windows", c.Source, len(c.ForRole("held_out")))
+	}
+}
+
+func TestDispatchExperiments(t *testing.T) {
+	old := experimentsMain
+	defer func() { experimentsMain = old }()
+	experimentsMain = func(args []string) int {
+		if !reflect.DeepEqual(args, []string{"tick", "-offline"}) {
+			t.Fatalf("args=%v", args)
+		}
+		return 17
+	}
+	if code, _, _ := runDispatch(t, "velocity", []string{"experiments", "tick", "-offline"}); code != 17 {
+		t.Fatalf("code=%d", code)
 	}
 }

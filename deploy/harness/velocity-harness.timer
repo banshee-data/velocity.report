@@ -1,0 +1,10 @@
+[Unit]
+Description=Check offline experiment queue every thirty minutes
+
+[Timer]
+OnCalendar=*:00/30
+Persistent=true
+Unit=velocity-harness.service
+
+[Install]
+WantedBy=timers.target

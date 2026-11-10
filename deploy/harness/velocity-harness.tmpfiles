@@ -1,0 +1,4 @@
+d /var/lib/velocity-harness 0750 velocity-harness velocity-harness -
+d /var/lib/velocity-harness/cache 0750 velocity-harness velocity-harness -
+d /mnt/results/velocity-harness 0750 velocity-harness velocity-harness -
+d /srv/banshee/evidence/harness-stage 0750 velocity-harness velocity-harness -

@@ -333,7 +333,7 @@ func TestEveryKindHasAToolASummaryAndDefaults(t *testing.T) {
 			t.Errorf("kind %s with no params: err=%v, needsTarget=%v", name, err, needsTarget)
 		}
 	}
-	if !Kinds[KindBenchmark].OnMain || Kinds[KindStateEstimationBaseline].OnMain {
+	if !Kinds[KindBenchmark].OnMain || !Kinds[KindStateEstimationBaseline].OnMain || !Kinds[KindTrackScorecard].OnMain {
 		t.Error("OnMain is wrong about which tools main has")
 	}
 }
