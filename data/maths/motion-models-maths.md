@@ -369,6 +369,37 @@ The first replay of both sources, kirk0 under l5est0005, is in the
 filters' NIS correlates with acceleration and neither is over-dispersed, so the criterion's
 over-dispersion premise is not met there.
 
+**Criterion 2 restated (l5est0007).** The screen's criterion read a correlation off zero, which an
+under-dispersed filter can pass. The restated read (`motion_gest1_corpus.go`) asks first for
+over-dispersion along the track, then for its cause, on one-step residuals (prior predicted across
+at most 0.15 s, no re-reference):
+
+- **Dispersion.** `z = along / √(uᵀSu)`, pooled RMS and the share of `|z|` beyond 1.96, with a
+  percentile interval over 2,000 resamples of whole tracks; across-track the same. Each track's
+  own RMS (five values or more) gives the per-track distribution. Over-dispersed means RMS above 1
+  or more than 5 % beyond 1.96.
+- **Cause.** The partial correlation of `z_along²` with the smoothed |longitudinal acceleration|,
+  controlling for range, aspect and point count. The bootstrap keeps each track's centred moment
+  sums over the five columns, and a draw's `r` is `−P₀₁/√(P₀₀P₁₁)` from the precision of their
+  pooled covariance, equal to the Gram–Schmidt `r` to rounding.
+- **Strata.** The along-track z RMS by smoothed speed, range, aspect, point count and track age
+  (under or over 1 s since the track's first tracked-filter observation).
+- **Jerk** (Punzo et al. 2011). For each estimator's output, the live filter's and each offline
+  model's over the scored observations: `a = Δ|v|/Δt` over consecutive intervals of at most
+  0.15 s with speeds of at least 0.5 m/s, `j = Δa` over the mean of the two intervals. The checks
+  are the share of `|j|` above 15 m/s³ and the sign changes between consecutive jerk samples per
+  second between them. The bound is Punzo's for passenger cars at 10 Hz, a plausibility check.
+- **Turning.** The smoothed heading's centred rate over the acceleration's window, where the
+  smoothed speed reaches 2 m/s at both ends and the middle; the share of track-frames above 0.1
+  and 0.2 rad/s.
+
+Every read is a sum over tracks, so a case writes its moving tracks' records and
+`lidar-gest1-pool` reads any union: the corpus, one case, or the corpus with one case left out.
+The first corpus read, on the 23 first segments, is the
+[G-EST-1 corpus read](../../docs/lidar/operations/gest1-corpus-read-2026-11.md): the medoid's
+along-track excess is in the first second of each track, and the residuals after it are
+under-dispersed.
+
 ## 11. What this does not establish
 
 - No capture was replayed. Every figure is a noise-free or seeded-noise simulation under the
