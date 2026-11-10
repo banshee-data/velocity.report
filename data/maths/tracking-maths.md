@@ -180,6 +180,25 @@ This is a property of the synthetic scene. It is not a measurement on a capture.
 is what kept reflections from confirming under the shipped tracker
 (`TestTwoPointVelocityInitDoesNotHoldAReflection`).
 
+#### Honest velocity prior at birth
+
+`VelocityPriorInit` (replay experiment `velocity_prior_init_7p5`, default off) keeps `v = 0` at
+birth but sets `P_vv = (7.5 m/s)² = 56.25 m²/s²` per axis, the review's `(v_max/2)²`. On six
+first segments it took the first second's one-step along z RMS from 2.24 to 0.80, and it also
+widened the newborn's gate, so fragments and sparse clusters confirmed and kept the speed of one
+pair. Duplicates rose on every segment, kirk0 gained 27 switches, and it failed
+[l5est0009](../../docs/lidar/operations/velocity-prior-init-2026-11.md)'s V3 to V5.
+`VelocityPriorGated` (replay experiment `velocity_prior_init_7p5_gated`, default off) keeps that
+variance in the update but gates and costs a tentative track with the covariance it would hold
+under the shipped prior. It kept the first-second gain (0.79) and removed the brief tracks, the
+clutter and kirk0's extra switches, but duplicates still rose on all six segments and fast rows
+remained, so [l5est0010](../../docs/lidar/operations/velocity-prior-gated-2026-11.md) put the
+remaining cost in the update. `VelocityPriorShadowRefusal` (replay experiment
+`velocity_prior_init_7p5_gated_shadow`, default off) gives a birth in a confirmed track's shadow
+(`inConfirmedShadow`) the shipped prior. The test touched 37 % to 71 % of births, so the first
+second rose back to 1.53; one segment's fast track went and another's stayed, and duplicates still
+rose on all six ([l5est0011](../../docs/lidar/operations/velocity-prior-shadow-2026-11.md)).
+
 #### Covariance cap that keeps `P` positive semi-definite
 
 The shipped cap sets `P_ii ← min(P_ii, cap)` and leaves the off-diagonals. It runs in the

@@ -338,6 +338,26 @@ type SolidBodyOptions struct {
 	//
 	// Default false.
 	ExtentBoundAccrual bool
+	// ExtentProfile keeps, per solid body, two one-dimensional occupancy
+	// grids of 0.1 m cells in the body frame, along and across its axis,
+	// binary Bayes log-odds from the frame's returns (occupied) and from the
+	// cells the sensor's rays crossed without a return (free), admitted only
+	// while the orientation is believed within 5 degrees; the reading's
+	// Profile reports the span of locked cells with each end observed or
+	// censored (solid_body_extent_profile.go, geom0019). It is a shadow: no
+	// track, no solid-body state and no published box changes. Default false.
+	ExtentProfile bool
+	// ExtentProfileAnchored is ExtentProfile with two changes and its
+	// constants unchanged (solid_body_extent_profile_anchored.go, geom0020):
+	// the grid's origin is held to the body, shifted by the change of the
+	// solid body's centre that the extent state or a change of reference
+	// makes, so that a change of the extent state is not written as
+	// occupancy; and the believed axis is the published box's heading
+	// filter, a frame admitted while its standard deviation is 5 degrees or
+	// less. It runs in place of ExtentProfile when both are set, needs the
+	// box model, and is a shadow: no track, no solid-body state and no
+	// published box changes. Default false.
+	ExtentProfileAnchored bool
 
 	// SharedOrientation makes the shadow solid body's orientation belief the
 	// published box's heading filter posterior (box_model.go): psi is the
@@ -573,6 +593,12 @@ type SolidBodyReading struct {
 	ExtentState           bool
 	ExtentCrossCovariance [8]float32
 	ExtentCovariance      [4]float32
+
+	// Profile is the extent profile under SolidBodyOptions.ExtentProfile,
+	// the zero value without it. Like HeadingNIS it is carried on the
+	// reading and not persisted: the solid-body table has no column for it,
+	// and lidar-box-eval -rows writes it.
+	Profile ExtentProfileReading
 }
 
 // JointCovarianceSize is the element count of a joint covariance under
@@ -740,6 +766,12 @@ type solidBodyTrack struct {
 	// reading is assembled when the state changes, so the estimate, its
 	// lifecycle decision and its class prior all describe the same instant.
 	reading SolidBodyReading
+
+	// profile is the extent profile's grids under ExtentProfile, nil until
+	// the body's first associated frame with the option on. A snapshot copy
+	// shares it; nothing reads the grids from a snapshot, only
+	// reading.Profile, which is a value.
+	profile *extentProfile
 }
 
 // nearEdgeFrame is the near-edge measurement one associated frame offers the

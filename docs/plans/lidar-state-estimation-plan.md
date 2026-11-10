@@ -1542,6 +1542,33 @@ what holds `h` against a face. See the
 ([geom0018](../../data/experiments/geom/geom0018.md)). The record cannot be revised (9.2.3): it
 keeps bounds, not the frames that gave them.
 
+**An occupancy profile beside the extent state (default-off).** `ExtentProfile` (replay
+`solid_body_extent_profile`) keeps, per solid body, two one-dimensional log-odds grids of 0.1 m
+cells along and across the believed axis, after Schäfer, Alrifaee and Hashemi 2026. Returns in a
+height band mark cells occupied, and a two-dimensional ray model by azimuth column marks the cells
+rays crossed free. Its extent is the span of locked cells, each end observed or censored. It
+changes nothing the solid body or the tracker publishes, and is not persisted. On kirk0 it is
+almost never admitted: no reviewed vehicle has its orientation within 5 degrees, and only truck 2's
+course settles, at its last pose, where the profile reads 9.50 m against 9.63 m with every end
+observed. Its origin is the solid body's centre, which moves with the extent state, so the grid
+reads that motion as length: truck 2's profile goes from 9.6 to 12.5 m when the extent state takes
+its first bound. It fails all four clauses of its rule. See the
+[occupancy profile report](../lidar/operations/extent-occupancy-profile-2026-11.md)
+([geom0019](../../data/experiments/geom/geom0019.md)). A grid that stands in for the extent state
+needs an origin fixed to the body, not one the extent state places.
+
+**The profile anchored to the body (default-off).** `ExtentProfileAnchored` (replay
+`solid_body_extent_profile_anchored`) is the same profile with two changes: its grid's origin takes
+back the centre's move that goes with the half-extents in the joint state (and a change of
+reference), and its axis is the published box's heading filter, admitted within 5 degrees. On the
+box's heading it is admitted on every kirk0 reviewed pose and on half its frames, and it holds
+truck 2 at 9.9 m across the extent state's jump at 77.4 s. It still fails P1 to P4: truck 2's first
+four poses see one end, which the profile marks censored; truck 1 and car 8 read about 0.5 m long;
+and on the placements cars at speed grow at the front end, at 1.25 to 1.48 times the solid body's
+area. See the [anchored profile report](../lidar/operations/extent-profile-anchored-2026-11.md)
+([geom0020](../../data/experiments/geom/geom0020.md)). What the origin should follow at speed is
+the open question, and a censored end should be scored as a lower bound.
+
 ### 9.3 Decision gate G-GEO-1
 
 The historical 0.316 m and 11.3% baseline figures below are not a current paired comparator.

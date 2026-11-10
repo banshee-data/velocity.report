@@ -323,6 +323,7 @@ func (bm *BackgroundManager) settlingCompleteLocked(nowNanos int64) bool {
 	if framesReady && durReady {
 		diagf("[BackgroundManager] Settling complete for sensor=%s after %v (frame minimum and duration both met)",
 			g.SensorID, elapsed.Round(time.Millisecond))
+		g.settledAfter, g.settledOnConvergence, g.settledRecorded = elapsed, false, true
 		return true
 	}
 
@@ -334,10 +335,27 @@ func (bm *BackgroundManager) settlingCompleteLocked(nowNanos int64) bool {
 		diagf("[BackgroundManager] Settling complete for sensor=%s after %v on convergence (ceiling was %v)",
 			g.SensorID, elapsed.Round(time.Millisecond),
 			time.Duration(g.Params.WarmupDurationNanos))
+		g.settledAfter, g.settledOnConvergence, g.settledRecorded = elapsed, true, true
 		return true
 	}
 
 	return false
+}
+
+// SettledAfter reports when the warm-up ended, by the frames' own clock from
+// the first frame (BackgroundManager.StartTime), and whether convergence
+// rather than the ceiling ended it. ok is false while the grid has not
+// settled by its own warm-up since it was created or last reset (a restored
+// snapshot does not count). It reads state and changes nothing; l3bg0030's
+// spurious-cluster windows are measured from it.
+func (bm *BackgroundManager) SettledAfter() (elapsed time.Duration, onConvergence, ok bool) {
+	if bm == nil || bm.Grid == nil {
+		return 0, false, false
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.settledAfter, g.settledOnConvergence, g.settledRecorded
 }
 
 // SettlingCheck is one convergence evaluation made during warm-up: when it was

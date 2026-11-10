@@ -168,7 +168,11 @@ and labelling, and the one labelled window three adoptions wait on. The
 [November 5 experiment review](operations/experiment-review-2026-11-05.md) reads the PCL round,
 which changed no default, for tracking stability, noise and confidence in the published figures:
 which failures were the candidates' and which the measures', an error budget for stability, and
-eight experiments that mostly rescore archived evidence rather than replay. A [cloud run](operations/cloud-run-kirk0-labelled-2026-11.md) rebuilt kirk0's
+eight experiments that mostly rescore archived evidence rather than replay. The
+[November 10 experiment review](operations/experiment-review-2026-11-10.md) reads the fifteen
+experiments answered since for the body and the motion model: the association likelihood as the
+identity candidate, the extent as the weakest link, and what to build and leave for solid-body
+estimation and CV, CA and the multiple-model filter. A [cloud run](operations/cloud-run-kirk0-labelled-2026-11.md) rebuilt kirk0's
 reviewed labels from the capture, bootstrapped kirk0's identity figures and read the kirk0 halves
 of four of those experiments.
 

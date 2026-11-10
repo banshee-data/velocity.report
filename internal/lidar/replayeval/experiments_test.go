@@ -236,7 +236,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentAccrual, ExperimentSolidBodyExtentGrowth,
-		ExperimentSolidBodyExtentPriorFloor, ExperimentSolidBodyExtentState,
+		ExperimentSolidBodyExtentPriorFloor, ExperimentSolidBodyExtentProfile, ExperimentSolidBodyExtentProfileAnchored, ExperimentSolidBodyExtentState,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
 		ExperimentSolidBodyFaceState, ExperimentSolidBodyFullMembers, ExperimentSolidBodyHeadingFaceNoise,
 		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyRectangleCourseFusion,
@@ -244,7 +244,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyRectangleSigmaWide,
 		ExperimentSolidBodyReferenceTranslation, ExperimentSolidBodySharedOrientation, ExperimentSolidBodySpanBoundsBelief,
 		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentSurfaceGround, ExperimentSurfaceGround5m, ExperimentSurfaceGroundGlobal, ExperimentTentativePriority,
-		ExperimentTwoPointVelocityInit, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
+		ExperimentTwoPointVelocityInit, ExperimentVelocityPriorInit75, ExperimentVelocityPriorInit75Gated, ExperimentVelocityPriorInit75GatedShadow, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -283,6 +283,18 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		},
 		ExperimentConsistentSpeedClamp: func(c *l5tracks.TrackerConfig) {
 			c.ConsistentSpeedClamp = true
+		},
+		ExperimentVelocityPriorInit75: func(c *l5tracks.TrackerConfig) {
+			c.VelocityPriorInit = true
+		},
+		ExperimentVelocityPriorInit75Gated: func(c *l5tracks.TrackerConfig) {
+			c.VelocityPriorInit = true
+			c.VelocityPriorGated = true
+		},
+		ExperimentVelocityPriorInit75GatedShadow: func(c *l5tracks.TrackerConfig) {
+			c.VelocityPriorInit = true
+			c.VelocityPriorGated = true
+			c.VelocityPriorShadowRefusal = true
 		},
 		ExperimentCoastTimeInflation: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.CaptureTimeInflation = true })
@@ -783,17 +795,31 @@ func TestBirthGateNeedsTheOnBodyTest(t *testing.T) {
 	}
 }
 
-// robust_birth_gate is the birth rule for the robust likelihood cost's
-// population: refused without that cost, and with it reaches
+// robust_birth_gate is the birth rule for a likelihood cost's population:
+// refused under d² alone, and with either likelihood cost reaches
 // TrackerConfig.FragmentBirthGate alone.
-func TestRobustBirthGateNeedsTheRobustCost(t *testing.T) {
+func TestRobustBirthGateNeedsALikelihoodCost(t *testing.T) {
 	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
 	_, err := trackerConfigFor(l5, "", []string{ExperimentRobustBirthGate}, nil)
-	if err == nil || !strings.Contains(err.Error(), ExperimentRobustLikelihoodCost) {
-		t.Fatalf("robust_birth_gate without robust_likelihood_cost gave %v, want the refusal naming it", err)
+	if err == nil || !strings.Contains(err.Error(), ExperimentRobustLikelihoodCost) || !strings.Contains(err.Error(), ExperimentLikelihoodCost) {
+		t.Fatalf("robust_birth_gate without a likelihood cost gave %v, want the refusal naming both", err)
 	}
-	if _, err := trackerConfigFor(l5, "", []string{ExperimentLikelihoodCost, ExperimentRobustBirthGate}, nil); err == nil {
-		t.Fatal("robust_birth_gate was accepted with the Gaussian likelihood cost")
+	plain, err := trackerConfigFor(l5, "", []string{ExperimentLikelihoodCost, ExperimentRobustBirthGate}, nil)
+	if err != nil {
+		t.Fatalf("robust_birth_gate with the Gaussian likelihood cost: %v", err)
+	}
+	if !plain.FragmentBirthGate || !plain.LikelihoodAssociationCost || plain.RobustLikelihoodAssociationCost {
+		t.Fatalf("likelihood birth gate: gate %v likelihood %v robust %v", plain.FragmentBirthGate, plain.LikelihoodAssociationCost, plain.RobustLikelihoodAssociationCost)
+	}
+	if plain.BirthGateOnBody || plain.OverlapEndFrames != 0 || plain.TentativePriority || plain.CascadedAssociation {
+		t.Fatalf("robust_birth_gate with likelihood_cost switched on another identity option: %+v", plain)
+	}
+	plainOff, err := trackerConfigFor(l5, "", []string{ExperimentLikelihoodCost}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plainOff.FragmentBirthGate {
+		t.Fatal("the fragment birth gate is on under likelihood_cost without its name")
 	}
 	got, err := trackerConfigFor(l5, "", []string{ExperimentRobustLikelihoodCost, ExperimentRobustBirthGate}, nil)
 	if err != nil {
@@ -1091,6 +1117,75 @@ func TestSolidBodyExtentAccrualNeedsTheExtentStateBounds(t *testing.T) {
 	}
 }
 
+// solid_body_extent_profile is a shadow of the solid body: it switches
+// ExtentProfile on beside any solid-body arm and nothing else, and is refused
+// without solid_body, where it would run as the baseline under its name.
+func TestSolidBodyExtentProfileNeedsTheSolidBody(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	for _, accepted := range [][]string{
+		{ExperimentSolidBody, ExperimentSolidBodyExtentProfile},
+		{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentProfile},
+	} {
+		got, err := trackerConfigFor(l5, "", accepted, nil)
+		if err != nil {
+			t.Errorf("%q: %v", accepted, err)
+			continue
+		}
+		if !got.SolidBody.ExtentProfile {
+			t.Errorf("%q did not switch ExtentProfile on", accepted)
+		}
+		without, err := trackerConfigFor(l5, "", accepted[:len(accepted)-1], nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		without.SolidBody.ExtentProfile = true
+		if !reflect.DeepEqual(got, without) {
+			t.Errorf("%q changed more than ExtentProfile", accepted)
+		}
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBodyExtentProfile}, nil); err == nil ||
+		!strings.Contains(err.Error(), ExperimentSolidBody) {
+		t.Errorf("without %s: want a refusal naming it, got %v", ExperimentSolidBody, err)
+	}
+}
+
+// solid_body_extent_profile_anchored is the profile with two changes: it
+// switches ExtentProfileAnchored on beside a solid-body arm and nothing else,
+// and is refused without solid_body, beside solid_body_extent_profile, which
+// it replaces, and without the box model, whose heading it reads.
+func TestSolidBodyExtentProfileAnchoredNeedsTheSolidBodyAndTheBox(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	accepted := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentProfileAnchored}
+	got, err := trackerConfigFor(l5, "", accepted, nil)
+	if err != nil {
+		t.Fatalf("%q: %v", accepted, err)
+	}
+	if !got.SolidBody.ExtentProfileAnchored || got.SolidBody.ExtentProfile {
+		t.Errorf("%q: anchored %v, profile %v; want only the anchored", accepted, got.SolidBody.ExtentProfileAnchored, got.SolidBody.ExtentProfile)
+	}
+	without, err := trackerConfigFor(l5, "", accepted[:2], nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	without.SolidBody.ExtentProfileAnchored = true
+	if !reflect.DeepEqual(got, without) {
+		t.Errorf("%q changed more than ExtentProfileAnchored", accepted)
+	}
+	for _, refused := range [][]string{
+		{ExperimentSolidBodyExtentProfileAnchored},
+		{ExperimentSolidBody, ExperimentSolidBodyExtentProfile, ExperimentSolidBodyExtentProfileAnchored},
+	} {
+		if _, err := trackerConfigFor(l5, "", refused, nil); err == nil || !strings.Contains(err.Error(), ExperimentSolidBody) {
+			t.Errorf("%q: want a refusal, got %v", refused, err)
+		}
+	}
+	noBox := *l5
+	noBox.BoxModel = nil
+	if _, err := trackerConfigFor(&noBox, "", accepted, nil); err == nil || !strings.Contains(err.Error(), "box model") {
+		t.Errorf("without the box model: want a refusal naming it, got %v", err)
+	}
+}
+
 // box_ground stands the box model's box on the ground, so without the box
 // model it would change nothing and run as the baseline under its name.
 func TestBoxGroundNeedsTheBoxModel(t *testing.T) {
@@ -1148,5 +1243,23 @@ func TestRobustLikelihoodCostRefusesTheGaussianLikelihoodCost(t *testing.T) {
 		if err != nil || !got.RobustLikelihoodAssociationCost {
 			t.Errorf("robust_likelihood_cost with %v (%v): %+v", with, err, got)
 		}
+	}
+}
+
+// The gated birth prior's shadow covariance does not follow the two-point
+// update, so the two are refused together (experiment l5est0010).
+func TestVelocityPriorGatedRefusesTwoPointInit(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentVelocityPriorInit75Gated, ExperimentTwoPointVelocityInit}, nil); err == nil {
+		t.Fatal("velocity_prior_init_7p5_gated with two_point_velocity_init must be refused")
+	}
+}
+
+// The shadow form brings the gated form with it, so it is refused with the
+// two-point update too (experiment l5est0011).
+func TestVelocityPriorGatedShadowRefusesTwoPointInit(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentVelocityPriorInit75GatedShadow, ExperimentTwoPointVelocityInit}, nil); err == nil {
+		t.Fatal("velocity_prior_init_7p5_gated_shadow with two_point_velocity_init must be refused")
 	}
 }

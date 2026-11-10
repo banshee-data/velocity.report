@@ -134,6 +134,10 @@ type TrackedObject struct {
 	// two footprints; nothing else reads either.
 	foundingMeasurement PositionMeasurement
 	foundingExtent      clusterFootprint
+	// gate is the covariance a tentative track is gated and costed with under
+	// VelocityPriorGated: the one it would hold under the shipped birth
+	// prior. See velocity_prior_gated.go.
+	gate gateCovariance
 
 	// Capture-time state and coast accounting; see time_domain.go.
 	//
@@ -670,6 +674,11 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 				t.updateSolidBody(t.Tracks[trackID], clusters[clusterIdx])
 			}
 		}
+		if t.Config.SolidBody.ExtentProfile && !t.Config.SolidBody.ExtentProfileAnchored {
+			// The profile reads the updated bodies and writes only its own
+			// grids (solid_body_extent_profile.go).
+			t.updateExtentProfiles(clusters, associations, nowNanos, false)
+		}
 	}
 
 	// Step 3d: Update each matched track's published box (default off). It
@@ -681,6 +690,12 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 			t.updateBox(track, &clusters[clusterIdx], nowNanos)
 			stampTrailDisplay(track, nowNanos)
 		}
+	}
+	if t.Config.SolidBody.Enabled && t.Config.SolidBody.ExtentProfileAnchored {
+		// The anchored profile reads the box's heading posterior, which this
+		// frame's step 3d has just made, and writes only its own grids
+		// (solid_body_extent_profile_anchored.go).
+		t.updateExtentProfiles(clusters, associations, nowNanos, true)
 	}
 
 	// Step 4: Handle unmatched tracks with occlusion-aware coasting.
@@ -925,6 +940,26 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		track.OBBWidth = cluster.OBB.Width
 		track.OBBHeight = cluster.OBB.Height
 		track.LatestZ = cluster.OBB.CenterZ
+	}
+
+	if t.Config.VelocityPriorGated && t.Config.VelocityPriorShadowRefusal &&
+		t.inConfirmedShadow(nil, measurement.X, measurement.Y) {
+		// Born in a confirmed track's shadow (VelocityPriorShadowRefusal):
+		// the shipped prior, so the birth starts as the shipped tracker
+		// starts it. No gate shadow: it would equal P.
+		t.continuity.ShadowPriorBirths++
+	} else {
+		if t.Config.VelocityPriorGated {
+			// The shipped founding covariance, kept for the newborn's gate
+			// before the honest prior widens the filter's own.
+			track.gate = gateCovariance{active: true, p: track.P}
+		}
+		if t.Config.VelocityPriorInit {
+			// The honest prior: the velocity is still zero, only its
+			// variance says how little is known of it (VelocityPriorInit).
+			track.P[2*4+2] = VelocityPriorInitVariance
+			track.P[3*4+3] = VelocityPriorInitVariance
+		}
 	}
 
 	t.Tracks[trackID] = track

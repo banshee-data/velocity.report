@@ -11,7 +11,9 @@
 // matching variant's figures under "published".
 //
 // The output is a JSON summary per variant and track group; -rows adds one
-// CSV line per scored track frame for plotting. Neither belongs in Git.
+// CSV line per scored track frame for plotting, with the solid body's pose
+// and extents and its extent profile's when the replay runs them
+// (extent_profile.go). Neither belongs in Git.
 package main
 
 import (
@@ -95,7 +97,7 @@ func main() {
 		defer f.Close()
 		sc.rows = csv.NewWriter(f)
 		defer sc.rows.Flush()
-		_ = sc.rows.Write(rowHeader)
+		_ = sc.rows.Write(append(append([]string{}, rowHeader...), solidBodyRowHeader...))
 	}
 
 	var lb *lowerBody
@@ -808,11 +810,12 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 		}
 	}
 	if s.rows != nil {
-		_ = s.rows.Write([]string{name, t.TrackID, strconv.FormatInt(now, 10), s.class[t.TrackID],
+		row := []string{name, t.TrackID, strconv.FormatInt(now, 10), s.class[t.TrackID],
 			f3(speed), f3(b.x), f3(b.y), f3(b.psi * 180 / math.Pi), f3(b.length), f3(b.width),
 			strconv.Itoa(points), strconv.Itoa(outside), f3(maxOut), f3(course * 180 / math.Pi), f3(dpsi), f3(spanA), f3(spanN), refAxis(ref), f3(ref.area),
 			strconv.FormatBool(t.MergeCandidate), f3(clusterHeight(cluster)), strconv.FormatBool(cluster != nil && cluster.GroundClipped),
-			f3(clusterLowest(cluster)), f3(drawnBase), f3(drawnHeight)})
+			f3(clusterLowest(cluster)), f3(drawnBase), f3(drawnHeight)}
+		_ = s.rows.Write(append(row, solidBodyRow(t, b, cluster, now)...))
 	}
 	if b.length > 0 {
 		st.traj = append(st.traj, trajPoint{t: now, x: float64(t.X), y: float64(t.Y), speed: speed, psi: b.psi})

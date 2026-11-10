@@ -24,3 +24,6 @@ length from the extent state on kirk0
 
 Answered on November 9, 2026: [geom0018](geom0018.md), extent bound accrual on kirk0
 ([report](../../../docs/lidar/operations/extent-bound-accrual-kirk0-2026-11.md)).
+
+Answered on November 10, 2026: [geom0019](geom0019.md), a body-frame occupancy profile as the
+extent estimator ([report](../../../docs/lidar/operations/extent-occupancy-profile-2026-11.md)).

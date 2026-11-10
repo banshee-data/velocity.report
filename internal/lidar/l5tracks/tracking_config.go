@@ -17,6 +17,10 @@ const (
 	TrackDeleted   TrackState = "deleted"   // Track marked for removal
 )
 
+// VelocityPriorInitVariance is VelocityPriorInit's birth velocity variance
+// per axis, (7.5 m/s)² in m²/s².
+const VelocityPriorInitVariance float32 = 7.5 * 7.5
+
 // HeadingSource indicates which mechanism determined the current track heading.
 // This is exposed via the visualiser so that renderers can colour-code boxes
 // to help diagnose angular drift (e.g. velocity-blue, PCA-yellow).
@@ -163,6 +167,42 @@ type TrackerConfig struct {
 	TwoPointVelocityInit    bool
 	ConsistentCovarianceCap bool
 	ConsistentSpeedClamp    bool
+
+	// VelocityPriorInit gives a new track an honest velocity prior: the
+	// velocity stays zero, but its variance per axis is
+	// VelocityPriorInitVariance, (7.5 m/s)², instead of the shipped
+	// 1 m²/s², with the position-velocity covariance zero as shipped. 7.5 m/s
+	// is half a 15 m/s urban vehicle speed, the maths review's (v_max/2)²
+	// (§4.2). Under the shipped prior a vehicle at 6.5 m/s is 6.5 sigma from
+	// it and its velocity takes about a second to converge (l5est0007 found
+	// the along-track over-dispersion in each track's first second); under
+	// this one the first updates carry most of the velocity. It changes the
+	// founding covariance only, so it composes with the covariance cap and
+	// with TwoPointVelocityInit as the shipped prior does (experiment
+	// l5est0009).
+	VelocityPriorInit bool
+
+	// VelocityPriorGated keeps VelocityPriorInit's wide velocity variance
+	// for the Kalman update but gates and costs a tentative track's
+	// associations with the covariance it would hold under the shipped
+	// 1 m²/s² prior: the same founding position covariance, propagated by
+	// the same transition, process noise, cap, coast inflation and update
+	// gains. A newborn therefore reaches no further than under the shipped
+	// prior, while its velocity converges as under the honest one. The
+	// shadow covariance is dropped once the track confirms. It needs
+	// VelocityPriorInit (experiment l5est0010).
+	VelocityPriorGated bool
+
+	// VelocityPriorShadowRefusal, with VelocityPriorGated, refuses the wide
+	// birth prior to a track born in a confirmed track's shadow (the test
+	// TwoPointVelocityInit's guard reads, inConfirmedShadow: on a bearing
+	// inside the confirmed box's corner bearings and farther than its nearest
+	// corner). Such a birth takes the shipped velocity variance and no gate
+	// shadow, so a reflection or a fragment behind a nearer body starts as
+	// the shipped tracker starts it; every other birth is as under
+	// VelocityPriorGated. ContinuityStats.ShadowPriorBirths counts the births
+	// it touched (experiment l5est0011).
+	VelocityPriorShadowRefusal bool
 
 	// LikelihoodAssociationCost changes the assignment cost from the bare
 	// squared Mahalanobis distance d² to the Gaussian negative log-likelihood

@@ -86,6 +86,26 @@ func TestGEST1ReportIsWrittenFromTheFirstRun(t *testing.T) {
 	if report.Config.Occlusion.HorizonsSecs[2] != 2.5 || report.CrossRead == nil {
 		t.Errorf("config horizons %v, cross-read %v", report.Config.Occlusion.HorizonsSecs, report.CrossRead)
 	}
+	// The track records behind each source's restated read are written
+	// beside the report, labelled with the case.
+	tracks, err := l8analytics.LoadGEST1CorpusRecord(filepath.Join(s.replay.outDir, id, "first", gest1TracksFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tracks.Case != id || len(tracks.Sources) != 2 {
+		t.Fatalf("track records case %q sources %d", tracks.Case, len(tracks.Sources))
+	}
+	for i, src := range tracks.Sources {
+		rep := report.Sources[i]
+		if src.Source != rep.Source || len(src.Tracks) != rep.MovingTracks || rep.Restated == nil || rep.Restated.Tracks != rep.MovingTracks {
+			t.Errorf("%s: %d track records for %d moving tracks, restated %+v", src.Source, len(src.Tracks), rep.MovingTracks, rep.Restated)
+		}
+		for _, tr := range src.Tracks {
+			if tr.Case != id {
+				t.Errorf("%s track %s labelled %q", src.Source, tr.TrackID, tr.Case)
+			}
+		}
+	}
 	if record := readCaseRecord(t, s.caseOut(id)); record.Case.GEST1Report != want {
 		t.Errorf("case record names %q", record.Case.GEST1Report)
 	}

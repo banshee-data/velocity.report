@@ -386,6 +386,16 @@ type Result struct {
 	// during its warm-up, in order: when, what it measured, and whether it
 	// converged. Empty when convergence is not armed.
 	SettlingTrajectory []l3grid.SettlingCheck
+	// Settled says the background ended its own warm-up during the replay;
+	// SettledAfterSeconds is when, by the frames' clock from the first
+	// frame the background processed (BackgroundStartUnixNanos), and
+	// SettledOnConvergence whether convergence rather than the ceiling ended
+	// it (l3grid.BackgroundManager.SettledAfter). They read state and are
+	// not in the replay manifest or the parameter hash.
+	Settled                  bool
+	SettledAfterSeconds      float64
+	SettledOnConvergence     bool
+	BackgroundStartUnixNanos int64
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -1425,6 +1435,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 
 		SettlingTrajectory: bgMgr.SettlingTrajectory(),
 	}
+	if after, onConvergence, ok := bgMgr.SettledAfter(); ok {
+		result.Settled, result.SettledAfterSeconds, result.SettledOnConvergence = true, after.Seconds(), onConvergence
+	}
+	if !bgMgr.StartTime.IsZero() {
+		result.BackgroundStartUnixNanos = bgMgr.StartTime.UnixNano()
+	}
 	result.Uncertainty, result.UncertaintySamples = uncertainty, uncertaintySamples
 	return result, nil
 }
@@ -1446,10 +1462,14 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			ExperimentRobustLikelihoodCost, ExperimentLikelihoodCost)
 	}
 	trackerConfig.FragmentBirthGate = hasExperiment(experiments, ExperimentRobustBirthGate)
-	if trackerConfig.FragmentBirthGate && !trackerConfig.RobustLikelihoodAssociationCost {
+	// The gate reads only the fragment guard and a track's box, so either
+	// likelihood cost qualifies it (l5id0021 found its population under the
+	// robust cost; l5id0023 reads it under the Gaussian one). Under d² the
+	// duplicates that took these fragments remain, so it is refused there.
+	if trackerConfig.FragmentBirthGate && !trackerConfig.RobustLikelihoodAssociationCost && !trackerConfig.LikelihoodAssociationCost {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
-			"replay experiment %s is the birth rule for the clusters %s leaves; name %s with it",
-			ExperimentRobustBirthGate, ExperimentRobustLikelihoodCost, ExperimentRobustLikelihoodCost)
+			"replay experiment %s is the birth rule for the clusters a likelihood cost leaves; name %s or %s with it",
+			ExperimentRobustBirthGate, ExperimentRobustLikelihoodCost, ExperimentLikelihoodCost)
 	}
 	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
@@ -1458,6 +1478,16 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.TwoPointVelocityInit = hasExperiment(experiments, ExperimentTwoPointVelocityInit)
 	trackerConfig.ConsistentCovarianceCap = hasExperiment(experiments, ExperimentConsistentCovarianceCap)
 	trackerConfig.ConsistentSpeedClamp = hasExperiment(experiments, ExperimentConsistentSpeedClamp)
+	trackerConfig.VelocityPriorShadowRefusal = hasExperiment(experiments, ExperimentVelocityPriorInit75GatedShadow)
+	trackerConfig.VelocityPriorGated = hasExperiment(experiments, ExperimentVelocityPriorInit75Gated) || trackerConfig.VelocityPriorShadowRefusal
+	trackerConfig.VelocityPriorInit = hasExperiment(experiments, ExperimentVelocityPriorInit75) || trackerConfig.VelocityPriorGated
+	if trackerConfig.VelocityPriorGated && trackerConfig.TwoPointVelocityInit {
+		// The two-point update replaces the second update, which the gate's
+		// shadow covariance does not follow.
+		return l5tracks.TrackerConfig{}, fmt.Errorf(
+			"replay experiment %s gates with the shipped prior's covariance, which %s does not maintain; name one",
+			ExperimentVelocityPriorInit75Gated, ExperimentTwoPointVelocityInit)
+	}
 	trackerConfig.TentativePriority = trackerConfig.TentativePriority || hasExperiment(experiments, ExperimentTentativePriority)
 	trackerConfig.ClassIdentity = hasExperiment(experiments, ExperimentClassIdentity)
 	overlapEnd, err := overlapEndFramesFor(experiments)
@@ -1523,6 +1553,8 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	faceState := faceStateFor(experiments)
 	sharedOrientation := hasExperiment(experiments, ExperimentSolidBodySharedOrientation)
 	accrual := hasExperiment(experiments, ExperimentSolidBodyExtentAccrual)
+	profile := hasExperiment(experiments, ExperimentSolidBodyExtentProfile)
+	anchored := hasExperiment(experiments, ExperimentSolidBodyExtentProfileAnchored)
 	// The experiments are aliases for the tuning file's solid_body block:
 	// each switches its option on over whatever the block set, so a block
 	// and a name that agree are one configuration, and a name adds to a
@@ -1574,6 +1606,20 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			}
 			opts.ExtentBoundAccrual = true
 		}
+		opts.ExtentProfile = opts.ExtentProfile || profile
+		if anchored {
+			// It is the profile with two changes, so naming both would run
+			// one under the other's name; and its axis is the box's.
+			switch {
+			case opts.ExtentProfile:
+				return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s replaces %s, so name one",
+					ExperimentSolidBodyExtentProfileAnchored, ExperimentSolidBodyExtentProfile)
+			case !trackerConfig.BoxModel.Enabled:
+				return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s reads the box model's heading filter, and the tuning file's box model is off",
+					ExperimentSolidBodyExtentProfileAnchored)
+			}
+			opts.ExtentProfileAnchored = true
+		}
 		trackerConfig.SolidBody = opts
 		trackerConfig.NearEdgeTracking = trackerConfig.NearEdgeTracking || hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = trackerConfig.NearEdgeMedoidGate || hasExperiment(experiments, ExperimentNearEdgeTrackA1)
@@ -1588,7 +1634,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		}
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
 		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment || rectangle || rectangleHeading || courseFusion || sigmaScale > 0 ||
-		faceState != (l5tracks.SolidBodyOptions{}) || sharedOrientation || accrual ||
+		faceState != (l5tracks.SolidBodyOptions{}) || sharedOrientation || accrual || profile || anchored ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",

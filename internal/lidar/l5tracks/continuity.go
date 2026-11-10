@@ -464,6 +464,7 @@ func (t *Tracker) inflateCoastCovariance(track *TrackedObject) float32 {
 	// Capped at MaxCovarianceDiag to prevent unbounded growth over long
 	// coasting periods (e.g. 15 frames × 0.5 = +7.5).
 	if add > 0 {
+		t.inflateGateCovariance(track, add)
 		track.P[0*4+0] += add
 		track.P[1*4+1] += add
 		if sb := &track.solidBody; sb.tracksExtent() {
@@ -1042,6 +1043,10 @@ type ContinuityStats struct {
 	// kept from seeding a track: fragments inside a confirmed track's grown
 	// box. Zero, and omitted, with the option off.
 	FragmentBirthsAbsorbed int64 `json:"fragment_births_absorbed,omitempty"`
+	// ShadowPriorBirths counts births VelocityPriorShadowRefusal gave the
+	// shipped velocity prior because they lay in a confirmed track's shadow.
+	// Zero, and omitted, with the option off.
+	ShadowPriorBirths int64 `json:"shadow_prior_births,omitempty"`
 
 	// The artefact options' decisions (experiment l6cls0005), zero and
 	// omitted with the options off. ArtefactBirthsHeld counts tentative

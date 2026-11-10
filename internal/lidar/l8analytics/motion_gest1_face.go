@@ -93,6 +93,10 @@ type GEST1Chain struct {
 	Residuals        []GEST1Residual
 	Observations     []motion.Observation
 	ObservationFrame []int64
+	// LiveVX and LiveVY are the live estimator's velocity after each
+	// observation (the tracked filter's posterior, or the solid body's own),
+	// NaN where it was not read: the output the jerk checks difference.
+	LiveVX, LiveVY []float64
 	// LeadingRankOne counts face fixes dropped before the chain's first
 	// two-dimensional one: an offline filter cannot be founded on a line.
 	LeadingRankOne int
@@ -181,6 +185,8 @@ func (c *GEST1Collector) ObserveFilterFrame(frame l5tracks.FilterFrame) {
 		}
 		ch.Observations = append(ch.Observations, obs)
 		ch.ObservationFrame = append(ch.ObservationFrame, step.FrameUnixNanos)
+		ch.LiveVX = append(ch.LiveVX, float64(step.Posterior.VX))
+		ch.LiveVY = append(ch.LiveVY, float64(step.Posterior.VY))
 		if !step.Observation.HasInnovation {
 			continue
 		}
@@ -224,8 +230,8 @@ func (c *GEST1Collector) ObserveTap(frameNanos int64, scored bool, clusters []l5
 			prior = float64(at-prev) / 1e9
 		}
 		c.lastUpdate[key] = at
-		c.ObserveSolidBodyFix(tr.TrackID, tr.CreationSequence, tr.TrackState == l5tracks.TrackConfirmed,
-			reading.Measurement, at, frameNanos, prior)
+		c.observeSolidBodyFix(tr.TrackID, tr.CreationSequence, tr.TrackState == l5tracks.TrackConfirmed,
+			reading.Measurement, at, frameNanos, prior, float64(reading.VX), float64(reading.VY))
 	}
 }
 
@@ -236,6 +242,12 @@ func (c *GEST1Collector) ObserveTap(frameNanos int64, scored bool, clusters []l5
 // one is the same fix and is ignored, as is a measurement with no face
 // innovations.
 func (c *GEST1Collector) ObserveSolidBodyFix(trackID string, seq int64, confirmed bool, m l5tracks.SolidBodyMeasurement, unixNanos, frameNanos int64, priorSecs float64) {
+	c.observeSolidBodyFix(trackID, seq, confirmed, m, unixNanos, frameNanos, priorSecs, math.NaN(), math.NaN())
+}
+
+// observeSolidBodyFix is ObserveSolidBodyFix with the body's own velocity
+// after the update (NaN when not read).
+func (c *GEST1Collector) observeSolidBodyFix(trackID string, seq int64, confirmed bool, m l5tracks.SolidBodyMeasurement, unixNanos, frameNanos int64, priorSecs, vx, vy float64) {
 	if m.Source != l5tracks.MeasurementNearEdgeCandidateV1 || m.FaceInnovationCount == 0 {
 		return
 	}
@@ -246,7 +258,7 @@ func (c *GEST1Collector) ObserveSolidBodyFix(trackID string, seq int64, confirme
 	c.lastFix[key] = unixNanos
 	ch := c.chain(GEST1SourceSolidBody, trackID, seq)
 	ch.Confirmed = ch.Confirmed || confirmed
-	c.addFaceFix(ch, m, unixNanos, frameNanos, priorSecs)
+	c.addFaceFix(ch, m, unixNanos, frameNanos, priorSecs, vx, vy)
 }
 
 // addFaceFix records one fix's residual and its observation for the offline
@@ -257,7 +269,7 @@ func (c *GEST1Collector) ObserveSolidBodyFix(trackID string, seq int64, confirme
 // carry no extents, are told how far the centre the face implies can be from
 // it. The position–extent covariance is not carried over; the offline
 // filters are labels and comparisons, not the solid body.
-func (c *GEST1Collector) addFaceFix(ch *GEST1Chain, m l5tracks.SolidBodyMeasurement, at, frame int64, priorSecs float64) {
+func (c *GEST1Collector) addFaceFix(ch *GEST1Chain, m l5tracks.SolidBodyMeasurement, at, frame int64, priorSecs, liveVX, liveVY float64) {
 	res := GEST1Residual{UnixNanos: at, FrameUnixNanos: frame, Dim: m.FaceInnovationCount, NIS: float64(m.NIS),
 		PriorSecs: priorSecs, ReferenceChange: m.ReferenceChange == l5tracks.ReferenceToBodyCentre}
 	if joint, ok := m.JointFaceNIS(); ok {
@@ -306,6 +318,7 @@ func (c *GEST1Collector) addFaceFix(ch *GEST1Chain, m l5tracks.SolidBodyMeasurem
 	}
 	ch.Observations = append(ch.Observations, obs)
 	ch.ObservationFrame = append(ch.ObservationFrame, frame)
+	ch.LiveVX, ch.LiveVY = append(ch.LiveVX, liveVX), append(ch.LiveVY, liveVY)
 }
 
 func (c *GEST1Collector) course(vx, vy float64) (ux, uy float64, ok bool) {
@@ -426,6 +439,17 @@ type GEST1Config struct {
 	BootstrapSeed  int64 `json:"bootstrap_seed"`
 	// Occlusion is criterion 5's configuration.
 	Occlusion OcclusionConfig `json:"occlusion"`
+	// The track records' label-free checks (l5est0007). JerkThreshold
+	// (m/s³) is Punzo et al. 2011's plausibility bound; jerk is taken over
+	// observation intervals of at most JerkMaxStepSecs at speeds of at least
+	// JerkMinSpeed. TurnRateThresholds (rad/s) are the yaw rates a
+	// track-frame is counted as turning beyond, read where the smoothed speed
+	// reaches TurnMinSpeed.
+	JerkThreshold      float64   `json:"jerk_threshold_mps3"`
+	JerkMaxStepSecs    float64   `json:"jerk_max_step_s"`
+	JerkMinSpeed       float64   `json:"jerk_min_speed_mps"`
+	TurnRateThresholds []float64 `json:"turn_rate_thresholds_rad_s"`
+	TurnMinSpeed       float64   `json:"turn_min_speed_mps"`
 }
 
 // DefaultGEST1Config is the configuration l5est0005's rule names.
@@ -434,7 +458,9 @@ func DefaultGEST1Config(maxCoastSecs float64) GEST1Config {
 		MovingSpeed: 2.0, MinObservations: 10, MinCourseSpeed: 0.5,
 		AccelHalfWindowSecs: 0.5, AccelMaxSpanSecs: 1.5, Level: 0.95, CrossReadToleranceSecs: 0.05,
 		InteriorMarginSecs: 1.5, BootstrapDraws: 2000, BootstrapSeed: 20261108,
-		Occlusion: DefaultOcclusionConfig(maxCoastSecs),
+		Occlusion:     DefaultOcclusionConfig(maxCoastSecs),
+		JerkThreshold: 15, JerkMaxStepSecs: gest1OneStepSecs, JerkMinSpeed: 0.5,
+		TurnRateThresholds: []float64{0.1, 0.2}, TurnMinSpeed: 2.0,
 	}
 }
 
@@ -530,6 +556,11 @@ type GEST1SourceReport struct {
 	// PostHoc are reads added after l5est0005's first replay, not part of
 	// its rule: see GEST1PostHoc.
 	PostHoc GEST1PostHoc `json:"post_hoc"`
+	// Restated is l5est0007's read (ReadGEST1Corpus) over this source's
+	// moving tracks, and CorpusTracks the records behind it, which a case
+	// writes separately so a corpus read can pool them.
+	Restated     *GEST1CorpusRead   `json:"restated,omitempty"`
+	CorpusTracks []GEST1CorpusTrack `json:"-"`
 }
 
 // GEST1PostHoc are diagnostic reads added after l5est0005's declared
@@ -674,6 +705,7 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 	var oneStepRuns [][]float64
 	var zAlong, zAcross, zAlongOne, zAcrossOne []float64
 	ph := GEST1PostHoc{OneStepMaxSecs: gest1OneStepSecs}
+	var records []GEST1CorpusTrack
 	for _, ch := range chains {
 		sr.LeadingRankOne += ch.LeadingRankOne
 		key := gest1ChainKey(ch.TrackID, ch.CreationSequence)
@@ -688,6 +720,11 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 		}
 		sr.MovingTracks++
 		var run, runOne []float64
+		rec := GEST1CorpusTrack{TrackID: ch.TrackID, CreationSequence: ch.CreationSequence}
+		birth := k.times[0]
+		if tc := c.chains[GEST1SourceTracked][key]; tc != nil && len(tc.Observations) > 0 {
+			birth = tc.Observations[0].UnixNanos
+		}
 		for _, r := range ch.Residuals {
 			if !c.Scored(r.FrameUnixNanos) {
 				continue
@@ -727,6 +764,25 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 				s.rng, s.aspect = rng, asp
 				s.hasAspect = !math.IsNaN(asp) && math.Hypot(k.vx[i], k.vy[i]) >= cfg.MinCourseSpeed
 			}
+			cs := GEST1CorpusSample{OneStep: oneStep, Dim: r.Dim, HasAlong: r.HasAlong, HasAcross: r.HasAcross,
+				HasState: i >= 0, HasAspect: s.hasAspect, HasAccel: s.hasAccel, Points: r.Points,
+				AgeSecs: float64(r.UnixNanos-birth) / 1e9}
+			if r.HasAlong {
+				cs.ZAlong = r.Along / r.AlongSD
+			}
+			if r.HasAcross {
+				cs.ZAcross = r.Across / r.AcrossSD
+			}
+			if i >= 0 {
+				cs.Speed, cs.Range = math.Hypot(k.vx[i], k.vy[i]), s.rng
+			}
+			if s.hasAspect {
+				cs.Aspect = s.aspect
+			}
+			if s.hasAccel {
+				cs.Accel = math.Abs(s.accel)
+			}
+			rec.Samples = append(rec.Samples, cs)
 			switch {
 			case i < 0:
 				// A leading rank-one fix: no observation founded the
@@ -750,16 +806,46 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 		}
 		if len(runOne) > 0 {
 			oneStepRuns = append(oneStepRuns, runOne)
+			rec.RunTracked, rec.RunFlagged = true, longestSameSignRun(runOne, 1) >= 3
 		}
 		scored := motion.TrackObservations{TrackID: ch.TrackID, CreationSequence: ch.CreationSequence}
+		var liveVX, liveVY []float64
+		rec.TurnOver = make([]int, len(cfg.TurnRateThresholds))
 		for i, o := range ch.Observations {
 			if c.Scored(ch.ObservationFrame[i]) {
 				scored.Observations = append(scored.Observations, o)
+				liveVX, liveVY = append(liveVX, chainLive(ch.LiveVX, i)), append(liveVY, chainLive(ch.LiveVY, i))
+				if yaw := k.yawRate(i, cfg); !math.IsNaN(yaw) {
+					rec.TurnFrames++
+					for t, th := range cfg.TurnRateThresholds {
+						if math.Abs(yaw) > th {
+							rec.TurnOver[t]++
+						}
+					}
+				}
 			}
 		}
 		for len(scored.Observations) > 0 && scored.Observations[0].RankOne {
 			scored.Observations = scored.Observations[1:]
+			liveVX, liveVY = liveVX[1:], liveVY[1:]
 		}
+		if len(scored.Observations) >= 2 {
+			times := make([]int64, len(scored.Observations))
+			for i, o := range scored.Observations {
+				times[i] = o.UnixNanos
+			}
+			rec.Jerk = append(rec.Jerk, jerkCount(GEST1EstimatorLive, times, liveVX, liveVY, cfg.JerkThreshold, cfg.JerkMaxStepSecs, cfg.JerkMinSpeed))
+			if runs, err := runOfflineModels(scored.Observations, cfg.MinCourseSpeed); err == nil {
+				for m, name := range GEST1OfflineModels {
+					rec.OfflineAlong = append(rec.OfflineAlong, runs[m].along)
+					rec.OfflineAcross = append(rec.OfflineAcross, runs[m].across)
+					rec.OfflineAlongAge = append(rec.OfflineAlongAge, agesSecs(runs[m].alongT, birth))
+					rec.OfflineAcrossAge = append(rec.OfflineAcrossAge, agesSecs(runs[m].acrossT, birth))
+					rec.Jerk = append(rec.Jerk, jerkCount(name, times, runs[m].vx, runs[m].vy, cfg.JerkThreshold, cfg.JerkMaxStepSecs, cfg.JerkMinSpeed))
+				}
+			}
+		}
+		records = append(records, rec)
 		if len(scored.Observations) >= 2 {
 			scoredTracks = append(scoredTracks, scored)
 			tails, err := oneStepTails(scored.Observations, cfg.MinCourseSpeed)
@@ -831,8 +917,30 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 				sr.Criterion5Violations[m] = occ.NoWorseThan(m, "cv")
 			}
 		}
+		at := map[string]int{}
+		for i, r := range records {
+			at[gest1ChainKey(r.TrackID, r.CreationSequence)] = i
+		}
+		for _, oc := range occ.Cases {
+			if i, ok := at[gest1ChainKey(oc.TrackID, oc.CreationSequence)]; ok {
+				records[i].Occlusion = append(records[i].Occlusion, GEST1OcclusionRecord{
+					HorizonSecs: oc.HorizonSecs, Decelerating: oc.Decelerating, Errors: oc.Errors})
+			}
+		}
 	}
+	sr.CorpusTracks = records
+	restated := ReadGEST1Corpus(records, cfg.TurnRateThresholds, DefaultGEST1CorpusConfig())
+	sr.Restated = &restated
 	return sr, kin, samples, nil
+}
+
+// chainLive is the live velocity component at observation i, NaN when the
+// chain did not record it.
+func chainLive(v []float64, i int) float64 {
+	if i < len(v) {
+		return v[i]
+	}
+	return math.NaN()
 }
 
 // smoothedKinematics runs the offline CV filter over a chain's observations,
@@ -1155,5 +1263,14 @@ func crossRead(tracked []gest1Sample, solid map[string]chainKinematics, cfg GEST
 	}
 	out := correlate("tracked_nis_against_solid_body_acceleration", joined, cfg.Level)
 	bootstrapTracks(&out, joined, cfg)
+	return out
+}
+
+// agesSecs is each time's age in seconds since birth.
+func agesSecs(times []int64, birth int64) []float64 {
+	out := make([]float64, len(times))
+	for i, t := range times {
+		out[i] = float64(t-birth) / 1e9
+	}
 	return out
 }

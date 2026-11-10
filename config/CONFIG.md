@@ -388,6 +388,11 @@ uses, at ν = 4; refused with `likelihood_cost`, named or from the tuning file, 
 `capture_gap_predict`, `two_point_velocity_init`, `consistent_covariance_cap`,
 `consistent_speed_clamp` (the three of
 [tracking maths §2.3](../data/maths/tracking-maths.md#23-initialisation-and-covariance-hygiene-default-off-options)),
+`velocity_prior_init_7p5` (the birth velocity variance at (7.5 m/s)² per axis, l5est0009),
+`velocity_prior_init_7p5_gated` (the same variance in the update, a tentative track gated with
+the shipped prior's covariance, l5est0010),
+`velocity_prior_init_7p5_gated_shadow` (the gated form, with a birth in a confirmed track's
+shadow given the shipped prior, l5est0011),
 `coast_support`, `coast_time_inflation`,
 `class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity`,
 `contested_rejoin` (with the reacquisition guard it needs), `tentative_priority`,
@@ -395,7 +400,7 @@ uses, at ν = 4; refused with `likelihood_cost`, named or from the tuning file, 
 `solid_body_containment` and `solid_body_full_members`), `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
 `overlap_end_body` and `overlap_end_older`, `birth_gate_body` (which needs `overlap_end_body`),
 `robust_birth_gate` (a fragment the fragment guard refuses a confirmed track, inside that track's
-grown box, seeds no track; it needs `robust_likelihood_cost`), `artefact_birth_gate` and
+grown box, seeds no track; it needs `robust_likelihood_cost` or `likelihood_cost`), `artefact_birth_gate` and
 `artefact_absorb` (small artefact tracks held tentative at birth, or their clusters taken by the
 neighbouring body; [l6cls0005](../data/experiments/l6cls/l6cls0005.md)), `fixed_lag_rts`, `surface_ground` (the
 replay tools' surface-ground flags by name), `box_ground` (which needs the box model),
@@ -412,7 +417,13 @@ body's face-state options, each needing `solid_body`: `solid_body_extent_state` 
 bounds taken over a window of axes as wide as the axis is uncertain, and accrued over the track's
 life; it needs `solid_body`
 with `solid_body_face_state`, or `solid_body_extent_state` with `solid_body_censored_extent` or
-`solid_body_span_bounds_belief`); and `solid_body_shared_orientation` (the solid body's
+`solid_body_span_bounds_belief`); `solid_body_extent_profile` (a shadow of the solid body: two
+one-dimensional log-odds occupancy grids along and across its axis, reported beside it and written
+by `lidar-box-eval -rows`; it needs `solid_body` and changes no track);
+`solid_body_extent_profile_anchored` (the same profile with its grid held to the body and its axis
+the box model's heading filter, admitted within 5 degrees; it needs `solid_body` and the box model,
+is refused with `solid_body_extent_profile`, and changes no track); and
+`solid_body_shared_orientation` (the solid body's
 orientation and its variance from the box model's heading filter; it needs `solid_body` and the box
 model, and is refused with `near_edge_track`, `solid_body_rectangle_heading`,
 `solid_body_course_heading` and `solid_body_course_faces`). With `box_extent_solid_body` the box's

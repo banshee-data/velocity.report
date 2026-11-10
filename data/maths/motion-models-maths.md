@@ -373,6 +373,43 @@ passes on the faces (along ratio 0.729, across 1.108). The medoid figures and th
 unchanged; see the report's
 [Since this report](../../docs/lidar/operations/gest1-face-state-kirk0-2026-11.md#since-this-report).
 
+**Criterion 2 restated (l5est0007).** The screen's criterion read a correlation off zero, which an
+under-dispersed filter can pass. The restated read (`motion_gest1_corpus.go`) asks first for
+over-dispersion along the track, then for its cause, on one-step residuals (prior predicted across
+at most 0.15 s, no re-reference):
+
+- **Dispersion.** `z = along / √(uᵀSu)`, pooled RMS and the share of `|z|` beyond 1.96, with a
+  percentile interval over 2,000 resamples of whole tracks; across-track the same. Each track's
+  own RMS (five values or more) gives the per-track distribution. Over-dispersed means RMS above 1
+  or more than 5 % beyond 1.96.
+- **Cause.** The partial correlation of `z_along²` with the smoothed |longitudinal acceleration|,
+  controlling for range, aspect and point count. The bootstrap keeps each track's centred moment
+  sums over the five columns, and a draw's `r` is `−P₀₁/√(P₀₀P₁₁)` from the precision of their
+  pooled covariance, equal to the Gram–Schmidt `r` to rounding.
+- **Strata.** The along-track z RMS by smoothed speed, range, aspect, point count and track age
+  (under or over 1 s since the track's first tracked-filter observation).
+- **Age split** (l5est0008). The dispersion, the cause and criterion 4's offline tails read
+  separately on residuals at a track age of at most 1 s and after it, each with its own
+  whole-track bootstrap over the tracks that have a value on that side. A track record carries the
+  age of each offline one-step value for this; records written before it carry none.
+- **Jerk** (Punzo et al. 2011). For each estimator's output, the live filter's and each offline
+  model's over the scored observations: `a = Δ|v|/Δt` over consecutive intervals of at most
+  0.15 s with speeds of at least 0.5 m/s, `j = Δa` over the mean of the two intervals. The checks
+  are the share of `|j|` above 15 m/s³ and the sign changes between consecutive jerk samples per
+  second between them. The bound is Punzo's for passenger cars at 10 Hz, a plausibility check.
+- **Turning.** The smoothed heading's centred rate over the acceleration's window, where the
+  smoothed speed reaches 2 m/s at both ends and the middle; the share of track-frames above 0.1
+  and 0.2 rad/s.
+
+Every read is a sum over tracks, so a case writes its moving tracks' records and
+`lidar-gest1-pool` reads any union: the corpus, one case, or the corpus with one case left out.
+The first corpus read, on the 23 first segments, is the
+[G-EST-1 corpus read](../../docs/lidar/operations/gest1-corpus-read-2026-11.md): the medoid's
+along-track excess is in the first second of each track, and the residuals after it are
+under-dispersed. The [second-segment read](../../docs/lidar/operations/gest1-second-segments-2026-11.md)
+held that split out on the 22 second segments under a rule fixed before its replays: 2.42 at a
+track age of at most 1 s, 0.85 after it.
+
 ## 11. What this does not establish
 
 - No capture was replayed. Every figure is a noise-free or seeded-noise simulation under the

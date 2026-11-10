@@ -146,6 +146,21 @@ const (
 	ExperimentTwoPointVelocityInit    = "two_point_velocity_init"
 	ExperimentConsistentCovarianceCap = "consistent_covariance_cap"
 	ExperimentConsistentSpeedClamp    = "consistent_speed_clamp"
+	// ExperimentVelocityPriorInit75 is TrackerConfig.VelocityPriorInit: a new
+	// track's velocity stays zero with a variance of (7.5 m/s)² per axis
+	// instead of 1 m²/s² (experiment l5est0009).
+	ExperimentVelocityPriorInit75 = "velocity_prior_init_7p5"
+	// ExperimentVelocityPriorInit75Gated is VelocityPriorInit with
+	// TrackerConfig.VelocityPriorGated: the same wide birth velocity variance
+	// in the Kalman update, but a tentative track is gated and costed with
+	// the covariance it would hold under the shipped 1 m²/s² prior
+	// (experiment l5est0010).
+	ExperimentVelocityPriorInit75Gated = "velocity_prior_init_7p5_gated"
+	// ExperimentVelocityPriorInit75GatedShadow is the gated form with
+	// TrackerConfig.VelocityPriorShadowRefusal: a track born in a confirmed
+	// track's shadow takes the shipped birth velocity variance (experiment
+	// l5est0011).
+	ExperimentVelocityPriorInit75GatedShadow = "velocity_prior_init_7p5_gated_shadow"
 
 	// Occlusion continuity (state-estimation plan, Sprint 0.5.2.2): the
 	// switches in l5tracks.OcclusionContinuityConfig, each alone so a change
@@ -206,8 +221,9 @@ const (
 	// which lies inside that track's drawn box grown by its position
 	// uncertainty, seeds no track (experiment l5id0021). It is built for the
 	// population robust_likelihood_cost leaves (the duplicates that used to
-	// take these fragments are gone), so it qualifies that cost and is
-	// refused without it.
+	// take these fragments are gone), so it qualifies a likelihood cost:
+	// robust_likelihood_cost or likelihood_cost (experiment l5id0023), and
+	// is refused without one.
 	ExperimentRobustBirthGate = "robust_birth_gate"
 	// ExperimentArtefactBirthGate is TrackerConfig.ArtefactBirthGate: a
 	// tentative track under 1.5 m long and wide, under 0.5 m from where it
@@ -365,6 +381,22 @@ const (
 	// solid_body_censored_extent or solid_body_span_bounds_belief), and is
 	// refused without them, where it would run as the arm it qualifies.
 	ExperimentSolidBodyExtentAccrual = "solid_body_extent_accrual"
+	// ExperimentSolidBodyExtentProfile:
+	// l5tracks.SolidBodyOptions.ExtentProfile, a body-frame occupancy
+	// profile per solid body (two one-dimensional log-odds grids, along and
+	// across its axis) reported on the reading's Profile block and written
+	// by lidar-box-eval -rows (geom0019). It is a shadow of the solid body,
+	// so it needs solid_body, and changes no track and no box.
+	ExperimentSolidBodyExtentProfile = "solid_body_extent_profile"
+	// ExperimentSolidBodyExtentProfileAnchored:
+	// l5tracks.SolidBodyOptions.ExtentProfileAnchored, geom0019's profile
+	// with its grid held to the body (shifted by the move of the solid body's
+	// centre the extent state or a change of reference makes) and its axis
+	// the published box's heading filter, admitted within 5 degrees
+	// (geom0020). It needs solid_body and the tuning file's box model, is
+	// refused with solid_body_extent_profile, which it replaces, and changes
+	// no track and no box.
+	ExperimentSolidBodyExtentProfileAnchored = "solid_body_extent_profile_anchored"
 	// ExperimentSolidBodySharedOrientation:
 	// l5tracks.SolidBodyOptions.SharedOrientation, the shadow solid body's
 	// orientation belief (psi and its variance) the published box's heading
@@ -504,9 +536,12 @@ var knownExperiments = map[string]bool{
 	ExperimentFixedLagRTS:          true,
 	ExperimentSolidBody:            true,
 
-	ExperimentTwoPointVelocityInit:    true,
-	ExperimentConsistentCovarianceCap: true,
-	ExperimentConsistentSpeedClamp:    true,
+	ExperimentTwoPointVelocityInit:           true,
+	ExperimentConsistentCovarianceCap:        true,
+	ExperimentConsistentSpeedClamp:           true,
+	ExperimentVelocityPriorInit75:            true,
+	ExperimentVelocityPriorInit75Gated:       true,
+	ExperimentVelocityPriorInit75GatedShadow: true,
 
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,
@@ -545,6 +580,8 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyAnisotropicReferenceBias: true,
 	ExperimentSolidBodyFaceState:                true,
 	ExperimentSolidBodyExtentAccrual:            true,
+	ExperimentSolidBodyExtentProfile:            true,
+	ExperimentSolidBodyExtentProfileAnchored:    true,
 	ExperimentSolidBodySharedOrientation:        true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,

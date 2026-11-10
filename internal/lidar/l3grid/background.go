@@ -402,8 +402,15 @@ type BackgroundGrid struct {
 	settlingAnnounced bool
 	// settlingChecks records each convergence evaluation of the warm-up
 	// (SettlingTrajectory).
-	settlingChecks   []SettlingCheck
-	SettlingComplete bool
+	settlingChecks []SettlingCheck
+	// settledAfter is the warm-up's elapsed time, by the frames' clock, at
+	// which settlingCompleteLocked last declared it over, and
+	// settledOnConvergence whether convergence (not the ceiling) ended it;
+	// settledRecorded is false until then (SettledAfter).
+	settledAfter         time.Duration
+	settledOnConvergence bool
+	settledRecorded      bool
+	SettlingComplete     bool
 
 	// Telemetry for monitoring (feeds into system_events)
 	ForegroundCount int64
