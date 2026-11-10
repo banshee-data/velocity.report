@@ -105,6 +105,7 @@ flowchart TB
     l5est0007["<b>l5est0007</b><br/>Is the CV filter over-dispersed along the…<br/>answered · 6h8m machine + 5h person (took 5h5m)<br/>manual: implement, write"]:::answered
     l5est0008["<b>l5est0008</b><br/>G-EST-1 on the second segments: does CV's…<br/>approved · 2h34m machine + 1h30m person<br/>manual: write"]:::approved
     l5est0009["<b>l5est0009</b><br/>An honest velocity prior at birth: does a…<br/>answered · 50m machine + 3h person (took 1h30m)<br/>manual: implement, write"]:::answered
+    l5est0010["<b>l5est0010</b><br/>The honest birth prior with the shipped…<br/>approved · 50m machine + 3h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::approved
   end
   subgraph area_l5id ["l5id: L5 identity"]
     l5id0001["<b>l5id0001</b><br/>One vehicle, one track: the identity…<br/>answered · 2h40m machine + 3h person (took 1h)<br/>manual: implement, write"]:::answered
@@ -237,6 +238,7 @@ flowchart TB
   l5est0005 --> l5est0007
   l5est0007 --> l5est0008
   l5est0007 --> l5est0009
+  l5est0009 --> l5est0010
   geom0008 --> l5id0001
   l5id0001 --> l5id0002
   l5id0002 --> l5id0003
@@ -299,6 +301,7 @@ flowchart TB
 - [l5est0002](l5est/l5est0002.md) The published trail as the whole-track smoother's estimate, not the online posterior: proposed, awaiting approval; 10h44m machine + 4h person; asks [lidar-web-scene-export-plan](../../docs/plans/lidar-web-scene-export-plan.md), [retrospective-refinement-criteria #selection-rule](../../docs/lidar/operations/retrospective-refinement-criteria.md#selection-rule), [lidar-state-estimation-plan #10-retrospective-refinement](../../docs/plans/lidar-state-estimation-plan.md#10-retrospective-refinement).
 - [l5est0004](l5est/l5est0004.md) A looser velocity process noise as an identity lever: does kirk0's gain hold on the corpus, label-free, and on the held-out window?: proposed, awaiting approval; 2h38m machine + 1h person; after l5est0003; asks [cloud-run-kirk0-labelled-2026-11 #l5est0003-the-filters-velocity-…](../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md#l5est0003-the-filters-velocity-on-kirk0s-trucks).
 - [l5est0008](l5est/l5est0008.md) G-EST-1 on the second segments: does CV's along-track over-dispersion live in a track's first second, read on segments no filter-consistency measure has seen: ready for a worker; 2h34m machine + 1h30m person; after l5est0007; asks [gest1-corpus-read-2026-11 #recommendations](../../docs/lidar/operations/gest1-corpus-read-2026-11.md#recommendations), [lidar-state-estimation-plan #73-recommendation-and-gate](../../docs/plans/lidar-state-estimation-plan.md#73-recommendation-and-gate).
+- [l5est0010](l5est/l5est0010.md) The honest birth prior with the shipped gate: wide velocity variance in the update, the shipped covariance for a newborn's association: ready, but a step needs tooling; 50m machine + 3h person; after l5est0009; asks [velocity-prior-init-2026-11 #recommendations](../../docs/lidar/operations/velocity-prior-init-2026-11.md#recommendations).
 - [l5id0007](l5id/l5id0007.md) Fragment endpoints on kirk: how many links truth holds, and what the gaps are made of: proposed, awaiting approval; 14m machine + 6h person; asks [dong2026-lane-stitching-review #recommendation-and-limits](../../docs/lidar/operations/dong2026-lane-stitching-review.md#recommendation-and-limits), [lidar-lane-stitching-plan #scope-and-sequence](../../docs/plans/lidar-lane-stitching-plan.md#scope-and-sequence), [research-briefing-2025-01-to-2026-10 #fragment-stitching-dong-et-al-2…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#fragment-stitching-dong-et-al-2026-and-luo-et-al-2025).
 - [l5id0008](l5id/l5id0008.md) Offline fragment links on kirk: a Dong-like baseline against lane-gated assignment: waiting on a dependency; 44m machine + 22h person; after l5id0007, lane0001; asks [dong2026-lane-stitching-review #reproduction-questions-that-mus…](../../docs/lidar/operations/dong2026-lane-stitching-review.md#reproduction-questions-that-must-be-settled-first), [lidar-lane-stitching-plan #candidates-with-the-papers-equa…](../../docs/plans/lidar-lane-stitching-plan.md#candidates-with-the-papers-equations-made-dimensionally-consistent), [lidar-lane-stitching-plan #acceptance-rules-proposed](../../docs/plans/lidar-lane-stitching-plan.md#acceptance-rules-proposed).
 - [l5id0009](l5id/l5id0009.md) Links through a merge: a second placement drawn, its links graded in the time-distance view: waiting on a dependency; 12m machine + 24h30m person; after l5id0008; asks [dong2026-lane-stitching-review #lane-and-merge-workflow](../../docs/lidar/operations/dong2026-lane-stitching-review.md#lane-and-merge-workflow), [lidar-lane-stitching-plan #review-view](../../docs/plans/lidar-lane-stitching-plan.md#review-view).
@@ -410,5 +413,5 @@ flowchart TB
 
 ## Totals
 
-- 40 open experiments: 73h15m machine + 259h10m person estimated.
+- 41 open experiments: 74h5m machine + 262h10m person estimated.
 - Longest chain of open work, machine and person time together: lane0001 → l5id0008 → l5id0009 → l5id0010, 69h57m.
