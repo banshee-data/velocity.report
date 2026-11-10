@@ -6,7 +6,7 @@ in the macOS visualiser's Annotation window.
 - **Status:** Implemented on macOS; the labelling itself is open work
 - **Layers:** L9 Endpoints, L10 Clients, offline analysis
 - **Canonical:** [lidar-point-annotation-and-object-dataset-plan.md](../../plans/lidar-point-annotation-and-object-dataset-plan.md)
-- **Related:** [annotation package README](../../../internal/lidar/annotation/README.md), [Track labelling](track-labelling-ui-implementation.md), [Model-assisted review](../../plans/lidar-model-assisted-review-exploration.md) (a blind model pass for the held-out window)
+- **Related:** [annotation package README](../../../internal/lidar/annotation/README.md), [Track labelling](track-labelling-ui-implementation.md), [One-hour labelling](../../plans/lidar-one-hour-labelling-plan.md) (zones, carried bodies and exception review for label0001)
 
 ## What it is for
 

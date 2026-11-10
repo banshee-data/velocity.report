@@ -7,11 +7,11 @@ language model as "pass 2", and asks the four questions that plan leaves open: h
 time it buys and where, what the records look like, how the borderline cases reach a person, and
 what becomes of HINT.
 
-- **Status:** Revisited November 10, 2026, for the held-out window: label0003's spans and label0001's masks are the window the D-32 parking (October 20) named as its reason to revisit, and [The held-out window first](#the-held-out-window-first-label0003-and-label0001) aims the plan at it. Loops A, C and D stay parked. Nothing here is built; the review workflow's pass 1 and pass 2 are
+- **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.15 (facets) or v0.5.16 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Revisited November 10, 2026, when one did: for label0001 and label0003 the owner chose a workflow with no external model, [one-hour labelling](lidar-one-hour-labelling-plan.md), and this exploration stays parked. Was: Exploration. Nothing here is built; the review workflow's pass 1 and pass 2 are
   unbuilt too, and the only proposer that exists is the macOS `ObjectProposer`
 - **Canonical:** [point-annotation-tool.md](../lidar/operations/point-annotation-tool.md)
 - **Layers:** L5 Tracks, L6 Objects, L8 Analytics, L10 Clients (macOS visualiser), sweep, offline analysis
-- **Related:** [Review workflow](lidar-review-workflow-plan.md), [Segment finder](lidar-annotation-segment-finder-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [Point annotation tool](../lidar/operations/point-annotation-tool.md), [Physical reference review](lidar-physical-reference-review-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Classifier scorecard](lidar-ml-classifier-training-plan.md), [Deterministic scene capture](lidar-deterministic-scene-capture-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md) (its deferred item 8.4 is this idea in one line), [Labelling workspace](../lidar/operations/labelling-workspace.md), [label0001](../../data/experiments/label/label0001.md), [label0003](../../data/experiments/label/label0003.md), [Labelling run guidance](lidar-labelling-run-guidance-plan.md)
+- **Related:** [Review workflow](lidar-review-workflow-plan.md), [Segment finder](lidar-annotation-segment-finder-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [Point annotation tool](../lidar/operations/point-annotation-tool.md), [Physical reference review](lidar-physical-reference-review-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Classifier scorecard](lidar-ml-classifier-training-plan.md), [Deterministic scene capture](lidar-deterministic-scene-capture-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md) (its deferred item 8.4 is this idea in one line), [One-hour labelling](lidar-one-hour-labelling-plan.md)
 - **Tenets touched:** 1 (privacy, local data), 3 (evidence over opinion), 4 (local-first)
 
 ## Assumptions
@@ -26,199 +26,19 @@ Two things in the question could not be pinned down from the repository and are 
   chosen view, at a fixed metric scale, to an image. The shared conversation describing it could
   not be fetched from this session, so both ways of building one are weighed below.
 
-The November refresh names a default without changing the design: the hosted backend it costs
-is Claude Opus 5.5 through the Anthropic API, behind the decision in
-[Decisions this needs](#decisions-this-needs), and the renderer it builds first reads the pack
-directly rather than a scene export, because a scene export carries the tracks.
+## The held-out window: one-hour labelling instead
 
-## The held-out window first: label0003 and label0001
+The held-out window this plan was parked to wait for is drawn and cut: 575 to 755 s of
+embarcadero-folsom, label0003's spans and label0001's masks. On November 10 the owner set the
+direction for it: no external model, a person who drives and validates, and label0001 in about an
+hour instead of eight. [One-hour labelling](lidar-one-hour-labelling-plan.md) is that plan. It
+changes the unit of work rather than adding a grader: fixed zones said once for every frame, road
+users as bodies carried between keyframes, and review by exception.
 
-Refreshed on November 10, 2026. The parking note above says to revisit this plan when a held-out
-window needs it, and one now does. The window is drawn and cut:
-`seg-955587a76c49fe5c6bd735c4`, 575 to 755 s of embarcadero-folsom, a pack of 1,800 samples
-(`sha256:ffdee4d3…`), foreground only with the settled background snapshots, labelled blind.
-[label0003](../../data/experiments/label/label0003.md)'s road-user spans come first, then
-[label0001](../../data/experiments/label/label0001.md)'s masks and second pass on the same
-window, then [label0002](../../data/experiments/label/label0002.md)'s physical references. The
-[November 10 review](../lidar/operations/experiment-review-2026-11-10.md#labelling-and-annotation-priorities)
-puts them at about 2 h 15 min, 7 h 15 min and 5 h 15 min of one person's time, and every
-identity, L3 and geometry adoption waits on them. This section is what the rest of the plan
-becomes when it is aimed at that window.
-
-### What has changed since October
-
-- **The pack carries no tracker output.** Its files are the points of each sample
-  (`points.bin`, `samples.json`) and the background snapshots in force. A tool that reads only the
-  pack cannot show a track, which is what makes a blind model pass possible. The clip's VRLOG beside
-  it holds the tracks and is never opened.
-- **A span has no record of its own.** label0003 records a span as an object with masks at its first
-  and last frames, and "the same vehicle" is one `object_id` across windows
-  ([labelling workspace](../lidar/operations/labelling-workspace.md)). The mask-free span record is
-  an `M` item in the November 10 review; this flow does not need it.
-- **There is one operator.** label0001's second pass and this plan's blind audit are the same
-  person, so nothing here can assume a second reviewer.
-- **Blindness is the operator's discipline when labelling points.** The annotation window stops following the
-  main view in its Physical and Features modes, but Object Points follows it by default, held-out
-  pack or not, and nothing records that a membership label was made blind. The window should
-  refuse to follow for a held-out pack, and say so in what it saves.
-- **Nothing in this plan is built.** The only proposer is the macOS `ObjectProposer`, which clusters
-  the pack's own points and reads no track. Its Go port is a P2 row
-  ([team workflow plan](lidar-label-set-team-workflow-plan.md)). HINT, sweeps and auto-tune now need
-  a cohort manifest.
-- **The proposal loader takes two layers only.** The macOS `ProposalLayerStore` accepts
-  `cluster_chain` and `persistent_voxels` at version 1, and one file with any other algorithm in
-  `proposals/` makes the pack fail to open, because the window loads the layers as it opens the
-  pack. A model's answers cannot go there until the loader skips what it does not know.
-
-### The rules the tooling inherits
-
-1. **Read the pack and nothing else.** The renderer opens the pack's own files, refuses any other
-   path, and writes a dossier manifest naming every file it read and the layers it drew
-   (foreground, background). That manifest is the evidence that the model saw no tracker layer.
-2. **Proposals are never truth.** The model's answers are `proposed`. A person's grade in the window
-   makes a record `reviewed`, and label0001's second pass grades every span and mask.
-   `annotation-split freeze` already refuses an object or mask still `proposed`, so an ungraded
-   answer cannot reach a frozen split.
-3. **Calibrate on the development cohort only.** The rubric, prompts and thresholds are set on kirk0
-   and kirk1, which [D-40](../DECISIONS.md) puts in the development cohort. The proposer version that
-   runs on the held-out window is frozen before it runs and named in the window's provenance, and
-   no grade from the window changes it afterwards.
-4. **The model reads the window as annotation.** The eligibility rules allow annotation review of a
-   held-out pack; the model is shown no arm and no score, so the read-once rule for measures is not
-   spent by it.
-5. **A hosted model needs a decision first.** See [Decisions this needs](#decisions-this-needs).
-
-### What the model is asked
-
-The model is asked to choose, never to place. Code prepares the candidates from the pack:
-`cluster_chain` objects from the proposer, the samples at which each chain thins out or is
-occluded, and the pairs of chains whose gap and displacement could be one vehicle.
-
-| Question                    | Candidates code prepares                                        | Answer set                                                                         | Serves               |
-| --------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------- |
-| Is this a road user?        | One chain, its montage over its life                            | `road_user`, `static`, `noise`, `reflection`, `cannot_tell`                        | label0003            |
-| Its class                   | The same chain                                                  | `bus`, `car`, `cyclist`, `motorcycle`, `pedestrian`, `truck`, `van`, `cannot_tell` | label0003, label0001 |
-| Its first and last sample   | The chain's ends and the samples where it thinned or was hidden | One offered sample at each end, or `cannot_tell`                                   | label0003            |
-| Are these one vehicle?      | Pairs of chains within a gap and displacement gate              | `same`, `different`, `cannot_tell`                                                 | label0003            |
-| What happened at this stop? | A carry stop and its candidate masks                            | The stop resolutions above (`lost`, `grew`, `jumped`, `overlaps`, `ambiguous`)     | label0001            |
-
-Every answer carries one sentence of rationale, shown on the card. A road user no chain covers is
-not the model's to find: the renderer's time strip marks the foreground no proposal covers, and
-the operator scans it once per window. That pass is the recall this flow has, and it gives
-label0003's `labelled_fraction` gate the road-user total the workspace does not record today (it
-marks the spans layer done by hand, and no code reads the gate).
-
-### The tooling to build
-
-| #   | Piece              | Where                                         | What it does                                                                                                                                                                                                                                                                                                                                                             | Model | Size |
-| --- | ------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ---- |
-| 1   | Pack renderer      | `tools/annotation-dossier/` (Python)          | Decodes `points.bin` (the layout `gt_extract.py` already reads) and the background in force; draws orthographic top and side views at a fixed metric scale, foreground by height over the background in grey, a scale bar and the sample index; a montage per candidate over its life; a time strip of the window with uncovered foreground marked; the dossier manifest | No    | `S`  |
-| 2   | Go object proposer | `velocity lidar annotation-propose --pack`    | The P2 port of `ObjectProposer`, writing `proposals/cluster_chain@1.json` without the macOS app, so an agent can prepare a window overnight                                                                                                                                                                                                                              | No    | `M`  |
-| 3   | Question builder   | `tools/annotation-dossier/`                   | End candidates, stop detection and the same-vehicle gate, from the chains; one question per row, with its dossier                                                                                                                                                                                                                                                        | No    | `S`  |
-| 4   | Model pass         | `tools/annotation-dossier/` (Python)          | Sends each question and its images to the model with the rubric; validates the answer against the schema; writes `<pack>/proposal-reviews/<proposer>@<version>.json` with the model, rubric, prompt digest, dossier digest and request ids. Off unless the operator names a backend                                                                                      | Yes   | `M`  |
-| 5   | Window support     | `tools/visualiser-macos/`                     | The loader skips layers it does not know; a card per question in the queue, uncertain first, accept never pre-selected; accepting a span makes the object with masks at the chosen first and last samples from the chain's membership, `proposed` until graded; a model-assisted badge; Object Points refuses to follow the main view on a held-out pack                 | No    | `M`  |
-| 6   | Measurement        | Labelling run guidance R2 and the review file | Active time from the saves, acceptance and edit rates per question type, recorded with the label set                                                                                                                                                                                                                                                                     | No    | `S`  |
-
-Pieces 1 to 3 help the operator with no model at all: a time strip and a montage per chain are
-what a person uses to find a span's ends. The model enters at piece 4.
-
-### Calibration before the window
-
-A spec (label0004) runs the frozen proposer on kirk0's current reviewed pack and on a kirk1 window
-against its span reference `60a4774c` (49 road users), and reports per question type:
-
-- **Candidate coverage:** the share of reference road users with a chain overlapping 30 % of their
-  span, the rule l3bg0022 and l5id0012 already use. This is the Go proposer's recall, not the
-  model's.
-- **Road-user verdicts:** the share of reference road users called `road_user`, and of other chains
-  rejected.
-- **Class:** accuracy where the model commits, for cars, trucks and buses; rare classes reported,
-  not gated, because they stay human-first.
-- **Ends:** the median and 90th percentile error in samples against the reference.
-- **Same vehicle:** the precision of `same`.
-
-kirk1's reference is run-track labels: its ends are the tracker's ends as a person accepted them,
-so end errors are read against kirk0's reviewed masks, and kirk1 serves coverage, class and
-same-vehicle. Comparing spans needs the span reader the November 10 review lists for
-`lidar-ground-truth-eval` (`S`), or the same comparison inside the tool.
-
-The spec writes its thresholds before the run. A starting proposal for the owner to set: the model
-goes to the held-out window as a proposer only if it is right on at least 95 % of reference road
-users, on at least 90 % of the classes it commits to, and on at least 95 % of its `same` answers.
-Below that it runs there as triage only: it orders the queue and flags, and the operator labels
-from scratch. With one operator, the shown and hidden comparison for anchoring is a different kirk
-window per arm, timed, and reported rather than gated.
-
-### The model and the API
-
-The adapter takes a model id, so any model is a proposer version calibrated the same way. The
-default hosted backend is Claude Opus 5.5 (`claude-opus-5-5`) through the Anthropic Python SDK,
-behind the decision below:
-
-- **Images** as PNG, either inline or uploaded once through the Files API where a context frame is
-  shared by many questions.
-- **Structured outputs** (`output_config.format` with the answer schema): the answer set is an
-  enum, so a reply outside it fails validation instead of becoming a label.
-- **Effort set explicitly.** Opus 5.5 defaults to `medium` and its thinking cannot be turned off;
-  calibrate at `high` and measure `medium` and `low` against it.
-- **Prompt caching** for the system prompt, the rubric, the class definitions and the calibration
-  exemplars, with each question's dossier after the cached prefix.
-- **The Message Batches API** for a window and for each calibration run: asynchronous, at half the
-  price, results keyed by question id.
-- **Refusals:** a `refusal` stop reason is recorded as `cannot_tell` with its category, and the
-  question goes to the person.
-- **Provenance:** the model id, the request id and the usage of every answer are kept in the review
-  file.
-
-An estimate, to be replaced by the first run's usage: a question with three images and its text
-is about 6,000 input tokens and 1,500 output tokens, about 5.5 cents at Opus 5.5's list price and
-half that in a batch. A window of 300 questions is then about 8 to 17 dollars, and calibration on
-two kirk windows, shown and hidden, a few tens of dollars.
-
-### Where the hours go
-
-- **label0003 (about 2 h 15 min):** the tooling takes longer to build and calibrate than it would
-  save here, and the spans are the single action that unlocks the most. The operator labels them
-  by hand now, as the November 10 review decided. The model's first job on this window is a second
-  pair of eyes: once the spans are entered, a blind pass over the same pack lists the road users it
-  would add, the ends it would move and the chains it would join, and the operator rechecks those
-  before label0001 refreezes the window. That is annotation review, changes nothing by itself, and
-  is a check the one-operator process does not otherwise have.
-- **label0001 (about 7 h 15 min):** the main target. Proposed masks from the Go proposer, with the
-  model's answers on class and on carry stops, long vehicles and side-by-side pairs first, as the
-  November 10 review orders them. Loop B's estimated factor of 1.5 to 2× applies to the proposing
-  half; the second pass, which grades every mask, is unchanged.
-- **label0002 (about 5 h 15 min):** loop C, endpoint evidence status per keyframe. Keyframed yaw and
-  extents on long bodies stay the operator's.
-- **Later windows** are where the tooling repays itself: every held-out window after this one is
-  the same work.
-
-### Decisions this needs
-
-1. **Whether a hosted model may see the window.** Tenet 1 keeps measurement data local and forbids
-   sending vehicle data or raw sensor captures. Both captures in question, kirk0 and
-   embarcadero-folsom, are already published in the open sf-street-speeds dataset by the owner's
-   choice. The recommendation is a decision record that allows a hosted model in offline research
-   tooling only: on the operator's machine, never in the server or on a Pi, for captures already
-   published, sending point renders and no capture file, and off unless the operator names it. The
-   alternative is local models only, which no measurement yet shows to be good enough.
-2. **Whether model-assisted proposals may become truth on the held-out window,** once graded, or
-   are triage only there. label0001's propose step already allows tracker-free proposals graded by a
-   full second pass; the calibration rule above decides which applies.
-3. **Where the rows sit.** The Go proposer is P2 and labelling run guidance is in v0.7.14. Pieces 1,
-   3 and 5 are new rows; their slot is a D-32 decision.
-
-### The sequence for the window
-
-1. **Now:** the operator labels label0003's spans by hand and freezes them. In parallel, build the
-   pack renderer (piece 1), which helps that pass at once.
-2. The Go proposer and the question builder (pieces 2 and 3).
-3. The model pass and window support (pieces 4 and 5), and label0004's calibration on kirk0 and
-   kirk1.
-4. The model's blind audit of label0003's spans; the operator rechecks what it flags.
-5. label0001's masks with the proposals, as proposer or as triage per label0004's result; the
-   second pass grades every record; the window is refrozen.
-6. label0002 with loop C.
+What carries over from here: code proposes and a person grades; proposals are never truth; a held-out
+pack is labelled with no tracker layer; and any model is a local scorer that suggests and orders,
+fitted on the development cohort, never a source of labels. The hosted backend this plan weighs is
+not used for the held-out window.
 
 ## What the operator does today, and where the hour goes
 
@@ -643,8 +463,7 @@ reading of "vehicle data". This exploration does not decide it. It makes the ada
 default (a model running on the operator's machine, reached over localhost), keeps a hosted
 backend behind an explicit operator flag that is off by default and never set on a Pi, and asks
 for a decision record before any hosted backend ships. Either way the pipeline, the reports and
-every production path never depend on it: a site with no model has pass 1. The held-out section's
-[first decision](#decisions-this-needs) proposes the record's terms.
+every production path never depend on it: a site with no model has pass 1.
 
 **Anchoring.** A person shown a box tends to keep it, and a model shown pass 1's class tends to
 agree with it. Pass 2 is calibrated shown and hidden, and the delta is a queue signal and a
@@ -691,9 +510,7 @@ is not, loop A's gain collapses to pass 1's alone, which is still a gain over ty
 The design stands or falls on one number, and it can be had in an afternoon:
 
 1. Render dossiers for kirk0's reviewed objects from the `ad8b9438` pack (30 reviewed objects
-   in the frozen tuning split, 61 in the earlier pack with proposals accepted). Since the
-   November 10 review the pack is rebuilt with a different points digest and 19 objects are
-   scored: use the current pack, and for spans the label0004 calibration in the held-out section.
+   in the frozen tuning split, 61 in the earlier pack with proposals accepted).
 2. Run one model, shown and hidden, with the rubric.
 3. Report the confusion matrix against the operator's classes, the road-user split in
    particular, and the anchoring delta.
@@ -704,9 +521,7 @@ worth building for the person, and pass 2 waits for a better model or a better r
 
 ## Sequencing
 
-For the held-out window the order is [the sequence above](#the-sequence-for-the-window), which
-builds a pack renderer in Python before any of this. The general order stands for the rest. Each
-step is useful without the next, and the model enters at step 3.
+Each step is useful without the next, and the model enters at step 3.
 
 1. **Dossier renderer in Go**, deterministic, from a pack; review cards in the macOS window drawn
    from it. Helps the person at once, with no model.
@@ -738,8 +553,8 @@ step is useful without the next, and the model enters at step 3.
 ## Open questions
 
 1. Does a hosted model backend get a decision record and an operator flag, or is the adapter
-   local-only until a local model is shown to be good enough? The held-out section recommends a
-   record limited to offline research tooling and published captures.
+   local-only until a local model is shown to be good enough? For the held-out window the owner
+   answered on November 10: local only, a scorer at most.
 2. Should the macOS render endpoint exist at all, or should the window draw the Go dossier through
    the server and nothing else?
 3. Is the proxy round worth a sweep mode of its own, or is it an objective option on auto-tune?
