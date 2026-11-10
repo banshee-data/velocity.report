@@ -409,7 +409,10 @@ life; it needs `solid_body`
 with `solid_body_face_state`, or `solid_body_extent_state` with `solid_body_censored_extent` or
 `solid_body_span_bounds_belief`); `solid_body_extent_profile` (a shadow of the solid body: two
 one-dimensional log-odds occupancy grids along and across its axis, reported beside it and written
-by `lidar-box-eval -rows`; it needs `solid_body` and changes no track); and
+by `lidar-box-eval -rows`; it needs `solid_body` and changes no track);
+`solid_body_extent_profile_anchored` (the same profile with its grid held to the body and its axis
+the box model's heading filter, admitted within 5 degrees; it needs `solid_body` and the box model,
+is refused with `solid_body_extent_profile`, and changes no track); and
 `solid_body_shared_orientation` (the solid body's
 orientation and its variance from the box model's heading filter; it needs `solid_body` and the box
 model, and is refused with `near_edge_track`, `solid_body_rectangle_heading`,

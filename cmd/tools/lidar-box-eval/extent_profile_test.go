@@ -50,3 +50,29 @@ func TestProfileEndsNamesEachEnd(t *testing.T) {
 		t.Errorf("unknown profile: ends %q, want none", got)
 	}
 }
+
+// On a withheld frame the row also scores the profile against the solid
+// body's own extent at the solid body's pose (geom0020's restated P4): the
+// share of the frame's returns inside it grown by the same quarter-metre,
+// and the profile's area over its area.
+func TestSolidBodyRowScoresTheSolidBodyExtent(t *testing.T) {
+	if got, want := solidBodyRowHeader[len(solidBodyRowHeader)-2:], []string{"wh_sb_share", "wh_sb_area_ratio"}; got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("last columns %q, want %q", got, want)
+	}
+	var points []l4perception.WorldPoint
+	for i := 0; i <= 40; i++ {
+		points = append(points, l4perception.WorldPoint{X: 10 + 0.1*float64(i), Y: 0})
+	}
+	p := l5tracks.ExtentProfileReading{Known: true, X: 12, Y: 0, AlongLo: -2, AlongHi: 2, AcrossLo: -1, AcrossHi: 1, LengthMetres: 4, WidthMetres: 2}
+	// A solid body 2 by 1 m at (12, 0): grown, it holds x in [10.75, 13.25].
+	_, share, area, n := withheldScore(p, box{x: 12, length: 2, width: 1}, points)
+	want := 0.0
+	for _, q := range points {
+		if q.X >= 10.75-1e-9 && q.X <= 13.25+1e-9 {
+			want++
+		}
+	}
+	if n != len(points) || math.Abs(share-want/float64(n)) > 1e-9 || area != 4 {
+		t.Errorf("share %.3f (want %.3f), area %.2f (want 4), n %d", share, want/float64(n), area, n)
+	}
+}

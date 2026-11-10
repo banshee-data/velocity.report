@@ -162,6 +162,10 @@ type extentProfile struct {
 
 	admitted, refused, withheld, headingRefused int
 	lockedNanos                                 int64
+
+	// anchor is the grid's origin under ExtentProfileAnchored
+	// (solid_body_extent_profile_anchored.go); unused without it.
+	anchor profileAnchor
 }
 
 // profileFrame is the frame's free-space table: per azimuth column, the
@@ -303,7 +307,10 @@ func profileAxis(sb *solidBodyTrack) (psi float32, ok, headingOnly bool) {
 
 // updateExtentProfiles runs every associated track's profile for the frame,
 // after the solid bodies have been updated: step 3c's tail.
-func (t *Tracker) updateExtentProfiles(clusters []WorldCluster, associations []string, nowNanos int64) {
+// Under ExtentProfileAnchored it runs after step 3d instead, so that the
+// box's heading filter it reads holds this frame's posterior, and steps each
+// profile anchored to the body (stepAnchored).
+func (t *Tracker) updateExtentProfiles(clusters []WorldCluster, associations []string, nowNanos int64, anchored bool) {
 	var frame *profileFrame
 	for clusterIdx, trackID := range associations {
 		if trackID == "" {
@@ -320,37 +327,61 @@ func (t *Tracker) updateExtentProfiles(clusters []WorldCluster, associations []s
 		if sb.profile == nil {
 			sb.profile = &extentProfile{}
 		}
+		if anchored {
+			sb.reading.Profile = sb.profile.stepAnchored(track, clusters[clusterIdx], frame, nowNanos)
+			continue
+		}
 		sb.reading.Profile = sb.profile.step(sb, clusters[clusterIdx], frame, nowNanos)
 	}
 }
 
-// step admits or refuses one frame and returns the reading.
+// step admits or refuses one frame and returns the reading: geom0019's
+// profile, its grid's origin the solid body's centre and its axis
+// profileAxis's.
 func (p *extentProfile) step(sb *solidBodyTrack, cluster WorldCluster, frame *profileFrame, nowNanos int64) ExtentProfileReading {
 	believed, admit, headingOnly := profileAxis(sb)
-	if !admit {
+	return p.advance(profileStep{believed: believed, admit: admit, headingOnly: headingOnly,
+		refusedPsi: sb.orientation.PsiRad, x: sb.state[0], y: sb.state[1]}, cluster, frame, nowNanos)
+}
+
+// profileStep is one frame's admission and the grid's origin: the believed
+// axis, whether the frame is admitted and, if not, whether the axis was the
+// only reason; the orientation a refused frame's reading is placed along;
+// and the origin (x, y) in the world.
+type profileStep struct {
+	believed           float32
+	admit, headingOnly bool
+	refusedPsi         float32
+	x, y               float32
+}
+
+// advance applies one frame's admission and evidence at the step's origin
+// and returns the reading; step and stepAnchored differ only in the step.
+func (p *extentProfile) advance(s profileStep, cluster WorldCluster, frame *profileFrame, nowNanos int64) ExtentProfileReading {
+	if !s.admit {
 		p.refused++
-		if headingOnly {
+		if s.headingOnly {
 			p.headingRefused++
 		}
 		r := p.reading(nowNanos)
-		r.X, r.Y, r.PsiRad = sb.state[0], sb.state[1], p.axisFor(sb.orientation.PsiRad)
+		r.X, r.Y, r.PsiRad = s.x, s.y, p.axisFor(s.refusedPsi)
 		return r
 	}
-	psi := p.axisFor(believed)
+	psi := p.axisFor(s.believed)
 	p.axis, p.axisSet = psi, true
 	p.admitted++
 	withheld := p.admitted%profileWithholdEvery == 0
 	if withheld {
 		p.withheld++
 	} else {
-		p.observe(cluster, frame, float64(sb.state[0]), float64(sb.state[1]), float64(psi))
+		p.observe(cluster, frame, float64(s.x), float64(s.y), float64(psi))
 	}
 	r := p.reading(nowNanos)
 	if r.Known && p.lockedNanos == 0 {
 		p.lockedNanos = nowNanos
 		r.LockedUnixNanos = nowNanos
 	}
-	r.X, r.Y, r.PsiRad = sb.state[0], sb.state[1], psi
+	r.X, r.Y, r.PsiRad = s.x, s.y, psi
 	r.Admitted, r.Withheld = true, withheld
 	return r
 }

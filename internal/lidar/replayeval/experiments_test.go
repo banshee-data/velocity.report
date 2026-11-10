@@ -236,7 +236,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentAccrual, ExperimentSolidBodyExtentGrowth,
-		ExperimentSolidBodyExtentPriorFloor, ExperimentSolidBodyExtentProfile, ExperimentSolidBodyExtentState,
+		ExperimentSolidBodyExtentPriorFloor, ExperimentSolidBodyExtentProfile, ExperimentSolidBodyExtentProfileAnchored, ExperimentSolidBodyExtentState,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
 		ExperimentSolidBodyFaceState, ExperimentSolidBodyFullMembers, ExperimentSolidBodyHeadingFaceNoise,
 		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyRectangleCourseFusion,
@@ -1059,6 +1059,43 @@ func TestSolidBodyExtentProfileNeedsTheSolidBody(t *testing.T) {
 	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBodyExtentProfile}, nil); err == nil ||
 		!strings.Contains(err.Error(), ExperimentSolidBody) {
 		t.Errorf("without %s: want a refusal naming it, got %v", ExperimentSolidBody, err)
+	}
+}
+
+// solid_body_extent_profile_anchored is the profile with two changes: it
+// switches ExtentProfileAnchored on beside a solid-body arm and nothing else,
+// and is refused without solid_body, beside solid_body_extent_profile, which
+// it replaces, and without the box model, whose heading it reads.
+func TestSolidBodyExtentProfileAnchoredNeedsTheSolidBodyAndTheBox(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	accepted := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentProfileAnchored}
+	got, err := trackerConfigFor(l5, "", accepted, nil)
+	if err != nil {
+		t.Fatalf("%q: %v", accepted, err)
+	}
+	if !got.SolidBody.ExtentProfileAnchored || got.SolidBody.ExtentProfile {
+		t.Errorf("%q: anchored %v, profile %v; want only the anchored", accepted, got.SolidBody.ExtentProfileAnchored, got.SolidBody.ExtentProfile)
+	}
+	without, err := trackerConfigFor(l5, "", accepted[:2], nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	without.SolidBody.ExtentProfileAnchored = true
+	if !reflect.DeepEqual(got, without) {
+		t.Errorf("%q changed more than ExtentProfileAnchored", accepted)
+	}
+	for _, refused := range [][]string{
+		{ExperimentSolidBodyExtentProfileAnchored},
+		{ExperimentSolidBody, ExperimentSolidBodyExtentProfile, ExperimentSolidBodyExtentProfileAnchored},
+	} {
+		if _, err := trackerConfigFor(l5, "", refused, nil); err == nil || !strings.Contains(err.Error(), ExperimentSolidBody) {
+			t.Errorf("%q: want a refusal, got %v", refused, err)
+		}
+	}
+	noBox := *l5
+	noBox.BoxModel = nil
+	if _, err := trackerConfigFor(&noBox, "", accepted, nil); err == nil || !strings.Contains(err.Error(), "box model") {
+		t.Errorf("without the box model: want a refusal naming it, got %v", err)
 	}
 }
 

@@ -1532,6 +1532,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	sharedOrientation := hasExperiment(experiments, ExperimentSolidBodySharedOrientation)
 	accrual := hasExperiment(experiments, ExperimentSolidBodyExtentAccrual)
 	profile := hasExperiment(experiments, ExperimentSolidBodyExtentProfile)
+	anchored := hasExperiment(experiments, ExperimentSolidBodyExtentProfileAnchored)
 	// The experiments are aliases for the tuning file's solid_body block:
 	// each switches its option on over whatever the block set, so a block
 	// and a name that agree are one configuration, and a name adds to a
@@ -1584,6 +1585,19 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			opts.ExtentBoundAccrual = true
 		}
 		opts.ExtentProfile = opts.ExtentProfile || profile
+		if anchored {
+			// It is the profile with two changes, so naming both would run
+			// one under the other's name; and its axis is the box's.
+			switch {
+			case opts.ExtentProfile:
+				return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s replaces %s, so name one",
+					ExperimentSolidBodyExtentProfileAnchored, ExperimentSolidBodyExtentProfile)
+			case !trackerConfig.BoxModel.Enabled:
+				return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s reads the box model's heading filter, and the tuning file's box model is off",
+					ExperimentSolidBodyExtentProfileAnchored)
+			}
+			opts.ExtentProfileAnchored = true
+		}
 		trackerConfig.SolidBody = opts
 		trackerConfig.NearEdgeTracking = trackerConfig.NearEdgeTracking || hasExperiment(experiments, ExperimentNearEdgeTrack)
 		trackerConfig.NearEdgeMedoidGate = trackerConfig.NearEdgeMedoidGate || hasExperiment(experiments, ExperimentNearEdgeTrackA1)
@@ -1598,7 +1612,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		}
 	} else if hysteresis || consider || course || translation || rankOne > 0 ||
 		courseHeading || priorFloor || planeSpans || growth || vehicleFloor || centring || containment || rectangle || rectangleHeading || courseFusion || sigmaScale > 0 ||
-		faceState != (l5tracks.SolidBodyOptions{}) || sharedOrientation || accrual || profile ||
+		faceState != (l5tracks.SolidBodyOptions{}) || sharedOrientation || accrual || profile || anchored ||
 		hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
