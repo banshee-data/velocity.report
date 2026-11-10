@@ -24,6 +24,11 @@ The [robust cost's birth rule](l5id0021.md) (`robust_birth_gate`) keeps the robu
 cost's identity gain on kirk0 and brings its brief tracks and clutter within l5id0019's bounds of
 `a0`'s ([report](../../../docs/lidar/operations/robust-birth-gate-kirk0-2026-11.md)).
 
+[The likelihood cost with the birth gate, off kirk0](l5id0023.md) passes K1 for all three forms,
+but every form moves a placement's moving count by more than 5 % through tracks that are not
+duplicates removed, so no arm is named and label0003's spans are not read
+([report](../../../docs/lidar/operations/likelihood-birth-gate-placements-2026-11.md)).
+
 ## The kirk0 anchor
 
 l5id0015 (2026-11-05) bootstrapped the defaults on kirk0's tuning split (19 scored objects, the
