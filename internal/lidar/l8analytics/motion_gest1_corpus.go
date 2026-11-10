@@ -125,6 +125,12 @@ type GEST1CorpusTrack struct {
 	// the scored observations: criterion 4's inputs.
 	OfflineAlong  [][]float64 `json:"offline_one_step_along_m"`
 	OfflineAcross [][]float64 `json:"offline_one_step_across_m"`
+	// OfflineAlongAge[m] and OfflineAcrossAge[m] are the track ages (s,
+	// as GEST1CorpusSample.AgeSecs) of OfflineAlong[m] and OfflineAcross[m],
+	// value for value, so criterion 4 splits at GEST1AgeSplitSecs (l5est0008).
+	// Records written before them carry none.
+	OfflineAlongAge  [][]float64 `json:"offline_one_step_along_age_s,omitempty"`
+	OfflineAcrossAge [][]float64 `json:"offline_one_step_across_age_s,omitempty"`
 	// Jerk holds the live estimator's count and each offline model's.
 	Jerk []GEST1JerkCount `json:"jerk"`
 	// TurnFrames are the observations with a yaw rate, TurnOver[k] those
@@ -203,7 +209,9 @@ func jerkCount(name string, times []int64, vx, vy []float64, threshold, maxStep,
 // velocity at each observation.
 type offlineRun struct {
 	along, across []float64
-	vx, vy        []float64
+	// alongT and acrossT are the observation times of along and across.
+	alongT, acrossT []int64
+	vx, vy          []float64
 }
 
 // runOfflineModels runs offline CV, CA with the coast rule and the IMM over
@@ -227,9 +235,11 @@ func runOfflineModels(obs []motion.Observation, minCourse float64) ([]offlineRun
 		}
 		if r.HasAlong {
 			run.along = append(run.along, math.Abs(r.Along))
+			run.alongT = append(run.alongT, obs[i].UnixNanos)
 		}
 		if r.HasAcross {
 			run.across = append(run.across, math.Abs(r.Across))
+			run.acrossT = append(run.acrossT, obs[i].UnixNanos)
 		}
 	}
 	for m := range out {
@@ -397,14 +407,95 @@ type GEST1CorpusRead struct {
 	Strata       []GEST1Stratum    `json:"strata"`
 	// YoungTailShare is the share of the one-step along values beyond 1.96
 	// that come from residuals under 1 s into their track.
-	YoungTailShare float64            `json:"young_share_of_tail"`
-	YoungTracks    int                `json:"young_tracks"`
-	Jerk           []GEST1JerkSummary `json:"jerk"`
-	Turning        GEST1TurnSummary   `json:"turning"`
-	Criterion3     RunLengthResult    `json:"criterion3_one_step"`
-	Criterion4     GEST1OfflineTails  `json:"criterion4_one_step"`
-	Criterion5     []OcclusionSummary `json:"criterion5"`
-	Criterion5N    int                `json:"criterion5_cases"`
+	YoungTailShare float64 `json:"young_share_of_tail"`
+	YoungTracks    int     `json:"young_tracks"`
+	// AgeSplit is l5est0008's declared split at GEST1AgeSplitSecs.
+	AgeSplit    GEST1AgeSplit      `json:"age_split"`
+	Jerk        []GEST1JerkSummary `json:"jerk"`
+	Turning     GEST1TurnSummary   `json:"turning"`
+	Criterion3  RunLengthResult    `json:"criterion3_one_step"`
+	Criterion4  GEST1OfflineTails  `json:"criterion4_one_step"`
+	Criterion5  []OcclusionSummary `json:"criterion5"`
+	Criterion5N int                `json:"criterion5_cases"`
+}
+
+// GEST1AgeSplitSecs is l5est0008's track-age boundary: a residual at an age
+// of at most this is young, one after it mature.
+const GEST1AgeSplitSecs = 1.0
+
+// GEST1AgeHalf is the restated criterion 2 and criterion 4 over the residuals
+// on one side of the age boundary, each interval a whole-track bootstrap over
+// the tracks with a value on that side.
+type GEST1AgeHalf struct {
+	Along       GEST1Dispersion   `json:"along_one_step"`
+	Across      GEST1Dispersion   `json:"across_one_step"`
+	Correlation GEST1ZCorrelation `json:"z_along_sq_accel_one_step"`
+	// Criterion4 reads only the offline values whose age the record
+	// carries; NAlong is zero over records written without ages.
+	Criterion4 GEST1OfflineTails `json:"criterion4_one_step"`
+}
+
+// GEST1AgeSplit is the one-step read split at BoundarySecs of track age:
+// Young at most the boundary, Mature after it.
+type GEST1AgeSplit struct {
+	BoundarySecs float64      `json:"boundary_s"`
+	Young        GEST1AgeHalf `json:"young"`
+	Mature       GEST1AgeHalf `json:"mature"`
+}
+
+// ageSplit reads both halves with its own seeded generator, so adding it
+// leaves every other figure of the read as it was.
+func ageSplit(tracks []GEST1CorpusTrack, cfg GEST1CorpusConfig) GEST1AgeSplit {
+	out := GEST1AgeSplit{BoundarySecs: GEST1AgeSplitSecs}
+	rng := rand.New(rand.NewSource(cfg.BootstrapSeed))
+	for _, young := range []bool{true, false} {
+		side := func(age float64) bool { return (age <= GEST1AgeSplitSecs) == young }
+		along, across := make([]trackZ, len(tracks)), make([]trackZ, len(tracks))
+		offAlong := make([][]float64, len(GEST1OfflineModels))
+		offAcross := make([][]float64, len(GEST1OfflineModels))
+		for ti, t := range tracks {
+			for _, s := range t.Samples {
+				if !s.OneStep || !side(s.AgeSecs) {
+					continue
+				}
+				if s.HasAlong {
+					along[ti].add(s.ZAlong)
+				}
+				if s.HasAcross {
+					across[ti].add(s.ZAcross)
+				}
+			}
+			for m := range GEST1OfflineModels {
+				offAlong[m] = appendAged(offAlong[m], t.OfflineAlong, t.OfflineAlongAge, m, side)
+				offAcross[m] = appendAged(offAcross[m], t.OfflineAcross, t.OfflineAcrossAge, m, side)
+			}
+		}
+		h := GEST1AgeHalf{Along: dispersion(along, cfg, rng), Across: dispersion(across, cfg, rng)}
+		h.Correlation = zCorrelation(tracks, func(s GEST1CorpusSample) bool { return s.OneStep && side(s.AgeSecs) }, cfg, rng)
+		if len(offAlong[0]) > 0 {
+			h.Criterion4 = offlineTails(offAlong, offAcross)
+		}
+		if young {
+			out.Young = h
+		} else {
+			out.Mature = h
+		}
+	}
+	return out
+}
+
+// appendAged appends model m's values whose age is on the wanted side; a
+// model without ages of the same length contributes nothing.
+func appendAged(dst []float64, vals, ages [][]float64, m int, side func(float64) bool) []float64 {
+	if m >= len(vals) || m >= len(ages) || len(vals[m]) != len(ages[m]) {
+		return dst
+	}
+	for i, v := range vals[m] {
+		if side(ages[m][i]) {
+			dst = append(dst, v)
+		}
+	}
+	return dst
 }
 
 // gest1Strata are the stratum table's factors and bins: lower bounds, the
@@ -610,13 +701,13 @@ func partialFromMoments(m *pcMoments) (float64, bool) {
 	return math.Max(-1, math.Min(1, r)), finite(r)
 }
 
-func zCorrelation(tracks []GEST1CorpusTrack, oneStepOnly bool, cfg GEST1CorpusConfig, rng *rand.Rand) GEST1ZCorrelation {
+func zCorrelation(tracks []GEST1CorpusTrack, keep func(GEST1CorpusSample) bool, cfg GEST1CorpusConfig, rng *rand.Rand) GEST1ZCorrelation {
 	var y, x []float64
 	cov := [][]float64{nil, nil, nil}
 	owner := []int{}
 	for ti, t := range tracks {
 		for _, s := range t.Samples {
-			if !s.HasAlong || !s.complete() || (oneStepOnly && !s.OneStep) {
+			if !s.HasAlong || !s.complete() || !keep(s) {
 				continue
 			}
 			y = append(y, s.ZAlong*s.ZAlong)
@@ -818,8 +909,9 @@ func ReadGEST1Corpus(tracks []GEST1CorpusTrack, turnThresholds []float64, cfg GE
 	out.Across = dispersion(across, cfg, rng)
 	out.AlongAll = dispersion(alongAll, cfg, rng)
 	out.AcrossAll = dispersion(acrossAll, cfg, rng)
-	out.Correlation = zCorrelation(tracks, true, cfg, rng)
-	out.CorrelationA = zCorrelation(tracks, false, cfg, rng)
+	out.Correlation = zCorrelation(tracks, func(s GEST1CorpusSample) bool { return s.OneStep }, cfg, rng)
+	out.CorrelationA = zCorrelation(tracks, func(GEST1CorpusSample) bool { return true }, cfg, rng)
+	out.AgeSplit = ageSplit(tracks, cfg)
 	for f, st := range gest1Strata {
 		for b, label := range st.labels {
 			z := strata[sk{f, b}]

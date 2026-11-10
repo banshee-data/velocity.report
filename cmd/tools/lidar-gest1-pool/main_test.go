@@ -52,4 +52,36 @@ func TestPoolReadsPooledPerCaseAndLeaveOneOut(t *testing.T) {
 	if _, err := run([]string{paths[0], paths[0]}, cfg); err == nil {
 		t.Error("a repeated case must be refused")
 	}
+	// LABEL=PATH reads one record under another case name, so two segments
+	// of one site pool as two cases.
+	q, err := run([]string{paths[0], "y-s2=" + paths[0]}, cfg)
+	if err != nil || len(q.Cases) != 2 || q.Cases[1] != "y-s2" || q.Sources[0].Pooled.Tracks != 2 {
+		t.Errorf("relabelled pool %v %+v", err, q.Cases)
+	}
+	if lo := q.Sources[0].LeaveOneOut[0]; !near(lo.MatureAlongRMS, 0) || !near(lo.YoungAlongRMS, 1) {
+		t.Errorf("leave one out age split %+v", lo)
+	}
+}
+
+// A narrower level narrows the whole-track interval: the 5th to 95th lies
+// inside the 2.5th to 97.5th of the same draws.
+func TestPoolLevelSetsTheInterval(t *testing.T) {
+	dir := t.TempDir()
+	paths := []string{record(t, dir, "x", 0.5, 1, 1.5, 2, 3, 0.2, 0.8, 1.1)}
+	wide := l8analytics.DefaultGEST1CorpusConfig()
+	wide.BootstrapDraws = 400
+	narrow := wide
+	narrow.Level = 0.9
+	pw, err := run(paths, wide)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pn, err := run(paths, narrow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, n := pw.Sources[0].Pooled.Along, pn.Sources[0].Pooled.Along
+	if !(w.RMSLo <= n.RMSLo && n.RMSHi <= w.RMSHi) || pn.Sources[0].Pooled.Config.Level != 0.9 {
+		t.Errorf("0.95 [%v, %v], 0.9 [%v, %v]", w.RMSLo, w.RMSHi, n.RMSLo, n.RMSHi)
+	}
 }
