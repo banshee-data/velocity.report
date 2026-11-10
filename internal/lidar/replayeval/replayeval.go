@@ -1436,10 +1436,14 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			ExperimentRobustLikelihoodCost, ExperimentLikelihoodCost)
 	}
 	trackerConfig.FragmentBirthGate = hasExperiment(experiments, ExperimentRobustBirthGate)
-	if trackerConfig.FragmentBirthGate && !trackerConfig.RobustLikelihoodAssociationCost {
+	// The gate reads only the fragment guard and a track's box, so either
+	// likelihood cost qualifies it (l5id0021 found its population under the
+	// robust cost; l5id0023 reads it under the Gaussian one). Under d² the
+	// duplicates that took these fragments remain, so it is refused there.
+	if trackerConfig.FragmentBirthGate && !trackerConfig.RobustLikelihoodAssociationCost && !trackerConfig.LikelihoodAssociationCost {
 		return l5tracks.TrackerConfig{}, fmt.Errorf(
-			"replay experiment %s is the birth rule for the clusters %s leaves; name %s with it",
-			ExperimentRobustBirthGate, ExperimentRobustLikelihoodCost, ExperimentRobustLikelihoodCost)
+			"replay experiment %s is the birth rule for the clusters a likelihood cost leaves; name %s or %s with it",
+			ExperimentRobustBirthGate, ExperimentRobustLikelihoodCost, ExperimentLikelihoodCost)
 	}
 	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)

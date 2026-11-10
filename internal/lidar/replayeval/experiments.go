@@ -206,8 +206,9 @@ const (
 	// which lies inside that track's drawn box grown by its position
 	// uncertainty, seeds no track (experiment l5id0021). It is built for the
 	// population robust_likelihood_cost leaves (the duplicates that used to
-	// take these fragments are gone), so it qualifies that cost and is
-	// refused without it.
+	// take these fragments are gone), so it qualifies a likelihood cost:
+	// robust_likelihood_cost or likelihood_cost (experiment l5id0023), and
+	// is refused without one.
 	ExperimentRobustBirthGate = "robust_birth_gate"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.

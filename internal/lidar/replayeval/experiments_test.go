@@ -783,17 +783,31 @@ func TestBirthGateNeedsTheOnBodyTest(t *testing.T) {
 	}
 }
 
-// robust_birth_gate is the birth rule for the robust likelihood cost's
-// population: refused without that cost, and with it reaches
+// robust_birth_gate is the birth rule for a likelihood cost's population:
+// refused under d² alone, and with either likelihood cost reaches
 // TrackerConfig.FragmentBirthGate alone.
-func TestRobustBirthGateNeedsTheRobustCost(t *testing.T) {
+func TestRobustBirthGateNeedsALikelihoodCost(t *testing.T) {
 	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
 	_, err := trackerConfigFor(l5, "", []string{ExperimentRobustBirthGate}, nil)
-	if err == nil || !strings.Contains(err.Error(), ExperimentRobustLikelihoodCost) {
-		t.Fatalf("robust_birth_gate without robust_likelihood_cost gave %v, want the refusal naming it", err)
+	if err == nil || !strings.Contains(err.Error(), ExperimentRobustLikelihoodCost) || !strings.Contains(err.Error(), ExperimentLikelihoodCost) {
+		t.Fatalf("robust_birth_gate without a likelihood cost gave %v, want the refusal naming both", err)
 	}
-	if _, err := trackerConfigFor(l5, "", []string{ExperimentLikelihoodCost, ExperimentRobustBirthGate}, nil); err == nil {
-		t.Fatal("robust_birth_gate was accepted with the Gaussian likelihood cost")
+	plain, err := trackerConfigFor(l5, "", []string{ExperimentLikelihoodCost, ExperimentRobustBirthGate}, nil)
+	if err != nil {
+		t.Fatalf("robust_birth_gate with the Gaussian likelihood cost: %v", err)
+	}
+	if !plain.FragmentBirthGate || !plain.LikelihoodAssociationCost || plain.RobustLikelihoodAssociationCost {
+		t.Fatalf("likelihood birth gate: gate %v likelihood %v robust %v", plain.FragmentBirthGate, plain.LikelihoodAssociationCost, plain.RobustLikelihoodAssociationCost)
+	}
+	if plain.BirthGateOnBody || plain.OverlapEndFrames != 0 || plain.TentativePriority || plain.CascadedAssociation {
+		t.Fatalf("robust_birth_gate with likelihood_cost switched on another identity option: %+v", plain)
+	}
+	plainOff, err := trackerConfigFor(l5, "", []string{ExperimentLikelihoodCost}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plainOff.FragmentBirthGate {
+		t.Fatal("the fragment birth gate is on under likelihood_cost without its name")
 	}
 	got, err := trackerConfigFor(l5, "", []string{ExperimentRobustLikelihoodCost, ExperimentRobustBirthGate}, nil)
 	if err != nil {
