@@ -219,6 +219,8 @@ func TestTrackMembershipJoinsFragmentBeyondThePredictedBox(t *testing.T) {
 			cfg.FragmentJoinTrackMembership = membership
 			stats := &FragmentJoinStats{}
 			cfg.OnFragmentJoin = stats.Observe
+			var records []FragmentJoinRecord
+			cfg.OnFragmentJoinRecords = func(r []FragmentJoinRecord) { records = append(records, r...) }
 			cfg.FragmentJoinTrackerConfig = func() l5tracks.TrackerConfig { return l5tracks.DefaultTrackerConfig() }
 			capture := &clusterCapture{}
 			cfg.VisualiserAdapter = capture
@@ -248,6 +250,18 @@ func TestTrackMembershipJoinsFragmentBeyondThePredictedBox(t *testing.T) {
 			}
 			if stats.Frames != 1 || stats.ComponentsJoined != joined {
 				t.Fatalf("joining counters: %+v", stats)
+			}
+			// The record hook sees the frame's join, and only a join: the
+			// far fragment lies beyond the owner's own box, which only
+			// track-conditioned membership admits.
+			if len(records) != joined {
+				t.Fatalf("join records: %+v", records)
+			}
+			if membership {
+				r := records[0]
+				if r.FrameID != "fragments" || r.OwnerTrackID != "vehicle" || r.OwnerClass != "truck" || len(r.Components) != 2 || r.Points != 24 || r.Tracks != 1 || !(r.OutsideOwnerBoxShare > 0) {
+					t.Fatalf("join record: %+v", r)
+				}
 			}
 		})
 	}

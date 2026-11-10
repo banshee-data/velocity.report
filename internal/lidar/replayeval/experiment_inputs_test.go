@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 )
 
 // A tool without a coverage declaration or an evidence database refuses the
@@ -125,5 +127,19 @@ func TestRunRefusesTrackMembershipWithoutTheJoin(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "fragment_join is not enabled") {
 		t.Fatalf("Run accepted the option without the join: %v", err)
+	}
+}
+
+// Join records with the join off would be an empty file that reads as "no
+// wrong joins"; Run refuses them before it reads a capture.
+func TestRunRefusesJoinRecordsWithoutTheJoin(t *testing.T) {
+	_, err := Run(Config{
+		PCAPFile:            filepath.Join(t.TempDir(), "absent.pcapng"),
+		OutDir:              t.TempDir(),
+		TuningFile:          filepath.Join("..", "..", "..", "config", "tuning.defaults.json"),
+		FragmentJoinRecords: func([]pipeline.FragmentJoinRecord) {},
+	})
+	if err == nil || !strings.Contains(err.Error(), "fragment join records need") {
+		t.Fatalf("Run accepted join records without the join: %v", err)
 	}
 }

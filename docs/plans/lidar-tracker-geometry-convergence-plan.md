@@ -499,3 +499,5 @@ ambiguous ownership and shape failures preserve the original partition. Syntheti
 correctness and unlabelled replay counts cannot close W3, G-GEO-1, the reviewed
 merge/identity gates or the target-hardware cost requirement.
 Truck membership and the extent state, scored on kirk0's labels: [l4clus0010](../lidar/operations/w3-truck-membership-extent-kirk0-2026-11.md).
+Track-conditioned joining on six placements, with a label-free merge reference: [l4clus0011](../lidar/operations/w3-join-membership-corpus-merge-reference-2026-11.md)
+(spurious clusters fell at every site; two-track joins rose from 4 to 14, so it does not pass).

@@ -91,6 +91,7 @@ flowchart TB
     l4clus0008["<b>l4clus0008</b><br/>Bounded motion-supported joining of…<br/>approved · 14m machine + 5h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
     l4clus0009["<b>l4clus0009</b><br/>Why more returns make more switches, and…<br/>answered · 24m machine + 1h person (took 25m)<br/>manual: write"]:::answered
     l4clus0010["<b>l4clus0010</b><br/>Does motion-supported joining carry a…<br/>answered · 24m machine + 4h person (took 2h)<br/>manual: implement, write"]:::answered
+    l4clus0011["<b>l4clus0011</b><br/>Track-conditioned joining on six more…<br/>answered · 54m machine + 4h person<br/>manual: implement, write"]:::answered
   end
   subgraph area_l5est ["l5est: L5 state estimation"]
     l5est0001["<b>l5est0001</b><br/>The trail's noise model: what the…<br/>proposed · 2h30m machine + 5h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::proposed
@@ -221,6 +222,7 @@ flowchart TB
   l4clus0003 --> l4clus0008
   l4clus0005 --> l4clus0009
   l4clus0008 --> l4clus0010
+  l4clus0010 --> l4clus0011
   figure0002 --> l5est0003
   l5est0003 --> l5est0004
   geom0008 --> l5id0001
@@ -358,6 +360,7 @@ flowchart TB
 - [l4clus0007](l4clus/l4clus0007.md) The mean of a cluster's returns on the shipped defaults, without foreground refinement: [report](../../docs/lidar/operations/l4-cluster-mean-centre-2026-11.md); estimated 8m, took 20m on m1pro; asked [l4-cluster-mean-centre-2026-11 #recommendations](../../docs/lidar/operations/l4-cluster-mean-centre-2026-11.md#recommendations).
 - [l4clus0009](l4clus/l4clus0009.md) Why more returns make more switches, and whether the radius graph splits far objects or only reaches them: zero-code reads on kirk0: [report](../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md); estimated 24m, took 25m; asked [experiment-review-2026-11-05 #b-where-is-stability-actually-l…](../../docs/lidar/operations/experiment-review-2026-11-05.md#b-where-is-stability-actually-lost), [pcl-noise-and-splits-2026-11 #recommendations](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md#recommendations).
 - [l4clus0010](l4clus/l4clus0010.md) Does motion-supported joining carry a truck's extent evidence to the solid body, and which gap stops it: [report](../../docs/lidar/operations/w3-truck-membership-extent-kirk0-2026-11.md); estimated 24m, took 2h; asked [lidar-tracker-geometry-convergence-plan #w3-cloud-joining-candidate](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#w3-cloud-joining-candidate), [w3-motion-fragment-joining-cloud-2026-11](../../docs/lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md), [facet-f0-attribution-kirk0-report](../../docs/lidar/operations/facet-f0-attribution-kirk0-report.md).
+- [l4clus0011](l4clus/l4clus0011.md) Track-conditioned joining on six more placements, with a merge reference that needs no labels: [report](../../docs/lidar/operations/w3-join-membership-corpus-merge-reference-2026-11.md); asked [w3-truck-membership-extent-kirk0-2026-11 #recommendations](../../docs/lidar/operations/w3-truck-membership-extent-kirk0-2026-11.md#recommendations).
 - [l5est0003](l5est/l5est0003.md) Does the filter's velocity lag kirk0's trucks because its velocity process noise is tight? Two arms against the physical references: [report](../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md); estimated 18m, took 30m; asked [cloud-run-kirk0-labelled-2026-11 #figure0002-track-speed-against-…](../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md#figure0002-track-speed-against-the-physical-references).
 - [l5est0005](l5est/l5est0005.md) Is the CV filter's over-dispersion acceleration-specific once the measurement is face-referenced? G-EST-1 criteria 2 to 5 on kirk0, medoid against solid-body faces: [report](../../docs/lidar/operations/gest1-face-state-kirk0-2026-11.md); estimated 8m, took 3m; asked [20261108-face-state-and-cv-ca-maths-review #43-why-ca-must-wait-for-the-mea…](../../data/maths/proposals/20261108-face-state-and-cv-ca-maths-review.md#43-why-ca-must-wait-for-the-measurement), [lidar-state-estimation-plan #73-recommendation-and-gate](../../docs/plans/lidar-state-estimation-plan.md#73-recommendation-and-gate).
 - [l5est0006](l5est/l5est0006.md) Does guarded two-point initialisation stop inventing speed? kirk0 and ashbury-downey's first five minutes against the defaults: [report](../../docs/lidar/operations/two-point-init-guards-2026-11.md); estimated 16m, took 30m; asked [tracking-maths #two-point-velocity-initialisati…](../../data/maths/tracking-maths.md#two-point-velocity-initialisation).

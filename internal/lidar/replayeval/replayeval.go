@@ -154,6 +154,12 @@ type Config struct {
 	// ObservationDBPath. Records are delivered in memory; ObservationLogDir
 	// writes the same records to disk.
 	ObservationFrames func(l4bobserve.FrameRecord) error
+	// FragmentJoinRecords receives, on each frame where the motion join
+	// changed the partition, one record per joined cluster, warm-up included
+	// (pipeline.FragmentJoinRecord; l4clus0011's merge reference). It
+	// observes the join and changes no cluster. It needs a tuning file that
+	// enables the join; the replay refuses it otherwise.
+	FragmentJoinRecords func([]pipeline.FragmentJoinRecord)
 	// ObservationLogDir writes the foreground-complete records to a new VRLOG
 	// 1.x observation container at this path, which must not exist: the same
 	// records ObservationFrames receives, warm-up included, and the two
@@ -770,6 +776,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err := fragmentJoinTrackMembershipRefusal(experiments, tuningCfg.GetFragmentJoin()); err != nil {
 		return nil, fmt.Errorf("tuning config %s: %w", cfg.TuningFile, err)
 	}
+	if j := tuningCfg.GetFragmentJoin(); cfg.FragmentJoinRecords != nil && (j == nil || !j.Enabled) {
+		return nil, fmt.Errorf("tuning config %s: fragment join records need l4.dbscan_xy_v1.fragment_join enabled", cfg.TuningFile)
+	}
 	sequence, err := configuredCaptureSequence(cfg, pcapFiles)
 	if err != nil {
 		return nil, err
@@ -979,6 +988,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if j := tuningCfg.GetFragmentJoin(); j != nil && j.Enabled {
 		fragmentJoinStats = &pipeline.FragmentJoinStats{}
 		pipeCfg.OnFragmentJoin = fragmentJoinStats.Observe
+		pipeCfg.OnFragmentJoinRecords = cfg.FragmentJoinRecords
 	}
 	var observationFrameSink *strictObservationFrameSink
 	var observationLog *vrlog.Writer
