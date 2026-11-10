@@ -367,7 +367,11 @@ independent tracks the two agree.
 The first replay of both sources, kirk0 under l5est0005, is in the
 [G-EST-1 face-state screen](../../docs/lidar/operations/gest1-face-state-kirk0-2026-11.md): both
 filters' NIS correlates with acceleration and neither is over-dispersed, so the criterion's
-over-dispersion premise is not met there.
+over-dispersion premise is not met there. Its face-referenced figures are superseded at `fc9d897`
+(#989): the extent state's span-bound projection moves the face offsets, and criterion 4 no longer
+passes on the faces (along ratio 0.729, across 1.108). The medoid figures and this reading are
+unchanged; see the report's
+[Since this report](../../docs/lidar/operations/gest1-face-state-kirk0-2026-11.md#since-this-report).
 
 **Criterion 2 restated (l5est0007).** The screen's criterion read a correlation off zero, which an
 under-dispersed filter can pass. The restated read (`motion_gest1_corpus.go`) asks first for
