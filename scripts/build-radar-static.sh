@@ -6,13 +6,12 @@
 # digest, Go and zig tarball SHA-256s, libpcap submodule pointer. The
 # host only needs docker and git.
 #
-# The image always builds both arches in one go (so the Docker layer
-# cache stays warm across arch-specific invocations). The host script
-# extracts a configurable subset.
+# ARCHES is passed into the image, so the libpcap and build stages
+# compile only the arches asked for. Static build CI builds each arch on
+# its own native runner this way.
 #
 # Inputs (env):
-#   ARCHES          arches to extract (still builds both inside);
-#                   default "amd64 arm64"
+#   ARCHES          arches to build and extract; default "amd64 arm64"
 #   OUT_DIR         where to write binaries; default: ${REPO_ROOT}/build/static
 #   IMAGE_TAG       Docker image tag; default: velocity-report-static-build
 #   ALLOW_DIRTY     1 to permit building from a dirty tree (binary will
@@ -120,8 +119,7 @@ echo "    TYPST:      $TYPST_VERSION (embedded per target architecture)"
 echo "    EXTRACT:    $EXTRACT_ARCHES"
 
 # Build the image, exporting binaries directly to OUT_DIR via BuildKit's
-# local output. The image always builds both arches inside (so the layer
-# cache stays warm across single-arch invocations); we filter on extract.
+# local output. Only the arches in ARCHES are built.
 mkdir -p "$OUT_DIR"
 TMP_OUT="$(mktemp -d -t velocity-static.XXXXXX)"
 trap 'rm -rf "$TMP_OUT"' EXIT
