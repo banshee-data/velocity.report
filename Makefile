@@ -156,6 +156,8 @@ help:
 	@echo "  test-public-html     Run public site (public_html) scene-viewer tests"
 	@echo "  test-docs-offline    Run embedded offline docs tests"
 	@echo "  test-docs-offline-cov Run embedded offline docs tests with 98% line thresholds"
+	@echo "  test-docs-offline-routes Serve the built docs through the embedded /docs/ handler; check every page and link"
+	@echo "  check-docs-embed-context Check every built docs file survives the static build's Docker context"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
 	@echo "  test-mac-cov         Run macOS tests with coverage"
 	@echo "  coverage             Generate coverage reports for all components"
@@ -719,6 +721,41 @@ ensure-offline-docs-build:
 .PHONY: verify-docs-offline-build
 verify-docs-offline-build:
 	@./scripts/verify-docs-offline-build.sh
+
+# PR-time stand-ins for the release binary's docs checks in static-build-ci,
+# which runs only when binary inputs change (and on every main push). Both
+# need a completed `make build-docs-offline`; neither builds it, so a stub
+# site fails rather than being silently rebuilt.
+#
+# test-docs-offline-routes compiles internal/docsite with the built site
+# embedded and serves it through the handler `velocity serve` mounts at
+# /docs/, applying scripts/verify-embedded-docs-server.py's rules. Pure Go:
+# no cgo, no libpcap.
+.PHONY: test-docs-offline-routes
+test-docs-offline-routes:
+	@./scripts/ensure-web-stub.sh
+	@if [ ! -f docs_html/_site/index.html ] || cmp -s docs_html/_site/index.html docs_html/stub-index.html; then \
+		echo "docs_html/_site is missing or stub-only; run 'make build-docs-offline' first" >&2; exit 1; \
+	fi
+	@CGO_ENABLED=0 VELOCITY_DOCS_SITE_DIR="$(CURDIR)/docs_html/_site" \
+		go test -count=1 -run '^TestEmbeddedDocsRoutes$$' -v ./internal/docsite/
+
+# check-docs-embed-context runs the static build's manifest check
+# (image/Dockerfile.static-build, embed-check stage) against the built site,
+# so a generated file the Docker context would drop fails here rather than
+# in the release build. Needs Docker with BuildKit; compiles nothing.
+.PHONY: check-docs-embed-context
+check-docs-embed-context:
+	@if [ ! -f docs_html/_site/index.html ] || cmp -s docs_html/_site/index.html docs_html/stub-index.html; then \
+		echo "docs_html/_site is missing or stub-only; run 'make build-docs-offline' first" >&2; exit 1; \
+	fi
+	@./scripts/ensure-docs-stub.sh
+	@python3 scripts/write-embedded-docs-manifest.py docs_html/_site
+	@status=0; DOCKER_BUILDKIT=1 docker build --progress=plain --target embed-check \
+		--file image/Dockerfile.static-build --output type=cacheonly . || status=$$?; \
+	rm -f docs_html/_site/.embed-manifest; \
+	if [ $$status -ne 0 ]; then echo "Built docs files are missing from the static build's Docker context (see image/Dockerfile.static-build.dockerignore)" >&2; fi; \
+	exit $$status
 
 WIRING_SRC = docs/platform/hardware/radar-wiring.yml
 
