@@ -5,6 +5,10 @@
 // with each case left out.
 //
 //	lidar-gest1-pool -out pooled.json case1/first/gest1_tracks.json.gz ...
+//
+// An argument LABEL=PATH reads PATH under the case name LABEL, so two
+// segments of one site (each recorded under the site's case) pool as two
+// cases: haight-divisadero-s2=runs/.../gest1_tracks.json.gz.
 package main
 
 import (
@@ -14,6 +18,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 )
@@ -29,6 +34,12 @@ type leaveOneOut struct {
 	R              float64 `json:"z_along_sq_accel_r"`
 	BootP05        float64 `json:"z_along_sq_accel_bootstrap_p05"`
 	CorrelationErr string  `json:"z_along_sq_accel_error,omitempty"`
+	// The age split (l5est0008): one-step along z RMS at most and after
+	// the boundary, and the after-boundary correlation's 5th percentile.
+	YoungAlongRMS  float64 `json:"young_along_one_step_rms"`
+	MatureAlongRMS float64 `json:"mature_along_one_step_rms"`
+	MatureR        float64 `json:"mature_z_along_sq_accel_r"`
+	MatureBootP05  float64 `json:"mature_z_along_sq_accel_bootstrap_p05"`
 }
 
 type caseRead struct {
@@ -85,10 +96,17 @@ func run(paths []string, cfg l8analytics.GEST1CorpusConfig) (pool, error) {
 	bySource := map[string]map[string][]l8analytics.GEST1CorpusTrack{}
 	var sources []string
 	seen := map[string]bool{}
-	for i, path := range paths {
+	for i, arg := range paths {
+		label, path := "", arg
+		if k := strings.Index(arg, "="); k > 0 {
+			label, path = arg[:k], arg[k+1:]
+		}
 		rec, err := l8analytics.LoadGEST1CorpusRecord(path)
 		if err != nil {
 			return p, err
+		}
+		if label != "" {
+			rec.Case = label
 		}
 		if rec.Case == "" || seen[rec.Case] {
 			return p, fmt.Errorf("%s: case %q is empty or repeated", path, rec.Case)
@@ -132,7 +150,9 @@ func run(paths []string, cfg l8analytics.GEST1CorpusConfig) (pool, error) {
 			sp.LeaveOneOut = append(sp.LeaveOneOut, leaveOneOut{Case: c, Tracks: r.Tracks,
 				AlongRMS: r.Along.RMS, AlongBeyond: r.Along.Beyond, OverDispersed: r.Along.OverDispersed,
 				AcrossRMS: r.Across.RMS, R: r.Correlation.R.R, BootP05: r.Correlation.BootP05,
-				CorrelationErr: r.Correlation.Err})
+				CorrelationErr: r.Correlation.Err,
+				YoungAlongRMS:  r.AgeSplit.Young.Along.RMS, MatureAlongRMS: r.AgeSplit.Mature.Along.RMS,
+				MatureR: r.AgeSplit.Mature.Correlation.R.R, MatureBootP05: r.AgeSplit.Mature.Correlation.BootP05})
 		}
 		p.Sources = append(p.Sources, sp)
 	}

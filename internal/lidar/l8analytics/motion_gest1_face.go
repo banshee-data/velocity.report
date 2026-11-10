@@ -839,6 +839,8 @@ func buildGEST1Source(c *GEST1Collector, source string, chains []GEST1Chain, cfg
 				for m, name := range GEST1OfflineModels {
 					rec.OfflineAlong = append(rec.OfflineAlong, runs[m].along)
 					rec.OfflineAcross = append(rec.OfflineAcross, runs[m].across)
+					rec.OfflineAlongAge = append(rec.OfflineAlongAge, agesSecs(runs[m].alongT, birth))
+					rec.OfflineAcrossAge = append(rec.OfflineAcrossAge, agesSecs(runs[m].acrossT, birth))
 					rec.Jerk = append(rec.Jerk, jerkCount(name, times, runs[m].vx, runs[m].vy, cfg.JerkThreshold, cfg.JerkMaxStepSecs, cfg.JerkMinSpeed))
 				}
 			}
@@ -1261,5 +1263,14 @@ func crossRead(tracked []gest1Sample, solid map[string]chainKinematics, cfg GEST
 	}
 	out := correlate("tracked_nis_against_solid_body_acceleration", joined, cfg.Level)
 	bootstrapTracks(&out, joined, cfg)
+	return out
+}
+
+// agesSecs is each time's age in seconds since birth.
+func agesSecs(times []int64, birth int64) []float64 {
+	out := make([]float64, len(times))
+	for i, t := range times {
+		out[i] = float64(t-birth) / 1e9
+	}
 	return out
 }

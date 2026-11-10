@@ -52,4 +52,13 @@ func TestPoolReadsPooledPerCaseAndLeaveOneOut(t *testing.T) {
 	if _, err := run([]string{paths[0], paths[0]}, cfg); err == nil {
 		t.Error("a repeated case must be refused")
 	}
+	// LABEL=PATH reads one record under another case name, so two segments
+	// of one site pool as two cases.
+	q, err := run([]string{paths[0], "y-s2=" + paths[0]}, cfg)
+	if err != nil || len(q.Cases) != 2 || q.Cases[1] != "y-s2" || q.Sources[0].Pooled.Tracks != 2 {
+		t.Errorf("relabelled pool %v %+v", err, q.Cases)
+	}
+	if lo := q.Sources[0].LeaveOneOut[0]; !near(lo.MatureAlongRMS, 0) || !near(lo.YoungAlongRMS, 1) {
+		t.Errorf("leave one out age split %+v", lo)
+	}
 }

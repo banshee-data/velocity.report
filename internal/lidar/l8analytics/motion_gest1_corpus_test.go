@@ -270,6 +270,17 @@ func TestBuildGEST1ReportRecordsTracks(t *testing.T) {
 				len(tr.OfflineAlong) != len(GEST1OfflineModels) || len(tr.TurnOver) != 2 {
 				t.Fatalf("%s track %s: jerk %+v offline %d turn %v", s.Source, tr.TrackID, tr.Jerk, len(tr.OfflineAlong), tr.TurnOver)
 			}
+			for m := range GEST1OfflineModels {
+				if len(tr.OfflineAlongAge) != len(GEST1OfflineModels) || len(tr.OfflineAlongAge[m]) != len(tr.OfflineAlong[m]) ||
+					len(tr.OfflineAcrossAge[m]) != len(tr.OfflineAcross[m]) {
+					t.Fatalf("%s track %s model %d: ages do not match the offline values", s.Source, tr.TrackID, m)
+				}
+				for _, age := range tr.OfflineAlongAge[m] {
+					if !(age >= 0) {
+						t.Fatalf("%s track %s model %d: age %v before birth", s.Source, tr.TrackID, m, age)
+					}
+				}
+			}
 			if tr.Jerk[0].N == 0 {
 				t.Errorf("%s track %s: the live estimator gave no jerk sample", s.Source, tr.TrackID)
 			}
@@ -291,5 +302,71 @@ func TestBuildGEST1ReportRecordsTracks(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// l5est0008's age split over hand-built tracks. One-step along z at age at
+// most 1 s: 2 (a, 0.5 s), 0 (b, 0.2 s) and 1 (c, exactly 1 s, which is young);
+// after it: 0 (a), 0, 1, −3 (b). Young RMS √(5/3) over three tracks, mature
+// √(10/4) over two. Offline ages on a only split criterion 4: young CV 1 and
+// CA 2, mature CV 2 and CA 1; b, without ages, adds nothing to either half.
+func TestReadGEST1CorpusAgeSplit(t *testing.T) {
+	a := GEST1CorpusTrack{TrackID: "a", Samples: []GEST1CorpusSample{corpusSample(2, 0.5), corpusSample(0, 1.5)},
+		OfflineAlong: [][]float64{{1, 2}, {2, 1}, {1, 1}}, OfflineAcross: [][]float64{{1}, {1}, {1}},
+		OfflineAlongAge:  [][]float64{{0.5, 1.5}, {0.5, 1.5}, {0.5, 1.5}},
+		OfflineAcrossAge: [][]float64{{1.5}, {1.5}, {1.5}}}
+	multi := corpusSample(5, 3)
+	multi.OneStep = false
+	b := GEST1CorpusTrack{TrackID: "b", Samples: []GEST1CorpusSample{corpusSample(0, 0.2), corpusSample(0, 1.2),
+		corpusSample(1, 2), corpusSample(-3, 3), multi},
+		OfflineAlong: [][]float64{{9}, {9}, {9}}, OfflineAcross: [][]float64{{9}, {9}, {9}}}
+	c := GEST1CorpusTrack{TrackID: "c", Samples: []GEST1CorpusSample{corpusSample(1, 1)}}
+	cfg := DefaultGEST1CorpusConfig()
+	cfg.BootstrapDraws = 200
+	whole := ReadGEST1Corpus([]GEST1CorpusTrack{a, b}, nil, cfg)
+	r := ReadGEST1Corpus([]GEST1CorpusTrack{a, b, c}, nil, cfg)
+	near := func(got, want float64) bool { return math.Abs(got-want) < 1e-12 }
+	y, m := r.AgeSplit.Young, r.AgeSplit.Mature
+	if r.AgeSplit.BoundarySecs != 1 || y.Along.N != 3 || y.Along.Tracks != 3 || !near(y.Along.RMS, math.Sqrt(5.0/3)) {
+		t.Errorf("young along %+v", y.Along)
+	}
+	if m.Along.N != 4 || m.Along.Tracks != 2 || !near(m.Along.RMS, math.Sqrt(10.0/4)) || !near(m.Across.RMS, math.Sqrt(10.0/4)/2) {
+		t.Errorf("mature along %+v across %+v", m.Along, m.Across)
+	}
+	if !(m.Along.RMSLo <= m.Along.RMS && m.Along.RMS <= m.Along.RMSHi) || m.Along.RMSLo == m.Along.RMSHi {
+		t.Errorf("mature bootstrap [%v, %v] around %v", m.Along.RMSLo, m.Along.RMSHi, m.Along.RMS)
+	}
+	if y.Correlation.N != 3 || m.Correlation.N != 4 {
+		t.Errorf("correlation n young %d mature %d", y.Correlation.N, m.Correlation.N)
+	}
+	if y.Criterion4.NAlong != 1 || y.Criterion4.AlongRatio[1] != 2 || m.Criterion4.NAlong != 1 || m.Criterion4.AlongRatio[1] != 0.5 ||
+		m.Criterion4.NAcross != 1 || y.Criterion4.NAcross != 0 {
+		t.Errorf("criterion 4 young %+v mature %+v", y.Criterion4, m.Criterion4)
+	}
+	// The split has its own generator: the rest of the read is as before.
+	if whole.Along.RMSLo != ReadGEST1Corpus([]GEST1CorpusTrack{a, b}, nil, cfg).Along.RMSLo || whole.Criterion4.NAlong != 3 {
+		t.Errorf("read changed: %+v", whole.Along)
+	}
+}
+
+// The after-boundary partial correlation finds an effect that only the
+// mature residuals carry, and the young half, built independent, does not.
+func TestAgeSplitCorrelationSeparatesTheHalves(t *testing.T) {
+	tracks := correlatedTracks(60, 40, 4, 3)
+	rng := rand.New(rand.NewSource(4))
+	for i := range tracks {
+		for j := range tracks[i].Samples {
+			s := &tracks[i].Samples[j]
+			s.AgeSecs = float64(j) / 10
+			if s.AgeSecs <= 1 {
+				s.ZAlong = rng.NormFloat64() * 2.5
+			}
+		}
+	}
+	cfg := DefaultGEST1CorpusConfig()
+	cfg.BootstrapDraws = 300
+	r := ReadGEST1Corpus(tracks, nil, cfg).AgeSplit
+	if !(r.Mature.Correlation.BootP05 > 0.1) || !(r.Young.Correlation.BootP05 < 0.1) || !(r.Young.Along.RMS > 2) {
+		t.Fatalf("young %+v mature %+v", r.Young.Correlation, r.Mature.Correlation)
 	}
 }
