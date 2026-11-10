@@ -236,7 +236,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentAccrual, ExperimentSolidBodyExtentGrowth,
-		ExperimentSolidBodyExtentPriorFloor, ExperimentSolidBodyExtentState,
+		ExperimentSolidBodyExtentPriorFloor, ExperimentSolidBodyExtentProfile, ExperimentSolidBodyExtentState,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
 		ExperimentSolidBodyFaceState, ExperimentSolidBodyFullMembers, ExperimentSolidBodyHeadingFaceNoise,
 		ExperimentSolidBodyRankOneMedoid, ExperimentSolidBodyRankOneMedoidTight, ExperimentSolidBodyRectangleCourseFusion,
@@ -1011,6 +1011,38 @@ func TestSolidBodyExtentAccrualNeedsTheExtentStateBounds(t *testing.T) {
 		}
 	}
 	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentAccrual}, nil); err == nil ||
+		!strings.Contains(err.Error(), ExperimentSolidBody) {
+		t.Errorf("without %s: want a refusal naming it, got %v", ExperimentSolidBody, err)
+	}
+}
+
+// solid_body_extent_profile is a shadow of the solid body: it switches
+// ExtentProfile on beside any solid-body arm and nothing else, and is refused
+// without solid_body, where it would run as the baseline under its name.
+func TestSolidBodyExtentProfileNeedsTheSolidBody(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	for _, accepted := range [][]string{
+		{ExperimentSolidBody, ExperimentSolidBodyExtentProfile},
+		{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentProfile},
+	} {
+		got, err := trackerConfigFor(l5, "", accepted, nil)
+		if err != nil {
+			t.Errorf("%q: %v", accepted, err)
+			continue
+		}
+		if !got.SolidBody.ExtentProfile {
+			t.Errorf("%q did not switch ExtentProfile on", accepted)
+		}
+		without, err := trackerConfigFor(l5, "", accepted[:len(accepted)-1], nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		without.SolidBody.ExtentProfile = true
+		if !reflect.DeepEqual(got, without) {
+			t.Errorf("%q changed more than ExtentProfile", accepted)
+		}
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBodyExtentProfile}, nil); err == nil ||
 		!strings.Contains(err.Error(), ExperimentSolidBody) {
 		t.Errorf("without %s: want a refusal naming it, got %v", ExperimentSolidBody, err)
 	}

@@ -353,6 +353,13 @@ const (
 	// solid_body_censored_extent or solid_body_span_bounds_belief), and is
 	// refused without them, where it would run as the arm it qualifies.
 	ExperimentSolidBodyExtentAccrual = "solid_body_extent_accrual"
+	// ExperimentSolidBodyExtentProfile:
+	// l5tracks.SolidBodyOptions.ExtentProfile, a body-frame occupancy
+	// profile per solid body (two one-dimensional log-odds grids, along and
+	// across its axis) reported on the reading's Profile block and written
+	// by lidar-box-eval -rows (geom0019). It is a shadow of the solid body,
+	// so it needs solid_body, and changes no track and no box.
+	ExperimentSolidBodyExtentProfile = "solid_body_extent_profile"
 	// ExperimentSolidBodySharedOrientation:
 	// l5tracks.SolidBodyOptions.SharedOrientation, the shadow solid body's
 	// orientation belief (psi and its variance) the published box's heading
@@ -523,6 +530,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyAnisotropicReferenceBias: true,
 	ExperimentSolidBodyFaceState:                true,
 	ExperimentSolidBodyExtentAccrual:            true,
+	ExperimentSolidBodyExtentProfile:            true,
 	ExperimentSolidBodySharedOrientation:        true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,

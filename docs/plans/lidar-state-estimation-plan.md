@@ -1542,6 +1542,21 @@ what holds `h` against a face. See the
 ([geom0018](../../data/experiments/geom/geom0018.md)). The record cannot be revised (9.2.3): it
 keeps bounds, not the frames that gave them.
 
+**An occupancy profile beside the extent state (default-off).** `ExtentProfile` (replay
+`solid_body_extent_profile`) keeps, per solid body, two one-dimensional log-odds grids of 0.1 m
+cells along and across the believed axis, after Schäfer, Alrifaee and Hashemi 2026. Returns in a
+height band mark cells occupied, and a two-dimensional ray model by azimuth column marks the cells
+rays crossed free. Its extent is the span of locked cells, each end observed or censored. It
+changes nothing the solid body or the tracker publishes, and is not persisted. On kirk0 it is
+almost never admitted: no reviewed vehicle has its orientation within 5 degrees, and only truck 2's
+course settles, at its last pose, where the profile reads 9.50 m against 9.63 m with every end
+observed. Its origin is the solid body's centre, which moves with the extent state, so the grid
+reads that motion as length: truck 2's profile goes from 9.6 to 12.5 m when the extent state takes
+its first bound. It fails all four clauses of its rule. See the
+[occupancy profile report](../lidar/operations/extent-occupancy-profile-2026-11.md)
+([geom0019](../../data/experiments/geom/geom0019.md)). A grid that stands in for the extent state
+needs an origin fixed to the body, not one the extent state places.
+
 ### 9.3 Decision gate G-GEO-1
 
 The historical 0.316 m and 11.3% baseline figures below are not a current paired comparator.
