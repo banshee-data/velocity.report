@@ -295,7 +295,7 @@ func (t *Tracker) gateInnovation(track *TrackedObject, clusters []WorldCluster, 
 		}
 		t.nearEdgePairs[key] = frame
 	}
-	predicted := trackedPrediction{x: track.X, y: track.Y, p: track.P}
+	predicted := trackedPrediction{x: track.X, y: track.Y, p: *t.gateP(track)}
 	if t.Config.NearEdgeCommonGate {
 		// The bound reads the body axes alone: a face's implied centre
 		// carries the half-extent's error one-for-one, which is geometry,

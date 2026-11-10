@@ -188,6 +188,12 @@ first segments it took the first second's one-step along z RMS from 2.24 to 0.80
 widened the newborn's gate, so fragments and sparse clusters confirmed and kept the speed of one
 pair. Duplicates rose on every segment, kirk0 gained 27 switches, and it failed
 [l5est0009](../../docs/lidar/operations/velocity-prior-init-2026-11.md)'s V3 to V5.
+`VelocityPriorGated` (replay experiment `velocity_prior_init_7p5_gated`, default off) keeps that
+variance in the update but gates and costs a tentative track with the covariance it would hold
+under the shipped prior. It kept the first-second gain (0.79) and removed the brief tracks, the
+clutter and kirk0's extra switches, but duplicates still rose on all six segments and fast rows
+remained, so [l5est0010](../../docs/lidar/operations/velocity-prior-gated-2026-11.md) put the
+remaining cost in the update.
 
 #### Covariance cap that keeps `P` positive semi-definite
 

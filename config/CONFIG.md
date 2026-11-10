@@ -389,6 +389,8 @@ uses, at ν = 4; refused with `likelihood_cost`, named or from the tuning file, 
 `consistent_speed_clamp` (the three of
 [tracking maths §2.3](../data/maths/tracking-maths.md#23-initialisation-and-covariance-hygiene-default-off-options)),
 `velocity_prior_init_7p5` (the birth velocity variance at (7.5 m/s)² per axis, l5est0009),
+`velocity_prior_init_7p5_gated` (the same variance in the update, a tentative track gated with
+the shipped prior's covariance, l5est0010),
 `coast_support`, `coast_time_inflation`,
 `class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity`,
 `contested_rejoin` (with the reacquisition guard it needs), `tentative_priority`,

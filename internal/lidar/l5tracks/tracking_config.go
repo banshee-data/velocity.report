@@ -182,6 +182,17 @@ type TrackerConfig struct {
 	// l5est0009).
 	VelocityPriorInit bool
 
+	// VelocityPriorGated keeps VelocityPriorInit's wide velocity variance
+	// for the Kalman update but gates and costs a tentative track's
+	// associations with the covariance it would hold under the shipped
+	// 1 m²/s² prior: the same founding position covariance, propagated by
+	// the same transition, process noise, cap, coast inflation and update
+	// gains. A newborn therefore reaches no further than under the shipped
+	// prior, while its velocity converges as under the honest one. The
+	// shadow covariance is dropped once the track confirms. It needs
+	// VelocityPriorInit (experiment l5est0010).
+	VelocityPriorGated bool
+
 	// LikelihoodAssociationCost changes the assignment cost from the bare
 	// squared Mahalanobis distance d² to the Gaussian negative log-likelihood
 	// d² + ln|S| (gap analysis S3). With d² alone, a track whose innovation

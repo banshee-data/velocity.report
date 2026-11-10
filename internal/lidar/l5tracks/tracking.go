@@ -134,6 +134,10 @@ type TrackedObject struct {
 	// two footprints; nothing else reads either.
 	foundingMeasurement PositionMeasurement
 	foundingExtent      clusterFootprint
+	// gate is the covariance a tentative track is gated and costed with under
+	// VelocityPriorGated: the one it would hold under the shipped birth
+	// prior. See velocity_prior_gated.go.
+	gate gateCovariance
 
 	// Capture-time state and coast accounting; see time_domain.go.
 	//
@@ -919,6 +923,11 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		track.LatestZ = cluster.OBB.CenterZ
 	}
 
+	if t.Config.VelocityPriorGated {
+		// The shipped founding covariance, kept for the newborn's gate
+		// before the honest prior widens the filter's own.
+		track.gate = gateCovariance{active: true, p: track.P}
+	}
 	if t.Config.VelocityPriorInit {
 		// The honest prior: the velocity is still zero, only its variance
 		// says how little is known of it (VelocityPriorInit).

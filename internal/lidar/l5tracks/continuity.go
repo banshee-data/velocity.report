@@ -464,6 +464,7 @@ func (t *Tracker) inflateCoastCovariance(track *TrackedObject) float32 {
 	// Capped at MaxCovarianceDiag to prevent unbounded growth over long
 	// coasting periods (e.g. 15 frames × 0.5 = +7.5).
 	if add > 0 {
+		t.inflateGateCovariance(track, add)
 		track.P[0*4+0] += add
 		track.P[1*4+1] += add
 		if sb := &track.solidBody; sb.tracksExtent() {

@@ -274,12 +274,13 @@ func (t *Tracker) preGateCandidate(track *TrackedObject, cluster WorldCluster, c
 		return preGateCandidate{}, false
 	}
 	noise := t.evaluateNoise(track, cluster, measurement)
-	S00 := track.P[0*4+0] + t.Config.MeasurementNoise
-	S01 := track.P[0*4+1]
-	S10 := track.P[1*4+0]
-	S11 := track.P[1*4+1] + t.Config.MeasurementNoise
+	P := t.gateP(track)
+	S00 := P[0*4+0] + t.Config.MeasurementNoise
+	S01 := P[0*4+1]
+	S10 := P[1*4+0]
+	S11 := P[1*4+1] + t.Config.MeasurementNoise
 	if t.Config.AdaptiveMeasurementNoise {
-		S00, S01, S10, S11 = adaptiveInnovationCovariance(&track.P, noise.SiteCovariance)
+		S00, S01, S10, S11 = adaptiveInnovationCovariance(P, noise.SiteCovariance)
 	}
 	det := S00*S11 - S01*S10
 	if det < MinDeterminantThreshold {

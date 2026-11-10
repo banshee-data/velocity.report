@@ -150,6 +150,12 @@ const (
 	// track's velocity stays zero with a variance of (7.5 m/s)² per axis
 	// instead of 1 m²/s² (experiment l5est0009).
 	ExperimentVelocityPriorInit75 = "velocity_prior_init_7p5"
+	// ExperimentVelocityPriorInit75Gated is VelocityPriorInit with
+	// TrackerConfig.VelocityPriorGated: the same wide birth velocity variance
+	// in the Kalman update, but a tentative track is gated and costed with
+	// the covariance it would hold under the shipped 1 m²/s² prior
+	// (experiment l5est0010).
+	ExperimentVelocityPriorInit75Gated = "velocity_prior_init_7p5_gated"
 
 	// Occlusion continuity (state-estimation plan, Sprint 0.5.2.2): the
 	// switches in l5tracks.OcclusionContinuityConfig, each alone so a change
@@ -503,10 +509,11 @@ var knownExperiments = map[string]bool{
 	ExperimentFixedLagRTS:          true,
 	ExperimentSolidBody:            true,
 
-	ExperimentTwoPointVelocityInit:    true,
-	ExperimentConsistentCovarianceCap: true,
-	ExperimentConsistentSpeedClamp:    true,
-	ExperimentVelocityPriorInit75:     true,
+	ExperimentTwoPointVelocityInit:     true,
+	ExperimentConsistentCovarianceCap:  true,
+	ExperimentConsistentSpeedClamp:     true,
+	ExperimentVelocityPriorInit75:      true,
+	ExperimentVelocityPriorInit75Gated: true,
 
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,
