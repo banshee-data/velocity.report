@@ -661,10 +661,10 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 				t.updateSolidBody(t.Tracks[trackID], clusters[clusterIdx])
 			}
 		}
-		if t.Config.SolidBody.ExtentProfile {
+		if t.Config.SolidBody.ExtentProfile && !t.Config.SolidBody.ExtentProfileAnchored {
 			// The profile reads the updated bodies and writes only its own
 			// grids (solid_body_extent_profile.go).
-			t.updateExtentProfiles(clusters, associations, nowNanos)
+			t.updateExtentProfiles(clusters, associations, nowNanos, false)
 		}
 	}
 
@@ -677,6 +677,12 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 			t.updateBox(track, &clusters[clusterIdx], nowNanos)
 			stampTrailDisplay(track, nowNanos)
 		}
+	}
+	if t.Config.SolidBody.Enabled && t.Config.SolidBody.ExtentProfileAnchored {
+		// The anchored profile reads the box's heading posterior, which this
+		// frame's step 3d has just made, and writes only its own grids
+		// (solid_body_extent_profile_anchored.go).
+		t.updateExtentProfiles(clusters, associations, nowNanos, true)
 	}
 
 	// Step 4: Handle unmatched tracks with occlusion-aware coasting.

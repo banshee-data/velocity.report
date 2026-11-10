@@ -361,6 +361,15 @@ const (
 	// by lidar-box-eval -rows (geom0019). It is a shadow of the solid body,
 	// so it needs solid_body, and changes no track and no box.
 	ExperimentSolidBodyExtentProfile = "solid_body_extent_profile"
+	// ExperimentSolidBodyExtentProfileAnchored:
+	// l5tracks.SolidBodyOptions.ExtentProfileAnchored, geom0019's profile
+	// with its grid held to the body (shifted by the move of the solid body's
+	// centre the extent state or a change of reference makes) and its axis
+	// the published box's heading filter, admitted within 5 degrees
+	// (geom0020). It needs solid_body and the tuning file's box model, is
+	// refused with solid_body_extent_profile, which it replaces, and changes
+	// no track and no box.
+	ExperimentSolidBodyExtentProfileAnchored = "solid_body_extent_profile_anchored"
 	// ExperimentSolidBodySharedOrientation:
 	// l5tracks.SolidBodyOptions.SharedOrientation, the shadow solid body's
 	// orientation belief (psi and its variance) the published box's heading
@@ -532,6 +541,7 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyFaceState:                true,
 	ExperimentSolidBodyExtentAccrual:            true,
 	ExperimentSolidBodyExtentProfile:            true,
+	ExperimentSolidBodyExtentProfileAnchored:    true,
 	ExperimentSolidBodySharedOrientation:        true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,

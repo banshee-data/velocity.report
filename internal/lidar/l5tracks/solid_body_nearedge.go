@@ -347,6 +347,17 @@ type SolidBodyOptions struct {
 	// censored (solid_body_extent_profile.go, geom0019). It is a shadow: no
 	// track, no solid-body state and no published box changes. Default false.
 	ExtentProfile bool
+	// ExtentProfileAnchored is ExtentProfile with two changes and its
+	// constants unchanged (solid_body_extent_profile_anchored.go, geom0020):
+	// the grid's origin is held to the body, shifted by the change of the
+	// solid body's centre that the extent state or a change of reference
+	// makes, so that a change of the extent state is not written as
+	// occupancy; and the believed axis is the published box's heading
+	// filter, a frame admitted while its standard deviation is 5 degrees or
+	// less. It runs in place of ExtentProfile when both are set, needs the
+	// box model, and is a shadow: no track, no solid-body state and no
+	// published box changes. Default false.
+	ExtentProfileAnchored bool
 
 	// SharedOrientation makes the shadow solid body's orientation belief the
 	// published box's heading filter posterior (box_model.go): psi is the

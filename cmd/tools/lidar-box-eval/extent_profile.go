@@ -10,7 +10,11 @@ import (
 
 // The solid body and its extent profile (geom0019) on each row: the solid
 // body's pose and extents, the profile's (l5tracks.ExtentProfileReading)
-// with its end marks and counters, and on a withheld frame the P4 score.
+// with its end marks and counters, and on a withheld frame the P4 score,
+// against the box (geom0019) and against the solid body's own extent at its
+// own pose (geom0020's restated P4), both grown by profileGrowthMetres. The
+// anchored profile (solid_body_extent_profile_anchored) fills the same
+// columns.
 // Without -experiment solid_body the solid-body columns are blank, and
 // without solid_body_extent_profile the profile's are.
 
@@ -22,7 +26,7 @@ var solidBodyRowHeader = []string{"sb_x", "sb_y", "sb_psi_deg", "sb_length", "sb
 	"prof_known", "prof_length", "prof_width", "prof_along_lo", "prof_along_hi", "prof_across_lo", "prof_across_hi",
 	"prof_x", "prof_y", "prof_psi_deg", "prof_ends", "prof_admitted", "prof_withheld",
 	"prof_admitted_frames", "prof_refused_frames", "prof_heading_refused_frames", "prof_locked_ns",
-	"wh_prof_share", "wh_box_share", "wh_area_ratio", "wh_points"}
+	"wh_prof_share", "wh_box_share", "wh_area_ratio", "wh_points", "wh_sb_share", "wh_sb_area_ratio"}
 
 // solidBodyRow is the row's solid-body and profile columns for a track on
 // the frame at now, with the box it is scored against.
@@ -50,8 +54,16 @@ func solidBodyRow(t *l5tracks.TrackedObject, b box, cluster *l5tracks.WorldClust
 		out[6], out[7], out[8], out[9], out[10], out[11] = "", "", "", "", "", ""
 	}
 	if p.Withheld && p.Known && cluster != nil && b.length > 0 {
-		if prof, boxShare, area, n := withheldScore(p, b, clusterPoints(cluster)); n > 0 {
+		points := clusterPoints(cluster)
+		if prof, boxShare, area, n := withheldScore(p, b, points); n > 0 {
 			copy(out[22:], []string{f3(prof), f3(boxShare), f3(area), strconv.Itoa(n)})
+			// geom0020's P4 restated: the solid body's own extent at its own
+			// pose, grown the same, on the same returns.
+			body := box{x: float64(e.X), y: float64(e.Y), psi: float64(e.Orientation.PsiRad),
+				length: float64(e.Length.Metres), width: float64(e.Width.Metres)}
+			if _, sbShare, sbArea, m := withheldScore(p, body, points); m > 0 {
+				copy(out[26:], []string{f3(sbShare), f3(sbArea)})
+			}
 		}
 	}
 	return out
