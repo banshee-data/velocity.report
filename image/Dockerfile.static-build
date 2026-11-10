@@ -191,3 +191,17 @@ COPY --from=go-build-cache-collect /go-build-cache/ /
 # ---------------------------------------------------------------------------
 FROM scratch AS export
 COPY --from=build /out/ /
+
+# ---------------------------------------------------------------------------
+# embed-check — the build stage's manifest check on its own, for PRs that
+# change docs but not the binary (`make check-docs-embed-context`). It
+# needs only the base image and docs_html/_site from the build context, so
+# it shows whether every generated file survives this Dockerfile's
+# .dockerignore without compiling anything. Keep its RUN in step with the
+# manifest check in the build stage above.
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim@sha256:67b30a61dc87758f0caf819646104f29ecbda97d920aaf5edc834128ac8493d3 AS embed-check
+# A bind mount, not COPY: nothing needs the files in a layer, and
+# snapshotting the ~180 MB site costs more than the check itself.
+RUN --mount=type=bind,source=docs_html/_site,target=/site \
+    cd /site && sha256sum --strict --check --quiet .embed-manifest
