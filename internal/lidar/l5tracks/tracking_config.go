@@ -380,6 +380,22 @@ type TrackerConfig struct {
 	// do-nothing option A2 is measured against. The update is unchanged.
 	// Without NearEdgeTracking it does nothing. Default off.
 	NearEdgeMedoidGate bool
+	// NearEdgeCommonGate makes the plausibility check of a body-centre
+	// track's A2 pairing compare like with like (invariant 4 of the near-edge
+	// plan): the displacement it bounds is the least the body must have moved
+	// for the cluster to be its observation, the medoid's distance outside
+	// the predicted body's rectangle (the believed half-extents along the
+	// body axes, zero inside), and not the distance from the predicted body
+	// centre to the medoid, which sits anywhere from the centre to the near
+	// surface. A face's implied centre is left to A2's d²: it carries the
+	// half-extent's error one-for-one, and that error is geometry, not motion.
+	// Without it a long body's medoid, more than MaxReasonableSpeedMps × dt
+	// (3 m at 10 Hz and 30 m/s) from its own centre, is refused as a jump, and
+	// the cluster seeds a second track on the same body (l5id0022). The gate's
+	// d², the cost, a medoid-referenced track and A1 are unchanged. Without
+	// NearEdgeTracking, or with NearEdgeMedoidGate, it does nothing. Go-level
+	// only; default off; see near_edge_tracking.go.
+	NearEdgeCommonGate bool
 
 	// Stationary is the stationary clock's drift rule (StationaryFor). The
 	// zero value is the shipped rule: within StationaryDriftMetres of the

@@ -282,7 +282,8 @@ func (t *Tracker) gateInnovation(track *TrackedObject, clusters []WorldCluster, 
 	}
 	cluster := clusters[ci]
 	measurement := t.measurementForCluster(cluster, t.LastUpdateNanos)
-	if t.implausiblePairing(track, measurement, dt) {
+	if t.implausiblePairing(track, measurement, dt) &&
+		(!t.Config.NearEdgeCommonGate || t.beyondBody(track, measurement, dt)) {
 		return SingularDistanceRejection, 0
 	}
 	key := nearEdgePairKey{track, ci}
@@ -294,12 +295,78 @@ func (t *Tracker) gateInnovation(track *TrackedObject, clusters []WorldCluster, 
 		}
 		t.nearEdgePairs[key] = frame
 	}
-	dist2, det := t.faceResidualInnovationAt(trackedPrediction{x: track.X, y: track.Y, p: track.P},
-		&track.solidBody, nearEdgePriorFor(track), cluster, frame)
+	predicted := trackedPrediction{x: track.X, y: track.Y, p: track.P}
+	if t.Config.NearEdgeCommonGate {
+		// The bound reads the body axes alone: a face's implied centre
+		// carries the half-extent's error one-for-one, which is geometry,
+		// and the faces are A2's d² to judge below.
+		faceless := frame
+		faceless.edges = EdgeMeasurementSet{}
+		if t.implausibleDisplacement(track, bodyCentreDisplacement(
+			t.faceResidualDirections(predicted, &track.solidBody, nearEdgePriorFor(track), cluster, faceless)), dt) {
+			return SingularDistanceRejection, 0
+		}
+	}
+	dist2, det := t.faceResidualInnovationAt(predicted, &track.solidBody, nearEdgePriorFor(track), cluster, frame)
 	if dist2 >= SingularDistanceRejection {
 		return dist2, 0
 	}
 	return dist2, math.Log(det)
+}
+
+// beyondBody says, under NearEdgeCommonGate, that a cluster whose medoid
+// failed the plausibility bound is too far for any part of the believed body
+// to explain: the medoid is further from the predicted centre than the bound
+// allows plus the body's half-diagonal and a margin for this frame's own
+// half-extents. Such a pairing is refused before the pair is measured, as
+// every pairing the bound refuses was before, so faces are measured only for
+// clusters whose medoid distance could be the body's own offset.
+func (t *Tracker) beyondBody(track *TrackedObject, measurement PositionMeasurement, dt float32) bool {
+	halfLength, halfWidth := t.believedHalfExtents(&track.solidBody, nearEdgePriorFor(track))
+	reach := math.Hypot(halfLength, halfWidth) + beyondBodyMarginMetres
+	dx, dy := float64(measurement.X-track.X), float64(measurement.Y-track.Y)
+	return t.implausibleDisplacement(track, float32(math.Max(math.Hypot(dx, dy)-reach, 0)), dt)
+}
+
+// beyondBodyMarginMetres is what beyondBody allows for this frame's
+// half-extents exceeding the believed ones. It only decides which pairs are
+// measured; the bound on the measured pair (bodyCentreDisplacement) decides
+// which are plausible.
+const beyondBodyMarginMetres = 1.0
+
+// believedHalfExtents are the half-length and half-width the body believes,
+// read as faceResidualDirections reads them on a frame with no measurement.
+func (t *Tracker) believedHalfExtents(sb *solidBodyTrack, prior classDimensionPrior) (float64, float64) {
+	var length, width DimensionBelief
+	if sb.ext.on {
+		length, width = sb.extentDimension(0), sb.extentDimension(1)
+	} else {
+		length = t.dimensionOf(sb.lengthBelief, prior.lengthMetres, prior.sigmaMetres, prior.minLengthMetres)
+		width = t.widthOf(sb, prior)
+	}
+	return float64(length.Metres) / 2, float64(width.Metres) / 2
+}
+
+// bodyCentreDisplacement is the least the body must have moved since its
+// prediction for the pair to be its observation, over two orthonormal
+// directions of A2's. Along a face's normal it is the face's residual. Along a
+// direction no face constrains it is the medoid's residual less the believed
+// half-extent that way, and zero within it, because there the medoid can sit
+// anywhere from the centre to the near surface: its offset from the centre is
+// the body's geometry, not motion. NearEdgeCommonGate's bound takes it on the
+// body axes with no face, so it is the medoid's distance outside the predicted
+// body's rectangle: a face's implied centre carries the half-extent's error
+// one-for-one, and A2's d² is what weighs a face.
+func bodyCentreDisplacement(dirs [2]faceResidualDirection) float32 {
+	var sum float64
+	for _, d := range dirs {
+		r := d.residual
+		if d.loose {
+			r = math.Max(math.Abs(r)-d.half, 0)
+		}
+		sum += r * r
+	}
+	return float32(math.Sqrt(sum))
 }
 
 // faceResidualDistanceSquared is A2's squared distance between a body-centre
@@ -331,6 +398,40 @@ func (t *Tracker) faceResidualDistanceSquaredAt(predicted trackedPrediction, sb 
 // NearEdgeTracking), so a believed half-extent enters S only as the loose
 // direction's measurement variance.
 func (t *Tracker) faceResidualInnovationAt(predicted trackedPrediction, sb *solidBodyTrack, prior classDimensionPrior, cluster WorldCluster, f nearEdgeFrame) (float32, float64) {
+	dirs := t.faceResidualDirections(predicted, sb, prior, cluster, f)
+
+	// S = H P Hᵀ + diag(variance), with H's rows the two directions over
+	// position.
+	p := func(i, j int) float64 { return float64(predicted.p[i*4+j]) }
+	project := func(a, b faceResidualDirection) float64 {
+		return a.hx*(p(0, 0)*b.hx+p(0, 1)*b.hy) + a.hy*(p(1, 0)*b.hx+p(1, 1)*b.hy)
+	}
+	s00 := project(dirs[0], dirs[0]) + dirs[0].variance
+	s01 := project(dirs[0], dirs[1])
+	s10 := project(dirs[1], dirs[0])
+	s11 := project(dirs[1], dirs[1]) + dirs[1].variance
+	det := s00*s11 - s01*s10
+	if !(det >= MinDeterminantThreshold) || math.IsInf(det, 0) {
+		return SingularDistanceRejection, 0
+	}
+	a, b := dirs[0].residual, dirs[1].residual
+	return float32((a*(s11*a-s01*b) + b*(s00*b-s10*a)) / det), det
+}
+
+// faceResidualDirection is one of A2's two orthonormal directions: its unit
+// vector over position, the pair's residual along it and that residual's
+// measurement variance. loose says no face constrains it, so the residual is
+// the medoid's and half is the believed half-extent that way.
+type faceResidualDirection struct {
+	hx, hy, residual, variance float64
+	loose                      bool
+	half                       float64
+}
+
+// faceResidualDirections are A2's two directions for a body-centre track's
+// prediction and the pair's measurement f, as faceResidualDistanceSquared
+// describes them.
+func (t *Tracker) faceResidualDirections(predicted trackedPrediction, sb *solidBodyTrack, prior classDimensionPrior, cluster WorldCluster, f nearEdgeFrame) [2]faceResidualDirection {
 	length, width := f.length, f.width
 	if f.fallback != "" && sb.ext.on {
 		// The half-extents the state holds, as a measured frame's are.
@@ -345,8 +446,7 @@ func (t *Tracker) faceResidualInnovationAt(predicted trackedPrediction, sb *soli
 	x, y := float64(predicted.x), float64(predicted.y)
 	medoidX, medoidY := float64(cluster.CentroidX), float64(cluster.CentroidY)
 
-	type direction struct{ hx, hy, residual, variance float64 }
-	var dirs [2]direction
+	var dirs [2]faceResidualDirection
 	n := 0
 	var constrainsAxis, constrainsAcross bool
 	for _, e := range evidenceBackedEdges(f.edges.Edges) {
@@ -354,7 +454,7 @@ func (t *Tracker) faceResidualInnovationAt(predicted trackedPrediction, sb *soli
 			continue
 		}
 		hx, hy := float64(e.NormalX), float64(e.NormalY)
-		dirs[n] = direction{hx, hy, float64(e.ImpliedCentreOffset()) - (hx*x + hy*y), r}
+		dirs[n] = faceResidualDirection{hx: hx, hy: hy, residual: float64(e.ImpliedCentreOffset()) - (hx*x + hy*y), variance: r}
 		n++
 		if e.Face.IsLongitudinal() {
 			constrainsAxis = true
@@ -362,8 +462,8 @@ func (t *Tracker) faceResidualInnovationAt(predicted trackedPrediction, sb *soli
 			constrainsAcross = true
 		}
 	}
-	loose := func(hx, hy, half float64) direction {
-		return direction{hx, hy, hx*(medoidX-x) + hy*(medoidY-y), r + half*half}
+	loose := func(hx, hy, half float64) faceResidualDirection {
+		return faceResidualDirection{hx: hx, hy: hy, residual: hx*(medoidX-x) + hy*(medoidY-y), variance: r + half*half, loose: true, half: half}
 	}
 	if !constrainsAxis {
 		dirs[n] = loose(axisX, axisY, halfLength)
@@ -372,21 +472,5 @@ func (t *Tracker) faceResidualInnovationAt(predicted trackedPrediction, sb *soli
 	if !constrainsAcross && n < 2 {
 		dirs[n] = loose(-axisY, axisX, halfWidth)
 	}
-
-	// S = H P Hᵀ + diag(variance), with H's rows the two directions over
-	// position.
-	p := func(i, j int) float64 { return float64(predicted.p[i*4+j]) }
-	project := func(a, b direction) float64 {
-		return a.hx*(p(0, 0)*b.hx+p(0, 1)*b.hy) + a.hy*(p(1, 0)*b.hx+p(1, 1)*b.hy)
-	}
-	s00 := project(dirs[0], dirs[0]) + dirs[0].variance
-	s01 := project(dirs[0], dirs[1])
-	s10 := project(dirs[1], dirs[0])
-	s11 := project(dirs[1], dirs[1]) + dirs[1].variance
-	det := s00*s11 - s01*s10
-	if !(det >= MinDeterminantThreshold) || math.IsInf(det, 0) {
-		return SingularDistanceRejection, 0
-	}
-	a, b := dirs[0].residual, dirs[1].residual
-	return float32((a*(s11*a-s01*b) + b*(s00*b-s10*a)) / det), det
+	return dirs
 }

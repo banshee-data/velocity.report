@@ -562,9 +562,17 @@ func (t *Tracker) mahalanobisInnovation(track *TrackedObject, cluster WorldClust
 func (t *Tracker) implausiblePairing(track *TrackedObject, measurement PositionMeasurement, dt float32) bool {
 	dx := measurement.X - track.X
 	dy := measurement.Y - track.Y
+	return t.implausibleDisplacement(track, float32(math.Sqrt(float64(dx*dx+dy*dy))), dt)
+}
 
+// implausibleDisplacement is the plausibility bound on a displacement of
+// euclideanDist metres since the track's prediction: a jump beyond
+// MaxPositionJumpMetres, or a speed beyond MaxReasonableSpeedMps over the
+// interval. implausiblePairing measures the displacement to the cluster's
+// measurement; under NearEdgeCommonGate a body-centre track measures it to the
+// body the cluster implies (bodyCentreDisplacement).
+func (t *Tracker) implausibleDisplacement(track *TrackedObject, euclideanDist float32, dt float32) bool {
 	// Physical plausibility check: reject if position jump is too large
-	euclideanDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
 	if euclideanDist > t.Config.MaxPositionJumpMetres {
 		return true
 	}
