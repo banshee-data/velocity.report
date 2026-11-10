@@ -6,6 +6,15 @@
 #   - libpcap submodule drift
 #   - --self-check failures in a clean Debian target (DNS, UDP, libpcap)
 #
+# Docs-only PRs do not run this job: docs content (docs/, data/, *.md,
+# docs_html/) is not among the pull_request paths below. Their embed is
+# checked by docs-offline-ci instead: `make test-docs-offline-routes`
+# serves every generated page through the embedded /docs/ handler, and
+# `make check-docs-embed-context` runs this Dockerfile's manifest check
+# (embed-check stage) without compiling. Every push to main still runs
+# this job unfiltered, so each merge proves the full embed in the release
+# binary.
+#
 # Runs take ~9 minutes: ~4.5 min for the Docker build (90 s per arch of
 # Go compile, which is never cached between runs), ~2.5 min for the ARM64
 # VM boot under TCG, and the rest in docs, smoke tests and setup. The
@@ -22,15 +31,14 @@ on:
       - "internal/cmd/server/**"
       - "internal/**"
       - "image/Dockerfile.static-build*"
-      - "docs_html/**"
-      - "docs/**"
-      - "data/**"
-      - "*.md"
+      - "assets.go"
+      - "config/tuning.defaults.json"
+      - "config/segment-selectors.defaults.json"
       - "Makefile"
       - "scripts/build-radar-static.sh"
-      - "scripts/docs-offline-symlinks.sh"
+      - "scripts/ensure-web-stub.sh"
+      - "scripts/ensure-docs-stub.sh"
       - "scripts/write-embedded-docs-manifest.py"
-      - "scripts/verify-docs-source-case.py"
       - "scripts/verify-embedded-docs-server.py"
       - "scripts/*static*.sh"
       - "third_party/libpcap-static/**"
