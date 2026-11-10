@@ -919,6 +919,13 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		track.LatestZ = cluster.OBB.CenterZ
 	}
 
+	if t.Config.VelocityPriorInit {
+		// The honest prior: the velocity is still zero, only its variance
+		// says how little is known of it (VelocityPriorInit).
+		track.P[2*4+2] = VelocityPriorInitVariance
+		track.P[3*4+3] = VelocityPriorInitVariance
+	}
+
 	t.Tracks[trackID] = track
 	t.observeReacquisitionExtent(track, &cluster)
 	if t.Config.OBBAxisCoherenceEnabled {
