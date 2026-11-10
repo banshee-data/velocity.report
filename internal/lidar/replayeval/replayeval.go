@@ -1468,6 +1468,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.TwoPointVelocityInit = hasExperiment(experiments, ExperimentTwoPointVelocityInit)
 	trackerConfig.ConsistentCovarianceCap = hasExperiment(experiments, ExperimentConsistentCovarianceCap)
 	trackerConfig.ConsistentSpeedClamp = hasExperiment(experiments, ExperimentConsistentSpeedClamp)
+	trackerConfig.VelocityPriorInit = hasExperiment(experiments, ExperimentVelocityPriorInit75)
 	trackerConfig.TentativePriority = trackerConfig.TentativePriority || hasExperiment(experiments, ExperimentTentativePriority)
 	trackerConfig.ClassIdentity = hasExperiment(experiments, ExperimentClassIdentity)
 	overlapEnd, err := overlapEndFramesFor(experiments)

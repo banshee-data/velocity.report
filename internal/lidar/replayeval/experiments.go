@@ -146,6 +146,10 @@ const (
 	ExperimentTwoPointVelocityInit    = "two_point_velocity_init"
 	ExperimentConsistentCovarianceCap = "consistent_covariance_cap"
 	ExperimentConsistentSpeedClamp    = "consistent_speed_clamp"
+	// ExperimentVelocityPriorInit75 is TrackerConfig.VelocityPriorInit: a new
+	// track's velocity stays zero with a variance of (7.5 m/s)² per axis
+	// instead of 1 m²/s² (experiment l5est0009).
+	ExperimentVelocityPriorInit75 = "velocity_prior_init_7p5"
 
 	// Occlusion continuity (state-estimation plan, Sprint 0.5.2.2): the
 	// switches in l5tracks.OcclusionContinuityConfig, each alone so a change
@@ -502,6 +506,7 @@ var knownExperiments = map[string]bool{
 	ExperimentTwoPointVelocityInit:    true,
 	ExperimentConsistentCovarianceCap: true,
 	ExperimentConsistentSpeedClamp:    true,
+	ExperimentVelocityPriorInit75:     true,
 
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,
