@@ -630,6 +630,7 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.settlingCheckCounter = 0
 	g.settlingAnnounced = false
 	g.settlingChecks = nil
+	g.settledAfter, g.settledOnConvergence, g.settledRecorded = 0, false, false
 	g.LastObservedNoiseRel = 0
 
 	// Reset settling state for region identification

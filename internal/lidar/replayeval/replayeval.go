@@ -380,6 +380,16 @@ type Result struct {
 	// during its warm-up, in order: when, what it measured, and whether it
 	// converged. Empty when convergence is not armed.
 	SettlingTrajectory []l3grid.SettlingCheck
+	// Settled says the background ended its own warm-up during the replay;
+	// SettledAfterSeconds is when, by the frames' clock from the first
+	// frame the background processed (BackgroundStartUnixNanos), and
+	// SettledOnConvergence whether convergence rather than the ceiling ended
+	// it (l3grid.BackgroundManager.SettledAfter). They read state and are
+	// not in the replay manifest or the parameter hash.
+	Settled                  bool
+	SettledAfterSeconds      float64
+	SettledOnConvergence     bool
+	BackgroundStartUnixNanos int64
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -1414,6 +1424,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		BackgroundLeak:   leakReport,
 
 		SettlingTrajectory: bgMgr.SettlingTrajectory(),
+	}
+	if after, onConvergence, ok := bgMgr.SettledAfter(); ok {
+		result.Settled, result.SettledAfterSeconds, result.SettledOnConvergence = true, after.Seconds(), onConvergence
+	}
+	if !bgMgr.StartTime.IsZero() {
+		result.BackgroundStartUnixNanos = bgMgr.StartTime.UnixNano()
 	}
 	result.Uncertainty, result.UncertaintySamples = uncertainty, uncertaintySamples
 	return result, nil

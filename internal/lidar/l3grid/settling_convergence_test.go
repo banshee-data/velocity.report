@@ -220,3 +220,43 @@ func TestSetSettlingRelativeSpreadRatio(t *testing.T) {
 		t.Fatal("a negative ratio was accepted")
 	}
 }
+
+// SettledAfter reports when warm-up ended and what ended it, by the frames'
+// clock from the first frame, so a replay can measure windows after the
+// settle (l3bg0030's spurious-cluster read). It reports nothing before the
+// grid settles and nothing after a reset.
+func TestSettledAfterRecordsTheCeiling(t *testing.T) {
+	params := convergenceParams()
+	params.WarmupDurationNanos = int64(30 * time.Second)
+	bm := NewBackgroundManagerDI("settled-after", 4, 8, params, nil)
+	if _, _, ok := bm.SettledAfter(); ok {
+		t.Fatal("a new grid reports a settle")
+	}
+	start := time.Unix(1000, 0)
+	bm.StartTime = start
+	bm.Grid.mu.Lock()
+	early := bm.settlingCompleteLocked(start.Add(10 * time.Second).UnixNano())
+	bm.Grid.mu.Unlock()
+	if early {
+		t.Fatal("an empty grid settled before the ceiling")
+	}
+	if _, _, ok := bm.SettledAfter(); ok {
+		t.Fatal("an unsettled grid reports a settle")
+	}
+	bm.Grid.mu.Lock()
+	done := bm.settlingCompleteLocked(start.Add(31 * time.Second).UnixNano())
+	bm.Grid.mu.Unlock()
+	if !done {
+		t.Fatal("the grid did not settle at the ceiling")
+	}
+	elapsed, onConvergence, ok := bm.SettledAfter()
+	if !ok || onConvergence || elapsed != 31*time.Second {
+		t.Fatalf("SettledAfter = %v, %v, %v; want 31s at the ceiling", elapsed, onConvergence, ok)
+	}
+	if err := bm.ResetGrid(); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok := bm.SettledAfter(); ok {
+		t.Error("a settle survives a reset")
+	}
+}
