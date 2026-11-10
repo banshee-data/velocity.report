@@ -46,6 +46,8 @@ The [oracle tooling runbook](operations/pcl-oracle-tooling.md) pins the installa
 stock CLI limitations to explicit campaign harness contracts.
 The [motion-supported W3 cloud screen](operations/w3-motion-fragment-joining-cloud-2026-11.md)
 records a bounded joining candidate, preserved membership and the still-open reviewed merge/retention gates.
+The [track-conditioned joining corpus read](operations/w3-join-membership-corpus-merge-reference-2026-11.md)
+scores the widened join footprint on six placements with a label-free merge reference; it fails on two-track joins.
 The [joining-control design](operations/pcl-joining-cap-controls.md) separates cap losses from
 connectivity with six matched arms and a frozen-input oracle.
 The [planar registration disposition](operations/pcl-planar-registration-disposition.md) places

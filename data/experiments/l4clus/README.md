@@ -27,7 +27,7 @@ third arm of that comparison once the path question is answered; it is not a spe
 
 The [motion-supported joining candidate](l4clus0008.md) follows the failed threshold and fixed-radius alternatives, with explicit ownership, membership and merge gates.
 
-[Track-conditioned joining on two placements drawn by lot](l4clus0011.md) keeps kirk0's identity
+[Track-conditioned joining on two placements drawn by lot](l4clus0012.md) keeps kirk0's identity
 (M1) and costs no noise on three of four busy segments (M2), but lombard-broderick's first segment's
 credited moving count rises 6.6 % as the candidate doubles vehicles it was meant to join (M3), and
 its inferred merges exceed `a0`'s floor by 14 over the four segments, mostly one-frame contacts

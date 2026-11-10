@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Inferred merges: candidate footprints that hold two of the defaults' moving tracks (l4clus0011).
+"""Inferred merges: candidate footprints that hold two of the defaults' moving tracks (l4clus0012).
 
 Reads two replays of one case, the defaults' (A) and a candidate's (B), each an evidence database
 or a `lidar-box-eval -rows` CSV as lidar_flip_cost.py reads them, and lists where B's drawn
 footprint holds two vehicles that A keeps apart. Definitions are fixed here, before any arm of
-l4clus0011 is replayed:
+l4clus0012 is replayed:
 
 * moving: lidar_figure_sensitivity.py's peak test (l5id0024): a track lasting 2.0 s or more whose
   maximum speed (the largest 1.0 s rolling median of its row speeds, at least three rows) is

@@ -400,10 +400,15 @@ shadow given the shipped prior, l5est0011),
 `solid_body_containment` and `solid_body_full_members`), `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
 `overlap_end_body` and `overlap_end_older`, `birth_gate_body` (which needs `overlap_end_body`),
 `robust_birth_gate` (a fragment the fragment guard refuses a confirmed track, inside that track's
-grown box, seeds no track; it needs `robust_likelihood_cost` or `likelihood_cost`), `fixed_lag_rts`, `surface_ground` (the
+grown box, seeds no track; it needs `robust_likelihood_cost` or `likelihood_cost`), `artefact_birth_gate` and
+`artefact_absorb` (small artefact tracks held tentative at birth, or their clusters taken by the
+neighbouring body; [l6cls0005](../data/experiments/l6cls/l6cls0005.md)), `fixed_lag_rts`, `surface_ground` (the
 replay tools' surface-ground flags by name), `box_ground` (which needs the box model),
 `box_extent_solid_body` (the published box's length and width from the solid body's extent state;
-it needs the box model, `solid_body` and `solid_body_extent_state` or `solid_body_face_state`), and the solid
+it needs the box model, `solid_body` and `solid_body_extent_state` or `solid_body_face_state`), its
+qualifier `box_extent_measured_length` (the box takes from the extent state only a dimension it has
+measured: the length once both end faces or a span bound have moved it, the width only once both
+side faces have, so in practice the length alone; refused without `box_extent_solid_body`), and the solid
 body's face-state options, each needing `solid_body`: `solid_body_extent_state` (with
 `near_edge_track` the tracked filter carries the extents, and its gate does not see them),
 `solid_body_censored_extent`, `solid_body_span_bounds_belief`,
@@ -751,6 +756,8 @@ for the rule, member lineage and remaining acceptance gates. The replay experime
 `fragment_join_track_membership` widens each footprint by two standard deviations of
 the body's projected position along and across it; it has no config key and is refused
 without an enabled join ([l4clus0010](../docs/lidar/operations/w3-truck-membership-extent-kirk0-2026-11.md)).
+On six placements it joined components that other confirmed tracks hold, so it stays
+default-off ([l4clus0011](../docs/lidar/operations/w3-join-membership-corpus-merge-reference-2026-11.md)).
 
 ## Default-off identity acceptance options
 

@@ -154,6 +154,12 @@ type Config struct {
 	// ObservationDBPath. Records are delivered in memory; ObservationLogDir
 	// writes the same records to disk.
 	ObservationFrames func(l4bobserve.FrameRecord) error
+	// FragmentJoinRecords receives, on each frame where the motion join
+	// changed the partition, one record per joined cluster, warm-up included
+	// (pipeline.FragmentJoinRecord; l4clus0011's merge reference). It
+	// observes the join and changes no cluster. It needs a tuning file that
+	// enables the join; the replay refuses it otherwise.
+	FragmentJoinRecords func([]pipeline.FragmentJoinRecord)
 	// ObservationLogDir writes the foreground-complete records to a new VRLOG
 	// 1.x observation container at this path, which must not exist: the same
 	// records ObservationFrames receives, warm-up included, and the two
@@ -780,6 +786,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err := fragmentJoinTrackMembershipRefusal(experiments, tuningCfg.GetFragmentJoin()); err != nil {
 		return nil, fmt.Errorf("tuning config %s: %w", cfg.TuningFile, err)
 	}
+	if j := tuningCfg.GetFragmentJoin(); cfg.FragmentJoinRecords != nil && (j == nil || !j.Enabled) {
+		return nil, fmt.Errorf("tuning config %s: fragment join records need l4.dbscan_xy_v1.fragment_join enabled", cfg.TuningFile)
+	}
 	sequence, err := configuredCaptureSequence(cfg, pcapFiles)
 	if err != nil {
 		return nil, err
@@ -989,6 +998,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if j := tuningCfg.GetFragmentJoin(); j != nil && j.Enabled {
 		fragmentJoinStats = &pipeline.FragmentJoinStats{}
 		pipeCfg.OnFragmentJoin = fragmentJoinStats.Observe
+		pipeCfg.OnFragmentJoinRecords = cfg.FragmentJoinRecords
 	}
 	var observationFrameSink *strictObservationFrameSink
 	var observationLog *vrlog.Writer
@@ -1502,6 +1512,8 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	if trackerConfig.BirthGateOnBody && !trackerConfig.OverlapEndOnBody {
 		return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s reads the overlap end's on-body test; name overlap_end_body with it", ExperimentBirthGateBody)
 	}
+	trackerConfig.ArtefactBirthGate = hasExperiment(experiments, ExperimentArtefactBirthGate)
+	trackerConfig.ArtefactAbsorb = hasExperiment(experiments, ExperimentArtefactAbsorb)
 	if trackerConfig.OverlapEndFrames == 0 && (trackerConfig.OverlapEndOnBody || trackerConfig.OverlapEndKeepOlder) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiments %q qualify the overlap end without it; name overlap_end_1 or overlap_end_3", experiments)
 	}
@@ -1640,6 +1652,13 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 				ExperimentBoxExtentSolidBody, ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState, experiments)
 		}
 		trackerConfig.BoxModel.BoxExtentFromSolidBody = true
+		trackerConfig.BoxModel.BoxExtentMeasuredOnly = hasExperiment(experiments, ExperimentBoxExtentMeasuredLength)
+	} else if hasExperiment(experiments, ExperimentBoxExtentMeasuredLength) {
+		// It qualifies which of the extent state's dimensions the box takes,
+		// so without box_extent_solid_body it would change nothing and run
+		// as the baseline under its name.
+		return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s qualifies %s and is refused without it",
+			ExperimentBoxExtentMeasuredLength, ExperimentBoxExtentSolidBody)
 	}
 	if hasExperiment(experiments, ExperimentBoxExtentSharedAxis) {
 		// The axis test it changes is box_extent_solid_body's, and the axis

@@ -1167,6 +1167,11 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			bounds = sb.ext.accrual.admit(f.accrued, f.spanBound)
 		}
 		touched = sb.applyExtentBounds(bounds)
+		for i, hit := range touched {
+			if hit {
+				sb.ext.bounds[i]++
+			}
+		}
 		f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
 	}
 
@@ -1298,6 +1303,7 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 			sb.setJoint(js)
 			for _, e := range usable {
 				touched[extentIndex(e.Face)] = true
+				sb.ext.recordFace(e)
 			}
 		} else {
 			sb.state, sb.p = state, p

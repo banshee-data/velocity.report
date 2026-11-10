@@ -381,6 +381,12 @@ The test now reads the axis the body would hold without the shared orientation. 
 refuses 3660 frames on kirk0 against 3459 for the box extent alone. The old reading is the replay
 experiment `box_extent_shared_axis`.
 
+Its qualifier `box_extent_measured_length` (`BoxExtentMeasuredOnly`) takes a dimension only once
+the state has measured it: the length from both end faces or a span bound, the width only from
+both side faces. On kirk0 it restores car 8's box to `a0`'s exactly and keeps identity, but its
+median centre error is 0.195 m against 0.190 m, so geom0017's G1 fails and both stay off
+([report](../lidar/operations/box-extent-measured-length-kirk0-2026-11.md)).
+
 ## 5. Upcoming work that addresses these
 
 | Planned item                                                                            | Where                                                                                                                              | What it covers                                                                                       | What it leaves                                                                                                       |
@@ -499,3 +505,5 @@ ambiguous ownership and shape failures preserve the original partition. Syntheti
 correctness and unlabelled replay counts cannot close W3, G-GEO-1, the reviewed
 merge/identity gates or the target-hardware cost requirement.
 Truck membership and the extent state, scored on kirk0's labels: [l4clus0010](../lidar/operations/w3-truck-membership-extent-kirk0-2026-11.md).
+Track-conditioned joining on six placements, with a label-free merge reference: [l4clus0011](../lidar/operations/w3-join-membership-corpus-merge-reference-2026-11.md)
+(spurious clusters fell at every site; two-track joins rose from 4 to 14, so it does not pass).

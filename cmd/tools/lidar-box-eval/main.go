@@ -59,6 +59,7 @@ func main() {
 		lowerBodyF = flag.Bool("lower-body", false, "l3bg0024's lower-body block: what the rings that should meet a moving vehicle's lower body returned, by range; needs a surface reader such as -experiment box_ground")
 		evidenceDB = flag.String("evidence-db", "", "optional new SQLite evidence database for the replay (observations and track estimates, identity calibration), for a corpus screen")
 		samplePts  = flag.Int("sample-points", 256, "with -evidence-db, retained sample points per observation (1 to 1024)")
+		joinRecs   = flag.String("join-records", "", "optional JSONL of every cluster the motion join built, warm-up included: components, extent, owner and each component's confirmed track (l4clus0011's merge reference); needs a tuning file that enables the join")
 	)
 	flag.Parse()
 	// The pipeline reads the default tuning document wherever it runs from.
@@ -135,9 +136,24 @@ func main() {
 		cfg.ObservationCalibration = l4bobserve.Calibration{SensorID: cfg.SensorID, FromFrame: "sensor", ToFrame: "site",
 			Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
 	}
+	var joins *joinRecordWriter
+	if *joinRecs != "" {
+		f, err := os.Create(*joinRecs)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		joins = newJoinRecordWriter(f)
+		cfg.FragmentJoinRecords = joins.write
+	}
 	res, err := replayeval.Run(cfg)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if joins != nil {
+		if err := joins.close(); err != nil {
+			log.Fatalf("-join-records: %v", err)
+		}
 	}
 	if *tracePath != "" {
 		if err := sc.writeTraces(*tracePath); err != nil {

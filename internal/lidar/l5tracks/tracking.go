@@ -224,6 +224,9 @@ type TrackedObject struct {
 	// birthGated counts the frames a tentative track's update lay inside a
 	// live confirmed body (TrackerConfig.BirthGateOnBody).
 	birthGated int
+	// artefact is what TrackerConfig.ArtefactBirthGate reads of a
+	// tentative track's clusters; untouched with the gate off.
+	artefact artefactEvidence
 
 	// Extent beliefs: revisable lower-bound estimates of the object's body
 	// dimensions, built from confidently assigned observations only. They are
@@ -611,9 +614,15 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 					continue
 				}
 			}
+			if t.Config.ArtefactBirthGate && track.TrackState == TrackTentative {
+				track.artefact.observe(clusters[clusterIdx])
+			}
 
 			// Promote tentative → confirmed
 			if track.TrackState == TrackTentative && track.Hits >= t.Config.HitsToConfirm {
+				if t.Config.ArtefactBirthGate && t.holdArtefactBirth(track, nowNanos) {
+					continue
+				}
 				track.TrackState = TrackConfirmed
 				t.TracksConfirmed++
 				if track.CreationSequence > t.continuityBornAfter {
@@ -817,13 +826,23 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 
 	// Step 5: Initialise new tracks from unassociated clusters
 	newTracks := 0
+	var absorbers []drawnRect
+	if t.Config.ArtefactAbsorb {
+		absorbers = t.liveConfirmedRects(t.sortedActiveTrackIDs(), matchedTracks)
+	}
 	for clusterIdx, trackID := range associations {
 		if trackID == "" && len(t.Tracks) < t.Config.MaxTracks {
 			if t.Config.FragmentBirthGate && t.absorbsFragment(&clusters[clusterIdx]) {
 				t.continuity.FragmentBirthsAbsorbed++
 				continue
 			}
-			t.initTrack(clusters[clusterIdx], nowNanos)
+			if t.Config.ArtefactAbsorb && t.absorbArtefact(&clusters[clusterIdx], absorbers) {
+				continue
+			}
+			track := t.initTrack(clusters[clusterIdx], nowNanos)
+			if t.Config.ArtefactBirthGate {
+				track.artefact.found(&clusters[clusterIdx])
+			}
 			newTracks++
 		}
 	}

@@ -1,11 +1,16 @@
 # Track-conditioned fragment joining on two placements drawn by lot
 
+**Renumbered.** This experiment ran as l4clus0011 on 2026-11-10 and was renumbered l4clus0012
+when main's own l4clus0011 (#1003, [six more placements with a label-free merge
+reference](w3-join-membership-corpus-merge-reference-2026-11.md)) merged first. The two read the
+same option on different placements and neither read the other's.
+
 <!-- ignore-style-length -->
 
 - **Status:** Measured on kirk0 and on two placements on 2026-11-10. `join-membership` passes M1
   and M2 and fails M3 and M4. Nothing is named for label0003's window, nothing is adopted and no
   default changes
-- **Spec:** [l4clus0011](../../../data/experiments/l4clus/l4clus0011.md). Its rule (M1 to M4) was
+- **Spec:** [l4clus0012](../../../data/experiments/l4clus/l4clus0012.md). Its rule (M1 to M4) was
   committed at `0a9316f`, before any replay
 - **Tooling:** `scripts/lidar_merge_read.py`, the inferred-merge read, with fixture tests (commit
   `9ac2f49`, before any replay). No existing script changed
@@ -56,7 +61,7 @@ report names as its risk, a footprint that joins two vehicles, was unread. This 
 candidate on l5id0024's two lot-drawn placements, the busiest segments read this month, with a
 merge read written before the replays.
 
-The rule, in short ([spec](../../../data/experiments/l4clus/l4clus0011.md)), read for
+The rule, in short ([spec](../../../data/experiments/l4clus/l4clus0012.md)), read for
 `join-membership`, with `join` reported as its control:
 
 - **M1, the anchor.** On kirk0, against `a0`, the paired bootstrap's 5th percentiles of the HOTA
@@ -431,7 +436,7 @@ Each reading is marked measured or inferred.
 
 | Item           | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Base           | `exp/l4clus0011` from `0a9316f` (spec approved, rule committed before any replay)                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Base           | `exp/l4clus0012` from `0a9316f` (spec approved, rule committed before any replay)                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Tooling        | `9ac2f49` (`lidar_merge_read.py` and its tests, committed before any replay); `python3 -m unittest test_lidar_merge_read` passes (10 tests); `lidar_flip_cost.py` and `lidar_figure_sensitivity.py` unchanged, their tests pass                                                                                                                                                                                                                                                              |
 | Tools          | Built at `0a9316f` (`0a9316f993b2bb5e8261ea54e190c7234732bffe`) by the Makefile's LDFLAGS (`version.Version` 0.5.1-pre52, `GitSHA`, `BuildTime`) with the `pcap` tag, against the run's static libpcap (submodule `a999701d`). Every replay header and box-eval summary reads `build_version` 0.5.1-pre52 and `build_git_sha` `0a9316f9…`. `lidar-state-estimation-baseline` `sha256:bbb34db1f57b6fba…`, `lidar-box-eval` `ea984cb1e9c61313…`, `lidar-ground-truth-eval` `3c574b7b074c3211…` |
 | Parameter sets | `config/tuning.defaults.json`, fingerprint `ab0c4035780d`, file SHA-256 `9ad7377f…`; `config/experiments/motion-fragment-join.json`, fingerprint `719d291ed197`, file SHA-256 `2e604040…`                                                                                                                                                                                                                                                                                                    |
@@ -441,6 +446,6 @@ Each reading is marked measured or inferred.
 | Placements     | Hugging Face `banshee-data/sf-street-speeds`: columbus-north-point `20260902T1153_80858-0e4`, `sha256:f6f4a4993a2a83a1…8389`; lombard-broderick `20260902T0938_80858-0d4`, `sha256:1eb08d9e6ced4e20…4643`; l5id0024's lot                                                                                                                                                                                                                                                                    |
 | Segments       | Cut by `pcapng_window.py` at 0 and 300 s for 300 s, each equal to l5id0024's: columbus 1 `ceeb92abc1c45467…e1e0`, 2 `7dc184577c8b2867…7b98`; lombard 1 `a38d974e77fc69a7…77aa`, 2 `667e235853dfa873…33c3`                                                                                                                                                                                                                                                                                    |
 | Labels         | The pack RECONSTRUCTED as in l5id0019 and l5id0024: label set `kirk0-reference` revision 2233, pack `ds_67842cb1b22b70e7` rebuilt by `lidar-pack-rebuild` (pack digest `sha256:f0ed3414…`); split `kirk0-tuning` manifest `7194bb61…`, reference digest `sha256:a784e69d…`; `obj_788622b5` ignored                                                                                                                                                                                           |
-| Eligibility    | Committed cohort manifest; a copy of the run's scratch use ledger (migration 71) per arm; actor `appius-l4clus0011`                                                                                                                                                                                                                                                                                                                                                                          |
+| Eligibility    | Committed cohort manifest; a copy of the run's scratch use ledger (migration 71) per arm; actor `appius-l4clus0012`                                                                                                                                                                                                                                                                                                                                                                          |
 | Host           | Claude Code cloud container, 4 cores, shared with another experiment; two lanes, `GOMAXPROCS=2`, `nice -n 5`; kirk0 replays 1.7 to 2.0 min each with repeat, segments 2.0 to 4.6 min each                                                                                                                                                                                                                                                                                                    |
 | Raw output     | Scratch only. Captures were deleted once cut and replayed; evidence databases, rows and summaries were deleted once these tables were written                                                                                                                                                                                                                                                                                                                                                |

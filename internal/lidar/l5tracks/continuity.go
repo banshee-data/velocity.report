@@ -1047,6 +1047,18 @@ type ContinuityStats struct {
 	// shipped velocity prior because they lay in a confirmed track's shadow.
 	// Zero, and omitted, with the option off.
 	ShadowPriorBirths int64 `json:"shadow_prior_births,omitempty"`
+
+	// The artefact options' decisions (experiment l6cls0005), zero and
+	// omitted with the options off. ArtefactBirthsHeld counts tentative
+	// tracks TrackerConfig.ArtefactBirthGate held back from confirmation at
+	// least once, and ArtefactBirthsReleased those of them later confirmed,
+	// by persistence or an exemption; the rest ended tentative under the
+	// shipped miss rule. ArtefactClustersAbsorbed counts unassociated
+	// clusters TrackerConfig.ArtefactAbsorb took as a live track's returns
+	// instead of seeding a track from.
+	ArtefactBirthsHeld       int64 `json:"artefact_births_held,omitempty"`
+	ArtefactBirthsReleased   int64 `json:"artefact_births_released,omitempty"`
+	ArtefactClustersAbsorbed int64 `json:"artefact_clusters_absorbed,omitempty"`
 }
 
 // ContinuityStats returns a snapshot of the continuity diagnostics.

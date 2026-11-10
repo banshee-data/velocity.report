@@ -223,7 +223,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentSharedAxis, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentArtefactAbsorb, ExperimentArtefactBirthGate, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentMeasuredLength, ExperimentBoxExtentSharedAxis, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentConsistentCovarianceCap, ExperimentConsistentSpeedClamp, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
@@ -843,6 +843,39 @@ func TestRobustBirthGateNeedsALikelihoodCost(t *testing.T) {
 	}
 }
 
+// artefact_birth_gate and artefact_absorb each reach their own tracker
+// option and nothing else, are off without their names, and combine.
+func TestArtefactExperimentsReachTheirOptions(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	off, err := trackerConfigFor(l5, "", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off.ArtefactBirthGate || off.ArtefactAbsorb {
+		t.Fatalf("an artefact option is on without its name: gate %v absorb %v", off.ArtefactBirthGate, off.ArtefactAbsorb)
+	}
+	for _, tc := range []struct {
+		names         []string
+		gate, absorbs bool
+	}{
+		{[]string{ExperimentArtefactBirthGate}, true, false},
+		{[]string{ExperimentArtefactAbsorb}, false, true},
+		{[]string{ExperimentArtefactAbsorb, ExperimentArtefactBirthGate}, true, true},
+	} {
+		got, err := trackerConfigFor(l5, "", tc.names, nil)
+		if err != nil {
+			t.Fatalf("%v: %v", tc.names, err)
+		}
+		if got.ArtefactBirthGate != tc.gate || got.ArtefactAbsorb != tc.absorbs {
+			t.Errorf("%v: gate %v absorb %v, want %v and %v", tc.names, got.ArtefactBirthGate, got.ArtefactAbsorb, tc.gate, tc.absorbs)
+		}
+		got.ArtefactBirthGate, got.ArtefactAbsorb = false, false
+		if !reflect.DeepEqual(got, off) {
+			t.Errorf("%v changed more than its own option", tc.names)
+		}
+	}
+}
+
 // settling_honest is a background experiment, so lidar-bench accepts it, and
 // it sets the first-check semantics on the manager it is applied to.
 func TestSettlingHonestExperiment(t *testing.T) {
@@ -928,6 +961,48 @@ func TestBoxExtentSolidBodyNeedsTheBoxAndTheExtentState(t *testing.T) {
 	// database may run it.
 	if err := RefuseExperimentsWithout("some-tool", []string{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentBoxExtentSolidBody}, ReplayInputs{}); err != nil {
 		t.Errorf("refused without an evidence database: %v", err)
+	}
+}
+
+// box_extent_measured_length reaches its own option on top of
+// box_extent_solid_body, and is refused without it, where it would change
+// nothing; box_extent_solid_body alone leaves it off, so that arm stays
+// #984's.
+func TestBoxExtentMeasuredLengthQualifiesBoxExtentSolidBody(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	arm := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentBoxExtentSolidBody}
+	base, err := trackerConfigFor(l5, "", arm, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.BoxModel.BoxExtentMeasuredOnly {
+		t.Fatalf("%s alone switched on BoxExtentMeasuredOnly", ExperimentBoxExtentSolidBody)
+	}
+	want := base
+	want.BoxModel.BoxExtentMeasuredOnly = true
+	got, err := trackerConfigFor(l5, "", append(append([]string{}, arm...), ExperimentBoxExtentMeasuredLength), nil)
+	if err != nil {
+		t.Fatalf("%s: %v", ExperimentBoxExtentMeasuredLength, err)
+	}
+	if got != want {
+		t.Errorf("%s:\n got %+v\nwant %+v", ExperimentBoxExtentMeasuredLength, got, want)
+	}
+	for _, without := range [][]string{
+		{ExperimentBoxExtentMeasuredLength},
+		{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentBoxExtentMeasuredLength},
+	} {
+		if _, err := trackerConfigFor(l5, "", without, nil); err == nil || !strings.Contains(err.Error(), ExperimentBoxExtentSolidBody) {
+			t.Errorf("%q: want a refusal naming %s, got %v", without, ExperimentBoxExtentSolidBody, err)
+		}
+		if err := ValidateExperiments(without, "", "", nil); err == nil {
+			t.Errorf("%q was validated", without)
+		}
+	}
+	// The selection folds into the parameter hash, so the two arms differ.
+	a, _ := ParseExperiments(strings.Join(arm, ","))
+	b, _ := ParseExperiments(strings.Join(append(append([]string{}, arm...), ExperimentBoxExtentMeasuredLength), ","))
+	if string(experimentsHashSuffix(a)) == string(experimentsHashSuffix(b)) {
+		t.Errorf("%s shares %s's parameter hash suffix", ExperimentBoxExtentMeasuredLength, ExperimentBoxExtentSolidBody)
 	}
 }
 

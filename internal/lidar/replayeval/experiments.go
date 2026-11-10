@@ -225,6 +225,18 @@ const (
 	// robust_likelihood_cost or likelihood_cost (experiment l5id0023), and
 	// is refused without one.
 	ExperimentRobustBirthGate = "robust_birth_gate"
+	// ExperimentArtefactBirthGate is TrackerConfig.ArtefactBirthGate: a
+	// tentative track under 1.5 m long and wide, under 0.5 m from where it
+	// was first seen, averaging under 24 returns and under 1 s old is held
+	// tentative, so the shipped tentative miss rule ends it if it flickers
+	// (experiment l6cls0005).
+	ExperimentArtefactBirthGate = "artefact_birth_gate"
+	// ExperimentArtefactAbsorb is TrackerConfig.ArtefactAbsorb: an
+	// unassociated cluster that small and sparse, within 1.25 m of a live
+	// confirmed track's drawn box, is treated as part of that body and
+	// seeds no track; it is not associated with the track (experiment
+	// l6cls0005).
+	ExperimentArtefactAbsorb = "artefact_absorb"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.
 	ExperimentOcclusionContinuity = "occlusion_continuity"
@@ -451,6 +463,14 @@ const (
 	// the body's own axis. It needs box_extent_solid_body and
 	// solid_body_shared_orientation and is refused without either.
 	ExperimentBoxExtentSharedAxis = "box_extent_shared_axis"
+	// ExperimentBoxExtentMeasuredLength: l5tracks.BoxModelConfig.
+	// BoxExtentMeasuredOnly, box_extent_solid_body taking from the extent
+	// state only what it has measured: the length once both end faces or a
+	// span bound have moved hL, the width only once both side faces have,
+	// which a single sensor almost never sees, so in practice the length
+	// alone (geom0017). It qualifies box_extent_solid_body and is refused
+	// without it, so that name alone stays #984's arm.
+	ExperimentBoxExtentMeasuredLength = "box_extent_measured_length"
 	// ExperimentBorderClasses: pipeline BorderClasses, foreground returns carrying the veil
 	// trait (a mixed return between a nearer and a farther neighbour in the same channel)
 	// withheld from L4 (l3bg0028). A treatment to test, not a claim that a veil bit is a mixed
@@ -511,6 +531,8 @@ var knownExperiments = map[string]bool{
 	ExperimentOverlapEndOlder:      true,
 	ExperimentBirthGateBody:        true,
 	ExperimentRobustBirthGate:      true,
+	ExperimentArtefactBirthGate:    true,
+	ExperimentArtefactAbsorb:       true,
 	ExperimentFixedLagRTS:          true,
 	ExperimentSolidBody:            true,
 
@@ -570,6 +592,7 @@ var knownExperiments = map[string]bool{
 	ExperimentBoxGround:                         true,
 	ExperimentBoxExtentSolidBody:                true,
 	ExperimentBoxExtentSharedAxis:               true,
+	ExperimentBoxExtentMeasuredLength:           true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.
