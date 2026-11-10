@@ -350,6 +350,42 @@ decides the rest is in the corpus, not in print.
 | Restate or retire l5id0011 and geom0012                            | Restate l5id0011 to its plain-likelihood arm or retire it in l5id0023's favour; narrow geom0012 to the tracked position's row                           |
 | Schedule the radar beside the LiDAR on a faster street             | Yes. It now serves three things: a speed bound, two-point initialisation's population, and the trucks' lag                                              |
 
+## The November 10 run
+
+The owner asked the same day for this review's experiments to run. They ran from 05:21 to
+13:13 UTC in a cloud container (4 cores), on kirk0, its reconstructed labelled pack (which
+reproduced the identity anchor and the published box's 0.190 m exactly) and placements fetched
+from the dataset one at a time. Each experiment ran in its own worktree under a rule committed
+before its replays; five follow-ups were specified during the run from the results before them.
+Nothing passed its whole rule and no default changed.
+
+| Spec                                                         | Question                                                            | Result                                                                                                                                                              | Report                                                |
+| ------------------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [l5id0023](../../../data/experiments/l5id/l5id0023.md)       | The likelihood cost with the birth gate on two placements           | All three forms pass K1 on kirk0; none passes K2 and K3 together; no arm named. A joined track crosses the moving test where its pieces did not                     | [report](likelihood-birth-gate-placements-2026-11.md) |
+| [l5id0024](../../../data/experiments/l5id/l5id0024.md)       | `likelihood-birth` on two placements drawn by lot, with a peak test | L1 holds (switches 90 to 6); L2 and L3 fail on segments with 73 to 196 moving tracks: brief tracks +4 to +37, the count +8.1 % at lombard-broderick 2               | [report](likelihood-birth-gate-lot-2026-11.md)        |
+| [l4clus0011](../../../data/experiments/l4clus/l4clus0011.md) | Track-conditioned joining on the same placements                    | M1 and M2 hold; M3 fails (+6.6 %) and M4 fails (14 inferred merges over the floor against 2), most of them one-frame contacts                                       | [report](fragment-join-membership-lot-2026-11.md)     |
+| [geom0019](../../../data/experiments/geom/geom0019.md)       | A body-frame occupancy profile as the extent estimator              | P1 to P4 fail: admitted on 1 of 22 reviewed poses, and its origin moved with the extent state                                                                       | [report](extent-occupancy-profile-2026-11.md)         |
+| [geom0020](../../../data/experiments/geom/geom0020.md)       | The profile anchored to the body, admitted on the box's heading     | P0 holds (every pose admitted); P1 to P4 fail. Truck 2 holds near 9.9 m through 77.4 s but cars at 8 to 10 m/s grow at the front; truck 2's early poses see one end | [report](extent-profile-anchored-2026-11.md)          |
+| [l5est0007](../../../data/experiments/l5est/l5est0007.md)    | G-EST-1 restated, on the 23 first segments                          | 4,117 moving tracks, under M0. Along z RMS 1.073; neither process-noise value passes M3; the IMM's ratio 0.977. The excess sits in the first second (2.52)          | [report](gest1-corpus-read-2026-11.md)                |
+| [l5est0008](../../../data/experiments/l5est/l5est0008.md)    | The first-second split, held out on the 22 second segments          | N0 met (8,426). N1 holds: 2.419 under 1 s, 0.846 after; mostly a signed lag (young mean z +1.89). No motion model follows                                           | [report](gest1-second-segments-2026-11.md)            |
+| [l5est0009](../../../data/experiments/l5est/l5est0009.md)    | A 7.5 m/s birth velocity sigma                                      | V1 and V2 hold (2.244 to 0.802); V3 to V5 fail: newborn fragments confirm and keep invented speed, kirk0 switches 90 to 117                                         | [report](velocity-prior-init-2026-11.md)              |
+| [l5est0010](../../../data/experiments/l5est/l5est0010.md)    | The same prior with the shipped gate                                | V1 and V2 hold (to 0.787); V3 to V5 fail and the falsifier holds: duplicates rise on 6 of 6, so the cost is in the update, not the gate                             | [report](velocity-prior-gated-2026-11.md)             |
+| [l3bg0030](../../../data/experiments/l3bg/l3bg0030.md)       | The relative settling criterion, held out                           | Fails: 17 of 22 converge (need 18), two at the first check; the ratio swings 0.02 to 0.13 within a site                                                             | [report](settling-relative-heldout-2026-11.md)        |
+
+**What changed in this review's answers.** The tracker question is settled for now: on 8,426
+moving tracks the CV filter's along-track excess is a start-up lag, not acceleration, so CA and
+the IMM stay offline and the work is a track's first second. A wider velocity prior removes the
+lag in the residuals but lets sparse clusters (reflections and fragments) confirm at an invented
+speed, gated or not; the next lever is upstream of the filter, at birth, and the reflection class
+this review put fourth among the labelling tasks moves up to second. The identity candidates (the
+likelihood cost, track-conditioned joining) hold their kirk0 gains and fail on the first busy
+placements, and two of their failures are partly the measure's: the moving count and the merge
+read both need forms a join cannot move. The extent estimator now has its admission solved and
+its anchoring partly solved, and fails on what the sensor does not see, a far end hidden by the
+body itself; that points to the end-on capture (W7) and the reviewed references, not another
+estimator. label0003's spans are still the only route to a decision, and nothing in the run
+changed that.
+
 ## What this review does not establish
 
 It ran nothing. Every figure is a report's, and the reports were read through digests for all
