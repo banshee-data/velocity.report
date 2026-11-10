@@ -62,3 +62,26 @@ func TestPoolReadsPooledPerCaseAndLeaveOneOut(t *testing.T) {
 		t.Errorf("leave one out age split %+v", lo)
 	}
 }
+
+// A narrower level narrows the whole-track interval: the 5th to 95th lies
+// inside the 2.5th to 97.5th of the same draws.
+func TestPoolLevelSetsTheInterval(t *testing.T) {
+	dir := t.TempDir()
+	paths := []string{record(t, dir, "x", 0.5, 1, 1.5, 2, 3, 0.2, 0.8, 1.1)}
+	wide := l8analytics.DefaultGEST1CorpusConfig()
+	wide.BootstrapDraws = 400
+	narrow := wide
+	narrow.Level = 0.9
+	pw, err := run(paths, wide)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pn, err := run(paths, narrow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, n := pw.Sources[0].Pooled.Along, pn.Sources[0].Pooled.Along
+	if !(w.RMSLo <= n.RMSLo && n.RMSHi <= w.RMSHi) || pn.Sources[0].Pooled.Config.Level != 0.9 {
+		t.Errorf("0.95 [%v, %v], 0.9 [%v, %v]", w.RMSLo, w.RMSHi, n.RMSLo, n.RMSHi)
+	}
+}

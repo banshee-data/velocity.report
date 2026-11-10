@@ -63,6 +63,7 @@ type pool struct {
 func main() {
 	out := flag.String("out", "", "pooled JSON to write (required)")
 	draws := flag.Int("bootstrap-draws", l8analytics.DefaultGEST1CorpusConfig().BootstrapDraws, "whole-track resamples behind every interval")
+	level := flag.Float64("level", l8analytics.DefaultGEST1CorpusConfig().Level, "two-sided coverage of every bootstrap interval (0.9 gives the 5th to 95th)")
 	flag.Parse()
 	if *out == "" || flag.NArg() == 0 {
 		fmt.Fprintln(os.Stderr, "usage: lidar-gest1-pool -out pooled.json gest1_tracks.json.gz ...")
@@ -70,6 +71,11 @@ func main() {
 	}
 	cfg := l8analytics.DefaultGEST1CorpusConfig()
 	cfg.BootstrapDraws = *draws
+	if !(*level > 0 && *level < 1) {
+		fmt.Fprintln(os.Stderr, "lidar-gest1-pool: -level must lie strictly between 0 and 1")
+		os.Exit(2)
+	}
+	cfg.Level = *level
 	p, err := run(flag.Args(), cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "lidar-gest1-pool:", err)
