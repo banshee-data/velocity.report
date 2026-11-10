@@ -45,6 +45,17 @@ The two Eleventy projects stay separate on purpose. Public docs and operator doc
   `scripts/verify-docs-offline-build.sh` fails if a page carries the tree
   inline again: rendered into every page it made the site about 180 MB.
 - The Go server embeds `docs_html/_site` and serves it at `/docs/`
+- Pull requests that change docs content run Offline docs CI
+  (`docs-offline-ci.yml`), not the static release build. After
+  `make build-docs-offline` it runs `make test-docs-offline-routes`, which
+  compiles `internal/docsite` with the built site embedded and fetches every
+  generated page and its `/docs/` links through the server's handler under
+  the release check's rules, and `make check-docs-embed-context`, which runs
+  the static build's manifest check (`embed-check` stage of
+  `image/Dockerfile.static-build`) to show every generated file survives its
+  Docker context. Static build CI (`static-build-ci.yml`) runs
+  `scripts/verify-embedded-docs-server.py` against the release binary on
+  PRs that change binary inputs and on every push to `main`.
 - Repository source links resolve to the immutable GitHub revision recorded in
   the embedded-docs build metadata. The image does not carry a second source
   tree: binary, UI, documentation, and runtime dependencies remain one
