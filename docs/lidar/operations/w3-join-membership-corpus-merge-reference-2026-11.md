@@ -115,14 +115,14 @@ the same window, and no site was cut twice for a mismatch. Fulton-divisadero was
 because its first attempt was stopped when the disk filled. Both streamed cuts gave the same
 segment digest, so the streamed cut is deterministic.
 
-| Site | UDP 2369 packets (cut = dry run) | Segment bytes | Segment SHA-256 |
-| --- | ---: | ---: | --- |
-| pierce-haight | 540,020 | 723,640,588 | `525df988907c…` |
-| fulton-divisadero | 540,019 | 723,638,924 | `eda80c972e88…` |
-| california-leon-baker | 539,993 | 723,603,084 | `8c8d90480f71…` |
-| broadway-gough | 539,994 | 723,607,836 | `5623f2e221f4…` |
-| laguna-eddy | 540,002 | 723,613,172 | `3fad83b72d58…` |
-| lombard-broderick | 540,001 | 723,612,320 | `a38d974e77fc…` |
+| Site                  | UDP 2369 packets (cut = dry run) | Segment bytes | Segment SHA-256 |
+| --------------------- | -------------------------------: | ------------: | --------------- |
+| pierce-haight         |                          540,020 |   723,640,588 | `525df988907c…` |
+| fulton-divisadero     |                          540,019 |   723,638,924 | `eda80c972e88…` |
+| california-leon-baker |                          539,993 |   723,603,084 | `8c8d90480f71…` |
+| broadway-gough        |                          539,994 |   723,607,836 | `5623f2e221f4…` |
+| laguna-eddy           |                          540,002 |   723,613,172 | `3fad83b72d58…` |
+| lombard-broderick     |                          540,001 |   723,612,320 | `a38d974e77fc…` |
 
 **G0 holds, so M3 is readable.** The rule reads G0 on the first site.
 
@@ -144,36 +144,36 @@ half the smaller for five or more frames, also shown per hundred vehicle tracks.
 
 ### Pooled over the six sites
 
-| Arm | Spurious a frame | Brief | Clutter | Near-static | Moving (lost / short / added) | Dup pairs (per 100) | Pair-frames |
-| --- | --- | --- | --- | ---: | --- | --- | ---: |
-| `a0` | 0.634 | 133 | 171 | 38 | 437 | 85 (18.2) | 2,011 |
-| `join` | 0.611 (−3.6 %) | 131 (−2) | 169 (−2) | 38 | 433 (0 / 4 / 0) | 77 (16.7) | 2,080 |
-| `membership` | 0.588 (−7.3 %) | 127 (−6) | 164 (−7) | 37 | 430 (0 / 6 / 0) | 69 (15.0) | 1,799 |
+| Arm          | Spurious a frame | Brief    | Clutter  | Near-static | Moving (lost / short / added) | Dup pairs (per 100) | Pair-frames |
+| ------------ | ---------------- | -------- | -------- | ----------: | ----------------------------- | ------------------- | ----------: |
+| `a0`         | 0.634            | 133      | 171      |          38 | 437                           | 85 (18.2)           |       2,011 |
+| `join`       | 0.611 (−3.6 %)   | 131 (−2) | 169 (−2) |          38 | 433 (0 / 4 / 0)               | 77 (16.7)           |       2,080 |
+| `membership` | 0.588 (−7.3 %)   | 127 (−6) | 164 (−7) |          37 | 430 (0 / 6 / 0)               | 69 (15.0)           |       1,799 |
 
 The pooled spurious rate weights each site by its scored frames, which are nearly equal.
 
 ### Each site against `a0`
 
-| Site | Arm | Spurious a frame | Brief Δ | Dup pairs (per 100) | Moving Δ | p85 Δ, p98 Δ (m/s) | S1 | S2 |
-| --- | --- | --- | ---: | --- | --- | --- | --- | --- |
-| pierce-haight | `a0` | 0.303 | | 4 (20.0) | 25 | 10.41, 14.30 | | |
-| | `join` | 0.296 (−2.4 %) | +0 | 4 (20.0) | +0 | +0.10, +0.00 | falls | within |
-| | `membership` | 0.294 (−3.0 %) | +0 | 5 (23.8) | +0 | +0.10, +0.00 | falls | **over: dups** |
-| fulton-divisadero | `a0` | 0.657 | | 22 (31.0) | 85 | 9.58, 12.08 | | |
-| | `join` | 0.648 (−1.4 %) | +0 | 19 (27.5) | −4 (−4.7 %) | +0.13, +0.00 | falls | within |
-| | `membership` | 0.627 (−4.6 %) | −1 | 20 (28.6) | −5 (−5.9 %) | +0.13, +0.00 | falls | within |
-| california-leon-baker | `a0` | 0.245 | | 0 (0.0) | 39 | 11.51, 13.83 | | |
-| | `join` | 0.234 (−4.5 %) | −4 | 1 (3.2) | +1 (+2.6 %) | −0.19, +0.18 | falls | over: dups |
-| | `membership` | 0.226 (−7.9 %) | −4 | 0 (0.0) | +0 | +0.00, +0.18 | falls | within |
-| broadway-gough | `a0` | 0.471 | | 11 (15.7) | 69 | 9.51, 10.53 | | |
-| | `join` | 0.456 (−3.2 %) | +0 | 11 (15.7) | +0 | +0.00, +0.00 | falls | within |
-| | `membership` | 0.441 (−6.5 %) | +0 | 11 (15.7) | +0 | +0.00, +0.00 | falls | within |
-| laguna-eddy | `a0` | 0.263 | | 4 (11.8) | 37 | 8.97, 11.25 | | |
-| | `join` | 0.256 (−2.7 %) | −1 | 4 (12.1) | −1 (−2.7 %) | +0.10, +0.01 | falls | over: dups |
-| | `membership` | 0.254 (−3.5 %) | −1 | 4 (12.1) | −1 (−2.7 %) | +0.10, +0.01 | falls | **over: dups** |
-| lombard-broderick | `a0` | 1.866 | | 44 (18.3) | 182 | 11.65, 13.28 | | |
-| | `join` | 1.777 (−4.8 %) | +3 | 38 (15.9) | +0 | +0.09, +0.00 | falls | within |
-| | `membership` | 1.688 (−9.6 %) | +0 | 29 (12.3) | −1 (−0.5 %) | +0.09, −0.00 | falls | within |
+| Site                  | Arm          | Spurious a frame | Brief Δ | Dup pairs (per 100) | Moving Δ    | p85 Δ, p98 Δ (m/s) | S1    | S2             |
+| --------------------- | ------------ | ---------------- | ------: | ------------------- | ----------- | ------------------ | ----- | -------------- |
+| pierce-haight         | `a0`         | 0.303            |         | 4 (20.0)            | 25          | 10.41, 14.30       |       |                |
+|                       | `join`       | 0.296 (−2.4 %)   |      +0 | 4 (20.0)            | +0          | +0.10, +0.00       | falls | within         |
+|                       | `membership` | 0.294 (−3.0 %)   |      +0 | 5 (23.8)            | +0          | +0.10, +0.00       | falls | **over: dups** |
+| fulton-divisadero     | `a0`         | 0.657            |         | 22 (31.0)           | 85          | 9.58, 12.08        |       |                |
+|                       | `join`       | 0.648 (−1.4 %)   |      +0 | 19 (27.5)           | −4 (−4.7 %) | +0.13, +0.00       | falls | within         |
+|                       | `membership` | 0.627 (−4.6 %)   |      −1 | 20 (28.6)           | −5 (−5.9 %) | +0.13, +0.00       | falls | within         |
+| california-leon-baker | `a0`         | 0.245            |         | 0 (0.0)             | 39          | 11.51, 13.83       |       |                |
+|                       | `join`       | 0.234 (−4.5 %)   |      −4 | 1 (3.2)             | +1 (+2.6 %) | −0.19, +0.18       | falls | over: dups     |
+|                       | `membership` | 0.226 (−7.9 %)   |      −4 | 0 (0.0)             | +0          | +0.00, +0.18       | falls | within         |
+| broadway-gough        | `a0`         | 0.471            |         | 11 (15.7)           | 69          | 9.51, 10.53        |       |                |
+|                       | `join`       | 0.456 (−3.2 %)   |      +0 | 11 (15.7)           | +0          | +0.00, +0.00       | falls | within         |
+|                       | `membership` | 0.441 (−6.5 %)   |      +0 | 11 (15.7)           | +0          | +0.00, +0.00       | falls | within         |
+| laguna-eddy           | `a0`         | 0.263            |         | 4 (11.8)            | 37          | 8.97, 11.25        |       |                |
+|                       | `join`       | 0.256 (−2.7 %)   |      −1 | 4 (12.1)            | −1 (−2.7 %) | +0.10, +0.01       | falls | over: dups     |
+|                       | `membership` | 0.254 (−3.5 %)   |      −1 | 4 (12.1)            | −1 (−2.7 %) | +0.10, +0.01       | falls | **over: dups** |
+| lombard-broderick     | `a0`         | 1.866            |         | 44 (18.3)           | 182         | 11.65, 13.28       |       |                |
+|                       | `join`       | 1.777 (−4.8 %)   |      +3 | 38 (15.9)           | +0          | +0.09, +0.00       | falls | within         |
+|                       | `membership` | 1.688 (−9.6 %)   |      +0 | 29 (12.3)           | −1 (−0.5 %) | +0.09, −0.00       | falls | within         |
 
 On `a0` rows the moving and p85, p98 columns give the counts themselves. Clutter rose in one
 place only, under `join` at lombard-broderick (81 to 84); under `membership` it held or fell at
@@ -195,22 +195,22 @@ fulton-divisadero and five at lombard-broderick.
 
 ### The merge reference
 
-| Site | Arm | Joins (frames) | Owner classes | M1 oversize | M2 two-track | M3 jump (readable) | Any | Returns outside the owner's box |
-| --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: |
-| pierce-haight | `join` | 7 (7) | car 7 | 0 | 0 | 0 (7) | 0 | 0 |
-| | `membership` | 8 (8) | car 8 | 0 | 0 | 0 (8) | 0 | 1 |
-| fulton-divisadero | `join` | 53 (52) | car 53 | 5 | 3 | 0 (52) | 7 | 0 |
-| | `membership` | 88 (84) | car 88 | 9 | 5 | 0 (85) | 13 | 27 |
-| california-leon-baker | `join` | 10 (10) | bus 8, car 2 | 0 | 0 | 2 (10) | 2 | 0 |
-| | `membership` | 21 (21) | bus 18, car 3 | 1 | 0 | 0 (21) | 1 | 11 |
-| broadway-gough | `join` | 16 (16) | car 16 | 0 | 0 | 0 (16) | 0 | 0 |
-| | `membership` | 26 (26) | car 26 | 0 | 0 | 0 (26) | 0 | 10 |
-| laguna-eddy | `join` | 13 (13) | car 13 | 0 | 0 | 0 (13) | 0 | 0 |
-| | `membership` | 16 (16) | car 16 | 0 | 0 | 0 (16) | 0 | 3 |
-| lombard-broderick | `join` | 120 (113) | bus 18, car 102 | 12 | 1 | 0 (117) | 13 | 0 |
-| | `membership` | 211 (191) | bus 23, car 188 | 27 | 9 | 0 (207) | 36 | 75 |
-| **pooled** | `join` | 219 (211) | | **17** | **4** | **2** (215) | 22 | 0 |
-| | `membership` | 370 (346) | | **37** | **14** | **0** (363) | 50 | 127 |
+| Site                  | Arm          | Joins (frames) | Owner classes   | M1 oversize | M2 two-track | M3 jump (readable) | Any | Returns outside the owner's box |
+| --------------------- | ------------ | -------------- | --------------- | ----------: | -----------: | ------------------ | --: | ------------------------------: |
+| pierce-haight         | `join`       | 7 (7)          | car 7           |           0 |            0 | 0 (7)              |   0 |                               0 |
+|                       | `membership` | 8 (8)          | car 8           |           0 |            0 | 0 (8)              |   0 |                               1 |
+| fulton-divisadero     | `join`       | 53 (52)        | car 53          |           5 |            3 | 0 (52)             |   7 |                               0 |
+|                       | `membership` | 88 (84)        | car 88          |           9 |            5 | 0 (85)             |  13 |                              27 |
+| california-leon-baker | `join`       | 10 (10)        | bus 8, car 2    |           0 |            0 | 2 (10)             |   2 |                               0 |
+|                       | `membership` | 21 (21)        | bus 18, car 3   |           1 |            0 | 0 (21)             |   1 |                              11 |
+| broadway-gough        | `join`       | 16 (16)        | car 16          |           0 |            0 | 0 (16)             |   0 |                               0 |
+|                       | `membership` | 26 (26)        | car 26          |           0 |            0 | 0 (26)             |   0 |                              10 |
+| laguna-eddy           | `join`       | 13 (13)        | car 13          |           0 |            0 | 0 (13)             |   0 |                               0 |
+|                       | `membership` | 16 (16)        | car 16          |           0 |            0 | 0 (16)             |   0 |                               3 |
+| lombard-broderick     | `join`       | 120 (113)      | bus 18, car 102 |          12 |            1 | 0 (117)            |  13 |                               0 |
+|                       | `membership` | 211 (191)      | bus 23, car 188 |          27 |            9 | 0 (207)            |  36 |                              75 |
+| **pooled**            | `join`       | 219 (211)      |                 |      **17** |        **4** | **2** (215)        |  22 |                               0 |
+|                       | `membership` | 370 (346)      |                 |      **37** |       **14** | **0** (363)        |  50 |                             127 |
 
 "Returns outside the owner's box" counts joins with any return outside the owner's unwidened
 predicted box. `join` has none by construction; under `membership` those joins are the ones only
@@ -231,13 +231,13 @@ unclassed track (`dynamic`) to a car. That is the pattern of a fragment that fou
 before the join reached it. Of `membership`'s 14, on 10 owner tracks, 9 follow that pattern and 5
 do not:
 
-| Site | Time (s) | Joined extent (m) | Owner | Second track's component | Outside the owner's box |
-| --- | ---: | --- | --- | --- | ---: |
-| fulton-divisadero | 19.2 | 4.55 × 1.73 | car, 13 returns | car, 54 returns | 0.04 |
-| fulton-divisadero | 19.3 | 4.36 × 1.52 | car, 7 returns | car, 54 returns (the same two cars) | 0.00 |
-| lombard-broderick | 8.6 | 3.34 × 1.41 | car, 30 returns | car, 305 returns | 0.00 |
-| lombard-broderick | 45.1 | 7.98 × 2.41 | bus, 79 returns | pedestrian, 25 returns | 0.15 |
-| lombard-broderick | 150.6 | 6.72 × 2.43 | car, 42 returns | pedestrian, 8 returns (share 0.50) | 0.18 |
+| Site              | Time (s) | Joined extent (m) | Owner           | Second track's component            | Outside the owner's box |
+| ----------------- | -------: | ----------------- | --------------- | ----------------------------------- | ----------------------: |
+| fulton-divisadero |     19.2 | 4.55 × 1.73       | car, 13 returns | car, 54 returns                     |                    0.04 |
+| fulton-divisadero |     19.3 | 4.36 × 1.52       | car, 7 returns  | car, 54 returns (the same two cars) |                    0.00 |
+| lombard-broderick |      8.6 | 3.34 × 1.41       | car, 30 returns | car, 305 returns                    |                    0.00 |
+| lombard-broderick |     45.1 | 7.98 × 2.41       | bus, 79 returns | pedestrian, 25 returns              |                    0.15 |
+| lombard-broderick |    150.6 | 6.72 × 2.43       | car, 42 returns | pedestrian, 8 returns (share 0.50)  |                    0.18 |
 
 Times run from the first join record at the site. In three of the five the second track's
 component holds most of the cluster's returns. Two of the 14 put most of their returns outside
@@ -247,14 +247,14 @@ the owner's box (0.65 and 0.53), both at lombard-broderick. Eight of the 14 have
 
 All six sites were read, so the screen is complete.
 
-| Clause | Reading | Holds |
-| --- | --- | --- |
-| G0 | Shadowed and unshadowed `membership` agree on rows and partition (pierce-haight on box rows, fulton-divisadero also on observation rows) | yes |
-| G1 | Cut and dry-run UDP 2369 counts equal at all six sites | yes |
-| S1 | Spurious clusters a frame below `a0`'s at 6 of 6 sites | **yes** |
-| S2 | Brief tracks within +3 at all six; duplicate pairs per hundred up at pierce-haight (20.0 to 23.8) and laguna-eddy (11.8 to 12.1) | **no** |
-| S3 | Pooled M1 37 against 17 and M2 14 against 4: higher; M3 0 against 2: not higher | **no** |
-| R4 counts (reported) | Moving count beyond 5 % at fulton-divisadero (−5.9 %); p85 within 0.5 m/s everywhere (largest 0.13) | — |
+| Clause               | Reading                                                                                                                                  | Holds   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| G0                   | Shadowed and unshadowed `membership` agree on rows and partition (pierce-haight on box rows, fulton-divisadero also on observation rows) | yes     |
+| G1                   | Cut and dry-run UDP 2369 counts equal at all six sites                                                                                   | yes     |
+| S1                   | Spurious clusters a frame below `a0`'s at 6 of 6 sites                                                                                   | **yes** |
+| S2                   | Brief tracks within +3 at all six; duplicate pairs per hundred up at pierce-haight (20.0 to 23.8) and laguna-eddy (11.8 to 12.1)         | **no**  |
+| S3                   | Pooled M1 37 against 17 and M2 14 against 4: higher; M3 0 against 2: not higher                                                          | **no**  |
+| R4 counts (reported) | Moving count beyond 5 % at fulton-divisadero (−5.9 %); p85 within 0.5 m/s everywhere (largest 0.13)                                      | —       |
 
 `membership` does not pass the screen. The rule gates on the letter. Two qualifications sit
 beside the verdict, not over it. Laguna-eddy's S2 breach is a denominator change with no new
@@ -326,7 +326,13 @@ which these qualifications do not touch.
 - **Code.** `lidar-box-eval` and `pcap-split` built with the Makefile's LDFLAGS and the `pcap`
   tag at `43f98014` (VCS stamp `43f9801470158ec7b3a2e49e497a258f9e843c0e`, not modified), on the
   branch then based on `704b8e46`. Replays ran 2026-11-09, 18:38Z to 19:55Z.
-  {{REPRODUCED}}
+- **Reproduced after the rebase.** Main then took #996, #997 and #1001. Their new behaviour is in
+  default-off replay experiments that no arm here names, and the defaults file did not change.
+  On 2026-11-10 the branch was rebased onto `091e21ed` and `lidar-box-eval` rebuilt. Laguna-eddy
+  was cut again (the same segment digest) and its `a0` and `membership` arms replayed. Both match
+  the original runs: box rows as multisets (8,129 and 8,103) and partitions (57 and 55 tracks),
+  duplicate summaries field for field, and `membership`'s 16 join records. The other five sites
+  were not replayed again.
 - **Parameter sets.** `config/tuning.defaults.json`, SHA-256 `9ad7377fa5d3…`, fingerprint
   `ab0c4035780d`; `config/experiments/motion-fragment-join.json`, SHA-256 `2e604040caeb…`,
   fingerprint `719d291ed197`. Replay experiments: `solid_body,solid_body_face_state` on every

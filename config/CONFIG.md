@@ -732,6 +732,8 @@ for the rule, member lineage and remaining acceptance gates. The replay experime
 `fragment_join_track_membership` widens each footprint by two standard deviations of
 the body's projected position along and across it; it has no config key and is refused
 without an enabled join ([l4clus0010](../docs/lidar/operations/w3-truck-membership-extent-kirk0-2026-11.md)).
+On six placements it joined components that other confirmed tracks hold, so it stays
+default-off ([l4clus0011](../docs/lidar/operations/w3-join-membership-corpus-merge-reference-2026-11.md)).
 
 ## Default-off identity acceptance options
 
