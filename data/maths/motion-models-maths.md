@@ -384,6 +384,10 @@ at most 0.15 s, no re-reference):
   pooled covariance, equal to the Gram–Schmidt `r` to rounding.
 - **Strata.** The along-track z RMS by smoothed speed, range, aspect, point count and track age
   (under or over 1 s since the track's first tracked-filter observation).
+- **Age split** (l5est0008). The dispersion, the cause and criterion 4's offline tails read
+  separately on residuals at a track age of at most 1 s and after it, each with its own
+  whole-track bootstrap over the tracks that have a value on that side. A track record carries the
+  age of each offline one-step value for this; records written before it carry none.
 - **Jerk** (Punzo et al. 2011). For each estimator's output, the live filter's and each offline
   model's over the scored observations: `a = Δ|v|/Δt` over consecutive intervals of at most
   0.15 s with speeds of at least 0.5 m/s, `j = Δa` over the mean of the two intervals. The checks
@@ -398,7 +402,9 @@ Every read is a sum over tracks, so a case writes its moving tracks' records and
 The first corpus read, on the 23 first segments, is the
 [G-EST-1 corpus read](../../docs/lidar/operations/gest1-corpus-read-2026-11.md): the medoid's
 along-track excess is in the first second of each track, and the residuals after it are
-under-dispersed.
+under-dispersed. The [second-segment read](../../docs/lidar/operations/gest1-second-segments-2026-11.md)
+held that split out on the 22 second segments under a rule fixed before its replays: 2.42 at a
+track age of at most 1 s, 0.85 after it.
 
 ## 11. What this does not establish
 
