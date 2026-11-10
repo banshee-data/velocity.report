@@ -51,6 +51,41 @@ Three findings qualify that pass, and they matter more than it does:
 filter (Section [Recommendations](#recommendations)), and run it on the corpus with the
 face-referenced source and the one-step reads before any CA arm.
 
+## Since this report
+
+**The `face_state` figures below are superseded at `fc9d897` (#989).** That change, the extent
+state's span bound as an inequality projection and a 0.10 m floor on the half-extents, fixes
+the shadow solid body's half-extents, so the face offsets move. The `a0` (medoid) figures are
+unchanged. A bisect on 2026-11-10 replayed kirk0's `face_state` arm with this report's flags at
+each step; its G-EST-1 JSON carries both the tracked filter's source and the faces'. The G-EST-1 JSON is byte-identical from l5est0005's merge (`c0e5822`)
+and `50c7790` (#984), and again at `fc9d897`, `fe6549b` (#990) and `ab19e51`. `38c65f1`, between them,
+changes only the DEVLOG. The tracked filter's source is byte-identical at every step. At
+`fc9d897`:
+
+| `face_state` figure                       |                  This report |               From `fc9d897` |
+| ----------------------------------------- | ---------------------------: | ---------------------------: |
+| Criterion 2 samples; r; track bootstrap   | 2,918; 0.172; 0.089 to 0.246 | 2,902; 0.213; 0.140 to 0.282 |
+| Criterion 3 share                         |                       57.1 % |                       53.6 % |
+| Criterion 4 CV, CA along p99 (m); ratio   |          4.063, 2.500; 0.615 |          3.285, 2.394; 0.729 |
+| Criterion 4 CV, CA across p99 (m); ratio  |          2.031, 1.728; 0.851 |          2.296, 2.544; 1.108 |
+| Criterion 4 pass                          |                          yes |                           no |
+| One-step criterion 4 ratios, pass         |            0.710, 0.758, yes |            0.733, 0.905, yes |
+| One-step along z RMS, beyond; across RMS  |          0.655, 0.6 %; 0.234 |          0.639, 0.5 %; 0.231 |
+| Mean NIS per degree of freedom (1-D, 2-D) |                 0.335, 0.244 |                 0.358, 0.236 |
+
+This is an intended consequence of #989, not a defect. Its PR recorded that the face-state
+option's own digest (`shadow_face_state_end_on_truck`) moves and that every options-off digest
+holds, as here. A scratch build of `fc9d897` with the floor disabled splits the effect between
+its two parts. The bound projection alone gives the new samples and criterion 4 exactly, and r to
+within 0.001. The floor alone moves criterion 3, by one track (16 to 15 flagged of 28).
+
+Criterion 4's face pass no longer holds, and for the reason finding 3 gave. Most of CA's
+apparent advantage was CV's along-track tail, 4.06 m, which falls to 3.28 m once span bounds
+stop overshooting. CA's own tail barely moves. Findings 1 and 2 still hold: the faces remain
+under-dispersed, and the medoid's r is not explained by the slide (cross read 0.180, track
+interval 0.110 to 0.262). The recommendation is unchanged. l5est0007's corpus read reproduces
+the `fc9d897` figures on kirk0.
+
 ## Question and arms
 
 Is CV's over-dispersion acceleration-specific once the measurement is face-referenced? Both arms
@@ -348,3 +383,4 @@ the arms' absolute errors are not comparable: the faces' targets are noisier.
 | Replay         | kirk0 whole, `-warmup 6 -require-settled=false -sample-points 1024 -gest1-report`, evidence per case, every run repeat-verified; tracking baseline `sha256:79d9abff…` in both arms at both builds            |
 | Eligibility    | [cohort manifest](../../../config/cohorts/cohort-manifest.json) revision 1 (D-40), an empty annotation root, a scratch use ledger at migration 71                                                            |
 | Host           | Claude Code cloud container, 4 cores, 15 GB, Go 1.27.1 linux/amd64; each arm about 1.5 to 2.5 minutes for both runs, two arms in parallel; raw output in the session's scratch, not kept                     |
+| Superseded     | `face_state` figures, at `fc9d897` (#989): [Since this report](#since-this-report)                                                                                                                           |
