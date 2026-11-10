@@ -431,6 +431,14 @@ const (
 	// the body's own axis. It needs box_extent_solid_body and
 	// solid_body_shared_orientation and is refused without either.
 	ExperimentBoxExtentSharedAxis = "box_extent_shared_axis"
+	// ExperimentBoxExtentMeasuredLength: l5tracks.BoxModelConfig.
+	// BoxExtentMeasuredOnly, box_extent_solid_body taking from the extent
+	// state only what it has measured: the length once both end faces or a
+	// span bound have moved hL, the width only once both side faces have,
+	// which a single sensor almost never sees, so in practice the length
+	// alone (geom0017). It qualifies box_extent_solid_body and is refused
+	// without it, so that name alone stays #984's arm.
+	ExperimentBoxExtentMeasuredLength = "box_extent_measured_length"
 	// ExperimentBorderClasses: pipeline BorderClasses, foreground returns carrying the veil
 	// trait (a mixed return between a nearer and a farther neighbour in the same channel)
 	// withheld from L4 (l3bg0028). A treatment to test, not a claim that a veil bit is a mixed
@@ -547,6 +555,7 @@ var knownExperiments = map[string]bool{
 	ExperimentBoxGround:                         true,
 	ExperimentBoxExtentSolidBody:                true,
 	ExperimentBoxExtentSharedAxis:               true,
+	ExperimentBoxExtentMeasuredLength:           true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.

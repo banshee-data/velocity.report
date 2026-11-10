@@ -400,7 +400,10 @@ grown box, seeds no track; it needs `robust_likelihood_cost`), `artefact_birth_g
 neighbouring body; [l6cls0005](../data/experiments/l6cls/l6cls0005.md)), `fixed_lag_rts`, `surface_ground` (the
 replay tools' surface-ground flags by name), `box_ground` (which needs the box model),
 `box_extent_solid_body` (the published box's length and width from the solid body's extent state;
-it needs the box model, `solid_body` and `solid_body_extent_state` or `solid_body_face_state`), and the solid
+it needs the box model, `solid_body` and `solid_body_extent_state` or `solid_body_face_state`), its
+qualifier `box_extent_measured_length` (the box takes from the extent state only a dimension it has
+measured: the length once both end faces or a span bound have moved it, the width only once both
+side faces have, so in practice the length alone; refused without `box_extent_solid_body`), and the solid
 body's face-state options, each needing `solid_body`: `solid_body_extent_state` (with
 `near_edge_track` the tracked filter carries the extents, and its gate does not see them),
 `solid_body_censored_extent`, `solid_body_span_bounds_belief`,

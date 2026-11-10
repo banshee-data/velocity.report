@@ -1606,6 +1606,13 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 				ExperimentBoxExtentSolidBody, ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentSolidBodyFaceState, experiments)
 		}
 		trackerConfig.BoxModel.BoxExtentFromSolidBody = true
+		trackerConfig.BoxModel.BoxExtentMeasuredOnly = hasExperiment(experiments, ExperimentBoxExtentMeasuredLength)
+	} else if hasExperiment(experiments, ExperimentBoxExtentMeasuredLength) {
+		// It qualifies which of the extent state's dimensions the box takes,
+		// so without box_extent_solid_body it would change nothing and run
+		// as the baseline under its name.
+		return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s qualifies %s and is refused without it",
+			ExperimentBoxExtentMeasuredLength, ExperimentBoxExtentSolidBody)
 	}
 	if hasExperiment(experiments, ExperimentBoxExtentSharedAxis) {
 		// The axis test it changes is box_extent_solid_body's, and the axis

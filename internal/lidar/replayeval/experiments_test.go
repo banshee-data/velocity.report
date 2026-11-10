@@ -223,7 +223,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentAdaptiveUncertainty, ExperimentArtefactAbsorb, ExperimentArtefactBirthGate, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentSharedAxis, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentArtefactAbsorb, ExperimentArtefactBirthGate, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentMeasuredLength, ExperimentBoxExtentSharedAxis, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentConsistentCovarianceCap, ExperimentConsistentSpeedClamp, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
@@ -935,6 +935,48 @@ func TestBoxExtentSolidBodyNeedsTheBoxAndTheExtentState(t *testing.T) {
 	// database may run it.
 	if err := RefuseExperimentsWithout("some-tool", []string{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentBoxExtentSolidBody}, ReplayInputs{}); err != nil {
 		t.Errorf("refused without an evidence database: %v", err)
+	}
+}
+
+// box_extent_measured_length reaches its own option on top of
+// box_extent_solid_body, and is refused without it, where it would change
+// nothing; box_extent_solid_body alone leaves it off, so that arm stays
+// #984's.
+func TestBoxExtentMeasuredLengthQualifiesBoxExtentSolidBody(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	arm := []string{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentBoxExtentSolidBody}
+	base, err := trackerConfigFor(l5, "", arm, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.BoxModel.BoxExtentMeasuredOnly {
+		t.Fatalf("%s alone switched on BoxExtentMeasuredOnly", ExperimentBoxExtentSolidBody)
+	}
+	want := base
+	want.BoxModel.BoxExtentMeasuredOnly = true
+	got, err := trackerConfigFor(l5, "", append(append([]string{}, arm...), ExperimentBoxExtentMeasuredLength), nil)
+	if err != nil {
+		t.Fatalf("%s: %v", ExperimentBoxExtentMeasuredLength, err)
+	}
+	if got != want {
+		t.Errorf("%s:\n got %+v\nwant %+v", ExperimentBoxExtentMeasuredLength, got, want)
+	}
+	for _, without := range [][]string{
+		{ExperimentBoxExtentMeasuredLength},
+		{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentBoxExtentMeasuredLength},
+	} {
+		if _, err := trackerConfigFor(l5, "", without, nil); err == nil || !strings.Contains(err.Error(), ExperimentBoxExtentSolidBody) {
+			t.Errorf("%q: want a refusal naming %s, got %v", without, ExperimentBoxExtentSolidBody, err)
+		}
+		if err := ValidateExperiments(without, "", "", nil); err == nil {
+			t.Errorf("%q was validated", without)
+		}
+	}
+	// The selection folds into the parameter hash, so the two arms differ.
+	a, _ := ParseExperiments(strings.Join(arm, ","))
+	b, _ := ParseExperiments(strings.Join(append(append([]string{}, arm...), ExperimentBoxExtentMeasuredLength), ","))
+	if string(experimentsHashSuffix(a)) == string(experimentsHashSuffix(b)) {
+		t.Errorf("%s shares %s's parameter hash suffix", ExperimentBoxExtentMeasuredLength, ExperimentBoxExtentSolidBody)
 	}
 }
 

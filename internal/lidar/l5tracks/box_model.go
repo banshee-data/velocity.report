@@ -165,6 +165,20 @@ type BoxModelConfig struct {
 	// alone decides. Default false. Not a tuning key: the replay experiment
 	// box_extent_shared_axis names it (shared-orientation-duplicates-2026-11).
 	BodyExtentSharedAxis bool
+	// BoxExtentMeasuredOnly qualifies BoxExtentFromSolidBody: the box takes
+	// from the extent state only a dimension the state has measured, and
+	// keeps windowBelief for the other. The length is measured once both end
+	// faces have updated hL, seen from opposite sides, or a span bound has
+	// moved it (BoxBodyExtent.LengthPair, LengthBound); the width only once
+	// both side faces have updated hW (WidthPair), which a single sensor
+	// beside the road almost never sees. Each still needs the sigma bound
+	// BoxExtentFromSolidBody applies. A face seen from one side leaves the
+	// far side to the class prior and the bounds, and on kirk0 the width so
+	// taken widened car 8's box from 1.8 m to 2.3 to 2.6 m against a 1.73 m
+	// reference and moved its centre 0.25 m (l5id0019). Without
+	// BoxExtentFromSolidBody it does nothing. Not a tuning key: the replay
+	// experiment box_extent_measured_length scores it (geom0017).
+	BoxExtentMeasuredOnly bool
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -259,12 +273,18 @@ type BoxInput struct {
 // such state to read: no solid body,
 // no ExtentState, or a body still referenced to its medoid, whose faces have
 // not placed it.
+//
+// LengthPair and WidthPair say both faces of the dimension have updated it,
+// seen from opposite sides; LengthBound that a span bound has moved hL. They
+// are what BoxExtentMeasuredOnly reads as measured.
 type BoxBodyExtent struct {
 	Known                         bool
 	AxisRad                       float64
 	Length, Width                 float64
 	LengthSigma, WidthSigma       float64
 	LengthEvidence, WidthEvidence bool
+	LengthPair, WidthPair         bool
+	LengthBound                   bool
 	PriorSigma                    float64
 }
 
@@ -311,6 +331,11 @@ type BoxStats struct {
 	// measured along an axis further than the span window from the box's;
 	// BodyExtentUnsettled had one that had not yet narrowed either dimension.
 	BodyExtentFrames, BodyExtentUnknown, BodyExtentAxisRefusals, BodyExtentUnsettled int
+	// BodyExtentWidthFrames took the width from the state.
+	// BodyExtentOneSided, under BoxExtentMeasuredOnly, kept windowBelief for
+	// a dimension the state had narrowed but not measured from both sides
+	// (nor, for the length, by a span bound); always zero without it.
+	BodyExtentWidthFrames, BodyExtentOneSided int
 }
 
 // BoxEstimator is one track's published box.
@@ -469,6 +494,8 @@ func boxBodyExtent(track *TrackedObject, sharedAxis bool) BoxBodyExtent {
 		Length: float64(l.Metres), Width: float64(w.Metres),
 		LengthSigma: float64(l.SigmaMetres), WidthSigma: float64(w.SigmaMetres),
 		LengthEvidence: l.Provenance.IsEvidence(), WidthEvidence: w.Provenance.IsEvidence(),
+		LengthPair: sb.ext.measuredPair(0), WidthPair: sb.ext.measuredPair(1),
+		LengthBound: sb.ext.bounds[0] > 0,
 	}
 }
 
@@ -1067,7 +1094,10 @@ type bodyExtentUse struct {
 // its standard deviation is at most boxBodyExtentPriorSigmaShare of the
 // prior's: before then the state is mostly the prior, which for a body of
 // unknown class is a 4.5 by 2 m car whatever the body is. The width is
-// capped at boxMaxBelievedWidthMetres as windowBelief's is. Neither is taken
+// capped at boxMaxBelievedWidthMetres as windowBelief's is. Under
+// BoxExtentMeasuredOnly a settled dimension must also have been measured:
+// the length by both end faces or a span bound, the width by both side
+// faces; one that was not is counted in BodyExtentOneSided. Neither is taken
 // when the body's axis lies further than boxBodyAxisAgreementRad from the
 // box's heading, modulo a half turn: the half-extents are measured along the
 // body's axis, and read along another they mix length into width.
@@ -1090,15 +1120,34 @@ func (e *BoxEstimator) bodyExtents(b BoxBodyExtent) bodyExtentUse {
 		return u
 	}
 	settled := boxBodyExtentPriorSigmaShare * b.PriorSigma
-	if b.LengthEvidence && b.Length > 0 && b.LengthSigma <= settled {
+	length := b.LengthEvidence && b.Length > 0 && b.LengthSigma <= settled
+	width := b.WidthEvidence && b.Width > 0 && b.WidthSigma <= settled
+	oneSided := false
+	if e.cfg.BoxExtentMeasuredOnly {
+		// Settled is not measured: a face seen from one side narrows the
+		// state through its correlation with the position, and the far side
+		// is still the prior and the bounds (BoxExtentMeasuredOnly).
+		if length && !b.LengthPair && !b.LengthBound {
+			length, oneSided = false, true
+		}
+		if width && !b.WidthPair {
+			width, oneSided = false, true
+		}
+	}
+	if length {
 		u.length, u.lengthMetres, u.lengthSigma = true, b.Length, b.LengthSigma
 	}
-	if b.WidthEvidence && b.Width > 0 && b.WidthSigma <= settled {
+	if width {
 		u.width, u.widthMetres, u.widthSigma = true, math.Min(b.Width, boxMaxBelievedWidthMetres), b.WidthSigma
+		e.Stats.BodyExtentWidthFrames++
 	}
-	if u.length || u.width {
+	if oneSided {
+		e.Stats.BodyExtentOneSided++
+	}
+	switch {
+	case u.length || u.width:
 		e.Stats.BodyExtentFrames++
-	} else {
+	case !oneSided:
 		e.Stats.BodyExtentUnsettled++
 	}
 	return u

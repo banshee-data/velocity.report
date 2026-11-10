@@ -133,6 +133,49 @@ type solidBodyExtent struct {
 	// accrual is the record of admitted bounds under ExtentBoundAccrual
 	// (solid_body_extent_accrual.go); empty with the option off.
 	accrual extentBoundRecord
+	// faces and bounds split updates by what did the updating, so a reader
+	// can tell a dimension measured from both sides from one a single face
+	// has pulled on: faces counts, per BodyFace, the fixes in which that face
+	// updated its half-extent, and normal holds the face's site-frame outward
+	// normal on the last of them; bounds counts, per half-extent, the frames
+	// on which a span bound (not the floor) moved it. They are bookkeeping:
+	// nothing the state computes reads them (measuredPair, read by the
+	// published box under BoxModelConfig.BoxExtentMeasuredOnly, does).
+	faces  [len(allBodyFaces)]int
+	normal [len(allBodyFaces)][2]float32
+	bounds [2]int
+}
+
+// extentOpposedFacesCos is the largest cosine between two faces' site-frame
+// normals at which measuredPair takes them for the two sides of a dimension:
+// more than 135° apart. A face's name is relative to the body's heading, so a
+// heading that turns by a half turn renames the face the sensor keeps seeing;
+// its normal, which points at the sensor, does not turn, and the pair is
+// refused. A vehicle that drives straight past shows its two ends with
+// normals 180° apart.
+const extentOpposedFacesCos = -math.Sqrt2 / 2
+
+// recordFace notes that a fix's face updated its half-extent.
+func (e *solidBodyExtent) recordFace(m EdgeMeasurement) {
+	e.faces[m.Face]++
+	e.normal[m.Face] = [2]float32{m.NormalX, m.NormalY}
+}
+
+// measuredPair says whether both faces of half-extent i (front and rear for
+// hL, left and right for hW) have updated it, with their last normals
+// opposed (extentOpposedFacesCos): the dimension was observed from both
+// sides, rather than from one face whose far side the class prior and the
+// bounds supply.
+func (e *solidBodyExtent) measuredPair(i int) bool {
+	a, b := FaceFront, FaceRear
+	if i == 1 {
+		a, b = FaceLeft, FaceRight
+	}
+	if e.faces[a] == 0 || e.faces[b] == 0 {
+		return false
+	}
+	na, nb := e.normal[a], e.normal[b]
+	return float64(na[0])*float64(nb[0])+float64(na[1])*float64(nb[1]) <= extentOpposedFacesCos
 }
 
 // finite says every value in the block is finite.
