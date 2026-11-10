@@ -21,6 +21,11 @@ import (
 // solid_body experiment ran with an evidence database.
 const gest1ReportFile = "gest1_report.json"
 
+// gest1TracksFile is the case's moving-track records behind the report's
+// restated read (l5est0007), gzipped JSON of an l8analytics.GEST1CorpusRecord:
+// what lidar-gest1-pool reads to pool a corpus.
+const gest1TracksFile = "gest1_tracks.json.gz"
+
 // gest1FramePeriodSecs is the frame period the longest permitted coast is
 // counted in when the tuning bounds it by misses rather than seconds: the
 // Pandar40P at 10 Hz, which every capture the tool replays runs at.
@@ -73,9 +78,9 @@ func (g *gest1Reporter) observe(f replayeval.TrackerTapFrame) {
 	g.collector.ObserveTap(f.At.UnixNano(), f.Scored, f.Clusters, f.Associations, f.Tracks)
 }
 
-// write builds the report and writes it to dir, returning it for the
-// summary line.
-func (g *gest1Reporter) write(dir string) (l8analytics.GEST1Report, error) {
+// write builds the report and writes it and the case's track records to
+// dir, returning the report for the summary line.
+func (g *gest1Reporter) write(dir, caseID string) (l8analytics.GEST1Report, error) {
 	report, err := l8analytics.BuildGEST1Report(g.collector, g.cfg)
 	if err != nil {
 		return report, err
@@ -84,7 +89,25 @@ func (g *gest1Reporter) write(dir string) (l8analytics.GEST1Report, error) {
 	if err != nil {
 		return report, err
 	}
-	return report, os.WriteFile(filepath.Join(dir, gest1ReportFile), append(b, '\n'), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, gest1ReportFile), append(b, '\n'), 0o644); err != nil {
+		return report, err
+	}
+	return report, writeGEST1Tracks(filepath.Join(dir, gest1TracksFile), caseID, report)
+}
+
+// writeGEST1Tracks writes the report's track records, each labelled with
+// the case.
+func writeGEST1Tracks(path, caseID string, report l8analytics.GEST1Report) error {
+	rec := l8analytics.GEST1CorpusRecord{Case: caseID, Config: report.Config}
+	for _, s := range report.Sources {
+		tracks := make([]l8analytics.GEST1CorpusTrack, len(s.CorpusTracks))
+		for i, t := range s.CorpusTracks {
+			t.Case = caseID
+			tracks[i] = t
+		}
+		rec.Sources = append(rec.Sources, l8analytics.GEST1CorpusSource{Source: s.Source, Tracks: tracks})
+	}
+	return l8analytics.WriteGEST1CorpusRecord(path, rec)
 }
 
 // chainTaps calls each non-nil tap in order.
@@ -118,6 +141,9 @@ func gest1Line(report l8analytics.GEST1Report) string {
 			s.Criterion3.Share, s.Criterion4.Pass, s.Criterion5Cases)
 		if c2.Err != "" {
 			part += " c2_error=" + c2.Err
+		}
+		if s.Restated != nil {
+			part += " restated " + s.Restated.String()
 		}
 		parts = append(parts, part)
 	}
