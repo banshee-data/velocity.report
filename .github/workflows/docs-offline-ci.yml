@@ -1,3 +1,12 @@
+# docs-offline-ci — build the embedded offline docs and check them.
+#
+# This is where a docs-only PR proves the docs still embed: static-build-ci
+# no longer runs for docs content on PRs (it still runs on every main push).
+# The last two steps stand in for its docs checks without a cgo build:
+# test-docs-offline-routes serves every generated page through the embedded
+# /docs/ handler (pure Go), and check-docs-embed-context runs the static
+# build's manifest check against its Docker context (no compile).
+
 name: 📚 Offline docs CI
 
 permissions:
@@ -19,6 +28,12 @@ on:
       - "scripts/verify-embedded-docs-server.py"
       - "scripts/test_verify_embedded_docs_server.py"
       - "scripts/verify-docs-offline-build.sh"
+      - "scripts/write-embedded-docs-manifest.py"
+      - "scripts/ensure-docs-stub.sh"
+      - "scripts/ensure-web-stub.sh"
+      - "assets.go"
+      - "internal/docsite/**"
+      - "image/Dockerfile.static-build*"
       - ".github/workflows/docs-offline-ci.yml"
       - ".github/actions/setup-node-pnpm/**"
 
@@ -51,3 +66,17 @@ jobs:
 
       - name: Verify build output
         run: make verify-docs-offline-build
+
+      # Pure-Go test (CGO_ENABLED=0): no libpcap install. The module cache
+      # and build cache are keyed on go.sum.
+      - name: Setup Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Serve every page through the embedded docs handler
+        run: make test-docs-offline-routes
+
+      - name: Check the docs survive the static build's Docker context
+        run: make check-docs-embed-context
