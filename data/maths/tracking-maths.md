@@ -193,7 +193,11 @@ variance in the update but gates and costs a tentative track with the covariance
 under the shipped prior. It kept the first-second gain (0.79) and removed the brief tracks, the
 clutter and kirk0's extra switches, but duplicates still rose on all six segments and fast rows
 remained, so [l5est0010](../../docs/lidar/operations/velocity-prior-gated-2026-11.md) put the
-remaining cost in the update.
+remaining cost in the update. `VelocityPriorShadowRefusal` (replay experiment
+`velocity_prior_init_7p5_gated_shadow`, default off) gives a birth in a confirmed track's shadow
+(`inConfirmedShadow`) the shipped prior. The test touched 37 % to 71 % of births, so the first
+second rose back to 1.53; one segment's fast track went and another's stayed, and duplicates still
+rose on all six ([l5est0011](../../docs/lidar/operations/velocity-prior-shadow-2026-11.md)).
 
 #### Covariance cap that keeps `P` positive semi-definite
 

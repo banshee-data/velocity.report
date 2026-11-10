@@ -193,6 +193,17 @@ type TrackerConfig struct {
 	// VelocityPriorInit (experiment l5est0010).
 	VelocityPriorGated bool
 
+	// VelocityPriorShadowRefusal, with VelocityPriorGated, refuses the wide
+	// birth prior to a track born in a confirmed track's shadow (the test
+	// TwoPointVelocityInit's guard reads, inConfirmedShadow: on a bearing
+	// inside the confirmed box's corner bearings and farther than its nearest
+	// corner). Such a birth takes the shipped velocity variance and no gate
+	// shadow, so a reflection or a fragment behind a nearer body starts as
+	// the shipped tracker starts it; every other birth is as under
+	// VelocityPriorGated. ContinuityStats.ShadowPriorBirths counts the births
+	// it touched (experiment l5est0011).
+	VelocityPriorShadowRefusal bool
+
 	// LikelihoodAssociationCost changes the assignment cost from the bare
 	// squared Mahalanobis distance d² to the Gaussian negative log-likelihood
 	// d² + ln|S| (gap analysis S3). With d² alone, a track whose innovation

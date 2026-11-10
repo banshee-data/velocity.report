@@ -1468,7 +1468,8 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.TwoPointVelocityInit = hasExperiment(experiments, ExperimentTwoPointVelocityInit)
 	trackerConfig.ConsistentCovarianceCap = hasExperiment(experiments, ExperimentConsistentCovarianceCap)
 	trackerConfig.ConsistentSpeedClamp = hasExperiment(experiments, ExperimentConsistentSpeedClamp)
-	trackerConfig.VelocityPriorGated = hasExperiment(experiments, ExperimentVelocityPriorInit75Gated)
+	trackerConfig.VelocityPriorShadowRefusal = hasExperiment(experiments, ExperimentVelocityPriorInit75GatedShadow)
+	trackerConfig.VelocityPriorGated = hasExperiment(experiments, ExperimentVelocityPriorInit75Gated) || trackerConfig.VelocityPriorShadowRefusal
 	trackerConfig.VelocityPriorInit = hasExperiment(experiments, ExperimentVelocityPriorInit75) || trackerConfig.VelocityPriorGated
 	if trackerConfig.VelocityPriorGated && trackerConfig.TwoPointVelocityInit {
 		// The two-point update replaces the second update, which the gate's

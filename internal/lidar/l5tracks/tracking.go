@@ -923,16 +923,24 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		track.LatestZ = cluster.OBB.CenterZ
 	}
 
-	if t.Config.VelocityPriorGated {
-		// The shipped founding covariance, kept for the newborn's gate
-		// before the honest prior widens the filter's own.
-		track.gate = gateCovariance{active: true, p: track.P}
-	}
-	if t.Config.VelocityPriorInit {
-		// The honest prior: the velocity is still zero, only its variance
-		// says how little is known of it (VelocityPriorInit).
-		track.P[2*4+2] = VelocityPriorInitVariance
-		track.P[3*4+3] = VelocityPriorInitVariance
+	if t.Config.VelocityPriorGated && t.Config.VelocityPriorShadowRefusal &&
+		t.inConfirmedShadow(nil, measurement.X, measurement.Y) {
+		// Born in a confirmed track's shadow (VelocityPriorShadowRefusal):
+		// the shipped prior, so the birth starts as the shipped tracker
+		// starts it. No gate shadow: it would equal P.
+		t.continuity.ShadowPriorBirths++
+	} else {
+		if t.Config.VelocityPriorGated {
+			// The shipped founding covariance, kept for the newborn's gate
+			// before the honest prior widens the filter's own.
+			track.gate = gateCovariance{active: true, p: track.P}
+		}
+		if t.Config.VelocityPriorInit {
+			// The honest prior: the velocity is still zero, only its
+			// variance says how little is known of it (VelocityPriorInit).
+			track.P[2*4+2] = VelocityPriorInitVariance
+			track.P[3*4+3] = VelocityPriorInitVariance
+		}
 	}
 
 	t.Tracks[trackID] = track
