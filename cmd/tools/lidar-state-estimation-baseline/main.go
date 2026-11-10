@@ -559,7 +559,7 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			summary.UncertaintyReport = filepath.Join(selectedCase.ID, "first", "uncertainty_calibration.json")
 		}
 		if gest1 != nil {
-			report, err := gest1.write(first.OutDir)
+			report, err := gest1.write(first.OutDir, selectedCase.ID)
 			if err != nil {
 				return nil, nil, fmt.Errorf("G-EST-1 report %s: %w", selectedCase.ID, err)
 			}
