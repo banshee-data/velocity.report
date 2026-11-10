@@ -6,12 +6,13 @@
 #   - libpcap submodule drift
 #   - --self-check failures in a clean Debian target (DNS, UDP, libpcap)
 #
-# Runs take ~9 minutes: ~4.5 min for the Docker build (90 s per arch of
-# Go compile, which is never cached between runs), ~2.5 min for the ARM64
-# VM boot under TCG, and the rest in docs, smoke tests and setup. The
-# toolchain/libpcap layers and the VM gate's .debs are cached between
-# runs; a miss on either adds ~1.5 min, or more if the Ubuntu mirror is
-# slow.
+# Runs take ~6 minutes with a warm Go build cache: ~1.3 min for the
+# Docker build (~40 s of Go compile for both arches), ~2.5 min for the
+# ARM64 VM boot under TCG, and the rest in docs, smoke tests and setup.
+# The toolchain/libpcap layers, the Go build cache and the VM gate's
+# .debs are cached between runs. A cold Go cache (~3 min of compile, until
+# a main push saves one) adds ~2.5 min; a layer or .deb miss adds
+# ~1.5 min, or more if the Ubuntu mirror is slow.
 
 name: Static build CI
 
