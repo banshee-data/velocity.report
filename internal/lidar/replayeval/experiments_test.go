@@ -235,7 +235,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyAnisotropicReferenceBias, ExperimentSolidBodyCensoredExtent, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
-		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
+		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentAccrual, ExperimentSolidBodyExtentGrowth,
 		ExperimentSolidBodyExtentPriorFloor, ExperimentSolidBodyExtentState,
 		ExperimentSolidBodyFaceConsider, ExperimentSolidBodyFaceHysteresis, ExperimentSolidBodyFacePlaneSpans,
 		ExperimentSolidBodyFaceState, ExperimentSolidBodyFullMembers, ExperimentSolidBodyHeadingFaceNoise,
@@ -957,6 +957,49 @@ func TestBoxExtentSharedAxisNeedsTheBoxExtentAndTheSharedOrientation(t *testing.
 		if _, err := trackerConfigFor(l5, "", without, nil); err == nil || !strings.Contains(err.Error(), ExperimentBoxExtentSharedAxis) {
 			t.Errorf("%q: want a refusal naming %s, got %v", without, ExperimentBoxExtentSharedAxis, err)
 		}
+	}
+}
+
+// solid_body_extent_accrual qualifies the extent state's span bounds: it
+// combines with the face state, with the extent state and either source of
+// bounds, and with near_edge_track, and is refused where there are no
+// bounds to accrue, so it cannot run as the arm it qualifies under its name.
+func TestSolidBodyExtentAccrualNeedsTheExtentStateBounds(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	for _, accepted := range [][]string{
+		{ExperimentSolidBody, ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentAccrual},
+		{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentSolidBodyCensoredExtent, ExperimentSolidBodyExtentAccrual},
+		{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentSolidBodySpanBoundsBelief, ExperimentSolidBodyExtentAccrual},
+		{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentNearEdgeTrack, ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentAccrual},
+	} {
+		got, err := trackerConfigFor(l5, "", accepted, nil)
+		if err != nil {
+			t.Errorf("%q: %v", accepted, err)
+			continue
+		}
+		if !got.SolidBody.ExtentBoundAccrual {
+			t.Errorf("%q did not switch ExtentBoundAccrual on", accepted)
+		}
+	}
+	got, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyFaceState}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SolidBody.ExtentBoundAccrual {
+		t.Error("solid_body_face_state alone switched ExtentBoundAccrual on")
+	}
+	for _, refused := range [][]string{
+		{ExperimentSolidBody, ExperimentSolidBodyExtentAccrual},
+		{ExperimentSolidBody, ExperimentSolidBodyExtentState, ExperimentSolidBodyExtentAccrual},
+		{ExperimentSolidBody, ExperimentSolidBodyCensoredExtent, ExperimentSolidBodySpanBoundsBelief, ExperimentSolidBodyExtentAccrual},
+	} {
+		if _, err := trackerConfigFor(l5, "", refused, nil); err == nil || !strings.Contains(err.Error(), ExperimentSolidBodyExtentAccrual) {
+			t.Errorf("%q: want a refusal naming %s, got %v", refused, ExperimentSolidBodyExtentAccrual, err)
+		}
+	}
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentSolidBodyFaceState, ExperimentSolidBodyExtentAccrual}, nil); err == nil ||
+		!strings.Contains(err.Error(), ExperimentSolidBody) {
+		t.Errorf("without %s: want a refusal naming it, got %v", ExperimentSolidBody, err)
 	}
 }
 

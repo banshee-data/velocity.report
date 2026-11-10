@@ -130,6 +130,9 @@ type solidBodyExtent struct {
 	// bound updated it: the dimension's admissible-frame count. A bound counts
 	// only on a frame it moved the half-extent.
 	updates [2]int
+	// accrual is the record of admitted bounds under ExtentBoundAccrual
+	// (solid_body_extent_accrual.go); empty with the option off.
+	accrual extentBoundRecord
 }
 
 // finite says every value in the block is finite.

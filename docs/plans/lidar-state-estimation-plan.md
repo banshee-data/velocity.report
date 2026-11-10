@@ -1524,6 +1524,24 @@ the old reading is `box_extent_shared_axis`.
   floor. A frame's bounds are taken together with that floor, as the two-constraint problem
   `min (h − ĥ)ᵀ P_hh⁻¹ (h − ĥ)` subject to `h ≥ l`, solved by its active set.
 
+**Bounds that accrue (default-off).** The November benchmark bisected a loss in truck 2's
+solid-body length on kirk0 to the projection above: 6.24 m before it, 4.60 m after, against
+9.63 m. A frame-by-frame trace shows the 6.24 m was the overshoot itself. Bounds of at most 3.95 m,
+taken at under 2 m/s along a face axis 40 to 50 degrees from the course, were truncated into a
+6.3 m length. On the reviewed poses no bound is admitted at all. `ExtentBoundAccrual` (replay
+`solid_body_extent_accrual`) keeps, per half-extent, the largest bound three admitted frames
+reached. It holds the half-extent there by the same projection, before the faces and after them.
+It takes each bound over a window of axes twice the axis's standard deviation wide, about the face
+axis or the course, from 10 degrees to a quarter-turn. A merge candidate one body wide gives only
+its length, and only to the record. On kirk0 it takes truck 2's last two reviewed poses to 8.0 and
+8.6 m, and truck 2's and truck 1's widths toward their references. It does not reach 6.24 m over
+the six poses, adds two rows at the floor and does not move car 8's width. Its first version
+refused off-axis bounds instead of widening them, and sent 106 widths to the floor: a bound is
+what holds `h` against a face. See the
+[extent bound accrual report](../lidar/operations/extent-bound-accrual-kirk0-2026-11.md)
+([geom0018](../../data/experiments/geom/geom0018.md)). The record cannot be revised (9.2.3): it
+keeps bounds, not the frames that gave them.
+
 ### 9.3 Decision gate G-GEO-1
 
 The historical 0.316 m and 11.3% baseline figures below are not a current paired comparator.

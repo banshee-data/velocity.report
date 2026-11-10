@@ -316,6 +316,28 @@ type SolidBodyOptions struct {
 	// resolved axis (the seed, and a lapse with no orientation) the
 	// inflation is isotropic at the larger, (L/2)^2. Default false.
 	AnisotropicReferenceBias bool
+	// ExtentBoundAccrual makes the extent state's span bounds accrue over
+	// the track's life, under ExtentState with CensoredExtent or
+	// SpanBoundsBelief (solid_body_extent_accrual.go). Three changes, all to
+	// the bounds and none to the faces:
+	//
+	//   - A bound is the window-minimum span over as wide a window of axes as
+	//     the axis is uncertain: about the face axis or, where its variance is
+	//     smaller, the course, with a half-window of twice the standard
+	//     deviation, from spanSearchHalfWindowDeg up to a quarter-turn. Off an
+	//     unsettled heading a width bound is then the returns' least width,
+	//     which no axis error can carry past the body's.
+	//   - Each half-extent keeps the largest lower bound that
+	//     extentBeliefCorroboration admitted frames reached, and every frame
+	//     holds the half-extent at or above it by the same projection as the
+	//     frame's own bound, so length seen at one time is not lost when the
+	//     visible span shrinks.
+	//   - On a merge candidate the length span counts toward that record,
+	//     never as the frame's own bound and never for the width, when the
+	//     cluster is no wider than one body (growingNotMerging's test).
+	//
+	// Default false.
+	ExtentBoundAccrual bool
 
 	// SharedOrientation makes the shadow solid body's orientation belief the
 	// published box's heading filter posterior (box_model.go): psi is the
@@ -744,6 +766,10 @@ type nearEdgeFrame struct {
 	// SpanBoundsBelief, or under ExtentState with CensoredExtent; zero when
 	// none was taken (frameSpanBounds).
 	spanBound [2]float32
+	// accrued is the frame's evidence for the accrued bounds under
+	// ExtentBoundAccrual: spanBound, and on a merge candidate whose cluster
+	// is one body wide the length span spanBound refuses. Zero is none.
+	accrued [2]float32
 	// axisVarianceRad2 is the orientation variance of axis, read by
 	// HeadingFaceNoise; zero when that option is off.
 	axisVarianceRad2 float32
@@ -1048,7 +1074,9 @@ func (t *Tracker) measureNearEdgeFrame(sb *solidBodyTrack, cluster WorldCluster,
 		f.fallback = "missing_heading"
 	default:
 		f.axis, f.axisIsCourse = t.faceAxis(sb)
-		if t.takesSpanBounds(sb) {
+		if t.accruesExtentBounds(sb) {
+			f.spanBound, f.accrued = t.accrualSpanBounds(sb, cluster, prior, f.axis, f.axisIsCourse, mergeCandidate)
+		} else if t.takesSpanBounds(sb) {
 			f.spanBound = t.frameSpanBounds(sb, cluster, f.axis, f.axisIsCourse, mergeCandidate)
 		}
 		if sb.ext.on {
@@ -1100,7 +1128,13 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 		// The frame's lower bounds first, so the faces see half-extents the
 		// frame does not contradict; the floor with them. Every joint step
 		// below ends at the floor too (holdHalfExtentsAbove).
-		touched = sb.applyExtentBounds(f.spanBound)
+		bounds := f.spanBound
+		if t.accruesExtentBounds(sb) {
+			// The frame's evidence joins the record first, so a bound this
+			// frame corroborates holds from this frame on.
+			bounds = sb.ext.accrual.admit(f.accrued, f.spanBound)
+		}
+		touched = sb.applyExtentBounds(bounds)
 		f.length, f.width = sb.extentDimension(0), sb.extentDimension(1)
 	}
 
@@ -1285,6 +1319,20 @@ func (t *Tracker) stepNearEdge(sb *solidBodyTrack, cluster WorldCluster, prior c
 	}
 	if outcome == nearEdgeCoast && sb.reference == ReferenceClusterMedoid {
 		outcome = nearEdgeMedoid
+	}
+	if t.accruesExtentBounds(sb) {
+		// The record holds after the faces too, as the floor does: a face
+		// may not carry a half-extent below what corroborated frames showed.
+		// Only the mean moves; a bound that moved nothing before the faces
+		// and binds only here is not counted as the dimension's evidence.
+		// The position's move by its regression on h is part of what the
+		// step applied, as containment's shift is.
+		x, y := sb.state[0], sb.state[1]
+		sb.applyExtentBounds(sb.ext.accrual.supported())
+		if outcome == nearEdgeFix {
+			applied.measuredX += sb.state[0] - x
+			applied.measuredY += sb.state[1] - y
+		}
 	}
 	for i, hit := range touched {
 		if hit {
