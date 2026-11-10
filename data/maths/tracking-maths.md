@@ -180,6 +180,15 @@ This is a property of the synthetic scene. It is not a measurement on a capture.
 is what kept reflections from confirming under the shipped tracker
 (`TestTwoPointVelocityInitDoesNotHoldAReflection`).
 
+#### Honest velocity prior at birth
+
+`VelocityPriorInit` (replay experiment `velocity_prior_init_7p5`, default off) keeps `v = 0` at
+birth but sets `P_vv = (7.5 m/s)² = 56.25 m²/s²` per axis, the review's `(v_max/2)²`. On six
+first segments it took the first second's one-step along z RMS from 2.24 to 0.80, and it also
+widened the newborn's gate, so fragments and sparse clusters confirmed and kept the speed of one
+pair. Duplicates rose on every segment, kirk0 gained 27 switches, and it failed
+[l5est0009](../../docs/lidar/operations/velocity-prior-init-2026-11.md)'s V3 to V5.
+
 #### Covariance cap that keeps `P` positive semi-definite
 
 The shipped cap sets `P_ii ← min(P_ii, cap)` and leaves the off-diagonals. It runs in the
