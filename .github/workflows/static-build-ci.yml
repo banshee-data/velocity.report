@@ -79,8 +79,8 @@ jobs:
 
       # Persist the toolchain and libpcap stages between runs. Each job
       # gets a fresh buildx builder, so without this every run rebuilds
-      # them (~80 s). The Go build cache is a BuildKit cache mount, which
-      # layer caching does not carry, so the Go compile stays cold.
+      # them (~80 s). Layer caching does not carry BuildKit cache mounts,
+      # so the Go build cache is saved separately below.
       - name: Key the BuildKit layer cache
         id: layer-cache-key
         run: echo "libpcap=$(git rev-parse HEAD:third_party/libpcap)" >> "$GITHUB_OUTPUT"
@@ -93,10 +93,41 @@ jobs:
           key: static-build-layers-${{ runner.arch }}-${{ steps.layer-cache-key.outputs.libpcap }}-${{ hashFiles('image/Dockerfile.static-build', 'go.mod', 'go.sum', 'third_party/libpcap-static/**') }}
           restore-keys: static-build-layers-${{ runner.arch }}-
 
+      # Persist the Go build cache too. It seeds the build's cache mount,
+      # so only changed packages compile (cold is ~70 s per arch). The
+      # prefix pins the runner arch, the Go toolchain (go.mod's directive
+      # and the Dockerfile's tarball pins) and the modules; on a miss any
+      # older entry for the arch is still mostly warm, and Go's cache is
+      # content-addressed, so a stale entry is never reused wrongly. The
+      # date suffix limits saves to one a day per prefix, and only main
+      # pushes and manual runs save: PRs read main's cache without adding
+      # entries to the repository's cache quota.
+      - name: Key the Go build cache
+        id: go-cache-key
+        env:
+          PREFIX: static-build-gocache-${{ runner.arch }}-
+          INPUTS: ${{ hashFiles('image/Dockerfile.static-build', 'go.mod', 'go.sum') }}
+        run: |
+          echo "arch-prefix=$PREFIX" >> "$GITHUB_OUTPUT"
+          echo "prefix=$PREFIX$INPUTS-" >> "$GITHUB_OUTPUT"
+          echo "key=$PREFIX$INPUTS-$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Go build cache
+        id: go-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/go-build-cache
+          key: ${{ steps.go-cache-key.outputs.key }}
+          restore-keys: |
+            ${{ steps.go-cache-key.outputs.prefix }}
+            ${{ steps.go-cache-key.outputs.arch-prefix }}
+
       - name: Build static binaries (amd64 + arm64)
         env:
           LAYER_CACHE: ${{ runner.temp }}/buildkit-cache
           LAYER_CACHE_HIT: ${{ steps.layer-cache.outputs.cache-hit }}
+          GO_CACHE: ${{ runner.temp }}/go-build-cache
+          GO_CACHE_SAVE: ${{ steps.go-cache.outputs.cache-hit != 'true' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) }}
         run: |
           if [[ -f "$LAYER_CACHE/index.json" ]]; then
             export BUILD_CACHE_FROM="type=local,src=$LAYER_CACHE"
@@ -106,6 +137,12 @@ jobs:
           # cache would carry stale blobs forward.
           if [[ "$LAYER_CACHE_HIT" != "true" ]]; then
             export BUILD_CACHE_TO="type=local,dest=$LAYER_CACHE.new,mode=max"
+          fi
+          export GO_BUILD_CACHE_FROM="$GO_CACHE"
+          # Export beside the restored cache, not over it: the restored
+          # one stays the seed for the reproducibility rebuild below.
+          if [[ "$GO_CACHE_SAVE" == "true" ]]; then
+            export GO_BUILD_CACHE_TO="$GO_CACHE.new"
           fi
           make build-radar-static
           if [[ -d "$LAYER_CACHE.new" ]]; then
@@ -176,11 +213,35 @@ jobs:
           bin=$(ls build/static/velocity-report-*-linux-arm64-*-static | head -1)
           ./scripts/test-static-arm64-vm.sh "$bin"
 
+      # Pass the same Go cache seed as the first build. The seed is an
+      # input to the compile step, so a different one would recompile
+      # rather than replay the layer.
       - name: Verify reproducible static artifacts
+        env:
+          GO_BUILD_CACHE_FROM: ${{ runner.temp }}/go-build-cache
         run: |
           sha256sum build/static/velocity-report-*-static > /tmp/velocity-static.sha256
           make build-radar-static
           sha256sum -c /tmp/velocity-static.sha256
+
+      - name: Prepare Go build cache for saving
+        id: go-cache-save
+        env:
+          GO_CACHE: ${{ runner.temp }}/go-build-cache
+        run: |
+          if [[ -d "$GO_CACHE.new" ]]; then
+            rm -rf "$GO_CACHE"
+            mv "$GO_CACHE.new" "$GO_CACHE"
+            echo "Go build cache: $(du -sh "$GO_CACHE" | cut -f1)"
+            echo "save=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save Go build cache
+        if: steps.go-cache-save.outputs.save == 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/go-build-cache
+          key: ${{ steps.go-cache-key.outputs.key }}
 
       - name: Upload binaries
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
