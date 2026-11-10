@@ -14,4 +14,6 @@ measured by the per-frame evaluator's `-class` section
 ([class evidence](../../../docs/lidar/operations/following-class-evidence-kirk-2026-10.md)).
 
 Answered: [l6cls0001](l6cls0001.md), what the class gate holds back on the corpus
-([report](../../../docs/lidar/operations/following-class-release-corpus-2026-10.md)).
+([report](../../../docs/lidar/operations/following-class-release-corpus-2026-10.md));
+[l6cls0005](l6cls0005.md), small artefacts held at birth or absorbed, which both fail on kirk0
+([report](../../../docs/lidar/operations/artefact-birth-gate-kirk0-2026-11.md)).

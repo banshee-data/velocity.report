@@ -46,6 +46,9 @@ type BootstrapFigures struct {
 	IDF1           Percentiles `json:"idf1"`
 	IDSwitches     Percentiles `json:"id_switches"`
 	Fragmentations Percentiles `json:"fragmentations"`
+	// FN is the draw's missed reference points (l6cls0005 reads its paired
+	// delta: a birth rule must not establish a rise in what is missed).
+	FN Percentiles `json:"fn"`
 	// Per object: switches and fragmentations divided by the draw's object
 	// count, comparable between draws of a different make-up.
 	IDSwitchesPerObject     Percentiles `json:"id_switches_per_object"`
@@ -57,12 +60,24 @@ type BootstrapArm struct {
 	Label string `json:"label"`
 	// Point is the labelled-object figure on the full sample (every object
 	// once), the figure the intervals surround.
-	Point               Summary          `json:"point"`
-	Spread              BootstrapFigures `json:"spread"`
-	TracksAttributed    int              `json:"tracks_attributed"`
-	TracksUnattributed  int              `json:"tracks_unattributed"`
-	ObjectsWithNoTrack  int              `json:"objects_with_no_track"`
+	Point              Summary          `json:"point"`
+	Spread             BootstrapFigures `json:"spread"`
+	TracksAttributed   int              `json:"tracks_attributed"`
+	TracksUnattributed int              `json:"tracks_unattributed"`
+	ObjectsWithNoTrack int              `json:"objects_with_no_track"`
+	// ByObject is each reviewed object scored alone, every object once with
+	// the tracks attributed to it, in Objects' order: what one object's
+	// matched frames are, so a change that costs one object frames shows
+	// even where the pooled figures do not move. A track that crosses onto a
+	// second object counts for the object it is attributed to only.
+	ByObject            []ObjectPoint `json:"by_object"`
 	attributedByEpisode []map[string][]l8analytics.TrackSeries
+}
+
+// ObjectPoint is one reviewed object's figures with its attributed tracks.
+type ObjectPoint struct {
+	Object string  `json:"object"`
+	Point  Summary `json:"point"`
 }
 
 // BootstrapResult is both arms and the paired delta, B less A, with the same
@@ -121,6 +136,9 @@ func Bootstrap(ref *Reference, arms [2]Hypothesis, score ScoreOptions, opts Boot
 			full[j] = j
 		}
 		arm.Point = scoreDraw(ref, arm, objects, full, score)
+		for j, id := range objects {
+			arm.ByObject = append(arm.ByObject, ObjectPoint{Object: id, Point: scoreDraw(ref, arm, objects, []int{j}, score)})
+		}
 		if i == 0 {
 			res.A = arm
 		} else {
@@ -149,6 +167,7 @@ func Bootstrap(ref *Reference, arms [2]Hypothesis, score ScoreOptions, opts Boot
 	for name, p := range map[string]Percentiles{
 		"hota": res.Delta.HOTA, "idf1": res.Delta.IDF1,
 		"id_switches": res.Delta.IDSwitches, "fragmentations": res.Delta.Fragmentations,
+		"fn": res.Delta.FN,
 	} {
 		res.DeltaStands[name] = (p.P5 > 0 && p.P95 > 0) || (p.P5 < 0 && p.P95 < 0)
 	}
@@ -307,6 +326,7 @@ func spread(s []Summary, n float64) BootstrapFigures {
 		IDF1:                    pick(func(x Summary) float64 { return x.IDF1 }),
 		IDSwitches:              pick(func(x Summary) float64 { return float64(x.IDSwitches) }),
 		Fragmentations:          pick(func(x Summary) float64 { return float64(x.Fragmentations) }),
+		FN:                      pick(func(x Summary) float64 { return float64(x.FN) }),
 		IDSwitchesPerObject:     pick(func(x Summary) float64 { return float64(x.IDSwitches) / n }),
 		FragmentationsPerObject: pick(func(x Summary) float64 { return float64(x.Fragmentations) / n }),
 	}

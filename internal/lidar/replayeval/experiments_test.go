@@ -223,7 +223,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentSharedAxis, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentArtefactAbsorb, ExperimentArtefactBirthGate, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxExtentSharedAxis, ExperimentBoxExtentSolidBody, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentConsistentCovarianceCap, ExperimentConsistentSpeedClamp, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
@@ -814,6 +814,39 @@ func TestRobustBirthGateNeedsTheRobustCost(t *testing.T) {
 	}
 	if names, err := NormaliseExperiments([]string{ExperimentRobustBirthGate, ExperimentRobustLikelihoodCost}); err != nil || len(names) != 2 {
 		t.Fatalf("robust_birth_gate is not a known experiment: %v %v", names, err)
+	}
+}
+
+// artefact_birth_gate and artefact_absorb each reach their own tracker
+// option and nothing else, are off without their names, and combine.
+func TestArtefactExperimentsReachTheirOptions(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	off, err := trackerConfigFor(l5, "", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off.ArtefactBirthGate || off.ArtefactAbsorb {
+		t.Fatalf("an artefact option is on without its name: gate %v absorb %v", off.ArtefactBirthGate, off.ArtefactAbsorb)
+	}
+	for _, tc := range []struct {
+		names         []string
+		gate, absorbs bool
+	}{
+		{[]string{ExperimentArtefactBirthGate}, true, false},
+		{[]string{ExperimentArtefactAbsorb}, false, true},
+		{[]string{ExperimentArtefactAbsorb, ExperimentArtefactBirthGate}, true, true},
+	} {
+		got, err := trackerConfigFor(l5, "", tc.names, nil)
+		if err != nil {
+			t.Fatalf("%v: %v", tc.names, err)
+		}
+		if got.ArtefactBirthGate != tc.gate || got.ArtefactAbsorb != tc.absorbs {
+			t.Errorf("%v: gate %v absorb %v, want %v and %v", tc.names, got.ArtefactBirthGate, got.ArtefactAbsorb, tc.gate, tc.absorbs)
+		}
+		got.ArtefactBirthGate, got.ArtefactAbsorb = false, false
+		if !reflect.DeepEqual(got, off) {
+			t.Errorf("%v changed more than its own option", tc.names)
+		}
 	}
 }
 

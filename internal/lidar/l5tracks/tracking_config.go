@@ -284,6 +284,24 @@ type TrackerConfig struct {
 	// guard off (MinAssociableExtentMetres zero). Default false; see
 	// fragment_birth_gate.go.
 	FragmentBirthGate bool
+	// ArtefactBirthGate holds a tentative track back from confirmation
+	// while it looks like a small artefact: every cluster it has taken
+	// under 1.5 m long and wide, its latest centroid under 0.5 m from its
+	// first, its clusters averaging under 24 returns, and under 1 s of
+	// capture time since its first observation (experiment l6cls0005). It
+	// stays tentative, so the shipped tentative miss rule ends it if it
+	// flickers, and it confirms on the first frame any of the four stops
+	// holding: a stopped car is exempt by its size, a person standing still
+	// by persisting. The gate itself deletes nothing. Default false, and not
+	// a tuning key, for the fingerprint reason above. See artefact_birth.go.
+	ArtefactBirthGate bool
+	// ArtefactAbsorb seeds no track from an unassociated cluster under
+	// 1.5 m long and wide with under 24 returns whose centroid lies within
+	// 1.25 m of the drawn box of a confirmed track matched this frame: the
+	// cluster is treated as part of that body and seeds no track, but it is
+	// not associated with the track and the track's state is not updated
+	// from it (experiment l6cls0005). Default false. See artefact_birth.go.
+	ArtefactAbsorb bool
 
 	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,
 	// cyclist or motorcyclist with a cluster outside that label's geometric

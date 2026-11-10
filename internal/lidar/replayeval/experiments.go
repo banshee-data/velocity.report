@@ -209,6 +209,18 @@ const (
 	// take these fragments are gone), so it qualifies that cost and is
 	// refused without it.
 	ExperimentRobustBirthGate = "robust_birth_gate"
+	// ExperimentArtefactBirthGate is TrackerConfig.ArtefactBirthGate: a
+	// tentative track under 1.5 m long and wide, under 0.5 m from where it
+	// was first seen, averaging under 24 returns and under 1 s old is held
+	// tentative, so the shipped tentative miss rule ends it if it flickers
+	// (experiment l6cls0005).
+	ExperimentArtefactBirthGate = "artefact_birth_gate"
+	// ExperimentArtefactAbsorb is TrackerConfig.ArtefactAbsorb: an
+	// unassociated cluster that small and sparse, within 1.25 m of a live
+	// confirmed track's drawn box, is treated as part of that body and
+	// seeds no track; it is not associated with the track (experiment
+	// l6cls0005).
+	ExperimentArtefactAbsorb = "artefact_absorb"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.
 	ExperimentOcclusionContinuity = "occlusion_continuity"
@@ -479,6 +491,8 @@ var knownExperiments = map[string]bool{
 	ExperimentOverlapEndOlder:      true,
 	ExperimentBirthGateBody:        true,
 	ExperimentRobustBirthGate:      true,
+	ExperimentArtefactBirthGate:    true,
+	ExperimentArtefactAbsorb:       true,
 	ExperimentFixedLagRTS:          true,
 	ExperimentSolidBody:            true,
 
