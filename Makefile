@@ -86,6 +86,9 @@ help:
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-docs-offline   Build embedded offline docs site (Eleventy)"
+	@echo "  check-devlog         Validate development log fragments"
+	@echo "  test-devlog          Test development log tooling"
+	@echo "  devlog-consolidate   Fold landed fragments into the journal (requires gh)"
 	@echo "  wiring               Generate radar wiring diagram (WireViz)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
 	@echo "  dmg-mac              Create versioned DMG (includes git SHA)"
@@ -2182,7 +2185,7 @@ check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSO
 update-release-json: ## Update release.json + os-list-velocity.json from GitHub Releases. ARGS='--ci --channel prerelease --validate'
 	@python3 scripts/update-release-json.py $(ARGS)
 
-lint-docs: check-mermaid check-quarter-blocks check-release-hashes check-docs-format check-backlog-format check-geometry-wording check-doc-structure check-citation-coverage ## Check Markdown formatting, document structure, citations, metadata, spelling, and release hashes
+lint-docs: check-devlog check-mermaid check-quarter-blocks check-release-hashes check-docs-format check-backlog-format check-geometry-wording check-doc-structure check-citation-coverage ## Check Markdown formatting, document structure, citations, metadata, spelling, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 
@@ -2204,6 +2207,16 @@ report-backtick-paths: ## Advisory: report stale backtick-quoted paths in Markdo
 
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
 	@scripts/check-agent-drift.sh
+
+.PHONY: check-devlog test-devlog devlog-consolidate
+check-devlog: ## Validate per-PR development log fragments (DEVLOG_BASE enables PR policy)
+	@python3 scripts/devlog.py check
+
+test-devlog: ## Test journal consolidation, provenance, and PR policy
+	@python3 -m unittest discover -s scripts -p test_devlog.py
+
+devlog-consolidate: ## Fold landed fragments into DEVLOG in a clean main checkout (requires gh)
+	@python3 scripts/devlog.py consolidate
 
 check-no-results: ## Reject experiment result directories in the Git index
 	@python3 scripts/check-no-results.py

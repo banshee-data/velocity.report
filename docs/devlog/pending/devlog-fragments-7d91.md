@@ -1,0 +1,1 @@
+- Replaced shared devlog edits with per-PR fragments and a twice-weekly consolidation PR, preserving reviewed journal wording, report links, and UTC merge attribution while avoiding feature-branch conflicts.
