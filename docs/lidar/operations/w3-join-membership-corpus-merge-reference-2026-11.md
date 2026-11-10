@@ -13,8 +13,9 @@ corpus read is a screen, not a decision.
 - **Status:** Measured, 2026-11-09. One Claude Code cloud session; nothing adopted, no default
   changed
 - **Spec:** [l4clus0011](../../../data/experiments/l4clus/l4clus0011.md), rule committed at
-  `bde6df95` before any replay; the merge reference's record and scorer at `43f98014`, also
-  before any replay
+  `7842622d` (authored 16:40Z) before any replay; the merge reference's record and scorer at
+  `21c1dd49`, also before any replay. Both are the rebased forms of the commits the replays ran
+  on, `bde6df95` and `43f98014`, which were never pushed
 - **Layers:** L4 joining, through the L3 track guard and L5 association; scored by
   `lidar-box-eval` and the label-free scripts
 - **Parameter sets:** the [defaults](../../../config/tuning.defaults.json), fingerprint
@@ -83,7 +84,7 @@ committed before any replay. In short, against `a0` at each site unless stated:
   and `lidar_figure_sensitivity.py`. Duplicates come from `lidar-box-eval`'s summary. These are
   l5id0019's tools and options.
 - **The merge reference.** `lidar-box-eval -join-records` writes one record per cluster the join
-  built from two or more DBSCAN components (`pipeline.FragmentJoinRecord`, new in `43f98014`):
+  built from two or more DBSCAN components (`pipeline.FragmentJoinRecord`, new in `21c1dd49`):
   the joined cluster's oriented extent, its owner (the footprint holding every component), and
   each component's attribution to a confirmed track's predicted published box (projected to the
   frame by velocity, not widened, with the join's 0.15 m margin; a component goes to the track
@@ -325,7 +326,8 @@ which these qualifications do not touch.
 
 - **Code.** `lidar-box-eval` and `pcap-split` built with the Makefile's LDFLAGS and the `pcap`
   tag at `43f98014` (VCS stamp `43f9801470158ec7b3a2e49e497a258f9e843c0e`, not modified), on the
-  branch then based on `704b8e46`. Replays ran 2026-11-09, 18:38Z to 19:55Z.
+  branch then based on main `704b8e46`. That commit was rebased, unchanged in content, to
+  `21c1dd49`. Replays ran 2026-11-09, 18:38Z to 19:55Z.
 - **Reproduced after the rebase.** Main then took #996, #997 and #1001. Their new behaviour is in
   default-off replay experiments that no arm here names, and the defaults file did not change.
   On 2026-11-10 the branch was rebased onto `091e21ed` and `lidar-box-eval` rebuilt. Laguna-eddy
@@ -345,7 +347,7 @@ which these qualifications do not touch.
   lombard-broderick `1eb08d9e6ced…`. Segment digests are in the G1 table.
 - **Merge reference.** `pipeline.FragmentJoinRecord` via `lidar-box-eval -join-records`, scored
   by `scripts/lidar_join_merge_reference.py` (tests in
-  `scripts/test_lidar_join_merge_reference.py`), both committed at `43f98014`.
+  `scripts/test_lidar_join_merge_reference.py`), both committed at `21c1dd49`.
 - **Run order.** Pierce-haight's `join` and `membership` ran side by side; every later arm ran
   alone. Each arm's evidence database was deleted after its summaries were written. The raw
   outputs (box rows, join records, summaries) were kept in the session's scratch space and are
