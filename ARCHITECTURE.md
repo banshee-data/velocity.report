@@ -1264,3 +1264,13 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 
 LiDAR evaluation windows are [clips](docs/lidar/operations/clip-management-implementation.md). The API uses
 `/api/lidar/clips` and `clip_id`; ordered capture rows supply each clip’s paths.
+
+## Experiment execution
+
+`internal/experiments` owns authored specs, validation and the unit ledger.
+`internal/experiments/harness` composes those into a single-host runner exposed by
+`velocity experiments run|tick`. It pins checked-in inputs and stamped tool builds,
+keeps raw evidence and retry state outside Git, and optionally publishes bounded run
+notes through a repository-scoped GitHub App. The existing HTTP job worker shares
+the state-estimation argument contract; the harness introduces no claim API or
+multi-host queue. See the [operator runbook](docs/platform/operations/experiment-harness.md).

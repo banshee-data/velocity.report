@@ -33,6 +33,10 @@ or recorded. The data belongs to the community that collected it.
   downloads are explicit opt-in
 - 🔒 Open source and auditable, because trust should be verifiable
 
+The [experiment harness](docs/platform/operations/experiment-harness.md) runs approved
+mechanical experiment steps on arrow-worker, recovers interrupted work, and publishes
+bounded run notes when connected. It can continue from checked-in inputs offline.
+
 ```
                                 ░░░░░░                                  ░░░░░░
    ░░░░░    ░░░░░░░░░░░    ░░░░░ :::. ░░░░░░░░░░    ░░░░░░░░░░░    ░░░░░ :::.

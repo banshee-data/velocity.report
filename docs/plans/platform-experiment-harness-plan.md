@@ -15,6 +15,21 @@ exist and replaces the shell lanes that every unattended run has rebuilt by hand
 - **Layers:** platform (jobs, workers, CI); every LiDAR layer as a subject
 - **Related:** [experiment queue](platform-experiment-queue-plan.md), [worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md) (D-30), [run-experiments skill](../../.claude/skills/run-experiments/SKILL.md), [experiment-review skill](../../.claude/skills/experiment-review/SKILL.md), [analysis worker](../lidar/operations/analysis-worker.md), [TrueNAS VM shared storage](../platform/operations/truenas-vm-shared-storage-runbook.md)
 
+## Implementation state
+
+The [runner and deployment files](../platform/operations/experiment-harness.md) implement
+local `run` and `tick`, stamped tool executors, recovery, manual closures, run dependencies,
+bounded notes, an App publisher and its path guard. Per the owner's execution clarification,
+fetch and publication are allowed when connected; an unavailable connection leaves local
+execution usable. Failed runs retain draft notes for recovery rather than merging an
+immutable failure note. Scoring references are explicit host bindings, and screens use
+named measures rather than per-run scripts.
+
+Deployment, App installation and the NAS soak remain outstanding. Unit tests and stamped
+tool builds are implementation evidence; H1's report-band reproduction, H3's real approved
+spec run and H5's week of operation still need recorded acceptance evidence. Nothing here
+claims the held-out physical scoring gates passed.
+
 ## 1. Goal and boundary
 
 The owner asked for this on October 22, 2026. The harness runs on the NAS, reads the repository

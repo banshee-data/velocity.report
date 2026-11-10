@@ -2985,3 +2985,21 @@ PCL_FRAME_EXPORT_BIN ?= /tmp/pcl-frame-export
 .PHONY: build-pcl-frame-export
 build-pcl-frame-export: ## Build the offline one-frame PCL compatibility exporter
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(PCL_FRAME_EXPORT_BIN)" ./cmd/tools/pcl-frame-export
+
+# Offline harness builds are cached by commit outside the checkout.
+EXPERIMENT_TOOLS_DIR ?= $(CURDIR)/.tmp/experiment-tools
+.PHONY: build-experiment-tools check-harness-notes
+build-experiment-tools: ## Build stamped offline experiment executors (requires libpcap)
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	@mkdir -p "$(EXPERIMENT_TOOLS_DIR)"
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(EXPERIMENT_TOOLS_DIR)/lidar-state-estimation-baseline" ./cmd/tools/lidar-state-estimation-baseline
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(EXPERIMENT_TOOLS_DIR)/lidar-box-eval" ./cmd/tools/lidar-box-eval
+	go build -ldflags "$(LDFLAGS)" -o "$(EXPERIMENT_TOOLS_DIR)/lidar-ground-truth-eval" ./cmd/tools/lidar-ground-truth-eval
+
+check-harness-notes: ## Check bounded experiment run notes
+	@go run ./cmd/tools/experiments check-notes $(HARNESS_NOTE_FLAGS)
+
+.PHONY: check-harness-pr
+check-harness-pr: ## Guard experiment notes against HARNESS_BASE (local or CI)
+	@python3 scripts/check-harness-pr.py

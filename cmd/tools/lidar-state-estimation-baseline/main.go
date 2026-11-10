@@ -30,6 +30,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 type corpus struct {
@@ -114,6 +115,10 @@ type caseSummary struct {
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "-version" {
+		version.Print("lidar-state-estimation-baseline")
+		return
+	}
 	var (
 		corpusPath                 = flag.String("corpus", "tools/s2-archive/state-estimation-phase01-corpus.json", "committed Phase 0 corpus JSON")
 		indexPath                  = flag.String("index", "tools/s2-archive/site-index.json", "capture archive index JSON")

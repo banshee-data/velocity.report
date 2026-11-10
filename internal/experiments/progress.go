@@ -171,6 +171,7 @@ type UnitRecord struct {
 	Class    string    `json:"class,omitempty"`
 	Started  time.Time `json:"started,omitzero"`
 	Finished time.Time `json:"finished,omitzero"`
+	Deadline time.Time `json:"deadline,omitzero"`
 	// WallSeconds is the attempt's wall time: finish less start, or what
 	// the worker reported for a unit marked done without a start.
 	WallSeconds float64 `json:"wall_seconds,omitempty"`
@@ -264,11 +265,24 @@ func (l *Ledger) write(slug string, r UnitRecord) error {
 		os.Remove(tmp.Name())
 		return err
 	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		os.Remove(tmp.Name())
 		return err
 	}
-	return os.Rename(tmp.Name(), p)
+	if err := os.Rename(tmp.Name(), p); err != nil {
+		return err
+	}
+	dir, err := os.Open(filepath.Dir(p))
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
 }
 
 // Transition is what a worker or a person reports about a unit.
@@ -299,6 +313,7 @@ type Mark struct {
 	// Wall is the wall time of a unit marked done without a start.
 	Wall       time.Duration
 	SpecDigest string
+	Timeout    time.Duration
 	Now        time.Time
 }
 
@@ -363,6 +378,10 @@ func (l *Ledger) Apply(spec *Spec, m Mark, check ArtefactCheck) (UnitRecord, err
 		fresh()
 		next.State = UnitRunning
 		next.Started = m.Now
+		next.Deadline = time.Time{}
+		if m.Timeout > 0 {
+			next.Deadline = m.Now.Add(m.Timeout)
+		}
 	case Done:
 		if ClassifyKind(st.Kind) == KindManual {
 			if strings.TrimSpace(m.Artefact) == "" {
@@ -619,4 +638,9 @@ func RepoArtefacts(root string, spec *Spec) ArtefactCheck {
 		}
 		return nil
 	}
+}
+
+// BlockedBy names an unfinished input unit, or returns an empty string.
+func (spec *Spec) BlockedBy(u Unit, records map[string]UnitRecord) string {
+	return spec.blockedBy(u, records)
 }

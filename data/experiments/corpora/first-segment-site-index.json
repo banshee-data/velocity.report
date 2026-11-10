@@ -1,0 +1,163 @@
+[
+  {
+    "id": "ashbury-downey",
+    "captures": [
+      "s2-sf-0.pcapng"
+    ],
+    "north_azimuth_deg": 8
+  },
+  {
+    "id": "haight-divisadero",
+    "captures": [
+      "s2-1_20260901125845_00003.pcap"
+    ],
+    "north_azimuth_deg": 101
+  },
+  {
+    "id": "pierce-haight",
+    "captures": [
+      "s2-1_20260901132347_00008.pcap"
+    ],
+    "north_azimuth_deg": 11
+  },
+  {
+    "id": "fulton-divisadero",
+    "captures": [
+      "s2-1_20260901135850_00015.pcap"
+    ],
+    "north_azimuth_deg": 101
+  },
+  {
+    "id": "california-leon-baker",
+    "captures": [
+      "s2-1_20260901142853_00021.pcap"
+    ],
+    "north_azimuth_deg": 101
+  },
+  {
+    "id": "broadway-franklin",
+    "captures": [
+      "s2-1_20260901150856_00029.pcap"
+    ],
+    "north_azimuth_deg": 99
+  },
+  {
+    "id": "laguna-eddy",
+    "captures": [
+      "s2-1_20260901154400_00036.pcap"
+    ],
+    "north_azimuth_deg": 9
+  },
+  {
+    "id": "lombard-broderick",
+    "captures": [
+      "s2_sf_2_20260902093822_00003.pcap"
+    ],
+    "north_azimuth_deg": 97
+  },
+  {
+    "id": "marina-broderick",
+    "captures": [
+      "s2_sf_2_20260902100324_00008.pcap"
+    ],
+    "north_azimuth_deg": 282
+  },
+  {
+    "id": "marina-webster-beach",
+    "captures": [
+      "s2_sf_2_20260902102827_00013.pcap"
+    ],
+    "north_azimuth_deg": 231
+  },
+  {
+    "id": "lombard-laguna",
+    "captures": [
+      "s2_sf_2_20260902105830_00019.pcap"
+    ],
+    "north_azimuth_deg": 275
+  },
+  {
+    "id": "columbus-north-point",
+    "captures": [
+      "s2_sf_2_20260902115334_00030.pcap"
+    ],
+    "north_azimuth_deg": 48
+  },
+  {
+    "id": "embarcadero-bay",
+    "captures": [
+      "s2_sf_2_20260902123517_00002.pcap"
+    ],
+    "north_azimuth_deg": 253
+  },
+  {
+    "id": "columbus-broadway",
+    "captures": [
+      "s2_sf_3_20260902132037_00002.pcap"
+    ],
+    "north_azimuth_deg": 35
+  },
+  {
+    "id": "van-ness-sacramento",
+    "captures": [
+      "s2_sf_4_20260902142714_00001.pcap"
+    ],
+    "north_azimuth_deg": 10
+  },
+  {
+    "id": "embarcadero-broadway",
+    "captures": [
+      "s2_sf_4_20260902152249_00001.pcap"
+    ],
+    "north_azimuth_deg": 101
+  },
+  {
+    "id": "franklin-mcallister",
+    "captures": [
+      "s2_sf_6_20260903103552_00008.pcap"
+    ],
+    "north_azimuth_deg": 192
+  },
+  {
+    "id": "hyde-ofarrell",
+    "captures": [
+      "s2_sf_6_20260903110555_00014.pcap"
+    ],
+    "north_azimuth_deg": 14
+  },
+  {
+    "id": "bush-powell",
+    "captures": [
+      "s2_sf_6_20260903113556_00020.pcap"
+    ],
+    "north_azimuth_deg": 102
+  },
+  {
+    "id": "1st-mission",
+    "captures": [
+      "s2_sf_8_20260903141035_00005.pcap"
+    ],
+    "north_azimuth_deg": 51
+  },
+  {
+    "id": "embarcadero-bryant",
+    "captures": [
+      "s2_sf_8_20260903144037_00011.pcap"
+    ],
+    "north_azimuth_deg": 353
+  },
+  {
+    "id": "3rd-folsom",
+    "captures": [
+      "s2_sf_8_20260903152041_00019.pcap"
+    ],
+    "north_azimuth_deg": 223
+  },
+  {
+    "id": "howard-6th",
+    "captures": [
+      "s2_sf_8_20260903155043_00025.pcap"
+    ],
+    "north_azimuth_deg": 312
+  }
+]

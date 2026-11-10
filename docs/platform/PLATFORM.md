@@ -9,6 +9,10 @@ lives here.
 | [architecture/](architecture/) | Go package design, DB schema shape, logging model, ID conventions, metrics naming |
 | [operations/](operations/)     | Deployment, release lifecycle, documentation standards, tooling, reporting        |
 
+The [experiment harness runbook](operations/experiment-harness.md) covers offline
+execution on arrow-worker, restart recovery, checked-in provenance and connected
+run-note publication.
+
 ## Scope
 
 This hub owns topics where the lasting value is a structural property of the shared
