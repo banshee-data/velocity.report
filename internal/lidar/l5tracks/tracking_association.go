@@ -155,6 +155,7 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	if trackedExtent {
 		track.solidBody.predictTrackedExtent(&track.P, dt, uncapped)
 	}
+	t.predictGateCovariance(track, dt)
 
 	// Guard: reset state if prediction produced NaN/Inf (task 2.4).
 	if !isFiniteState(track) {
@@ -406,13 +407,14 @@ func (t *Tracker) covarianceCostTerm(track *TrackedObject, cluster WorldCluster)
 	if !t.Config.LikelihoodAssociationCost {
 		return 0
 	}
-	s00 := float64(track.P[0*4+0] + t.Config.MeasurementNoise)
-	s01 := float64(track.P[0*4+1])
-	s10 := float64(track.P[1*4+0])
-	s11 := float64(track.P[1*4+1] + t.Config.MeasurementNoise)
+	P := t.gateP(track)
+	s00 := float64(P[0*4+0] + t.Config.MeasurementNoise)
+	s01 := float64(P[0*4+1])
+	s10 := float64(P[1*4+0])
+	s11 := float64(P[1*4+1] + t.Config.MeasurementNoise)
 	if t.Config.AdaptiveMeasurementNoise {
 		r := t.evaluateNoise(track, cluster, t.measurementForCluster(cluster, t.LastUpdateNanos)).SiteCovariance
-		a00, a01, a10, a11 := adaptiveInnovationCovariance(&track.P, r)
+		a00, a01, a10, a11 := adaptiveInnovationCovariance(P, r)
 		s00, s01, s10, s11 = float64(a00), float64(a01), float64(a10), float64(a11)
 	}
 	det := s00*s11 - s01*s10
@@ -497,13 +499,15 @@ func (t *Tracker) mahalanobisInnovation(track *TrackedObject, cluster WorldClust
 
 	// Innovation covariance S = H * P * H^T + R
 	// H = [1 0 0 0; 0 1 0 0] (measurement extracts position only)
-	// S = P[0:2, 0:2] + R
-	S00 := track.P[0*4+0] + t.Config.MeasurementNoise
-	S01 := track.P[0*4+1]
-	S10 := track.P[1*4+0]
-	S11 := track.P[1*4+1] + t.Config.MeasurementNoise
+	// S = P[0:2, 0:2] + R. P is the gate's covariance: the track's own, or
+	// under VelocityPriorGated a tentative track's shipped-prior shadow.
+	P := t.gateP(track)
+	S00 := P[0*4+0] + t.Config.MeasurementNoise
+	S01 := P[0*4+1]
+	S10 := P[1*4+0]
+	S11 := P[1*4+1] + t.Config.MeasurementNoise
 	if t.Config.AdaptiveMeasurementNoise {
-		S00, S01, S10, S11 = adaptiveInnovationCovariance(&track.P, t.evaluateNoise(track, cluster, measurement).SiteCovariance)
+		S00, S01, S10, S11 = adaptiveInnovationCovariance(P, t.evaluateNoise(track, cluster, measurement).SiteCovariance)
 	}
 
 	// Compute determinant and inverse

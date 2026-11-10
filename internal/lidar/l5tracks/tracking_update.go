@@ -99,6 +99,10 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		GeometryCovariance: covarianceForCluster(cluster, t.Config.MeasurementNoise),
 	}
 
+	// VelocityPriorGated: the gate's shadow covariance takes the update the
+	// shipped prior's covariance would, with its own gain and the same R.
+	t.updateGateCovariance(track, adaptiveR)
+
 	// Kalman gain K = P * H^T * S^-1
 	// K is 4x2 matrix
 	// K[i,0] = P[i,0]*invS00 + P[i,1]*invS10

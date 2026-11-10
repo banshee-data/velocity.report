@@ -244,7 +244,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyRectangleSigmaWide,
 		ExperimentSolidBodyReferenceTranslation, ExperimentSolidBodySharedOrientation, ExperimentSolidBodySpanBoundsBelief,
 		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentSurfaceGround, ExperimentSurfaceGround5m, ExperimentSurfaceGroundGlobal, ExperimentTentativePriority,
-		ExperimentTwoPointVelocityInit, ExperimentVelocityPriorInit75, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
+		ExperimentTwoPointVelocityInit, ExperimentVelocityPriorInit75, ExperimentVelocityPriorInit75Gated, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -286,6 +286,10 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		},
 		ExperimentVelocityPriorInit75: func(c *l5tracks.TrackerConfig) {
 			c.VelocityPriorInit = true
+		},
+		ExperimentVelocityPriorInit75Gated: func(c *l5tracks.TrackerConfig) {
+			c.VelocityPriorInit = true
+			c.VelocityPriorGated = true
 		},
 		ExperimentCoastTimeInflation: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.CaptureTimeInflation = true })
@@ -1159,5 +1163,14 @@ func TestRobustLikelihoodCostRefusesTheGaussianLikelihoodCost(t *testing.T) {
 		if err != nil || !got.RobustLikelihoodAssociationCost {
 			t.Errorf("robust_likelihood_cost with %v (%v): %+v", with, err, got)
 		}
+	}
+}
+
+// The gated birth prior's shadow covariance does not follow the two-point
+// update, so the two are refused together (experiment l5est0010).
+func TestVelocityPriorGatedRefusesTwoPointInit(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentVelocityPriorInit75Gated, ExperimentTwoPointVelocityInit}, nil); err == nil {
+		t.Fatal("velocity_prior_init_7p5_gated with two_point_velocity_init must be refused")
 	}
 }

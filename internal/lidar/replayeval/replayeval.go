@@ -1468,7 +1468,15 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.TwoPointVelocityInit = hasExperiment(experiments, ExperimentTwoPointVelocityInit)
 	trackerConfig.ConsistentCovarianceCap = hasExperiment(experiments, ExperimentConsistentCovarianceCap)
 	trackerConfig.ConsistentSpeedClamp = hasExperiment(experiments, ExperimentConsistentSpeedClamp)
-	trackerConfig.VelocityPriorInit = hasExperiment(experiments, ExperimentVelocityPriorInit75)
+	trackerConfig.VelocityPriorGated = hasExperiment(experiments, ExperimentVelocityPriorInit75Gated)
+	trackerConfig.VelocityPriorInit = hasExperiment(experiments, ExperimentVelocityPriorInit75) || trackerConfig.VelocityPriorGated
+	if trackerConfig.VelocityPriorGated && trackerConfig.TwoPointVelocityInit {
+		// The two-point update replaces the second update, which the gate's
+		// shadow covariance does not follow.
+		return l5tracks.TrackerConfig{}, fmt.Errorf(
+			"replay experiment %s gates with the shipped prior's covariance, which %s does not maintain; name one",
+			ExperimentVelocityPriorInit75Gated, ExperimentTwoPointVelocityInit)
+	}
 	trackerConfig.TentativePriority = trackerConfig.TentativePriority || hasExperiment(experiments, ExperimentTentativePriority)
 	trackerConfig.ClassIdentity = hasExperiment(experiments, ExperimentClassIdentity)
 	overlapEnd, err := overlapEndFramesFor(experiments)
