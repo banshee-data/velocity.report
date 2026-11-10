@@ -240,3 +240,32 @@ func TestExtentProfileChangesNoTrack(t *testing.T) {
 		t.Error("no scenario admitted a frame, so the profile never ran")
 	}
 }
+
+// The believed axis: the orientation when it is settled and the course does
+// not contradict it; otherwise the course at speed when the course is
+// settled; otherwise none, counted as a heading refusal.
+func TestExtentProfileBelievedAxis(t *testing.T) {
+	sb := profiledBody(0, 10)
+	sb.state[2] = 5 // 5 m/s along +X
+	sb.p[2*4+2], sb.p[3*4+3] = 0.01, 0.01
+	psi, ok, _ := profileAxis(sb)
+	if !ok || psi != 0 {
+		t.Errorf("settled orientation along the course: axis %.3f ok %v", psi, ok)
+	}
+	sb.orientation.PsiRad = 0.5 // 29 degrees off the course
+	if psi, ok, _ = profileAxis(sb); !ok || math.Abs(float64(psi)) > 1e-6 {
+		t.Errorf("orientation the course contradicts: axis %.3f ok %v, want the course, 0", psi, ok)
+	}
+	sb.orientation.VarianceRad2 = 1 // unsettled
+	if psi, ok, _ = profileAxis(sb); !ok || math.Abs(float64(psi)) > 1e-6 {
+		t.Errorf("unsettled orientation: axis %.3f ok %v, want the course, 0", psi, ok)
+	}
+	sb.p[3*4+3] = 1 // the course's sigma 0.2 rad across
+	if _, ok, heading := profileAxis(sb); ok || !heading {
+		t.Errorf("neither settled: ok %v heading-only %v, want a heading refusal", ok, heading)
+	}
+	sb.state[2] = 0
+	if _, ok, heading := profileAxis(sb); ok || !heading {
+		t.Errorf("at rest, unsettled: ok %v heading-only %v, want a heading refusal", ok, heading)
+	}
+}

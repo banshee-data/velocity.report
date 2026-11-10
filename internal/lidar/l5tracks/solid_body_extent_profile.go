@@ -60,10 +60,14 @@ package l5tracks
 // while any return in its column, at any height in the band, lies nearer.
 //
 // Admission. A frame updates the profile only while the body is referenced to
-// its centre, past initialising, with an orientation whose standard
-// deviation is at most axisBelievedSigmaRad (5 degrees): a wrong heading
-// smears occupancy across the axis, where it reads as width. Every other
-// frame is refused and counted.
+// its centre, past initialising, and has a believed axis (profileAxis): its
+// orientation, or at speed its course, with a standard deviation of at most
+// axisBelievedSigmaRad (5 degrees), the orientation only where the course
+// does not contradict it. A wrong heading smears occupancy across the axis,
+// where it reads as width. Every other frame is refused and counted. Under
+// the face-state options the orientation is the tracked heading, whose
+// variance is its jitter's; the first build took the orientation alone and
+// admitted almost no frame on the placement segments.
 //
 // The reading. The extent along each axis is the span from the lowest to the
 // highest cell at or above profileLockOnLogOdds, and each of its ends is
@@ -274,17 +278,27 @@ func (f *profileFrame) crossed(x, y float64, own bearings) bool {
 	return math.Hypot(dx, dy) <= float64(nearest)-profileShadowMarginMetres
 }
 
-// admitsExtentProfile says this frame may update the profile, and when it
-// may not, whether the orientation's spread was the only reason.
-func admitsExtentProfile(sb *solidBodyTrack) (admit, headingOnly bool) {
+// profileAxis is the believed axis a frame's profile update is taken along,
+// geom0018's rule for a believed axis: the solid body's orientation when its
+// standard deviation is at most axisBelievedSigmaRad (5 degrees) and, at
+// speed, the course does not contradict it (spanAxisBelieved); otherwise the
+// course, at CourseAlignmentMinSpeedMps or more, when its own standard
+// deviation is within the same bound. ok is false when neither is believed,
+// or when the body is not referenced to its centre or is still initialising;
+// headingOnly then says the axis was the only reason.
+func profileAxis(sb *solidBodyTrack) (psi float32, ok, headingOnly bool) {
 	o := sb.orientation
 	if sb.reference != ReferenceBodyCentre || sb.estimation == EstimationInitialising || o.Provenance == ProvenanceNone {
-		return false, false
+		return 0, false, false
 	}
-	if !(o.VarianceRad2 >= 0) || float64(o.VarianceRad2) > axisBelievedSigmaRad*axisBelievedSigmaRad {
-		return false, true
+	bound := float32(axisBelievedSigmaRad * axisBelievedSigmaRad)
+	if o.VarianceRad2 >= 0 && o.VarianceRad2 <= bound && spanAxisBelieved(sb, o.PsiRad, false) {
+		return o.PsiRad, true, false
 	}
-	return true, false
+	if course, ok := courseOrientation(sb.state, sb.p); ok && course.VarianceRad2 >= 0 && course.VarianceRad2 <= bound {
+		return course.PsiRad, true, false
+	}
+	return 0, false, true
 }
 
 // updateExtentProfiles runs every associated track's profile for the frame,
@@ -312,7 +326,8 @@ func (t *Tracker) updateExtentProfiles(clusters []WorldCluster, associations []s
 
 // step admits or refuses one frame and returns the reading.
 func (p *extentProfile) step(sb *solidBodyTrack, cluster WorldCluster, frame *profileFrame, nowNanos int64) ExtentProfileReading {
-	if admit, headingOnly := admitsExtentProfile(sb); !admit {
+	believed, admit, headingOnly := profileAxis(sb)
+	if !admit {
 		p.refused++
 		if headingOnly {
 			p.headingRefused++
@@ -321,7 +336,7 @@ func (p *extentProfile) step(sb *solidBodyTrack, cluster WorldCluster, frame *pr
 		r.X, r.Y, r.PsiRad = sb.state[0], sb.state[1], p.axisFor(sb.orientation.PsiRad)
 		return r
 	}
-	psi := p.axisFor(sb.orientation.PsiRad)
+	psi := p.axisFor(believed)
 	p.axis, p.axisSet = psi, true
 	p.admitted++
 	withheld := p.admitted%profileWithholdEvery == 0
