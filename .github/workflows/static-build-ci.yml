@@ -99,7 +99,13 @@ jobs:
           if [[ -e /dev/kvm ]]; then kvm=present; fi
           echo "Runner CPU: ${cpu:-unknown}, $(nproc) cores, /dev/kvm $kvm" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # The build steps name this builder through BUILDX_BUILDER. Without
+      # it, `docker build` uses the default docker-driver builder, which
+      # can export a layer cache only where the runner's Docker has the
+      # containerd image store (ubuntu-latest does, ubuntu-24.04-arm's
+      # Docker 28 does not).
       - name: Set up Docker Buildx
+        id: buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Set up Node.js and pnpm for embedded docs
@@ -164,6 +170,7 @@ jobs:
           GO_CACHE: ${{ runner.temp }}/go-build-cache
           GO_CACHE_SAVE: ${{ steps.go-cache.outputs.cache-hit != 'true' && env.SAVE_CACHES == 'true' }}
           ARCH: ${{ matrix.arch }}
+          BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
           if [[ -f "$LAYER_CACHE/index.json" ]]; then
             export BUILD_CACHE_FROM="type=local,src=$LAYER_CACHE"
@@ -220,6 +227,7 @@ jobs:
         env:
           GO_BUILD_CACHE_FROM: ${{ runner.temp }}/go-build-cache
           ARCH: ${{ matrix.arch }}
+          BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
           sha256sum build/static/velocity-report-*-static > "$RUNNER_TEMP/velocity-static.sha256"
           make "build-radar-static-$ARCH"
