@@ -272,5 +272,17 @@ test("the transform marks internal docs, externalises source, and removes placeh
   assert.match(rendered, /<code>placeholder<\/code>/);
   assert.match(rendered, /href="\/public_html\/" data-docs-app-surface="true"/);
   assert.equal(rewrite.call({ page: { outputPath: "asset.json" } }, "raw"), "raw");
+  // The tree is rendered once to a fixed URL that every page's placeholder
+  // names; its links are generated, so the transform leaves the file alone.
+  assert.equal(globals.get("docsTreeURL"), helpers.docsTreeURL);
+  assert.equal(helpers.docsTreeURL, "/assets/docs-tree.html");
+  const treeFragment = '<ul data-doc-tree><li><a href="../docs/" data-docs-internal>Docs</a></li></ul>';
+  assert.equal(
+    rewrite.call(
+      { page: { outputPath: "_site/assets/docs-tree.html", url: helpers.docsTreeURL } },
+      treeFragment,
+    ),
+    treeFragment,
+  );
   assert(fs.existsSync(path.join(repoRoot, "docs")));
 });
