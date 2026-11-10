@@ -36,6 +36,14 @@ The two Eleventy projects stay separate on purpose. Public docs and operator doc
   `scripts/verify-embedded-docs-server.py` reject every same-origin `/docs/`
   anchor that does not resolve; GitHub and the deliberate `/public_html/`
   surface remain external routes.
+- The sidebar tree is rendered once, to `assets/docs-tree.html`, with links
+  relative to that file so they resolve under any mount. Each page carries an
+  empty `<nav data-doc-tree-src>` placeholder, and `assets/docs-tree.js` loads
+  the tree into it, marks the current page and opens its folders. Without
+  JavaScript the breadcrumbs and folder index pages still navigate. The link
+  checks follow the placeholder to the tree file and check its links, and
+  `scripts/verify-docs-offline-build.sh` fails if a page carries the tree
+  inline again: rendered into every page it made the site about 180 MB.
 - The Go server embeds `docs_html/_site` and serves it at `/docs/`
 - Repository source links resolve to the immutable GitHub revision recorded in
   the embedded-docs build metadata. The image does not carry a second source

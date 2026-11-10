@@ -41,3 +41,53 @@ test("offline link checker rejects an unmarked same-origin dead link", () => {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+function writeFile(root, relative, contents) {
+  const target = path.join(root, relative);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, contents);
+}
+
+test("offline link checker follows the sidebar tree source and checks its links", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "offline-links-"));
+  try {
+    writePage(root, "", '<nav data-doc-tree-src="./assets/docs-tree.html"></nav>');
+    writePage(root, "guide/deep", '<nav data-doc-tree-src="../../assets/docs-tree.html"></nav>');
+    writeFile(
+      root,
+      "assets/docs-tree.html",
+      '<ul data-doc-tree><li><a href="../guide/deep/" data-docs-internal>Deep</a></li></ul>',
+    );
+    const ok = spawnSync(process.execPath, [checker, root], { encoding: "utf8" });
+    assert.equal(ok.status, 0, ok.stderr);
+
+    // A dead link inside the tree file is reported against that file.
+    writeFile(
+      root,
+      "assets/docs-tree.html",
+      '<ul data-doc-tree><li><a href="../gone/" data-docs-internal>Gone</a></li></ul>',
+    );
+    const dead = spawnSync(process.execPath, [checker, root], { encoding: "utf8" });
+    assert.equal(dead.status, 1);
+    assert.match(dead.stderr, /assets\/docs-tree\.html: unresolved link \.\.\/gone\//);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("offline link checker rejects a missing or empty sidebar tree source", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "offline-links-"));
+  try {
+    writePage(root, "", '<nav data-doc-tree-src="./assets/docs-tree.html"></nav>');
+    const missing = spawnSync(process.execPath, [checker, root], { encoding: "utf8" });
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /docs tree source \.\/assets\/docs-tree\.html .* does not exist/);
+
+    writeFile(root, "assets/docs-tree.html", "<p>not a tree</p>");
+    const empty = spawnSync(process.execPath, [checker, root], { encoding: "utf8" });
+    assert.equal(empty.status, 1);
+    assert.match(empty.stderr, /has no \[data-doc-tree\] element/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

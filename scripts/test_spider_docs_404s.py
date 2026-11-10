@@ -75,6 +75,26 @@ def test_crawl_reports_unique_404s_grouped_by_parent_route():
     assert spider.parent_route(result.not_found[2]) == "/docs/good/"
 
 
+def test_crawl_follows_the_runtime_sidebar_tree():
+    spider = load_module()
+    root = "http://velocity.local/docs/"
+    pages = {
+        root: (200, b'<nav data-doc-tree-src="./assets/docs-tree.html"></nav>'),
+        "http://velocity.local/docs/assets/docs-tree.html": (
+            200,
+            b'<ul data-doc-tree><li><a href="../only-in-tree/">t</a></li>'
+            b'<li><a href="../gone/">g</a></li></ul>',
+        ),
+        "http://velocity.local/docs/only-in-tree/": (200, b""),
+        "http://velocity.local/docs/gone/": (404, b""),
+    }
+
+    result = spider.crawl(root, FakeOpener(pages))
+
+    assert result.pages_checked == 4
+    assert result.not_found == ("http://velocity.local/docs/gone/",)
+
+
 def test_internal_docs_url_rejects_other_origins_and_non_docs_paths():
     spider = load_module()
     root = "http://velocity.local/docs/"

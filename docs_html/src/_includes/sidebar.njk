@@ -1,33 +1,13 @@
-{% macro renderTreeNode(node, currentUrl) %}
-  {% set isCurrent = node.url and (node.url == currentUrl) %}
-  {% set isFolder = node.children and node.children.length %}
-  <li class="tree-item{% if isCurrent %} is-current{% endif %}">
-    {% if isFolder %}
-      <details class="tree-folder" data-tree-path="{{ node.path }}"{% if node.hasCurrent %} open{% endif %}>
-        <summary class="tree-summary">
-          <span class="tree-disclosure" aria-hidden="true"></span>
-          {% if node.url %}
-            <a class="tree-link tree-folder-link" href="{{ node.url | docsRelativeUrl(currentUrl) }}" data-docs-internal{% if isCurrent %} aria-current="page"{% endif %}>{{ node.title }}</a>
-          {% else %}
-            <span class="tree-folder-name">{{ node.name }}</span>
-          {% endif %}
-        </summary>
-        <ul class="tree-children" role="group">
-          {% for child in node.children %}
-            {{ renderTreeNode(child, currentUrl) }}
-          {% endfor %}
-        </ul>
-      </details>
-    {% else %}
-      <a class="tree-link tree-leaf" href="{{ node.url | docsRelativeUrl(currentUrl) }}" data-docs-internal{% if isCurrent %} aria-current="page"{% endif %}>{{ node.title }}</a>
-    {% endif %}
-  </li>
-{% endmacro %}
-
-<nav class="nav" aria-label="Documentation tree">
-  <ul class="tree-root" role="tree" data-doc-tree>
-    {% for node in collections.docsPages | docsTree(page.url) %}
-      {{ renderTreeNode(node, page.url) }}
-    {% endfor %}
-  </ul>
+{#
+  The full tree is rendered once into assets/docs-tree.html (src/docs-tree.njk)
+  and loaded by assets/docs-tree.js. Inlining it here put ~180 KB into every
+  page. Without JavaScript the breadcrumbs and folder index pages still
+  navigate.
+#}
+<nav class="nav" aria-label="Documentation tree" data-doc-tree-src="{{ docsTreeURL | docsRelativeUrl(page.url) }}">
+  <noscript>
+    <p class="tree-status">The documentation tree needs JavaScript. Use the breadcrumbs above the
+    page, or start from the <a href="{{ "/" | docsRelativeUrl(page.url) }}" data-docs-internal>offline docs index</a>.</p>
+  </noscript>
 </nav>
+<script src="{{ "/assets/docs-tree.js" | docsRelativeUrl(page.url) }}" defer></script>

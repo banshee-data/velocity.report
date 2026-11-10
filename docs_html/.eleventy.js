@@ -9,6 +9,10 @@ const katex = require("katex");
 const embedStubMarker =
   "This placeholder keeps Go's docs_html/_site embed pattern valid on clean checkouts.\n";
 const repoRoot = path.resolve(__dirname, "..");
+// The documentation tree is rendered once to this site URL (src/docs-tree.njk)
+// and loaded into each page's sidebar by assets/docs-tree.js. Rendering it into
+// every page made it ~80% of each page's bytes and most of the build time.
+const docsTreeURL = "/assets/docs-tree.html";
 
 function isExternalHref(href) {
   return (
@@ -470,6 +474,7 @@ function configureOfflineDocs(eleventyConfig) {
 
   eleventyConfig.setLibrary("md", markdownLibrary);
   eleventyConfig.addGlobalData("layout", "base.njk");
+  eleventyConfig.addGlobalData("docsTreeURL", docsTreeURL);
   eleventyConfig.addGlobalData("eleventyComputed", {
     permalink: (data) => {
       const inputPath = data.page?.inputPath || "";
@@ -591,6 +596,8 @@ function configureOfflineDocs(eleventyConfig) {
     if (!this.page.outputPath || !this.page.outputPath.endsWith(".html")) {
       return content;
     }
+    // Every tree link is generated and already marked data-docs-internal.
+    if (this.page.url === docsTreeURL) return content;
     const $ = cheerio.load(content, { decodeEntities: false });
     $("a[href]").each((_, element) => {
       if ($(element).attr("data-docs-internal") !== undefined) return;
@@ -637,6 +644,7 @@ module.exports._test = {
   buildDocsTree,
   buildFolderPages,
   candidatesForPath,
+  docsTreeURL,
   documentationURLForRepositoryPath,
   githubRepositoryHref,
   githubRepositoryPath,
