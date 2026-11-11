@@ -1,0 +1,43 @@
+name: Consolidate development log
+
+on:
+  schedule:
+    - cron: "30 6 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: devlog-consolidation
+  cancel-in-progress: false
+
+jobs:
+  consolidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Validate tooling and consolidate landed fragments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make check-devlog test-devlog devlog-consolidate check-no-results
+      - name: Open or update consolidation PR
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          branch: ci/devlog-consolidation
+          delete-branch: true
+          add-paths: |
+            docs/DEVLOG.md
+            docs/devlog-fragments/pending/*.md
+          commit-message: "[ai][docs] consolidate landed devlog fragments"
+          title: "[docs] Consolidate landed devlog fragments"
+          body: |
+            Folded reviewed fragments from main into the development journal using UTC PR merge dates.
+            Consumed fragments are removed in the same commit. Historical wording is preserved.
+
+            Validation: `make check-devlog test-devlog devlog-consolidate check-no-results`.
+            Actions-created PRs may need required checks dispatched by a maintainer before merging.

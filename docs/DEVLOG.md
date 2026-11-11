@@ -6,7 +6,9 @@ This is the chronological engineering journal: what changed, why it mattered, an
 that made it worth recording. Entries are historical records, so new work belongs at the top and
 older entries stay put, however tempting hindsight may be.
 
-**Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
+**Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. New work is recorded in fragments; existing `{branch-name}` tags are historical. See `.github/STYLE.md` (Logs and registers).
+
+Pending updates are recorded in [devlog fragments](devlog-fragments/pending/); see the [workflow](devlog-fragments/README.md).
 
 ## November 10, 2026 - Experiment review: the body and the motion model after the November fixes
 

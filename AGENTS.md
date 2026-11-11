@@ -348,6 +348,13 @@ The [decision-review guide](docs/platform/operations/decision-review.md) explain
 voice handoff, decision log, and integration checkpoints. Model selection and voice availability
 depend on the active client; the packet carries context across clients and sessions.
 
+## Development log updates
+
+Feature PRs add unique Markdown fragments under `docs/devlog-fragments/pending/` rather than editing
+`docs/DEVLOG.md`. Follow [the fragment workflow](docs/devlog-fragments/README.md) for format, exemptions,
+and consolidation. A twice-weekly helper folds landed fragments into the journal in one PR.
+Experiment reports still need a devlog entry: link the report from the fragment.
+
 ## Commit format
 
 See [.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md) for the full prefix table and rules. AI edits always include `[ai]` plus the language tag.

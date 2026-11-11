@@ -322,7 +322,7 @@ for the local and CI release setup.
 - 🧭 [DECISIONS.md](docs/DECISIONS.md): why things are the way they are
 - 📊 [COVERAGE.md](docs/COVERAGE.md): what is tested, what is not, and where the gaps live
 - 🪵 [CHANGELOG.md](CHANGELOG.md): what changed and when
-- 📓 [DEVLOG.md](docs/DEVLOG.md): engineering journal
+- 📓 [DEVLOG.md](docs/DEVLOG.md): engineering journal ([pending updates and workflow](docs/devlog-fragments/README.md))
 - 📋 [BACKLOG.md](docs/BACKLOG.md): prioritised work queue
 - 🌲 [MATRIX.md](data/structures/MATRIX.md): test and validation surface coverage
 - ❓ [QUESTIONS.md](data/QUESTIONS.md): things we do not know yet

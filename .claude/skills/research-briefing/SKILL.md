@@ -148,8 +148,7 @@ lives in that directory and nowhere else, with:
 - British English, prose wrapped at 100 columns, no Go, SQL, JSON or Typst code blocks, no em
   dashes, and no verdict words about road users.
 
-Link the briefing from the plan it most affects. Add one devlog bullet under today's UTC date,
-prefixed `{branch-name}`. Add a backlog item only where a concrete `S`, `M` or `L` item follows,
+Link the briefing from the plan it most affects. Add a unique devlog fragment under `docs/devlog-fragments/pending/` following `docs/devlog-fragments/README.md`. Add a backlog item only where a concrete `S`, `M` or `L` item follows,
 with a design-doc link.
 
 ### 8. Ship

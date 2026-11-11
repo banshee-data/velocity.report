@@ -14,4 +14,4 @@ Describe why this change is needed and what problem it solves.
 - [ ] Version has been bumped where required.
 - [ ] Documentation is up to date.
 - [ ] `README.md` is up to date.
-- [ ] `docs/DEVLOG.md` is up to date.
+- [ ] Added a unique fragment in `docs/devlog-fragments/pending/` (see `docs/devlog-fragments/README.md`), or explained `<!-- devlog-skip: reason -->` in this PR.

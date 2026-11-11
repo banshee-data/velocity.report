@@ -181,7 +181,7 @@ loosen a rule after seeing a result.
    the numbers the rule was applied to, per-case summaries where they decide it, what it does not
    establish, provenance (commit, parameter set paths and fingerprints, corpus and segments) and
    recommendations. Answer the spec (`status: answered`, `report`, `actual`), regenerate
-   `make experiments-graph`, and add a devlog bullet.
+   `make experiments-graph`, and add a unique devlog fragment following `docs/devlog-fragments/README.md`.
 7. **Adoption.** A candidate that passes its whole rule, held out, becomes the default in the same
    PR: `config/tuning.defaults.json` and every parameter set that carries the block, the CONFIG.md
    row, then the gates that the moved fingerprint trips. Recapture the Mac perf baselines

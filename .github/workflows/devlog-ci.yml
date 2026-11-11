@@ -1,0 +1,25 @@
+name: Development log fragments
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  fragments:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Validate fragments and PR policy
+        env:
+          DEVLOG_BASE: ${{ github.event.pull_request.base.sha }}
+          DEVLOG_PR_BODY: ${{ github.event.pull_request.body }}
+          DEVLOG_MAINTENANCE: ${{ contains(github.event.pull_request.labels.*.name, 'devlog-maintenance') || (github.event.pull_request.user.login == 'github-actions[bot]' && github.event.pull_request.head.ref == 'ci/devlog-consolidation') }}
+        run: make check-devlog test-devlog
