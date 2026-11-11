@@ -163,6 +163,12 @@ a {
   font-size: 0.9rem;
 }
 
+.tree-status {
+  color: var(--muted);
+  margin: 0;
+  padding: 0.3rem 0.5rem;
+}
+
 .tree-root,
 .tree-children {
   list-style: none;

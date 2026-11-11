@@ -2,6 +2,7 @@ package experiments
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,7 +57,15 @@ func (s *Set) Get(id string) *Spec { return s.byID[id] }
 
 // Load reads every area and spec under root/Dir. A directory without a
 // README.md header, and the legacy try/ folder, are skipped.
-func Load(root string) (*Set, error) {
+func Load(root string) (*Set, error) { return loadSpecs(root, nil) }
+
+// LoadCompatible skips files this tracker cannot read, with visible reasons.
+// Strict repository validation continues to use Load.
+func LoadCompatible(root string, skipped map[string]string) (*Set, error) {
+	return loadSpecs(root, skipped)
+}
+
+func loadSpecs(root string, skipped map[string]string) (*Set, error) {
 	base := filepath.Join(root, Dir)
 	entries, err := os.ReadDir(base)
 	if err != nil {
@@ -91,6 +100,10 @@ func Load(root string) (*Set, error) {
 			path := filepath.Join(areaDir, f.Name())
 			spec, err := ReadFile(path)
 			if err != nil {
+				if skipped != nil {
+					skipped[strings.TrimSuffix(f.Name(), ".md")] = err.Error()
+					continue
+				}
 				return nil, err
 			}
 			rel, _ := filepath.Rel(root, path)
@@ -218,6 +231,23 @@ func (spec *Spec) validate(root string, set *Set) []error {
 			fail("depends on itself")
 		} else if set.Get(d) == nil {
 			fail("depends on %s, which does not exist", d)
+		}
+	}
+
+	for _, d := range spec.NeedsRuns {
+		if d == spec.ID {
+			fail("needs_runs names itself")
+		} else if set.Get(d) == nil {
+			fail("needs_runs names unknown experiment %s", d)
+		}
+	}
+	for _, st := range spec.Steps {
+		if st.Closed != "" {
+			if ClassifyKind(st.Kind) != KindManual {
+				fail("step %s: closed is only for manual steps", st.ID)
+			} else if e := CheckClosure(context.Background(), root, spec, st); e != nil {
+				fail("step %s closure: %v", st.ID, e)
+			}
 		}
 	}
 
@@ -388,7 +418,7 @@ func (s *Set) dependencyCycle() []string {
 		stack = append(stack, id)
 		spec := s.Get(id)
 		if spec != nil {
-			for _, d := range spec.DependsOn {
+			for _, d := range append(append([]string{}, spec.DependsOn...), spec.NeedsRuns...) {
 				if s.Get(d) == nil {
 					continue
 				}

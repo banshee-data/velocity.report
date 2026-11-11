@@ -1,0 +1,21 @@
+{
+  "fetch_on_tick": true,
+  "worker": "arrow-worker",
+  "class": "arrow",
+  "cores": 8,
+  "capabilities": ["pcap:s2", "pcap-build"],
+  "evidence_root": "/mnt/results/velocity-harness",
+  "stage_dir": "/srv/banshee/evidence/harness-stage",
+  "capture_root": "/mnt/captures/lidar",
+  "capture_subdir": "s2",
+  "disk_floor_gb": 3,
+  "daily_hours": 18,
+  "reclaim": true,
+  "corpora": {
+    "d2-first-segment": {
+      "corpus": "data/experiments/corpora/first-segment-corpus.json",
+      "index": "data/experiments/corpora/first-segment-site-index.json"
+    }
+  },
+  "references": {}
+}

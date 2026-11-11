@@ -22,11 +22,20 @@ class Links(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.hrefs: list[tuple[str, bool]] = []
+        # The sidebar tree is fetched at runtime from the file a page's
+        # <nav data-doc-tree-src> names, so its links appear in no page body.
+        self.tree_sources: list[str] = []
+        self.has_tree = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if "data-doc-tree" in attributes:
+            self.has_tree = True
+        tree_source = attributes.get("data-doc-tree-src")
+        if tree_source:
+            self.tree_sources.append(tree_source)
         if tag != "a":
             return
-        attributes = dict(attrs)
         href = attributes.get("href")
         if href:
             self.hrefs.append((href, "data-docs-app-surface" in attributes))
@@ -77,6 +86,77 @@ def wait_for_server(
     raise RuntimeError("embedded docs server did not become ready within 30 seconds")
 
 
+def check_links(
+    opener: object,
+    root_url: str,
+    base_url: str,
+    label: str,
+    hrefs: list[tuple[str, bool]],
+    checked_links: set[str],
+    failures: list[str],
+) -> None:
+    """Request each same-origin /docs/ link once, recording failures."""
+    for href, is_docs_app_surface in hrefs:
+        if is_docs_app_surface:
+            continue
+        target = urljoin(base_url, href)
+        parsed = urlsplit(target)
+        if parsed.scheme not in {"http", "https"}:
+            continue
+        if parsed.netloc != urlsplit(root_url).netloc:
+            continue
+        if not parsed.path.startswith("/docs/"):
+            continue
+        if target in checked_links:
+            continue
+        checked_links.add(target)
+        try:
+            status, _ = request(opener, target)
+        except (HTTPError, URLError, TimeoutError) as error:
+            failures.append(f"{label}: broken docs link {href}: {error}")
+        else:
+            if status != 200:
+                failures.append(f"{label}: broken docs link {href}: status={status}")
+
+
+def check_tree(
+    opener: object,
+    root_url: str,
+    page_url: str,
+    label: str,
+    source: str,
+    checked_trees: set[str],
+    checked_links: set[str],
+    failures: list[str],
+) -> None:
+    """Fetch a page's sidebar tree once and check every link in it."""
+    tree_url = urljoin(page_url, source)
+    if tree_url in checked_trees:
+        return
+    checked_trees.add(tree_url)
+    try:
+        status, body = request(opener, tree_url)
+    except (HTTPError, URLError, TimeoutError) as error:
+        failures.append(f"{label}: docs tree {source}: {error}")
+        return
+    tree_links = Links()
+    tree_links.feed(body.decode("utf-8", errors="replace"))
+    if status != 200 or not tree_links.has_tree:
+        failures.append(
+            f"{label}: docs tree {source}: status={status}, missing [data-doc-tree]"
+        )
+        return
+    check_links(
+        opener,
+        root_url,
+        tree_url,
+        urlsplit(tree_url).path,
+        tree_links.hrefs,
+        checked_links,
+        failures,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
@@ -118,52 +198,50 @@ def main() -> None:
             wait_for_server(opener, root_url, process)
             failures: list[str] = []
             checked_links: set[str] = set()
+            checked_trees: set[str] = set()
             for page in pages:
+                label = page.relative_to(site_root).as_posix()
                 relative_url = page_url(site_root, page).removeprefix("/docs/")
                 url = urljoin(root_url, relative_url)
                 try:
                     status, body = request(opener, url)
                 except (HTTPError, URLError, TimeoutError) as error:
-                    failures.append(f"{page.relative_to(site_root)}: {error}")
+                    failures.append(f"{label}: {error}")
                     continue
                 if status != 200 or b'class="shell"' not in body:
-                    failures.append(
-                        f"{page.relative_to(site_root)}: status={status}, missing docs shell"
-                    )
+                    failures.append(f"{label}: status={status}, missing docs shell")
                     continue
                 page_links = Links()
                 page_links.feed(body.decode("utf-8", errors="replace"))
-                for href, is_docs_app_surface in page_links.hrefs:
-                    if is_docs_app_surface:
-                        continue
-                    target = urljoin(url, href)
-                    parsed = urlsplit(target)
-                    if parsed.scheme not in {"http", "https"}:
-                        continue
-                    if parsed.netloc != urlsplit(root_url).netloc:
-                        continue
-                    if not parsed.path.startswith("/docs/"):
-                        continue
-                    if target in checked_links:
-                        continue
-                    checked_links.add(target)
-                    try:
-                        status, _ = request(opener, target)
-                    except (HTTPError, URLError, TimeoutError) as error:
-                        failures.append(
-                            f"{page.relative_to(site_root)}: broken docs link {href}: {error}"
-                        )
-                    else:
-                        if status != 200:
-                            failures.append(
-                                f"{page.relative_to(site_root)}: broken docs link {href}: status={status}"
-                            )
+                check_links(
+                    opener,
+                    root_url,
+                    url,
+                    label,
+                    page_links.hrefs,
+                    checked_links,
+                    failures,
+                )
+                if not page_links.tree_sources:
+                    failures.append(f"{label}: missing docs tree placeholder")
+                for source in page_links.tree_sources:
+                    check_tree(
+                        opener,
+                        root_url,
+                        url,
+                        label,
+                        source,
+                        checked_trees,
+                        checked_links,
+                        failures,
+                    )
             if failures:
                 raise RuntimeError(
                     "embedded docs verification failed:\n  - " + "\n  - ".join(failures)
                 )
             print(
                 f"✓ Embedded docs server verified ({len(pages)} pages, "
+                f"{len(checked_trees)} docs tree(s), "
                 f"{len(checked_links)} internal links)"
             )
         finally:

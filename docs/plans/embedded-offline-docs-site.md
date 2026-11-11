@@ -419,7 +419,7 @@ Milestone 1 comprised the original Phase 1, Phase 2, and Phase 3 work, plus the 
 | Item                                                                      | Status                                                                                                                             |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | "Docs (offline)" nav link from the Svelte UI                              | Done — `web/src/lib/docsUrl.ts` + nav entry in `web/src/routes/+layout.svelte`.                                                    |
-| Version footer (`build.version`, `build.gitShort`, `build.buildTime`)     | Done — `docs_html/src/_data/build.js` reads the env vars set by `make build-docs-offline`.                                         |
+| Version footer (`build.version`, `build.gitShort`, `build.commitTime`)    | Done — `docs_html/src/_data/build.js` reads the env vars set by `make build-docs-offline`.                                         |
 | Mermaid rendering                                                         | **Diverged from plan.** Client-side render via the bundled `mermaid.esm.min.mjs` rather than build-time SVG pre-render — see §9.3. |
 | KaTeX math rendering (not in original plan; raised by `data/maths/` need) | Done — `markdown-it-texmath` + `katex` server-side; `katex.min.css` and `dist/fonts/` shipped in `_site/assets/`.                  |
 | Dark mode (not in original plan)                                          | Done — `[data-theme="dark"]` token set; sticky brand+toggle header at the top of the sidebar; mermaid theme tracks the selection.  |

@@ -17,8 +17,8 @@ Outstanding project-wide work, by release. Plans in `plans/` hold the design and
 
 ### v0.5.2 - Unattended experiment harness (052)
 
-- **P1** Unattended experiment harness, H1–H2: `velocity experiments run <slug>` replaces the hand-built lanes, with stamped tool builds per commit and in-binary executors for `state_estimation_baseline`, `box_eval`, `ground_truth_eval` and a named-measure `corpus_screen`: [design doc](plans/platform-experiment-harness-plan.md) `M` `S-REF`
-- **P1** Unattended experiment harness, H3–H4: `velocity experiments tick` with pinned runs, bounded run notes under `data/experiments/runs/`, `closed` manual steps and `needs_runs`, dry-run on the Mac, then publishing as a GitHub App behind the `harness-pr.yml` path guard: [design doc](plans/platform-experiment-harness-plan.md) `M` `S-REF`
+- **P1** Unattended experiment harness, H1–H2 acceptance: the offline runner and stamped tool executors are built; reproduce an answered spec's headline bands and exercise configured frozen-reference scoring on arrow-worker: [design doc](plans/platform-experiment-harness-plan.md) `M` `S-REF`
+- **P1** Unattended experiment harness, H3–H4 acceptance: pinned ticks, bounded notes, manual closures, run dependencies, the App publisher and path guard are built; validate one approved spec and a real App-created PR through checks, review hold and merge: [design doc](plans/platform-experiment-harness-plan.md) `M` `S-REF`
 - **P1** Unattended experiment harness, H5: deploy to the NAS VM after Malory's review and soak one approved spec for a week; the last item of this slot, and nothing is deployed before it: [design doc](plans/platform-experiment-harness-plan.md) `S` `S-REF`
 
 ### v0.5.3 - Physical evidence foundations (053)

@@ -146,12 +146,47 @@ const docsRequire = createRequire(
   path.join(repoRoot, "docs_html/package.json"),
 );
 const cheerio = docsRequire("cheerio");
+// Tree source file -> whether it carries a [data-doc-tree] element.
+const treeSources = new Map();
 
 for (const file of htmlFiles) {
   const html = fs.readFileSync(file, "utf8");
   const $ = cheerio.load(html);
   const pageURL = pageURLForFile(file);
   const base = new URL(pageURL, "http://offline.local");
+
+  // The sidebar tree is loaded at runtime from the file this attribute names
+  // (docs_html/src/assets/docs-tree.js). That file is HTML too, so its links
+  // are checked by this same walk; here, check that every page can find it.
+  $("[data-doc-tree-src]").each((_, element) => {
+    const src = $(element).attr("data-doc-tree-src");
+    const relativeFile = path.relative(siteRoot, file);
+    let resolved;
+    try {
+      resolved = new URL(src, base);
+    } catch (error) {
+      errors.push(`${relativeFile}: invalid docs tree source ${src}: ${error.message}`);
+      return;
+    }
+    const target = fileForURLPath(resolved.pathname);
+    if (target.error || !target.file || !fs.existsSync(target.file)) {
+      errors.push(
+        `${relativeFile}: docs tree source ${src} -> ${resolved.pathname} does not exist`,
+      );
+      return;
+    }
+    if (!treeSources.has(target.file)) {
+      treeSources.set(
+        target.file,
+        cheerio.load(fs.readFileSync(target.file, "utf8"))("[data-doc-tree]").length > 0,
+      );
+    }
+    if (!treeSources.get(target.file)) {
+      errors.push(
+        `${relativeFile}: docs tree source ${src} has no [data-doc-tree] element`,
+      );
+    }
+  });
 
   $("a[href]").each((_, element) => {
     const href = $(element).attr("href");

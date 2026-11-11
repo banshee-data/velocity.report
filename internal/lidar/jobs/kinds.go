@@ -35,11 +35,11 @@ var Kinds = map[string]Kind{
 		ValidateParams: validateBenchmarkParams,
 	},
 	KindStateEstimationBaseline: {
-		Name: KindStateEstimationBaseline, Tool: "lidar-state-estimation-baseline", OnMain: false,
+		Name: KindStateEstimationBaseline, Tool: "lidar-state-estimation-baseline", OnMain: true,
 		Summary: "phase0-summary.json", ValidateParams: validateBaselineParams,
 	},
 	KindTrackScorecard: {
-		Name: KindTrackScorecard, Tool: "lidar-track-scorecard", OnMain: false,
+		Name: KindTrackScorecard, Tool: "lidar-track-scorecard", OnMain: true,
 		Summary: "scorecard.json", ValidateParams: validateScorecardParams,
 	},
 	KindVRLOGRecord: {

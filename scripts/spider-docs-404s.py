@@ -23,9 +23,15 @@ class Links(HTMLParser):
         self.hrefs: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        # Pages load the sidebar tree at runtime from the file this names;
+        # crawl it like a page so every tree link is followed.
+        tree_source = attributes.get("data-doc-tree-src")
+        if tree_source:
+            self.hrefs.append(tree_source)
         if tag != "a":
             return
-        href = dict(attrs).get("href")
+        href = attributes.get("href")
         if href:
             self.hrefs.append(href)
 

@@ -9,6 +9,11 @@ The "Static build + smoke test" job in `.github/workflows/static-build-ci.yml` r
 `ubuntu-latest`. Since 14:45 UTC on 20 October 2026 the job has failed on `main` and on every pull
 request, including PRs that touch nothing near it.
 
+Since November 2026 the gate no longer runs on pull requests. Static build CI builds arm64 on a
+native `ubuntu-24.04-arm` runner and runs the same checks on that runner's own ARM64 kernel
+(`test-static-arm64-vm.sh --host`); the VM gate itself runs in its `ARM64 VM gate` job on `main`
+pushes and manual runs, and in `build-image.yml`. The CPU fix below still applies to both.
+
 | Run                       | Runner image                  | Result                                |
 | ------------------------- | ----------------------------- | ------------------------------------- |
 | 39373875954 (main, 05:15) | ubuntu-24.04                  | passed                                |
