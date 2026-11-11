@@ -7,11 +7,11 @@ language model as "pass 2", and asks the four questions that plan leaves open: h
 time it buys and where, what the records look like, how the borderline cases reach a person, and
 what becomes of HINT.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.15 (facets) or v0.5.16 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Was: Exploration. Nothing here is built; the review workflow's pass 1 and pass 2 are
+- **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.15 (facets) or v0.5.16 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Revisited November 10, 2026, when one did: for label0001 and label0003 the owner chose a workflow with no external model, [one-hour labelling](lidar-one-hour-labelling-plan.md), and this exploration stays parked. Was: Exploration. Nothing here is built; the review workflow's pass 1 and pass 2 are
   unbuilt too, and the only proposer that exists is the macOS `ObjectProposer`
 - **Canonical:** [point-annotation-tool.md](../lidar/operations/point-annotation-tool.md)
 - **Layers:** L5 Tracks, L6 Objects, L8 Analytics, L10 Clients (macOS visualiser), sweep, offline analysis
-- **Related:** [Review workflow](lidar-review-workflow-plan.md), [Segment finder](lidar-annotation-segment-finder-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [Point annotation tool](../lidar/operations/point-annotation-tool.md), [Physical reference review](lidar-physical-reference-review-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Classifier scorecard](lidar-ml-classifier-training-plan.md), [Deterministic scene capture](lidar-deterministic-scene-capture-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md) (its deferred item 8.4 is this idea in one line)
+- **Related:** [Review workflow](lidar-review-workflow-plan.md), [Segment finder](lidar-annotation-segment-finder-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [Point annotation tool](../lidar/operations/point-annotation-tool.md), [Physical reference review](lidar-physical-reference-review-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Classifier scorecard](lidar-ml-classifier-training-plan.md), [Deterministic scene capture](lidar-deterministic-scene-capture-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md) (its deferred item 8.4 is this idea in one line), [One-hour labelling](lidar-one-hour-labelling-plan.md)
 - **Tenets touched:** 1 (privacy, local data), 3 (evidence over opinion), 4 (local-first)
 
 ## Assumptions
@@ -25,6 +25,20 @@ Two things in the question could not be pinned down from the repository and are 
 - **"A screenshot API"** is read as a programmatic way to render one subject at one sample, in a
   chosen view, at a fixed metric scale, to an image. The shared conversation describing it could
   not be fetched from this session, so both ways of building one are weighed below.
+
+## The held-out window: one-hour labelling instead
+
+The held-out window this plan was parked to wait for is drawn and cut: 575 to 755 s of
+embarcadero-folsom, label0003's spans and label0001's masks. On November 10 the owner set the
+direction for it: no external model, a person who drives and validates, and label0001 in about an
+hour instead of eight. [One-hour labelling](lidar-one-hour-labelling-plan.md) is that plan. It
+changes the unit of work rather than adding a grader: fixed zones said once for every frame, road
+users as bodies carried between keyframes, and review by exception.
+
+What carries over from here: code proposes and a person grades; proposals are never truth; a held-out
+pack is labelled with no tracker layer; and any model is a local scorer that suggests and orders,
+fitted on the development cohort, never a source of labels. The hosted backend this plan weighs is
+not used for the held-out window.
 
 ## What the operator does today, and where the hour goes
 
@@ -539,7 +553,8 @@ Each step is useful without the next, and the model enters at step 3.
 ## Open questions
 
 1. Does a hosted model backend get a decision record and an operator flag, or is the adapter
-   local-only until a local model is shown to be good enough?
+   local-only until a local model is shown to be good enough? For the held-out window the owner
+   answered on November 10: local only, a scorer at most.
 2. Should the macOS render endpoint exist at all, or should the window draw the Go dossier through
    the server and nothing else?
 3. Is the proxy round worth a sweep mode of its own, or is it an objective option on auto-tune?
