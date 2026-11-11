@@ -1,0 +1,41 @@
+---
+permalink: "{{ docsTreeURL }}"
+layout: false
+eleventyExcludeFromCollections: true
+---
+{#
+  The documentation tree, rendered once for the whole site. Every page carries
+  an empty placeholder (see _includes/sidebar.njk) and assets/docs-tree.js
+  fetches this file, marks the current page, and opens its ancestors. Hrefs
+  are relative to this file, so they resolve under any mount point.
+#}
+{%- macro renderTreeNode(node, treeUrl) -%}
+<li class="tree-item">
+{%- if node.children and node.children.length -%}
+<details class="tree-folder" data-tree-path="{{ node.path }}"><summary class="tree-summary"><span class="tree-disclosure" aria-hidden="true"></span>
+{%- if node.url -%}
+<a class="tree-link tree-folder-link" href="{{ node.url | docsRelativeUrl(treeUrl) }}" data-docs-internal>{{ node.title }}</a>
+{%- else -%}
+<span class="tree-folder-name">{{ node.name }}</span>
+{%- endif -%}
+</summary><ul class="tree-children" role="group">
+{%- for child in node.children %}{{ renderTreeNode(child, treeUrl) }}{% endfor -%}
+</ul></details>
+{%- else -%}
+<a class="tree-link tree-leaf" href="{{ node.url | docsRelativeUrl(treeUrl) }}" data-docs-internal>{{ node.title }}</a>
+{%- endif -%}
+</li>
+{%- endmacro -%}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="velocity-docs-tree" content="fragment">
+<title>Documentation tree | velocity.report offline docs</title>
+</head>
+<body>
+<ul class="tree-root" role="tree" data-doc-tree>
+{%- for node in collections.docsPages | docsTree(null) %}{{ renderTreeNode(node, page.url) }}{% endfor -%}
+</ul>
+</body>
+</html>

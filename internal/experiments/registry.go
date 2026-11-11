@@ -50,6 +50,7 @@ var ExportOptions = map[string]string{
 
 // WorkerClasses are the machines an estimate can be made for.
 var WorkerClasses = map[string]string{
+	"arrow":  "arrow-worker, the offline NAS analysis worker",
 	"m1pro":  "the development Mac (M1 Pro, 8 cores, 16 GB)",
 	"swan":   "the Unraid blade worker",
 	"pi4":    "the deployment Raspberry Pi 4 (4 GB)",

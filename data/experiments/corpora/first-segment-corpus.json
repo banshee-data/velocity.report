@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "name": "d2-first-segment",
+  "source_index": "first-segment-site-index.json",
+  "cases": [
+    {
+      "id": "ashbury-downey",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "haight-divisadero",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "pierce-haight",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "fulton-divisadero",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "california-leon-baker",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "broadway-franklin",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "laguna-eddy",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "lombard-broderick",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "marina-broderick",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "marina-webster-beach",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "lombard-laguna",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "columbus-north-point",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "embarcadero-bay",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "columbus-broadway",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "van-ness-sacramento",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "embarcadero-broadway",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "franklin-mcallister",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "hyde-ofarrell",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "bush-powell",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "1st-mission",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "embarcadero-bryant",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "3rd-folsom",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "howard-6th",
+      "expected_capture_count": 1
+    }
+  ]
+}

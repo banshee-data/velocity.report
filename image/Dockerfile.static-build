@@ -84,6 +84,17 @@ RUN set -eux; \
     done
 
 # ---------------------------------------------------------------------------
+# Go build cache seed. Empty by default, so a local build uses the
+# builder's own cache mount exactly as before. CI replaces this stage with
+# a restored cache directory (`--build-context go-build-seed=DIR`, set by
+# GO_BUILD_CACHE_FROM in scripts/build-radar-static.sh): a fresh builder
+# then starts its cache mount from that directory instead of empty.
+# Only compiler outputs are reused; -trimpath and -buildid= keep the
+# binary independent of whether a package came from the cache.
+# ---------------------------------------------------------------------------
+FROM scratch AS go-build-seed
+
+# ---------------------------------------------------------------------------
 # Stage 3 — Go binaries. Invalidates on source change or version-stamp
 # change. Reuses libpcap.a from the layer above without recompiling it.
 # ---------------------------------------------------------------------------
@@ -111,7 +122,7 @@ RUN cd /src/docs_html/_site \
 # DEV_VERSION and GIT_SHA_SHORT are computed on the host (bash-only
 # parameter expansion) and passed in as ARGs; this image's /bin/sh is
 # dash and would choke on `${VERSION//-/.}` inline.
-RUN --mount=type=cache,id=velocity-go-build-${TARGETARCH},target=/root/.cache/go-build,sharing=locked \
+RUN --mount=type=cache,id=velocity-go-build-${TARGETARCH},target=/root/.cache/go-build,sharing=locked,from=go-build-seed \
     set -eux; \
     mkdir -p /out; \
     VPKG=github.com/banshee-data/velocity.report/internal/version; \
@@ -153,6 +164,25 @@ RUN --mount=type=cache,id=velocity-go-build-${TARGETARCH},target=/root/.cache/go
         fi; \
         file "$out"; \
     done
+
+# ---------------------------------------------------------------------------
+# Go build cache export. Copies the cache mount out so CI can save it
+# between runs (GO_BUILD_CACHE_TO). The mount options must match the build
+# stage's, `from` included: BuildKit keys a seeded cache mount by its seed,
+# so a different seed would open a different, empty cache. The nonce keeps
+# the layer cache from replaying an old copy.
+# ---------------------------------------------------------------------------
+FROM toolchain AS go-build-cache-collect
+ARG TARGETARCH
+ARG GO_BUILD_CACHE_NONCE=0
+RUN --mount=type=cache,id=velocity-go-build-${TARGETARCH},target=/root/.cache/go-build,sharing=locked,from=go-build-seed \
+    set -eu; \
+    echo "nonce $GO_BUILD_CACHE_NONCE"; \
+    mkdir /go-build-cache; \
+    cp -a /root/.cache/go-build/. /go-build-cache/
+
+FROM scratch AS go-build-cache-export
+COPY --from=go-build-cache-collect /go-build-cache/ /
 
 # ---------------------------------------------------------------------------
 # Stage 4 — export. The only stage anyone outside this Dockerfile cares

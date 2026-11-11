@@ -127,6 +127,7 @@ def _run_main(
     tmp_path: Path,
     responses: list[object],
     process=None,
+    requested: list[str] | None = None,
 ) -> None:
     binary = tmp_path / "velocity"
     binary.write_text("binary")
@@ -143,7 +144,9 @@ def _run_main(
         mod.subprocess, "Popen", lambda *_args, **_kwargs: process or _Process()
     )
 
-    def request(_opener, _url):
+    def request(_opener, url):
+        if requested is not None:
+            requested.append(url)
         response = responses.pop(0)
         if isinstance(response, Exception):
             raise response
@@ -153,12 +156,85 @@ def _run_main(
     mod.main()
 
 
+TREE_NAV = b'<nav class="nav" data-doc-tree-src="./assets/docs-tree.html"></nav>'
+TREE = (
+    b'<ul data-doc-tree><li><a href="../tree-only/" data-docs-internal>T</a></li></ul>'
+)
+
+
+def test_links_collects_tree_sources_and_tree_marker() -> None:
+    links = mod.Links()
+    links.feed('<nav data-doc-tree-src="../assets/docs-tree.html"></nav>')
+    assert links.tree_sources == ["../assets/docs-tree.html"]
+    assert links.has_tree is False
+    links.feed("<ul data-doc-tree></ul>")
+    assert links.has_tree is True
+
+
 def test_main_verifies_pages_and_all_same_origin_docs_links(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    page = b'<div class="shell"><a href="child/">child</a><a href="https://github.com/x">source</a><a href="/public_html/" data-docs-app-surface>home</a>'
-    _run_main(monkeypatch, tmp_path, [(200, page), (200, b"")])
-    assert "1 pages, 1 internal links" in capsys.readouterr().out
+    page = (
+        b'<div class="shell"><a href="child/">child</a><a href="https://github.com/x">source</a><a href="/public_html/" data-docs-app-surface>home</a>'
+        + TREE_NAV
+    )
+    requested: list[str] = []
+    _run_main(
+        monkeypatch,
+        tmp_path,
+        [(200, page), (200, b""), (200, TREE), (200, b"")],
+        requested=requested,
+    )
+    assert "1 pages, 1 docs tree(s), 2 internal links" in capsys.readouterr().out
+    # Tree links resolve against the tree file, not against the page.
+    assert requested[2:] == [
+        "http://127.0.0.1:19001/docs/assets/docs-tree.html",
+        "http://127.0.0.1:19001/docs/tree-only/",
+    ]
+
+
+def test_main_requires_a_docs_tree_placeholder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    with pytest.raises(RuntimeError, match="missing docs tree placeholder"):
+        _run_main(monkeypatch, tmp_path, [(200, b'<div class="shell">')])
+
+
+@pytest.mark.parametrize(
+    "tree_response,message",
+    [
+        (URLError("down"), "docs tree ./assets/docs-tree.html: <urlopen error down>"),
+        ((404, b""), "status=404, missing \\[data-doc-tree\\]"),
+        ((200, b"<p>not a tree</p>"), "status=200, missing \\[data-doc-tree\\]"),
+    ],
+)
+def test_main_reports_an_unloadable_docs_tree(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    tree_response: object,
+    message: str,
+) -> None:
+    page = b'<div class="shell">' + TREE_NAV
+    with pytest.raises(RuntimeError, match=message):
+        _run_main(monkeypatch, tmp_path, [(200, page), tree_response])
+
+
+def test_main_fetches_a_shared_docs_tree_once(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    page = b'<div class="shell">' + TREE_NAV + TREE_NAV
+    _run_main(monkeypatch, tmp_path, [(200, page), (200, TREE), (200, b"")])
+    assert "1 docs tree(s), 1 internal links" in capsys.readouterr().out
+
+
+def test_main_reports_broken_links_inside_the_docs_tree(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    page = b'<div class="shell">' + TREE_NAV
+    with pytest.raises(
+        RuntimeError, match="/docs/assets/docs-tree.html: broken docs link"
+    ):
+        _run_main(monkeypatch, tmp_path, [(200, page), (200, TREE), (404, b"")])
 
 
 def test_main_collects_broken_link_failure_paths(

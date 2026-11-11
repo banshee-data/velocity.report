@@ -61,12 +61,17 @@ import (
 	"os"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
+	"github.com/banshee-data/velocity.report/internal/version"
 	_ "modernc.org/sqlite"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "-version" {
+		version.Print("lidar-ground-truth-eval")
+		return
+	}
 	os.Exit(run(os.Args[1:]))
 }
 

@@ -288,6 +288,11 @@ help:
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 GIT_SHA_SHORT := $(shell printf '%.7s' '$(GIT_SHA)')
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+# Committer date of HEAD in UTC. Content embedded in the binary (the offline
+# docs) is stamped with this rather than BUILD_TIME, so two builds of one
+# commit embed identical bytes; scripts/build-radar-static.sh stamps the
+# static binary the same way.
+COMMIT_TIME := $(shell TZ=UTC git log -1 --format='%cd' --date='format:%Y-%m-%dT%H:%M:%SZ' HEAD 2>/dev/null || echo "unknown")
 BUILD_TS_COMPACT := $(subst -,,$(subst :,,$(BUILD_TIME)))
 DEV_VERSION := $(subst -,.,$(VERSION))
 LDFLAGS := $(EXTRA_LDFLAGS) -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -689,7 +694,7 @@ build-docs-offline:
 	@./scripts/docs-offline-symlinks.sh create
 	@rm -rf docs_html/_site
 	@mkdir -p docs_html/_site
-	@cd docs_html && export VELOCITY_DOCS_VERSION="$(VERSION)" VELOCITY_DOCS_GIT_SHA="$(GIT_SHA)" VELOCITY_DOCS_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
+	@cd docs_html && export VELOCITY_DOCS_VERSION="$(VERSION)" VELOCITY_DOCS_GIT_SHA="$(GIT_SHA)" VELOCITY_DOCS_COMMIT_TIME="$(COMMIT_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
 		npm run build; \
@@ -1400,7 +1405,7 @@ dev-docs-offline-kill:
 dev-docs-offline: dev-docs-offline-kill
 	@echo "Starting offline docs dev server..."
 	@./scripts/docs-offline-symlinks.sh create
-	@cd docs_html && export VELOCITY_DOCS_VERSION="$(VERSION)" VELOCITY_DOCS_GIT_SHA="$(GIT_SHA)" VELOCITY_DOCS_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
+	@cd docs_html && export VELOCITY_DOCS_VERSION="$(VERSION)" VELOCITY_DOCS_GIT_SHA="$(GIT_SHA)" VELOCITY_DOCS_COMMIT_TIME="$(COMMIT_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run dev; \
 		elif command -v npm >/dev/null 2>&1; then \
 		npm run dev; \
@@ -2985,3 +2990,21 @@ PCL_FRAME_EXPORT_BIN ?= /tmp/pcl-frame-export
 .PHONY: build-pcl-frame-export
 build-pcl-frame-export: ## Build the offline one-frame PCL compatibility exporter
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(PCL_FRAME_EXPORT_BIN)" ./cmd/tools/pcl-frame-export
+
+# Offline harness builds are cached by commit outside the checkout.
+EXPERIMENT_TOOLS_DIR ?= $(CURDIR)/.tmp/experiment-tools
+.PHONY: build-experiment-tools check-harness-notes
+build-experiment-tools: ## Build stamped offline experiment executors (requires libpcap)
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	@mkdir -p "$(EXPERIMENT_TOOLS_DIR)"
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(EXPERIMENT_TOOLS_DIR)/lidar-state-estimation-baseline" ./cmd/tools/lidar-state-estimation-baseline
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(EXPERIMENT_TOOLS_DIR)/lidar-box-eval" ./cmd/tools/lidar-box-eval
+	go build -ldflags "$(LDFLAGS)" -o "$(EXPERIMENT_TOOLS_DIR)/lidar-ground-truth-eval" ./cmd/tools/lidar-ground-truth-eval
+
+check-harness-notes: ## Check bounded experiment run notes
+	@go run ./cmd/tools/experiments check-notes $(HARNESS_NOTE_FLAGS)
+
+.PHONY: check-harness-pr
+check-harness-pr: ## Guard experiment notes against HARNESS_BASE (local or CI)
+	@python3 scripts/check-harness-pr.py

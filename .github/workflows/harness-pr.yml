@@ -1,0 +1,26 @@
+name: Experiment run notes
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Check run-note contract and output policy
+        env:
+          HARNESS_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HARNESS_HEAD: ${{ github.head_ref }}
+        run: make check-no-results check-harness-pr

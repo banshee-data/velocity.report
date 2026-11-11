@@ -23,6 +23,27 @@ for required_page in \
 	fi
 done
 
+# The sidebar tree is rendered once into assets/docs-tree.html and loaded at
+# runtime by assets/docs-tree.js. Inlining it in every page made the embedded
+# site ~4x larger, so fail if a page carries the tree itself again.
+tree_file="$build_root/assets/docs-tree.html"
+for required_file in "$tree_file" "$build_root/assets/docs-tree.js"; do
+	if [[ ! -f "$required_file" ]]; then
+		echo "Embedded offline docs build is missing the docs tree: $required_file" >&2
+		exit 1
+	fi
+done
+if ! grep -qE 'data-doc-tree(=""|>)' "$tree_file" || ! grep -q 'data-doc-tree-src=' "$index_file"; then
+	echo "Embedded offline docs tree file or its index.html placeholder is malformed" >&2
+	exit 1
+fi
+inline_tree=$(grep -rlE --include='*.html' 'data-doc-tree(=""|>)' "$build_root" | grep -vxF "$tree_file" | head -5 || true)
+if [[ -n "$inline_tree" ]]; then
+	echo "Embedded offline docs pages carry the full tree inline (load it from assets/docs-tree.html):" >&2
+	echo "$inline_tree" >&2
+	exit 1
+fi
+
 # The reference graph page and its 2 MB graph belong to the public site
 # (public_html/src/docs/reference-graph/). These docs are embedded in the
 # binary, so fail if any of it is copied in, for instance by a reference-graph

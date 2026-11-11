@@ -8,6 +8,7 @@ import (
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/cmd/device"
+	experimentscmd "github.com/banshee-data/velocity.report/internal/cmd/experiments"
 	jobscmd "github.com/banshee-data/velocity.report/internal/cmd/jobs"
 	"github.com/banshee-data/velocity.report/internal/cmd/lidar"
 	scenecmd "github.com/banshee-data/velocity.report/internal/cmd/scene"
@@ -34,14 +35,15 @@ func init() {
 }
 
 var (
-	serverMain   = server.Main
-	deviceMain   = device.Main
-	lidarMain    = lidar.Main
-	tuneMain     = tune.Main
-	sceneMain    = scenecmd.Main
-	workerMain   = worker.Main
-	jobsMain     = jobscmd.Main
-	printVersion = version.Print
+	serverMain      = server.Main
+	deviceMain      = device.Main
+	lidarMain       = lidar.Main
+	tuneMain        = tune.Main
+	sceneMain       = scenecmd.Main
+	workerMain      = worker.Main
+	jobsMain        = jobscmd.Main
+	experimentsMain = experimentscmd.Main
+	printVersion    = version.Print
 )
 
 const topLevelUsage = `velocity — privacy-preserving traffic monitoring
@@ -59,6 +61,7 @@ Namespaces:
   tune      Parameter tuning: sweep
   worker    Run analysis jobs submitted to this host's API, one at a time
   jobs      Submit, watch and fetch jobs on a worker: status, submit, list, show, log, fetch, wait
+  experiments  Run and inspect offline experiments: run, tick, status
   version   Print version information
   help      Show this help
 
@@ -113,6 +116,8 @@ func Dispatch(prog string, args []string) int {
 		return 2
 	case "worker":
 		return workerMain(args[1:])
+	case "experiments":
+		return experimentsMain(args[1:])
 	case "jobs":
 		return jobsMain(args[1:])
 	case "version", "--version", "-v":

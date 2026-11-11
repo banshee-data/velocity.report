@@ -16,6 +16,13 @@ observed measurements from physical validation and explain what the evidence doe
 Link reports from the relevant README, plan, and development-log entry. A report is part of the
 engineering record, not disposable output; do not remove it when cleaning up raw results.
 
+A generated experiment run note is the narrow exception to the authored-report rule:
+`data/experiments/runs/<slug>/<run-id>.md` may contain the harness's bounded, generated,
+write-once provenance and named headline tables (64 KiB maximum). It must pass
+`make check-harness-notes`; it adopts nothing and does not replace an authored report.
+Raw evidence, row-level metrics and runtime state remain local. See the
+[harness runbook](docs/platform/operations/experiment-harness.md).
+
 Never commit raw experiment, replay, analysis, or benchmark outputs on any branch or PR. Recordings,
 row-level data, generated metric/configuration dumps, runtime logs, coverage output, database
 snapshots, and campaign state belong outside the checkout or in ignored local output directories.

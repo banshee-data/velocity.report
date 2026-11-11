@@ -6,13 +6,12 @@
 # digest, Go and zig tarball SHA-256s, libpcap submodule pointer. The
 # host only needs docker and git.
 #
-# The image always builds both arches in one go (so the Docker layer
-# cache stays warm across arch-specific invocations). The host script
-# extracts a configurable subset.
+# ARCHES is passed into the image, so the libpcap and build stages
+# compile only the arches asked for. Static build CI builds each arch on
+# its own native runner this way.
 #
 # Inputs (env):
-#   ARCHES          arches to extract (still builds both inside);
-#                   default "amd64 arm64"
+#   ARCHES          arches to build and extract; default "amd64 arm64"
 #   OUT_DIR         where to write binaries; default: ${REPO_ROOT}/build/static
 #   IMAGE_TAG       Docker image tag; default: velocity-report-static-build
 #   ALLOW_DIRTY     1 to permit building from a dirty tree (binary will
@@ -23,6 +22,14 @@
 #                     libpcap stages only, not the per-commit source and
 #                     binary layers. Needs a docker-container builder.
 #                     default: none
+#   GO_BUILD_CACHE_FROM  directory holding a saved Go build cache; seeds
+#                     the build's go-build cache mount, so a fresh builder
+#                     (as in CI) starts warm. Ignored if the directory
+#                     does not exist. default: none (the builder's own
+#                     cache mount, as for any local build)
+#   GO_BUILD_CACHE_TO    directory to write the Go build cache to after
+#                     the build, for saving between runs. Replaced if it
+#                     exists. default: none
 #   VERSION/GIT_SHA/BUILD_TIME/TYPST_VERSION  override version stamping
 #     (defaults: VERSION from Makefile, GIT_SHA from `git rev-parse HEAD`,
 #      BUILD_TIME from the HEAD commit's committer date in UTC ISO 8601 —
@@ -112,8 +119,7 @@ echo "    TYPST:      $TYPST_VERSION (embedded per target architecture)"
 echo "    EXTRACT:    $EXTRACT_ARCHES"
 
 # Build the image, exporting binaries directly to OUT_DIR via BuildKit's
-# local output. The image always builds both arches inside (so the layer
-# cache stays warm across single-arch invocations); we filter on extract.
+# local output. Only the arches in ARCHES are built.
 mkdir -p "$OUT_DIR"
 TMP_OUT="$(mktemp -d -t velocity-static.XXXXXX)"
 trap 'rm -rf "$TMP_OUT"' EXIT
@@ -131,6 +137,12 @@ BUILD_ARGS=(
 )
 if [[ -n "${BUILD_CACHE_FROM:-}" ]]; then
     BUILD_ARGS+=(--cache-from "$BUILD_CACHE_FROM")
+fi
+# The seed must be passed to every invocation below: the cache mount is
+# keyed by its seed, so the export would otherwise read a different one.
+if [[ -n "${GO_BUILD_CACHE_FROM:-}" && -d "$GO_BUILD_CACHE_FROM" ]]; then
+    echo "    GO CACHE:   seeded from $GO_BUILD_CACHE_FROM ($(du -sh "$GO_BUILD_CACHE_FROM" | cut -f1))"
+    BUILD_ARGS+=(--build-context go-build-seed="$GO_BUILD_CACHE_FROM")
 fi
 
 DOCKER_BUILDKIT=1 docker build \
@@ -152,6 +164,21 @@ if [[ -n "${BUILD_CACHE_TO:-}" ]]; then
         --output type=cacheonly \
         --cache-to "$BUILD_CACHE_TO" \
         .
+fi
+
+# Copy the Go build cache mount out of the builder. The build above has
+# filled it; this stage only reads it. Go trims entries unused for five
+# days on its own, so a cache carried forward run to run stays bounded.
+if [[ -n "${GO_BUILD_CACHE_TO:-}" ]]; then
+    echo "==> Exporting Go build cache to $GO_BUILD_CACHE_TO"
+    rm -rf "$GO_BUILD_CACHE_TO"
+    DOCKER_BUILDKIT=1 docker build \
+        "${BUILD_ARGS[@]}" \
+        --build-arg GO_BUILD_CACHE_NONCE="$(date +%s)-$$" \
+        --target go-build-cache-export \
+        --output "type=local,dest=$GO_BUILD_CACHE_TO" \
+        .
+    echo "    $(du -sh "$GO_BUILD_CACHE_TO" | cut -f1) in $(find "$GO_BUILD_CACHE_TO" -type f | wc -l | tr -d ' ') files"
 fi
 
 # Move the requested arches into OUT_DIR; ignore the rest.

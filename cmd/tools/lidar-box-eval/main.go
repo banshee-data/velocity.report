@@ -39,6 +39,10 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "-version" {
+		version.Print("lidar-box-eval")
+		return
+	}
 	var (
 		pcaps      = flag.String("pcap", "", "capture files, comma separated, in order (required)")
 		udpPort    = flag.Int("udp-port", 2369, "UDP port the capture's packets are on")

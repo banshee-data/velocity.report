@@ -5,22 +5,41 @@
 #   - Dockerfile.static-build regressions (toolchain pins, layer order)
 #   - libpcap submodule drift
 #   - --self-check failures in a clean Debian target (DNS, UDP, libpcap)
+#   - systemd privileges, live capture, persistence, upgrade and rollback
+#     of the ARM64 binary under a real ARM64 kernel
 #
-# Docs-only PRs do not run this job: docs content (docs/, data/, *.md,
-# docs_html/) is not among the pull_request paths below. Their embed is
-# checked by docs-offline-ci instead: `make test-docs-offline-routes`
+# Docs-only PRs do not run this workflow: docs content (docs/, data/,
+# *.md, docs_html/) is not among the pull_request paths below. Their embed
+# is checked by docs-offline-ci instead: `make test-docs-offline-routes`
 # serves every generated page through the embedded /docs/ handler, and
 # `make check-docs-embed-context` runs this Dockerfile's manifest check
 # (embed-check stage) without compiling. Every push to main still runs
-# this job unfiltered, so each merge proves the full embed in the release
-# binary.
+# this workflow unfiltered, so each merge proves the full embed in the
+# release binary.
 #
-# Runs take ~9 minutes: ~4.5 min for the Docker build (90 s per arch of
-# Go compile, which is never cached between runs), ~2.5 min for the ARM64
-# VM boot under TCG, and the rest in docs, smoke tests and setup. The
-# toolchain/libpcap layers and the VM gate's .debs are cached between
-# runs; a miss on either adds ~1.5 min, or more if the Ubuntu mirror is
-# slow.
+# Each arch builds natively on its own runner, in parallel: amd64 on
+# ubuntu-latest, arm64 on ubuntu-24.04-arm (free for public repositories).
+# Neither needs qemu-user. The arm64 job runs the full-system checks of
+# scripts/test-static-arm64-vm.sh on the runner itself (--host): a real
+# ARM64 kernel and CPU with systemd. A VM would buy no speed there, since
+# hosted runners have no /dev/kvm and qemu would still emulate it (TCG).
+# The host is Ubuntu, not the Debian 12 image the VM boots, so the VM gate
+# (arm64-vm) still runs on main pushes and manual runs, after both
+# builds, and the release workflow (build-image.yml) runs it on every
+# release binary.
+#
+# Timings, warm (November 2026): a PR finishes in ~4 min, down from ~6
+# for the single cross-building job. amd64 takes ~4 min: ~1 min each for
+# the docs site and the Docker build, ~45 s for the docs-route and golden
+# pcap checks. arm64 takes ~3.3 min; its host gate takes ~8 s. Main pushes
+# and manual runs add the VM gate (~2 min, of which ~100 s is the boot and
+# checks under TCG) after both builds, ~6 min in all. A cold Go cache adds
+# ~1.5 min to each build job.
+#
+# Caches: the toolchain/libpcap layers and the Go build cache are kept per
+# arch. Pull requests only restore them; main pushes and manual runs save
+# (the layer cache on a key miss, the Go cache at most once a day), so PRs
+# add nothing to the repository's 10 GB cache quota.
 
 name: Static build CI
 
@@ -55,25 +74,44 @@ permissions:
 
 env:
   ARM64_VM_PACKAGES: qemu-system-arm qemu-efi-aarch64 qemu-utils ipxe-qemu genisoimage
+  # Only main pushes and manual runs write caches; pull requests read them.
+  SAVE_CACHES: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 jobs:
   build-and-smoke-test:
-    name: Static build + smoke test
-    runs-on: ubuntu-latest
+    name: Static build + smoke test (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
           lfs: true
 
-      # qemu/binfmt registration so we can run arm64 binaries in the
-      # smoke-test step on this amd64 runner.
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-        with:
-          platforms: arm64
+      - name: Record runner CPU
+        # Hosted runners differ in CPU generation; logged so a slow run can
+        # be told apart from a slow change. /dev/kvm decides whether a VM
+        # gate on this runner could be accelerated.
+        run: |
+          cpu="$(lscpu | grep -m1 'Model name' | sed 's/^Model name:[[:space:]]*//' || true)"
+          kvm=absent
+          if [[ -e /dev/kvm ]]; then kvm=present; fi
+          echo "Runner CPU: ${cpu:-unknown}, $(nproc) cores, /dev/kvm $kvm" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # The build steps name this builder through BUILDX_BUILDER. Without
+      # it, `docker build` uses the default docker-driver builder, which
+      # can export a layer cache only where the runner's Docker has the
+      # containerd image store (ubuntu-latest does, ubuntu-24.04-arm's
+      # Docker 28 does not).
       - name: Set up Docker Buildx
+        id: buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Set up Node.js and pnpm for embedded docs
@@ -87,41 +125,78 @@ jobs:
 
       # Persist the toolchain and libpcap stages between runs. Each job
       # gets a fresh buildx builder, so without this every run rebuilds
-      # them (~80 s). The Go build cache is a BuildKit cache mount, which
-      # layer caching does not carry, so the Go compile stays cold.
+      # them (~80 s). Layer caching does not carry BuildKit cache mounts,
+      # so the Go build cache is kept separately below. The key names the
+      # runner arch and the built arch: the libpcap stage builds only the
+      # arches asked for, so an entry for another set would not match.
       - name: Key the BuildKit layer cache
         id: layer-cache-key
         run: echo "libpcap=$(git rev-parse HEAD:third_party/libpcap)" >> "$GITHUB_OUTPUT"
 
       - name: Restore BuildKit layer cache
         id: layer-cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ${{ runner.temp }}/buildkit-cache
-          key: static-build-layers-${{ runner.arch }}-${{ steps.layer-cache-key.outputs.libpcap }}-${{ hashFiles('image/Dockerfile.static-build', 'go.mod', 'go.sum', 'third_party/libpcap-static/**') }}
-          restore-keys: static-build-layers-${{ runner.arch }}-
+          key: static-build-layers-${{ runner.arch }}-${{ matrix.arch }}-${{ steps.layer-cache-key.outputs.libpcap }}-${{ hashFiles('image/Dockerfile.static-build', 'go.mod', 'go.sum', 'third_party/libpcap-static/**') }}
+          restore-keys: static-build-layers-${{ runner.arch }}-${{ matrix.arch }}-
 
-      - name: Build static binaries (amd64 + arm64)
+      # Persist the Go build cache too. It seeds the build's cache mount,
+      # so only changed packages compile (cold is ~70 s per arch). The
+      # prefix pins the runner arch, the built arch, the Go toolchain
+      # (go.mod's directive and the Dockerfile's tarball pins) and the
+      # modules; on a miss any older entry for the arch is still mostly
+      # warm, and Go's cache is content-addressed, so a stale entry is
+      # never reused wrongly. The date suffix limits saves to one a day
+      # per prefix.
+      - name: Key the Go build cache
+        id: go-cache-key
+        env:
+          PREFIX: static-build-gocache-${{ runner.arch }}-${{ matrix.arch }}-
+          INPUTS: ${{ hashFiles('image/Dockerfile.static-build', 'go.mod', 'go.sum') }}
+        run: |
+          echo "arch-prefix=$PREFIX" >> "$GITHUB_OUTPUT"
+          echo "prefix=$PREFIX$INPUTS-" >> "$GITHUB_OUTPUT"
+          echo "key=$PREFIX$INPUTS-$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Go build cache
+        id: go-cache
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/go-build-cache
+          key: ${{ steps.go-cache-key.outputs.key }}
+          restore-keys: |
+            ${{ steps.go-cache-key.outputs.prefix }}
+            ${{ steps.go-cache-key.outputs.arch-prefix }}
+
+      - name: Build static binary
         env:
           LAYER_CACHE: ${{ runner.temp }}/buildkit-cache
-          LAYER_CACHE_HIT: ${{ steps.layer-cache.outputs.cache-hit }}
+          LAYER_CACHE_SAVE: ${{ steps.layer-cache.outputs.cache-hit != 'true' && env.SAVE_CACHES == 'true' }}
+          GO_CACHE: ${{ runner.temp }}/go-build-cache
+          GO_CACHE_SAVE: ${{ steps.go-cache.outputs.cache-hit != 'true' && env.SAVE_CACHES == 'true' }}
+          ARCH: ${{ matrix.arch }}
+          BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
           if [[ -f "$LAYER_CACHE/index.json" ]]; then
             export BUILD_CACHE_FROM="type=local,src=$LAYER_CACHE"
           fi
-          # Export only when the key missed, into a fresh directory: the
-          # local exporter never prunes, so writing over the restored
-          # cache would carry stale blobs forward.
-          if [[ "$LAYER_CACHE_HIT" != "true" ]]; then
+          # Export only when this run saves and the key missed, into a
+          # fresh directory: the local exporter never prunes, so writing
+          # over the restored cache would carry stale blobs forward.
+          if [[ "$LAYER_CACHE_SAVE" == "true" ]]; then
             export BUILD_CACHE_TO="type=local,dest=$LAYER_CACHE.new,mode=max"
           fi
-          make build-radar-static
-          if [[ -d "$LAYER_CACHE.new" ]]; then
-            rm -rf "$LAYER_CACHE"
-            mv "$LAYER_CACHE.new" "$LAYER_CACHE"
+          export GO_BUILD_CACHE_FROM="$GO_CACHE"
+          # Export beside the restored cache, not over it: the restored
+          # one stays the seed for the reproducibility rebuild below.
+          if [[ "$GO_CACHE_SAVE" == "true" ]]; then
+            export GO_BUILD_CACHE_TO="$GO_CACHE.new"
           fi
+          make "build-radar-static-$ARCH"
 
-      - name: Verify embedded docs routes in the amd64 binary
+      - name: Verify embedded docs routes in the binary
+        if: matrix.arch == 'amd64'
         run: |
           bin=$(ls build/static/velocity-report-*-linux-amd64-*-static | head -1)
           python3 scripts/verify-embedded-docs-server.py "$bin"
@@ -132,27 +207,104 @@ jobs:
             ./scripts/verify-static-elf.sh "$bin"
           done
 
-      - name: Smoke-test amd64 binary
+      - name: Smoke-test binary
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
-          bin=$(ls build/static/velocity-report-*-linux-amd64-*-static | head -1)
+          bin=$(ls build/static/velocity-report-*-linux-"$ARCH"-*-static | head -1)
           ./scripts/smoke-test-static.sh "$bin"
 
       - name: Validate canonical LiDAR capture with release binary
+        if: matrix.arch == 'amd64'
         run: |
           bin=$(ls build/static/velocity-report-*-linux-amd64-*-static | head -1)
           ./scripts/test-static-golden-pcap.sh "$bin"
 
-      - name: Smoke-test arm64 binary (under qemu)
+      - name: Test ARM64 binary under the runner's ARM64 kernel
+        if: matrix.arch == 'arm64'
         run: |
           bin=$(ls build/static/velocity-report-*-linux-arm64-*-static | head -1)
-          ./scripts/smoke-test-static.sh "$bin"
+          ./scripts/test-static-arm64-vm.sh --host "$bin"
+
+      # Pass the same Go cache seed as the first build. The seed is an
+      # input to the compile step, so a different one would recompile
+      # rather than replay the layer.
+      - name: Verify reproducible static artifact
+        env:
+          GO_BUILD_CACHE_FROM: ${{ runner.temp }}/go-build-cache
+          ARCH: ${{ matrix.arch }}
+          BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
+        run: |
+          sha256sum build/static/velocity-report-*-static > "$RUNNER_TEMP/velocity-static.sha256"
+          make "build-radar-static-$ARCH"
+          sha256sum -c "$RUNNER_TEMP/velocity-static.sha256"
+
+      - name: Prepare caches for saving
+        id: cache-save
+        env:
+          LAYER_CACHE: ${{ runner.temp }}/buildkit-cache
+          GO_CACHE: ${{ runner.temp }}/go-build-cache
+        run: |
+          if [[ -d "$LAYER_CACHE.new" ]]; then
+            rm -rf "$LAYER_CACHE"
+            mv "$LAYER_CACHE.new" "$LAYER_CACHE"
+            echo "BuildKit layer cache: $(du -sh "$LAYER_CACHE" | cut -f1)"
+            echo "layers=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ -d "$GO_CACHE.new" ]]; then
+            rm -rf "$GO_CACHE"
+            mv "$GO_CACHE.new" "$GO_CACHE"
+            echo "Go build cache: $(du -sh "$GO_CACHE" | cut -f1)"
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save BuildKit layer cache
+        if: steps.cache-save.outputs.layers == 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/buildkit-cache
+          key: ${{ steps.layer-cache.outputs.cache-primary-key }}
+
+      - name: Save Go build cache
+        if: steps.cache-save.outputs.go == 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/go-build-cache
+          key: ${{ steps.go-cache-key.outputs.key }}
+
+      - name: Upload binary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: velocity-report-static-binary-${{ matrix.arch }}
+          path: build/static/velocity-report-*-static
+          retention-days: 14
+
+  # The full VM gate: the arm64 job's host checks again, inside a pinned
+  # Debian 12 ARM64 cloud image booted under qemu. It proves what the
+  # runner host cannot: a stock Debian userland and systemd on a machine
+  # with nothing else installed. Emulated (TCG), the boot alone takes
+  # ~85 s, so it runs on main pushes and manual runs, not on PRs.
+  arm64-vm:
+    name: ARM64 VM gate
+    needs: build-and-smoke-test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Download ARM64 binary
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: velocity-report-static-binary-arm64
+          path: build/static
 
       # The runner's Ubuntu mirror is sometimes throttled to tens of kB/s,
       # which once stretched this install from 20 s to 23 min. Keep the
       # downloaded .debs between runs so only the package index comes from
       # the mirror, and install only what the VM gate uses. qemu-img (in
       # qemu-utils) and virtio-net-pci's option ROM (in ipxe-qemu) are
-      # named so they do not depend on recommends.
+      # named so they do not depend on recommends. This job never runs on
+      # pull requests, so its save follows the rule for the caches above.
       - name: Key the ARM64 test package cache
         id: apt-cache-key
         env:
@@ -179,20 +331,9 @@ jobs:
           sudo rm -f "$APT_ARCHIVES/lock"
           sudo chown -R "$(id -u):$(id -g)" "$APT_ARCHIVES"
 
-      - name: Test ARM64 binary under an ARM64 kernel
+      # Artifacts do not keep file modes, so restore the executable bit.
+      - name: Test ARM64 binary under an ARM64 VM kernel
         run: |
           bin=$(ls build/static/velocity-report-*-linux-arm64-*-static | head -1)
+          chmod +x "$bin"
           ./scripts/test-static-arm64-vm.sh "$bin"
-
-      - name: Verify reproducible static artifacts
-        run: |
-          sha256sum build/static/velocity-report-*-static > /tmp/velocity-static.sha256
-          make build-radar-static
-          sha256sum -c /tmp/velocity-static.sha256
-
-      - name: Upload binaries
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: velocity-report-static-binaries
-          path: build/static/velocity-report-*-static
-          retention-days: 14
