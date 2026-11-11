@@ -1,6 +1,7 @@
 # Offline docs site
 
 Active plan: [embedded-offline-docs-site.md](../../plans/embedded-offline-docs-site.md)
+Proposed: [deploy-offline-docs-asset-plan.md](../../plans/deploy-offline-docs-asset-plan.md) (ship the site as a release asset beside the binary)
 
 This page describes the two documentation sites carried by the image: the
 repository reference at `/docs/` and the curated public homepage at
