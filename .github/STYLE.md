@@ -119,7 +119,7 @@ Specification and architecture documents should target 800 lines or fewer. Dense
 - **One heading per day:** the devlog has exactly one `## Month DD, YYYY - Theme` heading per UTC date, newest first. No date ranges. When more work lands on a day that already has an entry, append to it and broaden its theme.
 - **PR numbers:** every devlog bullet for work that landed through a pull request ends with its number(s) before the final full stop: `(#622)` or `(#605, #606)`. New work is recorded in per-PR fragments; the consolidation helper adds PR numbers on landing. Existing `{branch-name}` tags remain historical records. Work pushed straight to main has no number.
 
-Feature PRs add fragments instead of editing the journal. The format and consolidation procedure live in [the fragment guide](../docs/devlog/README.md); the `devlog-update` skill applies this workflow.
+Feature PRs add fragments instead of editing the journal. The format and consolidation procedure live in [the fragment guide](../docs/devlog-fragments/README.md); the `devlog-update` skill applies this workflow.
 
 ## Dates and Timestamps
 

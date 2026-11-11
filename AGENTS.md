@@ -343,8 +343,8 @@ depend on the active client; the packet carries context across clients and sessi
 
 ## Development log updates
 
-Feature PRs add unique Markdown fragments under `docs/devlog/pending/` rather than editing
-`docs/DEVLOG.md`. Follow [the fragment workflow](docs/devlog/README.md) for format, exemptions,
+Feature PRs add unique Markdown fragments under `docs/devlog-fragments/pending/` rather than editing
+`docs/DEVLOG.md`. Follow [the fragment workflow](docs/devlog-fragments/README.md) for format, exemptions,
 and consolidation. A twice-weekly helper folds landed fragments into the journal in one PR.
 Experiment reports still need a devlog entry: link the report from the fragment.
 

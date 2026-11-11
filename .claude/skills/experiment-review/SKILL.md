@@ -144,7 +144,7 @@ read. The goal is the goal; a new paper is next Monday's briefing.
    verdict words about road users, and no raw output: every number is a report's.
 3. **Backlog**, `docs/DECISIONS.md` only if a decision was actually made (it was not: the
    review proposes), the plan's open-questions row where a spec now carries it, one sentence in
-   `docs/lidar/README.md` linking the review, and a unique devlog fragment under `docs/devlog/pending/` following `docs/devlog/README.md`.
+   `docs/lidar/README.md` linking the review, and a unique devlog fragment under `docs/devlog-fragments/pending/` following `docs/devlog-fragments/README.md`.
 
 ## 9. Ship
 

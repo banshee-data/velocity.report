@@ -32,7 +32,7 @@ jobs:
           delete-branch: true
           add-paths: |
             docs/DEVLOG.md
-            docs/devlog/pending/*.md
+            docs/devlog-fragments/pending/*.md
           commit-message: "[ai][docs] consolidate landed devlog fragments"
           title: "[docs] Consolidate landed devlog fragments"
           body: |

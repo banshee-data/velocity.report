@@ -274,3 +274,34 @@ test("the transform marks internal docs, externalises source, and removes placeh
   assert.equal(rewrite.call({ page: { outputPath: "asset.json" } }, "raw"), "raw");
   assert(fs.existsSync(path.join(repoRoot, "docs")));
 });
+
+test("repository documentation routes have no case-insensitive collisions", () => {
+  const routes = new Map();
+  function record(url, source) {
+    const folded = url.toLowerCase();
+    assert.equal(
+      routes.has(folded),
+      false,
+      `Offline docs route collision: ${source} (${url}) and ${routes.get(folded)}`,
+    );
+    routes.set(folded, source);
+  }
+  function markdownPages(directory) {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      if (entry.name.startsWith(".") || entry.name === "results") continue;
+      const source = path.join(directory, entry.name);
+      const stat = fs.statSync(source);
+      if (stat.isDirectory()) markdownPages(source);
+      else if (entry.name.endsWith(".md")) {
+        record(helpers.outputURLForSourcePath(repoRoot, source), source);
+      }
+    }
+  }
+  for (const prefix of ["docs", "data"]) {
+    const directory = path.join(repoRoot, prefix);
+    markdownPages(directory);
+    for (const folder of helpers.buildFolderPages(directory, prefix)) {
+      record(folder.url, `generated folder ${folder.url}`);
+    }
+  }
+});

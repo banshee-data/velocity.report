@@ -12,7 +12,7 @@ import subprocess
 import sys
 from urllib.parse import urlsplit, urlunsplit
 
-PENDING = "docs/devlog/pending"
+PENDING = "docs/devlog-fragments/pending"
 LOG = "docs/DEVLOG.md"
 LINK = re.compile(r"(!?\[[^\]\n]*\])\(([^\s()]+)\)")
 HEADING = re.compile(r"^## ([A-Z][a-z]+ \d{1,2}, \d{4}) - .+$", re.MULTILINE)
