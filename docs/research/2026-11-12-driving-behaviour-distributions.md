@@ -36,7 +36,7 @@ to **retain exact, versioned per-passage/per-encounter observations before compu
 distributions**, and to distinguish time-weighted from vehicle- or encounter-weighted views.
 A high-braking location is a diagnostic prompt, not proof of dangerous street design.
 
-## Evidence reviewed
+## Evidence
 
 ### Concas et al.: acceleration and jerk volatility (October 2026)
 
