@@ -10,6 +10,10 @@ older entries stay put, however tempting hindsight may be.
 
 Pending updates are recorded in [devlog fragments](devlog-fragments/pending/); see the [workflow](devlog-fragments/README.md).
 
+## November 11, 2026 - Engineering updates
+
+- Replaced shared devlog edits with per-PR fragments and a twice-weekly consolidation PR, preserving reviewed journal wording, report links, and UTC merge attribution while avoiding feature-branch conflicts (#1013).
+
 ## November 10, 2026 - Experiment review: the body and the motion model after the November fixes
 
 - Planned [one-hour labelling](plans/lidar-one-hour-labelling-plan.md) for label0001, at the owner's direction (no external model; the person drives and validates): fixed zones said once for every frame, a ground surface and road-user space from the pinned Gerardus record for embarcadero-folsom, road users as bodies carried between keyframes with membership by box, a precedence resolver, review by exception with an audit sample, an optional local scorer on the classifier plan's transparent tiers, and a timed kirk0 trial before the held-out window. The [model-assisted review exploration](plans/lidar-model-assisted-review-exploration.md) stays parked and points to it (#1008).
