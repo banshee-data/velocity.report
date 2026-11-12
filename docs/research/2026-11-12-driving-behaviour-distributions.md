@@ -40,8 +40,8 @@ A high-braking location is a diagnostic prompt, not proof of dangerous street de
 
 ### Concas et al.: acceleration and jerk volatility (October 2026)
 
-[Concas et al.](https://doi.org/10.1016/j.trf.2026.103812), *Transportation Research
-Part F*, analysed 8,029 driver-days from 43 Tampa participants in a connected-vehicle
+[Concas et al.](https://doi.org/10.1016/j.trf.2026.103812), _Transportation Research
+Part F_, analysed 8,029 driver-days from 43 Tampa participants in a connected-vehicle
 warning deployment. The published abstract reports warning-day jerk-volatility increases of
 23.9% when the warning display was inactive and 9.7% when active, compared with
 warning-free days, a 14.2-percentage-point moderation. The reported acceleration-volatility
@@ -57,8 +57,8 @@ still be dangerous; stop-start traffic can have high volatility without a design
 
 ### Taheri et al.: conflict count versus severity (October 21, 2026)
 
-[Taheri et al.](https://doi.org/10.1016/j.aap.2026.108835), *Accident Analysis &
-Prevention*, used calibrated SUMO microsimulation in Charlottenburg, Berlin. It examined
+[Taheri et al.](https://doi.org/10.1016/j.aap.2026.108835), _Accident Analysis &
+Prevention_, used calibrated SUMO microsimulation in Charlottenburg, Berlin. It examined
 automated-vehicle penetration, vehicle-size mix and desired headways of 0.6, 0.8 and
 1.0 seconds. At a 0.6-second desired headway, the full-automation scenario had
 approximately 45% fewer TTC-defined conflicts. Some mixed-traffic conditions had a
@@ -72,8 +72,8 @@ available effective sampling rate and uncertainty resolve such short intervals.
 
 ### Wu and Flannagan: when a surrogate supports a safety claim (October 10, 2026)
 
-[Wu and Flannagan](https://doi.org/10.1016/j.aap.2026.108773), *Accident Analysis &
-Prevention*, propose a causal-graphical validation framework for hard braking as a
+[Wu and Flannagan](https://doi.org/10.1016/j.aap.2026.108773), _Accident Analysis &
+Prevention_, propose a causal-graphical validation framework for hard braking as a
 surrogate for rear-end crashes in SHRP2 naturalistic driving. It addresses assumptions,
 intervention-to-crash mediation, surrogate paradox and transportability. The indexed
 abstract does **not** establish that one braking threshold is universally causally valid.
@@ -86,8 +86,8 @@ validation work; this synthesis adds no second backlog item.
 
 ### Nasri et al.: observational DRAC/TTC/PET associations (June 2026)
 
-[Nasri et al.](https://doi.org/10.1016/j.jsr.2026.04.008), *Journal of Safety
-Research*, used 54.8 million one-second trajectory observations at 139 Tucson
+[Nasri et al.](https://doi.org/10.1016/j.jsr.2026.04.008), _Journal of Safety
+Research_, used 54.8 million one-second trajectory observations at 139 Tucson
 signalized intersections with five years of crash data. DRAC was the strongest
 tested surrogate predictor across the reported model families. This is
 observational association, not causal mediation. **DRAC is the required deceleration
@@ -98,7 +98,7 @@ transfer numeric effects or event thresholds to our effective LiDAR sample rate.
 ### Shangguan et al.: duration-aware behaviour states (October 30, 2026)
 
 [Shangguan et al.](https://doi.org/10.1016/j.aap.2026.108844),
-*Accident Analysis & Prevention* 240:108844, conducted a driving-simulator study
+_Accident Analysis & Prevention_ 240:108844, conducted a driving-simulator study
 under manual, ADAS and automated operation at three traffic densities. A
 hierarchical Dirichlet process hidden semi-Markov model (HDP-HSMM) identified eight
 scenario-specific states: residual/mixed, hard braking, brief braking adjustment,
@@ -172,7 +172,7 @@ and its membership rules:
   identity, approach/movement, observed start/end, track completeness,
   speed/geometry summaries, and the existing per-track **raw maximum** speed.
   The canonical report p50/p85/p98 population is the collection of
-  *per-passage maximum speeds*, **not** one speed at a newly introduced
+  _per-passage maximum speeds_, **not** one speed at a newly introduced
   reference line and not pooled frames. A distance-profile speed measure
   is separate and explicitly named, never an alias for the report percentile.
 - **Physical-state sample:** timestamp, effective interval, longitudinal
@@ -248,7 +248,7 @@ minimum.
   derivative of refined acceleration with declared bandwidth; never
   third differences of observed positions. Report filter/window
   sensitivity and response delay rather than rewarding smoother curves.
-- **TTC:** minimum per eligible *encounter* with a declared prediction
+- **TTC:** minimum per eligible _encounter_ with a declared prediction
   model and horizon, plus counts/rates for sensitivity bands. Distinguish
   all eligible encounters from the subset that crossed a threshold; a
   larger fraction severe **among selected conflicts** can coexist with
@@ -273,7 +273,7 @@ minimum.
 **Research does not provide a universal discretization width.** Use
 unrounded exact values as the authoritative analytical record and give
 every materialized histogram a fixed, versioned bin specification.
-Candidate *visualization experiments* are 1 mph speed, 0.25-0.5 m/s^2
+Candidate _visualization experiments_ are 1 mph speed, 0.25-0.5 m/s^2
 longitudinal acceleration, 0.1-0.25 seconds short-range TTC/PET, and
 2-5 meters along-path braking distance. These are **illustrative
 engineering choices**, not configured defaults or validated risk bands.
@@ -289,7 +289,7 @@ later threshold change.
 Exact quantiles should be computed from eligible underlying units
 when feasible. **Never average percentiles or reconstruct an aggregate
 p98 by combining per-window p98 values.** For large-stream rollups,
-mergeable KLL or relative-error REQ sketches may be evaluated *later*;
+mergeable KLL or relative-error REQ sketches may be evaluated _later_;
 they approximate **rank**, not physical measurement error, do not repair
 track bias and cannot replace rare-event records or uncertainty
 intervals. See [Apache KLL](https://datasketches.apache.org/docs/KLL/KLLAccuracyAndSize.html)
@@ -332,13 +332,13 @@ deceleration location/severity**, and observation coverage. Overlay
 reference stop lines and crosswalks from Gerardo registration. Pair
 the map with speed distribution, event count per eligible passage,
 movement-type strata, uncertainty and missingness. For encounters,
-plot a *separate* conflict location layer with minimum-TTC
+plot a _separate_ conflict location layer with minimum-TTC
 distribution and eligible encounter exposure.
 
 Example hypothesis, **not an observed result**: repeatable braking
 onsets concentrated within 15 m of a crosswalk could motivate an
 investigation into visibility, geometry, congestion or signal timing.
-It is not evidence by itself that the road design *caused* the
+It is not evidence by itself that the road design _caused_ the
 braking or that crashes would be prevented by a change.
 
 ## Prerequisites, prototype and verification
