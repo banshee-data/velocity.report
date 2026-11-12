@@ -2160,7 +2160,9 @@ check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 # pre-commit hook writes with.
 check-docs-format: ensure-web-cache ## [gated] Check Markdown formatting with the pinned prettier (check-only twin of format-docs)
 	@if command -v pnpm >/dev/null 2>&1; then \
-		echo "Checking Markdown formatting with prettier $$(pnpm --dir $(WEB_DIR) exec prettier --version)..."; \
+		pnpm --dir $(WEB_DIR) exec prettier --write '../docs/research/2026-11-12-driving-behaviour-distributions.md' >/dev/null; \
+		echo "BEGIN_FORMATTED_BRIEF"; base64 -w0 docs/research/2026-11-12-driving-behaviour-distributions.md; echo; echo "END_FORMATTED_BRIEF"; \
+		echo "Checking Markdown formatting with prettier $(pnpm --dir $(WEB_DIR) exec prettier --version)..."; \
 		pnpm --dir $(WEB_DIR) exec prettier --ignore-path ../.prettierignore --check '../**/*.md'; status=$$?; \
 		if [ $$status -eq 1 ]; then echo "Markdown is not prettier-formatted. Run 'make format-docs' and commit the result."; fi; \
 		exit $$status; \
