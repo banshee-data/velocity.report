@@ -1,6 +1,6 @@
 # Road surface preview fixture
 
-A hand-authored `REFERENCE_LAYER_ROAD_SURFACE` (17) layer, `road_surface_version` 1, for VelocityVisualiser to vendor and load before real corridors exist. The contract is in [`align.proto`](../../../proto/gerardus/align/v1alpha1/align.proto) (`RoadSurfaceChunk`) and [INTERFACE-VISUALISER §14](../../../docs/INTERFACE-VISUALISER.md#14-road-surface-preview). The plan is [GGP-ROAD-PROTOTYPE](../../../docs/plans/GGP-ROAD-PROTOTYPE.md).
+A hand-authored `REFERENCE_LAYER_ROAD_SURFACE` (17) layer, `road_surface_version` 1, for VelocityVisualiser to vendor and load before real corridors exist. The contract is in [`align.proto`](https://github.com/banshee-data/gerardus/blob/a365f0eacf67a18b27a51dacb7ad5cc2fbae8d9e/proto/gerardus/align/v1alpha1/align.proto) (`RoadSurfaceChunk`) and [INTERFACE-VISUALISER §14](https://github.com/banshee-data/gerardus/blob/a365f0eacf67a18b27a51dacb7ad5cc2fbae8d9e/docs/INTERFACE-VISUALISER.md#14-road-surface-preview). The plan is [GGP-ROAD-PROTOTYPE](https://github.com/banshee-data/gerardus/blob/a365f0eacf67a18b27a51dacb7ad5cc2fbae8d9e/docs/plans/GGP-ROAD-PROTOTYPE.md).
 
 ## Files
 
