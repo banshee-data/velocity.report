@@ -1,5 +1,5 @@
 // Vendored from banshee-data/gerardus.
-// Source commit: e9dc3e06674070e5a7042d1b7cbf251c69db1190.
+// Source commit: a365f0eacf67a18b27a51dacb7ad5cc2fbae8d9e.
 // Retired OSM layer identities are reserved and must not be reused.
 // Regenerate with make proto-gen-swift after synchronising this contract.
 
@@ -367,6 +367,13 @@ enum ReferenceLayer {
   // Trees (W7, ADR-0014): DataSF's Street Tree List and trunks and crowns
   // fitted in 3DEP and the scans, as TREE.
   REFERENCE_LAYER_TREES = 16;
+  // Road surface preview (docs/plans/GGP-ROAD-PROTOTYPE.md): filled
+  // carriageway patches fitted on 3DEP class-2 ground inside reviewed road
+  // boundaries, as RoadSurfaceChunk messages. A derived preview of the
+  // parametric road (ADR-0017), not its canonical form. Sent only when a
+  // request names it, never in the empty-request default, and advertised by
+  // GetServerInfoResponse.road_surface_version.
+  REFERENCE_LAYER_ROAD_SURFACE = 17;
 }
 
 // SourceInfo names one input and the terms it came under. A client that
@@ -742,6 +749,13 @@ message GetServerInfoResponse {
   // when this server has no baked tiles.
   string city_tiles_path = 10;
   string city_tiles_epoch = 11;
+  // The road surface preview contract this server speaks
+  // (REFERENCE_LAYER_ROAD_SURFACE, RoadSurfaceChunk): 0 on a server without
+  // it, whose StreamReference answers layer 17 with an empty, complete
+  // layer, or with INVALID_ARGUMENT ("unknown layer 17") on one older than
+  // the enum value. 1: GGP-ROAD-PROTOTYPE. The layer is also listed in
+  // available_layers when this server has road previews to send.
+  uint32 road_surface_version = 12;
 }
 
 message PrepareSiteRequest {
@@ -776,7 +790,9 @@ message StreamReferenceRequest {
   // Empty: every retained bundle layer, in enum order.
   repeated ReferenceLayer layers = 2;
   Vector3 centre = 3;               // site frame; unset: the origin
-  float radius_m = 4;               // horizontal; 0: the whole bundle
+  // Horizontal; 0: the whole bundle. Only a filter on what is sent: a client
+  // that wants complete tiles (covering_l16_tokens) asks for the whole bundle.
+  float radius_m = 4;
   // Aerial thinning: the server sends every EPT level of detail whose
   // nominal spacing is at least this, so never denser than asked.
   // 0: server default (0.50 m).
@@ -801,6 +817,7 @@ message StreamReferenceResponse {
     IntersectionSet intersections = 4;
     ScanPoints scan_points = 6;     // REFERENCE_LAYER_REGISTERED_SCANS
     Heightfield ground_mesh = 7;    // REFERENCE_LAYER_GROUND_MESH
+    RoadSurfaceChunk road_surface = 9;  // REFERENCE_LAYER_ROAD_SURFACE
   }
   bool layer_complete = 5;          // last chunk of this layer
   // The site model the registered layers (REGISTERED_SCANS, OBSERVED,
@@ -1210,4 +1227,211 @@ message ReviewLaneProposalRequest {
 message ReviewLaneProposalResponse {
   LaneProposalReview review = 1;
   LaneProposal proposal = 2;
+}
+
+// =============================================================================
+// Road surface preview (REFERENCE_LAYER_ROAD_SURFACE, road_surface_version 1)
+// =============================================================================
+//
+// docs/plans/GGP-ROAD-PROTOTYPE.md, docs/INTERFACE-VISUALISER.md §14. A
+// prototype contract: the support classes, boundary provenance, the layer
+// number and the residual method are meant to last; the 0.5 m grid, this
+// mesh payload and the use of Site.frame are scaffolding the parametric
+// road (SPEC-ROAD-SURFACE) replaces.
+//
+// Frames. Patches are fitted in EPSG:7131 (NAD83(2011) / San Francisco
+// CS13, metres) with NAVD88 heights, from shared inputs, then moved into the
+// requesting site's frame in double precision and sent as float32. The same
+// physical vertex sent through two neighbouring sites' frames lands on the
+// same world position, to the precision RoadSurfaceLayer.frame_accuracy_m
+// states. Hashes are computed in EPSG:7131, so they do not depend on the
+// site a patch came through.
+//
+// Chunking. The first message for each corridor carries its
+// RoadSurfaceLayer and may carry patches; the patches that follow belong to
+// the most recent header until the next one. Every patch is whole inside one message: a patch never
+// spans messages, and the server splits long segments into patches of at
+// most 16384 vertices so that a message stays well inside the 4 MiB gRPC
+// limit. A client that sees the same patch_id from two site bundles keeps
+// one; equal geometry_hash means equal geometry. layer_complete marks the
+// last message as for every layer.
+//
+// radius_m on the request keeps the patches with any vertex within it.
+
+// Where a vertex's height comes from.
+enum RoadSupport {
+  ROAD_SUPPORT_UNSPECIFIED = 0;
+  // Fitted from class-2, non-withheld 3DEP points near the vertex: at least
+  // RoadSurfaceLayer.min_points within RoadSurfaceLayer.fit_radius_m.
+  ROAD_SUPPORT_OBSERVED = 1;
+  // Too few points near it, but observed vertices on opposite sides within
+  // RoadSurfaceLayer.max_interpolation_m: the height is bridged between them.
+  ROAD_SUPPORT_INTERPOLATED = 2;
+  // No height. z is NaN and the normal is NaN; no triangle uses the vertex.
+  // Never filled from a neighbour or carried forward.
+  ROAD_SUPPORT_MISSING = 3;
+}
+
+// Where a stretch of road boundary comes from. KERB_PAIR to INFERRED_WIDTH
+// run from strongest to weakest; a patch's summary is its weakest edge
+// other than AUTHORED cuts, which only end a patch or open a junction mouth.
+enum RoadBoundarySource {
+  ROAD_BOUNDARY_SOURCE_UNSPECIFIED = 0;
+  // A DataSF kerb on both sides of the carriageway, reviewed as a pair.
+  ROAD_BOUNDARY_SOURCE_KERB_PAIR = 1;
+  // A DataSF kerb or island on this side only.
+  ROAD_BOUNDARY_SOURCE_CITY_KERB = 2;
+  // A hand-authored width about the DataSF centreline: inferred.
+  ROAD_BOUNDARY_SOURCE_INFERRED_WIDTH = 3;
+  // A hand-drawn edge, such as the mouth of a junction patch between arms.
+  ROAD_BOUNDARY_SOURCE_AUTHORED = 4;
+}
+
+enum RoadPatchKind {
+  ROAD_PATCH_KIND_UNSPECIFIED = 0;
+  ROAD_PATCH_KIND_SEGMENT = 1;      // part of one City segment, between junction mouths
+  ROAD_PATCH_KIND_JUNCTION = 2;     // a node's patch, bounded by its arms' mouths
+}
+
+// A safety component's state (SPEC-ROAD-SAFETY §2, §6). The prototype
+// sends every component NOT_ASSESSED.
+enum RoadAssessmentState {
+  ROAD_ASSESSMENT_STATE_UNSPECIFIED = 0;
+  ROAD_ASSESSMENT_STATE_NOT_ASSESSED = 1;
+  ROAD_ASSESSMENT_STATE_ASSESSED = 2;
+}
+
+message RoadAssessment {
+  string component = 1;             // "C1".."C18", SPEC-ROAD-SAFETY §2
+  RoadAssessmentState state = 2;
+  string source = 3;                // empty while NOT_ASSESSED
+  string observed = 4;              // ISO date; empty while NOT_ASSESSED
+}
+
+// A closed ring in the site frame, without the closing vertex repeated.
+// Outer rings run counter-clockwise seen from +z, holes clockwise.
+message RoadRing {
+  repeated float xyz = 1 [packed = true];  // interleaved x, y, z; z NaN where the boundary has no height
+  // One per edge: edge i runs from vertex i to vertex i + 1 (the last back
+  // to the first).
+  repeated RoadBoundarySource edge_source = 2 [packed = true];
+  bool hole = 3;                    // an island or other hole inside the outer ring
+  string source_feature_id = 4;     // for a hole, the island's feature id ("datasf:<dataset>/<id>")
+}
+
+// Per-patch fit and coverage figures. Areas are horizontal, in m².
+message RoadPatchStats {
+  float area_m2 = 1;                // inside the outer ring less the holes
+  float observed_area_m2 = 2;       // area whose nearest vertex is OBSERVED
+  float interpolated_area_m2 = 3;
+  float missing_area_m2 = 4;
+  uint32 ground_points = 5;         // fitting points used inside the patch
+  uint32 held_out_points = 6;       // points withheld from the fit for the residual check
+  // Held-out residuals (point minus surface) over OBSERVED triangles, m.
+  // NaN with no held-out points.
+  float residual_median_m = 7;
+  float residual_rms_m = 8;
+  float residual_p95_abs_m = 9;
+  // The rider's line: the band 0.5-1.5 m inside the outer ring's right
+  // edge in each direction (SPEC-ROAD-SAFETY §2). Share of its length, 0-1.
+  float rider_line_observed = 10;
+  float rider_line_interpolated = 11;
+  float rider_line_missing = 12;
+}
+
+// A station on the patch's centreline height profile, for a driving camera.
+// s runs from the patch's start along RoadSurfacePatch.from_node ->
+// to_node; position is on the surface (z NaN where the surface is MISSING).
+message RoadProfileStation {
+  float s_m = 1;
+  Vector3 position = 2;             // site frame
+  float grade = 3;                  // dz/ds, ratio; NaN where unsupported
+  RoadSupport support = 4;
+}
+
+message RoadSurfacePatch {
+  // Stable across rebuilds and site bundles for the same inputs:
+  // "gms-preview:road/<corridor>/<kind>/<cnn or node cnn>/<n>".
+  string patch_id = 1;
+  RoadPatchKind kind = 2;
+  // The City feature the patch belongs to: "datasf:3psu-pn9h/<cnn>" for a
+  // segment, "datasf:cnn/<node cnn>" for a junction.
+  string feature_id = 3;
+  string cnn = 4;                   // the CNN alias; empty when none
+  string name = 5;                  // "MARTIN LUTHER KING JR DR"
+  string from_node = 6;             // segment: the City node cnns at its ends
+  string to_node = 7;
+  // The sources this patch was fitted from, as SourceInfo.version strings,
+  // and the date of the ground observation (3DEP: "2023-04-20").
+  string source_version = 8;
+  string observed = 9;              // ISO date
+
+  // Mesh, site frame. vertices interleaved x, y, z; normals interleaved,
+  // unit, per vertex; support one per vertex. Indices are triangles into
+  // this patch's vertices only (index scope is the patch), counter-
+  // clockwise seen from +z (normals point up). No triangle uses a MISSING
+  // vertex, so missing ground stays an open gap inside the rings.
+  repeated float vertices = 10 [packed = true];
+  repeated float normals = 11 [packed = true];
+  repeated uint32 indices = 12 [packed = true];
+  repeated RoadSupport support = 13 [packed = true];
+
+  // The outer ring first, then holes. Vertices on a ring edge shared with
+  // a neighbouring patch are the same physical points in both patches.
+  repeated RoadRing rings = 14;
+  RoadBoundarySource boundary_source = 15;  // the weakest of the rings' edge sources, AUTHORED cuts aside
+
+  repeated RoadProfileStation profile = 16;
+  repeated RoadAssessment assessments = 17;
+  RoadPatchStats stats = 18;
+
+  // sha256 hex of the patch's geometry and of its support, in EPSG:7131
+  // (docs/INTERFACE-VISUALISER.md §14.3): equal across site bundles and
+  // rebuilds of the same inputs.
+  string geometry_hash = 19;
+  string support_hash = 20;
+}
+
+// A selected road the server could not surface, with why, so a preview
+// never implies coverage it does not have.
+message RoadGap {
+  string feature_id = 1;
+  string cnn = 2;
+  string name = 3;
+  // "no_boundary", "no_ground", "structure", "tunnel", "excluded",
+  // "car_free" and so on; message says more.
+  string reason = 4;
+  string message = 5;
+  float length_m = 6;
+}
+
+// What a corridor's patches were built from and with. Sent in the first
+// message of each corridor.
+message RoadSurfaceLayer {
+  uint32 version = 1;               // road_surface_version the layer was built under
+  string corridor_id = 2;           // "ggp-mlk-1"
+  string manifest_hash = 3;         // sha256 of the corridor's input manifest
+  string build_hash = 4;            // sha256 over manifest_hash, the build parameters and every patch's hashes
+  string source_crs = 5;            // "EPSG:7131"
+  string source_vertical = 6;       // "EPSG:5703" (NAVD88)
+  // Site frame <- EPSG:7131: how far, at most, a vertex sent in this site's
+  // frame can differ from its EPSG:7131 position re-projected exactly; the
+  // float32 rounding and the frame's own approximations together.
+  float frame_accuracy_m = 7;
+  float grid_m = 8;                 // the sampling grid, 0.5
+  float fit_radius_m = 9;
+  uint32 min_points = 10;
+  float max_interpolation_m = 11;
+  repeated RoadGap gaps = 12;       // selected roads with no patch, and why
+  // Inventory totals for the park or area the corridor sits in, so a
+  // reviewer can tell the corridor from the whole: lengths in m.
+  float inventory_length_m = 13;
+  float surfaced_length_m = 14;
+  float inferred_length_m = 15;
+  float missing_length_m = 16;
+}
+
+message RoadSurfaceChunk {
+  RoadSurfaceLayer layer = 1;       // first message of each corridor only
+  repeated RoadSurfacePatch patches = 2;
 }

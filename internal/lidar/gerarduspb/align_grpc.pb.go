@@ -1,5 +1,5 @@
 // Vendored from banshee-data/gerardus.
-// Source commit: e9dc3e06674070e5a7042d1b7cbf251c69db1190.
+// Source commit: a365f0eacf67a18b27a51dacb7ad5cc2fbae8d9e.
 // Retired OSM layer identities are reserved and must not be reused.
 // Regenerate with make proto-gen-swift after synchronising this contract.
 
