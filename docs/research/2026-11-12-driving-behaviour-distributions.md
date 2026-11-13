@@ -138,7 +138,7 @@ metric becomes observable**:
 - Braking, gap, speed and steering are different measurements and cannot be
   collapsed into one universal risk scalar.
 
-The review's risk-state organization (exposure, imminence, potential severity,
+The review's risk-state organisation (exposure, imminence, potential severity,
 persistence) is useful as distinct explanatory dimensions, not an endorsed
 velocity.report risk score. Its secondary TTC/PET threshold examples, including
 1.15 seconds and up to 6 seconds, require the original primary studies for any
@@ -272,7 +272,7 @@ minimum.
 
 **Research does not provide a universal discretization width.** Use
 unrounded exact values as the authoritative analytical record and give
-every materialized histogram a fixed, versioned bin specification.
+every materialised histogram a fixed, versioned bin specification.
 Candidate _visualization experiments_ are 1 mph speed, 0.25-0.5 m/s^2
 longitudinal acceleration, 0.1-0.25 seconds short-range TTC/PET, and
 2-5 meters along-path braking distance. These are **illustrative

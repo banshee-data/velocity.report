@@ -245,8 +245,16 @@ The November 5, 2026 update adds `Wu2026` (208 total entries). The speed/conflic
 
 The November 12 synthesis adds `Shangguan2026` (212 bibliography entries at this revision). The speed/conflict/crash section is now 50/50 against its existing cap; `Salah2026`, `Concas2026`, `Taheri2026`, `Wu2026` and `Nasri2026` were already registered. The Shangguan abstract supports a simulator-specific state-transition experiment, not a roadside accuracy benchmark or a change to shipping metric thresholds.
 
+The weekend oracle response adds `Fazekas2017` for the constant-leader-speed and reaction-time
+assumptions behind longitudinal required deceleration. The speed/conflict/crash cap increases
+from 50 to 51 to retain this primary modelling source alongside the existing empirical and
+threshold studies; it is not a duplicate or a replacement for them. The publisher's full text
+was consulted for those assumptions. No threshold, reported performance or field-validation
+claim from the paper is adopted.
+
 | BibTeX key               | Mention that requires the entry                                                                                                 | Identity record                                                                                                                                      |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Fazekas2017`            | [Weekend oracle response](../../../research/lidar-weekend-facets-headway-drac-oracle-response.md#q2-drac-can-use-cv-velocities) | [Primary record](https://onlinelibrary.wiley.com/doi/10.1155/2017/8376572)                                                                           |
 | `Wu2026`                 | [Causal-surrogate validation](../../../research/2026-11-05-causal-surrogate-validation.md)                                      | [Primary record](https://pubmed.ncbi.nlm.nih.gov/42858486/)                                                                                          |
 | `Shangguan2026`          | [Driving-state/distribution synthesis](../../../research/2026-11-12-driving-behaviour-distributions.md)                         | [Primary record](https://pubmed.ncbi.nlm.nih.gov/42962436/)                                                                                          |
 | `Concas2026`             | [Approach stability](../../../research/2026-10-29-approach-stability-and-ttc.md)                                                | [Primary record](https://doi.org/10.1016/j.trf.2026.103812)                                                                                          |

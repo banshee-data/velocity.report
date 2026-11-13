@@ -15,10 +15,16 @@ Outstanding project-wide work, by release. Plans in `plans/` hold the design and
 - [#290] **P1** (#11) Serial configuration, v0.5.1 release gate: validate a USB serial adapter and a deliberately changed-setting reload on the v0.5.1 release candidate; device and baud auto-detect is the v0.8.0 item: [implementation plan](plans/serial-configuration-implementation-plan.md) `S` `S-RADAR`
 - **P1** Cut v0.5.1 from `main`: the `:80` image smoke test, the CHANGELOG section rewritten over `v0.5.0..main` with the breaking L3 change first, `VERSION` and the macOS version set, the gates and a Pi boot on the release candidate, then the owner's tag and the stable channel updated: [Work unit F](plans/deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s) `S` `S-PLATFORM`
 
-### v0.5.2 - Unattended experiment harness (052)
+### v0.5.2 - Unattended experiment harness + following evidence (052)
+
+<a id="v052---unattended-experiment-harness-052"></a>
 
 - **P1** Unattended experiment harness, H1–H2 acceptance: the offline runner and stamped tool executors are built; reproduce an answered spec's headline bands and exercise configured frozen-reference scoring on arrow-worker: [design doc](plans/platform-experiment-harness-plan.md) `M` `S-REF`
 - **P1** Unattended experiment harness, H3–H4 acceptance: pinned ticks, bounded notes, manual closures, run dependencies, the App publisher and path guard are built; validate one approved spec and a real App-created PR through checks, review hold and merge: [design doc](plans/platform-experiment-harness-plan.md) `M` `S-REF`
+- **P1** Weekend following evidence preflight: verify Lombard at Broderick's capture, site/source binding, accepted placement/lanes, references and split history, with an accessible-data fallback and unknowns recorded: [W1](plans/lidar-weekend-following-drac-plan.md#work-and-acceptance) `S` `S-EVID`
+- **P1** Reproducible per-site candidate, following and experimental DRAC logs: retain both speeds, endpoint/path evidence, versions and uncertainty, with metric-specific eligibility, exact opportunity/exclusion accounting and repeatability checks: [W2](plans/lidar-weekend-following-drac-plan.md#work-and-acceptance) `M` {math} `S-MET`
+- **P1** Intensive multi-vehicle review: inspect a few source-bound periods with existing annotation tools, retaining uncertain identity, leader and lane/path membership plus observable endpoint changes; essential review-tool additions consume the geometry allowance: [W3](plans/lidar-weekend-following-drac-plan.md#work-and-acceptance) `S` `S-REF`
+- **P1** Conditional face/extent attribution screen: run geom0016's existing tuning comparison only when frozen masks and matching evidence are available, preserving its decision rule and reporting insufficient evidence where necessary: [W4](plans/lidar-weekend-following-drac-plan.md#work-and-acceptance) `S` {math} `S-GEO`
 - **P1** Unattended experiment harness, H5: deploy to the NAS VM after Malory's review and soak one approved spec for a week; the last item of this slot, and nothing is deployed before it: [design doc](plans/platform-experiment-harness-plan.md) `S` `S-REF`
 
 ### v0.5.3 - Physical evidence foundations (053)

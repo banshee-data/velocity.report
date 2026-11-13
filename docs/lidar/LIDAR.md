@@ -18,6 +18,11 @@ The [empty-frame lifecycle validation](operations/empty-frame-lifecycle-cloud-va
 
 ## Quick links
 
+The [weekend following and DRAC evidence plan](../plans/lidar-weekend-following-drac-plan.md)
+connects the [oracle questions](../research/lidar-weekend-facets-headway-drac-oracle-brief.md)
+and [response](../research/lidar-weekend-facets-headway-drac-oracle-response.md) to the v0.5.2
+work: reproducible per-site logs, a bounded Lombard review, and conditional geometry attribution.
+
 The [ground-screen window metrics](operations/ground-window-steadiness.md) record heading/speed jitter and course alignment with explicit populations and sample counts.
 
 The [live surface-ground wiring](operations/ground-surface-live-cloud-2026-11.md) records the opt-in configuration and refit lifecycle; default promotion remains open.
