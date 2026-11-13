@@ -192,9 +192,57 @@ struct RoadSurfaceStyleTests {
         // The neighbour (132 m away) was read too, and its patches deduped.
         #expect(service.calls.filter { $0.hasPrefix("StreamRoadSurface") }.count >= 2)
         #expect(road.loader.store.duplicates >= 5)
+        _ = await eventually { road.overlay.fillVertexCount > 0 }
         #expect(road.overlay.fillVertexCount > 0)
         #expect(road.coverage.first?.corridorID == "fixture")
         #expect(road.coverage.first?.patchCount == 5)
+    }
+
+    @Test func aListedCorridorOpensThroughExactlyItsSites() async throws {
+        let service = FakeAlignmentService()
+        service.roadSurfaceVersion = 1
+        service.roadCorridorsListed = true
+        service.listedSites = [
+            site(RoadFixture.siteA, label: "a"), site(RoadFixture.siteB, label: "b"),
+        ]
+        var summary = Gerardus_Align_V1alpha1_RoadCorridorSummary()
+        var layer = Gerardus_Align_V1alpha1_RoadSurfaceLayer()
+        layer.corridorID = "fixture"
+        layer.buildHash = "b"
+        summary.layer = layer
+        summary.description_p = "the fixture"
+        summary.patchCount = 5
+        summary.l16Tokens = ["80858771f", "808587721"]
+        service.listedCorridors = [summary]
+        service.roadSurfaceHandler = { request, onChunk in
+            for (chunk, last) in try RoadFixture.chunks(site: request.l16Token) {
+                await onChunk(chunk, last)
+            }
+        }
+        let alignment = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await alignment.probe()
+        let road = RoadReviewSession(alignment: alignment)
+        road.paneToggled(open: true)
+        await road.refreshSites()
+        #expect(road.corridors.map(\.id) == ["fixture"])
+        #expect(road.corridors.first?.description == "the fixture")
+        #expect(service.calls.contains("ListRoadCorridors"))
+        road.open(corridor: "fixture")
+        for _ in 0..<2000 where road.loader.state != .loaded {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(road.patches.count == 5)
+        // Exactly the two named sites, once each: no probing, no expansion.
+        #expect(service.calls.filter { $0.hasPrefix("StreamRoadSurface") }.count == 2)
+        road.open(corridor: "nope")
+        #expect(road.sitesNote?.contains("not one this server lists") == true)
+    }
+
+    @Test func aServerThatCannotListCorridorsFallsBackToSites() async {
+        let (road, service) = await session()
+        #expect(road.corridors.isEmpty)
+        #expect(!service.calls.contains("ListRoadCorridors"))
+        #expect(!road.sites.isEmpty)
     }
 
     @Test func anOldServerSaysWhyAndLoadsNothing() async {

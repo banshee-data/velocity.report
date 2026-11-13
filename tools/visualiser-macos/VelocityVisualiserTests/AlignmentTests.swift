@@ -1066,6 +1066,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var availableLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
         .aerialPoints, .footprints, .registeredScans, .observed, .groundMesh,
     ]
+    /// What ListRoadCorridors answers.
+    var listedCorridors: [Gerardus_Align_V1alpha1_RoadCorridorSummary] = []
+    var roadCorridorsListed = false
     /// What ListSites answers.
     var listedSites: [Gerardus_Align_V1alpha1_Site] = []
     /// road_surface_version GetServerInfo reports; 0 is a server without the layer.
@@ -1208,6 +1211,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         info.apiVersion = "gerardus.align.v1alpha1"
         info.availableLayers = availableLayers
         info.roadSurfaceVersion = roadSurfaceVersion
+        info.roadCorridorsListed = roadCorridorsListed
         info.supportsBoundedPlacement = supportsBoundedPlacement
         info.supportsLaneFields = supportsLaneFields
         info.streetUseRulesVersion = streetUseRulesVersion
@@ -1250,6 +1254,11 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         }
         storedSite = site
         return site
+    }
+
+    func listRoadCorridors() async throws -> [Gerardus_Align_V1alpha1_RoadCorridorSummary] {
+        log("ListRoadCorridors")
+        return listedCorridors
     }
 
     func listSites() async throws -> [Gerardus_Align_V1alpha1_Site] {

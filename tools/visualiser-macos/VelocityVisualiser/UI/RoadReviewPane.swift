@@ -50,6 +50,7 @@ import SwiftUI
                         Text("Click a road patch to inspect it.").font(.caption).foregroundStyle(
                             .secondary)
                     }
+                    auditSection
                     coverageSection
                     legendSection
                     Spacer()
@@ -71,6 +72,26 @@ import SwiftUI
 
     private var sitesSection: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if !session.corridors.isEmpty {
+                Text("Corridor").font(.subheadline.weight(.semibold))
+                ForEach(session.corridors) { c in
+                    Button(action: { session.open(corridor: c.id) }) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack {
+                                Image(
+                                    systemName: session.loader.corridorKey == c.id
+                                        ? "checkmark.circle.fill" : "circle")
+                                Text(c.id).lineLimit(1)
+                                Spacer()
+                                Text("\(c.patchCount) patches").font(.caption).foregroundStyle(
+                                    .secondary)
+                            }
+                            Text(c.description).font(.caption2).foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                    }.buttonStyle(.plain)
+                }
+            }
             Text("Site").font(.subheadline.weight(.semibold))
             if session.sites.isEmpty {
                 Text(session.sitesNote ?? "No prepared sites.").font(.caption).foregroundStyle(
@@ -145,6 +166,33 @@ import SwiftUI
                     horizontal: false, vertical: true)
             }
         }.toggleStyle(.checkbox).font(.callout)
+    }
+
+    private var auditSection: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Mesh audit").font(.subheadline.weight(.semibold))
+            if let a = session.meshAudit {
+                Text(
+                    "\(a.patches.count) patches: \(a.invertedTotal) inverted, \(a.degenerateTotal) degenerate, \(a.overlapTotal) overlapping triangles; \(a.seamPairs) seam vertex pairs, worst step \(String(format: "%.1f", a.seamStepMaxM * 1000)) mm (limit 5 mm)."
+                ).font(.caption).foregroundStyle(a.isClean ? Color.secondary : Color.red).fixedSize(
+                    horizontal: false, vertical: true)
+                if !a.isClean {
+                    ForEach(a.patches.filter { !$0.isClean }, id: \.patchID) { p in
+                        Text(
+                            "\(Self.short(p.patchID)): \(p.inverted) inverted, \(p.overlapsWithin + p.overlapsAcross) overlaps"
+                        ).font(.caption2).foregroundStyle(.red)
+                    }
+                }
+                Text("Well-formed is not the same as right: this checks the mesh, not the road.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            } else {
+                Text("No resident patches.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    static func short(_ id: String) -> String {
+        id.split(separator: "/").suffix(3).joined(separator: "/")
     }
 
     private var coverageSection: some View {

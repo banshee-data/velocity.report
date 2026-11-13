@@ -447,6 +447,7 @@ private let logger = DevLogger(category: "AppState")
         road.sink = renderer
         road.referenceSink = renderer
         drive.sink = renderer
+        drive.frames = renderer
         drive.drawCalls = { [weak renderer] in renderer?.roadDrawCalls ?? 0 }
         let drive = drive
         renderer.frameTimingSink = { interval, encode, gpu in

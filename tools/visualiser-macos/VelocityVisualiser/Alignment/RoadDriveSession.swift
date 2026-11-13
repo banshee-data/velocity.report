@@ -14,6 +14,11 @@ import Combine
 import Foundation
 import simd
 
+/// A source of display-linked frames; MetalRenderer is the real one.
+@MainActor protocol RoadFrameSource: AnyObject { func setContinuousDrawing(tick: (() -> Void)?) }
+
+extension MetalRenderer: RoadFrameSource {}
+
 @available(macOS 15.0, *) @MainActor final class RoadDriveSession: ObservableObject {
     static let tickSeconds = 1.0 / 60
 
@@ -35,6 +40,9 @@ import simd
     @Published var speed: Float = 8 { didSet { driver?.setSpeed(speed) } }
 
     weak var sink: CameraControlSink?
+    /// Where the clock comes from while playing: the renderer's display-linked
+    /// frames when it offers them, else a timer.
+    weak var frames: RoadFrameSource?
     var clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
     private let review: RoadReviewSession
@@ -198,12 +206,23 @@ import simd
     private func startTimer() {
         stopTimer()
         lastTick = clock()
+        if let frames {
+            frames.setContinuousDrawing { [weak self] in MainActor.assumeIsolated { self?.tick() } }
+            usingFrames = true
+            return
+        }
         timer = Timer.scheduledTimer(withTimeInterval: Self.tickSeconds, repeats: true) {
             [weak self] _ in MainActor.assumeIsolated { self?.tick() }
         }
     }
 
+    private var usingFrames = false
+
     private func stopTimer() {
+        if usingFrames {
+            frames?.setContinuousDrawing(tick: nil)
+            usingFrames = false
+        }
         timer?.invalidate()
         timer = nil
         lastTick = nil
@@ -241,7 +260,13 @@ import simd
     func startTraverse(seconds: TimeInterval) {
         guard isDriving, driver != nil else { return }
         meter.reset()
+        firstFrameSeen = false
         traverseLoops = 0
+        // A measured run must not be throttled as a background app: say the
+        // work is user-initiated and latency critical, and bring the app forward.
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .latencyCritical], reason: "Road view traverse measurement")
+        NSApp.activate(ignoringOtherApps: true)
         traverseUntil = clock() + seconds
         driver?.setSpeed(speed)
         play()
@@ -250,10 +275,14 @@ import simd
     func stopTraverse() {
         guard traverseUntil != nil else { return }
         traverseUntil = nil
+        if let activity { ProcessInfo.processInfo.endActivity(activity) }
+        activity = nil
         lastTraverse = meter.summary()
     }
 
     private var lastTickMs = 0.0
+    private var firstFrameSeen = false
+    private var activity: NSObjectProtocol?
 
     /// The clock side of a traverse: the end of the run, and the turn at either
     /// end of the route (back to its start, so the working set is fetched and
@@ -278,10 +307,16 @@ import simd
     /// (later) GPU time. Recorded only during a traverse.
     func noteFrame(interval: Double, encodeMs: Double, gpuMs: Double) {
         guard traverseUntil != nil else { return }
+        // The first interval runs from the last draw before continuous drawing
+        // began, so it is the idle gap, not a frame.
+        if meter.samples.isEmpty, !firstFrameSeen {
+            firstFrameSeen = true
+            return
+        }
         meter.record(
             TraverseSample(
                 interval: interval, tickMs: lastTickMs, encodeMs: encodeMs, gpuMs: gpuMs,
-                drawCalls: drawCalls(), visiblePatches: review.visibleCount,
+                loop: traverseLoops, drawCalls: drawCalls(), visiblePatches: review.visibleCount,
                 residentPatches: review.loader.store.residentPatches.count,
                 residentMeshBytes: review.loader.store.residentMeshBytes,
                 footprintBytes: ProcessMemory.footprintBytes()))

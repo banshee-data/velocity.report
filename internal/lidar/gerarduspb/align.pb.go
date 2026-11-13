@@ -1,5 +1,5 @@
 // Vendored from banshee-data/gerardus.
-// Source commit: a365f0eacf67a18b27a51dacb7ad5cc2fbae8d9e.
+// Source commit: 2de5bdceaad69b80103b691ed5e85f9c4f73cae9 (banshee-data/gerardus#85, ListRoadCorridors; unmerged: re-vendor from main once it lands).
 // Retired OSM layer identities are reserved and must not be reused.
 // Regenerate with make proto-gen-swift after synchronising this contract.
 
@@ -3488,8 +3488,11 @@ type GetServerInfoResponse struct {
 	// the enum value. 1: GGP-ROAD-PROTOTYPE. The layer is also listed in
 	// available_layers when this server has road previews to send.
 	RoadSurfaceVersion uint32 `protobuf:"varint,12,opt,name=road_surface_version,json=roadSurfaceVersion,proto3" json:"road_surface_version,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// True when ListRoadCorridors is served. Independent of road_surface_version
+	// so the layer's contract version and its hashes do not move.
+	RoadCorridorsListed bool `protobuf:"varint,13,opt,name=road_corridors_listed,json=roadCorridorsListed,proto3" json:"road_corridors_listed,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GetServerInfoResponse) Reset() {
@@ -3604,6 +3607,13 @@ func (x *GetServerInfoResponse) GetRoadSurfaceVersion() uint32 {
 		return x.RoadSurfaceVersion
 	}
 	return 0
+}
+
+func (x *GetServerInfoResponse) GetRoadCorridorsListed() bool {
+	if x != nil {
+		return x.RoadCorridorsListed
+	}
+	return false
 }
 
 type PrepareSiteRequest struct {
@@ -8606,6 +8616,191 @@ func (x *RoadSurfaceLayer) GetMissingLengthM() float32 {
 	return 0
 }
 
+type ListRoadCorridorsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRoadCorridorsRequest) Reset() {
+	*x = ListRoadCorridorsRequest{}
+	mi := &file_align_proto_msgTypes[96]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRoadCorridorsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRoadCorridorsRequest) ProtoMessage() {}
+
+func (x *ListRoadCorridorsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_align_proto_msgTypes[96]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRoadCorridorsRequest.ProtoReflect.Descriptor instead.
+func (*ListRoadCorridorsRequest) Descriptor() ([]byte, []int) {
+	return file_align_proto_rawDescGZIP(), []int{96}
+}
+
+// One built corridor: its layer header (hashes, fit parameters, gaps and the
+// inventory lengths) and where it lies.
+type RoadCorridorSummary struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Layer       *RoadSurfaceLayer      `protobuf:"bytes,1,opt,name=layer,proto3" json:"layer,omitempty"`
+	Description string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"` // the manifest's own words
+	PatchCount  uint32                 `protobuf:"varint,3,opt,name=patch_count,json=patchCount,proto3" json:"patch_count,omitempty"`
+	// Bounds of the patches, WGS 84 degrees.
+	MinLatDeg float64 `protobuf:"fixed64,4,opt,name=min_lat_deg,json=minLatDeg,proto3" json:"min_lat_deg,omitempty"`
+	MinLonDeg float64 `protobuf:"fixed64,5,opt,name=min_lon_deg,json=minLonDeg,proto3" json:"min_lon_deg,omitempty"`
+	MaxLatDeg float64 `protobuf:"fixed64,6,opt,name=max_lat_deg,json=maxLatDeg,proto3" json:"max_lat_deg,omitempty"`
+	MaxLonDeg float64 `protobuf:"fixed64,7,opt,name=max_lon_deg,json=maxLonDeg,proto3" json:"max_lon_deg,omitempty"`
+	// Prepared sites whose bundle holds at least one patch of this corridor:
+	// the ones to ask for layer 17 to read all of it.
+	L16Tokens     []string `protobuf:"bytes,8,rep,name=l16_tokens,json=l16Tokens,proto3" json:"l16_tokens,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RoadCorridorSummary) Reset() {
+	*x = RoadCorridorSummary{}
+	mi := &file_align_proto_msgTypes[97]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RoadCorridorSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RoadCorridorSummary) ProtoMessage() {}
+
+func (x *RoadCorridorSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_align_proto_msgTypes[97]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RoadCorridorSummary.ProtoReflect.Descriptor instead.
+func (*RoadCorridorSummary) Descriptor() ([]byte, []int) {
+	return file_align_proto_rawDescGZIP(), []int{97}
+}
+
+func (x *RoadCorridorSummary) GetLayer() *RoadSurfaceLayer {
+	if x != nil {
+		return x.Layer
+	}
+	return nil
+}
+
+func (x *RoadCorridorSummary) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *RoadCorridorSummary) GetPatchCount() uint32 {
+	if x != nil {
+		return x.PatchCount
+	}
+	return 0
+}
+
+func (x *RoadCorridorSummary) GetMinLatDeg() float64 {
+	if x != nil {
+		return x.MinLatDeg
+	}
+	return 0
+}
+
+func (x *RoadCorridorSummary) GetMinLonDeg() float64 {
+	if x != nil {
+		return x.MinLonDeg
+	}
+	return 0
+}
+
+func (x *RoadCorridorSummary) GetMaxLatDeg() float64 {
+	if x != nil {
+		return x.MaxLatDeg
+	}
+	return 0
+}
+
+func (x *RoadCorridorSummary) GetMaxLonDeg() float64 {
+	if x != nil {
+		return x.MaxLonDeg
+	}
+	return 0
+}
+
+func (x *RoadCorridorSummary) GetL16Tokens() []string {
+	if x != nil {
+		return x.L16Tokens
+	}
+	return nil
+}
+
+type ListRoadCorridorsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Corridors     []*RoadCorridorSummary `protobuf:"bytes,1,rep,name=corridors,proto3" json:"corridors,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRoadCorridorsResponse) Reset() {
+	*x = ListRoadCorridorsResponse{}
+	mi := &file_align_proto_msgTypes[98]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRoadCorridorsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRoadCorridorsResponse) ProtoMessage() {}
+
+func (x *ListRoadCorridorsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_align_proto_msgTypes[98]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRoadCorridorsResponse.ProtoReflect.Descriptor instead.
+func (*ListRoadCorridorsResponse) Descriptor() ([]byte, []int) {
+	return file_align_proto_rawDescGZIP(), []int{98}
+}
+
+func (x *ListRoadCorridorsResponse) GetCorridors() []*RoadCorridorSummary {
+	if x != nil {
+		return x.Corridors
+	}
+	return nil
+}
+
 type RoadSurfaceChunk struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Layer         *RoadSurfaceLayer      `protobuf:"bytes,1,opt,name=layer,proto3" json:"layer,omitempty"` // first message of each corridor only
@@ -8616,7 +8811,7 @@ type RoadSurfaceChunk struct {
 
 func (x *RoadSurfaceChunk) Reset() {
 	*x = RoadSurfaceChunk{}
-	mi := &file_align_proto_msgTypes[96]
+	mi := &file_align_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8628,7 +8823,7 @@ func (x *RoadSurfaceChunk) String() string {
 func (*RoadSurfaceChunk) ProtoMessage() {}
 
 func (x *RoadSurfaceChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[96]
+	mi := &file_align_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8641,7 +8836,7 @@ func (x *RoadSurfaceChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadSurfaceChunk.ProtoReflect.Descriptor instead.
 func (*RoadSurfaceChunk) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{96}
+	return file_align_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *RoadSurfaceChunk) GetLayer() *RoadSurfaceLayer {
@@ -8927,7 +9122,7 @@ const file_align_proto_rawDesc = "" +
 	"\asources\x18\x13 \x03(\v2#.gerardus.align.v1alpha1.SourceInfoR\asources\x12%\n" +
 	"\x0eserver_version\x18\x14 \x01(\tR\rserverVersion\x120\n" +
 	"\x14supersedes_record_id\x18\x15 \x01(\tR\x12supersedesRecordId\"\x16\n" +
-	"\x14GetServerInfoRequest\"\xe7\x05\n" +
+	"\x14GetServerInfoRequest\"\x9b\x06\n" +
 	"\x15GetServerInfoResponse\x12%\n" +
 	"\x0eserver_version\x18\x01 \x01(\tR\rserverVersion\x12\x1f\n" +
 	"\vapi_version\x18\x02 \x01(\tR\n" +
@@ -8942,7 +9137,8 @@ const file_align_proto_rawDesc = "" +
 	"\x0fcity_tiles_path\x18\n" +
 	" \x01(\tR\rcityTilesPath\x12(\n" +
 	"\x10city_tiles_epoch\x18\v \x01(\tR\x0ecityTilesEpoch\x120\n" +
-	"\x14road_surface_version\x18\f \x01(\rR\x12roadSurfaceVersion\"a\n" +
+	"\x14road_surface_version\x18\f \x01(\rR\x12roadSurfaceVersion\x122\n" +
+	"\x15road_corridors_listed\x18\r \x01(\bR\x13roadCorridorsListed\"a\n" +
 	"\x12PrepareSiteRequest\x12\x1b\n" +
 	"\tl16_token\x18\x01 \x01(\tR\bl16Token\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x18\n" +
@@ -9365,7 +9561,21 @@ const file_align_proto_rawDesc = "" +
 	"\x12inventory_length_m\x18\r \x01(\x02R\x10inventoryLengthM\x12*\n" +
 	"\x11surfaced_length_m\x18\x0e \x01(\x02R\x0fsurfacedLengthM\x12*\n" +
 	"\x11inferred_length_m\x18\x0f \x01(\x02R\x0finferredLengthM\x12(\n" +
-	"\x10missing_length_m\x18\x10 \x01(\x02R\x0emissingLengthM\"\x98\x01\n" +
+	"\x10missing_length_m\x18\x10 \x01(\x02R\x0emissingLengthM\"\x1a\n" +
+	"\x18ListRoadCorridorsRequest\"\xb8\x02\n" +
+	"\x13RoadCorridorSummary\x12?\n" +
+	"\x05layer\x18\x01 \x01(\v2).gerardus.align.v1alpha1.RoadSurfaceLayerR\x05layer\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1f\n" +
+	"\vpatch_count\x18\x03 \x01(\rR\n" +
+	"patchCount\x12\x1e\n" +
+	"\vmin_lat_deg\x18\x04 \x01(\x01R\tminLatDeg\x12\x1e\n" +
+	"\vmin_lon_deg\x18\x05 \x01(\x01R\tminLonDeg\x12\x1e\n" +
+	"\vmax_lat_deg\x18\x06 \x01(\x01R\tmaxLatDeg\x12\x1e\n" +
+	"\vmax_lon_deg\x18\a \x01(\x01R\tmaxLonDeg\x12\x1d\n" +
+	"\n" +
+	"l16_tokens\x18\b \x03(\tR\tl16Tokens\"g\n" +
+	"\x19ListRoadCorridorsResponse\x12J\n" +
+	"\tcorridors\x18\x01 \x03(\v2,.gerardus.align.v1alpha1.RoadCorridorSummaryR\tcorridors\"\x98\x01\n" +
 	"\x10RoadSurfaceChunk\x12?\n" +
 	"\x05layer\x18\x01 \x01(\v2).gerardus.align.v1alpha1.RoadSurfaceLayerR\x05layer\x12C\n" +
 	"\apatches\x18\x02 \x03(\v2).gerardus.align.v1alpha1.RoadSurfacePatchR\apatches*\x9f\x01\n" +
@@ -9455,12 +9665,14 @@ const file_align_proto_rawDesc = "" +
 	"\x13RoadAssessmentState\x12%\n" +
 	"!ROAD_ASSESSMENT_STATE_UNSPECIFIED\x10\x00\x12&\n" +
 	"\"ROAD_ASSESSMENT_STATE_NOT_ASSESSED\x10\x01\x12\"\n" +
-	"\x1eROAD_ASSESSMENT_STATE_ASSESSED\x10\x022\xd8\t\n" +
+	"\x1eROAD_ASSESSMENT_STATE_ASSESSED\x10\x022\xd4\n" +
+	"\n" +
 	"\vSiteService\x12n\n" +
 	"\rGetServerInfo\x12-.gerardus.align.v1alpha1.GetServerInfoRequest\x1a..gerardus.align.v1alpha1.GetServerInfoResponse\x12j\n" +
 	"\vPrepareSite\x12+.gerardus.align.v1alpha1.PrepareSiteRequest\x1a,.gerardus.align.v1alpha1.PrepareSiteResponse0\x01\x12\\\n" +
 	"\aGetSite\x12'.gerardus.align.v1alpha1.GetSiteRequest\x1a(.gerardus.align.v1alpha1.GetSiteResponse\x12b\n" +
-	"\tListSites\x12).gerardus.align.v1alpha1.ListSitesRequest\x1a*.gerardus.align.v1alpha1.ListSitesResponse\x12v\n" +
+	"\tListSites\x12).gerardus.align.v1alpha1.ListSitesRequest\x1a*.gerardus.align.v1alpha1.ListSitesResponse\x12z\n" +
+	"\x11ListRoadCorridors\x121.gerardus.align.v1alpha1.ListRoadCorridorsRequest\x1a2.gerardus.align.v1alpha1.ListRoadCorridorsResponse\x12v\n" +
 	"\x0fStreamReference\x12/.gerardus.align.v1alpha1.StreamReferenceRequest\x1a0.gerardus.align.v1alpha1.StreamReferenceResponse0\x01\x12k\n" +
 	"\fGetSiteModel\x12,.gerardus.align.v1alpha1.GetSiteModelRequest\x1a-.gerardus.align.v1alpha1.GetSiteModelResponse\x12n\n" +
 	"\rListStreetUse\x12-.gerardus.align.v1alpha1.ListStreetUseRequest\x1a..gerardus.align.v1alpha1.ListStreetUseResponse\x12n\n" +
@@ -9497,7 +9709,7 @@ func file_align_proto_rawDescGZIP() []byte {
 }
 
 var file_align_proto_enumTypes = make([]protoimpl.EnumInfo, 11)
-var file_align_proto_msgTypes = make([]protoimpl.MessageInfo, 100)
+var file_align_proto_msgTypes = make([]protoimpl.MessageInfo, 103)
 var file_align_proto_goTypes = []any{
 	(PoseSource)(0),                         // 0: gerardus.align.v1alpha1.PoseSource
 	(ReferenceLayer)(0),                     // 1: gerardus.align.v1alpha1.ReferenceLayer
@@ -9606,11 +9818,14 @@ var file_align_proto_goTypes = []any{
 	(*RoadSurfacePatch)(nil),                // 104: gerardus.align.v1alpha1.RoadSurfacePatch
 	(*RoadGap)(nil),                         // 105: gerardus.align.v1alpha1.RoadGap
 	(*RoadSurfaceLayer)(nil),                // 106: gerardus.align.v1alpha1.RoadSurfaceLayer
-	(*RoadSurfaceChunk)(nil),                // 107: gerardus.align.v1alpha1.RoadSurfaceChunk
-	nil,                                     // 108: gerardus.align.v1alpha1.LineFeature.TagsEntry
-	nil,                                     // 109: gerardus.align.v1alpha1.Registration.RefinementHeadsEntry
-	nil,                                     // 110: gerardus.align.v1alpha1.StreetUseFeature.TagsEntry
-	(*timestamppb.Timestamp)(nil),           // 111: google.protobuf.Timestamp
+	(*ListRoadCorridorsRequest)(nil),        // 107: gerardus.align.v1alpha1.ListRoadCorridorsRequest
+	(*RoadCorridorSummary)(nil),             // 108: gerardus.align.v1alpha1.RoadCorridorSummary
+	(*ListRoadCorridorsResponse)(nil),       // 109: gerardus.align.v1alpha1.ListRoadCorridorsResponse
+	(*RoadSurfaceChunk)(nil),                // 110: gerardus.align.v1alpha1.RoadSurfaceChunk
+	nil,                                     // 111: gerardus.align.v1alpha1.LineFeature.TagsEntry
+	nil,                                     // 112: gerardus.align.v1alpha1.Registration.RefinementHeadsEntry
+	nil,                                     // 113: gerardus.align.v1alpha1.StreetUseFeature.TagsEntry
+	(*timestamppb.Timestamp)(nil),           // 114: google.protobuf.Timestamp
 }
 var file_align_proto_depIdxs = []int32{
 	13,  // 0: gerardus.align.v1alpha1.SiteFrame.origin:type_name -> gerardus.align.v1alpha1.GeodeticPosition
@@ -9621,14 +9836,14 @@ var file_align_proto_depIdxs = []int32{
 	13,  // 5: gerardus.align.v1alpha1.GeoPose.position:type_name -> gerardus.align.v1alpha1.GeodeticPosition
 	12,  // 6: gerardus.align.v1alpha1.GeoPose.orientation:type_name -> gerardus.align.v1alpha1.Quaternion
 	1,   // 7: gerardus.align.v1alpha1.SourceInfo.layer:type_name -> gerardus.align.v1alpha1.ReferenceLayer
-	111, // 8: gerardus.align.v1alpha1.SourceInfo.retrieved_at:type_name -> google.protobuf.Timestamp
+	114, // 8: gerardus.align.v1alpha1.SourceInfo.retrieved_at:type_name -> google.protobuf.Timestamp
 	1,   // 9: gerardus.align.v1alpha1.LayerSummary.layer:type_name -> gerardus.align.v1alpha1.ReferenceLayer
 	15,  // 10: gerardus.align.v1alpha1.Site.frame:type_name -> gerardus.align.v1alpha1.SiteFrame
 	20,  // 11: gerardus.align.v1alpha1.Site.layers:type_name -> gerardus.align.v1alpha1.LayerSummary
 	19,  // 12: gerardus.align.v1alpha1.Site.sources:type_name -> gerardus.align.v1alpha1.SourceInfo
-	111, // 13: gerardus.align.v1alpha1.Site.prepared_at:type_name -> google.protobuf.Timestamp
+	114, // 13: gerardus.align.v1alpha1.Site.prepared_at:type_name -> google.protobuf.Timestamp
 	2,   // 14: gerardus.align.v1alpha1.LineFeature.kind:type_name -> gerardus.align.v1alpha1.FeatureKind
-	108, // 15: gerardus.align.v1alpha1.LineFeature.tags:type_name -> gerardus.align.v1alpha1.LineFeature.TagsEntry
+	111, // 15: gerardus.align.v1alpha1.LineFeature.tags:type_name -> gerardus.align.v1alpha1.LineFeature.TagsEntry
 	22,  // 16: gerardus.align.v1alpha1.LineFeatureSet.features:type_name -> gerardus.align.v1alpha1.LineFeature
 	11,  // 17: gerardus.align.v1alpha1.Intersection.position:type_name -> gerardus.align.v1alpha1.Vector3
 	24,  // 18: gerardus.align.v1alpha1.Intersection.approaches:type_name -> gerardus.align.v1alpha1.Approach
@@ -9637,7 +9852,7 @@ var file_align_proto_depIdxs = []int32{
 	14,  // 21: gerardus.align.v1alpha1.ScanPoints.points:type_name -> gerardus.align.v1alpha1.PointBlock
 	11,  // 22: gerardus.align.v1alpha1.Heightfield.origin:type_name -> gerardus.align.v1alpha1.Vector3
 	3,   // 23: gerardus.align.v1alpha1.ScanHeader.kind:type_name -> gerardus.align.v1alpha1.ScanKind
-	111, // 24: gerardus.align.v1alpha1.ScanHeader.captured_at:type_name -> google.protobuf.Timestamp
+	114, // 24: gerardus.align.v1alpha1.ScanHeader.captured_at:type_name -> google.protobuf.Timestamp
 	30,  // 25: gerardus.align.v1alpha1.ScanHeader.transient:type_name -> gerardus.align.v1alpha1.Box3
 	11,  // 26: gerardus.align.v1alpha1.Box3.centre:type_name -> gerardus.align.v1alpha1.Vector3
 	11,  // 27: gerardus.align.v1alpha1.Box3.size_m:type_name -> gerardus.align.v1alpha1.Vector3
@@ -9651,8 +9866,8 @@ var file_align_proto_depIdxs = []int32{
 	36,  // 35: gerardus.align.v1alpha1.Registration.gates:type_name -> gerardus.align.v1alpha1.GateResult
 	33,  // 36: gerardus.align.v1alpha1.Registration.options:type_name -> gerardus.align.v1alpha1.RegistrationOptions
 	16,  // 37: gerardus.align.v1alpha1.Registration.initial_pose:type_name -> gerardus.align.v1alpha1.SensorPose
-	111, // 38: gerardus.align.v1alpha1.Registration.created_at:type_name -> google.protobuf.Timestamp
-	109, // 39: gerardus.align.v1alpha1.Registration.refinement_heads:type_name -> gerardus.align.v1alpha1.Registration.RefinementHeadsEntry
+	114, // 38: gerardus.align.v1alpha1.Registration.created_at:type_name -> google.protobuf.Timestamp
+	112, // 39: gerardus.align.v1alpha1.Registration.refinement_heads:type_name -> gerardus.align.v1alpha1.Registration.RefinementHeadsEntry
 	11,  // 40: gerardus.align.v1alpha1.TiePoint.sensor_point:type_name -> gerardus.align.v1alpha1.Vector3
 	11,  // 41: gerardus.align.v1alpha1.TiePoint.site_point:type_name -> gerardus.align.v1alpha1.Vector3
 	4,   // 42: gerardus.align.v1alpha1.RegistrationRecord.state:type_name -> gerardus.align.v1alpha1.RegistrationState
@@ -9663,7 +9878,7 @@ var file_align_proto_depIdxs = []int32{
 	18,  // 47: gerardus.align.v1alpha1.RegistrationRecord.geopose_wgs84:type_name -> gerardus.align.v1alpha1.GeoPose
 	35,  // 48: gerardus.align.v1alpha1.RegistrationRecord.quality:type_name -> gerardus.align.v1alpha1.FitQuality
 	36,  // 49: gerardus.align.v1alpha1.RegistrationRecord.gates:type_name -> gerardus.align.v1alpha1.GateResult
-	111, // 50: gerardus.align.v1alpha1.RegistrationRecord.reviewed_at:type_name -> google.protobuf.Timestamp
+	114, // 50: gerardus.align.v1alpha1.RegistrationRecord.reviewed_at:type_name -> google.protobuf.Timestamp
 	19,  // 51: gerardus.align.v1alpha1.RegistrationRecord.sources:type_name -> gerardus.align.v1alpha1.SourceInfo
 	1,   // 52: gerardus.align.v1alpha1.GetServerInfoResponse.available_layers:type_name -> gerardus.align.v1alpha1.ReferenceLayer
 	33,  // 53: gerardus.align.v1alpha1.GetServerInfoResponse.default_options:type_name -> gerardus.align.v1alpha1.RegistrationOptions
@@ -9681,7 +9896,7 @@ var file_align_proto_depIdxs = []int32{
 	26,  // 65: gerardus.align.v1alpha1.StreamReferenceResponse.intersections:type_name -> gerardus.align.v1alpha1.IntersectionSet
 	27,  // 66: gerardus.align.v1alpha1.StreamReferenceResponse.scan_points:type_name -> gerardus.align.v1alpha1.ScanPoints
 	28,  // 67: gerardus.align.v1alpha1.StreamReferenceResponse.ground_mesh:type_name -> gerardus.align.v1alpha1.Heightfield
-	107, // 68: gerardus.align.v1alpha1.StreamReferenceResponse.road_surface:type_name -> gerardus.align.v1alpha1.RoadSurfaceChunk
+	110, // 68: gerardus.align.v1alpha1.StreamReferenceResponse.road_surface:type_name -> gerardus.align.v1alpha1.RoadSurfaceChunk
 	29,  // 69: gerardus.align.v1alpha1.UploadScanRequest.header:type_name -> gerardus.align.v1alpha1.ScanHeader
 	14,  // 70: gerardus.align.v1alpha1.UploadScanRequest.points:type_name -> gerardus.align.v1alpha1.PointBlock
 	31,  // 71: gerardus.align.v1alpha1.UploadScanResponse.scan:type_name -> gerardus.align.v1alpha1.Scan
@@ -9724,15 +9939,15 @@ var file_align_proto_depIdxs = []int32{
 	38,  // 108: gerardus.align.v1alpha1.RefineSiteResponse.progress:type_name -> gerardus.align.v1alpha1.Progress
 	76,  // 109: gerardus.align.v1alpha1.RefineSiteResponse.result:type_name -> gerardus.align.v1alpha1.RefineSiteResult
 	2,   // 110: gerardus.align.v1alpha1.StreetUseFeature.kind:type_name -> gerardus.align.v1alpha1.FeatureKind
-	110, // 111: gerardus.align.v1alpha1.StreetUseFeature.tags:type_name -> gerardus.align.v1alpha1.StreetUseFeature.TagsEntry
-	111, // 112: gerardus.align.v1alpha1.StreetUseFeature.edited_at:type_name -> google.protobuf.Timestamp
+	113, // 111: gerardus.align.v1alpha1.StreetUseFeature.tags:type_name -> gerardus.align.v1alpha1.StreetUseFeature.TagsEntry
+	114, // 112: gerardus.align.v1alpha1.StreetUseFeature.edited_at:type_name -> google.protobuf.Timestamp
 	78,  // 113: gerardus.align.v1alpha1.StreetUseEdit.upsert:type_name -> gerardus.align.v1alpha1.StreetUseFeature
 	78,  // 114: gerardus.align.v1alpha1.ListStreetUseResponse.features:type_name -> gerardus.align.v1alpha1.StreetUseFeature
 	79,  // 115: gerardus.align.v1alpha1.EditStreetUseRequest.edits:type_name -> gerardus.align.v1alpha1.StreetUseEdit
 	83,  // 116: gerardus.align.v1alpha1.EditStreetUseResponse.detailed_problems:type_name -> gerardus.align.v1alpha1.StreetUseProblem
 	78,  // 117: gerardus.align.v1alpha1.EditStreetUseResponse.features:type_name -> gerardus.align.v1alpha1.StreetUseFeature
-	111, // 118: gerardus.align.v1alpha1.LaneFieldHeader.window_start:type_name -> google.protobuf.Timestamp
-	111, // 119: gerardus.align.v1alpha1.LaneFieldHeader.window_end:type_name -> google.protobuf.Timestamp
+	114, // 118: gerardus.align.v1alpha1.LaneFieldHeader.window_start:type_name -> google.protobuf.Timestamp
+	114, // 119: gerardus.align.v1alpha1.LaneFieldHeader.window_end:type_name -> google.protobuf.Timestamp
 	11,  // 120: gerardus.align.v1alpha1.LaneFieldHeader.origin:type_name -> gerardus.align.v1alpha1.Vector3
 	86,  // 121: gerardus.align.v1alpha1.LaneFieldCellSet.groups:type_name -> gerardus.align.v1alpha1.LaneFieldCells
 	85,  // 122: gerardus.align.v1alpha1.UploadLaneFieldRequest.header:type_name -> gerardus.align.v1alpha1.LaneFieldHeader
@@ -9742,7 +9957,7 @@ var file_align_proto_depIdxs = []int32{
 	11,  // 126: gerardus.align.v1alpha1.LateralProfile.centre:type_name -> gerardus.align.v1alpha1.Vector3
 	92,  // 127: gerardus.align.v1alpha1.LateralProfileSet.profiles:type_name -> gerardus.align.v1alpha1.LateralProfile
 	5,   // 128: gerardus.align.v1alpha1.LaneProposalReview.decision:type_name -> gerardus.align.v1alpha1.LaneProposalDecision
-	111, // 129: gerardus.align.v1alpha1.LaneProposalReview.reviewed_at:type_name -> google.protobuf.Timestamp
+	114, // 129: gerardus.align.v1alpha1.LaneProposalReview.reviewed_at:type_name -> google.protobuf.Timestamp
 	22,  // 130: gerardus.align.v1alpha1.LaneProposal.line:type_name -> gerardus.align.v1alpha1.LineFeature
 	92,  // 131: gerardus.align.v1alpha1.LaneProposal.profiles:type_name -> gerardus.align.v1alpha1.LateralProfile
 	94,  // 132: gerardus.align.v1alpha1.LaneProposal.review:type_name -> gerardus.align.v1alpha1.LaneProposalReview
@@ -9762,57 +9977,61 @@ var file_align_proto_depIdxs = []int32{
 	100, // 146: gerardus.align.v1alpha1.RoadSurfacePatch.assessments:type_name -> gerardus.align.v1alpha1.RoadAssessment
 	102, // 147: gerardus.align.v1alpha1.RoadSurfacePatch.stats:type_name -> gerardus.align.v1alpha1.RoadPatchStats
 	105, // 148: gerardus.align.v1alpha1.RoadSurfaceLayer.gaps:type_name -> gerardus.align.v1alpha1.RoadGap
-	106, // 149: gerardus.align.v1alpha1.RoadSurfaceChunk.layer:type_name -> gerardus.align.v1alpha1.RoadSurfaceLayer
-	104, // 150: gerardus.align.v1alpha1.RoadSurfaceChunk.patches:type_name -> gerardus.align.v1alpha1.RoadSurfacePatch
-	41,  // 151: gerardus.align.v1alpha1.SiteService.GetServerInfo:input_type -> gerardus.align.v1alpha1.GetServerInfoRequest
-	43,  // 152: gerardus.align.v1alpha1.SiteService.PrepareSite:input_type -> gerardus.align.v1alpha1.PrepareSiteRequest
-	45,  // 153: gerardus.align.v1alpha1.SiteService.GetSite:input_type -> gerardus.align.v1alpha1.GetSiteRequest
-	47,  // 154: gerardus.align.v1alpha1.SiteService.ListSites:input_type -> gerardus.align.v1alpha1.ListSitesRequest
-	49,  // 155: gerardus.align.v1alpha1.SiteService.StreamReference:input_type -> gerardus.align.v1alpha1.StreamReferenceRequest
-	69,  // 156: gerardus.align.v1alpha1.SiteService.GetSiteModel:input_type -> gerardus.align.v1alpha1.GetSiteModelRequest
-	80,  // 157: gerardus.align.v1alpha1.SiteService.ListStreetUse:input_type -> gerardus.align.v1alpha1.ListStreetUseRequest
-	82,  // 158: gerardus.align.v1alpha1.SiteService.EditStreetUse:input_type -> gerardus.align.v1alpha1.EditStreetUseRequest
-	90,  // 159: gerardus.align.v1alpha1.SiteService.GetLaneField:input_type -> gerardus.align.v1alpha1.GetLaneFieldRequest
-	96,  // 160: gerardus.align.v1alpha1.SiteService.ListLaneProposals:input_type -> gerardus.align.v1alpha1.ListLaneProposalsRequest
-	98,  // 161: gerardus.align.v1alpha1.SiteService.ReviewLaneProposal:input_type -> gerardus.align.v1alpha1.ReviewLaneProposalRequest
-	51,  // 162: gerardus.align.v1alpha1.RegistrationService.UploadScan:input_type -> gerardus.align.v1alpha1.UploadScanRequest
-	88,  // 163: gerardus.align.v1alpha1.RegistrationService.UploadLaneField:input_type -> gerardus.align.v1alpha1.UploadLaneFieldRequest
-	53,  // 164: gerardus.align.v1alpha1.RegistrationService.PoseFromHint:input_type -> gerardus.align.v1alpha1.PoseFromHintRequest
-	55,  // 165: gerardus.align.v1alpha1.RegistrationService.Register:input_type -> gerardus.align.v1alpha1.RegisterRequest
-	57,  // 166: gerardus.align.v1alpha1.RegistrationService.EvaluatePose:input_type -> gerardus.align.v1alpha1.EvaluatePoseRequest
-	59,  // 167: gerardus.align.v1alpha1.RegistrationService.SolveTiePoints:input_type -> gerardus.align.v1alpha1.SolveTiePointsRequest
-	61,  // 168: gerardus.align.v1alpha1.RegistrationService.GetRegistration:input_type -> gerardus.align.v1alpha1.GetRegistrationRequest
-	63,  // 169: gerardus.align.v1alpha1.RegistrationService.ReviewRegistration:input_type -> gerardus.align.v1alpha1.ReviewRegistrationRequest
-	65,  // 170: gerardus.align.v1alpha1.RegistrationService.ReviewRegistrations:input_type -> gerardus.align.v1alpha1.ReviewRegistrationsRequest
-	67,  // 171: gerardus.align.v1alpha1.RegistrationService.ListRegistrationRecords:input_type -> gerardus.align.v1alpha1.ListRegistrationRecordsRequest
-	73,  // 172: gerardus.align.v1alpha1.RegistrationService.RefineSite:input_type -> gerardus.align.v1alpha1.RefineSiteRequest
-	42,  // 173: gerardus.align.v1alpha1.SiteService.GetServerInfo:output_type -> gerardus.align.v1alpha1.GetServerInfoResponse
-	44,  // 174: gerardus.align.v1alpha1.SiteService.PrepareSite:output_type -> gerardus.align.v1alpha1.PrepareSiteResponse
-	46,  // 175: gerardus.align.v1alpha1.SiteService.GetSite:output_type -> gerardus.align.v1alpha1.GetSiteResponse
-	48,  // 176: gerardus.align.v1alpha1.SiteService.ListSites:output_type -> gerardus.align.v1alpha1.ListSitesResponse
-	50,  // 177: gerardus.align.v1alpha1.SiteService.StreamReference:output_type -> gerardus.align.v1alpha1.StreamReferenceResponse
-	71,  // 178: gerardus.align.v1alpha1.SiteService.GetSiteModel:output_type -> gerardus.align.v1alpha1.GetSiteModelResponse
-	81,  // 179: gerardus.align.v1alpha1.SiteService.ListStreetUse:output_type -> gerardus.align.v1alpha1.ListStreetUseResponse
-	84,  // 180: gerardus.align.v1alpha1.SiteService.EditStreetUse:output_type -> gerardus.align.v1alpha1.EditStreetUseResponse
-	91,  // 181: gerardus.align.v1alpha1.SiteService.GetLaneField:output_type -> gerardus.align.v1alpha1.GetLaneFieldResponse
-	97,  // 182: gerardus.align.v1alpha1.SiteService.ListLaneProposals:output_type -> gerardus.align.v1alpha1.ListLaneProposalsResponse
-	99,  // 183: gerardus.align.v1alpha1.SiteService.ReviewLaneProposal:output_type -> gerardus.align.v1alpha1.ReviewLaneProposalResponse
-	52,  // 184: gerardus.align.v1alpha1.RegistrationService.UploadScan:output_type -> gerardus.align.v1alpha1.UploadScanResponse
-	89,  // 185: gerardus.align.v1alpha1.RegistrationService.UploadLaneField:output_type -> gerardus.align.v1alpha1.UploadLaneFieldResponse
-	54,  // 186: gerardus.align.v1alpha1.RegistrationService.PoseFromHint:output_type -> gerardus.align.v1alpha1.PoseFromHintResponse
-	56,  // 187: gerardus.align.v1alpha1.RegistrationService.Register:output_type -> gerardus.align.v1alpha1.RegisterResponse
-	58,  // 188: gerardus.align.v1alpha1.RegistrationService.EvaluatePose:output_type -> gerardus.align.v1alpha1.EvaluatePoseResponse
-	60,  // 189: gerardus.align.v1alpha1.RegistrationService.SolveTiePoints:output_type -> gerardus.align.v1alpha1.SolveTiePointsResponse
-	62,  // 190: gerardus.align.v1alpha1.RegistrationService.GetRegistration:output_type -> gerardus.align.v1alpha1.GetRegistrationResponse
-	64,  // 191: gerardus.align.v1alpha1.RegistrationService.ReviewRegistration:output_type -> gerardus.align.v1alpha1.ReviewRegistrationResponse
-	66,  // 192: gerardus.align.v1alpha1.RegistrationService.ReviewRegistrations:output_type -> gerardus.align.v1alpha1.ReviewRegistrationsResponse
-	68,  // 193: gerardus.align.v1alpha1.RegistrationService.ListRegistrationRecords:output_type -> gerardus.align.v1alpha1.ListRegistrationRecordsResponse
-	77,  // 194: gerardus.align.v1alpha1.RegistrationService.RefineSite:output_type -> gerardus.align.v1alpha1.RefineSiteResponse
-	173, // [173:195] is the sub-list for method output_type
-	151, // [151:173] is the sub-list for method input_type
-	151, // [151:151] is the sub-list for extension type_name
-	151, // [151:151] is the sub-list for extension extendee
-	0,   // [0:151] is the sub-list for field type_name
+	106, // 149: gerardus.align.v1alpha1.RoadCorridorSummary.layer:type_name -> gerardus.align.v1alpha1.RoadSurfaceLayer
+	108, // 150: gerardus.align.v1alpha1.ListRoadCorridorsResponse.corridors:type_name -> gerardus.align.v1alpha1.RoadCorridorSummary
+	106, // 151: gerardus.align.v1alpha1.RoadSurfaceChunk.layer:type_name -> gerardus.align.v1alpha1.RoadSurfaceLayer
+	104, // 152: gerardus.align.v1alpha1.RoadSurfaceChunk.patches:type_name -> gerardus.align.v1alpha1.RoadSurfacePatch
+	41,  // 153: gerardus.align.v1alpha1.SiteService.GetServerInfo:input_type -> gerardus.align.v1alpha1.GetServerInfoRequest
+	43,  // 154: gerardus.align.v1alpha1.SiteService.PrepareSite:input_type -> gerardus.align.v1alpha1.PrepareSiteRequest
+	45,  // 155: gerardus.align.v1alpha1.SiteService.GetSite:input_type -> gerardus.align.v1alpha1.GetSiteRequest
+	47,  // 156: gerardus.align.v1alpha1.SiteService.ListSites:input_type -> gerardus.align.v1alpha1.ListSitesRequest
+	107, // 157: gerardus.align.v1alpha1.SiteService.ListRoadCorridors:input_type -> gerardus.align.v1alpha1.ListRoadCorridorsRequest
+	49,  // 158: gerardus.align.v1alpha1.SiteService.StreamReference:input_type -> gerardus.align.v1alpha1.StreamReferenceRequest
+	69,  // 159: gerardus.align.v1alpha1.SiteService.GetSiteModel:input_type -> gerardus.align.v1alpha1.GetSiteModelRequest
+	80,  // 160: gerardus.align.v1alpha1.SiteService.ListStreetUse:input_type -> gerardus.align.v1alpha1.ListStreetUseRequest
+	82,  // 161: gerardus.align.v1alpha1.SiteService.EditStreetUse:input_type -> gerardus.align.v1alpha1.EditStreetUseRequest
+	90,  // 162: gerardus.align.v1alpha1.SiteService.GetLaneField:input_type -> gerardus.align.v1alpha1.GetLaneFieldRequest
+	96,  // 163: gerardus.align.v1alpha1.SiteService.ListLaneProposals:input_type -> gerardus.align.v1alpha1.ListLaneProposalsRequest
+	98,  // 164: gerardus.align.v1alpha1.SiteService.ReviewLaneProposal:input_type -> gerardus.align.v1alpha1.ReviewLaneProposalRequest
+	51,  // 165: gerardus.align.v1alpha1.RegistrationService.UploadScan:input_type -> gerardus.align.v1alpha1.UploadScanRequest
+	88,  // 166: gerardus.align.v1alpha1.RegistrationService.UploadLaneField:input_type -> gerardus.align.v1alpha1.UploadLaneFieldRequest
+	53,  // 167: gerardus.align.v1alpha1.RegistrationService.PoseFromHint:input_type -> gerardus.align.v1alpha1.PoseFromHintRequest
+	55,  // 168: gerardus.align.v1alpha1.RegistrationService.Register:input_type -> gerardus.align.v1alpha1.RegisterRequest
+	57,  // 169: gerardus.align.v1alpha1.RegistrationService.EvaluatePose:input_type -> gerardus.align.v1alpha1.EvaluatePoseRequest
+	59,  // 170: gerardus.align.v1alpha1.RegistrationService.SolveTiePoints:input_type -> gerardus.align.v1alpha1.SolveTiePointsRequest
+	61,  // 171: gerardus.align.v1alpha1.RegistrationService.GetRegistration:input_type -> gerardus.align.v1alpha1.GetRegistrationRequest
+	63,  // 172: gerardus.align.v1alpha1.RegistrationService.ReviewRegistration:input_type -> gerardus.align.v1alpha1.ReviewRegistrationRequest
+	65,  // 173: gerardus.align.v1alpha1.RegistrationService.ReviewRegistrations:input_type -> gerardus.align.v1alpha1.ReviewRegistrationsRequest
+	67,  // 174: gerardus.align.v1alpha1.RegistrationService.ListRegistrationRecords:input_type -> gerardus.align.v1alpha1.ListRegistrationRecordsRequest
+	73,  // 175: gerardus.align.v1alpha1.RegistrationService.RefineSite:input_type -> gerardus.align.v1alpha1.RefineSiteRequest
+	42,  // 176: gerardus.align.v1alpha1.SiteService.GetServerInfo:output_type -> gerardus.align.v1alpha1.GetServerInfoResponse
+	44,  // 177: gerardus.align.v1alpha1.SiteService.PrepareSite:output_type -> gerardus.align.v1alpha1.PrepareSiteResponse
+	46,  // 178: gerardus.align.v1alpha1.SiteService.GetSite:output_type -> gerardus.align.v1alpha1.GetSiteResponse
+	48,  // 179: gerardus.align.v1alpha1.SiteService.ListSites:output_type -> gerardus.align.v1alpha1.ListSitesResponse
+	109, // 180: gerardus.align.v1alpha1.SiteService.ListRoadCorridors:output_type -> gerardus.align.v1alpha1.ListRoadCorridorsResponse
+	50,  // 181: gerardus.align.v1alpha1.SiteService.StreamReference:output_type -> gerardus.align.v1alpha1.StreamReferenceResponse
+	71,  // 182: gerardus.align.v1alpha1.SiteService.GetSiteModel:output_type -> gerardus.align.v1alpha1.GetSiteModelResponse
+	81,  // 183: gerardus.align.v1alpha1.SiteService.ListStreetUse:output_type -> gerardus.align.v1alpha1.ListStreetUseResponse
+	84,  // 184: gerardus.align.v1alpha1.SiteService.EditStreetUse:output_type -> gerardus.align.v1alpha1.EditStreetUseResponse
+	91,  // 185: gerardus.align.v1alpha1.SiteService.GetLaneField:output_type -> gerardus.align.v1alpha1.GetLaneFieldResponse
+	97,  // 186: gerardus.align.v1alpha1.SiteService.ListLaneProposals:output_type -> gerardus.align.v1alpha1.ListLaneProposalsResponse
+	99,  // 187: gerardus.align.v1alpha1.SiteService.ReviewLaneProposal:output_type -> gerardus.align.v1alpha1.ReviewLaneProposalResponse
+	52,  // 188: gerardus.align.v1alpha1.RegistrationService.UploadScan:output_type -> gerardus.align.v1alpha1.UploadScanResponse
+	89,  // 189: gerardus.align.v1alpha1.RegistrationService.UploadLaneField:output_type -> gerardus.align.v1alpha1.UploadLaneFieldResponse
+	54,  // 190: gerardus.align.v1alpha1.RegistrationService.PoseFromHint:output_type -> gerardus.align.v1alpha1.PoseFromHintResponse
+	56,  // 191: gerardus.align.v1alpha1.RegistrationService.Register:output_type -> gerardus.align.v1alpha1.RegisterResponse
+	58,  // 192: gerardus.align.v1alpha1.RegistrationService.EvaluatePose:output_type -> gerardus.align.v1alpha1.EvaluatePoseResponse
+	60,  // 193: gerardus.align.v1alpha1.RegistrationService.SolveTiePoints:output_type -> gerardus.align.v1alpha1.SolveTiePointsResponse
+	62,  // 194: gerardus.align.v1alpha1.RegistrationService.GetRegistration:output_type -> gerardus.align.v1alpha1.GetRegistrationResponse
+	64,  // 195: gerardus.align.v1alpha1.RegistrationService.ReviewRegistration:output_type -> gerardus.align.v1alpha1.ReviewRegistrationResponse
+	66,  // 196: gerardus.align.v1alpha1.RegistrationService.ReviewRegistrations:output_type -> gerardus.align.v1alpha1.ReviewRegistrationsResponse
+	68,  // 197: gerardus.align.v1alpha1.RegistrationService.ListRegistrationRecords:output_type -> gerardus.align.v1alpha1.ListRegistrationRecordsResponse
+	77,  // 198: gerardus.align.v1alpha1.RegistrationService.RefineSite:output_type -> gerardus.align.v1alpha1.RefineSiteResponse
+	176, // [176:199] is the sub-list for method output_type
+	153, // [153:176] is the sub-list for method input_type
+	153, // [153:153] is the sub-list for extension type_name
+	153, // [153:153] is the sub-list for extension extendee
+	0,   // [0:153] is the sub-list for field type_name
 }
 
 func init() { file_align_proto_init() }
@@ -9869,7 +10088,7 @@ func file_align_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_align_proto_rawDesc), len(file_align_proto_rawDesc)),
 			NumEnums:      11,
-			NumMessages:   100,
+			NumMessages:   103,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

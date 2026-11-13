@@ -395,6 +395,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var frameTimingSink:
         (@Sendable (_ interval: Double, _ encodeMs: Double, _ gpuMs: Double) -> Void)?
     private var lastFrameStart: CFTimeInterval?
+    /// Called at the start of each draw, on the main thread, while continuous
+    /// drawing is on: the driving view's clock.
+    private var frameTick: (() -> Void)?
     /// A one-shot capture of the next frame's colour, for review screenshots.
     private var pendingCapture: ((CGImage?) -> Void)?
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
@@ -1637,7 +1640,25 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         view?.needsDisplay = true
     }
 
+    /// Draws on the display's cadence instead of on demand, calling `tick` at
+    /// the start of each frame, or goes back to on-demand drawing with nil.
+    /// The driving view uses it so its pace is the display's, not a timer's.
+    func setContinuousDrawing(tick: (() -> Void)?) {
+        frameTick = tick
+        guard let view else { return }
+        if tick != nil {
+            view.preferredFramesPerSecond = 60
+            view.enableSetNeedsDisplay = false
+            view.isPaused = false
+        } else {
+            view.isPaused = true
+            view.enableSetNeedsDisplay = true
+            view.needsDisplay = true
+        }
+    }
+
     func draw(in view: MTKView) {
+        frameTick?()
         let frameStart = CACurrentMediaTime()
         let interval = lastFrameStart.map { frameStart - $0 } ?? 0
         lastFrameStart = frameStart

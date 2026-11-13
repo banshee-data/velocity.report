@@ -35,6 +35,22 @@ struct RoadSiteChoice: Identifiable, Equatable, Sendable {
     }
 }
 
+/// A built corridor the server names, with the sites that hold it.
+struct RoadCorridorChoice: Identifiable, Equatable, Sendable {
+    var info: RoadCorridorInfo
+    var description: String
+    var patchCount: Int
+    var l16Tokens: [String]
+    var id: String { info.corridorID }
+
+    init(_ s: Gerardus_Align_V1alpha1_RoadCorridorSummary) {
+        info = RoadCorridorInfo(s.layer)
+        description = s.description_p
+        patchCount = Int(s.patchCount)
+        l16Tokens = s.l16Tokens
+    }
+}
+
 /// The inspector's reading of one patch.
 struct RoadPatchInspector: Equatable {
     var patchID: String
@@ -123,10 +139,16 @@ struct RoadCoverageSummary: Equatable {
         didSet { if oldValue != selectedPatchID { restyle() } }
     }
     @Published private(set) var sites: [RoadSiteChoice] = []
+    /// The corridors the server lists, when it can (`road_corridors_listed`).
+    @Published private(set) var corridors: [RoadCorridorChoice] = []
     @Published private(set) var sitesNote: String?
     @Published private(set) var openedSite: String?
     @Published private(set) var contextNote: String?
     @Published private(set) var isPaneOpen = false
+    /// The mesh checks over every resident patch, rebuilt when the corridor
+    /// changes and not while a bounded drive is moving the working set.
+    @Published private(set) var meshAudit: RoadMeshAudit?
+    private var auditGeneration = 0
 
     let loader = RoadSurfaceLoader()
     weak var sink: RoadOverlaySink?
@@ -202,6 +224,15 @@ struct RoadCoverageSummary: Equatable {
             let listed = try await client.listSites()
             sites = listed.map(RoadSiteChoice.init).sorted { $0.label < $1.label }
             sitesNote = sites.isEmpty ? "The server lists no prepared sites." : nil
+            if alignment.serverInfo?.roadCorridorsListed == true {
+                corridors = try await client.listRoadCorridors().map(RoadCorridorChoice.init)
+                if corridors.isEmpty {
+                    sitesNote =
+                        "The server lists no built road corridor; sites below are probed one by one."
+                }
+            } else {
+                corridors = []
+            }
         } catch {
             sites = []
             sitesNote = "Could not list sites: \(GerardusClientError.describe(error))"
@@ -209,6 +240,32 @@ struct RoadCoverageSummary: Equatable {
     }
 
     // MARK: - Opening
+
+    /// Opens a named corridor through exactly the sites the server says hold
+    /// it: no probing, no neighbour search.
+    func open(corridor id: String) {
+        guard let choice = corridors.first(where: { $0.id == id }) else {
+            sitesNote = "Corridor \(id) is not one this server lists."
+            return
+        }
+        guard let client = alignment.gerardusClient,
+            let version = alignment.serverInfo?.roadSurfaceVersion
+        else {
+            sitesNote = "Not connected to a Gerardus server."
+            return
+        }
+        let held = choice.l16Tokens.compactMap { token in sites.first { $0.id == token }?.source }
+        guard !held.isEmpty else {
+            sitesNote = "None of corridor \(id)'s sites is a prepared bundle on this server."
+            return
+        }
+        expansion?.cancel()
+        contextGeneration += 1
+        openedSite = held[0].l16Token
+        selectedPatchID = nil
+        loader.open(corridor: id, sites: held, client: client, serverRoadSurfaceVersion: version)
+        Task { await loadContext(centreSite: held[0], client: client) }
+    }
 
     /// Opens the road surface through `token`'s bundle and its prepared
     /// neighbours. Cancels a load in flight; its late chunks are discarded.
@@ -361,6 +418,18 @@ struct RoadCoverageSummary: Equatable {
         visibleCount = shown.count
         let options = options
         let selected = selectedPatchID
+        if bounded == nil {
+            auditGeneration += 1
+            let auditMine = auditGeneration
+            let all = loader.store.residentPatches
+            Task.detached(priority: .utility) { [weak self] in
+                let result = all.isEmpty ? nil : RoadMeshAudit.audit(all)
+                await MainActor.run {
+                    guard let self, auditMine == self.auditGeneration else { return }
+                    if self.meshAudit != result { self.meshAudit = result }
+                }
+            }
+        }
         Task.detached(priority: .userInitiated) { [weak self] in
             let built = RoadSurfaceStyle.vertices(
                 patches: shown, options: options, selected: selected)

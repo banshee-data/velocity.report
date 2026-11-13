@@ -103,6 +103,12 @@ import Foundation
             finish(dir, log, quit: true)
             return
         }
+        try? await Task.sleep(for: .seconds(1))
+        if let a = app.road.meshAudit {
+            say(
+                "mesh audit: \(a.invertedTotal) inverted, \(a.degenerateTotal) degenerate, \(a.overlapTotal) overlapping, \(a.seamPairs) seam pairs, worst step \(a.seamStepMaxM * 1000) mm, \(a.seamViolations.count) over 5 mm"
+            )
+        }
         app.road.frameCorridor()
         await shoot("01-overhead-support")
         app.road.options.shading = .plain

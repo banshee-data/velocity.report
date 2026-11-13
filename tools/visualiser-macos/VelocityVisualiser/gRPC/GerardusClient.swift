@@ -77,6 +77,9 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     /// Every prepared bundle the server holds: how a corridor's neighbouring
     /// sites are found. Empty from a client that cannot list them.
     func listSites() async throws -> [Gerardus_Align_V1alpha1_Site]
+    /// The built road corridors (`road_corridors_listed`); empty from a client
+    /// that cannot list them.
+    func listRoadCorridors() async throws -> [Gerardus_Align_V1alpha1_RoadCorridorSummary]
     func streamReference(
         _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest
     ) async throws -> ReferenceGeometry
@@ -188,6 +191,8 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     func getSite(l16Token: String) async throws -> Gerardus_Align_V1alpha1_Site? { nil }
 
     func listSites() async throws -> [Gerardus_Align_V1alpha1_Site] { [] }
+
+    func listRoadCorridors() async throws -> [Gerardus_Align_V1alpha1_RoadCorridorSummary] { [] }
 
     func reviewRegistrations(
         _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
@@ -358,6 +363,12 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         try await siteService().listSites(
             request: ClientRequest(message: Gerardus_Align_V1alpha1_ListSitesRequest())
         ).sites
+    }
+
+    func listRoadCorridors() async throws -> [Gerardus_Align_V1alpha1_RoadCorridorSummary] {
+        try await siteService().listRoadCorridors(
+            request: ClientRequest(message: Gerardus_Align_V1alpha1_ListRoadCorridorsRequest())
+        ).corridors
     }
 
     /// Streams reference geometry in the site frame and gathers it, layer by

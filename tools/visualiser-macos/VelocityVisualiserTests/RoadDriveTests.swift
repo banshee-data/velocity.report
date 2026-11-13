@@ -441,3 +441,54 @@ struct RoadDriverTests {
         await gate.open()
     }
 }
+
+struct RoadMeshAuditTests {
+    @Test func theFixtureIsWellFormedAndItsSeamsAreWithinFiveMillimetres() throws {
+        let store = try RoadFixture.store(site: "80858771f")
+        let audit = RoadMeshAudit.audit(store.patches)
+        #expect(audit.patches.count == 5)
+        #expect(audit.invertedTotal == 0)
+        #expect(audit.degenerateTotal == 0)
+        #expect(audit.overlapTotal == 0, "\(audit.patches.filter { !$0.isClean })")
+        #expect(audit.seamPairs > 0)
+        #expect(audit.seamStepMaxM <= 0.005, "worst seam step \(audit.seamStepMaxM) m")
+        #expect(audit.isClean)
+    }
+
+    private func quad(_ id: String, x0: Float, x1: Float, z: Float = 0, flip: Bool = false) -> RoadPatch {
+        let v = [SIMD3<Float>(x0, 0, z), SIMD3(x1, 0, z), SIMD3(x1, 4, z), SIMD3(x0, 4, z)]
+        let idx: [UInt32] = flip ? [0, 2, 1, 0, 3, 2] : [0, 1, 2, 0, 2, 3]
+        return RoadPatch(
+            patchID: id, vertices: v, normals: v.map { _ in SIMD3(0, 0, 1) }, indices: idx,
+            support: v.map { _ in .observed })
+    }
+
+    @Test func aFlippedTriangleIsCountedInverted() {
+        let audit = RoadMeshAudit.audit([quad("a", x0: 0, x1: 4, flip: true)])
+        #expect(audit.invertedTotal == 2)
+        #expect(!audit.isClean)
+    }
+
+    @Test func overlappingPatchesAreCounted() {
+        let audit = RoadMeshAudit.audit([quad("a", x0: 0, x1: 4), quad("b", x0: 1, x1: 5)])
+        #expect(audit.patches.reduce(0) { $0 + $1.overlapsAcross } > 0)
+        #expect(!audit.isClean)
+    }
+
+    @Test func aHeightStepAtASharedSeamIsReported() {
+        // Two quads that touch along x = 4, the second 2 cm higher.
+        let audit = RoadMeshAudit.audit([quad("a", x0: 0, x1: 4), quad("b", x0: 4, x1: 8, z: 0.02)])
+        #expect(audit.seamPairs == 2)
+        #expect(abs(audit.seamStepMaxM - 0.02) < 1e-4)
+        #expect(audit.seamViolations.count == 2)
+        #expect(audit.overlapTotal == 0)
+        // Flush, they are clean.
+        #expect(RoadMeshAudit.audit([quad("a", x0: 0, x1: 4), quad("b", x0: 4, x1: 8)]).isClean)
+    }
+
+    @Test func evictedPatchesAreLeftOut() throws {
+        var store = try RoadFixture.store(site: "80858771f")
+        store.evictMeshes(beyond: 0, from: SIMD2(-1000, 0))
+        #expect(RoadMeshAudit.audit(store.patches).patches.isEmpty)
+    }
+}

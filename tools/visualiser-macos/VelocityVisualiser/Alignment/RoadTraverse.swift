@@ -34,6 +34,8 @@ struct TraverseSample: Sendable, Equatable {
     var encodeMs: Double = 0
     /// GPU time of the frame, ms; 0 until its command buffer completes.
     var gpuMs: Double = 0
+    /// Which pass over the route the frame belongs to.
+    var loop: Int = 0
     var drawCalls: Int
     var visiblePatches: Int
     var residentPatches: Int
@@ -48,10 +50,13 @@ struct TraverseSummary: Sendable, Equatable {
     var intervalP95Ms: Double
     var intervalP99Ms: Double
     var intervalMaxMs: Double
+    /// Where the slowest frame fell: its index and the pass it was in.
+    var worstFrameIndex: Int
+    var worstFrameLoop: Int
     var tickP95Ms: Double
     var encodeP95Ms: Double
     var gpuP95Ms: Double
-    var framesOver16_7: Int
+    var framesOver16_7: Int  // frames over 20 ms: a missed vsync at 60 Hz
     var drawCallsMin: Int
     var drawCallsMax: Int
     var residentPatchesMax: Int
@@ -93,10 +98,12 @@ struct TraverseMeter: Sendable {
             frames: samples.count, seconds: samples.map(\.interval).reduce(0, +),
             intervalP50Ms: Self.percentile(ms, 0.5), intervalP95Ms: Self.percentile(ms, 0.95),
             intervalP99Ms: Self.percentile(ms, 0.99), intervalMaxMs: ms.max() ?? 0,
+            worstFrameIndex: ms.firstIndex(of: ms.max() ?? 0) ?? 0,
+            worstFrameLoop: samples[ms.firstIndex(of: ms.max() ?? 0) ?? 0].loop,
             tickP95Ms: Self.percentile(tick, 0.95),
             encodeP95Ms: Self.percentile(samples.map(\.encodeMs), 0.95),
             gpuP95Ms: Self.percentile(samples.map(\.gpuMs), 0.95),
-            framesOver16_7: ms.filter { $0 > 16.7 }.count,
+            framesOver16_7: ms.filter { $0 > 20 }.count,
             drawCallsMin: samples.map(\.drawCalls).min() ?? 0,
             drawCallsMax: samples.map(\.drawCalls).max() ?? 0,
             residentPatchesMax: samples.map(\.residentPatches).max() ?? 0,
@@ -159,7 +166,8 @@ enum TraverseReport {
         out += "| frames | \(s.frames) over \(f(s.seconds, 1)) s |\n"
         out +=
             "| frame interval p50 / p95 / p99 / max | \(f(s.intervalP50Ms)) / \(f(s.intervalP95Ms)) / \(f(s.intervalP99Ms)) / \(f(s.intervalMaxMs)) ms |\n"
-        out += "| frames over 16.7 ms | \(s.framesOver16_7) |\n"
+        out += "| frames over 20 ms (a missed vsync) | \(s.framesOver16_7) |\n"
+        out += "| slowest frame | #\(s.worstFrameIndex), pass \(s.worstFrameLoop + 1) |\n"
         out +=
             "| app tick p95 / render encode p95 / GPU p95 | \(f(s.tickP95Ms, 3)) / \(f(s.encodeP95Ms, 3)) / \(f(s.gpuP95Ms, 3)) ms |\n"
         out += "| draw calls | \(s.drawCallsMin)–\(s.drawCallsMax) |\n"
