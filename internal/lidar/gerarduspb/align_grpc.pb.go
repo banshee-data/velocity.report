@@ -1,5 +1,5 @@
 // Vendored from banshee-data/gerardus.
-// Source commit: a365f0eacf67a18b27a51dacb7ad5cc2fbae8d9e.
+// Source commit: 2de5bdceaad69b80103b691ed5e85f9c4f73cae9 (banshee-data/gerardus#85, ListRoadCorridors; unmerged: re-vendor from main once it lands).
 // Retired OSM layer identities are reserved and must not be reused.
 // Regenerate with make proto-gen-swift after synchronising this contract.
 
@@ -72,6 +72,7 @@ const (
 	SiteService_PrepareSite_FullMethodName        = "/gerardus.align.v1alpha1.SiteService/PrepareSite"
 	SiteService_GetSite_FullMethodName            = "/gerardus.align.v1alpha1.SiteService/GetSite"
 	SiteService_ListSites_FullMethodName          = "/gerardus.align.v1alpha1.SiteService/ListSites"
+	SiteService_ListRoadCorridors_FullMethodName  = "/gerardus.align.v1alpha1.SiteService/ListRoadCorridors"
 	SiteService_StreamReference_FullMethodName    = "/gerardus.align.v1alpha1.SiteService/StreamReference"
 	SiteService_GetSiteModel_FullMethodName       = "/gerardus.align.v1alpha1.SiteService/GetSiteModel"
 	SiteService_ListStreetUse_FullMethodName      = "/gerardus.align.v1alpha1.SiteService/ListStreetUse"
@@ -98,6 +99,11 @@ type SiteServiceClient interface {
 	GetSite(ctx context.Context, in *GetSiteRequest, opts ...grpc.CallOption) (*GetSiteResponse, error)
 	// Every prepared site.
 	ListSites(ctx context.Context, in *ListSitesRequest, opts ...grpc.CallOption) (*ListSitesResponse, error)
+	// The built road preview corridors, each with where it is and which
+	// prepared sites hold patches of it, so a client opens a corridor by name
+	// instead of probing site bundles. Empty on a server with none built.
+	// Advertised by GetServerInfoResponse.road_corridors_listed.
+	ListRoadCorridors(ctx context.Context, in *ListRoadCorridorsRequest, opts ...grpc.CallOption) (*ListRoadCorridorsResponse, error)
 	// Reference geometry for a prepared site, in the site frame, in chunks of
 	// at most a few megabytes. Layers arrive in the order requested; each
 	// layer's last chunk has layer_complete set. Retired OSM layers are
@@ -188,6 +194,16 @@ func (c *siteServiceClient) ListSites(ctx context.Context, in *ListSitesRequest,
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListSitesResponse)
 	err := c.cc.Invoke(ctx, SiteService_ListSites_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *siteServiceClient) ListRoadCorridors(ctx context.Context, in *ListRoadCorridorsRequest, opts ...grpc.CallOption) (*ListRoadCorridorsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRoadCorridorsResponse)
+	err := c.cc.Invoke(ctx, SiteService_ListRoadCorridors_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -290,6 +306,11 @@ type SiteServiceServer interface {
 	GetSite(context.Context, *GetSiteRequest) (*GetSiteResponse, error)
 	// Every prepared site.
 	ListSites(context.Context, *ListSitesRequest) (*ListSitesResponse, error)
+	// The built road preview corridors, each with where it is and which
+	// prepared sites hold patches of it, so a client opens a corridor by name
+	// instead of probing site bundles. Empty on a server with none built.
+	// Advertised by GetServerInfoResponse.road_corridors_listed.
+	ListRoadCorridors(context.Context, *ListRoadCorridorsRequest) (*ListRoadCorridorsResponse, error)
 	// Reference geometry for a prepared site, in the site frame, in chunks of
 	// at most a few megabytes. Layers arrive in the order requested; each
 	// layer's last chunk has layer_complete set. Retired OSM layers are
@@ -348,6 +369,9 @@ func (UnimplementedSiteServiceServer) GetSite(context.Context, *GetSiteRequest) 
 }
 func (UnimplementedSiteServiceServer) ListSites(context.Context, *ListSitesRequest) (*ListSitesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListSites not implemented")
+}
+func (UnimplementedSiteServiceServer) ListRoadCorridors(context.Context, *ListRoadCorridorsRequest) (*ListRoadCorridorsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRoadCorridors not implemented")
 }
 func (UnimplementedSiteServiceServer) StreamReference(*StreamReferenceRequest, grpc.ServerStreamingServer[StreamReferenceResponse]) error {
 	return status.Error(codes.Unimplemented, "method StreamReference not implemented")
@@ -452,6 +476,24 @@ func _SiteService_ListSites_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SiteServiceServer).ListSites(ctx, req.(*ListSitesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SiteService_ListRoadCorridors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRoadCorridorsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SiteServiceServer).ListRoadCorridors(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SiteService_ListRoadCorridors_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SiteServiceServer).ListRoadCorridors(ctx, req.(*ListRoadCorridorsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -593,6 +635,10 @@ var SiteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListSites",
 			Handler:    _SiteService_ListSites_Handler,
+		},
+		{
+			MethodName: "ListRoadCorridors",
+			Handler:    _SiteService_ListRoadCorridors_Handler,
 		},
 		{
 			MethodName: "GetSiteModel",

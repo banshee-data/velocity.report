@@ -1,5 +1,5 @@
 // Vendored from banshee-data/gerardus.
-// Source commit: a365f0eacf67a18b27a51dacb7ad5cc2fbae8d9e.
+// Source commit: 2de5bdceaad69b80103b691ed5e85f9c4f73cae9 (banshee-data/gerardus#85, ListRoadCorridors; unmerged: re-vendor from main once it lands).
 // Retired OSM layer identities are reserved and must not be reused.
 // Regenerate with make proto-gen-swift after synchronising this contract.
 
@@ -75,6 +75,12 @@ service SiteService {
 
   // Every prepared site.
   rpc ListSites(ListSitesRequest) returns (ListSitesResponse);
+
+  // The built road preview corridors, each with where it is and which
+  // prepared sites hold patches of it, so a client opens a corridor by name
+  // instead of probing site bundles. Empty on a server with none built.
+  // Advertised by GetServerInfoResponse.road_corridors_listed.
+  rpc ListRoadCorridors(ListRoadCorridorsRequest) returns (ListRoadCorridorsResponse);
 
   // Reference geometry for a prepared site, in the site frame, in chunks of
   // at most a few megabytes. Layers arrive in the order requested; each
@@ -756,6 +762,9 @@ message GetServerInfoResponse {
   // the enum value. 1: GGP-ROAD-PROTOTYPE. The layer is also listed in
   // available_layers when this server has road previews to send.
   uint32 road_surface_version = 12;
+  // True when ListRoadCorridors is served. Independent of road_surface_version
+  // so the layer's contract version and its hashes do not move.
+  bool road_corridors_listed = 13;
 }
 
 message PrepareSiteRequest {
@@ -1429,6 +1438,28 @@ message RoadSurfaceLayer {
   float surfaced_length_m = 14;
   float inferred_length_m = 15;
   float missing_length_m = 16;
+}
+
+message ListRoadCorridorsRequest {}
+
+// One built corridor: its layer header (hashes, fit parameters, gaps and the
+// inventory lengths) and where it lies.
+message RoadCorridorSummary {
+  RoadSurfaceLayer layer = 1;
+  string description = 2;           // the manifest's own words
+  uint32 patch_count = 3;
+  // Bounds of the patches, WGS 84 degrees.
+  double min_lat_deg = 4;
+  double min_lon_deg = 5;
+  double max_lat_deg = 6;
+  double max_lon_deg = 7;
+  // Prepared sites whose bundle holds at least one patch of this corridor:
+  // the ones to ask for layer 17 to read all of it.
+  repeated string l16_tokens = 8;
+}
+
+message ListRoadCorridorsResponse {
+  repeated RoadCorridorSummary corridors = 1;
 }
 
 message RoadSurfaceChunk {

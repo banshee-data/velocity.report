@@ -376,6 +376,30 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private var referenceTreeBuffer: MTLBuffer?
     private(set) var referenceTreeVertexCount: Int = 0
     private var referencePaletteBuffer: MTLBuffer?
+    /// The road surface preview (Gerardus layer 17), in the site frame like
+    /// the rest of the reference, so it draws through the same model matrix.
+    /// Fill is triangles; the rest are lines. See RoadSurfaceStyle.
+    private var roadFillBuffer: MTLBuffer?
+    private var roadWireBuffer: MTLBuffer?
+    private var roadCentreBuffer: MTLBuffer?
+    private var roadBoundaryBuffer: MTLBuffer?
+    private var roadGapBuffer: MTLBuffer?
+    private var roadSelectionBuffer: MTLBuffer?
+    private(set) var roadCounts = RoadOverlayCounts()
+    /// Draw calls the road overlay made in the last frame, for the traverse
+    /// measurement.
+    private(set) var roadDrawCalls = 0
+    /// Called after each frame with its interval since the last, the CPU time
+    /// spent encoding it, and its GPU time (from the command buffer): set
+    /// while a traverse is measured, nil otherwise.
+    var frameTimingSink:
+        (@Sendable (_ interval: Double, _ encodeMs: Double, _ gpuMs: Double) -> Void)?
+    private var lastFrameStart: CFTimeInterval?
+    /// Called at the start of each draw, on the main thread, while continuous
+    /// drawing is on: the driving view's clock.
+    private var frameTick: (() -> Void)?
+    /// A one-shot capture of the next frame's colour, for review screenshots.
+    private var pendingCapture: ((CGImage?) -> Void)?
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var referenceVisibility = ReferenceVisibility()
     /// Aerial points are dense; drawn at full size they bury the scan.
@@ -774,6 +798,28 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         view?.needsDisplay = true
     }
 
+    /// Replaces the road overlay, or removes it with nil. Whole buffers are
+    /// swapped between frames; a frame in flight keeps the ones it holds.
+    func setRoadOverlay(_ vertices: RoadOverlayVertices?) {
+        func buffer(_ floats: [Float]) -> MTLBuffer? {
+            floats.isEmpty
+                ? nil
+                : device.makeBuffer(
+                    bytes: floats, length: floats.count * MemoryLayout<Float>.stride,
+                    options: .storageModeShared)
+        }
+        let v = vertices ?? RoadOverlayVertices()
+        roadFillBuffer = buffer(v.fill)
+        roadWireBuffer = buffer(v.wire)
+        roadCentreBuffer = buffer(v.centre)
+        roadBoundaryBuffer = buffer(v.boundary)
+        roadGapBuffer = buffer(v.gaps)
+        roadSelectionBuffer = buffer(v.selection)
+        // Counts only, not the arrays, are kept.
+        roadCounts = RoadOverlayCounts(v)
+        view?.needsDisplay = true
+    }
+
     func setReferenceModelMatrix(_ matrix: simd_float4x4) {
         guard matrix != referenceModelMatrix else { return }
         referenceModelMatrix = matrix
@@ -986,6 +1032,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: count)
         }
+        // The road review has its own scene frame and camera. A capture's
+        // alignment transform must not move this independently opened corridor.
+        var road = uniforms
+        drawRoadOverlay(encoder: encoder, pipeline: pipeline, uniforms: &road)
         // Roof fills last, so the lines behind a translucent roof still show
         // through it.
         if shown.buildings, let fills = referenceRoofFillBuffer, referenceRoofFillVertexCount >= 3 {
@@ -995,6 +1045,55 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.drawPrimitives(
                 type: .triangle, vertexStart: 0,
                 vertexCount: referenceRoofFillVertexCount - referenceRoofFillVertexCount % 3)
+        }
+    }
+
+    /// A BGRA8 texture as an image; nil for any other format.
+    static func image(of texture: MTLTexture) -> CGImage? {
+        guard texture.pixelFormat == .bgra8Unorm || texture.pixelFormat == .bgra8Unorm_srgb else {
+            return nil
+        }
+        let w = texture.width
+        let h = texture.height
+        var bytes = [UInt8](repeating: 0, count: w * h * 4)
+        texture.getBytes(
+            &bytes, bytesPerRow: w * 4, from: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0)
+        let info = CGBitmapInfo.byteOrder32Little.union(
+            CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue))
+        return bytes.withUnsafeMutableBytes { raw in
+            CGContext(
+                data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: info.rawValue)?.makeImage()
+        }
+    }
+
+    /// The road surface, then its evidence over it.
+    private func drawRoadOverlay(
+        encoder: MTLRenderCommandEncoder, pipeline: MTLRenderPipelineState, uniforms: inout Uniforms
+    ) {
+        var calls = 0
+        defer { roadDrawCalls = calls }
+        let counts = roadCounts
+        let layers: [(MTLBuffer?, Int, MTLPrimitiveType)] = [
+            (roadFillBuffer, counts.fillVertexCount - counts.fillVertexCount % 3, .triangle),
+            (roadWireBuffer, counts.wireVertexCount - counts.wireVertexCount % 2, .line),
+            (roadGapBuffer, counts.gapVertexCount - counts.gapVertexCount % 2, .line),
+            (
+                roadBoundaryBuffer, counts.boundaryVertexCount - counts.boundaryVertexCount % 2,
+                .line
+            ), (roadCentreBuffer, counts.centreVertexCount - counts.centreVertexCount % 2, .line),
+            (
+                roadSelectionBuffer, counts.selectionVertexCount - counts.selectionVertexCount % 2,
+                .line
+            ),
+        ]
+        for (buffer, count, type) in layers {
+            guard let buffer, count > 0 else { continue }
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(type: type, vertexStart: 0, vertexCount: count)
+            calls += 1
         }
     }
 
@@ -1536,7 +1635,36 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         camera.aspectRatio = Float(size.width / size.height)
     }
 
+    /// Hands `completion` the next frame as an image. The drawable must be
+    /// readable, so the view stops being framebuffer-only (a one-time cost).
+    func captureNextFrame(_ completion: @escaping (CGImage?) -> Void) {
+        view?.framebufferOnly = false
+        pendingCapture = completion
+        view?.needsDisplay = true
+    }
+
+    /// Draws on the display's cadence instead of on demand, calling `tick` at
+    /// the start of each frame, or goes back to on-demand drawing with nil.
+    /// The driving view uses it so its pace is the display's, not a timer's.
+    func setContinuousDrawing(tick: (() -> Void)?) {
+        frameTick = tick
+        guard let view else { return }
+        if tick != nil {
+            view.preferredFramesPerSecond = 60
+            view.enableSetNeedsDisplay = false
+            view.isPaused = false
+        } else {
+            view.isPaused = true
+            view.enableSetNeedsDisplay = true
+            view.needsDisplay = true
+        }
+    }
+
     func draw(in view: MTKView) {
+        frameTick?()
+        let frameStart = CACurrentMediaTime()
+        let interval = lastFrameStart.map { frameStart - $0 } ?? 0
+        lastFrameStart = frameStart
         let trace = PerformanceTrace.begin(
             "MetalDraw",
             "points=\(pointCount) bg=\(compositeRenderer?.getStats().background ?? 0) fg=\(compositeRenderer?.getStats().foreground ?? pointCount)"
@@ -1705,6 +1833,20 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         encoder.endEncoding()
         commandBuffer.present(drawable)
+        if let capture = pendingCapture {
+            pendingCapture = nil
+            let texture = drawable.texture
+            commandBuffer.addCompletedHandler { _ in
+                DispatchQueue.main.async { capture(Self.image(of: texture)) }
+            }
+        }
+        if let sink = frameTimingSink {
+            let encodeMs = (CACurrentMediaTime() - frameStart) * 1000
+            commandBuffer.addCompletedHandler { buffer in
+                let gpuMs = max(0, buffer.gpuEndTime - buffer.gpuStartTime) * 1000
+                sink(interval, encodeMs, gpuMs)
+            }
+        }
         commandBuffer.commit()
     }
 
@@ -2287,6 +2429,8 @@ enum CameraHolder: Equatable, Sendable {
     case orbit
     /// The camera pane's free flight and Fly to.
     case fly
+    /// The road review's driving view, from Drive until Overhead.
+    case drive
 }
 
 struct Camera: Equatable {

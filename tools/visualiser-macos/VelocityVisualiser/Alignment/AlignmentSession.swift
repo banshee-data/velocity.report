@@ -320,6 +320,11 @@ struct ReferenceSummary: Equatable {
     }
 
     var supportsBoundedPlacement: Bool { serverInfo?.supportsBoundedPlacement == true }
+    /// Whether the connected server can send the road surface preview, and
+    /// why not when it cannot. Nil while no server has answered.
+    var roadSurfaceAvailability: RoadSurfaceAvailability? {
+        serverInfo.map { RoadSurfaceAvailability.forServer(version: $0.roadSurfaceVersion) }
+    }
 
     @Published private(set) var background: AlignmentBackgroundStatus?
     @Published private(set) var scan: Gerardus_Align_V1alpha1_Scan?
