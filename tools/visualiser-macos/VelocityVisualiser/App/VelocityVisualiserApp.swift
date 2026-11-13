@@ -31,7 +31,9 @@ private let appLogger = DevLogger(category: "App")
             if AppState.isRunningUnderXCTest {
                 EmptyView()
             } else {
-                ContentView().environmentObject(appState)
+                ContentView().environmentObject(appState).task {
+                    await RoadReviewAutopilot.runIfRequested(appState)
+                }
             }
         }.commands {
             // Use simple commands without observing state changes

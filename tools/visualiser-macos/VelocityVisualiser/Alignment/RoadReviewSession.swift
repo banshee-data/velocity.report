@@ -138,9 +138,18 @@ struct RoadCoverageSummary: Equatable {
     private var expansion: Task<Void, Never>?
     private var contextGeneration = 0
     private(set) var overlay = RoadOverlayVertices()
-    /// The patches the overlay is built from: everything loaded, until bounded
-    /// loading narrows it.
+    /// Every patch held, resident or skeleton.
     var patches: [RoadPatch] { loader.store.patches }
+    /// The driving view's working set: the eye and the radii, or nil to draw
+    /// and keep everything loaded.
+    private(set) var bounded: (eye: SIMD2<Float>, policy: RoadResidencyPolicy)?
+    private var restyleGeneration = 0
+    private var lastVisibleIDs: Set<String> = []
+    /// Patches in the last overlay built.
+    private(set) var visibleCount = 0
+    private var lastWindowCentre: SIMD2<Float>?
+    /// Overlay builds finished, for the traverse report.
+    private(set) var overlayBuilds = 0
 
     init(alignment: AlignmentSession) {
         self.alignment = alignment
@@ -335,12 +344,88 @@ struct RoadCoverageSummary: Equatable {
 
     // MARK: - Drawing and selection
 
+    /// Rebuilds the overlay on a worker and swaps it in on the main actor
+    /// between frames. A build that finishes after a newer one was asked for is
+    /// dropped.
     private func restyle() {
         guard isPaneOpen || openedSite != nil else { return }
-        overlay = RoadSurfaceStyle.vertices(
-            patches: patches, options: options, selected: selectedPatchID)
-        sink?.setRoadOverlay(overlay)
-        applyContextVisibility()
+        restyleGeneration += 1
+        let mine = restyleGeneration
+        let shown: [RoadPatch]
+        if let bounded {
+            shown = RoadWorkingSet.visible(patches, eye: bounded.eye, policy: bounded.policy)
+            lastVisibleIDs = Set(shown.map(\.patchID))
+        } else {
+            shown = loader.store.residentPatches
+        }
+        visibleCount = shown.count
+        let options = options
+        let selected = selectedPatchID
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let built = RoadSurfaceStyle.vertices(
+                patches: shown, options: options, selected: selected)
+            await MainActor.run {
+                guard let self, mine == self.restyleGeneration else { return }
+                self.overlay = built
+                self.overlayBuilds += 1
+                self.sink?.setRoadOverlay(built)
+                self.applyContextVisibility()
+            }
+        }
+    }
+
+    // MARK: - Bounded loading
+
+    /// Starts keeping to a working set around the eye: draws within the visible
+    /// radius, and (through `updateEye`) fetches and evicts around it.
+    func enterBounded(eye: SIMD2<Float>, policy: RoadResidencyPolicy = RoadResidencyPolicy()) {
+        guard policy.isValid else { return }
+        bounded = (eye, policy)
+        lastWindowCentre = nil
+        updateEye(eye)
+    }
+
+    /// Back to everything loaded: the overview wants the whole corridor, so it
+    /// is read again in full.
+    func leaveBounded() {
+        guard bounded != nil else { return }
+        bounded = nil
+        lastWindowCentre = nil
+        if let token = openedSite { open(siteToken: token) } else { restyle() }
+    }
+
+    /// Moves the eye: redraws only when the visible set changed, asks for the
+    /// window around it when it has moved far enough, and drops meshes beyond
+    /// the eviction radius.
+    func updateEye(_ eye: SIMD2<Float>) {
+        guard var current = bounded else { return }
+        current.eye = eye
+        bounded = current
+        let policy = current.policy
+        // Evict first, only when there is something to drop.
+        if loader.store.patches.contains(where: {
+            $0.isResident && $0.distance(from: eye) > policy.evictM
+        }) {
+            loader.evict(beyond: policy.evictM, from: eye)
+        }
+        if RoadWorkingSet.needsWindow(eye: eye, lastRequestedAt: lastWindowCentre, policy: policy),
+            let client = alignment.gerardusClient,
+            let version = alignment.serverInfo?.roadSurfaceVersion,
+            let scene = sites.first(where: { $0.id == loader.sceneToken })?.source
+        {
+            lastWindowCentre = eye
+            let reach = Double(policy.prefetchM) + Self.neighbourRadiusM
+            let near = sites.map(\.source).filter { src in
+                let o = src.offset(in: scene)
+                return (pow(o.x - Double(eye.x), 2) + pow(o.y - Double(eye.y), 2)).squareRoot()
+                    <= reach
+            }
+            loader.extend(
+                around: eye, radius: policy.prefetchM, sites: [scene] + near.filter { $0 != scene },
+                client: client, serverRoadSurfaceVersion: version)
+        }
+        let ids = RoadWorkingSet.visibleIDs(patches, eye: eye, policy: policy)
+        if ids != lastVisibleIDs { restyle() }
     }
 
     /// The patch under a ray, selected and returned.

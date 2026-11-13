@@ -389,6 +389,14 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// Draw calls the road overlay made in the last frame, for the traverse
     /// measurement.
     private(set) var roadDrawCalls = 0
+    /// Called after each frame with its interval since the last, the CPU time
+    /// spent encoding it, and its GPU time (from the command buffer): set
+    /// while a traverse is measured, nil otherwise.
+    var frameTimingSink:
+        (@Sendable (_ interval: Double, _ encodeMs: Double, _ gpuMs: Double) -> Void)?
+    private var lastFrameStart: CFTimeInterval?
+    /// A one-shot capture of the next frame's colour, for review screenshots.
+    private var pendingCapture: ((CGImage?) -> Void)?
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var referenceVisibility = ReferenceVisibility()
     /// Aerial points are dense; drawn at full size they bury the scan.
@@ -1034,6 +1042,25 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         }
     }
 
+    /// A BGRA8 texture as an image; nil for any other format.
+    static func image(of texture: MTLTexture) -> CGImage? {
+        guard texture.pixelFormat == .bgra8Unorm || texture.pixelFormat == .bgra8Unorm_srgb else {
+            return nil
+        }
+        let w = texture.width
+        let h = texture.height
+        var bytes = [UInt8](repeating: 0, count: w * h * 4)
+        texture.getBytes(
+            &bytes, bytesPerRow: w * 4, from: MTLRegionMake2D(0, 0, w, h), mipmapLevel: 0)
+        let info = CGBitmapInfo.byteOrder32Little.union(
+            CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue))
+        return bytes.withUnsafeMutableBytes { raw in
+            CGContext(
+                data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: info.rawValue)?.makeImage()
+        }
+    }
+
     /// The road surface, then its evidence over it.
     private func drawRoadOverlay(
         encoder: MTLRenderCommandEncoder, pipeline: MTLRenderPipelineState, uniforms: inout Uniforms
@@ -1602,7 +1629,18 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         camera.aspectRatio = Float(size.width / size.height)
     }
 
+    /// Hands `completion` the next frame as an image. The drawable must be
+    /// readable, so the view stops being framebuffer-only (a one-time cost).
+    func captureNextFrame(_ completion: @escaping (CGImage?) -> Void) {
+        view?.framebufferOnly = false
+        pendingCapture = completion
+        view?.needsDisplay = true
+    }
+
     func draw(in view: MTKView) {
+        let frameStart = CACurrentMediaTime()
+        let interval = lastFrameStart.map { frameStart - $0 } ?? 0
+        lastFrameStart = frameStart
         let trace = PerformanceTrace.begin(
             "MetalDraw",
             "points=\(pointCount) bg=\(compositeRenderer?.getStats().background ?? 0) fg=\(compositeRenderer?.getStats().foreground ?? pointCount)"
@@ -1771,6 +1809,20 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         encoder.endEncoding()
         commandBuffer.present(drawable)
+        if let capture = pendingCapture {
+            pendingCapture = nil
+            let texture = drawable.texture
+            commandBuffer.addCompletedHandler { _ in
+                DispatchQueue.main.async { capture(Self.image(of: texture)) }
+            }
+        }
+        if let sink = frameTimingSink {
+            let encodeMs = (CACurrentMediaTime() - frameStart) * 1000
+            commandBuffer.addCompletedHandler { buffer in
+                let gpuMs = max(0, buffer.gpuEndTime - buffer.gpuStartTime) * 1000
+                sink(interval, encodeMs, gpuMs)
+            }
+        }
         commandBuffer.commit()
     }
 

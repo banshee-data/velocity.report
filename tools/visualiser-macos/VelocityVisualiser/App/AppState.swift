@@ -427,7 +427,7 @@ private let logger = DevLogger(category: "AppState")
     // MARK: - Renderer
 
     /// Weak reference to the Metal renderer for direct frame delivery
-    private weak var renderer: MetalRenderer?
+    private(set) weak var renderer: MetalRenderer?
 
     /// The main view's camera, for a second view that wants to look at the
     /// scene from the same place.
@@ -447,6 +447,13 @@ private let logger = DevLogger(category: "AppState")
         road.sink = renderer
         road.referenceSink = renderer
         drive.sink = renderer
+        drive.drawCalls = { [weak renderer] in renderer?.roadDrawCalls ?? 0 }
+        let drive = drive
+        renderer.frameTimingSink = { interval, encode, gpu in
+            DispatchQueue.main.async {
+                drive.noteFrame(interval: interval, encodeMs: encode, gpuMs: gpu)
+            }
+        }
         streets.sink = renderer
         camera.sink = renderer
         logger.info("Renderer registered")

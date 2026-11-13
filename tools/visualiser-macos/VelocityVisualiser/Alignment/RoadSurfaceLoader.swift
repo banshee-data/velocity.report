@@ -89,6 +89,9 @@ enum RoadLoadState: Equatable, Sendable {
 
     private var generation = 0
     private var task: Task<Void, Never>?
+    private var windowTask: Task<Void, Never>?
+    /// The last window fetch that failed, in a line.
+    @Published private(set) var windowNote: String?
 
     /// Messages the caller can read in tests: how many chunks were applied.
     private(set) var appliedChunks = 0
@@ -126,6 +129,7 @@ enum RoadLoadState: Equatable, Sendable {
 
     /// Stops the load; what arrived stays, marked partial.
     func cancel() {
+        windowTask?.cancel()
         task?.cancel()
         task = nil
         if state.isLoading {
@@ -136,6 +140,7 @@ enum RoadLoadState: Equatable, Sendable {
 
     /// Forgets everything, as when the site or corridor is left.
     func reset() {
+        windowTask?.cancel()
         task?.cancel()
         task = nil
         generation += 1
@@ -161,8 +166,12 @@ enum RoadLoadState: Equatable, Sendable {
             request.layers = [.roadSurface]
             do {
                 try await client.streamRoadSurface(request) { [weak self] chunk, last in
-                    await self?.apply(
-                        chunk, complete: last, from: site, offset: offset, generation: mine)
+                    // The conversion from the wire is the heavy part: it runs
+                    // here, off the main actor, and only the finished patches
+                    // are handed over.
+                    let prepared = RoadSurfaceLoader.prepare(
+                        chunk, from: site, offset: offset, sceneToken: scene.l16Token)
+                    await self?.apply(prepared, complete: last, generation: mine)
                 }
             } catch is CancellationError {
                 if mine == generation { finish(partial: "cancelled", generation: mine) }
@@ -217,24 +226,92 @@ enum RoadLoadState: Equatable, Sendable {
         state = store.isEmpty ? .cancelled : .partial(reason: reason)
     }
 
-    /// Applies one chunk unless its load has been replaced.
-    private func apply(
-        _ chunk: Gerardus_Align_V1alpha1_RoadSurfaceChunk, complete: Bool,
-        from site: RoadSiteSource, offset: SIMD3<Float>, generation mine: Int
-    ) {
+    /// A chunk converted and moved into the scene frame, ready to store.
+    struct Prepared: Sendable {
+        var layer: Gerardus_Align_V1alpha1_RoadSurfaceLayer?
+        var patches: [RoadPatch]
+    }
+
+    nonisolated static func prepare(
+        _ chunk: Gerardus_Align_V1alpha1_RoadSurfaceChunk, from site: RoadSiteSource,
+        offset: SIMD3<Float>, sceneToken: String
+    ) -> Prepared {
+        let patches = chunk.patches.map { proto -> RoadPatch in
+            let patch = RoadPatch(proto, frameToken: site.l16Token)
+            return offset == .zero ? patch : patch.translated(by: offset, frameToken: sceneToken)
+        }
+        return Prepared(layer: chunk.hasLayer ? chunk.layer : nil, patches: patches)
+    }
+
+    /// Applies one prepared chunk unless its load has been replaced.
+    private func apply(_ chunk: Prepared, complete: Bool, generation mine: Int) {
         guard mine == generation else {
             discardedLate += 1
             return
         }
-        if chunk.hasLayer { store.appendLayer(chunk.layer) }
-        // Move each patch into the scene frame before it joins the store, so
-        // dedupe by patch_id compares like with like.
-        for proto in chunk.patches {
-            let patch = RoadPatch(proto, frameToken: site.l16Token)
-            store.add(
-                offset == .zero ? patch : patch.translated(by: offset, frameToken: sceneToken))
-        }
+        if let layer = chunk.layer { store.appendLayer(layer) }
+        for patch in chunk.patches { store.add(patch) }
         appliedChunks += 1
         if case .loading = state { state = .loading(messages: appliedChunks) }
+    }
+
+    // MARK: - Windows
+
+    /// Adds the patches within `radius` of `centre` (scene frame) through each
+    /// of `sites`, to what is already held, without resetting it: the fetch
+    /// window following the eye. A window that fails leaves what is held, and
+    /// says so in `windowNote`. Late answers for a replaced corridor are
+    /// discarded like any other.
+    func extend(
+        around centre: SIMD2<Float>, radius: Float, sites: [RoadSiteSource],
+        client: AlignmentServiceClient, serverRoadSurfaceVersion: UInt32
+    ) {
+        guard serverRoadSurfaceVersion == RoadSurfaceAvailability.supportedVersion,
+            let scene = sites.first
+        else { return }
+        let mine = generation
+        windowTask?.cancel()
+        windowTask = Task { [weak self] in
+            for site in sites {
+                if Task.isCancelled { return }
+                let shift = site.offset(in: scene)
+                let offset = SIMD3<Float>(Float(shift.x), Float(shift.y), 0)
+                var request = Gerardus_Align_V1alpha1_StreamReferenceRequest()
+                request.l16Token = site.l16Token
+                request.layers = [.roadSurface]
+                // The site's own frame: the scene point minus the site's offset.
+                request.centre.x = Double(centre.x) - shift.x
+                request.centre.y = Double(centre.y) - shift.y
+                request.radiusM = radius
+                do {
+                    try await client.streamRoadSurface(request) { chunk, _ in
+                        let prepared = RoadSurfaceLoader.prepare(
+                            chunk, from: site, offset: offset, sceneToken: scene.l16Token)
+                        await self?.apply(prepared, complete: false, generation: mine)
+                    }
+                    await self?.windowFinished(site: site.l16Token, error: nil, generation: mine)
+                } catch {
+                    await self?.windowFinished(site: site.l16Token, error: error, generation: mine)
+                }
+            }
+        }
+    }
+
+    private func windowFinished(site: String, error: Error?, generation mine: Int) {
+        guard mine == generation else { return }
+        if let error {
+            if let rpc = error as? RPCError, rpc.code == .notFound || rpc.code == .cancelled {
+                return
+            }
+            windowNote = "Window at \(site) failed: \(GerardusClientError.describe(error))"
+        } else if windowNote?.hasPrefix("Window at \(site)") == true {
+            windowNote = nil
+        }
+    }
+
+    /// Drops the meshes beyond `radius` of `eye`; see RoadSurfaceStore.
+    @discardableResult func evict(beyond radius: Float, from eye: SIMD2<Float>) -> Int {
+        let n = store.evictMeshes(beyond: radius, from: eye)
+        return n
     }
 }

@@ -213,15 +213,50 @@ struct RoadPatch: Sendable, Identifiable, Equatable {
         return out
     }
 
-    /// Horizontal bounds of the vertices that carry a height.
+    /// Horizontal bounds of the patch: its vertices, or its rings once the mesh
+    /// has been evicted.
     var bounds: (min: SIMD2<Float>, max: SIMD2<Float>)? {
         var lo = SIMD2<Float>(repeating: .infinity)
         var hi = SIMD2<Float>(repeating: -.infinity)
-        for v in vertices where v.x.isFinite && v.y.isFinite {
+        func take(_ v: SIMD3<Float>) {
+            guard v.x.isFinite, v.y.isFinite else { return }
             lo = simd_min(lo, SIMD2(v.x, v.y))
             hi = simd_max(hi, SIMD2(v.x, v.y))
         }
+        if vertices.isEmpty {
+            for ring in rings { ring.points.forEach(take) }
+        } else {
+            vertices.forEach(take)
+        }
         return lo.x <= hi.x ? (lo, hi) : nil
+    }
+
+    /// Whether the mesh is held. An evicted patch keeps its rings, profile,
+    /// stats and hashes (its skeleton) so a route can pass it and an inspector
+    /// can name it, but draws nothing.
+    var isResident: Bool { !vertices.isEmpty }
+
+    /// This patch without its mesh.
+    func skeleton() -> RoadPatch {
+        var out = self
+        out.vertices = []
+        out.normals = []
+        out.indices = []
+        out.support = []
+        return out
+    }
+
+    /// Horizontal distance from `p` to the patch's bounds; 0 inside them.
+    func distance(from p: SIMD2<Float>) -> Float {
+        guard let b = bounds else { return .infinity }
+        let dx = max(b.min.x - p.x, 0, p.x - b.max.x)
+        let dy = max(b.min.y - p.y, 0, p.y - b.max.y)
+        return (dx * dx + dy * dy).squareRoot()
+    }
+
+    /// Bytes the mesh holds, for the memory report.
+    var meshBytes: Int {
+        vertices.count * MemoryLayout<SIMD3<Float>>.stride * 2 + indices.count * 4 + support.count
     }
 
     /// The patch's height at a point, from the triangle that contains it; nil
@@ -470,6 +505,13 @@ struct RoadSurfaceStore: Sendable {
             return
         }
         if let i = index[patch.patchID] {
+            // A skeleton whose mesh arrives again is made resident again.
+            if !patches[i].isResident, patch.isResident,
+                patches[i].geometryHash == patch.geometryHash
+            {
+                patches[i] = patch
+                return
+            }
             duplicates += 1
             if patches[i].geometryHash != patch.geometryHash, !conflicts.contains(patch.patchID) {
                 conflicts.append(patch.patchID)
@@ -482,6 +524,23 @@ struct RoadSurfaceStore: Sendable {
     }
 
     mutating func markComplete() { complete = true }
+
+    /// Drops the mesh of every resident patch farther than `radius` from `eye`,
+    /// keeping its skeleton. Returns how many were evicted.
+    @discardableResult mutating func evictMeshes(
+        beyond radius: Float, from eye: SIMD2<Float>
+    ) -> Int {
+        var n = 0
+        for i in patches.indices
+        where patches[i].isResident && patches[i].distance(from: eye) > radius {
+            patches[i] = patches[i].skeleton()
+            n += 1
+        }
+        return n
+    }
+
+    var residentPatches: [RoadPatch] { patches.filter(\.isResident) }
+    var residentMeshBytes: Int { patches.reduce(0) { $0 + $1.meshBytes } }
 
     /// Records a corridor header and makes it the one later patches belong to.
     mutating func appendLayer(_ layer: Gerardus_Align_V1alpha1_RoadSurfaceLayer) {

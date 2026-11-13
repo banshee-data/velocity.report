@@ -3,6 +3,7 @@
 // connection, load its road surface preview, switch the evidence layers, and
 // inspect a patch. State is RoadReviewSession's.
 
+import AppKit
 import SwiftUI
 
 /// The toolbar's switch for the pane.
@@ -332,10 +333,45 @@ import SwiftUI
                     ).font(.caption).foregroundStyle(.secondary)
                 }
                 junctionChoices
+                traverseControls
             }
             if let message = drive.message {
                 Label(message, systemImage: "hand.raised").font(.caption).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// The working-set radii and the timed traverse that measures them.
+    @ViewBuilder private var traverseControls: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(
+                String(
+                    format: "Working set: draw %.0f m, fetch %.0f m, drop beyond %.0f m",
+                    drive.policy.visibleM, drive.policy.prefetchM, drive.policy.evictM)
+            ).font(.caption2).foregroundStyle(.secondary)
+            HStack {
+                if drive.traverseUntil == nil {
+                    Button("Traverse 10 min") { drive.startTraverse(seconds: 600) }
+                    Button("1 min") { drive.startTraverse(seconds: 60) }
+                } else {
+                    Button("Stop traverse") { drive.stopTraverse() }
+                    Text("loop \(drive.traverseLoops + 1)").font(.caption2)
+                }
+            }.controlSize(.small)
+            if let s = drive.lastTraverse {
+                let note = TraverseReport.markdown(
+                    s, drive.provenance(), date: ISO8601DateFormatter().string(from: Date()),
+                    label: "road view")
+                Text(
+                    String(
+                        format: "p95 %.1f ms over %d frames (%@)", s.intervalP95Ms, s.frames,
+                        s.meetsTarget ? "target met" : "target not met")
+                ).font(.caption)
+                Button("Copy note") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(note, forType: .string)
+                }.controlSize(.small)
             }
         }
     }

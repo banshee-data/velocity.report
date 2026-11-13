@@ -37,10 +37,11 @@ struct RoadHeightIndex: Sendable {
     }
     private var cells: [Key: [Int]] = [:]
     private var tris: [Tri] = []
+    /// Patches whose mesh is held: an evicted patch is not here.
     private(set) var patchIDs: Set<String> = []
 
     init(patches: [RoadPatch]) {
-        for patch in patches {
+        for patch in patches where patch.isResident {
             patchIDs.insert(patch.patchID)
             for t in 0..<patch.triangleCount {
                 let a = patch.vertices[Int(patch.indices[3 * t])]
@@ -117,6 +118,10 @@ struct RoadRoute: Sendable {
     var stop: RoadStop?
     /// Patches the route passes through, in order.
     var patchIDs: [String]
+    /// What it takes to continue the route where it stopped.
+    var chain: RoadRouteBuilder.Chain?
+    /// How many of the chain's legs have stations.
+    var assembledLegs = 0
 
     var length: Float { stations.last?.s ?? 0 }
     var isEmpty: Bool { stations.isEmpty }
@@ -165,6 +170,25 @@ enum RoadRouteBuilder {
         var endNode: String { reversed ? patch.fromNode : patch.toNode }
     }
 
+    struct LegSpec: Sendable, Equatable {
+        var patchID: String
+        var reversed: Bool
+    }
+
+    /// The legs chosen so far and the bridges between them: what a route needs
+    /// to continue where it stopped, without rebuilding from its start.
+    struct Chain: Sendable {
+        var legs: [LegSpec] = []
+        /// After leg i: the bridge samples across a junction, and its patch.
+        var bridges: [Int: [SIMD2<Float>]] = [:]
+        var bridgePatch: [Int: String] = [:]
+        var stop: RoadStop?
+    }
+
+    private static func leg(_ p: RoadPatch, reversed: Bool) -> Leg {
+        Leg(patch: p, stations: reversed ? p.profile.reversed() : p.profile, reversed: reversed)
+    }
+
     /// Route from the `startPatch`'s profile, forwards or backwards. At each end
     /// it looks for the next leg within `joinTolerance`, or across a junction
     /// patch within `maxBridge`, and takes the straightest; `choices` maps a
@@ -173,23 +197,52 @@ enum RoadRouteBuilder {
         from startPatch: String, reversed: Bool = false, patches: [RoadPatch],
         index: RoadHeightIndex, choices: [String: String] = [:]
     ) -> RoadRoute {
-        let segments = patches.filter { $0.kind == .segment && $0.profile.count >= 2 }
-        let junctions = patches.filter { $0.kind == .junction }
-        guard let first = segments.first(where: { $0.patchID == startPatch }) else {
+        guard
+            patches.contains(where: {
+                $0.patchID == startPatch && $0.kind == .segment && $0.profile.count >= 2
+            })
+        else {
             return RoadRoute(
                 stations: [], stop: .unloadedGeometry(detail: "no profile for \(startPatch)"),
                 patchIDs: [])
         }
-        var legs: [Leg] = []
-        var used: Set<String> = [first.patchID]
-        func leg(_ p: RoadPatch, reversed: Bool) -> Leg {
-            Leg(patch: p, stations: reversed ? p.profile.reversed() : p.profile, reversed: reversed)
+        var chain = Chain(legs: [LegSpec(patchID: startPatch, reversed: reversed)])
+        advance(&chain, patches: patches, choices: choices)
+        return assemble(chain: chain, from: 0, existing: [], patches: patches, index: index)
+    }
+
+    /// Continues a route that stopped for lack of geometry, now that more is
+    /// loaded. Stations already passed keep their heights, whether or not their
+    /// meshes are still resident. A route that stopped for another reason, or
+    /// ended, is returned as it is.
+    static func extended(
+        _ route: RoadRoute, patches: [RoadPatch], index: RoadHeightIndex,
+        choices: [String: String] = [:]
+    ) -> RoadRoute {
+        guard var chain = route.chain, case .unloadedGeometry? = route.stop else { return route }
+        chain.stop = nil
+        advance(&chain, patches: patches, choices: choices)
+        guard chain.legs.count > route.assembledLegs || chain.stop != route.stop else {
+            return route
         }
-        var current = leg(first, reversed: reversed)
-        legs.append(current)
-        var stop: RoadStop?
-        var bridges: [Int: [SIMD2<Float>]] = [:]  // after leg i: the bridge xy samples
-        var bridgePatch: [Int: String] = [:]
+        return assemble(
+            chain: chain, from: route.assembledLegs, existing: route.stations, patches: patches,
+            index: index)
+    }
+
+    private static func advance(
+        _ chain: inout Chain, patches: [RoadPatch], choices: [String: String]
+    ) {
+        let segments = patches.filter { $0.kind == .segment && $0.profile.count >= 2 }
+        let junctions = patches.filter { $0.kind == .junction }
+        var used = Set(chain.legs.map(\.patchID))
+        guard let last = chain.legs.last,
+            let lastPatch = patches.first(where: { $0.patchID == last.patchID })
+        else {
+            chain.stop = .unloadedGeometry(detail: "the route's last road is not loaded")
+            return
+        }
+        var current = leg(lastPatch, reversed: last.reversed)
         while true {
             let end = current.end
             let heading = direction(of: current)
@@ -221,14 +274,15 @@ enum RoadRouteBuilder {
                         && ($0.fromNode == node || $0.toNode == node)
                 }
                 if !sharing.isEmpty {
-                    stop = .unloadedGeometry(
+                    chain.stop = .unloadedGeometry(
                         detail: "the junction patch at node \(node) is not loaded")
                 } else if junctions.contains(where: { distance(end, to: $0) <= joinTolerance }) {
-                    stop = .unloadedGeometry(detail: "the road beyond the junction is not loaded")
+                    chain.stop = .unloadedGeometry(
+                        detail: "the road beyond the junction is not loaded")
                 } else {
-                    stop = .endOfRoute
+                    chain.stop = .endOfRoute
                 }
-                break
+                return
             }
             // A chosen leg wins; else the straightest.
             var pick = options[0]
@@ -246,22 +300,20 @@ enum RoadRouteBuilder {
                     let z0 = height(of: scored[0].1.0.stations[0])
                     let z1 = height(of: scored[1].1.0.stations[0])
                     if let z0, let z1, abs(z0 - z1) > 2 {
-                        stop = .unresolvedChoice(
+                        chain.stop = .unresolvedChoice(
                             detail: "two roads continue straight on at different heights")
-                        break
+                        return
                     }
                 }
             }
             if !pick.1.isEmpty {
-                bridges[legs.count - 1] = pick.1
-                bridgePatch[legs.count - 1] = pick.2
+                chain.bridges[chain.legs.count - 1] = pick.1
+                chain.bridgePatch[chain.legs.count - 1] = pick.2
             }
             used.insert(pick.0.patch.patchID)
-            legs.append(pick.0)
+            chain.legs.append(LegSpec(patchID: pick.0.patch.patchID, reversed: pick.0.reversed))
             current = pick.0
         }
-        return assemble(
-            legs: legs, bridges: bridges, bridgePatch: bridgePatch, index: index, stop: stop)
     }
 
     // MARK: Pieces
@@ -297,65 +349,64 @@ enum RoadRouteBuilder {
         return RoadSurfaceStyle.distance(p, to: outer)
     }
 
+    /// Stations for `chain`'s legs from `k` on, appended to `existing`. A
+    /// station's height is the mesh's under it when the patch is resident; a
+    /// patch whose mesh has been evicted lends its profile's height, which the
+    /// server sent; no height anywhere makes it a missing station.
     private static func assemble(
-        legs: [Leg], bridges: [Int: [SIMD2<Float>]], bridgePatch: [Int: String],
-        index: RoadHeightIndex, stop: RoadStop?
+        chain: Chain, from k: Int, existing: [RouteStation], patches: [RoadPatch],
+        index: RoadHeightIndex
     ) -> RoadRoute {
-        var out: [RouteStation] = []
-        var ids: [String] = []
-        var s: Float = 0
-        func add(_ xy: SIMD2<Float>, support: RoadSupportClass, patch: String, only: String?) {
+        var out = existing
+        var s = existing.last?.s ?? 0
+        let byID = Dictionary(patches.map { ($0.patchID, $0) }, uniquingKeysWith: { a, _ in a })
+        func add(_ xy: SIMD2<Float>, support: RoadSupportClass, patch: String, profileZ: Float?) {
             if let last = out.last {
-                s += simd_length(xy - SIMD2(last.position.x, last.position.y))
+                let step = simd_length(xy - SIMD2(last.position.x, last.position.y))
+                // A shared mouth is one place.
+                if step < 1e-3 { return }
+                s += step
             }
-            let z = index.height(at: xy, in: only)
+            var z = index.height(at: xy, in: patch)
+            if z == nil, !index.patchIDs.contains(patch), let profileZ, profileZ.isFinite {
+                z = profileZ
+            }
             out.append(
                 RouteStation(
                     s: s, position: SIMD3(xy.x, xy.y, z ?? .nan),
                     support: z == nil ? .missing : support, patchID: patch))
         }
-        for (i, leg) in legs.enumerated() {
-            ids.append(leg.patch.patchID)
-            for st in leg.stations {
-                // The profile's own support names the class; a missing profile
-                // station has no height. Height comes from the mesh under it.
-                let support = st.support
+        func bridge(after i: Int) {
+            guard let samples = chain.bridges[i], let jp = chain.bridgePatch[i] else { return }
+            for xy in samples { add(xy, support: .observed, patch: jp, profileZ: nil) }
+        }
+        var ids = chain.legs.map(\.patchID)
+        for i in k..<chain.legs.count {
+            if i == k, k > 0 { bridge(after: k - 1) }
+            let spec = chain.legs[i]
+            guard let patch = byID[spec.patchID] else { continue }
+            for st in leg(patch, reversed: spec.reversed).stations {
+                let support = st.support == .unspecified ? .observed : st.support
                 add(
-                    SIMD2(st.position.x, st.position.y),
-                    support: support == .unspecified ? .observed : support,
-                    patch: leg.patch.patchID, only: leg.patch.patchID)
+                    SIMD2(st.position.x, st.position.y), support: support, patch: patch.patchID,
+                    profileZ: st.position.z)
+                // A profile station with no height stays without one.
                 if st.isMissing {
                     out[out.count - 1].position.z = .nan
                     out[out.count - 1].support = .missing
                 }
             }
-            if let bridge = bridges[i], let jp = bridgePatch[i] {
-                ids.append(jp)
-                for xy in bridge { add(xy, support: .observed, patch: jp, only: jp) }
+            bridge(after: i)
+        }
+        // Junction patches the bridges crossed are part of the route.
+        for (i, jp) in chain.bridgePatch.sorted(by: { $0.key < $1.key }) {
+            if let at = ids.firstIndex(of: chain.legs[i].patchID), !ids.contains(jp) {
+                ids.insert(jp, at: at + 1)
             }
         }
-        // Drop stations that sit on the same spot twice (a shared mouth).
-        var deduped: [RouteStation] = []
-        for st in out {
-            if let last = deduped.last,
-                simd_length(SIMD2(st.position.x - last.position.x, st.position.y - last.position.y))
-                    < 1e-3
-            {
-                continue
-            }
-            deduped.append(st)
-        }
-        // Re-measure s after dedupe.
-        var d: Float = 0
-        for i in deduped.indices {
-            if i > 0 {
-                let a = deduped[i - 1].position
-                let b = deduped[i].position
-                d += simd_length(SIMD2(b.x - a.x, b.y - a.y))
-            }
-            deduped[i].s = d
-        }
-        return RoadRoute(stations: deduped, stop: stop, patchIDs: ids)
+        return RoadRoute(
+            stations: out, stop: chain.stop, patchIDs: ids, chain: chain,
+            assembledLegs: chain.legs.count)
     }
 }
 

@@ -44,6 +44,15 @@ import simd
     private var index = RoadHeightIndex(patches: [])
     /// Frame times recorded while driving, s.
     private(set) var frameIntervals: [Double] = []
+    /// The working-set radii in force while driving.
+    @Published var policy = RoadResidencyPolicy()
+    private(set) var meter = TraverseMeter()
+    /// A timed traverse in progress: ping-pongs the route until `until`.
+    @Published private(set) var traverseUntil: TimeInterval?
+    @Published private(set) var traverseLoops = 0
+    @Published private(set) var lastTraverse: TraverseSummary?
+    /// Called each frame with the renderer's draw calls, when there is one.
+    var drawCalls: () -> Int = { 0 }
 
     init(review: RoadReviewSession) {
         self.review = review
@@ -75,6 +84,7 @@ import simd
         driver?.setEyeHeight(eyeHeight)
         isDriving = true
         applyPose()
+        maintainWorkingSet()
     }
 
     /// Takes `armPatch` at `junction` and rebuilds the route from the start.
@@ -109,9 +119,38 @@ import simd
         updateMessage()
     }
 
+    /// More of the corridor arrived (or some was evicted): a route that stopped
+    /// for lack of geometry goes on from where it stopped. It is not rebuilt
+    /// from its start, so the stretch already driven keeps its heights.
     private func patchesChanged() {
-        guard isDriving, startPatch != nil else { return }
-        rebuild(keepingPlace: true)
+        guard isDriving, var d = driver else { return }
+        let patches = review.patches
+        index = RoadHeightIndex(patches: patches)
+        var route = RoadRouteBuilder.extended(
+            d.route, patches: patches, index: index, choices: choices)
+        if route.stop == .endOfRoute {
+            switch review.loader.state {
+            case .loading: route.stop = .unloadedGeometry(detail: "the corridor is still loading")
+            case .partial(let why):
+                route.stop = .unloadedGeometry(detail: "the load was partial: \(why)")
+            default: break
+            }
+        }
+        d.replace(route: route)
+        driver = d
+        updateMessage()
+        applyPose()
+    }
+
+    /// Keeps the working set around the eye.
+    private func maintainWorkingSet() {
+        guard isDriving, let pose = driver?.pose() else { return }
+        let eye = SIMD2(pose.position.x, pose.position.y)
+        if review.bounded == nil {
+            review.enterBounded(eye: eye, policy: policy)
+        } else {
+            review.updateEye(eye)
+        }
     }
 
     // MARK: - Controls
@@ -145,7 +184,9 @@ import simd
     /// Back to the overhead view: the driving camera is let go and the corridor
     /// is framed from above, to inspect a defect.
     func overhead() {
+        stopTraverse()
         pause()
+        review.leaveBounded()
         sink?.releaseCamera(.drive, restore: false)
         isDriving = false
         message = nil
@@ -169,6 +210,8 @@ import simd
     }
 
     func tick() {
+        let began = clock()
+        defer { traverseTick(started: began) }
         let now = clock()
         let dt = lastTick.map { now - $0 } ?? Self.tickSeconds
         lastTick = now
@@ -182,9 +225,74 @@ import simd
         d.advance(by: Float(min(dt, 0.1)))
         driver = d
         frameIntervals.append(dt)
-        if d.stopped != nil { stopTimer() }
+        lastDt = dt
+        if d.stopped != nil && traverseUntil == nil { stopTimer() }
         updateMessage()
         applyPose()
+        maintainWorkingSet()
+    }
+
+    // MARK: - Traverse
+
+    private var lastDt = 0.0
+
+    /// Drives the route back and forth for `seconds` of wall time, measuring
+    /// each frame; see `TraverseMeter`. The summary lands in `lastTraverse`.
+    func startTraverse(seconds: TimeInterval) {
+        guard isDriving, driver != nil else { return }
+        meter.reset()
+        traverseLoops = 0
+        traverseUntil = clock() + seconds
+        driver?.setSpeed(speed)
+        play()
+    }
+
+    func stopTraverse() {
+        guard traverseUntil != nil else { return }
+        traverseUntil = nil
+        lastTraverse = meter.summary()
+    }
+
+    private var lastTickMs = 0.0
+
+    /// The clock side of a traverse: the end of the run, and the turn at either
+    /// end of the route (back to its start, so the working set is fetched and
+    /// evicted again as in a repeated drive).
+    private func traverseTick(started: TimeInterval) {
+        guard let until = traverseUntil else { return }
+        let now = clock()
+        lastTickMs = (now - started) * 1000
+        if now >= until {
+            stopTraverse()
+            pause()
+            return
+        }
+        if let d = driver, d.stopped != nil {
+            traverseLoops += 1
+            scrub(to: 0)
+            play()
+        }
+    }
+
+    /// One rendered frame, from the renderer: its interval, encode time and
+    /// (later) GPU time. Recorded only during a traverse.
+    func noteFrame(interval: Double, encodeMs: Double, gpuMs: Double) {
+        guard traverseUntil != nil else { return }
+        meter.record(
+            TraverseSample(
+                interval: interval, tickMs: lastTickMs, encodeMs: encodeMs, gpuMs: gpuMs,
+                drawCalls: drawCalls(), visiblePatches: review.visibleCount,
+                residentPatches: review.loader.store.residentPatches.count,
+                residentMeshBytes: review.loader.store.residentMeshBytes,
+                footprintBytes: ProcessMemory.footprintBytes()))
+    }
+
+    /// The provenance of a measurement taken now.
+    func provenance() -> TraverseProvenance {
+        TraverseProvenance.current(
+            settings:
+                "eye \(eyeHeight) m, speed \(speed) m/s, radii \(policy.visibleM)/\(policy.prefetchM)/\(policy.evictM) m",
+            corridor: review.loader.store.corridors, patches: review.patches)
     }
 
     private func updateMessage() {
