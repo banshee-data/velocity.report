@@ -250,7 +250,7 @@ struct RoadSurfaceModelTests {
     }
 
     private func settle(_ loader: RoadSurfaceLoader) async {
-        for _ in 0..<400 {
+        for _ in 0..<2000 {
             if !loader.state.isLoading { return }
             try? await Task.sleep(for: .milliseconds(5))
         }
@@ -417,12 +417,14 @@ struct RoadSurfaceModelTests {
         loader.open(
             corridor: "fixture", sites: [RoadFixture.siteA], client: service,
             serverRoadSurfaceVersion: 1)
-        try await Task.sleep(for: .milliseconds(40))
+        for _ in 0..<2000 where loader.store.patches.count < 2 {
+            try await Task.sleep(for: .milliseconds(5))
+        }
         #expect(loader.store.patches.count == 2)
         loader.cancel()
         #expect(loader.state == .partial(reason: "cancelled"))
         await gate.open()
-        try await Task.sleep(for: .milliseconds(40))
+        try await Task.sleep(for: .milliseconds(300))
         // The second chunk, late, changed nothing.
         #expect(loader.store.patches.count == 2)
         #expect(loader.discardedLate >= 1)

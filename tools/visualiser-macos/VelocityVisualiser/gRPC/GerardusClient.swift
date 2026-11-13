@@ -74,6 +74,9 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     /// The stored bundle's description, or nil when none has been prepared
     /// (NOT_FOUND). Builds nothing.
     func getSite(l16Token: String) async throws -> Gerardus_Align_V1alpha1_Site?
+    /// Every prepared bundle the server holds: how a corridor's neighbouring
+    /// sites are found. Empty from a client that cannot list them.
+    func listSites() async throws -> [Gerardus_Align_V1alpha1_Site]
     func streamReference(
         _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest
     ) async throws -> ReferenceGeometry
@@ -183,6 +186,8 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
 
     /// A client that cannot look at a bundle without preparing it reports none.
     func getSite(l16Token: String) async throws -> Gerardus_Align_V1alpha1_Site? { nil }
+
+    func listSites() async throws -> [Gerardus_Align_V1alpha1_Site] { [] }
 
     func reviewRegistrations(
         _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
@@ -347,6 +352,12 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         do {
             return try await siteService().getSite(request: ClientRequest(message: request)).site
         } catch let error as RPCError where error.code == .notFound { return nil }
+    }
+
+    func listSites() async throws -> [Gerardus_Align_V1alpha1_Site] {
+        try await siteService().listSites(
+            request: ClientRequest(message: Gerardus_Align_V1alpha1_ListSitesRequest())
+        ).sites
     }
 
     /// Streams reference geometry in the site frame and gathers it, layer by

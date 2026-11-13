@@ -51,7 +51,8 @@ struct ContentView: View {
                             onCameraChanged: {
                                 appState.reprojectLabels()
                                 appState.camera.cameraMoved()
-                            }, paintInput: appState.streets, cameraInput: appState.camera)
+                            }, paintInput: appState.streets, cameraInput: appState.camera,
+                            roadInput: appState.road)
 
                         CityOverlayView(
                             city: appState.city, lanes: appState.laneReview,
@@ -108,6 +109,10 @@ struct ContentView: View {
                 // defeated selectTrackQuietly, whose whole purpose is to
                 // select without popping the panel open.
                 if appState.showSidePanel { SidePanelView().frame(width: 520) }
+
+                if appState.showRoadPane {
+                    RoadReviewPane(session: appState.road).frame(width: RoadReviewPane.width)
+                }
 
                 // Alignment pane: only while a Gerardus server answers. The
                 // refinement column opens to its left.
@@ -695,6 +700,7 @@ struct ToolbarView: View {
             }
 
             CameraToolbarButton()
+            RoadToolbarButton()
 
             Spacer()
 
@@ -2332,6 +2338,8 @@ struct MetalViewRepresentable: NSViewRepresentable {
     /// The camera pane: flight's keys and mouse look, its picks, and the
     /// manual input that pauses an orbit.
     var cameraInput: CameraControlSession?
+    /// The road review: a click on a road patch selects it.
+    var roadInput: RoadReviewSession?
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = InteractiveMetalView()
@@ -2347,6 +2355,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
             metalView.onCameraChanged = onCameraChanged
             metalView.paintInput = paintInput
             metalView.cameraInput = cameraInput
+            metalView.roadInput = roadInput
             // Register the renderer so it can receive frame updates directly
             onRendererCreated?(renderer)
         }
@@ -2374,6 +2383,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
             metalView.onCameraChanged = onCameraChanged
             metalView.paintInput = paintInput
             metalView.cameraInput = cameraInput
+            metalView.roadInput = roadInput
         }
 
         // Trigger a redraw so toggle changes are visible immediately
@@ -2399,6 +2409,7 @@ class InteractiveMetalView: MTKView {
     /// and the mouse looks while Option is held; while it picks, a click is
     /// its; and any orbit, pan or zoom by hand pauses its orbit.
     weak var cameraInput: CameraControlSession?
+    weak var roadInput: RoadReviewSession?
     private var lastMouseLocation = CGPoint.zero
     private var mouseDownLocation = CGPoint.zero  // M6: Track click detection
     private var paintTracking: NSTrackingArea?
@@ -2527,6 +2538,12 @@ class InteractiveMetalView: MTKView {
             // While the camera pane picks a radius's end, the click is its.
             if let cameraInput, cameraInput.picking != nil {
                 cameraInput.pick(at: viewPoint, viewSize: bounds.size)
+                return
+            }
+            if let road = roadInput, road.isPaneOpen, let renderer,
+                let ray = renderer.rayInSiteFrame(at: viewPoint, viewSize: bounds.size),
+                road.pick(origin: ray.origin, direction: ray.direction) != nil
+            {
                 return
             }
             let trackID = renderer?.hitTestTrack(at: viewPoint, viewSize: bounds.size)

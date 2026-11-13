@@ -376,6 +376,19 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private var referenceTreeBuffer: MTLBuffer?
     private(set) var referenceTreeVertexCount: Int = 0
     private var referencePaletteBuffer: MTLBuffer?
+    /// The road surface preview (Gerardus layer 17), in the site frame like
+    /// the rest of the reference, so it draws through the same model matrix.
+    /// Fill is triangles; the rest are lines. See RoadSurfaceStyle.
+    private var roadFillBuffer: MTLBuffer?
+    private var roadWireBuffer: MTLBuffer?
+    private var roadCentreBuffer: MTLBuffer?
+    private var roadBoundaryBuffer: MTLBuffer?
+    private var roadGapBuffer: MTLBuffer?
+    private var roadSelectionBuffer: MTLBuffer?
+    private(set) var roadCounts = RoadOverlayCounts()
+    /// Draw calls the road overlay made in the last frame, for the traverse
+    /// measurement.
+    private(set) var roadDrawCalls = 0
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var referenceVisibility = ReferenceVisibility()
     /// Aerial points are dense; drawn at full size they bury the scan.
@@ -774,6 +787,28 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         view?.needsDisplay = true
     }
 
+    /// Replaces the road overlay, or removes it with nil. Whole buffers are
+    /// swapped between frames; a frame in flight keeps the ones it holds.
+    func setRoadOverlay(_ vertices: RoadOverlayVertices?) {
+        func buffer(_ floats: [Float]) -> MTLBuffer? {
+            floats.isEmpty
+                ? nil
+                : device.makeBuffer(
+                    bytes: floats, length: floats.count * MemoryLayout<Float>.stride,
+                    options: .storageModeShared)
+        }
+        let v = vertices ?? RoadOverlayVertices()
+        roadFillBuffer = buffer(v.fill)
+        roadWireBuffer = buffer(v.wire)
+        roadCentreBuffer = buffer(v.centre)
+        roadBoundaryBuffer = buffer(v.boundary)
+        roadGapBuffer = buffer(v.gaps)
+        roadSelectionBuffer = buffer(v.selection)
+        // Counts only, not the arrays, are kept.
+        roadCounts = RoadOverlayCounts(v)
+        view?.needsDisplay = true
+    }
+
     func setReferenceModelMatrix(_ matrix: simd_float4x4) {
         guard matrix != referenceModelMatrix else { return }
         referenceModelMatrix = matrix
@@ -986,6 +1021,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: count)
         }
+        drawRoadOverlay(encoder: encoder, pipeline: pipeline, uniforms: &reference)
         // Roof fills last, so the lines behind a translucent roof still show
         // through it.
         if shown.buildings, let fills = referenceRoofFillBuffer, referenceRoofFillVertexCount >= 3 {
@@ -995,6 +1031,36 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.drawPrimitives(
                 type: .triangle, vertexStart: 0,
                 vertexCount: referenceRoofFillVertexCount - referenceRoofFillVertexCount % 3)
+        }
+    }
+
+    /// The road surface, then its evidence over it.
+    private func drawRoadOverlay(
+        encoder: MTLRenderCommandEncoder, pipeline: MTLRenderPipelineState, uniforms: inout Uniforms
+    ) {
+        var calls = 0
+        defer { roadDrawCalls = calls }
+        let counts = roadCounts
+        let layers: [(MTLBuffer?, Int, MTLPrimitiveType)] = [
+            (roadFillBuffer, counts.fillVertexCount - counts.fillVertexCount % 3, .triangle),
+            (roadWireBuffer, counts.wireVertexCount - counts.wireVertexCount % 2, .line),
+            (roadGapBuffer, counts.gapVertexCount - counts.gapVertexCount % 2, .line),
+            (
+                roadBoundaryBuffer, counts.boundaryVertexCount - counts.boundaryVertexCount % 2,
+                .line
+            ), (roadCentreBuffer, counts.centreVertexCount - counts.centreVertexCount % 2, .line),
+            (
+                roadSelectionBuffer, counts.selectionVertexCount - counts.selectionVertexCount % 2,
+                .line
+            ),
+        ]
+        for (buffer, count, type) in layers {
+            guard let buffer, count > 0 else { continue }
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(type: type, vertexStart: 0, vertexCount: count)
+            calls += 1
         }
     }
 

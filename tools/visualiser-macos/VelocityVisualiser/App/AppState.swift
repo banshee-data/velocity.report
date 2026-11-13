@@ -444,6 +444,8 @@ private let logger = DevLogger(category: "AppState")
             DispatchQueue.main.async { self?.city.live.overlay = overlay }
         }
         alignment.sink = renderer
+        road.sink = renderer
+        road.referenceSink = renderer
         streets.sink = renderer
         camera.sink = renderer
         logger.info("Renderer registered")
@@ -704,6 +706,13 @@ private let logger = DevLogger(category: "AppState")
     /// The camera pane's orbit, flight and viewpoints.
     let camera: CameraControlSession
 
+    // MARK: - Road surface review
+
+    /// The road surface preview from Gerardus: corridor, evidence toggles,
+    /// patch inspector. Needs no sensor and no recording.
+    let road: RoadReviewSession
+    @Published var showRoadPane: Bool = false { didSet { road.paneToggled(open: showRoadPane) } }
+
     // MARK: - City view
 
     /// The city site index and the switch between its sites.
@@ -747,6 +756,7 @@ private let logger = DevLogger(category: "AppState")
             defaults: Self.isRunningUnderXCTest ? nil : .standard)
         city = CityViewSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
         laneReview = LaneReviewSession(alignment: alignment)
+        road = RoadReviewSession(alignment: alignment)
         alignmentAvailability = alignment.$availability.sink { [weak self] availability in
             if case .available = availability { return }
             self?.showAlignmentPane = false
