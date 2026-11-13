@@ -114,8 +114,7 @@ struct RoadSurfaceModelTests {
 
     @Test func missingVerticesAreNaNAndNoTriangleUsesThem() throws {
         let store = try RoadFixture.store(site: "80858771f")
-        let patch = try #require(
-            store.patch(id: "gms-preview:road/fixture/segment/unsupported/0"))
+        let patch = try #require(store.patch(id: "gms-preview:road/fixture/segment/unsupported/0"))
         let missing = patch.support.enumerated().filter { $0.element == .missing }.map(\.offset)
         #expect(!missing.isEmpty)
         for v in missing {
@@ -150,8 +149,7 @@ struct RoadSurfaceModelTests {
         #expect(bend.profile.count == 61)
         let island = try #require(store.patch(id: "gms-preview:road/fixture/segment/island/0"))
         #expect(island.rings.filter(\.hole).count == 1)
-        let junction = try #require(
-            store.patch(id: "gms-preview:road/fixture/junction/9000001/0"))
+        let junction = try #require(store.patch(id: "gms-preview:road/fixture/junction/9000001/0"))
         #expect(junction.kind == .junction)
         // The layer header: hashes, accuracy, a gap, inventory.
         let info = try #require(store.corridors.first)
@@ -215,6 +213,31 @@ struct RoadSurfaceModelTests {
         #expect(store.rejected.count == 1)
     }
 
+    @Test func malformedHorizontalCoordinatesAndPackedArraysAreRejected() throws {
+        let chunks = try RoadFixture.chunks(site: "80858771f")
+        let good = chunks[0].0.patches[0]
+        for coordinate: Float in [.nan, .infinity, -.infinity, .greatestFiniteMagnitude] {
+            var bad = good
+            bad.vertices[0] = coordinate
+            var store = RoadSurfaceStore()
+            store.add(RoadPatch(bad))
+            #expect(store.isEmpty)
+            #expect(store.rejected.count == 1)
+        }
+        var bad = good
+        bad.vertices.append(1)
+        #expect(RoadPatch(bad).defect() == "coordinate array is not a multiple of 3")
+        bad = good
+        bad.rings[0].xyz.append(1)
+        #expect(RoadPatch(bad).defect() != nil)
+        bad = good
+        bad.profile[0].position.x = .nan
+        #expect(RoadPatch(bad).defect() == "invalid profile coordinate")
+        bad = good
+        bad.rings[0].edgeSource.removeLast()
+        #expect(RoadPatch(bad).defect() == "ring edge and vertex counts differ")
+    }
+
     @Test func sameIdWithDifferentGeometryIsAConflict() throws {
         var store = try RoadFixture.store(site: "80858771f")
         var other = try #require(store.patches.first)
@@ -271,7 +294,8 @@ struct RoadSurfaceModelTests {
         #expect(service.calls.filter { $0.hasPrefix("StreamRoadSurface") }.count == 2)
         #expect(loader.sceneToken == "80858771f")
         // Every patch is in the scene frame: the first site's.
-        #expect(loader.store.patches.allSatisfy { $0.frameToken == "80858771f" || $0.frameToken == "" })
+        #expect(
+            loader.store.patches.allSatisfy { $0.frameToken == "80858771f" || $0.frameToken == "" })
     }
 
     @Test func oldServerIsNeverAsked() async {
@@ -334,6 +358,57 @@ struct RoadSurfaceModelTests {
         #expect(reason.contains("connection reset"))
         #expect(loader.store.patches.count == 2)
         #expect(!loader.store.complete)
+    }
+
+    @Test func cleanEOFWithoutLayerCompleteIsPartial() async {
+        let loader = RoadSurfaceLoader()
+        let service = fixtureService()
+        service.roadSurfaceHandler = { request, onChunk in
+            let chunks = try RoadFixture.chunks(site: request.l16Token)
+            // A successful RPC is not proof that the requested layer finished.
+            await onChunk(chunks[0].0, false)
+        }
+        loader.open(
+            corridor: "fixture", sites: [RoadFixture.siteA], client: service,
+            serverRoadSurfaceVersion: 1)
+        await settle(loader)
+        guard case .partial(let reason) = loader.state else {
+            Issue.record("state \(loader.state)")
+            return
+        }
+        #expect(reason.contains("layer_complete"))
+        #expect(loader.store.patches.count == 2)
+        #expect(!loader.store.complete)
+    }
+
+    @Test func namedCorridorIgnoresOtherCorridorsInTheSameBundle() async {
+        let loader = RoadSurfaceLoader()
+        let service = fixtureService()
+        service.roadSurfaceHandler = { request, onChunk in
+            let chunks = try RoadFixture.chunks(site: request.l16Token)
+            // Both corridors have headerless continuation chunks.
+            for (chunk, _) in chunks { await onChunk(chunk, false) }
+            for (chunk, last) in chunks {
+                var other = chunk
+                if other.hasLayer { other.layer.corridorID = "other" }
+                for i in other.patches.indices { other.patches[i].patchID += "/other" }
+                await onChunk(other, last)
+            }
+        }
+        loader.open(
+            corridor: "fixture", sites: [RoadFixture.siteA], client: service,
+            serverRoadSurfaceVersion: 1, selectedCorridorID: "fixture")
+        await settle(loader)
+        #expect(loader.state == .loaded)
+        #expect(loader.store.patches.count == 5)
+        #expect(loader.store.corridors.map(\.corridorID) == ["fixture"])
+        #expect(loader.store.corridorOf.values.allSatisfy { $0 == "fixture" })
+        // Window loads apply the same corridor filter.
+        loader.extend(
+            around: .zero, radius: 150, sites: [RoadFixture.siteA], client: service,
+            serverRoadSurfaceVersion: 1)
+        #expect(await eventually { loader.store.duplicates >= 5 })
+        #expect(loader.store.patches.count == 5)
     }
 
     @Test func aFailureBeforeAnyPatchIsFailedNotEmpty() async {

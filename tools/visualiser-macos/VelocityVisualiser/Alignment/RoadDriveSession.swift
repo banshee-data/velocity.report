@@ -50,6 +50,8 @@ extension MetalRenderer: RoadFrameSource {}
     private var timer: Timer?
     private var lastTick: TimeInterval?
     private var index = RoadHeightIndex(patches: [])
+    private var indexedMeshes: [RoadMeshIdentity] = []
+    private(set) var indexBuilds = 0
     /// Frame times recorded while driving, s.
     private(set) var frameIntervals: [Double] = []
     /// The working-set radii in force while driving.
@@ -64,6 +66,7 @@ extension MetalRenderer: RoadFrameSource {}
 
     init(review: RoadReviewSession) {
         self.review = review
+        review.sceneWillChange.sink { [weak self] in self?.endDrive() }.store(in: &subscriptions)
         review.loader.$store.sink { [weak self] _ in
             DispatchQueue.main.async { self?.patchesChanged() }
         }.store(in: &subscriptions)
@@ -85,7 +88,6 @@ extension MetalRenderer: RoadFrameSource {}
     func begin(on patchID: String, reversed: Bool = false) {
         startPatch = patchID
         self.reversed = reversed
-        index = RoadHeightIndex(patches: review.patches)
         rebuild(keepingPlace: false)
         guard driver != nil else { return }
         driver?.setSpeed(speed)
@@ -105,7 +107,9 @@ extension MetalRenderer: RoadFrameSource {}
     private func rebuild(keepingPlace: Bool) {
         guard let startPatch else { return }
         let patches = review.patches
+        indexedMeshes = patches.map(RoadMeshIdentity.init)
         index = RoadHeightIndex(patches: patches)
+        indexBuilds += 1
         var route = RoadRouteBuilder.route(
             from: startPatch, reversed: reversed, patches: patches, index: index, choices: choices)
         // A route that ends while the corridor is still loading, or partly
@@ -133,7 +137,14 @@ extension MetalRenderer: RoadFrameSource {}
     private func patchesChanged() {
         guard isDriving, var d = driver else { return }
         let patches = review.patches
-        index = RoadHeightIndex(patches: patches)
+        let key = patches.map(RoadMeshIdentity.init)
+        if key != indexedMeshes {
+            indexedMeshes = key
+            index = RoadHeightIndex(patches: patches)
+            indexBuilds += 1
+        }
+        // Completion and partial-load status still update the route even when
+        // the final message carried no new mesh.
         var route = RoadRouteBuilder.extended(
             d.route, patches: patches, index: index, choices: choices)
         if route.stop == .endOfRoute {
@@ -199,6 +210,20 @@ extension MetalRenderer: RoadFrameSource {}
         isDriving = false
         message = nil
         review.frameCorridor()
+    }
+
+    /// A closed or replaced corridor cannot keep its route or camera clock.
+    private func endDrive() {
+        stopTraverse()
+        pause()
+        sink?.releaseCamera(.drive, restore: false)
+        isDriving = false
+        driver = nil
+        startPatch = nil
+        choices = [:]
+        index = RoadHeightIndex(patches: [])
+        indexedMeshes = []
+        message = nil
     }
 
     // MARK: - Clock

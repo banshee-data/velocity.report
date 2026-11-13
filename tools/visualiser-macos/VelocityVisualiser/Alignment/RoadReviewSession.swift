@@ -149,7 +149,10 @@ struct RoadCoverageSummary: Equatable {
     /// changes and not while a bounded drive is moving the working set.
     @Published private(set) var meshAudit: RoadMeshAudit?
     private var auditGeneration = 0
+    private var auditedMeshes: [RoadMeshIdentity] = []
+    private(set) var auditBuilds = 0
 
+    let sceneWillChange = PassthroughSubject<Void, Never>()
     let loader = RoadSurfaceLoader()
     weak var sink: RoadOverlaySink?
     /// The reference overlay's sink (kerbs, class-2 points); the alignment
@@ -159,6 +162,7 @@ struct RoadCoverageSummary: Equatable {
     private var subscriptions = Set<AnyCancellable>()
     private var expansion: Task<Void, Never>?
     private var contextGeneration = 0
+    private var openedCorridorID: String?
     private(set) var overlay = RoadOverlayVertices()
     /// Every patch held, resident or skeleton.
     var patches: [RoadPatch] { loader.store.patches }
@@ -259,12 +263,19 @@ struct RoadCoverageSummary: Equatable {
             sitesNote = "None of corridor \(id)'s sites is a prepared bundle on this server."
             return
         }
+        sceneWillChange.send()
         expansion?.cancel()
         contextGeneration += 1
+        bounded = nil
+        lastWindowCentre = nil
+        openedCorridorID = id
         openedSite = held[0].l16Token
         selectedPatchID = nil
-        loader.open(corridor: id, sites: held, client: client, serverRoadSurfaceVersion: version)
-        Task { await loadContext(centreSite: held[0], client: client) }
+        loader.open(
+            corridor: id, sites: held, client: client, serverRoadSurfaceVersion: version,
+            selectedCorridorID: id)
+        let contextMine = contextGeneration
+        Task { await loadContext(centreSite: held[0], client: client, generation: contextMine) }
     }
 
     /// Opens the road surface through `token`'s bundle and its prepared
@@ -278,12 +289,16 @@ struct RoadCoverageSummary: Equatable {
             sitesNote = "The server has not answered yet."
             return
         }
-        expansion?.cancel()
-        contextGeneration += 1
         guard let first = sites.first(where: { $0.id == token }) else {
             sitesNote = "Site \(token) is not a prepared bundle on this server."
             return
         }
+        sceneWillChange.send()
+        expansion?.cancel()
+        contextGeneration += 1
+        bounded = nil
+        lastWindowCentre = nil
+        openedCorridorID = nil
         openedSite = token
         selectedPatchID = nil
         loader.open(
@@ -292,7 +307,10 @@ struct RoadCoverageSummary: Equatable {
         expansion = Task { [weak self] in
             await self?.expand(from: first, client: client, version: version)
         }
-        Task { await loadContext(centreSite: first.source, client: client) }
+        let contextMine = contextGeneration
+        Task {
+            await loadContext(centreSite: first.source, client: client, generation: contextMine)
+        }
     }
 
     /// Reads the sites around what loaded, up to `expansionRounds` times.
@@ -348,8 +366,18 @@ struct RoadCoverageSummary: Equatable {
     }
 
     func close() {
+        sceneWillChange.send()
+        contextGeneration += 1
+        restyleGeneration += 1
+        auditGeneration += 1
+        auditedMeshes = []
+        contextNote = nil
+        meshAudit = nil
+        bounded = nil
+        lastWindowCentre = nil
         expansion?.cancel()
         loader.reset()
+        openedCorridorID = nil
         openedSite = nil
         selectedPatchID = nil
         sink?.setRoadOverlay(nil)
@@ -359,8 +387,10 @@ struct RoadCoverageSummary: Equatable {
 
     /// City kerbs and class-2 points beside the road, through the existing
     /// reference overlay, only while no site is placed there.
-    private func loadContext(centreSite: RoadSiteSource, client: AlignmentServiceClient) async {
-        let mine = contextGeneration
+    private func loadContext(
+        centreSite: RoadSiteSource, client: AlignmentServiceClient, generation mine: Int
+    ) async {
+        guard mine == contextGeneration else { return }
         guard alignment.referenceGeometry == nil, let referenceSink else { return }
         var request = Gerardus_Align_V1alpha1_StreamReferenceRequest()
         request.l16Token = centreSite.l16Token
@@ -418,10 +448,13 @@ struct RoadCoverageSummary: Equatable {
         visibleCount = shown.count
         let options = options
         let selected = selectedPatchID
-        if bounded == nil {
+        let all = loader.store.residentPatches
+        let auditKey = all.map(RoadMeshIdentity.init)
+        if bounded == nil, auditKey != auditedMeshes {
+            auditedMeshes = auditKey
             auditGeneration += 1
+            auditBuilds += 1
             let auditMine = auditGeneration
-            let all = loader.store.residentPatches
             Task.detached(priority: .utility) { [weak self] in
                 let result = all.isEmpty ? nil : RoadMeshAudit.audit(all)
                 await MainActor.run {
@@ -460,7 +493,13 @@ struct RoadCoverageSummary: Equatable {
         guard bounded != nil else { return }
         bounded = nil
         lastWindowCentre = nil
-        if let token = openedSite { open(siteToken: token) } else { restyle() }
+        if let id = openedCorridorID {
+            open(corridor: id)
+        } else if let token = openedSite {
+            open(siteToken: token)
+        } else {
+            restyle()
+        }
     }
 
     /// Moves the eye: redraws only when the visible set changed, asks for the
@@ -562,19 +601,11 @@ extension MetalRenderer: RoadOverlaySink {
         view?.needsDisplay = true
     }
 
-    /// The road patch under a view point, by the camera's ray in the sensor
-    /// frame carried back into the site frame the patches are in.
+    /// The road camera and overlay share the review's own site frame,
+    /// independently of the capture's reference alignment matrix.
     func rayInSiteFrame(
         at point: CGPoint, viewSize: CGSize
     ) -> (origin: SIMD3<Float>, direction: SIMD3<Float>)? {
-        guard let ray = CameraRay.ray(camera: camera, viewPoint: point, viewSize: viewSize) else {
-            return nil
-        }
-        // Patches are drawn through referenceModelMatrix; the ray is in the
-        // drawn frame, so go back through its inverse.
-        let inverse = referenceModelMatrix.inverse
-        let o = inverse * SIMD4<Float>(ray.origin, 1)
-        let d = inverse * SIMD4<Float>(ray.direction, 0)
-        return (SIMD3(o.x, o.y, o.z), simd_normalize(SIMD3(d.x, d.y, d.z)))
+        CameraRay.ray(camera: camera, viewPoint: point, viewSize: viewSize)
     }
 }

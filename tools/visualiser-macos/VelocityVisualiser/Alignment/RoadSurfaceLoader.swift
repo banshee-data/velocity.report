@@ -87,6 +87,10 @@ enum RoadLoadState: Equatable, Sendable {
     /// Sites that answered NOT_FOUND or otherwise gave nothing, with why.
     @Published private(set) var siteNotes: [String: String] = [:]
 
+    private var completedStreams = Set<String>()
+    private var streamLayers: [String: Gerardus_Align_V1alpha1_RoadSurfaceLayer] = [:]
+    private var selectedCorridorID: String?
+    private var windowGeneration = 0
     private var generation = 0
     private var task: Task<Void, Never>?
     private var windowTask: Task<Void, Never>?
@@ -102,12 +106,16 @@ enum RoadLoadState: Equatable, Sendable {
     /// merged into the first site's frame. Cancels any load in flight.
     func open(
         corridor: String, sites: [RoadSiteSource], client: AlignmentServiceClient,
-        serverRoadSurfaceVersion: UInt32
+        serverRoadSurfaceVersion: UInt32, selectedCorridorID: String? = nil
     ) {
         cancel()
         generation += 1
         let mine = generation
         store = RoadSurfaceStore()
+        completedStreams = []
+        streamLayers = [:]
+        self.selectedCorridorID = selectedCorridorID
+        windowNote = nil
         siteNotes = [:]
         appliedChunks = 0
         corridorKey = corridor
@@ -129,17 +137,18 @@ enum RoadLoadState: Equatable, Sendable {
 
     /// Stops the load; what arrived stays, marked partial.
     func cancel() {
+        generation += 1
+        windowGeneration += 1
         windowTask?.cancel()
         task?.cancel()
         task = nil
-        if state.isLoading {
-            generation += 1
-            state = store.isEmpty ? .cancelled : .partial(reason: "cancelled")
-        }
+        if state.isLoading { state = store.isEmpty ? .cancelled : .partial(reason: "cancelled") }
     }
 
     /// Forgets everything, as when the site or corridor is left.
     func reset() {
+        windowGeneration += 1
+        windowNote = nil
         windowTask?.cancel()
         task?.cancel()
         task = nil
@@ -171,7 +180,13 @@ enum RoadLoadState: Equatable, Sendable {
                     // are handed over.
                     let prepared = RoadSurfaceLoader.prepare(
                         chunk, from: site, offset: offset, sceneToken: scene.l16Token)
-                    await self?.apply(prepared, complete: last, generation: mine)
+                    await self?.apply(
+                        prepared, complete: last, stream: site.l16Token, generation: mine)
+                }
+                guard mine == generation else { return }
+                if !completedStreams.contains(site.l16Token) {
+                    failure = "\(site.l16Token): stream ended before layer_complete"
+                    siteNotes[site.l16Token] = failure
                 }
             } catch is CancellationError {
                 if mine == generation { finish(partial: "cancelled", generation: mine) }
@@ -244,12 +259,17 @@ enum RoadLoadState: Equatable, Sendable {
     }
 
     /// Applies one prepared chunk unless its load has been replaced.
-    private func apply(_ chunk: Prepared, complete: Bool, generation mine: Int) {
-        guard mine == generation else {
+    private func apply(
+        _ chunk: Prepared, complete: Bool, stream: String, generation mine: Int, window: Int? = nil
+    ) {
+        guard mine == generation, window == nil || window == windowGeneration else {
             discardedLate += 1
             return
         }
-        if let layer = chunk.layer { store.appendLayer(layer) }
+        if complete { completedStreams.insert(stream) }
+        if let layer = chunk.layer { streamLayers[stream] = layer }
+        if let selectedCorridorID, streamLayers[stream]?.corridorID != selectedCorridorID { return }
+        if let layer = streamLayers[stream] { store.appendLayer(layer) }
         for patch in chunk.patches { store.add(patch) }
         appliedChunks += 1
         if case .loading = state { state = .loading(messages: appliedChunks) }
@@ -270,6 +290,10 @@ enum RoadLoadState: Equatable, Sendable {
             let scene = sites.first
         else { return }
         let mine = generation
+        windowGeneration += 1
+        streamLayers = streamLayers.filter { !$0.key.hasPrefix("window/") }
+        completedStreams = completedStreams.filter { !$0.hasPrefix("window/") }
+        let window = windowGeneration
         windowTask?.cancel()
         windowTask = Task { [weak self] in
             for site in sites {
@@ -284,26 +308,33 @@ enum RoadLoadState: Equatable, Sendable {
                 request.centre.y = Double(centre.y) - shift.y
                 request.radiusM = radius
                 do {
-                    try await client.streamRoadSurface(request) { chunk, _ in
+                    let stream = "window/\(window)/\(site.l16Token)"
+                    try await client.streamRoadSurface(request) { chunk, last in
                         let prepared = RoadSurfaceLoader.prepare(
                             chunk, from: site, offset: offset, sceneToken: scene.l16Token)
-                        await self?.apply(prepared, complete: false, generation: mine)
+                        await self?.apply(
+                            prepared, complete: last, stream: stream, generation: mine,
+                            window: window)
                     }
-                    await self?.windowFinished(site: site.l16Token, error: nil, generation: mine)
+                    await self?.windowFinished(
+                        site: site.l16Token, error: nil, generation: mine, window: window)
                 } catch {
-                    await self?.windowFinished(site: site.l16Token, error: error, generation: mine)
+                    await self?.windowFinished(
+                        site: site.l16Token, error: error, generation: mine, window: window)
                 }
             }
         }
     }
 
-    private func windowFinished(site: String, error: Error?, generation mine: Int) {
-        guard mine == generation else { return }
+    private func windowFinished(site: String, error: Error?, generation mine: Int, window: Int) {
+        guard mine == generation, window == windowGeneration else { return }
         if let error {
             if let rpc = error as? RPCError, rpc.code == .notFound || rpc.code == .cancelled {
                 return
             }
             windowNote = "Window at \(site) failed: \(GerardusClientError.describe(error))"
+        } else if !completedStreams.contains("window/\(window)/\(site)") {
+            windowNote = "Window at \(site) failed: stream ended before layer_complete"
         } else if windowNote?.hasPrefix("Window at \(site)") == true {
             windowNote = nil
         }

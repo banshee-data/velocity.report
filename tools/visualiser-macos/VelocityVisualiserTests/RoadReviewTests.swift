@@ -20,7 +20,9 @@ private func site(_ s: RoadSiteSource, label: String) -> Gerardus_Align_V1alpha1
 }
 
 struct RoadSurfaceStyleTests {
-    private func patches() throws -> [RoadPatch] { try RoadFixture.store(site: "80858771f").patches }
+    private func patches() throws -> [RoadPatch] {
+        try RoadFixture.store(site: "80858771f").patches
+    }
 
     @Test func fillHasThreeVerticesPerTriangleAndNoneForGaps() throws {
         let all = try patches()
@@ -96,8 +98,7 @@ struct RoadSurfaceStyleTests {
         let stations = unsupported.profile
         let supported = stations.filter { !$0.isMissing }.count
         #expect(supported > 1 && supported < stations.count)
-        let c = RoadSurfaceStyle.vertices(patches: [unsupported], options: RoadViewOptions())
-            .centre
+        let c = RoadSurfaceStyle.vertices(patches: [unsupported], options: RoadViewOptions()).centre
         // Lines join only supported neighbours: never more segments than stations - 1,
         // and every endpoint is finite.
         #expect(c.count / 14 <= supported - 1)
@@ -107,7 +108,8 @@ struct RoadSurfaceStyleTests {
     @Test func selectionOutlinesOnlyTheSelectedPatch() throws {
         let all = try patches()
         let target = all[1].patchID
-        let out = RoadSurfaceStyle.vertices(patches: all, options: RoadViewOptions(), selected: target)
+        let out = RoadSurfaceStyle.vertices(
+            patches: all, options: RoadViewOptions(), selected: target)
         #expect(out.selectionVertexCount > 0)
         let none = RoadSurfaceStyle.vertices(patches: all, options: RoadViewOptions())
         #expect(none.selectionVertexCount == 0)
@@ -234,6 +236,14 @@ struct RoadSurfaceStyleTests {
         #expect(road.patches.count == 5)
         // Exactly the two named sites, once each: no probing, no expansion.
         #expect(service.calls.filter { $0.hasPrefix("StreamRoadSurface") }.count == 2)
+        road.enterBounded(eye: .zero)
+        road.leaveBounded()
+        #expect(await eventually { road.loader.state == .loaded })
+        #expect(road.loader.corridorKey == "fixture")
+        road.close()
+        #expect(road.bounded == nil)
+        #expect(road.contextNote == nil)
+        #expect(road.meshAudit == nil)
         road.open(corridor: "nope")
         #expect(road.sitesNote?.contains("not one this server lists") == true)
     }
@@ -243,6 +253,22 @@ struct RoadSurfaceStyleTests {
         #expect(road.corridors.isEmpty)
         #expect(!service.calls.contains("ListRoadCorridors"))
         #expect(!road.sites.isEmpty)
+    }
+
+    @Test func styleChangesAndDuplicateChunksDoNotRepeatTheMeshAudit() async throws {
+        let (road, service) = await session()
+        road.open(siteToken: "80858771f")
+        await settle(road)
+        #expect(await eventually { road.meshAudit != nil })
+        let built = road.auditBuilds
+        road.options.wireframe.toggle()
+        road.selectedPatchID = road.patches.first?.patchID
+        road.loader.extend(
+            around: .zero, radius: 150, sites: [RoadFixture.siteA], client: service,
+            serverRoadSurfaceVersion: 1)
+        #expect(await eventually { road.loader.store.duplicates > 5 })
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(road.auditBuilds == built)
     }
 
     @Test func anOldServerSaysWhyAndLoadsNothing() async {
@@ -282,16 +308,16 @@ struct RoadSurfaceStyleTests {
 
     @Test func neighboursAreThoseWithinReachNotAlreadyRead() {
         let near = RoadReviewSession.neighbours(
-            of: (try? RoadFixture.store(site: "80858771f").patches) ?? [],
-            scene: RoadFixture.siteA, sites: [RoadFixture.siteA, RoadFixture.siteB],
-            excluding: [RoadFixture.siteA])
+            of: (try? RoadFixture.store(site: "80858771f").patches) ?? [], scene: RoadFixture.siteA,
+            sites: [RoadFixture.siteA, RoadFixture.siteB], excluding: [RoadFixture.siteA])
         #expect(near.map(\.l16Token) == ["808587721"])
         let far = RoadSiteSource(
             l16Token: "far", originLatitudeDeg: 37.80, originLongitudeDeg: -122.40)
         #expect(
             RoadReviewSession.neighbours(
                 of: (try? RoadFixture.store(site: "80858771f").patches) ?? [],
-                scene: RoadFixture.siteA, sites: [far], excluding: []).isEmpty)
+                scene: RoadFixture.siteA, sites: [far], excluding: []
+            ).isEmpty)
     }
 
     @Test func bundleEdgeCrossingGivesOneWorldPositionInEitherOrder() async throws {

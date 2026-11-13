@@ -170,6 +170,8 @@ struct RoadPatch: Sendable, Identifiable, Equatable {
     /// The `l16_token` of the site frame the coordinates are in.
     var frameToken: String = ""
 
+    private var wireDefect: String?
+
     var triangleCount: Int { indices.count / 3 }
 
     func count(of class_: RoadSupportClass) -> Int { support.filter { $0 == class_ }.count }
@@ -177,6 +179,23 @@ struct RoadPatch: Sendable, Identifiable, Equatable {
     /// Why the patch cannot be drawn as sent, or nil. A corrupt patch is kept
     /// out of the scene and reported, never drawn partly.
     func defect() -> String? {
+        if let wireDefect { return wireDefect }
+        // Indexing the height and audit grids converts x/y to Int32 cells.
+        // Refuse malformed coordinates before any such conversion can trap.
+        func validXY(_ v: SIMD3<Float>) -> Bool {
+            v.x.isFinite && v.y.isFinite && abs(Double(v.x) / 0.05) < Double(Int32.max - 1)
+                && abs(Double(v.y) / 0.05) < Double(Int32.max - 1)
+        }
+        if !vertices.allSatisfy(validXY) { return "invalid horizontal vertex coordinate" }
+        for ring in rings {
+            if !ring.points.allSatisfy(validXY) { return "invalid horizontal ring coordinate" }
+            if ring.edgeSource.count != ring.points.count {
+                return "ring edge and vertex counts differ"
+            }
+        }
+        if !profile.allSatisfy({ validXY($0.position) && $0.s.isFinite }) {
+            return "invalid profile coordinate"
+        }
         if vertices.count != normals.count || vertices.count != support.count {
             return "vertex, normal and support counts differ"
         }
@@ -320,7 +339,9 @@ struct RoadPatch: Sendable, Identifiable, Equatable {
 
     init(_ p: Gerardus_Align_V1alpha1_RoadSurfacePatch, frameToken: String = "") {
         func triples(_ f: [Float]) -> [SIMD3<Float>] {
-            stride(from: 0, to: f.count - 2, by: 3).map { SIMD3(f[$0], f[$0 + 1], f[$0 + 2]) }
+            stride(from: 0, to: max(0, f.count - 2), by: 3).map {
+                SIMD3(f[$0], f[$0 + 1], f[$0 + 2])
+            }
         }
         self.init(
             patchID: p.patchID,
@@ -363,6 +384,29 @@ struct RoadPatch: Sendable, Identifiable, Equatable {
                     riderLineInterpolated: s.riderLineInterpolated,
                     riderLineMissing: s.riderLineMissing)
             }(), geometryHash: p.geometryHash, supportHash: p.supportHash, frameToken: frameToken)
+        if p.vertices.count % 3 != 0 || p.normals.count % 3 != 0
+            || p.rings.contains(where: { $0.xyz.count % 3 != 0 })
+        {
+            wireDefect = "coordinate array is not a multiple of 3"
+        }
+    }
+}
+
+/// Hashes describe immutable mesh contents across bundles; residency and frame
+/// distinguish eviction and a new scene. Counters and headers are not geometry.
+struct RoadMeshIdentity: Equatable, Sendable {
+    var patchID: String
+    var geometryHash: String
+    var supportHash: String
+    var frameToken: String
+    var resident: Bool
+
+    init(_ patch: RoadPatch) {
+        patchID = patch.patchID
+        geometryHash = patch.geometryHash
+        supportHash = patch.supportHash
+        frameToken = patch.frameToken
+        resident = patch.isResident
     }
 }
 

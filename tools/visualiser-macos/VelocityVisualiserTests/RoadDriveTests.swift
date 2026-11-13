@@ -5,6 +5,7 @@
 // height, unloaded geometry and an unresolved deck choice.
 
 import Foundation
+import MetalKit
 import Testing
 import simd
 
@@ -60,12 +61,15 @@ struct RoadRouteTests {
         #expect(route.stop == .endOfRoute)
         // Smooth: no gap over 1.6 m, no height step over 0.35 m between stations.
         for (a, b) in zip(route.stations, route.stations.dropFirst()) {
-            #expect(simd_length(SIMD2(b.position.x - a.position.x, b.position.y - a.position.y)) < 1.6)
+            #expect(
+                simd_length(SIMD2(b.position.x - a.position.x, b.position.y - a.position.y)) < 1.6)
             #expect(abs(b.position.z - a.position.z) < 0.35)
         }
         // On the road everywhere: inside the outer ring of its own patch.
         let off = route.stations.filter { !onRoad($0, patches) }
-        #expect(off.isEmpty, "\(off.count) stations off the road, first \(String(describing: off.first))")
+        #expect(
+            off.isEmpty,
+            "\(off.count) stations off the road, first \(String(describing: off.first))")
         // Strictly increasing distance.
         #expect(zip(route.stations, route.stations.dropFirst()).allSatisfy { $0.s < $1.s })
     }
@@ -119,9 +123,9 @@ struct RoadRouteTests {
 
     @Test func twoStackedDecksStopTheRouteForAChoice() {
         // Two roads continue straight on from x = 10, one at z 0 and one at z 5.
-        func deck(_ id: String, x0: Float, x1: Float, z: Float, from: String, to: String)
-            -> RoadPatch
-        {
+        func deck(
+            _ id: String, x0: Float, x1: Float, z: Float, from: String, to: String
+        ) -> RoadPatch {
             let n = Int(x1 - x0) + 1
             var vertices: [SIMD3<Float>] = []
             var indices: [UInt32] = []
@@ -130,7 +134,8 @@ struct RoadRouteTests {
                 let x = x0 + Float(i)
                 vertices += [SIMD3(x, -3, z), SIMD3(x, 3, z)]
                 profile.append(
-                    RoadProfileStation(s: Float(i), position: SIMD3(x, 0, z), grade: 0, support: .observed))
+                    RoadProfileStation(
+                        s: Float(i), position: SIMD3(x, 0, z), grade: 0, support: .observed))
                 if i > 0 {
                     let b = UInt32(2 * (i - 1))
                     indices += [b, b + 2, b + 1, b + 1, b + 2, b + 3]
@@ -307,7 +312,7 @@ struct RoadDriverTests {
     private func setup() async throws -> (RoadDriveSession, RoadReviewSession, FakeCameraSink) {
         let service = FakeAlignmentService()
         service.roadSurfaceVersion = 1
-        service.listedSites = []
+        service.listedSites = [.fixture(RoadFixture.siteA), .fixture(RoadFixture.siteB)]
         service.roadSurfaceHandler = { request, onChunk in
             for (chunk, last) in try RoadFixture.chunks(site: request.l16Token) {
                 await onChunk(chunk, last)
@@ -316,6 +321,7 @@ struct RoadDriverTests {
         let alignment = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
         await alignment.probe()
         let road = RoadReviewSession(alignment: alignment)
+        await road.refreshSites()
         // Load straight into the loader: the pane's site list is not under test.
         road.loader.open(
             corridor: "fixture", sites: [RoadFixture.siteA], client: service,
@@ -385,6 +391,24 @@ struct RoadDriverTests {
         #expect(abs(sink.camera.position.z - (surface.z + 2.5)) < 1e-3)
     }
 
+    @Test func duplicateChunksDoNotRebuildTheDrivingHeightIndex() async throws {
+        let (drive, road, _) = try await setup()
+        drive.begin(on: straightID, reversed: true)
+        let built = drive.indexBuilds
+        let service = FakeAlignmentService()
+        service.roadSurfaceHandler = { request, onChunk in
+            for (chunk, last) in try RoadFixture.chunks(site: request.l16Token) {
+                await onChunk(chunk, last)
+            }
+        }
+        road.loader.extend(
+            around: .zero, radius: 150, sites: [RoadFixture.siteA], client: service,
+            serverRoadSurfaceVersion: 1)
+        #expect(await eventually { road.loader.store.duplicates >= 5 })
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(drive.indexBuilds == built)
+    }
+
     @Test func aHeldCameraIsReportedNotStolen() async throws {
         let (drive, _, sink) = try await setup()
         sink.holdCamera(.orbit, sink.camera)
@@ -392,6 +416,20 @@ struct RoadDriverTests {
         #expect(sink.holder == .orbit)
         #expect(drive.message?.contains("held elsewhere") == true)
         #expect(drive.driver?.playing != true)
+    }
+
+    @Test func roadPickingUsesTheReviewFrameWithAnAlignedCaptureOpen() throws {
+        let view = MTKView(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
+        let renderer = try #require(MetalRenderer(metalView: view))
+        let point = CGPoint(x: 100, y: 100)
+        let expected = try #require(
+            CameraRay.ray(camera: renderer.camera, viewPoint: point, viewSize: view.bounds.size))
+        var alignment = matrix_identity_float4x4
+        alignment.columns.3 = SIMD4(100, 200, 30, 1)
+        renderer.setReferenceModelMatrix(alignment)
+        let actual = try #require(renderer.rayInSiteFrame(at: point, viewSize: view.bounds.size))
+        #expect(simd_length(actual.origin - expected.origin) < 1e-5)
+        #expect(simd_length(actual.direction - expected.direction) < 1e-5)
     }
 
     @Test func overheadGivesTheCameraBack() async throws {
@@ -402,6 +440,20 @@ struct RoadDriverTests {
         #expect(sink.holder == nil)
         #expect(!drive.isDriving)
         #expect(drive.driver?.playing != true)
+    }
+
+    @Test func closingOrReplacingTheCorridorStopsDrivingAndReleasesTheCamera() async throws {
+        for close in [true, false] {
+            let (drive, road, sink) = try await setup()
+            drive.begin(on: straightID, reversed: true)
+            drive.play()
+            #expect(sink.holder == .drive)
+            if close { road.close() } else { road.open(siteToken: "808587721") }
+            #expect(!drive.isDriving)
+            #expect(drive.driver == nil)
+            #expect(sink.holder == nil)
+            #expect(drive.traverseUntil == nil)
+        }
     }
 
     @Test func choosingAnArmRebuildsTheRoute() async throws {
@@ -428,7 +480,9 @@ struct RoadDriverTests {
         road.loader.open(
             corridor: "fixture", sites: [RoadFixture.siteA], client: service,
             serverRoadSurfaceVersion: 1)
-        for _ in 0..<2000 where road.patches.count < 2 { try await Task.sleep(for: .milliseconds(5)) }
+        for _ in 0..<2000 where road.patches.count < 2 {
+            try await Task.sleep(for: .milliseconds(5))
+        }
         drive.begin(on: straightID)
         drive.scrub(to: 1e6)
         guard case .unloadedGeometry? = drive.stopReason else {
@@ -455,7 +509,9 @@ struct RoadMeshAuditTests {
         #expect(audit.isClean)
     }
 
-    private func quad(_ id: String, x0: Float, x1: Float, z: Float = 0, flip: Bool = false) -> RoadPatch {
+    private func quad(
+        _ id: String, x0: Float, x1: Float, z: Float = 0, flip: Bool = false
+    ) -> RoadPatch {
         let v = [SIMD3<Float>(x0, 0, z), SIMD3(x1, 0, z), SIMD3(x1, 4, z), SIMD3(x0, 4, z)]
         let idx: [UInt32] = flip ? [0, 2, 1, 0, 3, 2] : [0, 1, 2, 0, 2, 3]
         return RoadPatch(
@@ -473,6 +529,20 @@ struct RoadMeshAuditTests {
         let audit = RoadMeshAudit.audit([quad("a", x0: 0, x1: 4), quad("b", x0: 1, x1: 5)])
         #expect(audit.patches.reduce(0) { $0 + $1.overlapsAcross } > 0)
         #expect(!audit.isClean)
+    }
+
+    @Test func crossingTrianglesOverlapEvenWhenNeitherCentroidIsInsideTheOther() {
+        let a = [SIMD3<Float>(0, 0, 0), SIMD3(10, 0, 0), SIMD3(0, 1, 0)]
+        let b = [SIMD3<Float>(8, -4, 0), SIMD3(9, 6, 0), SIMD3(8, 6, 0)]
+        func patch(_ id: String, _ v: [SIMD3<Float>], _ indices: [UInt32]) -> RoadPatch {
+            RoadPatch(
+                patchID: id, vertices: v, normals: v.map { _ in SIMD3(0, 0, 1) }, indices: indices,
+                support: v.map { _ in .observed })
+        }
+        let across = RoadMeshAudit.audit([patch("a", a, [0, 1, 2]), patch("b", b, [0, 1, 2])])
+        #expect(across.overlapTotal == 2)
+        let within = RoadMeshAudit.audit([patch("both", a + b, [0, 1, 2, 3, 4, 5])])
+        #expect(within.patches.first?.overlapsWithin == 2)
     }
 
     @Test func aHeightStepAtASharedSeamIsReported() {

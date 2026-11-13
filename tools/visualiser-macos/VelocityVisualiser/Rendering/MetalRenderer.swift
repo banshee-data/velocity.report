@@ -1032,7 +1032,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: count)
         }
-        drawRoadOverlay(encoder: encoder, pipeline: pipeline, uniforms: &reference)
+        // The road review has its own scene frame and camera. A capture's
+        // alignment transform must not move this independently opened corridor.
+        var road = uniforms
+        drawRoadOverlay(encoder: encoder, pipeline: pipeline, uniforms: &road)
         // Roof fills last, so the lines behind a translucent roof still show
         // through it.
         if shown.buildings, let fills = referenceRoofFillBuffer, referenceRoofFillVertexCount >= 3 {

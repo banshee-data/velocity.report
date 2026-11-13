@@ -13,8 +13,9 @@ Press **Road** in the toolbar. The pane lists the corridors the server names (`L
 
 - The layer is requested only when `GetServerInfo.road_surface_version` is 1. A version 0 server, a server older than the layer (`INVALID_ARGUMENT unknown layer 17`) and a site whose layer completes empty each say so in the pane.
 - A patch id that arrives from two bundles is kept once. The same id with a different `geometry_hash` is shown as a conflict.
-- A patch with a triangle on a missing vertex, an index out of range or mismatched array lengths is refused and counted, never drawn.
-- A bundle the server does not hold is named. A failed or cancelled load keeps what arrived and says it is partial. A late answer for a corridor that has since been replaced is discarded.
+- A patch with a triangle on a missing vertex, an index out of range, mismatched arrays or an invalid horizontal coordinate is refused and counted, never drawn. NaN heights on missing ground remain valid.
+- Opening a named corridor filters every bundle and loading window to that corridor, including headerless continuation chunks. Returning to Overhead keeps that selection.
+- A bundle the server does not hold is named. A failed or cancelled load keeps what arrived and says it is partial. A stream that ends without `layer_complete` is partial even if the RPC succeeds. Late answers for replaced corridors and cancelled or superseded loading windows are discarded.
 - Neighbouring bundles are shifted into one frame by the difference of their geodetic origins. Against the fixture's control points that agrees to within 5 mm; the layer itself states 1 mm between frames.
 
 ## What is drawn
@@ -31,6 +32,8 @@ Click a patch to inspect it: its id, CNN, boundary source and the counts of its 
 
 ## Driving view
 
+Closing or replacing the corridor stops its driving clock and releases its camera. The road overlay, picking ray and driving camera share their own review frame, independently of an open capture's alignment transform.
+
 **Start driving** builds a route from a patch's profile and takes the camera under the `drive` holder (orbit, flight and the plan view are refused while it is held; **Overhead** gives it back and frames the corridor). Speed, eye height (1.5 m to start), pause and a position slider control it.
 
 - The path is the profile's; the height is the mesh under it. A junction patch has no profile, so the route is bridged between the arms' ends along a chord and every sample must lie on the junction's mesh. At a junction, the arm taken can be chosen; the default is the straightest.
@@ -38,7 +41,7 @@ Click a patch to inspect it: its id, CNN, boundary source and the counts of its 
 
 ## Bounded loading
 
-While driving, the view draws patches within 75 m of the eye, asks the server for the 150 m around it (`centre`, `radius_m`) on a worker whenever the eye has moved 37.5 m, and drops meshes beyond 200 m, keeping each dropped patch's skeleton (rings, profile, stats, hashes) so the route can pass it. A route stopped for lack of geometry continues when more arrives, from where it stopped, so the stretch already driven keeps its heights. Overlays are built on a worker and swapped in between frames. **Overhead** reads the whole corridor again.
+While driving, the view draws patches within 75 m of the eye, asks the server for the 150 m around it (`centre`, `radius_m`) on a worker whenever the eye has moved 37.5 m, and drops meshes beyond 200 m, keeping each dropped patch's skeleton (rings, profile, stats, hashes) so the route can pass it. A route stopped for lack of geometry continues when more arrives, from where it stopped, so the stretch already driven keeps its heights. Overlays are built on a worker and swapped in between frames. Duplicate chunks reuse the driving height index, and style or selection changes reuse the mesh audit while the mesh identities stay the same. The overlap check tests triangle intersections, including crossings where neither centroid lies inside the other triangle. **Overhead** reads the whole corridor again.
 
 **Traverse** drives the route in a loop for a set time and measures it: the frame interval (p50, p95, p99, max), the app's tick, the renderer's encode and GPU time, draw calls, resident patches and mesh bytes, and the process footprint. **Copy note** gives a Markdown summary with the Mac, build, settings and input hashes. The provisional target is p95 ≤ 16.7 ms.
 

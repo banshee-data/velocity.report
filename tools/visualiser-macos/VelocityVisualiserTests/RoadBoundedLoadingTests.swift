@@ -39,7 +39,11 @@ private func windowed(
 @MainActor func settled(_ road: RoadReviewSession) async {
     var steady = 0
     for _ in 0..<3000 {
-        if road.loader.state == .loaded && road.loader.store.patches.count == 5 { steady += 1 } else { steady = 0 }
+        if road.loader.state == .loaded && road.loader.store.patches.count == 5 {
+            steady += 1
+        } else {
+            steady = 0
+        }
         if steady >= 80 { return }
         try? await Task.sleep(for: .milliseconds(5))
     }
@@ -50,7 +54,9 @@ private let bendID = "gms-preview:road/fixture/segment/bend/0"
 private let junctionID = "gms-preview:road/fixture/junction/9000001/0"
 
 struct RoadWorkingSetTests {
-    private func patches() throws -> [RoadPatch] { try RoadFixture.store(site: "80858771f").patches }
+    private func patches() throws -> [RoadPatch] {
+        try RoadFixture.store(site: "80858771f").patches
+    }
 
     @Test func policyRadiiMustNest() {
         #expect(RoadResidencyPolicy().isValid)
@@ -71,7 +77,9 @@ struct RoadWorkingSetTests {
         #expect(RoadWorkingSet.visible(all, eye: far, policy: policy).isEmpty)
         let narrow = RoadResidencyPolicy(visibleM: 20, prefetchM: 40, evictM: 60)
         let near = RoadWorkingSet.visible(all, eye: SIMD2(-95, 44), policy: narrow)
-        #expect(near.map(\.patchID) == ["gms-preview:road/fixture/segment/unsupported/0"] || near.count <= 2)
+        #expect(
+            near.map(\.patchID) == ["gms-preview:road/fixture/segment/unsupported/0"]
+                || near.count <= 2)
         #expect(near.count < all.count)
         // A skeleton is never drawn.
         let skeletons = all.map { $0.skeleton() }
@@ -103,7 +111,8 @@ struct RoadEvictionTests {
         #expect(gone.bounds != nil)
         #expect(gone.defect() == nil)
         // Nothing within the radius is dropped.
-        let straight = try #require(store.patch(id: "gms-preview:road/fixture/segment/unsupported/0"))
+        let straight = try #require(
+            store.patch(id: "gms-preview:road/fixture/segment/unsupported/0"))
         #expect(straight.isResident)
     }
 
@@ -153,11 +162,13 @@ struct RoadEvictionTests {
         #expect(Array(more.stations.prefix(before.count)) == before)
         for (a, b) in zip(more.stations, more.stations.dropFirst()) {
             #expect(b.s > a.s)
-            #expect(simd_length(SIMD2(b.position.x - a.position.x, b.position.y - a.position.y)) < 1.6)
+            #expect(
+                simd_length(SIMD2(b.position.x - a.position.x, b.position.y - a.position.y)) < 1.6)
             #expect(abs(b.position.z - a.position.z) < 0.35)
         }
         // A route that stopped for another reason is returned as it is.
-        let done = RoadRouteBuilder.extended(more, patches: all, index: RoadHeightIndex(patches: all))
+        let done = RoadRouteBuilder.extended(
+            more, patches: all, index: RoadHeightIndex(patches: all))
         #expect(done.stations.count == more.stations.count)
     }
 }
@@ -231,6 +242,50 @@ struct RoadEvictionTests {
         let b = requests.first { $0.l16Token == "808587721" }
         if let a, let b { #expect(abs(a.centre.y - b.centre.y) > 100) }
         _ = road
+    }
+
+    @Test func cancelledAndSupersededWindowsCannotRestoreEvictedMeshes() async throws {
+        for cancel in [false, true] {
+            let loader = RoadSurfaceLoader()
+            let service = FakeAlignmentService()
+            service.roadSurfaceHandler = { request, onChunk in
+                for (chunk, last) in try RoadFixture.chunks(site: request.l16Token) {
+                    await onChunk(chunk, last)
+                }
+            }
+            loader.open(
+                corridor: "fixture", sites: [RoadFixture.siteA], client: service,
+                serverRoadSurfaceVersion: 1)
+            #expect(await eventually { loader.state == .loaded })
+            loader.evict(beyond: 1, from: SIMD2(10000, 10000))
+            let entered = AsyncGate()
+            let release = AsyncGate()
+            service.roadSurfaceHandler = { request, onChunk in
+                if request.radiusM == 50 {
+                    await entered.open()
+                    await release.wait()
+                    for (chunk, last) in try RoadFixture.chunks(site: request.l16Token) {
+                        await onChunk(chunk, last)
+                    }
+                } else {
+                    await onChunk(Gerardus_Align_V1alpha1_RoadSurfaceChunk(), true)
+                }
+            }
+            loader.extend(
+                around: .zero, radius: 50, sites: [RoadFixture.siteA], client: service,
+                serverRoadSurfaceVersion: 1)
+            await entered.wait()
+            if cancel {
+                loader.cancel()
+            } else {
+                loader.extend(
+                    around: SIMD2(10000, 10000), radius: 150, sites: [RoadFixture.siteA],
+                    client: service, serverRoadSurfaceVersion: 1)
+            }
+            await release.open()
+            #expect(await eventually { loader.discardedLate >= 1 })
+            #expect(loader.store.residentPatches.isEmpty)
+        }
     }
 
     @Test func aLateWindowFromAReplacedCorridorChangesNothing() async throws {
@@ -366,7 +421,9 @@ struct TraverseMeterTests {
             let began = clock.now
             drive.tick()
             let spent = clock.now - began
-            let ms = Double(spent.components.attoseconds) / 1e15 + Double(spent.components.seconds) * 1000
+            let ms =
+                Double(spent.components.attoseconds) / 1e15 + Double(spent.components.seconds)
+                * 1000
             drive.noteFrame(interval: 1.0 / 60, encodeMs: ms, gpuMs: 0)
             frames += 1
             if frames % 20 == 0 { try await Task.sleep(for: .microseconds(300)) }
@@ -378,7 +435,9 @@ struct TraverseMeterTests {
         // The app's own work per frame stays far inside the 16.7 ms budget.
         #expect(summary.encodeP95Ms < 4, "tick p95 \(summary.encodeP95Ms) ms")
         // Memory settles with the local content: no growth over the second half.
-        #expect(summary.footprintSecondHalfGrowthMB < 30, "grew \(summary.footprintSecondHalfGrowthMB) MB")
+        #expect(
+            summary.footprintSecondHalfGrowthMB < 30,
+            "grew \(summary.footprintSecondHalfGrowthMB) MB")
         // Never more than the corridor's five patches resident, and fewer when evicting.
         #expect(summary.residentPatchesMax <= 5)
         drive.overhead()

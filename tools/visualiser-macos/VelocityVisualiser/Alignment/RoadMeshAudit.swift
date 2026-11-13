@@ -16,7 +16,7 @@ struct RoadPatchAudit: Equatable, Sendable {
     /// Counter-clockwise seen from +z is the contract; a clockwise triangle faces down.
     var inverted: Int
     var degenerate: Int
-    /// Triangles whose centroid lies inside another triangle of the same patch.
+    /// Triangles with positive-area overlap with another triangle of the same patch.
     var overlapsWithin: Int
     /// ... or inside a triangle of another patch.
     var overlapsAcross: Int
@@ -94,12 +94,28 @@ struct RoadMeshAudit: Equatable, Sendable {
         var within = [Int](repeating: 0, count: resident.count)
         var across = [Int](repeating: 0, count: resident.count)
         for t in tris {
-            let m = (t.a + t.b + t.c) / 3
+            let lo = simd_min(simd_min(t.a, t.b), t.c)
+            let hi = simd_max(simd_max(t.a, t.b), t.c)
+            let k0 = key(lo.x, lo.y)
+            let k1 = key(hi.x, hi.y)
+            var candidates = Set<Int>()
+            for x in k0.x...k1.x {
+                for y in k0.y...k1.y { candidates.formUnion(grid[SIMD2(x, y)] ?? []) }
+            }
             var hitWithin = false
             var hitAcross = false
-            for j in grid[key(m.x, m.y)] ?? [] where j != t.id {
+            for j in candidates where j != t.id {
                 let o = tris[j]
-                if strictlyInside(m, o.a, o.b, o.c) {
+                // Most triangles in a 4 m cell do not even share bounds.
+                // Reject those before allocating projection arrays for SAT.
+                let otherLo = simd_min(simd_min(o.a, o.b), o.c)
+                let otherHi = simd_max(simd_max(o.a, o.b), o.c)
+                if min(hi.x, otherHi.x) - max(lo.x, otherLo.x) <= 0.0001
+                    || min(hi.y, otherHi.y) - max(lo.y, otherLo.y) <= 0.0001
+                {
+                    continue
+                }
+                if overlaps([t.a, t.b, t.c], [o.a, o.b, o.c]) {
                     if o.patch == t.patch { hitWithin = true } else { hitAcross = true }
                 }
             }
@@ -153,16 +169,20 @@ struct RoadMeshAudit: Equatable, Sendable {
             patches: audits, seamPairs: pairs, seamStepMaxM: worst, seamViolations: violations)
     }
 
-    /// Strictly inside, by a margin that leaves shared edges and corners out.
-    static func strictlyInside(
-        _ p: SIMD2<Float>, _ a: SIMD2<Float>, _ b: SIMD2<Float>, _ c: SIMD2<Float>
-    ) -> Bool {
-        let d = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y)
-        guard abs(d) > 1e-12 else { return false }
-        let l1 = ((b.y - c.y) * (p.x - c.x) + (c.x - b.x) * (p.y - c.y)) / d
-        let l2 = ((c.y - a.y) * (p.x - c.x) + (a.x - c.x) * (p.y - c.y)) / d
-        let l3 = 1 - l1 - l2
-        let m: Float = 0.02
-        return l1 > m && l2 > m && l3 > m
+    /// Separating-axis test for positive-area triangle overlap. Testing only
+    /// centroids misses crossing edges and narrow intersections. Shared edges
+    /// and corners have zero area and remain valid seams.
+    static func overlaps(_ a: [SIMD2<Float>], _ b: [SIMD2<Float>]) -> Bool {
+        for triangle in [a, b] {
+            for i in 0..<3 {
+                let edge = triangle[(i + 1) % 3] - triangle[i]
+                let axis = simd_normalize(SIMD2(-edge.y, edge.x))
+                let pa = a.map { simd_dot($0, axis) }
+                let pb = b.map { simd_dot($0, axis) }
+                let overlap = min(pa.max()!, pb.max()!) - max(pa.min()!, pb.min()!)
+                if overlap <= 0.0001 { return false }
+            }
+        }
+        return true
     }
 }
