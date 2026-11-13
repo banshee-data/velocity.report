@@ -77,6 +77,14 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     func streamReference(
         _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest
     ) async throws -> ReferenceGeometry
+    /// Streams layer 17 one message at a time, so a partial load can be drawn
+    /// and a cancelled one stops. `onChunk` gets each chunk and whether its
+    /// message closed the layer. Callers read `road_surface_version` from
+    /// GetServerInfo first and ask only when it is 1.
+    func streamRoadSurface(
+        _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest,
+        onChunk: @escaping @Sendable (Gerardus_Align_V1alpha1_RoadSurfaceChunk, Bool) async -> Void)
+        async throws
     func poseFromHint(
         _ request: Gerardus_Align_V1alpha1_PoseFromHintRequest
     ) async throws -> Gerardus_Align_V1alpha1_PoseFromHintResponse
@@ -154,6 +162,23 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     ) async throws -> Gerardus_Align_V1alpha1_Site {
         try await prepareSite(
             l16Token: l16Token, label: label, refresh: false, onProgress: onProgress)
+    }
+
+    /// A client without an incremental stream gathers the layer and hands it
+    /// over whole.
+    func streamRoadSurface(
+        _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest,
+        onChunk: @escaping @Sendable (Gerardus_Align_V1alpha1_RoadSurfaceChunk, Bool) async -> Void
+    ) async throws {
+        let geometry = try await streamReference(request)
+        let chunks = geometry.roadChunks
+        for (i, chunk) in chunks.enumerated() {
+            await onChunk(
+                chunk, i == chunks.count - 1 && geometry.completeLayers.contains(.roadSurface))
+        }
+        if chunks.isEmpty && geometry.completeLayers.contains(.roadSurface) {
+            await onChunk(Gerardus_Align_V1alpha1_RoadSurfaceChunk(), true)
+        }
     }
 
     /// A client that cannot look at a bundle without preparing it reports none.
@@ -340,6 +365,25 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
             }
         } catch let error as RPCError where error.code == .permissionDenied {
             throw GerardusClientError.permissionDenied(error.message)
+        }
+    }
+
+    func streamRoadSurface(
+        _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest,
+        onChunk: @escaping @Sendable (Gerardus_Align_V1alpha1_RoadSurfaceChunk, Bool) async -> Void
+    ) async throws {
+        try await siteService().streamReference(request: ClientRequest(message: request)) {
+            response in
+            for try await message in response.messages {
+                guard message.layer == .roadSurface, case .roadSurface(let chunk)? = message.payload
+                else {
+                    if message.layer == .roadSurface, message.layerComplete {
+                        await onChunk(Gerardus_Align_V1alpha1_RoadSurfaceChunk(), true)
+                    }
+                    continue
+                }
+                await onChunk(chunk, message.layerComplete)
+            }
         }
     }
 

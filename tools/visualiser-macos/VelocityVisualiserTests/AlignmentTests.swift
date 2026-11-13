@@ -1066,6 +1066,15 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var availableLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
         .aerialPoints, .footprints, .registeredScans, .observed, .groundMesh,
     ]
+    /// road_surface_version GetServerInfo reports; 0 is a server without the layer.
+    var roadSurfaceVersion: UInt32 = 0
+    /// Answers StreamReference for layer 17 when set; unset, the default
+    /// gathers it from streamReference.
+    var roadSurfaceHandler:
+        (@Sendable (
+            Gerardus_Align_V1alpha1_StreamReferenceRequest,
+            @Sendable (Gerardus_Align_V1alpha1_RoadSurfaceChunk, Bool) async -> Void
+        ) async throws -> Void)?
     /// Layers StreamReference refuses with PERMISSION_DENIED.
     var refusedLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
     /// The model_id the registered layers carry.
@@ -1196,6 +1205,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         info.serverVersion = "0.1.0"
         info.apiVersion = "gerardus.align.v1alpha1"
         info.availableLayers = availableLayers
+        info.roadSurfaceVersion = roadSurfaceVersion
         info.supportsBoundedPlacement = supportsBoundedPlacement
         info.supportsLaneFields = supportsLaneFields
         info.streetUseRulesVersion = streetUseRulesVersion
@@ -1238,6 +1248,15 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         }
         storedSite = site
         return site
+    }
+
+    func streamRoadSurface(
+        _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest,
+        onChunk: @escaping @Sendable (Gerardus_Align_V1alpha1_RoadSurfaceChunk, Bool) async -> Void
+    ) async throws {
+        log("StreamRoadSurface \(request.l16Token)")
+        guard let roadSurfaceHandler else { return }
+        try await roadSurfaceHandler(request, onChunk)
     }
 
     /// Answers each requested layer with the messages a server would send,

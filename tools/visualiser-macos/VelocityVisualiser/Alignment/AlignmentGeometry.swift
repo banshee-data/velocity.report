@@ -342,6 +342,8 @@ struct ReferenceGeometry: Sendable {
     /// The observed layer's wall planes: closed vertical rectangles the
     /// registered scans measure against a box wall, each with a role.
     var wallPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
+    /// Road surface preview chunks (layer 17), as they arrived.
+    var roadChunks: [Gerardus_Align_V1alpha1_RoadSurfaceChunk] = []
     /// The ground surface, normally one heightfield.
     var groundMesh: [Gerardus_Align_V1alpha1_Heightfield] = []
     /// The site model the registered layers were built from; empty until a
@@ -426,6 +428,7 @@ struct ReferenceGeometry: Sendable {
             }
         case .scanPoints(let block): scans.append(block)
         case .groundMesh(let field): groundMesh.append(field)
+        case .roadSurface(let chunk): roadChunks.append(chunk)
         case nil: break
         }
         // BUILDINGS names a model of its own: only the registered layers'
@@ -458,6 +461,7 @@ struct ReferenceGeometry: Sendable {
         observed.append(contentsOf: other.observed)
         wallPlanes.append(contentsOf: other.wallPlanes)
         groundMesh.append(contentsOf: other.groundMesh)
+        roadChunks.append(contentsOf: other.roadChunks)
         if !other.modelID.isEmpty { modelID = other.modelID }
         completeLayers.formUnion(other.completeLayers)
     }
