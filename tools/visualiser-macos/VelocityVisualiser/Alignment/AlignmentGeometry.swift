@@ -426,6 +426,9 @@ struct ReferenceGeometry: Sendable {
             }
         case .scanPoints(let block): scans.append(block)
         case .groundMesh(let field): groundMesh.append(field)
+        // The road surface preview (layer 17) is read by RoadSurfaceLoader on a
+        // request of its own; the gathered reference ignores it.
+        case .roadSurface: break
         case nil: break
         }
         // BUILDINGS names a model of its own: only the registered layers'
