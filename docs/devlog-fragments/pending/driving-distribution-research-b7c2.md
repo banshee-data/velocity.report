@@ -1,0 +1,2 @@
+- Consolidated the October–November braking, TTC, crash-surrogate and behaviour-state evidence into a [research and distribution-logging brief](../../research/2026-11-12-driving-behaviour-distributions.md), distinguishing physical, behavioural and causal safety validity.
+- Proposed versioned per-passage, episode and encounter distributions with explicit weighting, exposure, censoring and uncertainty; retained canonical report percentiles and the existing following distribution without changing thresholds, implementation or release priorities.
