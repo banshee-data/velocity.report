@@ -1,0 +1,1 @@
+- Vendored Gerardus's road surface preview contract (layer 17, `RoadSurfaceChunk`, `road_surface_version`) at Gerardus main, regenerated the Go and Swift stubs, and copied the two-site fixture streams and manifest into the visualiser's test resources; the Go build and the gerardus client tests are unchanged.

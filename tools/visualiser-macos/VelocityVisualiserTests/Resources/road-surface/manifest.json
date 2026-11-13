@@ -1,0 +1,277 @@
+{
+  "anchor_cs13": [
+    45200.0,
+    25900.0
+  ],
+  "description": "Hand-authored road surface preview fixture (REFERENCE_LAYER_ROAD_SURFACE = 17, road_surface_version 1). See README.md.",
+  "files": {
+    "stream-80858771f.binpb": {
+      "bytes": 220269,
+      "sha256": "fa4460403a17e78a2e1ac33c0ef269ee815df436cf0e2441d7e8ccbf05fb4abc"
+    },
+    "stream-808587721.binpb": {
+      "bytes": 220269,
+      "sha256": "3e6ed0331f0670b9c1071b03f6fd89fd54a3e0bc4759bbc1f3d811dc4688bc7a"
+    }
+  },
+  "layer": {
+    "build_hash": "1366711004acaf13e89ac9b6662379321b5e06a3c3fa60afa1a228c20cb506d7",
+    "corridor_id": "fixture",
+    "frame_accuracy_m": 0.0010000000474974513,
+    "grid_m": 0.5,
+    "manifest_hash": "180763fd248e6438ad71163888d6547119dc789537005fa4079490c4e96eda50"
+  },
+  "patches": [
+    {
+      "area_m2": 320.0,
+      "boundary_source": "ROAD_BOUNDARY_SOURCE_KERB_PAIR",
+      "exercises": "a straight 40 m segment at 2 % grade, observed throughout, kerbs both sides",
+      "geometry_hash": "23d5337ea3266fe395537852f21180ddd2c0eedee13fcf201f7ed7ca47c37e19",
+      "held_out_points": 120,
+      "interpolated_area_m2": 0.0,
+      "kind": "ROAD_PATCH_KIND_SEGMENT",
+      "missing_area_m2": 0.0,
+      "observed_area_m2": 320.0,
+      "patch_id": "gms-preview:road/fixture/segment/straight/0",
+      "profile_stations": 41,
+      "residual_rms_m": 0.0114,
+      "rings": [
+        {
+          "hole": false,
+          "vertices": 192
+        }
+      ],
+      "support": {
+        "interpolated": 0,
+        "missing": 0,
+        "observed": 1377
+      },
+      "support_hash": "bf6598fa4b22118be49f52ca83f9b02f8dcc6e530257bdc2a8c845b18142edab",
+      "triangles": 2560,
+      "vertices": 1377
+    },
+    {
+      "area_m2": 376.819,
+      "boundary_source": "ROAD_BOUNDARY_SOURCE_INFERRED_WIDTH",
+      "exercises": "a 90° left bend of 30 m radius, an inferred-width outer edge, and an interpolated disc of 3.5 m radius under canopy",
+      "geometry_hash": "c57a7a1cc2ce1c6830b51b5dca11d25f7a86cdea66e2799ae16bfece9f669c32",
+      "held_out_points": 117,
+      "interpolated_area_m2": 37.833,
+      "kind": "ROAD_PATCH_KIND_SEGMENT",
+      "missing_area_m2": 0.0,
+      "observed_area_m2": 338.986,
+      "patch_id": "gms-preview:road/fixture/segment/bend/0",
+      "profile_stations": 61,
+      "residual_rms_m": 0.0124,
+      "rings": [
+        {
+          "hole": false,
+          "vertices": 242
+        }
+      ],
+      "support": {
+        "interpolated": 152,
+        "missing": 0,
+        "observed": 1522
+      },
+      "support_hash": "0e92f9a8ea36f5f0b12fb26ba852d6715e853235d2a733c99df31986fa6c072e",
+      "triangles": 3104,
+      "vertices": 1674
+    },
+    {
+      "area_m2": 113.72,
+      "boundary_source": "ROAD_BOUNDARY_SOURCE_CITY_KERB",
+      "exercises": "a T junction patch with kerb returns, sharing its three mouths' vertices with the arms",
+      "geometry_hash": "f520db895bba24e9b4a2a360a6d87ec7d7b4e3175b7a23063855b31707c88f71",
+      "held_out_points": 40,
+      "interpolated_area_m2": 0.0,
+      "kind": "ROAD_PATCH_KIND_JUNCTION",
+      "missing_area_m2": 0.0,
+      "observed_area_m2": 113.72,
+      "patch_id": "gms-preview:road/fixture/junction/9000001/0",
+      "profile_stations": 0,
+      "residual_rms_m": 0.0113,
+      "rings": [
+        {
+          "hole": false,
+          "vertices": 132
+        }
+      ],
+      "support": {
+        "interpolated": 0,
+        "missing": 0,
+        "observed": 547
+      },
+      "support_hash": "f14e240a0eff79987eeee1ee86df74b762c06b5ae0fb84aa78b9ff0fc20f585d",
+      "triangles": 960,
+      "vertices": 547
+    },
+    {
+      "area_m2": 288.86,
+      "boundary_source": "ROAD_BOUNDARY_SOURCE_CITY_KERB",
+      "exercises": "an arm with a 2 m by 16 m island hole that stays open",
+      "geometry_hash": "8ab82dc0d1b0e5442e14b3f3be2ffa917ecb799c38f22eb3f76593cf61c4a074",
+      "held_out_points": 110,
+      "interpolated_area_m2": 0.0,
+      "kind": "ROAD_PATCH_KIND_SEGMENT",
+      "missing_area_m2": 0.0,
+      "observed_area_m2": 288.86,
+      "patch_id": "gms-preview:road/fixture/segment/island/0",
+      "profile_stations": 43,
+      "residual_rms_m": 0.0116,
+      "rings": [
+        {
+          "hole": false,
+          "vertices": 192
+        },
+        {
+          "hole": true,
+          "vertices": 176
+        }
+      ],
+      "support": {
+        "interpolated": 0,
+        "missing": 0,
+        "observed": 1392
+      },
+      "support_hash": "f1d38777bfe6dccd524cfacfdf4f6aa0cb8454d06a92cb54859a9de933936c1c",
+      "triangles": 2416,
+      "vertices": 1392
+    },
+    {
+      "area_m2": 160.0,
+      "boundary_source": "ROAD_BOUNDARY_SOURCE_INFERRED_WIDTH",
+      "exercises": "a segment whose ground is missing west of u = -50: z NaN, no triangles, the profile stops",
+      "geometry_hash": "ff92bafe19ebe1fce2d53761699b2d3b4ec29bd27f53b6fb2af49959bb498d77",
+      "held_out_points": 10,
+      "interpolated_area_m2": 0.0,
+      "kind": "ROAD_PATCH_KIND_SEGMENT",
+      "missing_area_m2": 128.0,
+      "observed_area_m2": 32.0,
+      "patch_id": "gms-preview:road/fixture/segment/unsupported/0",
+      "profile_stations": 21,
+      "residual_rms_m": 0.0085,
+      "rings": [
+        {
+          "hole": false,
+          "vertices": 112
+        }
+      ],
+      "support": {
+        "interpolated": 0,
+        "missing": 544,
+        "observed": 153
+      },
+      "support_hash": "c8f86db595c0884fe9722476048d748296bb89a04647468fb38f8622a77d6b98",
+      "triangles": 256,
+      "vertices": 697
+    }
+  ],
+  "road_surface_version": 1,
+  "sites": [
+    {
+      "l16_token": "80858771f",
+      "origin_latitude_deg": 37.76671733393986,
+      "origin_longitude_deg": -122.48139688202696
+    },
+    {
+      "l16_token": "808587721",
+      "origin_latitude_deg": 37.76790811787357,
+      "origin_longitude_deg": -122.48139688202696
+    }
+  ],
+  "surface": "z = 12 + 0.02 u + 0.005 v + 0.05 sin(u / 15) cos(v / 20), NAVD88 m, u and v metres east and north of anchor_cs13",
+  "transform": {
+    "control_points": [
+      {
+        "cs13": [
+          45200.0,
+          25900.0,
+          12.0
+        ],
+        "latitude_deg": 37.7671139598,
+        "longitude_deg": -122.4817784185,
+        "navd88_m": 12.0,
+        "site": {
+          "80858771f": [
+            -33.617,
+            44.0225,
+            11.9998
+          ],
+          "808587721": [
+            -33.617,
+            -88.1454,
+            11.9993
+          ]
+        }
+      },
+      {
+        "cs13": [
+          45154.0,
+          25904.0,
+          11.5
+        ],
+        "latitude_deg": 37.7671498562,
+        "longitude_deg": -122.4823005081,
+        "navd88_m": 11.5,
+        "site": {
+          "80858771f": [
+            -79.6181,
+            48.007,
+            11.4993
+          ],
+          "808587721": [
+            -79.6181,
+            -84.1608,
+            11.4989
+          ]
+        }
+      },
+      {
+        "cs13": [
+          45240.0,
+          25930.0,
+          13.0
+        ],
+        "latitude_deg": 37.767384369,
+        "longitude_deg": -122.4813245551,
+        "navd88_m": 13.0,
+        "site": {
+          "80858771f": [
+            6.3727,
+            74.0358,
+            12.9996
+          ],
+          "808587721": [
+            6.3727,
+            -58.1321,
+            12.9997
+          ]
+        }
+      },
+      {
+        "cs13": [
+          45200.0,
+          25874.0,
+          11.9
+        ],
+        "latitude_deg": 37.7668797105,
+        "longitude_deg": -122.4817783182,
+        "navd88_m": 11.9,
+        "site": {
+          "80858771f": [
+            -33.6083,
+            18.0226,
+            11.8999
+          ],
+          "808587721": [
+            -33.6083,
+            -114.1452,
+            11.8989
+          ]
+        }
+      }
+    ],
+    "description": "CS13 (EPSG:7131) to site frame: CS13 inverse to NAD83(2011) latitude and longitude, then east-north-up at the site origin with NAVD88 height passed as ellipsoidal height and the origin at height 0. Site coordinates to 0.1 mm."
+  }
+}
