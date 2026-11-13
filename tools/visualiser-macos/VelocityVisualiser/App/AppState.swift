@@ -446,6 +446,7 @@ private let logger = DevLogger(category: "AppState")
         alignment.sink = renderer
         road.sink = renderer
         road.referenceSink = renderer
+        drive.sink = renderer
         streets.sink = renderer
         camera.sink = renderer
         logger.info("Renderer registered")
@@ -711,6 +712,8 @@ private let logger = DevLogger(category: "AppState")
     /// The road surface preview from Gerardus: corridor, evidence toggles,
     /// patch inspector. Needs no sensor and no recording.
     let road: RoadReviewSession
+    /// The driving camera over the loaded road surface.
+    let drive: RoadDriveSession
     @Published var showRoadPane: Bool = false { didSet { road.paneToggled(open: showRoadPane) } }
 
     // MARK: - City view
@@ -757,6 +760,7 @@ private let logger = DevLogger(category: "AppState")
         city = CityViewSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
         laneReview = LaneReviewSession(alignment: alignment)
         road = RoadReviewSession(alignment: alignment)
+        drive = RoadDriveSession(review: road)
         alignmentAvailability = alignment.$availability.sink { [weak self] availability in
             if case .available = availability { return }
             self?.showAlignmentPane = false

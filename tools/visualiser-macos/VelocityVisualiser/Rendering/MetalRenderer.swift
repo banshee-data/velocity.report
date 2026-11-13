@@ -2353,6 +2353,8 @@ enum CameraHolder: Equatable, Sendable {
     case orbit
     /// The camera pane's free flight and Fly to.
     case fly
+    /// The road review's driving view, from Drive until Overhead.
+    case drive
 }
 
 struct Camera: Equatable {

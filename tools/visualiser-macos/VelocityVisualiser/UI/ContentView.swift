@@ -111,7 +111,8 @@ struct ContentView: View {
                 if appState.showSidePanel { SidePanelView().frame(width: 520) }
 
                 if appState.showRoadPane {
-                    RoadReviewPane(session: appState.road).frame(width: RoadReviewPane.width)
+                    RoadReviewPane(session: appState.road, drive: appState.drive).frame(
+                        width: RoadReviewPane.width)
                 }
 
                 // Alignment pane: only while a Gerardus server answers. The

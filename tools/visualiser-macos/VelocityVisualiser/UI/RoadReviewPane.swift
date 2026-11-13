@@ -18,13 +18,15 @@ import SwiftUI
 @available(macOS 15.0, *) struct RoadReviewPane: View {
     @ObservedObject var session: RoadReviewSession
     @ObservedObject var loader: RoadSurfaceLoader
+    @ObservedObject var drive: RoadDriveSession
     @EnvironmentObject var appState: AppState
 
     static let width: CGFloat = 340
 
-    init(session: RoadReviewSession) {
+    init(session: RoadReviewSession, drive: RoadDriveSession) {
         self.session = session
         loader = session.loader
+        self.drive = drive
     }
 
     var body: some View {
@@ -37,6 +39,8 @@ import SwiftUI
                     statusSection
                     Divider()
                     layersSection
+                    Divider()
+                    RoadDriveSection(session: session, drive: drive)
                     Divider()
                     if let inspector = session.inspector {
                         RoadInspectorView(inspector: inspector)
@@ -260,5 +264,113 @@ import SwiftUI
             Text(v).font(.caption).textSelection(.enabled).fixedSize(
                 horizontal: false, vertical: true)
         }
+    }
+}
+
+@available(macOS 15.0, *) struct RoadDriveSection: View {
+    @ObservedObject var session: RoadReviewSession
+    @ObservedObject var drive: RoadDriveSession
+    @State private var start: String = ""
+    @State private var backwards = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Drive").font(.subheadline.weight(.semibold))
+            let options = drive.startOptions
+            if options.isEmpty {
+                Text("Load a corridor with road profiles to drive it.").font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Picker("Start", selection: $start) {
+                    ForEach(options) { Text(Self.short($0.patchID)).tag($0.patchID) }
+                }.labelsHidden()
+                Toggle("Drive from the far end", isOn: $backwards).toggleStyle(.checkbox)
+                HStack {
+                    Button(drive.isDriving ? "Restart" : "Start driving") {
+                        drive.begin(
+                            on: start.isEmpty ? options[0].patchID : start, reversed: backwards)
+                    }
+                    if drive.isDriving {
+                        Button(drive.driver?.playing == true ? "Pause" : "Play") {
+                            drive.togglePlay()
+                        }.disabled(drive.stopReason != nil)
+                        Button("Overhead") { drive.overhead() }.help(
+                            "Leave the driving camera and look from above, to inspect a defect")
+                    }
+                }.controlSize(.small)
+            }
+            if drive.isDriving {
+                HStack {
+                    Text("Position").font(.caption)
+                    Slider(
+                        value: Binding(
+                            get: { Double(drive.distanceAlong) },
+                            set: { drive.scrub(to: Float($0)) }),
+                        in: 0...Double(max(drive.routeLength, 1)))
+                    Text(String(format: "%.0f / %.0f m", drive.distanceAlong, drive.routeLength))
+                        .font(.caption.monospacedDigit())
+                }
+                HStack {
+                    Text("Speed").font(.caption)
+                    Slider(
+                        value: Binding(
+                            get: { Double(drive.speed) }, set: { drive.speed = Float($0) }),
+                        in: 0...30)
+                    Text(String(format: "%.0f m/s", drive.speed)).font(.caption.monospacedDigit())
+                }
+                HStack {
+                    Text("Eye height").font(.caption)
+                    Slider(
+                        value: Binding(
+                            get: { Double(drive.eyeHeight) }, set: { drive.eyeHeight = Float($0) }),
+                        in: 0.5...3)
+                    Text(String(format: "%.1f m", drive.eyeHeight)).font(.caption.monospacedDigit())
+                }
+                if let d = drive.driver {
+                    Text(
+                        "Under the eye: \(d.supportHere().label)\(d.grade().map { String(format: ", grade %+.1f %%", $0 * 100) } ?? "")"
+                    ).font(.caption).foregroundStyle(.secondary)
+                }
+                junctionChoices
+            }
+            if let message = drive.message {
+                Label(message, systemImage: "hand.raised").font(.caption).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// At each junction the route passes, the arms that could be taken.
+    @ViewBuilder private var junctionChoices: some View {
+        let junctions = session.patches.filter { $0.kind == .junction }
+        if !junctions.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Junction route").font(.caption.weight(.medium))
+                ForEach(junctions) { j in
+                    HStack {
+                        Text("node \(Self.node(j))").font(.caption2)
+                        ForEach(
+                            session.patches.filter {
+                                $0.kind == .segment
+                                    && ($0.fromNode == Self.node(j) || $0.toNode == Self.node(j))
+                            }
+                        ) { arm in
+                            Button(Self.short(arm.patchID)) {
+                                drive.choose(arm: arm.patchID, at: j.patchID)
+                            }.controlSize(.mini)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    static func node(_ junction: RoadPatch) -> String {
+        junction.featureID.split(separator: "/").last.map(String.init) ?? junction.cnn
+    }
+
+    /// "segment/straight/0" from the full id.
+    static func short(_ id: String) -> String {
+        id.split(separator: "/").suffix(3).joined(separator: "/")
     }
 }
