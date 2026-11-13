@@ -28,10 +28,21 @@ Local axes are u east and v north, in metres from the CS13 anchor (45 200, 25 90
 
 CNNs 9000001–9000199 are fixture values, not City ids.
 
-## Regenerating
+## Verifying and regenerating
 
+From this repository, verify the vendored streams and their manifest against the Go wire bindings:
+
+```sh
+go test ./internal/lidar/gerarduspb -run TestRoadSurfaceVendoredContract
 ```
+
+The generator lives in **banshee-data/gerardus**, not in this repository. To regenerate, check out
+Gerardus at `a365f0eacf67a18b27a51dacb7ad5cc2fbae8d9e` and run there:
+
+```sh
 GERARDUS_REGENERATE_FIXTURES=1 cargo test --test road_surface_fixture
 ```
 
 Without the variable, the test checks the committed files against the generator. It compares hashes exactly and site-frame floats to 0.1 mm, because libm can differ in its last bit between macOS and Linux.
+
+Copy the two streams and `manifest.json` from Gerardus's `tests/fixtures/road-surface/` together, then rerun the verification here. Preserve this README's pinned source links when updating the vendor.
