@@ -225,8 +225,10 @@ struct RoadSurfaceStyleTests {
         #expect(inspector.corridor == "fixture")
         #expect(inspector.boundarySource.isInferred || inspector.boundarySource != .unspecified)
         #expect(inspector.notAssessed == 18 && inspector.assessed == 0)
+        _ = await eventually { road.overlay.selectionVertexCount > 0 }
         #expect(road.overlay.selectionVertexCount > 0)
         road.selectedPatchID = nil
+        _ = await eventually { road.overlay.selectionVertexCount == 0 }
         #expect(road.overlay.selectionVertexCount == 0)
     }
 

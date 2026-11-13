@@ -424,7 +424,7 @@ struct RoadSurfaceModelTests {
         loader.cancel()
         #expect(loader.state == .partial(reason: "cancelled"))
         await gate.open()
-        try await Task.sleep(for: .milliseconds(300))
+        _ = await eventually { loader.discardedLate >= 1 }
         // The second chunk, late, changed nothing.
         #expect(loader.store.patches.count == 2)
         #expect(loader.discardedLate >= 1)

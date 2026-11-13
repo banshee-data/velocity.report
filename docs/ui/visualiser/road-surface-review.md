@@ -47,3 +47,27 @@ A scripted first-pass review (screenshots of each step and a timed traverse) run
 ## Reviews
 
 A visual review in the visualiser and independent field validation are separate entries: the visualiser shows how the fit agrees with its own aerial acquisition, not where the road is.
+
+### 2026-11-13: first pass against the fixture
+
+Real corridor data was not available: `arrow` has been offline for 50 days, and the Gerardus server on `arrow-worker:50061` (0.2.0, `road_surface_version` 1, 86 prepared sites) returns an empty layer 17 for every site in Golden Gate Park, so `ggp-mlk-1` has not been built there. This review is **against Gerardus's committed fixture only**, served locally to the app; it does not review the park corridor, and no checklist item that needs real ground (canopy, parked cars, rider-line support on real data) was exercised.
+
+Run: MacBookPro18,3 (Apple M1 Pro), macOS 15.7.7, Release build 0.5.1-pre52 (git SHA not stamped into the app), eye 1.5 m, speed 8 m/s, radii 75/150/200 m. Inputs: corridor `fixture`, manifest `180763fd…eda50`, build `13667110…b506d7`, patch geometry hashes `ec95333d…d57f7`.
+
+| Checklist item                                              | Result                                                                                                                                                                                         |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Boundary against evidence, inferred widths easy to identify | Inferred edge on the bend drawn orange and dashed; kerb-pair edges solid blue. No kerb or class-2 context in the fixture, so no comparison against evidence                                    |
+| Support under canopy; gaps visible                          | The interpolated disc under "canopy" is amber; the unsupported patch has no triangles and its edge is red                                                                                      |
+| Follow bend, junction and island                            | Route straight → junction → bend: no station off the road, no step over 0.35 m (unit tests); island arm stays outside the hole. Inverted faces and overlaps were not looked for on real meshes |
+| Cross a bundle edge both ways                               | Loaded through either site first: vertices agree to 5 mm, heights to 1 cm (unit test); cancelled and late requests discarded                                                                   |
+| Missing patch and failed load                               | The camera stopped at 45 m on the missing ground with "no road height (missing ground)"; failure, partial and unloaded states are covered by tests                                             |
+| Counts                                                      | 5 patches, 5 duplicates dropped, 0 conflicts, 0 refused; inventory 268 m, surfaced 148 m (55 %), inferred 67 m, missing 16 m, 1 gap; held-out RMS 0.011–0.012 m on the patches inspected       |
+
+Traverse, 120 s of looping the 60 m route (7,195 frames): frame interval p50 16.67, p95 23.65, p99 25.24 ms, max 411 ms, so the p95 ≤ 16.7 ms target is **not met**. The work is small: app tick p95 0.13 ms, render encode 0.11 ms, GPU 0.37 ms, 4 draw calls, footprint 170 → 182 MB (219 MB peak, +6 MB over the second half). The intervals reflect redraw pacing (a 60 Hz timer asking for on-demand frames), not load, and the one 411 ms frame is a hitch not yet explained. A ten-minute run of the app's own per-frame work at 60 Hz of virtual time (36,000 frames, working set 25/40/40 m so patches churn) had tick p95 1.07 ms in a Debug build and a flat footprint (62 → 58 MB). Neither is the ten-minute rendered traverse of the plan, and neither used a real corridor.
+
+![Overhead, support shading](../../images/road-review-overhead-support.png)
+![Driving view, mid-route](../../images/road-review-drive.png)
+![Driving view, stopped at missing ground](../../images/road-review-drive-stop.png)
+![Pane with patch inspector and coverage](../../images/road-review-inspector.png)
+
+Findings for Gerardus: there is no call that lists corridors, so the visualiser finds them through site bundles; `ggp-mlk-1` must be built on `arrow-worker` before a real review.

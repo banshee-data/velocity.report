@@ -24,6 +24,27 @@ private func windowed(
     }
 }
 
+/// Waits (up to 15 s) for `condition`; the suite runs beside the whole app's
+/// tests, so waits are on state, not on the clock.
+@MainActor func eventually(_ condition: () -> Bool) async -> Bool {
+    for _ in 0..<3000 {
+        if condition() { return true }
+        try? await Task.sleep(for: .milliseconds(5))
+    }
+    return condition()
+}
+
+/// Waits until the corridor has loaded and neighbour expansion has stopped
+/// reloading it (the state stays `.loaded` with five patches for 400 ms).
+@MainActor func settled(_ road: RoadReviewSession) async {
+    var steady = 0
+    for _ in 0..<3000 {
+        if road.loader.state == .loaded && road.loader.store.patches.count == 5 { steady += 1 } else { steady = 0 }
+        if steady >= 80 { return }
+        try? await Task.sleep(for: .milliseconds(5))
+    }
+}
+
 private let straightID = "gms-preview:road/fixture/segment/straight/0"
 private let bendID = "gms-preview:road/fixture/segment/bend/0"
 private let junctionID = "gms-preview:road/fixture/junction/9000001/0"
@@ -160,9 +181,7 @@ struct RoadEvictionTests {
         road.paneToggled(open: true)
         await road.refreshSites()
         road.open(siteToken: "80858771f")
-        for _ in 0..<4000 where road.loader.state != .loaded {
-            try await Task.sleep(for: .milliseconds(5))
-        }
+        await settled(road)
         let drive = RoadDriveSession(review: road)
         drive.policy = policy
         let sink = FakeCameraSink()
@@ -174,11 +193,8 @@ struct RoadEvictionTests {
         let narrow = RoadResidencyPolicy(visibleM: 25, prefetchM: 40, evictM: 40)
         let (drive, road, _, _) = try await setup(policy: narrow)
         let all = road.patches.count
-        // Let neighbour expansion finish, then drive at the west end.
-        try await Task.sleep(for: .milliseconds(200))
         drive.begin(on: "gms-preview:road/fixture/segment/unsupported/0")
-        for _ in 0..<400 where road.overlay.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
-        try await Task.sleep(for: .milliseconds(100))
+        _ = await eventually { !road.overlay.isEmpty && road.visibleCount < all }
         #expect(road.bounded != nil)
         #expect(road.visibleCount < all)
         #expect(road.visibleCount >= 1)
@@ -204,8 +220,8 @@ struct RoadEvictionTests {
             for (chunk, last) in try windowed(request) { await onChunk(chunk, last) }
         }
         drive.begin(on: "gms-preview:road/fixture/segment/straight/0", reversed: true)
-        for _ in 0..<400 where seen.count == 0 { try await Task.sleep(for: .milliseconds(5)) }
-        let requests = seen.all
+        _ = await eventually { seen.all.contains { $0.radiusM > 0 } }
+        let requests = seen.all.filter { $0.radiusM > 0 }
         #expect(!requests.isEmpty)
         #expect(requests.allSatisfy { $0.radiusM == 50 })
         #expect(requests.allSatisfy { $0.layers == [.roadSurface] })
@@ -232,7 +248,7 @@ struct RoadEvictionTests {
         try await Task.sleep(for: .milliseconds(80))
         road.loader.reset()
         await gate.open()
-        try await Task.sleep(for: .milliseconds(200))
+        _ = await eventually { road.loader.discardedLate >= 1 }
         #expect(road.loader.store.isEmpty)
         #expect(road.loader.discardedLate >= 1)
     }
@@ -334,8 +350,7 @@ struct TraverseMeterTests {
         road.paneToggled(open: true)
         await road.refreshSites()
         road.open(siteToken: "80858771f")
-        for _ in 0..<4000 where road.loader.state != .loaded { try await Task.sleep(for: .milliseconds(5)) }
-        try await Task.sleep(for: .milliseconds(200))
+        await settled(road)
         let drive = RoadDriveSession(review: road)
         drive.policy = RoadResidencyPolicy(visibleM: 25, prefetchM: 40, evictM: 40)
         drive.sink = FakeCameraSink()

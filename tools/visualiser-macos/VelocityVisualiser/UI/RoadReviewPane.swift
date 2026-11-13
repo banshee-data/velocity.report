@@ -282,9 +282,12 @@ import SwiftUI
                 Text("Load a corridor with road profiles to drive it.").font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Picker("Start", selection: $start) {
-                    ForEach(options) { Text(Self.short($0.patchID)).tag($0.patchID) }
-                }.labelsHidden()
+                Picker(
+                    "Start",
+                    selection: Binding(
+                        get: { start.isEmpty ? options[0].patchID : start }, set: { start = $0 })
+                ) { ForEach(options) { Text(Self.short($0.patchID)).tag($0.patchID) } }
+                .labelsHidden()
                 Toggle("Drive from the far end", isOn: $backwards).toggleStyle(.checkbox)
                 HStack {
                     Button(drive.isDriving ? "Restart" : "Start driving") {
