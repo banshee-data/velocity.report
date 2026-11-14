@@ -1,0 +1,1 @@
+- Bound new replay evidence to canonical start, warm-up and duration with versioned source identities; carried the same window through corpus declarations, recording validation and following exports while preserving legacy identities and capture-level cohort protection.

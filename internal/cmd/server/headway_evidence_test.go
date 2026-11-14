@@ -23,7 +23,7 @@ func TestHeadwayEvidenceCLI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := l4bobserve.CaptureSource{ClipID: "test", CapturePaths: []string{capture}, CaptureSHA256s: []string{strings.TrimPrefix(id.SHA256, "sha256:")}, ExtractorID: "test-extractor"}
+	source := l4bobserve.CaptureSource{ClipID: "test", CapturePaths: []string{capture}, CaptureSHA256s: []string{strings.TrimPrefix(id.SHA256, "sha256:")}, ExtractorID: "test-extractor", Window: &l4bobserve.ReplayWindow{StartOffsetNanos: 20_000_000_000, WarmupNanos: 20_000_000_000, DurationNanos: 30_000_000_000}}
 	sourceID, err := l4bobserve.SourceID(source)
 	if err != nil {
 		t.Fatal(err)
@@ -84,6 +84,16 @@ func TestHeadwayEvidenceCLI(t *testing.T) {
 	if doc.Context.SourceManifest == nil || doc.Context.SourceManifest.ExtractorID != source.ExtractorID || len(doc.Rows) == 0 {
 		t.Fatal("lost inputs or rows")
 	}
+	if doc.Context.SourceManifest.Window == nil || *doc.Context.SourceManifest.Window != *source.Window {
+		t.Fatal("window not retained in evidence provenance")
+	}
+	binding.Source.Window.DurationNanos++
+	writeBinding()
+	if code, msg := call(); code == 0 || !strings.Contains(msg, "capture identity") {
+		t.Fatalf("window tampering accepted: %d %s", code, msg)
+	}
+	binding.Source.Window.DurationNanos--
+	writeBinding()
 	var n int
 	database.QueryRow("SELECT count(*) FROM lidar_interaction_events").Scan(&n)
 	if n != 0 {

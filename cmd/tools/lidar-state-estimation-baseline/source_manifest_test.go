@@ -94,7 +94,7 @@ func TestBuildSourceManifestUsesRootRelativeCapturePaths(t *testing.T) {
 	}
 	manifest, err := buildSourceManifest(corpusPath, indexPath, root, "", "hesai-pandar40p", []resolvedCorpusCase{{
 		corpusCase: corpusCase{ID: "marina", ExpectedCaptureCount: 1}, paths: []string{pcapPath},
-	}})
+	}}, l4bobserve.ReplayWindow{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,11 +175,11 @@ func TestSourceManifestBindsEachSitesActualReplayCalibration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := buildSourceManifest(path, path, root, "", "sensor", cases)
+	manifest, err := buildSourceManifest(path, path, root, "", "sensor", cases, l4bobserve.ReplayWindow{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if manifest.SchemaVersion != 2 || manifest.Cases[0].CalibrationID == manifest.Cases[1].CalibrationID {
+	if manifest.SchemaVersion != 3 || manifest.Cases[0].CalibrationID == manifest.Cases[1].CalibrationID {
 		t.Fatalf("manifest: %+v", manifest)
 	}
 	for _, c := range manifest.Cases {
@@ -229,7 +229,7 @@ func TestCorpusReplayChecksDeclaredCalibrationBeforeWritingEvidence(t *testing.T
 			}
 			stop := errors.New("reached replay")
 			runner := corpusReplay{base: replayeval.Config{SensorID: "sensor"}, observationDBPath: filepath.Join(t.TempDir(), "e.db"),
-				sourceManifest: &sourceManifest{SchemaVersion: 2, Cases: []sourceManifestCase{{ID: "site", CalibrationID: declared, Captures: []sourceManifestCapture{{Ordinal: 0, SHA256: "sha256:" + strings.Repeat("a", 64)}}}}},
+				sourceManifest: &sourceManifest{SchemaVersion: 3, Cases: []sourceManifestCase{{ID: "site", CalibrationID: declared, Captures: []sourceManifestCapture{{Ordinal: 0, SHA256: "sha256:" + strings.Repeat("a", 64)}}}}},
 				index:          map[string]indexEntry{"site": {NorthAzimuthDeg: 35}},
 				prepare:        func([]string, int) (*capseq.Sequence, error) { return nil, nil },
 				replay: func(cfg replayeval.Config) (*replayeval.Result, error) {
@@ -247,5 +247,29 @@ func TestCorpusReplayChecksDeclaredCalibrationBeforeWritingEvidence(t *testing.T
 				t.Fatalf("drift not refused: %v", err)
 			}
 		})
+	}
+}
+
+func TestSourceManifestBindsReplayWindowAndRejectsDrift(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "capture")
+	if err := os.WriteFile(path, []byte("capture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cases := []resolvedCorpusCase{{corpusCase: corpusCase{ID: "site"}, paths: []string{path}}}
+	root := filepath.Dir(path)
+	a, err := buildSourceManifest(path, path, root, "", "sensor", cases, l4bobserve.ReplayWindow{StartOffsetNanos: 20, WarmupNanos: 20, DurationNanos: 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := buildSourceManifest(path, path, root, "", "sensor", cases, l4bobserve.ReplayWindow{StartOffsetNanos: 20, WarmupNanos: 20, DurationNanos: 40})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Cases[0].SourceID == b.Cases[0].SourceID {
+		t.Fatal("different windows shared source")
+	}
+	runner := corpusReplay{sourceManifest: &a}
+	if _, _, err := runner.run(cases); err == nil || !strings.Contains(err.Error(), "replay window differs") {
+		t.Fatalf("accepted replay window drift: %v", err)
 	}
 }

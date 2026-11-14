@@ -83,12 +83,13 @@ func TestMainRunsKirk0UnderAFrozenSplit(t *testing.T) {
 	}
 	var manifest struct {
 		Split         *replayeval.SplitUse `json:"split"`
+		SourceID      string               `json:"observation_source_id"`
 		CalibrationID string               `json:"observation_calibration_id"`
 	}
 	readJSON(t, filepath.Join(out, "kirk0", "first", "replay_manifest.json"), &manifest)
 	var source sourceManifest
 	readJSON(t, filepath.Join(dir, "source-manifest.json"), &source)
-	if len(source.Cases) != 1 || source.Cases[0].CalibrationID != manifest.CalibrationID {
+	if len(source.Cases) != 1 || source.Cases[0].CalibrationID != manifest.CalibrationID || source.Cases[0].SourceID != manifest.SourceID {
 		t.Fatalf("source/replay calibration mismatch: %+v / %s", source.Cases, manifest.CalibrationID)
 	}
 	want := replayeval.SplitUse{SplitDigest: split.SplitDigest, Revision: 1, CaseID: "kirk0", Role: "tuning"}
