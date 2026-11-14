@@ -41,6 +41,25 @@ state-estimation tool's argument builder. The CLI is in the `velocity` binary;
 replay/evaluation tools remain separate stamped binaries, as the plan's interim
 executor contract permits.
 
+### Evidence on a share that refuses `O_EXCL`
+
+The arrow NAS (NFSv3) refuses `chmod` and exclusive creates, which breaks `git worktree add`
+and the executors' write-once files. Three host settings keep evidence there:
+
+- `build_root` (absolute, optional) holds `builds/<commit>` on local disk instead of under
+  `evidence_root`. The build cache is rebuildable.
+- `stage_attempts: true` runs each attempt in `<stage_dir>/<run>/work` and copies the
+  finished attempt to the evidence root with synced, non-exclusive writes. A failed copy fails
+  that attempt and keeps the staged files.
+- The harness's own records use `experiments.CreateTemp`, a checked random name without
+  `O_EXCL`.
+
+The build version is the `VERSION` file when a checkout carries one, else the Makefile's
+`VERSION`. Executors receive `PATH`, `HOME`, `TMPDIR`, `LANG`, `LC_ALL`, `LD_LIBRARY_PATH` and
+the eligibility settings `VELOCITY_COHORT_MANIFEST`, `VELOCITY_ANNOTATION_ROOT` and
+`VELOCITY_ELIGIBILITY_DB`. Without a cohort manifest that assigns a capture and a use ledger,
+development replays are refused; the harness does not assign cohorts.
+
 ## Spec compatibility and dependencies
 
 Unversioned specs use the original contract. `spec_version: 1.0` is strict;
