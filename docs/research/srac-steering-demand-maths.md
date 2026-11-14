@@ -135,12 +135,27 @@ rear axle requires calibrated or explicitly assumed offsets. This is a capabilit
 not a fact supplied by a bounding box. The model excludes reversing, substantial sideslip,
 rollover, road banking, and unmodelled tyre transients. It is not a vehicle-dynamics validation.
 
-Declare bounds on δ, ω, b, q, and lateral jerk. In this model:
+Declare bounds on δ, ω, b, q, and the rate of the signed lateral-acceleration component.
+In this model:
 
 $$
 \dot q=\frac{2vb}{L}\tan\delta+
 \frac{v^2}{L}\sec^2\delta\,\omega.
 $$
+
+Here $\dot q$ is a component rate in the rotating body frame. It is not the lateral
+component of inertial jerk. With yaw rate $r=\dot\psi$, differentiating the acceleration
+vector $b\mathbf{T}+q\mathbf{N}$ gives
+
+$$
+j_{\rm long}=\dot b-rq,\qquad j_{\rm lat}=\dot q+rb.
+$$
+
+A comfort limit on inertial jerk must state the reference point and use these components
+(or their norm); it also requires sufficient regularity of b. A limit on $\dot q$ instead
+constrains lateral control variation. The straight double-integrator examples below use a
+fixed frame, where these distinctions disappear. Do not transfer their jerk bounds to a
+curved bicycle trajectory without the frame terms.
 
 A simple coupled capability constraint is $b^2+q^2\le(\mu g)^2$, with g gravitational
 acceleration and μ an assumed friction coefficient. This circle is an approximation, not an
@@ -164,9 +179,13 @@ infeasibility. Physical barriers and optional traffic-rule constraints are separ
 A painted line is not mechanically equivalent to a kerb.
 
 For steering-only S, hold b(s)=b₀(s). Braking-only B retains the declared nominal curvature as a
-function of path distance and permits non-positive braking intervention; this avoids comparing
-steering-only against an arbitrary straight-line brake on a curved road. Combined C permits both
-lateral changes and braking. All three share geometry, delay, horizon, and terminal requirements.
+function of path distance and, after τ, permits longitudinal reductions $b(s)\le b_0(s)$.
+If b₀ is positive, this includes reducing acceleration before actual braking begins; label that
+response longitudinal reduction while b remains positive. Combined C permits the same longitudinal
+reductions plus lateral changes, including the unchanged nominal longitudinal policy. This avoids
+comparing steering-only against an arbitrary straight-line brake on a curved road. Each family
+still obeys actuator limits; expiry of the delay does not grant an instantaneous control reset.
+All three share geometry, delay, horizon, and terminal requirements.
 State any additional restrictions; C contains S and B only when those restrictions match.
 
 Define the proposed demand:
@@ -188,9 +207,17 @@ $$
 J_{\rm total}(x)=\max_{0\le s\le H}|q(s)|.
 $$
 
-This is not generally $R_M+\max|q_0|$. The triangle inequality gives an upper bound by that sum
-for a particular candidate; cancellation and the times of extrema matter. If optima are nonunique,
-report total demand for the named witness, or its range over optimal witnesses. Do not silently
+For every particular witness x, the triangle inequality gives
+
+$$
+J_{\rm total}(x)\le J_\Delta(x)+\max_{0\le s\le H}|q_0(s)|.
+$$
+
+Substituting R_M for the witness cost is valid only for a witness attaining that optimum.
+For example, with q₀=0, an optimum of 1 m/s² and a returned witness costing 2 m/s², the
+witness's total demand is 2 m/s², not bounded above by 1 m/s². For an ε-optimal witness, the corresponding bound is
+$R_M+\varepsilon+\max|q_0|$. Equality is not generally attained: cancellation and the times
+of extrema matter. If optima are nonunique, report total demand for the named witness, or its range over optimal witnesses. Do not silently
 substitute a separately minimised total-demand solution.
 
 Under braking on a curved path, q changes with speed even when road-wheel angle does not.
@@ -258,7 +285,8 @@ claimed for the nested definition. Empty, unknown, and nominally clear cases hav
 
 ### Crossing a lateral clearance boundary
 
-Consider a straight local frame with forward motion independently specified. Let T be the first
+Consider a fixed straight local frame with forward motion prescribed independently of lateral
+control, fixed axis-aligned footprints, and zero nominal lateral acceleration. Let T be the first
 longitudinal footprint-overlap time, h the required signed lateral position including margin,
 y₀ initial lateral position, and w₀ initial lateral velocity. Hold zero lateral acceleration
 until τ<T, then allow any acceleration bounded in magnitude by A. With D=T−τ:
@@ -276,10 +304,14 @@ $$
 
 Constant positive acceleration attains this bound in this relaxed problem. Mirror coordinates
 for the right boundary. This is an exact endpoint result with unconstrained final lateral
-velocity and instantaneous acceleration changes. It is a lower bound for a stricter vehicle
-problem, not a complete avoidance manoeuvre. Collision geometry before T and throughout the
-subsequent overlap interval still needs checking. T must be recomputed if longitudinal policy
-changes; it cannot be copied from the nominal collision prediction after braking.
+velocity and instantaneous acceleration changes. It bounds a stricter problem only if that
+problem is proved to be a restriction of this one, with the same endpoint, time, and acceleration
+objective. Here a is fixed-frame lateral acceleration; it is not automatically the bicycle's
+body-lateral q. In the bicycle model, $\ddot p_y=b\sin\psi+q\cos\psi$, and changing yaw changes
+forward progress and footprint projection. Even holding b=b₀ does not fix longitudinal overlap
+time. Therefore this formula is a reference-model result, not a certified bound on general R_S.
+Collision geometry before T and throughout the subsequent overlap interval still needs checking.
+Recompute overlap times for each vehicle trajectory, including steering-only candidates.
 
 For h=2 m, y₀=0, w₀=0.2 m/s, T=2 s, and τ=0.5 s, the residual is 1.6 m and D=1.5 s:
 A=3.2/2.25=1.4222 m/s². Final lateral velocity is 2.3333 m/s. That large residual motion explains
@@ -299,8 +331,9 @@ times changes inputs and does not inherit that monotonicity theorem.
 
 ### Settled lateral displacement
 
-Require zero initial and final lateral velocity and displacement h>0 during D. For
-$|a|\le A$, lateral velocity obeys $w(s)\le A\min(s,D-s)$: both acceleration from rest and
+Require zero initial and final lateral velocity and displacement h>0 during D. Let η=s−τ
+be time since release, from 0 to D. For $|a|\le A$, lateral velocity obeys
+$w(\eta)\le A\min(\eta,D-\eta)$: both acceleration from rest and
 braking back to rest constrain it. Integration gives $h\le AD^2/4$. Accelerating at +A for half
 D and −A for half D attains equality:
 
@@ -312,7 +345,7 @@ This is twice the crossing-only demand. It is exact for a lateral double integra
 jerk limits. With h=2 m and D=1.5 s it is 3.5556 m/s². Positive-margin footprint containment in
 the escape corridor remains necessary, as does continued clearance from other actors.
 
-A smooth candidate is $y=h(10z^3-15z^4+6z^5)$, z=s/D, with zero endpoint velocity and
+A smooth candidate is $y=h(10z^3-15z^4+6z^5)$, z=η/D, with zero endpoint velocity and
 acceleration. Differentiation gives maximum absolute acceleration $10h/(\sqrt3 D^2)$ and
 maximum absolute jerk $60h/D^3$. The same example requires 5.1320 m/s² and 35.5556 m/s³.
 These are candidate bounds, not an optimum with jerk constraints. The difference is a useful
@@ -344,14 +377,19 @@ A braking leader requires a piecewise relative-motion calculation including stop
 constant-speed result cannot be carried over unchanged.
 
 For an explicit blocked escape, let ego and obstruction each have width 1.8 m, centred initially
-at y=0. Require 0.2 m lateral clearance during longitudinal overlap: ego must reach y≥2.0 m
-or y≤−2.0 m. At that time an adjacent actor of width 1.8 m occupies y=3.0 m and overlaps the
+at y=0. Use the axis-aligned reference geometry above, with prescribed forward motion making
+both obstacles overlap ego longitudinally at one common time T for every steering candidate.
+Require 0.2 m lateral clearance during that overlap: ego must reach y≥2.0 m
+or y≤−2.0 m. At T an adjacent actor of width 1.8 m occupies y=3.0 m and overlaps the
 ego longitudinally. Clearance from it requires y≤1.0 m or y≥5.0 m. A supported road region
 limiting ego centre to y≤3.0 m leaves no left escape at this cross-section. If a right kerb limits
 ego centre to y≥−1.0 m, right escape is also excluded. This proves steering-only infeasibility
-for these stated geometry/time constraints, regardless of the endpoint acceleration calculation.
-With the gap/speeds above and supported initial lane, sufficient braking can avoid reaching that
-cross-section while closing. Thus “steering required” would be misleading without its policy.
+within that prescribed-forward-motion family. It does not certify bicycle-model infeasibility:
+steering can change overlap timing, and rotated footprints change the admissible intervals.
+With the constant-speed leader, gap, and closing speed from the braking example, and with both
+other actors continuing ahead at that leader speed, B=100/28 m/s² preserves the 1 m longitudinal
+gap. If the initial lane remains supported and unoccupied by other actors, ego can stay there
+without a lateral bypass. Thus “steering required” would be misleading without its policy.
 
 ## Uncertainty, causality, and aggregation
 

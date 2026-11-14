@@ -31,7 +31,10 @@ compute a criticality score. No database migration, public API, or UI is necessa
 The worksheet answers whether the formula and boundary conditions are understood. A finite
 manoeuvre library answers whether one of its candidates works. A continuous optimiser may improve
 a candidate, but does not certify global optimality merely by terminating. Keep each tool's
-claim explicit. Compare with analytical lower bounds before introducing a larger solver dependency.
+claim explicit. Compare with analytical reference cases before introducing a larger solver
+dependency. A reference optimum bounds a different model only after proving a relaxation mapping:
+matching inputs and units alone is insufficient. In particular, fixed-forward-motion lateral
+examples do not automatically bound a bicycle model whose steering changes overlap time.
 
 For N time intervals, K candidates, and M obstacles, a direct fixed-complexity footprint checker
 costs O(KNM); streamed checking can use O(M) working memory besides the input and retained witness.
@@ -78,6 +81,17 @@ geometry and directional capabilities are reflected too. Adding obstacles or tig
 cannot improve the same optimum; changing the nominal objective or terminal set breaks that
 comparison. Include independent references for assertions that later tests will encode.
 
+Include these mathematical regression cases before using any solver output as a bound:
+
+- A suboptimal witness with q₀=0 and cost 2 when the optimum is 1: its total-demand upper bound
+  must use 2, not 1. Preserve any known optimality gap.
+- A curve with nonzero longitudinal acceleration: distinguish the rate of q from inertial
+  lateral jerk by the yaw-rate-times-longitudinal-acceleration term.
+- Two bicycle trajectories with the same speed history and different headings: recompute
+  longitudinal overlap and rotated footprints instead of freezing the nominal conflict time.
+- A blocked cross-section in the prescribed-forward-motion reference family: label its
+  infeasibility certificate with that family, and do not promote it to the bicycle family.
+
 ## Proposed experiments
 
 These are preregistration outlines, not executable specifications. Before a run, create checked-in
@@ -98,8 +112,9 @@ in command-line overrides. Preserve source/config/model fingerprints and a held-
   frozen adversarial holdouts for tangencies, short contacts, and narrow corridors.
 - **Measures:** Objective-bound gap, constraint violation, witness rejection rate, unresolved
   fraction, and runtime. Record every case, including failures.
-- **Decision:** No accepted witness may violate the independent checker. Reference optima must
-  fall inside reported bounds. Pin numeric tolerances from integration/geometry error budgets
+- **Decision:** No accepted witness may violate the independent checker. Reference optima for
+  the same mathematical problem must fall inside reported bounds; cross-model bounds require
+  a proved relaxation mapping. Pin numeric tolerances from integration/geometry error budgets
   before scoring; this outline deliberately does not invent an accuracy target.
 - **Limits:** Synthetic agreement establishes implementation consistency, not vehicle feasibility.
 
