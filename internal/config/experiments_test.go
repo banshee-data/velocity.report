@@ -69,7 +69,11 @@ func TestExperimentConfigsDeclareEveryChangeFromTheDefaults(t *testing.T) {
 // baselineDeclarationValid distinguishes intentional controls from undeclared
 // copies, and prevents a stale control from claiming that drift is unchanged.
 func baselineDeclarationValid(changed []string, row string) bool {
-	return (len(changed) == 0) == strings.Contains(row, "No changed keys")
+	cells := strings.Split(row, "|")
+	if len(cells) < 4 {
+		return false
+	}
+	return (len(changed) == 0) == strings.HasPrefix(strings.TrimSpace(cells[2]), "No changed keys")
 }
 
 func TestExperimentBaselineDeclarations(t *testing.T) {
@@ -79,11 +83,12 @@ func TestExperimentBaselineDeclarations(t *testing.T) {
 		row     string
 		want    bool
 	}{
-		{"explicit unchanged control", nil, "No changed keys: baseline control; report.md", true},
-		{"missing control marker", nil, "baseline control; report.md", false},
-		{"stale control", []string{"l5.cv_kf_v1.max_coast_frames"}, "No changed keys: baseline control; report.md", false},
-		{"contradictory control", []string{"l5.cv_kf_v1.max_coast_frames"}, "No changed keys; max_coast_frames changed; report.md", false},
-		{"changed candidate", []string{"l5.cv_kf_v1.max_coast_frames"}, "max_coast_frames changed; report.md", true},
+		{"explicit unchanged control", nil, "| baseline.json | No changed keys: baseline control | report.md |", true},
+		{"marker only in report", nil, "| baseline.json | unchanged | No changed keys.md |", false},
+		{"missing control marker", nil, "| baseline.json | baseline control | report.md |", false},
+		{"stale control", []string{"l5.cv_kf_v1.max_coast_frames"}, "| baseline.json | No changed keys: baseline control | report.md |", false},
+		{"contradictory control", []string{"l5.cv_kf_v1.max_coast_frames"}, "| baseline.json | No changed keys; max_coast_frames changed | report.md |", false},
+		{"changed candidate", []string{"l5.cv_kf_v1.max_coast_frames"}, "| baseline.json | max_coast_frames changed | report.md |", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := baselineDeclarationValid(tc.changed, tc.row); got != tc.want {
