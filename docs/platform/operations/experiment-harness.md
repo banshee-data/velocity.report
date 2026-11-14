@@ -189,6 +189,11 @@ The `harness-pr.yml` guard rejects edits to existing notes and any other path on
 a `harness/` branch. Do not publish an in-progress note manually: later changes
 would violate that contract.
 
+The runner was installed on arrow-worker on 2026-11-13 and completed one fixture replay
+of kirk0 (30 s, 300 frames, 35 confirmed tracks) on local and on NAS evidence with
+identical measures. That is installation evidence only: it ran no approved experiment and
+is not the soak.
+
 The local recovery, scheduling, Git sync, App publication gates and note guard
 have automated tests. The NAS installation, real App credentials, reproduced
 report bands, a held-out scoring acceptance and the week-long deployment soak
