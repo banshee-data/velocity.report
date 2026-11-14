@@ -4,11 +4,71 @@ Develop an offline steering-demand evaluator only after its mathematical contrac
 The immediate deliverable is the [Euler proposal](../research/srac-steering-demand-maths.md).
 This plan describes later work; it schedules no campaign and adopts no production metric.
 
-- **Status:** Proposed; implementation, experiment execution, and physical qualification pending.
+- **Status:** Scheduled for v0.5.4; implementation, experiment execution, and physical qualification pending.
+- **Target:** v0.5.4, concurrent-interaction contracts and nominal offline review workflow.
 - **Canonical:** [Metrics registry](../platform/architecture/metrics-registry.md).
 - **Related:** [Maths proposal](../research/srac-steering-demand-maths.md),
   [behaviour analytics plan](lidar-behaviour-analytics-plan.md),
   [geometry data purpose](../geometry-priors-data-purpose.md).
+
+## v0.5.4 scope
+
+The owner assigned concurrent-interaction reasoning and nominal offline SRAC to v0.5.4.
+The release deliverable is a reproducible, review-only L8 workflow, not production metric
+emission. Reuse the existing following candidate ledger; retain the separate following/DRAC
+weekend programme and its acceptance tasks.
+
+The [reviewed Euler brief](https://chatgpt.com/space/page_268b6582d67c8191b557bd0077276bfa)
+and [GPT-6 Astra response](https://chatgpt.com/space/page_4afc326f4d0481918424d551a0ea69d8)
+supply the research handover. Their conclusions remain proposals except for this release
+allocation. Implementation and physical qualification remain pending.
+
+| Work package                    | v0.5.4 acceptance                                                                                                                                                                                                                                                                                         |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Concurrent interaction evidence | Distinguish simultaneous physical actors, alternative identity/lane/intent hypotheses, and alternative controls. Reuse existing candidates with time-local support and inclusion, retention, expiry, and pruning reasons.                                                                                 |
+| Lane transitions                | Retain source- and target-lane front and rear actors through cut-in, cut-out, straddling, and aborted changes. Use registered lanes as uncertain evidence; support a no-map mode and preserve unknown geometry.                                                                                           |
+| Joint mathematical contract     | Freeze the nominal continuation, information mode, control family, delay, horizon, and terminal rule; independently review the pairwise bound and world/control quantifiers below.                                                                                                                        |
+| Nominal offline evaluator       | Implement analytical reference cases and bounded manoeuvre families with an independent continuous-time witness checker for dynamics, swept geometry, objective, and terminal support. Report bounds, witnesses, and explicit unsupported/unresolved outcomes.                                            |
+| Review workflow                 | Trace source/run/window/version, all relevant actors, candidate changes, gap/projected speeds, support, and suppression; show joint witnesses, blocking constraints, and additional versus same-witness total demand. Specify the smallest macOS integration after the offline output contract is proven. |
+| Validation and report           | Freeze adversarial synthetic cases, audit permitted development inputs, reconcile actor-time opportunities and exclusions, and record readiness for physical qualification. Keep reserved holdouts outside development.                                                                                   |
+
+The release demonstration must reproduce a supported case, a simultaneous-obstacle blocking
+case, and an unsupported or unresolved case, with source and model provenance and complete
+exclusion accounting. Synthetic agreement establishes model consistency, not physical accuracy.
+Stages 1–3 and review outputs are the implementation target; Stage 4 begins with an input
+sufficiency audit. Independent physical qualification in Stage 6 remains gated by its references
+and frozen protocol rather than promised by the release allocation.
+
+### Mathematical and evidence decisions to carry forward
+
+For identical initial state, nominal objective, dynamics, longitudinal policy, delay, horizon,
+road support, and terminal constraints, the maximum of the pairwise optimal demands is a lower
+bound on joint-scene demand. Separate feasible pairwise witnesses are upper bounds on their own
+optima: their maximum is not automatically a lower bound or a joint witness. Include a synthetic
+case in which avoiding one obstacle requires the left corridor and avoiding another requires the
+right corridor at the same instant, so each pair is avoidable but the joint steering family is
+empty. Label the certificate with that family; braking may change the result.
+
+Keep simultaneous bodies separate from mutually exclusive future worlds. With common ego
+dynamics, checking one fixed trajectory against the exact union of alternative occupancies is
+equivalent to checking it against every world. Conservatism relative to a feedback policy that
+can adapt after observations, additional occupancy inflation, and incompatible mode combinations
+are separate issues. Do not interpret arbitrary hypothesis weights as calibrated probabilities.
+
+Record capture and evidence-availability cutoffs, identity alternatives, footprint support,
+lane registration, nominal/future/control model identities, and terminal coverage. Count one
+reference-actor scene opportunity per physical instant; alternative leaders and repeated replay
+windows do not create independent exposure. A candidate cap or missing relevant actor prevents
+a whole-scene feasibility claim unless omissions have a valid irrelevance argument.
+
+### Release boundary
+
+Live 20 Hz solving, a general AV planner, calibrated collision probabilities, crash-surrogate
+validation, and production SRAC emission require later decisions and evidence. A safe nominal
+curve or lane change may have zero additional demand and positive total demand. Human-driver
+analysis cannot infer intent, reaction delay, or capability from LiDAR alone; supplied AV plans
+remain versioned assumptions with latency and uncertainty. Missing support and solver failure
+retain explicit statuses.
 
 ## Work order and acceptance
 
@@ -178,4 +238,5 @@ raw outputs remain local. Link it from the relevant plan/index and a unique devl
 Production consideration requires a reviewed metric identity and scene-level opportunity contract,
 physical qualification, uncertainty calibration appropriate to the claim, and reproducible
 exclusion accounting. Preserve the existing restriction on publishing review-only results.
-No release milestone, threshold, or priority changes through this plan alone.
+The owner assigned the bounded offline scope above to v0.5.4; this changes no production threshold
+or physical-qualification gate.
