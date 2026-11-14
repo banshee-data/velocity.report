@@ -57,6 +57,8 @@ Outstanding project-wide work, by release. Plans in `plans/` hold the design and
 - **P0** Detection edge cases: D2 MinPts self-inclusion, D3 near-merge separation, P3 heading disambiguation and C2 classification boundaries: [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M` `S-OBS`
 - **P0** Ground segmentation evaluation: G1 Patchwork++ and sloped-road cases, extending rather than replacing the Phase 1 P11 surface gate: [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M` `S-OBS`
 
+- **P2** Concurrent-interaction and nominal offline SRAC review workflow: reuse candidate evidence across lane transitions, freeze joint-scene contracts, and deliver independently checked witnesses with synthetic cases, support/exclusion accounting, and bounded review aids. Physical qualification and live solving retain separate gates: [scope and acceptance](plans/lidar-srac-research-plan.md#v054-scope) `L` {math} `S-MET`
+
 ### v0.5.5 - Physical body geometry (055)
 
 <a id="v055---estimate-display--data-completeness-055"></a>

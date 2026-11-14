@@ -1,0 +1,1 @@
+- Assigned the [concurrent-interaction and nominal offline SRAC workflow](../../plans/lidar-srac-research-plan.md#v054-scope) to v0.5.4, with joint-scene witness checking, lane-transition evidence, review outputs, and synthetic acceptance; retained independent physical-qualification and production gates.
