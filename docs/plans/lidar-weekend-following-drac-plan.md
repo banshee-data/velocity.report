@@ -2,10 +2,10 @@
 
 Produce reproducible per-site candidate, following, experimental DRAC and exclusion evidence,
 then review a few multi-vehicle periods to decide the next geometry investment. The working
-programme is November 14–15, 2026. Lombard at Broderick is the provisional intensive-review
-site, subject to capture, lane, reference and cohort preflight and the matched manual screen
-against Embarcadero at Broadway's published scene. Both sites are now assigned to validation;
-the cohort restrictions below take precedence over their earlier provisional development use.
+programme is November 14–15, 2026. Current development evidence comes from Kirkham,
+Columbus–Broadway and Embarcadero–Bryant. The earlier Lombard–Broderick versus
+Embarcadero–Broadway matched screen remains conditional: both sites are validation cohorts,
+and permitted use must be resolved before diagnostic review.
 
 - **Status:** In progress for v0.5.2. DRAC arithmetic, offline export and the first three-source
   development baseline are merged. A fresh source/v2 rerun is active; operator review, conditional
@@ -122,7 +122,7 @@ display transform from unchanged stored heading and unvalidated physical yaw. Th
 the investigation and extra geometric regressions without applying the correction twice.
 [PR #1031](https://github.com/banshee-data/velocity.report/pull/1031) refreshed all 24 indexed S2
 scenes; its [report](../lidar/operations/scene-export-refresh-2026-11.md) records integrity and
-rendered acceptance. The recording-archive audit and running preview remain independently owned.
+rendered acceptance. The completed recording-archive audit and running preview remain independently owned.
 Record the player module and asset/build versions used for review; old-player results are not
 current-renderer evidence.
 
@@ -139,8 +139,8 @@ validate hypothetical avoidance, driver intent or crash risk.
 ## November 14 progress and remaining work
 
 This refresh covers merged main `0359442e6` (#1040) and the related chats read on November 14,
-2026, after the owner requested a fresh three-source rerun and verification of all 24 recording
-archives. It supersedes the live-status wording in the November 13 snapshot below. An active
+2026, after the owner requested a fresh three-source rerun and the scene owner completed
+verification of all 24 recording archives. It supersedes the live-status wording in the November 13 snapshot below. An active
 request is not a completed run; its owning chat retains execution responsibility.
 
 ### Delivered foundation and bounded experiments
@@ -174,9 +174,12 @@ suppression and unresolved identity/geometry motivate W3; they do not justify we
 - **Scenes and preview:** #1027 and #1031 are merged. All 24 indexed scenes passed the refresh's
   product-integrity and rendered checks. In “Investigate skewed vehicle boxes (2)”, chat
   `01a1d81f-c4d8-7e53-9453-578437798051`, the latest request is to verify that all 24 raw recordings
-  are archived on the LiDAR volume and leave the dev preview running. That archive-completeness
-  audit is active, not established by the merged scene-product checks. Preserve partial archives
-  and verify every source/copy before claiming completion; do not stop the owner's preview.
+  are archived on the LiDAR volume and leave the dev preview running. The owner subsequently
+  confirmed 24/24 recordings, 446 files and 36.76 GB, with fingerprint, index/chunk and sidecar
+  checks passed. All 22 copied recordings have per-file SHA-256 receipts; two originals were
+  recorded directly there. This is separate archive evidence from the scene-product checks.
+  Receipt `archive-check-20261114T175751Z.json` identifies that audit. The preview remains
+  running on port 8090; preserve the receipt and do not stop the preview.
 - **Arrow capture access:** merged [#1032](https://github.com/banshee-data/velocity.report/pull/1032)
   adds per-corpus capture roots and records deployed capture access, an enabled timer and a clean
   scheduling pass. It establishes deployment/access, not a labelled experiment or H5 soak.
@@ -213,7 +216,7 @@ suppression and unresolved identity/geometry motivate W3; they do not justify we
    checking recording coverage before seek. Record physical identity continuity, path/leader
    ambiguity, visible endpoints, both speeds and any suspected lost returns. Include a negative
    case; retain unknowns rather than treating tracker IDs as bodies.
-3. Finish the separately owned 24-recording archive audit and retain the requested preview.
+3. Retain the completed 24-recording archive audit receipt and the requested running preview.
    Install/verify labelled scoring inputs and close real manual prerequisites before a bounded
    arrow run. Complete recovery/publication/soak evidence separately from access and unit tests.
 4. Use W4 only if the frozen reference/evaluator prerequisites and remaining allowance permit it.
