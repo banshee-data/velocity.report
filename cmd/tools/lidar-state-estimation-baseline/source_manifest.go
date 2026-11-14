@@ -24,14 +24,14 @@ type sourceManifest struct {
 	IndexSHA256      string               `json:"index_sha256"`
 	SensorID         string               `json:"sensor_id"`
 	ParametersSHA256 string               `json:"parameters_sha256"`
-	CalibrationID    string               `json:"calibration_id"`
 	Cases            []sourceManifestCase `json:"cases"`
 }
 
 type sourceManifestCase struct {
-	ID       string                  `json:"id"`
-	SourceID string                  `json:"source_id"`
-	Captures []sourceManifestCapture `json:"captures"`
+	CalibrationID string                  `json:"calibration_id"`
+	ID            string                  `json:"id"`
+	SourceID      string                  `json:"source_id"`
+	Captures      []sourceManifestCapture `json:"captures"`
 }
 
 type sourceManifestCapture struct {
@@ -42,8 +42,9 @@ type sourceManifestCapture struct {
 }
 
 type resolvedCorpusCase struct {
-	corpusCase corpusCase
-	paths      []string
+	corpusCase      corpusCase
+	paths           []string
+	northAzimuthDeg float64
 }
 
 func resolveCorpusCases(selected corpus, index map[string]indexEntry, pcapRoot, pcapSubdir string) ([]resolvedCorpusCase, error) {
@@ -67,7 +68,7 @@ func resolveCorpusCases(selected corpus, index map[string]indexEntry, pcapRoot, 
 				return nil, fmt.Errorf("case %s capture %s is not a regular file", selectedCase.ID, paths[i])
 			}
 		}
-		resolved = append(resolved, resolvedCorpusCase{corpusCase: selectedCase, paths: paths})
+		resolved = append(resolved, resolvedCorpusCase{corpusCase: selectedCase, paths: paths, northAzimuthDeg: entry.NorthAzimuthDeg})
 	}
 	return resolved, nil
 }
@@ -85,18 +86,13 @@ func buildSourceManifest(corpusPath, indexPath, pcapRoot, tuningPath, sensorID s
 	if err != nil {
 		return sourceManifest{}, err
 	}
-	calibrationID, err := l4bobserve.CalibrationID(identityCalibration(sensorID))
-	if err != nil {
-		return sourceManifest{}, fmt.Errorf("derive observation calibration identity: %w", err)
-	}
 
 	manifest := sourceManifest{
-		SchemaVersion:    1,
+		SchemaVersion:    2,
 		CorpusSHA256:     corpusDigest,
 		IndexSHA256:      indexDigest,
 		SensorID:         sensorID,
 		ParametersSHA256: paramsHash,
-		CalibrationID:    calibrationID,
 		Cases:            make([]sourceManifestCase, 0, len(cases)),
 	}
 	for _, resolved := range cases {
@@ -131,7 +127,11 @@ func buildSourceManifest(corpusPath, indexPath, pcapRoot, tuningPath, sensorID s
 		if err != nil {
 			return sourceManifest{}, fmt.Errorf("derive observation source identity for %s: %w", resolved.corpusCase.ID, err)
 		}
-		manifest.Cases = append(manifest.Cases, sourceManifestCase{ID: resolved.corpusCase.ID, SourceID: sourceID, Captures: captures})
+		calibrationID, err := l4bobserve.CalibrationID(siteCalibration(sensorID, resolved.northAzimuthDeg))
+		if err != nil {
+			return sourceManifest{}, fmt.Errorf("derive calibration for case %s: %w", resolved.corpusCase.ID, err)
+		}
+		manifest.Cases = append(manifest.Cases, sourceManifestCase{CalibrationID: calibrationID, ID: resolved.corpusCase.ID, SourceID: sourceID, Captures: captures})
 	}
 	return manifest, nil
 }
@@ -218,4 +218,23 @@ func sourceManifestRawSHA256(digest string) (string, error) {
 		return "", fmt.Errorf("invalid SHA-256 digest %q", digest)
 	}
 	return strings.TrimPrefix(digest, prefix), nil
+}
+
+// verifyCalibration refuses drift between the frozen declaration and the
+// transform passed to the evidence writer. Older global placeholders cannot
+// stand in for a case's calibration.
+func (m sourceManifest) verifyCalibration(caseID string, calibration l4bobserve.Calibration) error {
+	id, err := l4bobserve.CalibrationID(calibration)
+	if err != nil {
+		return err
+	}
+	for _, c := range m.Cases {
+		if c.ID == caseID {
+			if m.SchemaVersion != 2 || c.CalibrationID != id {
+				return fmt.Errorf("source manifest calibration differs for case %s; create a new per-case manifest", caseID)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("source manifest has no case %q", caseID)
 }

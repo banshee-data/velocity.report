@@ -416,6 +416,11 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			first.ObservationDBPath = r.evidencePath(selectedCase.ID)
 			first.ClipID = selectedCase.ID
 			first.ObservationCalibration = siteCalibration(first.SensorID, r.index[selectedCase.ID].NorthAzimuthDeg)
+			if r.sourceManifest != nil {
+				if err := r.sourceManifest.verifyCalibration(selectedCase.ID, first.ObservationCalibration); err != nil {
+					return nil, nil, err
+				}
+			}
 			first.ObservationMaxSamplePoints = r.samplePoints
 			first.ProfileEvidence = r.evidenceProfile
 		}

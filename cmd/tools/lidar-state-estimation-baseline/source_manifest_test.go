@@ -3,6 +3,10 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
+	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,5 +157,95 @@ func TestSourceManifestCaseDigestsRequireOrderedCompleteCase(t *testing.T) {
 	manifest.Cases[0].Captures[1].Ordinal = 2
 	if _, err := sourceManifestCaseDigests(manifest, "marina", 2); err == nil {
 		t.Fatal("accepted out-of-order capture ordinals")
+	}
+}
+
+func TestSourceManifestBindsEachSitesActualReplayCalibration(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "capture")
+	if err := os.WriteFile(path, []byte("capture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	selected := corpus{Cases: []corpusCase{{ID: "columbus", ExpectedCaptureCount: 1}, {ID: "bryant", ExpectedCaptureCount: 1}}}
+	index := map[string]indexEntry{
+		"columbus": {Captures: []string{"capture"}, NorthAzimuthDeg: 35},
+		"bryant":   {Captures: []string{"capture"}, NorthAzimuthDeg: 353},
+	}
+	cases, err := resolveCorpusCases(selected, index, root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := buildSourceManifest(path, path, root, "", "sensor", cases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != 2 || manifest.Cases[0].CalibrationID == manifest.Cases[1].CalibrationID {
+		t.Fatalf("manifest: %+v", manifest)
+	}
+	for _, c := range manifest.Cases {
+		calibration := siteCalibration("sensor", index[c.ID].NorthAzimuthDeg)
+		want, _ := l4bobserve.CalibrationID(calibration)
+		if c.CalibrationID != want {
+			t.Fatalf("%s calibration %s want %s", c.ID, c.CalibrationID, want)
+		}
+		if err := manifest.verifyCalibration(c.ID, calibration); err != nil {
+			t.Fatal(err)
+		}
+		if err := manifest.verifyCalibration(c.ID, identityCalibration("sensor")); err == nil {
+			t.Fatal("placeholder accepted")
+		}
+		if err := manifest.verifyCalibration(c.ID, siteCalibration("other", index[c.ID].NorthAzimuthDeg)); err == nil {
+			t.Fatal("sensor drift accepted")
+		}
+	}
+	payload, _ := json.Marshal(manifest)
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &top); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := top["calibration_id"]; exists {
+		t.Fatal("misleading global calibration retained")
+	}
+	if err := manifest.verifyCalibration("absent", identityCalibration("sensor")); err == nil {
+		t.Fatal("absent case accepted")
+	}
+	if err := manifest.verifyCalibration("columbus", l4bobserve.Calibration{}); err == nil {
+		t.Fatal("invalid calibration accepted")
+	}
+	manifest.SchemaVersion = 1
+	if err := manifest.verifyCalibration("columbus", siteCalibration("sensor", 35)); err == nil {
+		t.Fatal("legacy placeholder manifest accepted")
+	}
+}
+
+func TestCorpusReplayChecksDeclaredCalibrationBeforeWritingEvidence(t *testing.T) {
+	cal := siteCalibration("sensor", 35)
+	id, _ := l4bobserve.CalibrationID(cal)
+	for _, matches := range []bool{true, false} {
+		t.Run(fmt.Sprint(matches), func(t *testing.T) {
+			declared := id
+			if !matches {
+				declared = "placeholder"
+			}
+			stop := errors.New("reached replay")
+			runner := corpusReplay{base: replayeval.Config{SensorID: "sensor"}, observationDBPath: filepath.Join(t.TempDir(), "e.db"),
+				sourceManifest: &sourceManifest{SchemaVersion: 2, Cases: []sourceManifestCase{{ID: "site", CalibrationID: declared, Captures: []sourceManifestCapture{{Ordinal: 0, SHA256: "sha256:" + strings.Repeat("a", 64)}}}}},
+				index:          map[string]indexEntry{"site": {NorthAzimuthDeg: 35}},
+				prepare:        func([]string, int) (*capseq.Sequence, error) { return nil, nil },
+				replay: func(cfg replayeval.Config) (*replayeval.Result, error) {
+					if cfg.ObservationCalibration != cal {
+						t.Fatal("wrong writer calibration")
+					}
+					return nil, stop
+				},
+			}
+			_, _, err := runner.run([]resolvedCorpusCase{{corpusCase: corpusCase{ID: "site"}, paths: []string{"capture"}}})
+			if matches && !errors.Is(err, stop) {
+				t.Fatalf("matching declaration: %v", err)
+			}
+			if !matches && (err == nil || !strings.Contains(err.Error(), "calibration differs")) {
+				t.Fatalf("drift not refused: %v", err)
+			}
+		})
 	}
 }
