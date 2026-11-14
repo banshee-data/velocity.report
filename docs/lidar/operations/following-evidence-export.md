@@ -11,10 +11,10 @@ qualification claim.
 
 ## Run
 
-Build through `make build-radar-local`, then use the existing headway command:
+Build the canonical executable through `make build-velocity`, then use the existing headway command:
 
 ```bash
-./velocity-report-local report headway --db /absolute/evidence.db \
+./velocity report headway --db /absolute/evidence.db \
   --source source/v1/CONTENT_ID --boxes \
   --evidence-context /absolute/binding.json --output /absolute/local-evidence \
   --cohort-manifest config/cohorts/cohort-manifest.json \

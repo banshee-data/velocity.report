@@ -13,9 +13,8 @@ estimates. A final inference stage alone does not qualify a field metric for pro
 
 - **Status:** Active (specification); sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); sprint 0.5.2.4 scene headway distribution, its API and its provisional SVG chart on the scene page, and the provisional field run over persisted estimates in `internal/report/headway/fieldrun/` (Section 10.4), which finds pairs on kirk0 and publishes no value because persisted estimates carry no class, heading or extent; the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Development prefix evidence:** [fixed two-source reproducibility screen](../lidar/operations/following-development-prefixes-2026-11.md); engineering checks only.
-
-**Target platform:** macOS Apple Silicon (M1+) is the held-out scoring host. v0.5.9 separately qualifies Raspberry Pi deployment and capture quality before field publication.
-
+- **Engineering evidence:** [Current-baseline Kirk reproducibility pilot](../lidar/operations/following-baseline-reproducibility-2026-11.md), exact same-DB export and accounting checks; physical qualification remains separate.
+- **Target platform:** macOS Apple Silicon (M1+) is the held-out scoring host. v0.5.9 separately qualifies Raspberry Pi deployment and capture quality before field publication.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
 - **Execution schedule (D-36):** provisional following development continues across 05x; physically qualified static following is v0.5.8 and field evidence v0.5.9. PET/passing clearance/conflict extensions move to 07x and need their own gates. Backpack and bicycle transfer remain v0.6.2 and v0.6.3. Prior 0.5.2.x sprint phases remain technical history.
 - **Canonical:** [Pipeline ownership](../lidar/architecture/lidar-pipeline-reference.md)
