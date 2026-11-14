@@ -232,6 +232,7 @@ data/**/*.db
 data/**/*.json
 # Checked-in harness input definitions, not generated run output.
 !data/experiments/corpora/first-segment-corpus.json
+!data/experiments/corpora/following-baseline-development-prefixes.json
 !data/experiments/corpora/first-segment-site-index.json
 !data/experiments/corpora/kirk-labelled-corpus.json
 !data/experiments/corpora/kirk-labelled-site-index.json

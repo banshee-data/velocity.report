@@ -1,0 +1,1 @@
+- Preregistered the [fixed-prefix development-site following campaign](../../lidar/operations/following-development-prefixes-2026-11.md) on Columbus at Broadway and Embarcadero at Bryant with unchanged tuning, separate retained/scoring populations and exact regeneration/accounting checks; replay and physical qualification were pending at this commit.
