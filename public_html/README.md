@@ -44,6 +44,11 @@ pnpm test
 
 From the repository root, `make test-public-html` runs the same suite and `make test` includes it. Pull requests that touch `public_html/` run it in CI.
 
+The box-orientation tests compare transformed corners with data-space headings and exercise the
+published Lombard–Broderick and Embarcadero–Broadway turn windows through `TrackVisual`.
+The [yaw investigation](../docs/lidar/operations/published-scene-yaw-investigation.md) records the
+mirrored-heading defect, exact playback times, provenance, and remaining physical-pose checks.
+
 ## Street survey pages
 
 `/surveys/` (`src/scenes/index.njk`) lists every survey site; each site page uses

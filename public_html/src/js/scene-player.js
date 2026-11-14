@@ -358,9 +358,9 @@ export class TrackVisual {
       obj.visible = true;
       obj.position.set(x, y, z);
       obj.scale.set(l, h, w);
-      // ENU yaw is counter-clockwise about up; three.js rotates about +Y the
-      // other way, hence the negation.
-      obj.rotation.set(0, -(t.bh ?? t.hdg ?? 0), 0);
+      // Mapping (x, y, z) to (x, z, -y) carries a data-space heading to
+      // (cos(yaw), 0, -sin(yaw)): exactly a positive three.js Y rotation.
+      obj.rotation.set(0, t.bh ?? t.hdg ?? 0, 0);
     }
   }
 
