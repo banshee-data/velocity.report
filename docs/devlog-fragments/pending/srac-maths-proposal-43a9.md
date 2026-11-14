@@ -1,0 +1,1 @@
+- Defined a proposed baseline-relative steering-demand measure, derived crossing and settled-response bounds, and documented uncertainty, terminal support, and solver evidence in the [SRAC maths review](../../research/srac-steering-demand-maths.md); recorded a [staged validation plan](../../plans/lidar-srac-research-plan.md), with no implementation or physical validation.

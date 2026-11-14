@@ -1,0 +1,457 @@
+# SRAC: additional steering demand under a declared continuation
+
+SRAC can usefully name a research programme around baseline-relative steering demand. It does
+not yet justify a claim to a new class of collision-criticality metric. This proposal defines
+what the quantity would mean, derives tractable reference cases, and identifies the evidence
+needed before roadside LiDAR could support it.
+
+- **Status:** Mathematical proposal; no implementation, experiment, threshold, or production adoption.
+- **Canonical:** [Behaviour analytics](../plans/lidar-behaviour-analytics-plan.md).
+- **Related:** [Follow-up plan](../plans/lidar-srac-research-plan.md),
+  [metrics registry](../platform/architecture/metrics-registry.md),
+  [distribution research](2026-11-12-driving-behaviour-distributions.md).
+- **References:** `Westhofen2022`, `Jansson2005`, and the linked metric catalogue;
+  [bibliography](../../data/maths/references.bib).
+- **Provenance:** Repository contracts inspected at `da3c020fbf4e4a8068818c73a5df5af5e53c097b`.
+  Literature inspected November 14, 2026 (UTC). Numbers below are illustrative arithmetic.
+
+## Recommendation
+
+Use **required additional lateral acceleration**, with **SRAC** retained as the working project
+name. Its unit is m/s². Given a nominal continuation, find the smallest maximum absolute change
+to the vehicle's signed lateral acceleration that permits an admissible avoidance trajectory.
+Every result is conditional on the prediction, longitudinal policy, geometry, horizon, delay,
+capability, and terminal condition. It is a counterfactual control demand, not observed steering
+input, crash probability, or a judgement about a driver.
+
+Recommend a deterministic, nominal-scene research definition first. Report sensitivity under
+explicit bounded alternatives separately. Do not present uncalibrated covariance or an arbitrary
+occupancy inflation as a probability guarantee. General robust control, interaction-aware actor
+predictions, and calibrated probabilistic evaluation are subsequent research tasks.
+
+For the first implementation, support straight, forward-motion analytical scenarios and an
+offline review evaluator. The general formulation below fixes semantics; it does not promise
+that the current tracker supplies every input or that a global optimiser is practical.
+
+## Evidence
+
+The [review by Westhofen et al.](https://doi.org/10.1007/s11831-022-09788-7)
+provides a catalogue and a method for selecting criticality measures for particular applications.
+Its introduction explains why a measure suitable for one conflict geometry may be unsuitable
+for another. This motivates an explicit applicability domain rather than a universal score.
+The [accessible paper](https://elib.dlr.de/187762/1/Westhofen2022_Article_CriticalityMetricsForAutomated.pdf)
+and the catalogue definitions below were inspected; no empirical validity rating is adopted.
+
+[Jansson's thesis](https://www.diva-portal.org/smash/get/diva2%3A617438/FULLTEXT01.pdf),
+Chapter 6, already treats multiple obstacles, admissible lateral accelerations, and combined
+braking and steering. Section 6.2 illustrates a case where pure responses fail but a sequence
+works. Section 6.3 explains that finite control/time discretisation can miss an existing escape.
+Consequently, neither multiple actors nor a search over manoeuvres establishes SRAC's novelty.
+The derivations below are independent, restricted reference problems, not claimed reproductions
+of the thesis's full decision functions.
+
+| Existing measure                                                                                                                   | Meaning and units                                                                                                               | Consequence for SRAC                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| [Required lateral acceleration](https://criticality-metrics.readthedocs.io/en/latest/acceleration-scale/alatreq.html)              | Minimum lateral acceleration magnitude needed for evasion; m/s²; catalogue gives a constant-acceleration following special case | Closest antecedent. A baseline-relative, maximum-over-time objective must be distinguished from its constant/average demand   |
+| [STN](https://criticality-metrics.readthedocs.io/en/latest/index-scale/STN.html)                                                   | Required lateral demand divided by available directional capability; dimensionless                                              | A demand/capability ratio is established. Do not rename it or normalise additional demand as though it were total tyre demand |
+| [TTS and TTM](https://criticality-metrics.readthedocs.io/en/latest/time-scale/TTM.html)                                            | Latest initiation permitting the specified avoidance manoeuvre; seconds                                                         | Reuse the concept; record feasible initiation intervals when one deadline is misleading                                       |
+| [Required longitudinal acceleration / DRAC](https://criticality-metrics.readthedocs.io/en/latest/acceleration-scale/alongreq.html) | Longitudinal demand under a declared motion model; m/s²                                                                         | Compare steering with braking under matched assumptions; derive signs explicitly                                              |
+| [BTN](https://criticality-metrics.readthedocs.io/en/latest/index-scale/BTN.html)                                                   | Required longitudinal demand divided by available braking capability                                                            | A ratio is conditional on its motion/capability model, not a portable risk threshold                                          |
+| [Required acceleration](https://criticality-metrics.readthedocs.io/en/latest/acceleration-scale/areq.html)                         | Catalogue includes a norm of longitudinal and lateral demands                                                                   | Independently optimised component demands need not describe one feasible joint trajectory                                     |
+| [Trajectory Criticality Index](https://criticality-metrics.readthedocs.io/en/latest/index-scale/TCI.html)                          | Optimisation of manoeuvre difficulty under constraints                                                                          | Optimisation-based difficulty is established; different objectives define different quantities                                |
+
+The TCI comparison is limited to the authors' catalogue summary; its originating conference
+paper's full objective was not independently checked. This prevents an exhaustive novelty claim.
+The longitudinal catalogue's displayed special-case sign must not be copied mechanically:
+with a constant-speed leader, positive closing speed and positive gap, braking has negative
+signed acceleration. Section “Braking comparison” derives a positive deceleration magnitude.
+
+The useful proposed contribution is an explicit baseline-relative objective, evidence/status
+contract, and research workflow for qualified roadside observations. It is a measurement design
+proposal, not evidence of improved crash prediction.
+
+## Vocabulary and observability
+
+| Term                        | Meaning here                                                | Avoid implying                                       |
+| --------------------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
+| Reference actor             | Actor being evaluated at this instant                       | A sensor-equipped ego vehicle or persistent identity |
+| Nominal continuation        | Frozen prediction or supplied planner trajectory            | What the driver intended                             |
+| Additional demand           | Change from nominal signed lateral acceleration             | Total tyre loading or steering-wheel motion          |
+| Total demand                | Maximum absolute lateral acceleration on the same candidate | The minimum for a different objective                |
+| Feasible escape found       | A trajectory satisfying all declared checks                 | A globally minimal solution                          |
+| Infeasible in model         | Certified empty admissible set                              | A physically inevitable crash                        |
+| Collision-free over horizon | No predicted contact within stated support                  | Safe indefinitely                                    |
+
+Paper wording: “The estimated required additional lateral acceleration was 2.0 m/s² under the
+specified continuation and steering-only policy.” Graph label: “Additional lateral demand
+(m/s²); nominal scene, fixed longitudinal policy.” Replace “the driver needed to swerve” with
+“the nominal continuation conflicted with the predicted occupancy; a modelled lateral response
+cleared it.” Replace “no collision risk” with “no nominal conflict within the evaluated horizon”.
+
+The current [trajectory contract](../../internal/lidar/l8behaviour/trajectory.go) carries position,
+velocity, their 4-by-4 covariance, body heading belief, extent beliefs, and observation/stage
+provenance. It does not directly carry calibrated steering angle, tyre friction, yaw-rate dynamics,
+or joint future occupancy. Body yaw and course are distinct. Derivatives of reconstructed
+positions are estimates whose errors and smoothing support must be retained.
+
+The [L8 package](../../internal/lidar/l8behaviour/doc.go) already owns value-versus-suppression
+semantics and gates production emission on qualified final estimates. Final reconstruction can
+use later evidence: it must not silently become a past-only prediction input. A future causal
+adapter needs both capture time and evidence availability/cutoff. Geometry is measured spatial
+data under the [geometry purpose contract](../geometry-priors-data-purpose.md); an absent return
+does not establish clear road space.
+
+## Mathematical specification
+
+### Inputs, frame, and reference model
+
+Let evaluation time be t and future elapsed time be s in [0,H]. Freeze the information set I_t,
+all model versions, and nominal state/control functions x₀(s), u₀(s). Subscripts 0 denote the
+baseline, not a zero value. Nominal and candidate start from the same state. A retrospective
+mode may use a larger information set, but must receive a different mode identifier.
+
+| Symbol       | Meaning                                                           | Unit            |
+| ------------ | ----------------------------------------------------------------- | --------------- |
+| p, ψ, v      | Rear-axle reference position, body yaw, forward speed             | m, rad, m/s     |
+| δ, L         | Road-wheel angle, wheelbase                                       | rad, m          |
+| b, ω         | Signed longitudinal acceleration, steering rate                   | m/s², rad/s     |
+| q            | Signed body-lateral acceleration in the reference model           | m/s²            |
+| H, τ         | Evaluation horizon, fixed response delay                          | s               |
+| B(x), O_j(s) | Ego footprint and actor/static occupancy in a common ground plane | sets in m       |
+| D(s), c      | Supported allowed road region and positive clearance margin       | set in m, m     |
+| K_H          | Declared terminal-state set                                       | state-space set |
+
+Use a planar kinematic bicycle only where forward speed and small slip justify it:
+
+$$
+\dot p=v(\cos\psi,\sin\psi),\qquad
+\dot\psi=\frac{v}{L}\tan\delta,\qquad
+\dot v=b,\qquad \dot\delta=\omega,\qquad
+q=\frac{v^2}{L}\tan\delta.
+$$
+
+Footprints must be placed relative to the same reference point; converting a track anchor to a
+rear axle requires calibrated or explicitly assumed offsets. This is a capability-model input,
+not a fact supplied by a bounding box. The model excludes reversing, substantial sideslip,
+rollover, road banking, and unmodelled tyre transients. It is not a vehicle-dynamics validation.
+
+Declare bounds on δ, ω, b, q, and lateral jerk. In this model:
+
+$$
+\dot q=\frac{2vb}{L}\tan\delta+
+\frac{v^2}{L}\sec^2\delta\,\omega.
+$$
+
+A simple coupled capability constraint is $b^2+q^2\le(\mu g)^2$, with g gravitational
+acceleration and μ an assumed friction coefficient. This circle is an approximation, not an
+identified tyre envelope. Keep comfort bounds separate. No default μ or universal capability
+is adopted. Conversion uses $\kappa=q/v^2$ and $\delta=\arctan(Lq/v^2)$ only for v above the
+model's declared speed floor. Near rest, suppress this conversion rather than divide by zero.
+
+### Feasible set and objective
+
+Let F_M(I_t,H,τ) be the trajectories for manoeuvre family M which obey the model, initial state,
+capability limits, and u(s)=u₀(s) before τ, and satisfy, for every s and every relevant j:
+
+$$
+\operatorname{dist}(B(x(s)),O_j(s))\ge c,\qquad
+B(x(s))\subseteq D(s),\qquad x(H)\in K_H.
+$$
+
+The footprint condition includes its full swept motion. Unsupported road space is outside D;
+if it would determine escape feasibility, report insufficient scene support instead of physical
+infeasibility. Physical barriers and optional traffic-rule constraints are separately identified.
+A painted line is not mechanically equivalent to a kerb.
+
+For steering-only S, hold b(s)=b₀(s). Braking-only B retains the declared nominal curvature as a
+function of path distance and permits non-positive braking intervention; this avoids comparing
+steering-only against an arbitrary straight-line brake on a curved road. Combined C permits both
+lateral changes and braking. All three share geometry, delay, horizon, and terminal requirements.
+State any additional restrictions; C contains S and B only when those restrictions match.
+
+Define the proposed demand:
+
+$$
+J_\Delta(x)=\max_{0\le s\le H}|q(s)-q_0(s)|,\qquad
+R_M=\inf_{x\in F_M}J_\Delta(x).
+$$
+
+The primary SRAC candidate is R_S. Both scalars are signed body-lateral components at equal
+elapsed times. Their difference is a **control-demand comparison**, not subtraction of world
+acceleration vectors at different positions. It is unchanged by a rigid translation or rotation
+of the entire scene. Changing time alignment, the reference point, or the nominal continuation
+changes the estimand. A path-normal projection is an alternative measure and needs its own version.
+
+On an optimal or returned candidate also report:
+
+$$
+J_{\rm total}(x)=\max_{0\le s\le H}|q(s)|.
+$$
+
+This is not generally $R_M+\max|q_0|$. The triangle inequality gives an upper bound by that sum
+for a particular candidate; cancellation and the times of extrema matter. If optima are nonunique,
+report total demand for the named witness, or its range over optimal witnesses. Do not silently
+substitute a separately minimised total-demand solution.
+
+Under braking on a curved path, q changes with speed even when road-wheel angle does not.
+Thus R_B or R_C measures lateral-acceleration departure, not steering-actuator effort. Keep
+steering-only R_S primary and describe combined results as strategy diagnostics. If only a
+clearance margin or terminal constraint fails nominally, name that constraint conflict; do not
+report a predicted physical collision without footprint contact evidence.
+
+The maximum objective retains acceleration units and limits the largest departure. An integral
+of absolute departure has units m/s; squared departure integrates to m²/s³. These measure different
+features and can prefer large short pulses. They are optional companion research objectives,
+not interchangeable implementations of R_S. In repository identifiers use `max`, not `peak`,
+which the registry reserves for an explicitly filtered quantity.
+
+### Direction, terminal behaviour, and existence
+
+Specify F_L and F_R by signed displacement at the designated conflict-clearance cross-section
+in the nominal path frame. Do not require a constant steering sign: recovery needs opposite
+steering. A unique cross-section/path projection is required for directional labels. Multi-stage
+or ambiguous bypasses use an unclassified family; only if L and R exhaust F_S does
+$R_S=\min(R_L,R_R)$ hold.
+
+Choose a finite-horizon terminal set explicitly. A useful restricted example is a straight,
+supported escape corridor, zero lateral velocity, and a declared clear continuation interval.
+That establishes only the stated interval. Indefinite avoidance requires an invariant safe set
+or a proved safe continuation under continuing obstacle assumptions. Without either, label the
+result horizon-limited. A solution that merely postpones contact past H is not durable avoidance.
+
+Use positive c and a closed inequality. Strict non-contact alone may admit only an infimum.
+For a bounded finite-parameter control family with compact parameter domain, continuous state
+solutions, closed geometry/terminal constraints, and continuous cost, a nonempty feasible set
+attains its minimum. This argument does not prove attainment or numerical tractability for every
+infinite-dimensional control problem. Keep the infimum in the general definition.
+
+Empty F gives mathematical infinity; numerical outputs instead carry an explicit status.
+Unknown observations and failed searches do not establish emptiness. If the nominal trajectory
+satisfies every constraint, R_S=0 follows by nonnegativity. Zero demand alone need not prove the
+nominal trajectory is admissible in a richer combined family where longitudinal changes are free.
+An initially overlapping footprint or inconsistent initial state has its own diagnostic status.
+
+### Strategy and solver evidence
+
+Report S, B, and C independently as feasible witness found, certified infeasible within model,
+or unresolved. “Combined required” is justified only when C has a witness and both S and B have
+infeasibility certificates. Restricted-library failure means only failure within that library.
+A feasible candidate supplies an upper bound on R; a relaxation can supply a lower bound.
+Report [lower, upper], the witness, tolerances, and termination reason. A solver's best objective
+is not a proven minimum unless the gap is bounded.
+
+For a candidate, a time-dependent utilisation can be defined as
+$\max_s |q(s)|/A_{\rm lat}(s,b(s))$ when the denominator is positive and calibrated. It concerns
+total demand. Zero available capability needs separate treatment. Since F already enforces
+capability, a feasible witness cannot honestly report utilisation above one within tolerance.
+A relaxed-demand calculation exceeding capability is a different diagnostic optimisation.
+Equality is a boundary of this closed model, not a universal crash threshold.
+
+For additional waiting d, define F_S(d) by freezing nominal controls until d+τ. The latest feasible
+waiting time is $\sup\{d\in[0,H-\tau]:F_S(d)\ne\varnothing\}$. Return the feasible set or intervals
+as well as its supremum. Under a fixed scene/horizon and controls that may continue nominal after
+release, these sets are nested: an earlier release can reproduce a later response. Disconnected
+windows require a different family, such as mandatory immediate evasive motion, and must not be
+claimed for the nested definition. Empty, unknown, and nominally clear cases have distinct status.
+
+## Analytical reference cases
+
+### Crossing a lateral clearance boundary
+
+Consider a straight local frame with forward motion independently specified. Let T be the first
+longitudinal footprint-overlap time, h the required signed lateral position including margin,
+y₀ initial lateral position, and w₀ initial lateral velocity. Hold zero lateral acceleration
+until τ<T, then allow any acceleration bounded in magnitude by A. With D=T−τ:
+
+$$
+y(T)=y_0+w_0T+\int_\tau^T(T-s)a(s)\,ds
+\le y_0+w_0T+\frac{AD^2}{2}.
+$$
+
+For a left boundary, the minimum maximum positive acceleration is therefore
+
+$$
+A_{\rm cross}=\frac{2\max(0,h-y_0-w_0T)}{(T-\tau)^2}.
+$$
+
+Constant positive acceleration attains this bound in this relaxed problem. Mirror coordinates
+for the right boundary. This is an exact endpoint result with unconstrained final lateral
+velocity and instantaneous acceleration changes. It is a lower bound for a stricter vehicle
+problem, not a complete avoidance manoeuvre. Collision geometry before T and throughout the
+subsequent overlap interval still needs checking. T must be recomputed if longitudinal policy
+changes; it cannot be copied from the nominal collision prediction after braking.
+
+For h=2 m, y₀=0, w₀=0.2 m/s, T=2 s, and τ=0.5 s, the residual is 1.6 m and D=1.5 s:
+A=3.2/2.25=1.4222 m/s². Final lateral velocity is 2.3333 m/s. That large residual motion explains
+why simply clearing a bumper is not a settled escape.
+
+With w₀=0 and the same h and T, the delay sensitivity is:
+
+| Delay τ (s) | Available time D (s) | Crossing demand (m/s²) | Settled demand below (m/s²) |
+| ----------- | -------------------- | ---------------------- | --------------------------- |
+| 0           | 2                    | 1                      | 2                           |
+| 0.5         | 1.5                  | 1.7778                 | 3.5556                      |
+| 1           | 1                    | 4                      | 8                           |
+
+For a fixed positive residual r, the derivative with respect to delay is $4r/(T-\tau)^3>0$.
+This proves monotonicity for this problem. Re-estimating the scene at successive observation
+times changes inputs and does not inherit that monotonicity theorem.
+
+### Settled lateral displacement
+
+Require zero initial and final lateral velocity and displacement h>0 during D. For
+$|a|\le A$, lateral velocity obeys $w(s)\le A\min(s,D-s)$: both acceleration from rest and
+braking back to rest constrain it. Integration gives $h\le AD^2/4$. Accelerating at +A for half
+D and −A for half D attains equality:
+
+$$
+A_{\rm settled}=\frac{4h}{D^2}.
+$$
+
+This is twice the crossing-only demand. It is exact for a lateral double integrator without
+jerk limits. With h=2 m and D=1.5 s it is 3.5556 m/s². Positive-margin footprint containment in
+the escape corridor remains necessary, as does continued clearance from other actors.
+
+A smooth candidate is $y=h(10z^3-15z^4+6z^5)$, z=s/D, with zero endpoint velocity and
+acceleration. Differentiation gives maximum absolute acceleration $10h/(\sqrt3 D^2)$ and
+maximum absolute jerk $60h/D^3$. The same example requires 5.1320 m/s² and 35.5556 m/s³.
+These are candidate bounds, not an optimum with jerk constraints. The difference is a useful
+warning against treating an instantaneous-acceleration lower bound as executable steering.
+
+### Curved nominal motion
+
+For a no-slip bicycle moving at v=10 m/s on radius 50 m, nominal q=2 m/s². If its footprint
+and continuation satisfy all constraints, additional demand is zero despite total demand 2.
+With illustrative L=2.7 m, nominal road-wheel angle is arctan(2.7/50)=0.05395 rad.
+An admissible candidate with q=3 at that speed has additional demand 1 and road-wheel angle
+arctan(0.081)=0.08082 rad; the angle change is 0.02688 rad. This arithmetic does not establish
+that the candidate escapes any specified obstacle. It demonstrates why total and additional
+acceleration, curvature, and angle must have separate names.
+
+### Braking comparison and occupied escapes
+
+For positive bumper gap g, closing speed c_v>0, constant leader speed, and a delay τ before
+constant ego deceleration magnitude B, relative stopping distance is
+$c_v\tau+c_v^2/(2B)$. With required residual gap m:
+
+$$
+B_{\rm req}=\frac{c_v^2}{2(g-m-c_v\tau)},\qquad g-m-c_v\tau>0.
+$$
+
+For g=20 m, m=1 m, c_v=10 m/s, τ=0.5 s, B=100/28=3.5714 m/s². The signed ego acceleration
+is −B. If the denominator is non-positive, this delayed family cannot preserve the margin.
+A braking leader requires a piecewise relative-motion calculation including stop times; the
+constant-speed result cannot be carried over unchanged.
+
+For an explicit blocked escape, let ego and obstruction each have width 1.8 m, centred initially
+at y=0. Require 0.2 m lateral clearance during longitudinal overlap: ego must reach y≥2.0 m
+or y≤−2.0 m. At that time an adjacent actor of width 1.8 m occupies y=3.0 m and overlaps the
+ego longitudinally. Clearance from it requires y≤1.0 m or y≥5.0 m. A supported road region
+limiting ego centre to y≤3.0 m leaves no left escape at this cross-section. If a right kerb limits
+ego centre to y≥−1.0 m, right escape is also excluded. This proves steering-only infeasibility
+for these stated geometry/time constraints, regardless of the endpoint acceleration calculation.
+With the gap/speeds above and supported initial lane, sufficient braking can avoid reaching that
+cross-section while closing. Thus “steering required” would be misleading without its policy.
+
+## Uncertainty, causality, and aggregation
+
+Freeze exogenous actor trajectories for nominal evaluation. An interacting prediction model
+conditioned on the ego response changes the optimisation and needs a separate version; a
+counterfactual must not reuse observed actor reactions as if they would persist after an ego change.
+
+For bounded uncertain scenes ξ in Ξ, distinguish $\sup_\xi\inf_u J(u,\xi)$, which grants the
+response knowledge of ξ, from $\inf_u\sup_\xi J(u,\xi)$ subject to feasibility for every ξ,
+which requires one open-loop response. Neither equals optimisation over a non-anticipating
+feedback policy without further assumptions. The first can be an optimistic bound on the second.
+Use nominal results plus an explicit sensitivity range initially; do not label that range a
+confidence interval. Shared registration errors are correlated across actors and must not be
+independently resampled. Unknown space, physical extents, path ambiguity, and calibration gaps
+can alter feasibility rather than merely widen the numeric result.
+
+For AV evaluation, a supplied candidate becomes the nominal continuation. Compare candidates
+from the same initial physical state, with the same obstacle predictions, capabilities, delay,
+horizon, and terminal rule. Candidates inconsistent with the measured initial steering state
+are inapplicable, rather than granted an instantaneous reset. A low intervention demand does
+not rank comfort, efficiency, or risk outside these assumptions. Human and AV results share
+the definition only when their contracts match; differing information quality remains visible.
+
+Past-only evaluation uses evidence available at t, including its availability latency. A later
+smoother can be used for retrospective descriptive analysis or validation with provenance. Neither
+mode reconstructs driver knowledge or intention. Observed lateral acceleration can be compared
+with nominal demand only under matched reference points, support, and time conventions; a ratio
+of observed to required response is undefined at zero demand and is not a driving-quality score.
+
+Use one reference-actor scene opportunity per instant, with all relevant actors jointly present.
+The current registry's pairwise `interaction` level is not an automatic fit; resolve this before
+registration. Do not duplicate one scene into multiple pairwise votes. Report time-weighted
+research distributions within identical contract versions and assumptions, plus eligible,
+excluded, unknown, and horizon-censored duration. Define event grouping before reporting duration
+or encounter extrema. Keep scene maxima and exposure-weighted quantiles distinct; do not average
+percentiles. Review-only values remain outside published production distributions under current rules.
+
+## Graphs and implementation shapes
+
+```mermaid
+flowchart TD
+  A[Qualified tracks and evidence cutoff] --> C[Freeze nominal continuation and scene assumptions]
+  B[Measured geometry and support] --> C
+  C --> D{Inputs and applicability supported?}
+  D -->|No| E[Suppressed value with reason]
+  D -->|Yes| F[Joint S / B / C constrained evaluation]
+  F --> G[Witness and lower / upper demand bounds]
+  F --> H[Infeasibility certificate or unresolved search]
+  G --> I[Review plots and exposure accounting]
+  H --> I
+  E --> I
+```
+
+```mermaid
+flowchart LR
+  A[Nominal path towards obstruction] --> B[Obstruction conflict]
+  A --> L[Left bypass candidate]
+  A --> R[Right bypass candidate]
+  L --> O[Adjacent actor: reject candidate]
+  R --> K[Kerb or unknown support: reject or abstain]
+  A --> S[Brake before conflict: evaluate separately]
+```
+
+These are conceptual diagrams, not simulated trajectories. Proposed plotted views:
+
+| View                   | Axes and annotations                                                                                               | Question                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Scene plan view        | x/y in m; footprints, nominal and witness trajectories; unknown space hatched; time and clearance labelled         | Does the same manoeuvre clear every relevant object?           |
+| Delay curve            | Delay in s versus demand in m/s²; use the analytical table above; mark crossing versus settled boundary conditions | How does the response window change demand?                    |
+| Curved-path comparison | Elapsed s versus nominal, candidate, and additional q in m/s²                                                      | Is ordinary curvature being mistaken for evasion?              |
+| Capability frontier    | Maximum braking and lateral demand in m/s² for jointly feasible trajectories; show coupled limits                  | Which strategies remain available?                             |
+| Encounter timeline     | Observation time versus demand interval and clearance; status and evidence-cutoff bands                            | Which changes are physical, model-driven, or missing evidence? |
+| Distribution           | Demand in m/s² versus eligible-duration fraction; separate exclusion ledger and assumption versions                | What population and exposure do the values describe?           |
+
+The smallest useful tool is an analytical worksheet with these boundary conditions. Next is an
+offline evaluator producing witnesses and search evidence; a visualiser overlay follows only when
+those outputs are interpretable. No new transport or persistence design is needed to validate
+these definitions. Candidate field groups are:
+
+| Group           | Proposed content                                                                    | Evidence requirement                                         |
+| --------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Identity        | Evaluation time, episode-local reference actor, scene, contract and solver versions | No enduring identity; source/pack fingerprints               |
+| Assumptions     | Nominal policy, information cutoff, delay, horizon, terminal rule, manoeuvre family | Frozen and comparable across evaluations                     |
+| Physical inputs | Reference point, dimensions, heading/motion, supported road geometry                | Qualified or explicitly assumed; suppress unsupported claims |
+| Capability      | Dynamics, wheelbase, steering/rate/jerk/friction bounds                             | Calibration or named sensitivity scenario                    |
+| Demand          | Additional-demand bounds and witness total demand, units, direction                 | Numerical tolerances and optimality status                   |
+| Feasibility     | Per-family status, clearance, relevant actors, terminal support                     | Witness/certificate or reason for unresolved result          |
+| Uncertainty     | Nominal/bounded/probabilistic mode and dependence assumptions                       | No fabricated probability coverage                           |
+
+## Open questions
+
+| Decision             | Recommendation                                                                        | Remaining evidence or owner choice                                       |
+| -------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Name and novelty     | Keep SRAC as research label; use required additional lateral acceleration in prose    | Broader primary-source comparison before any novelty claim               |
+| Cost                 | Maximum absolute signed lateral-control departure at equal elapsed times              | Compare sensitivity to nominal policy; do not mix with total demand      |
+| Terminal condition   | Settled supported corridor for restricted examples; explicit horizon limits elsewhere | Which scene types can supply credible continuation support?              |
+| Observation mode     | Retrospective review first, with causal evaluation separately versioned               | Availability-aware trajectory inputs and calibration                     |
+| Capability           | Named assumptions and sensitivity arms                                                | Independent wheelbase, actuation, friction, and physical-motion evidence |
+| First implementation | Analytical references, then offline witness evaluator                                 | Approve the linked staged plan before implementation                     |
+| Production exposure  | Preserve suppression and opportunity accounting                                       | Resolve scene-level registry semantics and physical qualification gates  |
+
+This pass establishes mathematical definitions and restricted analytical results. It establishes
+neither general vehicle feasibility, current LiDAR measurement accuracy, nor crash-risk validity.
