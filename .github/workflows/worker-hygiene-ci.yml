@@ -1,0 +1,31 @@
+name: Worker hygiene
+
+on:
+  pull_request:
+    paths:
+      - "scripts/worker-hygiene.py"
+      - "scripts/test_worker_hygiene.py"
+      - "Makefile"
+      - ".github/workflows/worker-hygiene-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/worker-hygiene.py"
+      - "scripts/test_worker_hygiene.py"
+      - "Makefile"
+      - ".github/workflows/worker-hygiene-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Worker archival and cleanup guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: make test-worker-hygiene
