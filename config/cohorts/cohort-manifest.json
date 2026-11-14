@@ -1,13 +1,133 @@
 {
   "schema": "velocity.report/cohort-manifest",
   "schema_version": 1,
-  "revision": 1,
-  "frozen_utc": "2026-11-06T00:00:00Z",
+  "revision": 2,
+  "frozen_utc": "2026-11-14T00:00:00Z",
   "sites": [
     {
       "site_id": "kirkham-9th",
       "cohort": "development",
       "rationale": "D-40 (November 6, 2026): the kirk0 reference site and the external-reference pilot street; kirk0's labels are development evidence, so kirk1 and kirk2 support development claims only, never qualification"
+    },
+    {
+      "site_id": "ashbury-downey",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "haight-divisadero",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "pierce-haight",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "fulton-divisadero",
+      "cohort": "validation",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "california-leon-baker",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "broadway-franklin",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "laguna-eddy",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "lombard-broderick",
+      "cohort": "validation",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "marina-broderick",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "marina-webster-beach",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "lombard-laguna",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "columbus-north-point",
+      "cohort": "validation",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "embarcadero-bay",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "columbus-broadway",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "van-ness-sacramento",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "embarcadero-broadway",
+      "cohort": "validation",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "franklin-mcallister",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "hyde-ofarrell",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "bush-powell",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "1st-mission",
+      "cohort": "validation",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "embarcadero-bryant",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "3rd-folsom",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "howard-6th",
+      "cohort": "development",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+    },
+    {
+      "site_id": "embarcadero-folsom",
+      "cohort": "qualification",
+      "rationale": "Owner assignment of November 13, 2026 in this PR: the held-out Embarcadero–Folsom site, excluded from the screening corpus and isolated from development."
     }
   ],
   "captures": [
@@ -28,7 +148,172 @@
       "site_id": "kirkham-9th",
       "raw_sha256": "sha256:bf67b7092b8614e5bb24a61c5f1cc5c762c5066a8fc5bde2f4cc4f594acebc67",
       "basename": "kirk2.pcapng"
+    },
+    {
+      "capture_id": "ashbury-downey",
+      "site_id": "ashbury-downey",
+      "raw_sha256": "sha256:072e9801b7df36a7421f05b9a8065b436ab26441824c214b670ad1185be448ac",
+      "basename": "s2-sf-0.pcapng"
+    },
+    {
+      "capture_id": "haight-divisadero",
+      "site_id": "haight-divisadero",
+      "raw_sha256": "sha256:3e92f3723bd8131d6e0c6865d00517df7c2f634856f2ac0cd2c8fd2fd463bb28",
+      "basename": "s2-1_20260901125845_00003.pcap"
+    },
+    {
+      "capture_id": "pierce-haight",
+      "site_id": "pierce-haight",
+      "raw_sha256": "sha256:c9b3b0f8d58807fdf7fbd7e6212bf0e758646dcdca406146754d5863e8e70b6f",
+      "basename": "s2-1_20260901132347_00008.pcap"
+    },
+    {
+      "capture_id": "fulton-divisadero",
+      "site_id": "fulton-divisadero",
+      "raw_sha256": "sha256:9ae37cfd7a00343c35d86014131c68abae7950283154f43485dea798a372c870",
+      "basename": "s2-1_20260901135850_00015.pcap"
+    },
+    {
+      "capture_id": "california-leon-baker",
+      "site_id": "california-leon-baker",
+      "raw_sha256": "sha256:6ba305456f6be0fae61f63e9b303cb80e0ac2e5bf1f605a46e3086552d0cafb8",
+      "basename": "s2-1_20260901142853_00021.pcap"
+    },
+    {
+      "capture_id": "broadway-franklin",
+      "site_id": "broadway-franklin",
+      "raw_sha256": "sha256:30ca5559051e291e1a73a6bd22a69316fb4bf3172bf662064655eb7ef42fc9db",
+      "basename": "s2-1_20260901150856_00029.pcap"
+    },
+    {
+      "capture_id": "laguna-eddy",
+      "site_id": "laguna-eddy",
+      "raw_sha256": "sha256:d08c66075818462dd641ddead01eeacfa9199599fc63bcf6e23c25c784b29a53",
+      "basename": "s2-1_20260901154400_00036.pcap"
+    },
+    {
+      "capture_id": "lombard-broderick",
+      "site_id": "lombard-broderick",
+      "raw_sha256": "sha256:05ba919df8d00872adac04ca09b5c6c29f42c1975b9aa2bc5dad57f612a903e5",
+      "basename": "s2_sf_2_20260902093822_00003.pcap"
+    },
+    {
+      "capture_id": "marina-broderick",
+      "site_id": "marina-broderick",
+      "raw_sha256": "sha256:2c47606887cf5d89a1f909d1a5e6eb47e105242c3e0b657cb64e216d803df611",
+      "basename": "s2_sf_2_20260902100324_00008.pcap"
+    },
+    {
+      "capture_id": "marina-webster-beach",
+      "site_id": "marina-webster-beach",
+      "raw_sha256": "sha256:698d2bcd123707097ed0105ee48456b81c77ba3ecceaf39e688547bcb875767e",
+      "basename": "s2_sf_2_20260902102827_00013.pcap"
+    },
+    {
+      "capture_id": "lombard-laguna",
+      "site_id": "lombard-laguna",
+      "raw_sha256": "sha256:7f76cb4a1e38c62a44200b9ca915633b1d74f530b75b6ca591ceaeabf4c02999",
+      "basename": "s2_sf_2_20260902105830_00019.pcap"
+    },
+    {
+      "capture_id": "columbus-north-point",
+      "site_id": "columbus-north-point",
+      "raw_sha256": "sha256:35f520e2232732a6b227dc6b676865a403fd4f7e0c6874c6d9ea040cebad9a87",
+      "basename": "s2_sf_2_20260902115334_00030.pcap"
+    },
+    {
+      "capture_id": "embarcadero-bay",
+      "site_id": "embarcadero-bay",
+      "raw_sha256": "sha256:cd4811a1246fefd1e3acc51b3d01e771c7121c0b8ee08122b35e1ec049e0e9da",
+      "basename": "s2_sf_2_20260902123517_00002.pcap"
+    },
+    {
+      "capture_id": "columbus-broadway",
+      "site_id": "columbus-broadway",
+      "raw_sha256": "sha256:135bf02a909df5eeee1f2e526914d975e52cdb562781729174082e7fd6b5e6f0",
+      "basename": "s2_sf_3_20260902132037_00002.pcap"
+    },
+    {
+      "capture_id": "van-ness-sacramento",
+      "site_id": "van-ness-sacramento",
+      "raw_sha256": "sha256:19a42e6d2a12d9cb261079e88d76a0c7ac6a5a6ff3e8e90fad3c62980d212e27",
+      "basename": "s2_sf_4_20260902142714_00001.pcap"
+    },
+    {
+      "capture_id": "embarcadero-broadway",
+      "site_id": "embarcadero-broadway",
+      "raw_sha256": "sha256:57a73964321e905a94d290aaf8c97a3b1e6975f64ab12f4622049a13b1347d4a",
+      "basename": "s2_sf_4_20260902152249_00001.pcap"
+    },
+    {
+      "capture_id": "franklin-mcallister",
+      "site_id": "franklin-mcallister",
+      "raw_sha256": "sha256:cc8709a8862b42d34e4838772f4ae92c9a7f8fa0f73f9d08689937eb38e0962d",
+      "basename": "s2_sf_6_20260903103552_00008.pcap"
+    },
+    {
+      "capture_id": "hyde-ofarrell",
+      "site_id": "hyde-ofarrell",
+      "raw_sha256": "sha256:9d86ffa150130ad2490d90bf45b01f42ec3609b222745c1cd39b5d9ca251aee7",
+      "basename": "s2_sf_6_20260903110555_00014.pcap"
+    },
+    {
+      "capture_id": "bush-powell",
+      "site_id": "bush-powell",
+      "raw_sha256": "sha256:19d49af8a0498d700c383a851bc512b7423a1388969663b27b12d9e23de97d7c",
+      "basename": "s2_sf_6_20260903113556_00020.pcap"
+    },
+    {
+      "capture_id": "1st-mission",
+      "site_id": "1st-mission",
+      "raw_sha256": "sha256:cfa3a235463bbe3a89895c85c2cef4fc138996d6447eebddaac7eb38b78a3c11",
+      "basename": "s2_sf_8_20260903141035_00005.pcap"
+    },
+    {
+      "capture_id": "embarcadero-bryant",
+      "site_id": "embarcadero-bryant",
+      "raw_sha256": "sha256:3c55a2292c59ee964927f38689e29ac46cbfd2790880f317e295db5f47c29c33",
+      "basename": "s2_sf_8_20260903144037_00011.pcap"
+    },
+    {
+      "capture_id": "3rd-folsom",
+      "site_id": "3rd-folsom",
+      "raw_sha256": "sha256:1d19feceed93820cc4b20de2bd4cb4a94da08012466499cf86309f689131531f",
+      "basename": "s2_sf_8_20260903152041_00019.pcap"
+    },
+    {
+      "capture_id": "howard-6th",
+      "site_id": "howard-6th",
+      "raw_sha256": "sha256:f1430cebc207062edba56c8f3d4e594ccc3f5a2ec3481af58ba2e5aa0390d25d",
+      "basename": "s2_sf_8_20260903155043_00025.pcap"
+    },
+    {
+      "capture_id": "00-s2_sf_7_20260903131748_00001",
+      "site_id": "embarcadero-folsom",
+      "raw_sha256": "sha256:05cf29bb0d972d1edfc8acb701946f43b927881dc667aa630b2624f325ff6818",
+      "basename": "00-s2_sf_7_20260903131748_00001.pcapng"
+    },
+    {
+      "capture_id": "01-s2_sf_7_20260903132248_00002",
+      "site_id": "embarcadero-folsom",
+      "raw_sha256": "sha256:d11d32c4c163fe9b4e85de4145d115dd9af9e8c39df44702f43014386e08ace6",
+      "basename": "01-s2_sf_7_20260903132248_00002.pcapng"
+    },
+    {
+      "capture_id": "02-s2_sf_7_20260903132748_00003",
+      "site_id": "embarcadero-folsom",
+      "raw_sha256": "sha256:1de8459d6a227b2d4e19df539aead50ddb2f7514cdd580e55144b322b85cf07f",
+      "basename": "02-s2_sf_7_20260903132748_00003.pcapng"
+    },
+    {
+      "capture_id": "03-s2_sf_7_20260903133249_00004",
+      "site_id": "embarcadero-folsom",
+      "raw_sha256": "sha256:b2830ceeaa71b9c5518cb4faf3dcb7d74afb333aaeb883d737d063e106cf70b5",
+      "basename": "03-s2_sf_7_20260903133249_00004.pcapng"
     }
   ],
-  "access": { "qualification_storage_restricted": false, "custodians": [] }
+  "access": {
+    "qualification_storage_restricted": false,
+    "custodians": []
+  }
 }

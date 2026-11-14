@@ -241,8 +241,10 @@ evaluators above are refused. That is the fail-closed rule; the assignments them
 decision for the owner (below). The first revision is committed at
 [`config/cohorts/cohort-manifest.json`](../../../config/cohorts/cohort-manifest.json): Kirkham at
 9th (kirk0, kirk1 and kirk2) in the development cohort, by
-[D-40](../../DECISIONS.md#d-40--external-reference-campaign-answers). Every other capture is still
-unassigned and refused.
+[D-40](../../DECISIONS.md#d-40--external-reference-campaign-answers). Revision 2 (a draft until
+the owner merges it) adds the 23 first-segment S2 screening sites, every fourth in capture order
+validation and the rest development, and the held-out Embarcadero–Folsom site as qualification.
+Every other capture is still unassigned and refused.
 
 The manifest's shape (identifiers are placeholders):
 
