@@ -116,6 +116,10 @@ def raise_walk_error(error):
     raise error
 
 
+def nested_mount(point, root):
+    return not point.samefile(root) and physical_inside(point, root)
+
+
 def snapshot(root, skip_receipt=False):
     """No links, special files, repositories or nested mounts in archived data."""
     result = {}
@@ -125,7 +129,7 @@ def snapshot(root, skip_receipt=False):
     if mountinfo.exists():
         for line in mountinfo.read_text().splitlines():
             point = Path(line.split()[4].replace(r"\040", " ").replace(r"\134", "\\"))
-            if point != root and inside(point, root):
+            if nested_mount(point, root):
                 raise ValueError(f"nested mount: {point}")
     for directory, dirs, files in os.walk(
         root, followlinks=False, onerror=raise_walk_error

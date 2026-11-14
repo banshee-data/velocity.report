@@ -131,6 +131,9 @@ class WorktreeTests(unittest.TestCase):
             (root / "alias").symlink_to(root / "tree", target_is_directory=True)
             self.assertTrue(H.physical_inside(root / "alias/file", root / "tree"))
             self.assertFalse(H.physical_inside(root / "other", root / "tree"))
+            (root / "tree/nested").mkdir()
+            self.assertTrue(H.nested_mount(root / "alias/nested", root / "tree"))
+            self.assertFalse(H.nested_mount(root / "alias", root / "tree"))
 
     def test_worktrees_keep_dirty_unmerged_and_locked(self):
         for extra, dirty, ancestor in (
