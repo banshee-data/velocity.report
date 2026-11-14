@@ -621,8 +621,24 @@ func runSpec(ctx context.Context, o Options, sp *experiments.Spec, sha string) (
 					return r.ID, "", fmt.Errorf("unit %s has no positive timeout estimate", u.ID())
 				}
 				unitCtx, cancel := context.WithTimeout(ctx, timeout)
-				measures, summary, execErr := execute(unitCtx, src, bin, h, sp, st, u, out, recs, &r, func() error { return save() })
+				// An evidence share that refuses O_EXCL cannot take the executors'
+				// own exclusive creates, so such a host runs each attempt in local
+				// staging and copies the finished attempt across.
+				work := out
+				if h.StageAttempts {
+					work = filepath.Join(h.StageDir, r.ID, "work", filepath.FromSlash(u.ID()), fmt.Sprintf("attempt-%d", attempt))
+					if e = os.MkdirAll(work, 0755); e != nil {
+						cancel()
+						return r.ID, "", e
+					}
+				}
+				measures, summary, execErr := execute(unitCtx, src, bin, h, sp, st, u, work, recs, &r, func() error { return save() })
 				cancel()
+				if work != out {
+					if e = archiveStage(work, out); e != nil {
+						execErr = errors.Join(execErr, e)
+					}
+				}
 				if execErr == nil {
 					if e = atomicFile(filepath.Join(out, "tool-summary.json"), summary); e != nil {
 						execErr = e

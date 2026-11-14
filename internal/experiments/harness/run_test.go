@@ -538,3 +538,28 @@ func TestHostBuildBase(t *testing.T) {
 		t.Fatal("a relative build_root must be refused")
 	}
 }
+
+func TestStagedAttemptsReachTheEvidenceRoot(t *testing.T) {
+	o, _ := fixture(t)
+	o.Host.StageAttempts = true
+	if _, e := Tick(context.Background(), o); e != nil {
+		t.Fatal(e)
+	}
+	r := activeRun(t, o)
+	if r.State != "complete" {
+		t.Fatalf("%+v", r)
+	}
+	attempt := filepath.Join(o.Host.EvidenceRoot, "runs", r.Slug, r.ID, "replay", "a0", "kirk0", "attempt-1")
+	for _, name := range []string{"source-manifest.json", "tool.log", "tool-summary.json", "completion.json", filepath.Join("run", "phase0-summary.json")} {
+		if _, e := os.Stat(filepath.Join(attempt, name)); e != nil {
+			t.Fatalf("attempt lacks %s: %v", name, e)
+		}
+	}
+	if _, e := os.Stat(filepath.Join(o.Host.StageDir, r.ID, "work")); !os.IsNotExist(e) && e != nil {
+		t.Fatal(e)
+	}
+	left, _ := filepath.Glob(filepath.Join(o.Host.StageDir, r.ID, "work", "*", "*", "*", "*"))
+	if len(left) != 0 {
+		t.Fatalf("staged work left behind: %v", left)
+	}
+}

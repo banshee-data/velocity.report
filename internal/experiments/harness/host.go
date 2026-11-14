@@ -20,6 +20,7 @@ type Host struct {
 	EvidenceRoot  string               `json:"evidence_root"`
 	StageDir      string               `json:"stage_dir"`
 	BuildRoot     string               `json:"build_root,omitempty"`
+	StageAttempts bool                 `json:"stage_attempts,omitempty"`
 	CaptureRoot   string               `json:"capture_root"`
 	CaptureSubdir string               `json:"capture_subdir"`
 	DiskFloorGB   float64              `json:"disk_floor_gb"`
