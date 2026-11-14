@@ -15,6 +15,10 @@ one binary should carry several roles. It ends with the backlog changes proposed
 design work handed to Appius, and four experiments that put numbers on the role question.
 Where a later section records a decision or a correction, it governs the text above it.
 
+A later [tenets refactor review](../platform/architecture/tenets-refactor-review.md) rechecks
+selected current seams and asks for a dependency-ordered review; its questions do not supersede
+the decisions recorded here.
+
 ## Summary
 
 The core architecture is sound and should be kept: one Go binary, SQLite, a frozen L1 to L10

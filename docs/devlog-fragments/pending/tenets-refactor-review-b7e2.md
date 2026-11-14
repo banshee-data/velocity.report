@@ -1,0 +1,1 @@
+- Recorded a source-backed first pass on tenet tensions and questions for sequencing refactors, linked to existing decisions and plans, without proposing code changes.
