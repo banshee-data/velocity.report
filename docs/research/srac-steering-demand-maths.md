@@ -14,6 +14,8 @@ needed before roadside LiDAR could support it.
   [bibliography](../../data/maths/references.bib).
 - **Provenance:** Repository contracts inspected at `da3c020fbf4e4a8068818c73a5df5af5e53c097b`.
   Literature inspected November 14, 2026 (UTC). Numbers below are illustrative arithmetic.
+  The 6.35-second extension also checked the pipeline contracts at
+  `436a5413a573e78354fbee9da944195a355d531e`; no runtime measurements were added.
 
 ## Recommendation
 
@@ -426,6 +428,152 @@ research distributions within identical contract versions and assumptions, plus 
 excluded, unknown, and horizon-censored duration. Define event grouping before reporting duration
 or encounter extrema. Keep scene maxima and exposure-weighted quantiles distinct; do not average
 percentiles. Review-only values remain outside published production distributions under current rules.
+
+## A 6.35-second horizon on a 20 Hz evaluation grid
+
+The proposed maximum evaluation horizon is H=6.35 s with Δ=0.05 s. Define nodes
+sₖ=kΔ for k=0,…,127: **127 future intervals and 128 states including the current state**.
+There are 127 future samples after now; 127 samples including now span only 6.30 s.
+Actual acquisition timestamps remain authoritative. A 20 Hz prediction grid can be evaluated
+from slower observations; interpolation does not turn them into 20 Hz measurements.
+This is a proposed capability envelope, not evidence that this duration is currently supportable.
+
+“Upper bound” has three separate meanings here. H caps the evaluated duration. A trajectory
+enclosure bounds possible positions or footprints under stated assumptions. A checked feasible
+response supplies an upper bound on minimum steering demand. None implies either of the others.
+Report them separately, including the longest supported horizon when it is shorter than H.
+Do not silently substitute that shorter problem for the requested 6.35-second result.
+
+### Predicted future: information available at the evaluation instant
+
+Freeze the evidence available at t, including acquisition time, processing latency, initial-state
+uncertainty and the nominal continuation. If the latest acquisition predates t, propagate its
+state and uncertainty to t before starting the future horizon; record that state age. Predict
+every relevant actor, including plausible
+entrants into the scene, over [t,t+H]. Declare the motion hypotheses, acceleration/yaw-rate bounds,
+physical extents, occlusion treatment, measured geometry, ego-response dependence and terminal
+support. A constant-velocity extrapolation is a nominal scenario, not an upper bound on motion.
+An unqualified Kalman covariance is not a hard support set or a calibrated coverage guarantee.
+
+For a simple constant-velocity prediction, if initial position and velocity errors have norm
+bounds eₚ and eᵥ and the unmodelled acceleration has norm at most aₑ throughout the interval,
+then integration and the triangle inequality give the conditional enclosure
+
+$$
+\|p(s)-\hat p(s)\|\le e_p+s e_v+\tfrac12 s^2 a_e.
+$$
+
+At H=6.35, the multipliers are 6.35 and 20.16125. Illustratively, eᵥ=0.5 m/s contributes
+3.175 m and aₑ=1 m/s² contributes 20.16125 m before initial-position error. These are assumed
+bounds, not measured sensor errors. Add footprint orientation/extent and calibration uncertainty
+consistently; correlated scene errors should not be counted as independent noise. For the bicycle
+model, use a validated integration enclosure with bounds on steering state, steering rate,
+longitudinal acceleration and model discrepancy. A bare forward-Euler rollout has no certified
+error envelope merely because its step is 50 ms.
+
+A bounded formulation can supply a demand upper bound only when one admissible response is
+verified against every scene in its declared uncertainty set, with an upper bound on its worst-case
+objective. A finite list of sampled futures supplies scenario results unless it provably covers
+that set. Distinguish the open-loop robust problem from a non-anticipating feedback policy;
+future replanning cannot be assumed to rescue an otherwise unsupported witness. Physical
+coverage of the assumed motion set is a separate qualification question.
+
+### Recorded future: retrospective evaluation
+
+Wait for observed scene support through t+6.35 s, plus the availability delay of the final required
+record and any smoother look-ahead. Retain acquisition and availability cutoffs separately.
+A fixed-lag state for the endpoint can need evidence beyond t+H; an end-of-recording flush must
+report its shortened support rather than pretend the full lag was available.
+
+Require stable identities, time-aligned actor extents, visibility/support masks, timestamp gaps,
+and geometry over the whole response corridor. Preserve whether each state was observed,
+interpolated, predicted through a gap, or revised retrospectively. A predicted-only state does
+not count as an observed future frame. Interpolation needs a physical motion/error enclosure
+between observations before it can support a continuous-time bound. Scene exit, occlusion,
+missing entrants, or insufficient terminal support yield an explicit censored/unknown result.
+
+Recorded actor paths describe the world under the actual ego motion. Holding them fixed while
+changing the ego path is an **exogenous recorded-future scenario assumption**. It does not establish
+what those actors would have done in response to that alternative path. Label this separately
+from an interaction-aware counterfactual. The actual ego path is a feasible witness only if it
+satisfies the chosen family's initial state, delay, longitudinal policy, capability, geometry and
+terminal conditions; merely being recorded without an observed collision is insufficient.
+
+At a constant 10, 20 or 30 m/s, 6.35 s spans 63.5, 127 or 190.5 m respectively. These arithmetic
+examples concern required scene support, not sensor specifications. The existing
+[observation budget](../plans/lidar-behaviour-analytics-plan.md#3-the-observation-budget)
+reports a median 51 m observed passage in its historical cohort. Whole-passage duration is not
+remaining future support at each evaluation instant, and that cohort does not establish a
+6.35-second yield for all actors jointly. Audit eligibility by remaining duration, range, class,
+occlusion and speed, including failures, before assuming this retrospective capability.
+
+### What makes the demand value an upper bound
+
+For the declared feasible family Fₘ, an independently checked witness xᵂ gives
+
+$$
+R_{\mathcal M}\le J_\Delta(x^W)\le U_W.
+$$
+
+Here Uᵂ is a certified upper enclosure of the continuous-time witness objective, including
+numerical error. It need not be the optimum. Sampling the maximum at 128 nodes usually
+underestimates that witness's true maximum; without a bound between nodes it is not Uᵂ.
+If g(s)=q(s)−q₀(s) is Lipschitz with known constant Lg and node errors are at most εg, then
+
+$$
+U_W=\max_{0\le k\le127}|\hat g(s_k)|+L_g\Delta/2+\epsilon_g
+$$
+
+is sufficient. Bound Lg from the model and actuator envelope (including both nominal and
+candidate acceleration rates), or use interval extrema on each control segment. State which
+method certified the objective, dynamics and every constraint.
+
+For geometry, a clearance Lipschitz bound V requires sampled clearance at both interval ends
+of at least c+VΔ/2+εd, where εd encloses integration and geometry error. V must cover relative
+translation and rotating footprint edges. With V=20 m/s, the between-node allowance alone is
+0.5 m; V=40 m/s requires 1 m. These illustrative margins show why swept-footprint checking or
+adaptive subdivision may be preferable to a uniform conservative inflation. Apply equivalent
+checks to drivable-boundary containment and capability extrema. Refine around contacts, control
+switches and tight curvature; the 20 Hz reporting grid need not be the integration/checking grid.
+
+Keep the existing terminal rule: a witness certified only to H bounds the finite-horizon problem,
+not durable avoidance afterwards. Any certified lower bound must concern the same model,
+uncertainty quantifiers and terminal condition. No candidate before a compute deadline means
+unresolved, not infinite demand, zero demand or proven infeasibility.
+
+### Capability contract and first implementation shapes
+
+| Requirement            | Predicted mode                                              | Retrospective mode                                             | Evidence needed before claiming capability                          |
+| ---------------------- | ----------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Information cutoff     | Evidence available at t only                                | Explicit later cutoff and refinement stage                     | Leakage checks with acquisition/availability provenance             |
+| Future support         | Declared prediction or reachable occupancy sets             | Observed coverage with bounded interpolation and labelled gaps | Horizon-wise support and exclusion ledger for all relevant actors   |
+| Counterfactual meaning | Frozen exogenous or ego-conditioned model                   | Frozen recorded paths labelled exogenous                       | Versioned actor-response policy; no silent interchange              |
+| Vehicle/scene inputs   | Uncertainty-qualified initial state and capability envelope | Same, with retrospective revisions identified                  | Position, yaw, extent, steering and geometry error qualification    |
+| Bound certificate      | Feasible nominal or robust witness, as labelled             | Feasible witness for the declared recorded-future scenario     | Independent dynamics, swept geometry, objective and terminal checks |
+| Runtime                | Deadline and stale-result policy                            | Bounded offline run and cancellation                           | Workload/tail measurements; timeout remains unresolved              |
+
+A first offline tool can accept a scene window, model manifest, information mode and candidate
+controls; produce a witness plus a certificate ledger; and render three aligned views: occupancy
+and swept footprints, clearance/objective envelopes over 0–6.35 s, and supported horizon versus
+requested horizon. Use separate facets for predicted and recorded-future results. Retain checks
+for all 127 intervals and the terminal state, with the limiting actor/constraint and first
+unsupported interval. This is a proposed data contract, not a schema migration.
+
+For K candidates, M obstacles and U explicit scenarios, direct checking uses O(127KMU) interval
+checks per query before adaptive refinement. At 20 queries/s that is 2,540KMU checks/s, not a
+runtime estimate; unbounded branching or continuous robust optimisation has no such fixed cost.
+Memory can stream candidate checks while retaining the selected witness and certificate. Cache
+immutable geometry and reuse warm starts only with renewed feasibility checks. Put a future L8
+worker behind bounded queues with input timestamps, cancellation and declared deadlines. A 20 Hz
+sensor does not require SRAC recomputation at 20 Hz; qualify that extra workload separately.
+
+The prerequisite order is input/support audit, nominal offline witnesses and independent checker,
+retrospective coverage audit, then predicted-envelope qualification. Real-time scheduling follows
+only after profiling those bounded workloads. The existing frame budget is 98 ms, and the live
+stage timer omits work before its first stage; neither currently establishes room for this new
+computation. The separate [20 Hz pipeline findings PR](https://github.com/banshee-data/velocity.report/pull/1030)
+addresses that scheduling question. No experiments
+or performance measurements were run for this extension; the equations and counts are derivations.
 
 ## Graphs and implementation shapes
 

@@ -55,6 +55,22 @@ Use compensated or rescaled calculations where subtraction of nearly equal posit
 consume clearance precision. Crossing formulas near T=τ are ill-conditioned and need a domain
 refusal based on input uncertainty, not a convenient numeric clamp.
 
+## 6.35-second capability gate
+
+Follow the proposal's [two-mode horizon contract](../research/srac-steering-demand-maths.md#a-635-second-horizon-on-a-20-hz-evaluation-grid).
+Before any real-time work, qualify 127 future intervals plus the current state separately for
+past-only prediction and recorded-future analysis. Extend E-S1 with between-node collision and
+objective extrema, endpoint/terminal checks, irregular timestamps and certified integration error.
+Extend E-S2 with joint-scene remaining-horizon coverage, fixed-lag availability, missing entrants,
+scene exits and counterfactual actor-response assumptions. Extend E-S3 with horizon-wise enclosure
+coverage and false-feasible uncertainty. Keep failed/censored opportunities in the report.
+
+The initial deliverable is an offline witness/certificate viewer with separate information modes,
+not a 20 Hz live solver. Benchmark K candidates, M actors and U scenarios with explicit caps,
+refinement counts and deadline outcomes before proposing live scheduling. A solver timeout must
+retain unresolved status; a valid witness retains its certified upper bound without claiming
+optimality. No existing tracker covariance or 127-point interpolation supplies physical qualification.
+
 ## Scenario acceptance matrix
 
 | Case                                                | Required result                                                             |
