@@ -105,6 +105,10 @@ The production pipeline uses four math-heavy layers:
 
 ### Proposals (not yet active; see [Roadmap](#prioritised-proposal-roadmap) below)
 
+- [SRAC: additional steering demand](../../docs/research/srac-steering-demand-maths.md):
+  Baseline-relative lateral demand, analytical bounds, terminal support, and evidence semantics.
+  Documentation only; [follow-up plan](../../docs/plans/lidar-srac-research-plan.md).
+
 - [Unified Scene Semantics and Temporal Regions](proposals/20260905-unified-scene-semantic-classification-maths.md):
   Research proposal for one semantic vocabulary across L3–L7, calibrated evidence fusion,
   object motion envelopes, and shared scene/track labelling with lineage controls.

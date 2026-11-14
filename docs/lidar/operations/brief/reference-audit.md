@@ -4,6 +4,12 @@
 - **Status:** All identifiable works have BibTeX entries. Two generic post-encroachment-time study mentions remain unresolved.
 - **Bibliography:** [data/maths/references.bib](../../../../data/maths/references.bib).
 
+The [SRAC proposal](../../../research/srac-steering-demand-maths.md) adds `Westhofen2022`
+(review and catalogue interpretation) and `Jansson2005` (Chapter 6, primary-source comparison).
+Both are research context, not adopted algorithms or physical validation. The conflict-analysis
+section cap rises from 50 to 52 to retain the source of the closest established measure and the
+review used to assess applicability; neither entry duplicates an existing work.
+
 The October 10, 2026 audit added 62 entries to the existing 94, bringing the bibliography to 156.
 The tables below map the additions to the names used in the source documents. Published papers
 and their preprints share one entry; a different report or paper receives its own key. Papers
