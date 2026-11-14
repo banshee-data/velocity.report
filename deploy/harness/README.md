@@ -37,7 +37,8 @@ Installation, by an administrator on arrow-worker:
    Verify those reads as the service user. Corpus-specific `capture_root` replaces both
    legacy path fields, so Kirk can sit beside `s2` without moving or copying captures.
    On macOS set it to the corresponding `/Volumes/...` directory in the local host profile.
-   Labels and frozen scoring references remain separate prerequisites; advertise
+   Selection checks each scoring unit’s reference binding and file availability before
+   building or replaying. Labels and frozen scoring references remain separate prerequisites; advertise
    `labels:kirk` only when they are installed and verified. The NAS
    refuses `O_EXCL` and `chmod`, so the example keeps `evidence_root` there with
    `stage_attempts` and a local `build_root` ([runbook](../../docs/platform/operations/experiment-harness.md)).
