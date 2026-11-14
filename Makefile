@@ -1093,6 +1093,7 @@ VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PYTHON_VERSION = 3.12
 PYTHON_TEST_PATHS = \
+	scripts/test_worker_hygiene.py \
 	scripts/test_config_tools.py \
 	scripts/test_changed_go_coverage.py \
 	scripts/test_check_go_coverage.py \
@@ -3021,3 +3022,7 @@ check-harness-notes: ## Check bounded experiment run notes
 .PHONY: check-harness-pr
 check-harness-pr: ## Guard experiment notes against HARNESS_BASE (local or CI)
 	@python3 scripts/check-harness-pr.py
+
+.PHONY: test-worker-hygiene
+test-worker-hygiene: ## Test worker archival and cleanup guards without live mounts
+	@python3 -m unittest discover -s scripts -p test_worker_hygiene.py

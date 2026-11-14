@@ -82,3 +82,7 @@ harness directories were world-writable, and client `chmod` is refused there.
 Preserve the service user's preloaded Go module cache: offline builds use
 `GOPROXY=off`. Retain failed archive staging, label inputs, active attempt output,
 and service databases. Neither cache age nor a large directory proves it is disposable.
+
+Run `make test-worker-hygiene` for the portable safety regressions. They also run
+in the Python suite and the worker hygiene PR workflow. Tests use temporary trees
+and mocked mounts; the live NAS copy check remains a separate operational check.
