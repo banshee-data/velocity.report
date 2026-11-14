@@ -18,6 +18,9 @@ The [empty-frame lifecycle validation](operations/empty-frame-lifecycle-cloud-va
 
 ## Quick links
 
+The [20 Hz readiness audit](../research/lidar-20hz-readiness.md) identifies cadence assumptions,
+the proposed 48 ms processing budget, qualification work and expected analytical gains.
+
 The [ground-screen window metrics](operations/ground-window-steadiness.md) record heading/speed jitter and course alignment with explicit populations and sample counts.
 
 The [live surface-ground wiring](operations/ground-surface-live-cloud-2026-11.md) records the opt-in configuration and refit lifecycle; default promotion remains open.

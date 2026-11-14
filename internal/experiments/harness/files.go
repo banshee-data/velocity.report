@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/banshee-data/velocity.report/internal/experiments"
 	"io"
 	"os"
 	"path/filepath"
@@ -26,7 +27,7 @@ func atomicFile(path string, raw []byte) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(dir, ".harness-*")
+	f, err := experiments.CreateTemp(dir, ".harness-*")
 	if err != nil {
 		return err
 	}
@@ -99,7 +100,7 @@ func archiveStage(stage, destination string) error {
 			return e
 		}
 		defer input.Close()
-		out, e := os.CreateTemp(filepath.Dir(target), ".stage-*")
+		out, e := experiments.CreateTemp(filepath.Dir(target), ".stage-*")
 		if e != nil {
 			return e
 		}

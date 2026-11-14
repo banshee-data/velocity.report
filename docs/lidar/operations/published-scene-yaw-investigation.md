@@ -17,6 +17,10 @@ transform. It mirrors box orientation while positions and paths retain the
 correct handedness. This is sufficient to reproduce nearly perpendicular boxes
 on the two published scenes without any error in the stored heading.
 
+The [coordinate-transform record](scene-player-yaw.md) gives the viewer contract and its
+corner derivation. This investigation adds the published-turn evidence and the remaining
+physical-pose questions.
+
 ## Evidence and reproducible examples
 
 The old `/scenes/<site>/` pages redirect by HTML refresh to `/surveys/<site>/`.

@@ -358,8 +358,8 @@ export class TrackVisual {
       obj.visible = true;
       obj.position.set(x, y, z);
       obj.scale.set(l, h, w);
-      // Mapping (x, y, z) to (x, z, -y) carries a data-space heading to
-      // (cos(yaw), 0, -sin(yaw)): exactly a positive three.js Y rotation.
+      // ENU +yaw takes +X toward +Y (north). With north mapped to -Z,
+      // three.js +Y rotation takes +X toward -Z too: preserve the sign.
       obj.rotation.set(0, t.bh ?? t.hdg ?? 0, 0);
     }
   }

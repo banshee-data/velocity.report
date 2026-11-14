@@ -560,3 +560,16 @@ code here
 - [Tailwind Typography](https://tailwindcss.com/docs/typography-plugin)
 - [Markdown-it](https://markdown-it.github.io/)
 - [Nunjucks Templating](https://mozilla.github.io/nunjucks/)
+
+## Recorded scene coordinates
+
+The scene player maps sensor `(x, y, z)` to Three.js `(x, z, -y)`.
+Box length lies along local X, so a positive published yaw becomes a positive
+Three.js Y rotation. Both take the length axis from east towards north.
+The player uses `bh` when present (including zero), then `hdg`, then zero.
+Seeking, playback, and deterministic capture share this box placement path.
+
+The [yaw correction record](../docs/lidar/operations/scene-player-yaw.md)
+contains the derivation, published examples, and validation limits. Run
+`make test-public-html` from the repository root for the corner-transform and
+published-heading regression tests.

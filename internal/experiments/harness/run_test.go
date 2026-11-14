@@ -491,3 +491,75 @@ func TestStagingArchiveRetainsEvidenceUntilCopySucceeds(t *testing.T) {
 		t.Fatal("successful archive left scratch behind")
 	}
 }
+
+func TestBuildVersionFromMakefile(t *testing.T) {
+	dir := t.TempDir()
+	if _, e := buildVersion(dir); e == nil {
+		t.Fatal("a checkout with no version source must fail")
+	}
+	put(t, dir, "Makefile", "# build\nVERSION := 0.5.1-pre52\nOTHER_VERSION := 9\n")
+	if v, e := buildVersion(dir); e != nil || v != "0.5.1-pre52" {
+		t.Fatalf("Makefile version = %q, %v", v, e)
+	}
+	put(t, dir, "VERSION", "0.5.2\n")
+	if v, e := buildVersion(dir); e != nil || v != "0.5.2" {
+		t.Fatalf("VERSION file must win, got %q, %v", v, e)
+	}
+}
+
+func TestToolCommandPassesEligibilityConfiguration(t *testing.T) {
+	t.Setenv("VELOCITY_COHORT_MANIFEST", "/m.json")
+	t.Setenv("VELOCITY_ANNOTATION_ROOT", "/a")
+	t.Setenv("VELOCITY_ELIGIBILITY_DB", "/l.db")
+	t.Setenv("VELOCITY_UNRELATED", "no")
+	env := strings.Join(toolCommand(context.Background(), t.TempDir(), "true", nil).Env, "\n")
+	for _, want := range []string{"VELOCITY_COHORT_MANIFEST=/m.json", "VELOCITY_ANNOTATION_ROOT=/a", "VELOCITY_ELIGIBILITY_DB=/l.db"} {
+		if !strings.Contains(env, want) {
+			t.Fatalf("executor environment lacks %s:\n%s", want, env)
+		}
+	}
+	if strings.Contains(env, "VELOCITY_UNRELATED") {
+		t.Fatal("other variables must stay scrubbed")
+	}
+}
+
+func TestHostBuildBase(t *testing.T) {
+	h := Host{EvidenceRoot: "/e"}
+	if h.BuildBase() != "/e" {
+		t.Fatalf("default build base = %s", h.BuildBase())
+	}
+	h.BuildRoot = "/b"
+	if h.BuildBase() != "/b" {
+		t.Fatalf("build_root must win, got %s", h.BuildBase())
+	}
+	path := filepath.Join(t.TempDir(), "host.json")
+	os.WriteFile(path, []byte(`{"worker":"w","class":"arrow","cores":1,"daily_hours":1,"evidence_root":"/e","stage_dir":"/s","capture_root":"/c","build_root":"b"}`), 0o644)
+	if _, e := ReadHost(path); e == nil {
+		t.Fatal("a relative build_root must be refused")
+	}
+}
+
+func TestStagedAttemptsReachTheEvidenceRoot(t *testing.T) {
+	o, _ := fixture(t)
+	o.Host.StageAttempts = true
+	if _, e := Tick(context.Background(), o); e != nil {
+		t.Fatal(e)
+	}
+	r := activeRun(t, o)
+	if r.State != "complete" {
+		t.Fatalf("%+v", r)
+	}
+	attempt := filepath.Join(o.Host.EvidenceRoot, "runs", r.Slug, r.ID, "replay", "a0", "kirk0", "attempt-1")
+	for _, name := range []string{"source-manifest.json", "tool.log", "tool-summary.json", "completion.json", filepath.Join("run", "phase0-summary.json")} {
+		if _, e := os.Stat(filepath.Join(attempt, name)); e != nil {
+			t.Fatalf("attempt lacks %s: %v", name, e)
+		}
+	}
+	if _, e := os.Stat(filepath.Join(o.Host.StageDir, r.ID, "work")); !os.IsNotExist(e) && e != nil {
+		t.Fatal(e)
+	}
+	left, _ := filepath.Glob(filepath.Join(o.Host.StageDir, r.ID, "work", "*", "*", "*", "*"))
+	if len(left) != 0 {
+		t.Fatalf("staged work left behind: %v", left)
+	}
+}
