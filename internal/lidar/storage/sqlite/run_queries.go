@@ -244,6 +244,11 @@ func (s *RunStore) GetRun(runID string) (*Run, error) {
 
 // ListRuns retrieves recent analysis runs.
 func (s *RunStore) ListRuns(limit int) ([]*Run, error) {
+	return s.ListRunsPage(limit, 0)
+}
+
+// ListRunsPage retrieves a page of runs in a deterministic newest-first order.
+func (s *RunStore) ListRunsPage(limit, offset int) ([]*Run, error) {
 	columns, caps, err := s.runRecordSelectColumns()
 	if err != nil {
 		return nil, err
@@ -252,11 +257,11 @@ func (s *RunStore) ListRuns(limit int) ([]*Run, error) {
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM lidar_runs
-		ORDER BY created_at DESC
-		LIMIT ?
+		ORDER BY created_at DESC, run_id DESC
+		LIMIT ? OFFSET ?
 	`, strings.Join(columns, ", "))
 
-	rows, err := s.db.Query(query, limit)
+	rows, err := s.db.Query(query, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list runs: %w", err)
 	}

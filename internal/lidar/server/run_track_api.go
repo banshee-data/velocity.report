@@ -442,6 +442,15 @@ func (ws *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	limitStr := query.Get("limit")
 	sensorID := query.Get("sensor_id")
 	status := query.Get("status")
+	offset := 0
+	if value := query.Get("offset"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 0 {
+			ws.writeJSONError(w, http.StatusBadRequest, "offset must be a non-negative integer")
+			return
+		}
+		offset = parsed
+	}
 
 	// Default limit
 	limit := 50
@@ -453,14 +462,14 @@ func (ws *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch runs from database
 	store := sqlite.NewRunStore(ws.db)
-	runs, err := store.ListRuns(limit)
+	runs, err := store.ListRunsPage(limit, offset)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not list runs: %v", err))
 		return
 	}
 
 	// Apply filters (sensor_id, status)
-	var filteredRuns []*sqlite.Run
+	filteredRuns := make([]*sqlite.Run, 0, len(runs))
 	for _, run := range runs {
 		if sensorID != "" && run.SensorID != sensorID {
 			continue
@@ -483,8 +492,9 @@ func (ws *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"runs":  filteredRuns,
-		"count": len(filteredRuns),
+		"runs":   filteredRuns,
+		"count":  len(filteredRuns),
+		"offset": offset,
 	})
 }
 

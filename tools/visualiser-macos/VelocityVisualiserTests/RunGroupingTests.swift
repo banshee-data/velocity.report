@@ -57,6 +57,11 @@ final class RunGroupingTests: XCTestCase {
         XCTAssertEqual(groups.map(\.title), ["Clip aed614a3"])
     }
 
+    func testSiteLabelTakesPrecedenceOverCell() {
+        let clip = ClipSummary(clipId: "c", location: .init(siteId: "cell"), siteLabel: "Broadway")
+        XCTAssertEqual(clip.site, "Broadway")
+    }
+
     func testNoClipGroupOnlyWhenNeeded() {
         let groups = RunGrouping.groups([makeRun("r1", clip: "c")], clips: [:])
         XCTAssertEqual(groups.count, 1)

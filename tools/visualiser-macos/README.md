@@ -246,6 +246,16 @@ The app stores preferences in `~/Library/Preferences/com.velocity.visualiser.pli
 
 ## Development
 
+### Analysis runs
+
+The Analysis Runs browser loads the run history in pages and groups runs by
+their recorded clip. A located clip shows its site label when one is available.
+Runs made without a clip association remain under **No clip**; a source filename
+alone does not establish which site or interval the run represents. A listed
+VRLOG path does not guarantee that the recording is still present on the server.
+Foreground-only recordings show **FG** in the Frames column. The duration shows
+the recorded interval, which may be shorter than the source capture.
+
 ### Running tests
 
 ```bash
