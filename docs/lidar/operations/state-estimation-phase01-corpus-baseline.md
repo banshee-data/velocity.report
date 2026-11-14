@@ -554,3 +554,17 @@ from this survey.
 | marina-webster-beach  |            80 |      29 |      44 |                     1 |               15 |    559 |
 | pierce-haight         |           164 |      52 |     137 |                     1 |              434 |  1,584 |
 | van-ness-sacramento   |           119 |      34 |      62 |                     0 |              338 |  1,771 |
+
+## Source-manifest calibration contract
+
+New corpus source manifests use schema 2. Each case carries its own
+`calibration_id`, derived from the same sensor and site-index bearing passed
+to the replay evidence writer. The corpus-wide identity-transform placeholder
+has been removed. Replay refuses a case whose declared calibration differs.
+This records the existing calibration convention; it does not apply a new
+rotation to points or establish physical alignment.
+
+Frozen schema-1 manifests remain historical evidence. Do not edit them in
+place or use `-existing-source-manifest` to resume them with a new producer:
+create a new manifest and output directory. Their original provenance and
+limitations remain as recorded in the experiment reports.

@@ -1,0 +1,1 @@
+- Replaced the corpus source manifest’s global calibration placeholder with each case’s replay calibration and refused declaration/writer drift; preserved frozen schema-1 evidence without reinterpretation.
