@@ -1,0 +1,1 @@
+- Scoped the [unattended harness follow-up](../../plans/platform-experiment-harness-next-steps.md): bounded campaign selection, candidate executor and evidence gaps, deployment, recovery and publication checks; linked the handoff from the backlog and operations guide. The plan records pending NAS qualification and does not claim a worker deployment or experiment run.

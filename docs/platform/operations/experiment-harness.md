@@ -2,6 +2,7 @@
 
 - **Status:** Implemented runner and deployment files; NAS deployment and soak pending
 - **Plan:** [Unattended experiment harness](../../plans/platform-experiment-harness-plan.md)
+- **Next steps:** [Bounded queue, compatibility and deployment acceptance](../../plans/platform-experiment-harness-next-steps.md)
 
 `velocity experiments` runs the mechanical steps of approved experiments on
 arrow-worker without an agent session. It leaves interpretation, manual work,
