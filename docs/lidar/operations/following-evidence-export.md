@@ -15,7 +15,7 @@ Build the canonical executable through `make build-velocity`, then use the exist
 
 ```bash
 ./velocity report headway --db /absolute/evidence.db \
-  --source source/v1/CONTENT_ID --boxes \
+  --source source/v2/CONTENT_ID --boxes \
   --evidence-context /absolute/binding.json --output /absolute/local-evidence \
   --cohort-manifest config/cohorts/cohort-manifest.json \
   --annotation-root /absolute/annotations --eligibility-db /absolute/use-ledger.db
@@ -37,6 +37,12 @@ build. Build through Make so the stamp is useful.
 
 The `source` member uses the existing observation capture identity: `ClipID`, ordered
 `CapturePaths`, ordered `CaptureSHA256s` (64 hexadecimal digits without a prefix), and `ExtractorID`.
+For a new `source/v2/` replay, also include `Window` with `StartOffsetNanos`,
+`WarmupNanos` and `DurationNanos` copied exactly from the producer. These are
+capture-relative nanoseconds; zero duration means EOF. All three boundaries are
+bound to the source identity and retained in the export. Historical `source/v1/`
+bindings omit `Window` and carry no replay-window guarantee. Different or
+overlapping windows must not be counted as independent exposure.
 These are the identities used when the replay created the source, not arbitrary replacement
 values. Each capture is rehashed; the reconstructed source must equal `--source` and the context
 source. Its cohort assignment must match the explicit site. The verified source manifest is

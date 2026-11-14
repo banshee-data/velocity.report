@@ -19,6 +19,29 @@ type CaptureSource struct {
 	// generated clusters from the raw bytes. A changed segmentation must not
 	// collide with evidence from an earlier extraction.
 	ExtractorID string
+	// Window is required for new replay evidence. Nil preserves historical v1
+	// identities whose source did not bind a replay window.
+	Window *ReplayWindow `json:",omitempty"`
+}
+
+// ReplayWindow binds the configured scoring start, preceding warm-up and
+// scoring duration, in capture-relative nanoseconds. Zero duration means EOF.
+// Different windows may overlap; distinct identities never imply independence.
+type ReplayWindow struct {
+	StartOffsetNanos int64
+	WarmupNanos      int64
+	DurationNanos    int64
+}
+
+// Validate checks a canonical, representable capture-relative window.
+func (w ReplayWindow) Validate() error {
+	if w.StartOffsetNanos < 0 || w.WarmupNanos < 0 || w.WarmupNanos > w.StartOffsetNanos || w.DurationNanos < 0 {
+		return fmt.Errorf("invalid replay window: require start >= warmup >= 0 and duration >= 0")
+	}
+	if w.DurationNanos > 0 && w.StartOffsetNanos > math.MaxInt64-w.DurationNanos {
+		return fmt.Errorf("replay window end exceeds representable duration")
+	}
+	return nil
 }
 
 // Calibration describes the transform revision that placed sensor points in
@@ -44,8 +67,15 @@ func SourceID(source CaptureSource) (string, error) {
 	if strings.TrimSpace(source.ExtractorID) == "" {
 		return "", fmt.Errorf("extractor identity is required")
 	}
+	version := "v1"
+	if source.Window != nil {
+		if err := source.Window.Validate(); err != nil {
+			return "", err
+		}
+		version = "v2"
+	}
 	h := sha256.New()
-	writeIdentityPart(h, "observation-source-v1")
+	writeIdentityPart(h, "observation-source-"+version)
 	writeIdentityPart(h, source.ClipID)
 	for i, capture := range source.CapturePaths {
 		if strings.TrimSpace(capture) == "" {
@@ -62,7 +92,12 @@ func SourceID(source CaptureSource) (string, error) {
 		writeIdentityPart(h, strings.ToLower(digest))
 	}
 	writeIdentityPart(h, source.ExtractorID)
-	return "source/v1/" + hex.EncodeToString(h.Sum(nil)), nil
+	if source.Window != nil {
+		writeIdentityPart(h, fmt.Sprintf("%d", source.Window.StartOffsetNanos))
+		writeIdentityPart(h, fmt.Sprintf("%d", source.Window.WarmupNanos))
+		writeIdentityPart(h, fmt.Sprintf("%d", source.Window.DurationNanos))
+	}
+	return "source/" + version + "/" + hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // CalibrationID returns a content-addressed identity for the transform used

@@ -625,3 +625,53 @@ func TestEmptyCaptureCloses(t *testing.T) {
 		t.Fatalf("records = %+v", got)
 	}
 }
+
+func TestManifestReplayWindowIdentityAndLegacyCompatibility(t *testing.T) {
+	m := testManifest(t)
+	m.Capture.UUID = "test"
+	m.Profile = l4bobserve.ForegroundComplete()
+	m.Limits = DefaultLimits()
+	legacy := m.Extraction.SourceID
+	if err := m.validate(); err != nil {
+		t.Fatal(err)
+	}
+	window := l4bobserve.ReplayWindow{StartOffsetNanos: 20, WarmupNanos: 10, DurationNanos: 30}
+	e := &m.Extraction
+	e.Window = SourceWindow(window)
+	id, err := l4bobserve.SourceID(l4bobserve.CaptureSource{ClipID: e.ClipID, CapturePaths: []string{e.CaptureFiles[0].Path}, CaptureSHA256s: []string{e.CaptureFiles[0].SHA256}, ExtractorID: e.ExtractorID, Window: &window})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.SourceID = id
+	if err := m.validate(); err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := manifestFromProto(m.toProto())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := decoded.validate(); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Extraction.SourceID != id || decoded.Extraction.Window != e.Window {
+		t.Fatal("window lost on wire roundtrip")
+	}
+	for _, mutate := range []func(*SourceWindow){func(w *SourceWindow) { w.StartOffsetNanos++ }, func(w *SourceWindow) { w.WarmupNanos++ }, func(w *SourceWindow) { w.DurationNanos++ }, func(w *SourceWindow) { w.DurationNanos = -1 }} {
+		changed := m
+		mutate(&changed.Extraction.Window)
+		if err := changed.validate(); err == nil {
+			t.Fatal("accepted changed window under fixed source identity")
+		}
+	}
+	missingFiles := m
+	missingFiles.Extraction.ClipID = ""
+	missingFiles.Extraction.CaptureFiles = nil
+	if err := missingFiles.validate(); err == nil {
+		t.Fatal("v2 identity accepted without its source inputs")
+	}
+	e.SourceID = legacy
+	// Historical v1 sources never promised to bind the stored window.
+	if err := m.validate(); err != nil {
+		t.Fatalf("legacy window rejected: %v", err)
+	}
+}

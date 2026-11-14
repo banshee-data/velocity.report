@@ -227,8 +227,12 @@ func (m Manifest) validate() error {
 	}
 	// A replayed source's identity is content-addressed from its ordered
 	// files; recompute it rather than trust it. A live capture has no files.
-	if e.ClipID != "" || len(e.CaptureFiles) > 0 {
+	if e.ClipID != "" || len(e.CaptureFiles) > 0 || strings.HasPrefix(e.SourceID, "source/v2/") {
 		source := l4bobserve.CaptureSource{ClipID: e.ClipID, ExtractorID: e.ExtractorID}
+		if strings.HasPrefix(e.SourceID, "source/v2/") {
+			window := l4bobserve.ReplayWindow(e.Window)
+			source.Window = &window
+		}
 		for _, f := range e.CaptureFiles {
 			source.CapturePaths = append(source.CapturePaths, f.Path)
 			source.CaptureSHA256s = append(source.CaptureSHA256s, f.SHA256)

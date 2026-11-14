@@ -19,12 +19,13 @@ import (
 // corpus. It deliberately names files relative to the LiDAR root while the
 // raw PCAPs and their large derived SQLite artefacts remain outside Git.
 type sourceManifest struct {
-	SchemaVersion    int                  `json:"schema_version"`
-	CorpusSHA256     string               `json:"corpus_sha256"`
-	IndexSHA256      string               `json:"index_sha256"`
-	SensorID         string               `json:"sensor_id"`
-	ParametersSHA256 string               `json:"parameters_sha256"`
-	Cases            []sourceManifestCase `json:"cases"`
+	SchemaVersion    int                     `json:"schema_version"`
+	Window           l4bobserve.ReplayWindow `json:"replay_window"`
+	CorpusSHA256     string                  `json:"corpus_sha256"`
+	IndexSHA256      string                  `json:"index_sha256"`
+	SensorID         string                  `json:"sensor_id"`
+	ParametersSHA256 string                  `json:"parameters_sha256"`
+	Cases            []sourceManifestCase    `json:"cases"`
 }
 
 type sourceManifestCase struct {
@@ -73,7 +74,7 @@ func resolveCorpusCases(selected corpus, index map[string]indexEntry, pcapRoot, 
 	return resolved, nil
 }
 
-func buildSourceManifest(corpusPath, indexPath, pcapRoot, tuningPath, sensorID string, cases []resolvedCorpusCase) (sourceManifest, error) {
+func buildSourceManifest(corpusPath, indexPath, pcapRoot, tuningPath, sensorID string, cases []resolvedCorpusCase, window l4bobserve.ReplayWindow) (sourceManifest, error) {
 	corpusDigest, err := fileSHA256(corpusPath)
 	if err != nil {
 		return sourceManifest{}, fmt.Errorf("hash corpus declaration: %w", err)
@@ -88,7 +89,8 @@ func buildSourceManifest(corpusPath, indexPath, pcapRoot, tuningPath, sensorID s
 	}
 
 	manifest := sourceManifest{
-		SchemaVersion:    2,
+		SchemaVersion:    3,
+		Window:           window,
 		CorpusSHA256:     corpusDigest,
 		IndexSHA256:      indexDigest,
 		SensorID:         sensorID,
@@ -122,7 +124,7 @@ func buildSourceManifest(corpusPath, indexPath, pcapRoot, tuningPath, sensorID s
 		}
 		sourceID, err := l4bobserve.SourceID(l4bobserve.CaptureSource{
 			ClipID: resolved.corpusCase.ID, CapturePaths: resolved.paths, CaptureSHA256s: rawHashes,
-			ExtractorID: "l4.dbscan_xy/v1/" + paramsHash,
+			ExtractorID: "l4.dbscan_xy/v1/" + paramsHash, Window: &window,
 		})
 		if err != nil {
 			return sourceManifest{}, fmt.Errorf("derive observation source identity for %s: %w", resolved.corpusCase.ID, err)
@@ -230,7 +232,7 @@ func (m sourceManifest) verifyCalibration(caseID string, calibration l4bobserve.
 	}
 	for _, c := range m.Cases {
 		if c.ID == caseID {
-			if m.SchemaVersion != 2 || c.CalibrationID != id {
+			if m.SchemaVersion != 3 || c.CalibrationID != id {
 				return fmt.Errorf("source manifest calibration differs for case %s; create a new per-case manifest", caseID)
 			}
 			return nil

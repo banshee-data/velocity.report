@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
@@ -198,5 +199,23 @@ func TestCoverageIsTheSolidBodysDeclaredOrigin(t *testing.T) {
 	}
 	if needsCoverage([]string{ExperimentSolidBody}) {
 		t.Fatal("solid_body alone must not require coverage; it derives its origin without one")
+	}
+}
+
+func TestObservationWindowCanonicalisation(t *testing.T) {
+	for _, duration := range []float64{0, -1} {
+		w, err := (Config{StartSeconds: 20, WarmupSeconds: 10, DurationSeconds: duration}).ObservationWindow()
+		if err != nil || w != (l4bobserve.ReplayWindow{StartOffsetNanos: 20_000_000_000, WarmupNanos: 10_000_000_000}) {
+			t.Fatalf("EOF %g: %+v %v", duration, w, err)
+		}
+	}
+	w, err := (Config{StartSeconds: 1.000000001, DurationSeconds: 2.5}).ObservationWindow()
+	if err != nil || w.StartOffsetNanos != 1_000_000_001 || w.DurationNanos != 2_500_000_000 {
+		t.Fatalf("fractional window %+v %v", w, err)
+	}
+	for _, cfg := range []Config{{StartSeconds: -1}, {WarmupSeconds: -1}, {StartSeconds: 1, WarmupSeconds: 2}, {DurationSeconds: -0.5}, {DurationSeconds: 1e-11}, {DurationSeconds: math.NaN()}, {WarmupSeconds: math.Inf(1)}, {StartSeconds: 1e20}, {StartSeconds: 8e9, DurationSeconds: 2e9}} {
+		if _, err := cfg.ObservationWindow(); err == nil {
+			t.Fatalf("accepted %+v", cfg)
+		}
 	}
 }

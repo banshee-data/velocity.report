@@ -557,14 +557,40 @@ from this survey.
 
 ## Source-manifest calibration contract
 
-New corpus source manifests use schema 2. Each case carries its own
+New corpus source manifests use schema 3. Each case carries its own
 `calibration_id`, derived from the same sensor and site-index bearing passed
 to the replay evidence writer. The corpus-wide identity-transform placeholder
 has been removed. Replay refuses a case whose declared calibration differs.
 This records the existing calibration convention; it does not apply a new
 rotation to points or establish physical alignment.
 
-Frozen schema-1 manifests remain historical evidence. Do not edit them in
+Frozen schema-1 and schema-2 manifests remain historical evidence. Do not edit them in
 place or use `-existing-source-manifest` to resume them with a new producer:
 create a new manifest and output directory. Their original provenance and
 limitations remain as recorded in the experiment reports.
+
+## Replay-window source identity
+
+New replay evidence uses `source/v2/` identities. The identity binds the
+ordered capture paths and hashes, clip, extractor, and a canonical capture-relative
+window: scoring start, preceding warm-up and scoring duration in nanoseconds.
+The corpus manifest's `replay_window` records the same `StartOffsetNanos`,
+`WarmupNanos` and `DurationNanos` used by replay. Changing any boundary changes
+the source identity; changing flags against an existing manifest is refused.
+The corpus tool's scoring start equals its `-warmup` value.
+
+Duration zero means the rest of the capture; replay's `-1` spelling canonicalises
+to the same EOF window. Fractional seconds canonicalise to the nearest nanosecond;
+a positive duration below that resolution is refused. The identity describes the
+requested processing/scoring window, not an assertion that packets cover every
+requested instant. Retained evidence can include warm-up; scoring VRLOGs omit it.
+EOF clipping and actual retained/scored timestamps still belong in reports.
+
+A distinct window is a distinct extraction, not independent traffic exposure.
+Overlapping windows must not be summed as independent observations. Capture
+hashes remain the cohort-admission identity, so windowing cannot move protected
+validation or qualification captures into development. Historical `source/v1/`
+records remain readable without a window guarantee; do not relabel them as v2 or
+pool them automatically. Start fresh outputs and manifests with the new producer.
+Recording readers recompute v2 from their stored window and refuse a mismatch;
+readers predating v2 refuse these source identities rather than reinterpret them.
