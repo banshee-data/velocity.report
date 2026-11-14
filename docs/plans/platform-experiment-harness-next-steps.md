@@ -1,90 +1,141 @@
 # Unattended experiment harness: next steps
 
+Prepare a bounded unattended queue for the weekend experiments, with explicit prerequisites,
+deployment evidence and a recovery checklist. Each scope below describes a problem and its
+acceptance criteria for implementation handoff.
+
 - **Status:** Proposed
-- **Scope:** Handoff for unattended operation and the weekend experiment queue
-- **Related:** [Harness operations](../platform/operations/experiment-harness.md),
-  [harness plan](platform-experiment-harness-plan.md),
+- **Scope:** Planning; implementation and worker qualification remain separate work
+- **Canonical:** [Harness runbook](../platform/operations/experiment-harness.md)
+- **Related:** [Harness plan](platform-experiment-harness-plan.md),
+  [deployment](../../deploy/harness/README.md),
   [experiment queue](../../data/experiments/README.md)
 
-## Outcome
+## Current evidence and limits
 
-An operator can select a bounded set of approved experiments, leave the worker unattended,
-and later explain what ran, what was skipped and why. The worker obtains checked-in changes
-on its normal cadence, respects experiment prerequisites and preserves provenance and raw
-evidence outside Git. Unavailable inputs or unsupported steps are visible, not silently
-treated as successful.
+The implementation merged in [PR #1014](https://github.com/banshee-data/velocity.report/pull/1014).
+This review used commit `990f746b4251f6dfd0d1193a5af67939bfa04e7f`. Recheck candidate
+specifications and actual worker capabilities before approving a campaign.
 
-The harness already provides a periodic tick, optional Git fetch, eligibility checks, serial
-execution, recovery and optional run-note publication. Its operations guide records NAS
-deployment and soak as pending. Implementation is not evidence that a worker is installed
-or that a real campaign has passed.
+The runner already provides a thirty-minute systemd timer, optional Git fetch and fast-forward,
+eligibility checks, serial execution, pinned builds, recovery, resource gates and optional run-note
+publication. See [selection and recovery](../../internal/experiments/harness/run.go),
+[host inputs](../../internal/experiments/harness/host.go),
+[execution](../../internal/experiments/harness/execute.go) and
+[publication](../../internal/experiments/harness/publish.go).
+The runbook records NAS deployment and a week-long soak as pending. This review did not inspect
+a running worker or execute a capture.
+
+Automatic ticks consider every eligible approved specification; a single-slug run selects one.
+There is no campaign allowlist. The supported executors are `state_estimation_baseline`,
+`box_eval`, `ground_truth_eval` and `corpus_screen`. Unsupported kinds or parameters can exclude
+the whole specification before its otherwise runnable units start. Do not assume the first
+replay will run merely because a later unsupported evaluator is not yet needed.
 
 ## Work scopes
 
 ### 1. Bound the unattended queue
 
-Define an operator-controlled way for a periodic tick to select only the intended experiment
-slugs without changing the approval status of unrelated experiments. Decide where this
-selection is maintained, how it interacts with in-progress pinned runs and how an empty or
-invalid selection behaves. Preserve the existing dependency, capability, manual-step, disk
-and budget gates.
+Provide an operator-controlled selection of experiment slugs for periodic ticks without changing
+unrelated experiments' approval. Decide whether the selection belongs in Git or host configuration,
+and record its revision with scheduling status. Define absent, empty, unknown and duplicate
+selections, dependency handling and what happens to active pinned work when selection changes.
+Fetching new specifications must not accidentally expand a deliberately bounded campaign.
 
-**Done when:** a selection can include and exclude named eligible experiments; excluded
-experiments do not start; invalid selections are visible; and restart, changed selection and
-pinned-run behaviour are tested and documented. Selection must not itself approve an experiment.
+**Acceptance:** only selected eligible experiments start; selection never approves an experiment,
+closes a manual step or implicitly launches an excluded dependency. Excluded, blocked and invalid
+entries have visible reasons. Restart, selection changes and newly fetched specifications are
+covered. A dry run lists the complete intended queue before enabling the timer.
 
-### 2. Make the requested experiment steps executable
+### 2. Close experiment compatibility and evidence gaps
 
-Review the selected experiment specs against current executors and close manual prerequisites
-only when their stated evidence exists. The following are investigation findings, to be checked
-against current main before implementation:
+The candidate inventory at the reviewed commit is:
 
-- `geom0016` is proposed and calls for a near-face evaluator not listed among supported
-  harness executors. Its manual predecessor and reviewed references must be checked. Its tuning
-  screen is not a held-out decision.
-- `l5id0013` is approved but has an unclosed manual predecessor and needs Kirk captures,
-  labels and appropriate scoring bindings.
-- `l5id0016` is proposed and describes an archived-row identity re-score. A generic
-  `corpus_screen` name does not establish support for that particular measure; it also has
-  an unclosed manual predecessor.
-- `ground0002` is proposed, has a manual predecessor and specifies benchmark and physical
-  reference scoring beyond the documented executor contract.
+| Candidate                                                 | Current blockers                                                                                                               | Intended next action                                                                        |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| [geom0016](../../data/experiments/geom/geom0016.md)       | Proposed; unclosed implementation; unsupported `near_face_eval`; reviewed tuning and held-out references need verification     | Scope evaluator support and verify implementation evidence; prepare the tuning screen first |
+| [l5id0013](../../data/experiments/l5id/l5id0013.md)       | Approved; unclosed implementation; Kirk captures, labels and scoring bindings required; depends on l5id0006                    | Verify the predecessor and implementation closure, then explicit paired scoring inputs      |
+| [l5id0016](../../data/experiments/l5id/l5id0016.md)       | Proposed; unclosed implementation; archived body-aware re-score is not a supported generic corpus measure; depends on l5id0012 | Verify archived inputs and scope the named re-score capability                              |
+| [ground0002](../../data/experiments/ground/ground0002.md) | Proposed; unclosed implementation; unsupported benchmark kind and `physical_reference` parameter                               | Resolve execution and scoring compatibility before approval                                 |
 
-For each chosen experiment, decide whether to extend the harness, complete an existing manual
-step, or defer it. Preserve each spec's frozen rules and held-out boundaries. Do not mark
-prerequisites closed merely to make a job runnable. Each arm needs its checked-in tuning
-configuration and fingerprint under the repository experiment rules.
+For each chosen candidate, verify answered predecessors, any required successful run notes,
+implementation closures reachable from main, host capabilities, actual source paths, reviewed
+references and fingerprints. The example host advertises S2 captures; it does not establish Kirk
+or label availability. Ground-truth scoring needs explicit pack, manifest, split and paired
+baseline/candidate database bindings under the existing host contract.
 
-**Done when:** a dry run reports the intended units and honest skip reasons; supported steps
-consume the specified inputs and retain provenance; tests cover missing or incompatible inputs;
-and an experiment is never represented as complete when a required step was skipped.
+Choose whether each gap needs an executor extension, a justified manual closure or deferral.
+Do not remove required scoring or change a frozen rule just to admit a replay. If partial machine
+execution is proposed, its dependency and completion semantics need explicit review and tests.
+Each arm needs a checked-in parameter set, declared changed keys and a verified fingerprint.
+Replay-only switches and diagnostic overlays also need recorded identities: a tuning hash alone
+may not distinguish arms.
 
-### 3. Deploy and qualify unattended operation
+**Acceptance:** dry-run skip reasons match real blockers; unsupported inputs fail visibly;
+completed steps retain verifiable source and output identities; missing measures never become
+zero. Tuning evidence does not release a held-out read without its frozen references and gate.
+Manual work and interpretive reports remain visible after machine units finish. No candidate in
+this inventory is declared launch-ready by this plan.
 
-Follow the existing deployment runbook on the actual worker: dedicated clean checkout, host
-profile, read-only capture access, sufficient evidence and scratch storage, cached tools and
-dependencies, and the timer and service. Configure publication credentials on the host only
-if run-note publication is intended. Check the resulting status and skip reasons, then run a
-bounded representative job and the planned soak.
+### 3. Deploy and qualify the worker
 
-Decide explicitly whether a failed fetch may run the last checked-in local revision. Current
-documented behaviour permits it; a latest-only policy would need an explicit change and test.
-Offline operation disables fetch and publication and is distinct from connected unattended
-operation.
+Complete the deployment checklist's security review before installation, then use the
+[deployment checklist](../../deploy/harness/README.md) on the actual worker: dedicated
+clean main checkout, service identity, read-only captures, evidence and staging mounts, cached
+toolchain and dependencies, host profile, service and timer. Confirm that evidence and scratch
+storage satisfy the selected specifications; advertised capabilities alone do not prove inputs
+exist. A dry run does not fetch, build or execute, so qualify those separately with a bounded
+representative job as the service user.
 
-**Done when:** the installed timer is observed firing, the selected job is traced to its
-source and configuration, interrupted work recovers as intended, failures and skips are
-visible, and the deployment and soak results are recorded. Do not claim NAS readiness or
-physical validation from local unit tests alone.
+Decide whether a fetch failure may use the last local revision, as currently documented, or
+must stop new work. Define how the installed scheduler itself receives updates as distinct from
+the per-commit executor builds. Offline operation disables fetch and publication; connected
+unattended operation needs credentials and network access only for its configured services.
 
-## Sequencing and weekend handoff
+**Acceptance:** observe the installed timer firing and fetching an authorised change; record
+the selected commit, configuration and host input identities. Exercise dirty or divergent Git,
+missing dependencies or mounts, fetch failure and offline restart. Verify exclusion and manual
+closures after a subsequent checked-in update. Record deployment evidence and complete the
+week-long soak before claiming the existing H5 deployment milestone.
 
-First confirm the worker and inputs, then establish queue selection and complete only the
-prerequisites needed by the selected jobs. A manually invoked single-slug run remains an
-available bounded starting point. The Broderick logging and review work can be planned in
-parallel; its annotations and physical references are separate dependencies, not automatic
-outputs of the harness.
+### 4. Verify recovery, publication and operator visibility
 
-Keep raw recordings, row-level data, logs, databases and campaign state outside the checkout.
-Commit human-readable reports with methods, numerical findings, provenance and limitations
-when experiments have actually run.
+These are qualification checks for existing behaviour, plus any changes introduced by scopes
+1 and 2. Keep the checks tied to the campaign so a green unit suite cannot substitute for worker
+acceptance.
+
+| Check                     | Required evidence                                                                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single worker and restart | Concurrent ticks cannot overlap replays; stopping the service stops descendants; completed units keep their attempts and interrupted work recovers                                    |
+| Resource and pause gates  | Pause, disk and daily budget gates stop new units; timeout and retry limits remain bounded                                                                                            |
+| Changed or corrupt inputs | Source, tuning, specification and reference changes follow supersession/refusal rules; corrupted completed evidence is not reused                                                     |
+| Publication               | Credentials stay on the host; unavailable publication is visible and retryable without replay; a representative note reaches its draft PR and respects checks and review before merge |
+| Operator visibility       | Heartbeat and last-run status expose selected and skipped work, commit, failures, pending manual work and publication state; the operator knows where to inspect them                 |
+
+Run publication checks only when publication is configured. Observe reconnection and resume as
+well as normal operation. Define who inspects status after an unattended interval, how a stalled
+worker is recognised and how the timer is disabled or work paused before recovery. Evidence must
+distinguish a fixture, a real corpus replay, NAS installation, publication and the soak.
+
+## Sequencing and handoff
+
+1. Inventory the actual worker, installed scheduler version, mounts and candidate prerequisites.
+2. Agree the bounded selection and fetch policies; complete scope 1 before enabling a broad tick.
+3. Complete only the compatibility and evidence work for the chosen first experiment. A single-slug
+   run remains an available bounded preflight; its normal prerequisites still apply.
+4. Demonstrate a representative run, restart and publication where configured, then enable the
+   selected campaign and observe the timer. Keep the week-long soak as a later acceptance gate.
+
+The Broderick logger and annotation planning can proceed in parallel. Its references and review
+outcomes are separate inputs, not automatic harness products. This plan changes no approval,
+closure, selection or deployed worker.
+
+Implementation handoffs should retain these outcomes, dependencies and checks without prescribing
+implementation code. Update the runbook and candidate specifications alongside any eventual code
+changes, with behaviour tests in the same commit. Run the relevant executor and scheduler tests,
+repository experiment/configuration validation and affected build checks before deployment.
+
+Raw recordings, row-level data, logs, databases and campaign state stay outside the checkout.
+Commit the edited deployment or experiment report with methods, numerical findings, provenance,
+limitations and explicit unfinished gates. The Sunday demonstration and week-long soak are
+separate milestones; neither establishes physical measurement accuracy.
