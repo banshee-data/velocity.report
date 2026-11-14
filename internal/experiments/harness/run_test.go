@@ -522,3 +522,19 @@ func TestToolCommandPassesEligibilityConfiguration(t *testing.T) {
 		t.Fatal("other variables must stay scrubbed")
 	}
 }
+
+func TestHostBuildBase(t *testing.T) {
+	h := Host{EvidenceRoot: "/e"}
+	if h.BuildBase() != "/e" {
+		t.Fatalf("default build base = %s", h.BuildBase())
+	}
+	h.BuildRoot = "/b"
+	if h.BuildBase() != "/b" {
+		t.Fatalf("build_root must win, got %s", h.BuildBase())
+	}
+	path := filepath.Join(t.TempDir(), "host.json")
+	os.WriteFile(path, []byte(`{"worker":"w","class":"arrow","cores":1,"daily_hours":1,"evidence_root":"/e","stage_dir":"/s","capture_root":"/c","build_root":"b"}`), 0o644)
+	if _, e := ReadHost(path); e == nil {
+		t.Fatal("a relative build_root must be refused")
+	}
+}

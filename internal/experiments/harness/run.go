@@ -592,7 +592,7 @@ func runSpec(ctx context.Context, o Options, sp *experiments.Spec, sha string) (
 				}
 				if bin == "" {
 					buildCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
-					src, bin, e = o.buildTools(buildCtx, o.Root, h.EvidenceRoot, r.Commit)
+					src, bin, e = o.buildTools(buildCtx, o.Root, h.BuildBase(), r.Commit)
 					cancel()
 					if e != nil {
 						return r.ID, "", e
