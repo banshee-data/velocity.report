@@ -146,6 +146,13 @@ periods. The shortlist does not claim a completed multi-vehicle review or three 
 encounters. Confirm source, seek landing, leader identity, visible endpoint support and uncertainty
 in the existing review tools before adding a physical interpretation.
 
+The scoring VRLOG covers `1764973044826850330`–`1764973074726654330` Unix nanoseconds.
+The supported and non-closing samples above lie in that recorded range; frame-level seek landing
+still needs checking. The class-excluded and record-gap nominations precede its start. They are
+retained warm-up DB evidence, not click-to-seek-ready periods in this scoring recording, and
+require a permitted packet/review replay or another recording that includes those times. No new
+replay or operator annotation was performed to bridge that gap.
+
 ## Frozen provenance
 
 | Item                                    | Recorded identity                                                                                                                               |
@@ -183,10 +190,13 @@ geometry, identity or relative-speed score and claims no such reference.
 The source manifest's top-level calibration ID is the producer's identity-transform placeholder,
 not the calibration actually persisted for this case. The retained Kirk estimates instead bind
 `calibration/v1/979644821aa0bf6473d4309ae659e6f3fec41ac8e463e867196f08d5c1f12c2f`,
-created by the per-site calibration path. The frozen manifest is preserved unchanged; its global
+created by the per-site calibration path. Grouping the exact selected source, estimator, model,
+parameter hash and stage gives `COUNT(DISTINCT calibration_id) = 1` across all 3,906 estimates. The frozen manifest is preserved unchanged; its global
 placeholder must not be used to claim the recorded case's transform. This metadata discrepancy
 is follow-up producer work. The current transform identity is content provenance, not a physical
-calibration or evidence that points were rotated into a validated site frame.
+calibration or evidence that points were rotated into a validated site frame. No accepted lane
+snapshot or registered road geometry was consumed; the L8 local paths derive from tracks.
+The calibration identity does not establish lane-constrained pairing or physical road alignment.
 
 ## Cost and evidence retention
 
