@@ -396,11 +396,11 @@ func runSpec(ctx context.Context, o Options, sp *experiments.Spec, sha string) (
 		r = Run{}
 	}
 	if r.ID == "" {
-		versionBytes, e := os.ReadFile(filepath.Join(o.Root, "VERSION"))
+		version, e := buildVersion(o.Root)
 		if e != nil {
 			return "", "", e
 		}
-		r = Run{Slug: sp.ID, ID: time.Now().UTC().Format("20060102T150405.000000000Z") + "-" + sha[:7], Commit: sha, SpecDigest: specDigest, InputDigest: inputDigest, BuildVersion: trim(string(versionBytes)), Host: h.Worker, Class: h.Class, Started: time.Now().UTC(), Arms: sp.Arms, Sources: map[string]string{}, Measures: map[string]map[string]float64{}, SummaryDigests: map[string]string{}}
+		r = Run{Slug: sp.ID, ID: time.Now().UTC().Format("20060102T150405.000000000Z") + "-" + sha[:7], Commit: sha, SpecDigest: specDigest, InputDigest: inputDigest, BuildVersion: version, Host: h.Worker, Class: h.Class, Started: time.Now().UTC(), Arms: sp.Arms, Sources: map[string]string{}, Measures: map[string]map[string]float64{}, SummaryDigests: map[string]string{}}
 	}
 	if r.RetryLimits == nil {
 		r.RetryLimits = map[string]int{}

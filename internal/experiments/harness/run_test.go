@@ -491,3 +491,18 @@ func TestStagingArchiveRetainsEvidenceUntilCopySucceeds(t *testing.T) {
 		t.Fatal("successful archive left scratch behind")
 	}
 }
+
+func TestBuildVersionFromMakefile(t *testing.T) {
+	dir := t.TempDir()
+	if _, e := buildVersion(dir); e == nil {
+		t.Fatal("a checkout with no version source must fail")
+	}
+	put(t, dir, "Makefile", "# build\nVERSION := 0.5.1-pre52\nOTHER_VERSION := 9\n")
+	if v, e := buildVersion(dir); e != nil || v != "0.5.1-pre52" {
+		t.Fatalf("Makefile version = %q, %v", v, e)
+	}
+	put(t, dir, "VERSION", "0.5.2\n")
+	if v, e := buildVersion(dir); e != nil || v != "0.5.2" {
+		t.Fatalf("VERSION file must win, got %q, %v", v, e)
+	}
+}
