@@ -1,0 +1,1 @@
+- Added a Linux worker hygiene tool with a read-only inventory, explicit NAS copies, SHA-256 verification receipts, and a separate guarded removal command; protected active paths and bind aliases, refused repositories and nested filesystems in archives, and planned old worktree retirement only when clean and merged, with local safety tests and an arrow-worker planning check.
