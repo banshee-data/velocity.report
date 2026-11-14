@@ -864,7 +864,7 @@ func (x DerivedBuildStatus_State) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DerivedBuildStatus_State.Descriptor instead.
 func (DerivedBuildStatus_State) EnumDescriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{61, 0}
+	return file_align_proto_rawDescGZIP(), []int{64, 0}
 }
 
 type Vector3 struct {
@@ -3490,9 +3490,10 @@ type GetServerInfoResponse struct {
 	RoadSurfaceVersion uint32 `protobuf:"varint,12,opt,name=road_surface_version,json=roadSurfaceVersion,proto3" json:"road_surface_version,omitempty"`
 	// True when ListRoadCorridors is served. Independent of road_surface_version
 	// so the layer's contract version and its hashes do not move.
-	RoadCorridorsListed bool `protobuf:"varint,13,opt,name=road_corridors_listed,json=roadCorridorsListed,proto3" json:"road_corridors_listed,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	RoadCorridorsListed    bool `protobuf:"varint,13,opt,name=road_corridors_listed,json=roadCorridorsListed,proto3" json:"road_corridors_listed,omitempty"`
+	SupportsRoadGeneration bool `protobuf:"varint,14,opt,name=supports_road_generation,json=supportsRoadGeneration,proto3" json:"supports_road_generation,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *GetServerInfoResponse) Reset() {
@@ -3612,6 +3613,13 @@ func (x *GetServerInfoResponse) GetRoadSurfaceVersion() uint32 {
 func (x *GetServerInfoResponse) GetRoadCorridorsListed() bool {
 	if x != nil {
 		return x.RoadCorridorsListed
+	}
+	return false
+}
+
+func (x *GetServerInfoResponse) GetSupportsRoadGeneration() bool {
+	if x != nil {
+		return x.SupportsRoadGeneration
 	}
 	return false
 }
@@ -3758,6 +3766,226 @@ func (*PrepareSiteResponse_Progress) isPrepareSiteResponse_Event() {}
 
 func (*PrepareSiteResponse_Site) isPrepareSiteResponse_Event() {}
 
+type GenerateRoadGeometryRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	L16Token string                 `protobuf:"bytes,1,opt,name=l16_token,json=l16Token,proto3" json:"l16_token,omitempty"`
+	// Defaults: 150 m selection radius and 4 m either side of the centreline.
+	// Selects whole nearby segments, so the output can extend beyond radius_m.
+	RadiusM       float32 `protobuf:"fixed32,2,opt,name=radius_m,json=radiusM,proto3" json:"radius_m,omitempty"`            // 50..250
+	HalfWidthM    float32 `protobuf:"fixed32,3,opt,name=half_width_m,json=halfWidthM,proto3" json:"half_width_m,omitempty"` // 2..10; inferred, not measured kerb positions
+	Refresh       bool    `protobuf:"varint,4,opt,name=refresh,proto3" json:"refresh,omitempty"`                            // false reuses an identical cached request
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenerateRoadGeometryRequest) Reset() {
+	*x = GenerateRoadGeometryRequest{}
+	mi := &file_align_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateRoadGeometryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateRoadGeometryRequest) ProtoMessage() {}
+
+func (x *GenerateRoadGeometryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_align_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateRoadGeometryRequest.ProtoReflect.Descriptor instead.
+func (*GenerateRoadGeometryRequest) Descriptor() ([]byte, []int) {
+	return file_align_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *GenerateRoadGeometryRequest) GetL16Token() string {
+	if x != nil {
+		return x.L16Token
+	}
+	return ""
+}
+
+func (x *GenerateRoadGeometryRequest) GetRadiusM() float32 {
+	if x != nil {
+		return x.RadiusM
+	}
+	return 0
+}
+
+func (x *GenerateRoadGeometryRequest) GetHalfWidthM() float32 {
+	if x != nil {
+		return x.HalfWidthM
+	}
+	return 0
+}
+
+func (x *GenerateRoadGeometryRequest) GetRefresh() bool {
+	if x != nil {
+		return x.Refresh
+	}
+	return false
+}
+
+type GeneratedRoadGeometry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	L16Token      string                 `protobuf:"bytes,1,opt,name=l16_token,json=l16Token,proto3" json:"l16_token,omitempty"`
+	CorridorId    string                 `protobuf:"bytes,2,opt,name=corridor_id,json=corridorId,proto3" json:"corridor_id,omitempty"`
+	BuildHash     string                 `protobuf:"bytes,3,opt,name=build_hash,json=buildHash,proto3" json:"build_hash,omitempty"`
+	PatchCount    uint32                 `protobuf:"varint,4,opt,name=patch_count,json=patchCount,proto3" json:"patch_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeneratedRoadGeometry) Reset() {
+	*x = GeneratedRoadGeometry{}
+	mi := &file_align_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeneratedRoadGeometry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeneratedRoadGeometry) ProtoMessage() {}
+
+func (x *GeneratedRoadGeometry) ProtoReflect() protoreflect.Message {
+	mi := &file_align_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeneratedRoadGeometry.ProtoReflect.Descriptor instead.
+func (*GeneratedRoadGeometry) Descriptor() ([]byte, []int) {
+	return file_align_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *GeneratedRoadGeometry) GetL16Token() string {
+	if x != nil {
+		return x.L16Token
+	}
+	return ""
+}
+
+func (x *GeneratedRoadGeometry) GetCorridorId() string {
+	if x != nil {
+		return x.CorridorId
+	}
+	return ""
+}
+
+func (x *GeneratedRoadGeometry) GetBuildHash() string {
+	if x != nil {
+		return x.BuildHash
+	}
+	return ""
+}
+
+func (x *GeneratedRoadGeometry) GetPatchCount() uint32 {
+	if x != nil {
+		return x.PatchCount
+	}
+	return 0
+}
+
+type GenerateRoadGeometryResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Event:
+	//
+	//	*GenerateRoadGeometryResponse_Progress
+	//	*GenerateRoadGeometryResponse_Result
+	Event         isGenerateRoadGeometryResponse_Event `protobuf_oneof:"event"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenerateRoadGeometryResponse) Reset() {
+	*x = GenerateRoadGeometryResponse{}
+	mi := &file_align_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateRoadGeometryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateRoadGeometryResponse) ProtoMessage() {}
+
+func (x *GenerateRoadGeometryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_align_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateRoadGeometryResponse.ProtoReflect.Descriptor instead.
+func (*GenerateRoadGeometryResponse) Descriptor() ([]byte, []int) {
+	return file_align_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *GenerateRoadGeometryResponse) GetEvent() isGenerateRoadGeometryResponse_Event {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
+func (x *GenerateRoadGeometryResponse) GetProgress() *Progress {
+	if x != nil {
+		if x, ok := x.Event.(*GenerateRoadGeometryResponse_Progress); ok {
+			return x.Progress
+		}
+	}
+	return nil
+}
+
+func (x *GenerateRoadGeometryResponse) GetResult() *GeneratedRoadGeometry {
+	if x != nil {
+		if x, ok := x.Event.(*GenerateRoadGeometryResponse_Result); ok {
+			return x.Result
+		}
+	}
+	return nil
+}
+
+type isGenerateRoadGeometryResponse_Event interface {
+	isGenerateRoadGeometryResponse_Event()
+}
+
+type GenerateRoadGeometryResponse_Progress struct {
+	Progress *Progress `protobuf:"bytes,1,opt,name=progress,proto3,oneof"`
+}
+
+type GenerateRoadGeometryResponse_Result struct {
+	Result *GeneratedRoadGeometry `protobuf:"bytes,2,opt,name=result,proto3,oneof"`
+}
+
+func (*GenerateRoadGeometryResponse_Progress) isGenerateRoadGeometryResponse_Event() {}
+
+func (*GenerateRoadGeometryResponse_Result) isGenerateRoadGeometryResponse_Event() {}
+
 type GetSiteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	L16Token      string                 `protobuf:"bytes,1,opt,name=l16_token,json=l16Token,proto3" json:"l16_token,omitempty"`
@@ -3767,7 +3995,7 @@ type GetSiteRequest struct {
 
 func (x *GetSiteRequest) Reset() {
 	*x = GetSiteRequest{}
-	mi := &file_align_proto_msgTypes[34]
+	mi := &file_align_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3779,7 +4007,7 @@ func (x *GetSiteRequest) String() string {
 func (*GetSiteRequest) ProtoMessage() {}
 
 func (x *GetSiteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[34]
+	mi := &file_align_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3792,7 +4020,7 @@ func (x *GetSiteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSiteRequest.ProtoReflect.Descriptor instead.
 func (*GetSiteRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{34}
+	return file_align_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *GetSiteRequest) GetL16Token() string {
@@ -3811,7 +4039,7 @@ type GetSiteResponse struct {
 
 func (x *GetSiteResponse) Reset() {
 	*x = GetSiteResponse{}
-	mi := &file_align_proto_msgTypes[35]
+	mi := &file_align_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3823,7 +4051,7 @@ func (x *GetSiteResponse) String() string {
 func (*GetSiteResponse) ProtoMessage() {}
 
 func (x *GetSiteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[35]
+	mi := &file_align_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3836,7 +4064,7 @@ func (x *GetSiteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSiteResponse.ProtoReflect.Descriptor instead.
 func (*GetSiteResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{35}
+	return file_align_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *GetSiteResponse) GetSite() *Site {
@@ -3854,7 +4082,7 @@ type ListSitesRequest struct {
 
 func (x *ListSitesRequest) Reset() {
 	*x = ListSitesRequest{}
-	mi := &file_align_proto_msgTypes[36]
+	mi := &file_align_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3866,7 +4094,7 @@ func (x *ListSitesRequest) String() string {
 func (*ListSitesRequest) ProtoMessage() {}
 
 func (x *ListSitesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[36]
+	mi := &file_align_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3879,7 +4107,7 @@ func (x *ListSitesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSitesRequest.ProtoReflect.Descriptor instead.
 func (*ListSitesRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{36}
+	return file_align_proto_rawDescGZIP(), []int{39}
 }
 
 type ListSitesResponse struct {
@@ -3891,7 +4119,7 @@ type ListSitesResponse struct {
 
 func (x *ListSitesResponse) Reset() {
 	*x = ListSitesResponse{}
-	mi := &file_align_proto_msgTypes[37]
+	mi := &file_align_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3903,7 +4131,7 @@ func (x *ListSitesResponse) String() string {
 func (*ListSitesResponse) ProtoMessage() {}
 
 func (x *ListSitesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[37]
+	mi := &file_align_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3916,7 +4144,7 @@ func (x *ListSitesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSitesResponse.ProtoReflect.Descriptor instead.
 func (*ListSitesResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{37}
+	return file_align_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ListSitesResponse) GetSites() []*Site {
@@ -3955,7 +4183,7 @@ type StreamReferenceRequest struct {
 
 func (x *StreamReferenceRequest) Reset() {
 	*x = StreamReferenceRequest{}
-	mi := &file_align_proto_msgTypes[38]
+	mi := &file_align_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3967,7 +4195,7 @@ func (x *StreamReferenceRequest) String() string {
 func (*StreamReferenceRequest) ProtoMessage() {}
 
 func (x *StreamReferenceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[38]
+	mi := &file_align_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3980,7 +4208,7 @@ func (x *StreamReferenceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamReferenceRequest.ProtoReflect.Descriptor instead.
 func (*StreamReferenceRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{38}
+	return file_align_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *StreamReferenceRequest) GetL16Token() string {
@@ -4061,7 +4289,7 @@ type StreamReferenceResponse struct {
 
 func (x *StreamReferenceResponse) Reset() {
 	*x = StreamReferenceResponse{}
-	mi := &file_align_proto_msgTypes[39]
+	mi := &file_align_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4073,7 +4301,7 @@ func (x *StreamReferenceResponse) String() string {
 func (*StreamReferenceResponse) ProtoMessage() {}
 
 func (x *StreamReferenceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[39]
+	mi := &file_align_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4086,7 +4314,7 @@ func (x *StreamReferenceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamReferenceResponse.ProtoReflect.Descriptor instead.
 func (*StreamReferenceResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{39}
+	return file_align_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *StreamReferenceResponse) GetLayer() ReferenceLayer {
@@ -4224,7 +4452,7 @@ type UploadScanRequest struct {
 
 func (x *UploadScanRequest) Reset() {
 	*x = UploadScanRequest{}
-	mi := &file_align_proto_msgTypes[40]
+	mi := &file_align_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4236,7 +4464,7 @@ func (x *UploadScanRequest) String() string {
 func (*UploadScanRequest) ProtoMessage() {}
 
 func (x *UploadScanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[40]
+	mi := &file_align_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4249,7 +4477,7 @@ func (x *UploadScanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadScanRequest.ProtoReflect.Descriptor instead.
 func (*UploadScanRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{40}
+	return file_align_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *UploadScanRequest) GetPart() isUploadScanRequest_Part {
@@ -4303,7 +4531,7 @@ type UploadScanResponse struct {
 
 func (x *UploadScanResponse) Reset() {
 	*x = UploadScanResponse{}
-	mi := &file_align_proto_msgTypes[41]
+	mi := &file_align_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4315,7 +4543,7 @@ func (x *UploadScanResponse) String() string {
 func (*UploadScanResponse) ProtoMessage() {}
 
 func (x *UploadScanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[41]
+	mi := &file_align_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4328,7 +4556,7 @@ func (x *UploadScanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadScanResponse.ProtoReflect.Descriptor instead.
 func (*UploadScanResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{41}
+	return file_align_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *UploadScanResponse) GetScan() *Scan {
@@ -4356,7 +4584,7 @@ type PoseFromHintRequest struct {
 
 func (x *PoseFromHintRequest) Reset() {
 	*x = PoseFromHintRequest{}
-	mi := &file_align_proto_msgTypes[42]
+	mi := &file_align_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4368,7 +4596,7 @@ func (x *PoseFromHintRequest) String() string {
 func (*PoseFromHintRequest) ProtoMessage() {}
 
 func (x *PoseFromHintRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[42]
+	mi := &file_align_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4381,7 +4609,7 @@ func (x *PoseFromHintRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PoseFromHintRequest.ProtoReflect.Descriptor instead.
 func (*PoseFromHintRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{42}
+	return file_align_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *PoseFromHintRequest) GetL16Token() string {
@@ -4415,7 +4643,7 @@ type PoseFromHintResponse struct {
 
 func (x *PoseFromHintResponse) Reset() {
 	*x = PoseFromHintResponse{}
-	mi := &file_align_proto_msgTypes[43]
+	mi := &file_align_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4427,7 +4655,7 @@ func (x *PoseFromHintResponse) String() string {
 func (*PoseFromHintResponse) ProtoMessage() {}
 
 func (x *PoseFromHintResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[43]
+	mi := &file_align_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4440,7 +4668,7 @@ func (x *PoseFromHintResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PoseFromHintResponse.ProtoReflect.Descriptor instead.
 func (*PoseFromHintResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{43}
+	return file_align_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *PoseFromHintResponse) GetPose() *SensorPose {
@@ -4478,7 +4706,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_align_proto_msgTypes[44]
+	mi := &file_align_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4490,7 +4718,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[44]
+	mi := &file_align_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4503,7 +4731,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{44}
+	return file_align_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *RegisterRequest) GetScanId() string {
@@ -4569,7 +4797,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_align_proto_msgTypes[45]
+	mi := &file_align_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4581,7 +4809,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[45]
+	mi := &file_align_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4594,7 +4822,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{45}
+	return file_align_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *RegisterResponse) GetEvent() isRegisterResponse_Event {
@@ -4668,7 +4896,7 @@ type EvaluatePoseRequest struct {
 
 func (x *EvaluatePoseRequest) Reset() {
 	*x = EvaluatePoseRequest{}
-	mi := &file_align_proto_msgTypes[46]
+	mi := &file_align_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4680,7 +4908,7 @@ func (x *EvaluatePoseRequest) String() string {
 func (*EvaluatePoseRequest) ProtoMessage() {}
 
 func (x *EvaluatePoseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[46]
+	mi := &file_align_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4693,7 +4921,7 @@ func (x *EvaluatePoseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluatePoseRequest.ProtoReflect.Descriptor instead.
 func (*EvaluatePoseRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{46}
+	return file_align_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *EvaluatePoseRequest) GetScanId() string {
@@ -4746,7 +4974,7 @@ type EvaluatePoseResponse struct {
 
 func (x *EvaluatePoseResponse) Reset() {
 	*x = EvaluatePoseResponse{}
-	mi := &file_align_proto_msgTypes[47]
+	mi := &file_align_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4758,7 +4986,7 @@ func (x *EvaluatePoseResponse) String() string {
 func (*EvaluatePoseResponse) ProtoMessage() {}
 
 func (x *EvaluatePoseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[47]
+	mi := &file_align_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4771,7 +4999,7 @@ func (x *EvaluatePoseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluatePoseResponse.ProtoReflect.Descriptor instead.
 func (*EvaluatePoseResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{47}
+	return file_align_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *EvaluatePoseResponse) GetPose() *SensorPose {
@@ -4818,7 +5046,7 @@ type SolveTiePointsRequest struct {
 
 func (x *SolveTiePointsRequest) Reset() {
 	*x = SolveTiePointsRequest{}
-	mi := &file_align_proto_msgTypes[48]
+	mi := &file_align_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4830,7 +5058,7 @@ func (x *SolveTiePointsRequest) String() string {
 func (*SolveTiePointsRequest) ProtoMessage() {}
 
 func (x *SolveTiePointsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[48]
+	mi := &file_align_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4843,7 +5071,7 @@ func (x *SolveTiePointsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolveTiePointsRequest.ProtoReflect.Descriptor instead.
 func (*SolveTiePointsRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{48}
+	return file_align_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *SolveTiePointsRequest) GetL16Token() string {
@@ -4893,7 +5121,7 @@ type SolveTiePointsResponse struct {
 
 func (x *SolveTiePointsResponse) Reset() {
 	*x = SolveTiePointsResponse{}
-	mi := &file_align_proto_msgTypes[49]
+	mi := &file_align_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4905,7 +5133,7 @@ func (x *SolveTiePointsResponse) String() string {
 func (*SolveTiePointsResponse) ProtoMessage() {}
 
 func (x *SolveTiePointsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[49]
+	mi := &file_align_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4918,7 +5146,7 @@ func (x *SolveTiePointsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolveTiePointsResponse.ProtoReflect.Descriptor instead.
 func (*SolveTiePointsResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{49}
+	return file_align_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *SolveTiePointsResponse) GetPose() *SensorPose {
@@ -4958,7 +5186,7 @@ type GetRegistrationRequest struct {
 
 func (x *GetRegistrationRequest) Reset() {
 	*x = GetRegistrationRequest{}
-	mi := &file_align_proto_msgTypes[50]
+	mi := &file_align_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4970,7 +5198,7 @@ func (x *GetRegistrationRequest) String() string {
 func (*GetRegistrationRequest) ProtoMessage() {}
 
 func (x *GetRegistrationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[50]
+	mi := &file_align_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4983,7 +5211,7 @@ func (x *GetRegistrationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRegistrationRequest.ProtoReflect.Descriptor instead.
 func (*GetRegistrationRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{50}
+	return file_align_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *GetRegistrationRequest) GetRegistrationId() string {
@@ -5002,7 +5230,7 @@ type GetRegistrationResponse struct {
 
 func (x *GetRegistrationResponse) Reset() {
 	*x = GetRegistrationResponse{}
-	mi := &file_align_proto_msgTypes[51]
+	mi := &file_align_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5014,7 +5242,7 @@ func (x *GetRegistrationResponse) String() string {
 func (*GetRegistrationResponse) ProtoMessage() {}
 
 func (x *GetRegistrationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[51]
+	mi := &file_align_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5027,7 +5255,7 @@ func (x *GetRegistrationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRegistrationResponse.ProtoReflect.Descriptor instead.
 func (*GetRegistrationResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{51}
+	return file_align_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *GetRegistrationResponse) GetRegistration() *Registration {
@@ -5057,7 +5285,7 @@ type ReviewRegistrationRequest struct {
 
 func (x *ReviewRegistrationRequest) Reset() {
 	*x = ReviewRegistrationRequest{}
-	mi := &file_align_proto_msgTypes[52]
+	mi := &file_align_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5069,7 +5297,7 @@ func (x *ReviewRegistrationRequest) String() string {
 func (*ReviewRegistrationRequest) ProtoMessage() {}
 
 func (x *ReviewRegistrationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[52]
+	mi := &file_align_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5082,7 +5310,7 @@ func (x *ReviewRegistrationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewRegistrationRequest.ProtoReflect.Descriptor instead.
 func (*ReviewRegistrationRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{52}
+	return file_align_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ReviewRegistrationRequest) GetRegistrationId() string {
@@ -5200,7 +5428,7 @@ type ReviewRegistrationResponse struct {
 
 func (x *ReviewRegistrationResponse) Reset() {
 	*x = ReviewRegistrationResponse{}
-	mi := &file_align_proto_msgTypes[53]
+	mi := &file_align_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5212,7 +5440,7 @@ func (x *ReviewRegistrationResponse) String() string {
 func (*ReviewRegistrationResponse) ProtoMessage() {}
 
 func (x *ReviewRegistrationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[53]
+	mi := &file_align_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5225,7 +5453,7 @@ func (x *ReviewRegistrationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewRegistrationResponse.ProtoReflect.Descriptor instead.
 func (*ReviewRegistrationResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{53}
+	return file_align_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ReviewRegistrationResponse) GetRecord() *RegistrationRecord {
@@ -5245,7 +5473,7 @@ type ReviewRegistrationsRequest struct {
 
 func (x *ReviewRegistrationsRequest) Reset() {
 	*x = ReviewRegistrationsRequest{}
-	mi := &file_align_proto_msgTypes[54]
+	mi := &file_align_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5257,7 +5485,7 @@ func (x *ReviewRegistrationsRequest) String() string {
 func (*ReviewRegistrationsRequest) ProtoMessage() {}
 
 func (x *ReviewRegistrationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[54]
+	mi := &file_align_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5270,7 +5498,7 @@ func (x *ReviewRegistrationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewRegistrationsRequest.ProtoReflect.Descriptor instead.
 func (*ReviewRegistrationsRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{54}
+	return file_align_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ReviewRegistrationsRequest) GetRequestId() string {
@@ -5296,7 +5524,7 @@ type ReviewRegistrationsResponse struct {
 
 func (x *ReviewRegistrationsResponse) Reset() {
 	*x = ReviewRegistrationsResponse{}
-	mi := &file_align_proto_msgTypes[55]
+	mi := &file_align_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5308,7 +5536,7 @@ func (x *ReviewRegistrationsResponse) String() string {
 func (*ReviewRegistrationsResponse) ProtoMessage() {}
 
 func (x *ReviewRegistrationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[55]
+	mi := &file_align_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5321,7 +5549,7 @@ func (x *ReviewRegistrationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewRegistrationsResponse.ProtoReflect.Descriptor instead.
 func (*ReviewRegistrationsResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{55}
+	return file_align_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ReviewRegistrationsResponse) GetRecords() []*RegistrationRecord {
@@ -5340,7 +5568,7 @@ type ListRegistrationRecordsRequest struct {
 
 func (x *ListRegistrationRecordsRequest) Reset() {
 	*x = ListRegistrationRecordsRequest{}
-	mi := &file_align_proto_msgTypes[56]
+	mi := &file_align_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5352,7 +5580,7 @@ func (x *ListRegistrationRecordsRequest) String() string {
 func (*ListRegistrationRecordsRequest) ProtoMessage() {}
 
 func (x *ListRegistrationRecordsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[56]
+	mi := &file_align_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5365,7 +5593,7 @@ func (x *ListRegistrationRecordsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRegistrationRecordsRequest.ProtoReflect.Descriptor instead.
 func (*ListRegistrationRecordsRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{56}
+	return file_align_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *ListRegistrationRecordsRequest) GetL16Token() string {
@@ -5384,7 +5612,7 @@ type ListRegistrationRecordsResponse struct {
 
 func (x *ListRegistrationRecordsResponse) Reset() {
 	*x = ListRegistrationRecordsResponse{}
-	mi := &file_align_proto_msgTypes[57]
+	mi := &file_align_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5396,7 +5624,7 @@ func (x *ListRegistrationRecordsResponse) String() string {
 func (*ListRegistrationRecordsResponse) ProtoMessage() {}
 
 func (x *ListRegistrationRecordsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[57]
+	mi := &file_align_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5409,7 +5637,7 @@ func (x *ListRegistrationRecordsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRegistrationRecordsResponse.ProtoReflect.Descriptor instead.
 func (*ListRegistrationRecordsResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{57}
+	return file_align_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *ListRegistrationRecordsResponse) GetRecords() []*RegistrationRecord {
@@ -5428,7 +5656,7 @@ type GetSiteModelRequest struct {
 
 func (x *GetSiteModelRequest) Reset() {
 	*x = GetSiteModelRequest{}
-	mi := &file_align_proto_msgTypes[58]
+	mi := &file_align_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5440,7 +5668,7 @@ func (x *GetSiteModelRequest) String() string {
 func (*GetSiteModelRequest) ProtoMessage() {}
 
 func (x *GetSiteModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[58]
+	mi := &file_align_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5453,7 +5681,7 @@ func (x *GetSiteModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSiteModelRequest.ProtoReflect.Descriptor instead.
 func (*GetSiteModelRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{58}
+	return file_align_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *GetSiteModelRequest) GetL16Token() string {
@@ -5479,7 +5707,7 @@ type ModelScan struct {
 
 func (x *ModelScan) Reset() {
 	*x = ModelScan{}
-	mi := &file_align_proto_msgTypes[59]
+	mi := &file_align_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5491,7 +5719,7 @@ func (x *ModelScan) String() string {
 func (*ModelScan) ProtoMessage() {}
 
 func (x *ModelScan) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[59]
+	mi := &file_align_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5504,7 +5732,7 @@ func (x *ModelScan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelScan.ProtoReflect.Descriptor instead.
 func (*ModelScan) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{59}
+	return file_align_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ModelScan) GetScanId() string {
@@ -5570,7 +5798,7 @@ type GetSiteModelResponse struct {
 
 func (x *GetSiteModelResponse) Reset() {
 	*x = GetSiteModelResponse{}
-	mi := &file_align_proto_msgTypes[60]
+	mi := &file_align_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5582,7 +5810,7 @@ func (x *GetSiteModelResponse) String() string {
 func (*GetSiteModelResponse) ProtoMessage() {}
 
 func (x *GetSiteModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[60]
+	mi := &file_align_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5595,7 +5823,7 @@ func (x *GetSiteModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSiteModelResponse.ProtoReflect.Descriptor instead.
 func (*GetSiteModelResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{60}
+	return file_align_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *GetSiteModelResponse) GetModelId() string {
@@ -5642,7 +5870,7 @@ type DerivedBuildStatus struct {
 
 func (x *DerivedBuildStatus) Reset() {
 	*x = DerivedBuildStatus{}
-	mi := &file_align_proto_msgTypes[61]
+	mi := &file_align_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5654,7 +5882,7 @@ func (x *DerivedBuildStatus) String() string {
 func (*DerivedBuildStatus) ProtoMessage() {}
 
 func (x *DerivedBuildStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[61]
+	mi := &file_align_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5667,7 +5895,7 @@ func (x *DerivedBuildStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DerivedBuildStatus.ProtoReflect.Descriptor instead.
 func (*DerivedBuildStatus) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{61}
+	return file_align_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *DerivedBuildStatus) GetState() DerivedBuildStatus_State {
@@ -5712,7 +5940,7 @@ type RefineSiteRequest struct {
 
 func (x *RefineSiteRequest) Reset() {
 	*x = RefineSiteRequest{}
-	mi := &file_align_proto_msgTypes[62]
+	mi := &file_align_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5724,7 +5952,7 @@ func (x *RefineSiteRequest) String() string {
 func (*RefineSiteRequest) ProtoMessage() {}
 
 func (x *RefineSiteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[62]
+	mi := &file_align_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5737,7 +5965,7 @@ func (x *RefineSiteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefineSiteRequest.ProtoReflect.Descriptor instead.
 func (*RefineSiteRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{62}
+	return file_align_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *RefineSiteRequest) GetL16Token() string {
@@ -5786,7 +6014,7 @@ type RefinedScan struct {
 
 func (x *RefinedScan) Reset() {
 	*x = RefinedScan{}
-	mi := &file_align_proto_msgTypes[63]
+	mi := &file_align_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5798,7 +6026,7 @@ func (x *RefinedScan) String() string {
 func (*RefinedScan) ProtoMessage() {}
 
 func (x *RefinedScan) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[63]
+	mi := &file_align_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5811,7 +6039,7 @@ func (x *RefinedScan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefinedScan.ProtoReflect.Descriptor instead.
 func (*RefinedScan) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{63}
+	return file_align_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *RefinedScan) GetScanId() string {
@@ -5900,7 +6128,7 @@ type ScanPair struct {
 
 func (x *ScanPair) Reset() {
 	*x = ScanPair{}
-	mi := &file_align_proto_msgTypes[64]
+	mi := &file_align_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5912,7 +6140,7 @@ func (x *ScanPair) String() string {
 func (*ScanPair) ProtoMessage() {}
 
 func (x *ScanPair) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[64]
+	mi := &file_align_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5925,7 +6153,7 @@ func (x *ScanPair) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanPair.ProtoReflect.Descriptor instead.
 func (*ScanPair) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{64}
+	return file_align_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ScanPair) GetScanA() string {
@@ -5992,7 +6220,7 @@ type RefineSiteResult struct {
 
 func (x *RefineSiteResult) Reset() {
 	*x = RefineSiteResult{}
-	mi := &file_align_proto_msgTypes[65]
+	mi := &file_align_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6004,7 +6232,7 @@ func (x *RefineSiteResult) String() string {
 func (*RefineSiteResult) ProtoMessage() {}
 
 func (x *RefineSiteResult) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[65]
+	mi := &file_align_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6017,7 +6245,7 @@ func (x *RefineSiteResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefineSiteResult.ProtoReflect.Descriptor instead.
 func (*RefineSiteResult) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{65}
+	return file_align_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *RefineSiteResult) GetModelId() string {
@@ -6082,7 +6310,7 @@ type RefineSiteResponse struct {
 
 func (x *RefineSiteResponse) Reset() {
 	*x = RefineSiteResponse{}
-	mi := &file_align_proto_msgTypes[66]
+	mi := &file_align_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6094,7 +6322,7 @@ func (x *RefineSiteResponse) String() string {
 func (*RefineSiteResponse) ProtoMessage() {}
 
 func (x *RefineSiteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[66]
+	mi := &file_align_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6107,7 +6335,7 @@ func (x *RefineSiteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefineSiteResponse.ProtoReflect.Descriptor instead.
 func (*RefineSiteResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{66}
+	return file_align_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *RefineSiteResponse) GetEvent() isRefineSiteResponse_Event {
@@ -6169,7 +6397,7 @@ type StreetUseFeature struct {
 
 func (x *StreetUseFeature) Reset() {
 	*x = StreetUseFeature{}
-	mi := &file_align_proto_msgTypes[67]
+	mi := &file_align_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6181,7 +6409,7 @@ func (x *StreetUseFeature) String() string {
 func (*StreetUseFeature) ProtoMessage() {}
 
 func (x *StreetUseFeature) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[67]
+	mi := &file_align_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6194,7 +6422,7 @@ func (x *StreetUseFeature) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreetUseFeature.ProtoReflect.Descriptor instead.
 func (*StreetUseFeature) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{67}
+	return file_align_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *StreetUseFeature) GetFeatureId() string {
@@ -6268,7 +6496,7 @@ type StreetUseEdit struct {
 
 func (x *StreetUseEdit) Reset() {
 	*x = StreetUseEdit{}
-	mi := &file_align_proto_msgTypes[68]
+	mi := &file_align_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6280,7 +6508,7 @@ func (x *StreetUseEdit) String() string {
 func (*StreetUseEdit) ProtoMessage() {}
 
 func (x *StreetUseEdit) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[68]
+	mi := &file_align_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6293,7 +6521,7 @@ func (x *StreetUseEdit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreetUseEdit.ProtoReflect.Descriptor instead.
 func (*StreetUseEdit) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{68}
+	return file_align_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *StreetUseEdit) GetExpectedRowId() string {
@@ -6368,7 +6596,7 @@ type ListStreetUseRequest struct {
 
 func (x *ListStreetUseRequest) Reset() {
 	*x = ListStreetUseRequest{}
-	mi := &file_align_proto_msgTypes[69]
+	mi := &file_align_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6380,7 +6608,7 @@ func (x *ListStreetUseRequest) String() string {
 func (*ListStreetUseRequest) ProtoMessage() {}
 
 func (x *ListStreetUseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[69]
+	mi := &file_align_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6393,7 +6621,7 @@ func (x *ListStreetUseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStreetUseRequest.ProtoReflect.Descriptor instead.
 func (*ListStreetUseRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{69}
+	return file_align_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *ListStreetUseRequest) GetL16Token() string {
@@ -6412,7 +6640,7 @@ type ListStreetUseResponse struct {
 
 func (x *ListStreetUseResponse) Reset() {
 	*x = ListStreetUseResponse{}
-	mi := &file_align_proto_msgTypes[70]
+	mi := &file_align_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6424,7 +6652,7 @@ func (x *ListStreetUseResponse) String() string {
 func (*ListStreetUseResponse) ProtoMessage() {}
 
 func (x *ListStreetUseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[70]
+	mi := &file_align_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6437,7 +6665,7 @@ func (x *ListStreetUseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStreetUseResponse.ProtoReflect.Descriptor instead.
 func (*ListStreetUseResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{70}
+	return file_align_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *ListStreetUseResponse) GetFeatures() []*StreetUseFeature {
@@ -6460,7 +6688,7 @@ type EditStreetUseRequest struct {
 
 func (x *EditStreetUseRequest) Reset() {
 	*x = EditStreetUseRequest{}
-	mi := &file_align_proto_msgTypes[71]
+	mi := &file_align_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6472,7 +6700,7 @@ func (x *EditStreetUseRequest) String() string {
 func (*EditStreetUseRequest) ProtoMessage() {}
 
 func (x *EditStreetUseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[71]
+	mi := &file_align_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6485,7 +6713,7 @@ func (x *EditStreetUseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditStreetUseRequest.ProtoReflect.Descriptor instead.
 func (*EditStreetUseRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{71}
+	return file_align_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *EditStreetUseRequest) GetL16Token() string {
@@ -6534,7 +6762,7 @@ type StreetUseProblem struct {
 
 func (x *StreetUseProblem) Reset() {
 	*x = StreetUseProblem{}
-	mi := &file_align_proto_msgTypes[72]
+	mi := &file_align_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6546,7 +6774,7 @@ func (x *StreetUseProblem) String() string {
 func (*StreetUseProblem) ProtoMessage() {}
 
 func (x *StreetUseProblem) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[72]
+	mi := &file_align_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6559,7 +6787,7 @@ func (x *StreetUseProblem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreetUseProblem.ProtoReflect.Descriptor instead.
 func (*StreetUseProblem) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{72}
+	return file_align_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *StreetUseProblem) GetFeatureId() string {
@@ -6594,7 +6822,7 @@ type EditStreetUseResponse struct {
 
 func (x *EditStreetUseResponse) Reset() {
 	*x = EditStreetUseResponse{}
-	mi := &file_align_proto_msgTypes[73]
+	mi := &file_align_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6606,7 +6834,7 @@ func (x *EditStreetUseResponse) String() string {
 func (*EditStreetUseResponse) ProtoMessage() {}
 
 func (x *EditStreetUseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[73]
+	mi := &file_align_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6619,7 +6847,7 @@ func (x *EditStreetUseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditStreetUseResponse.ProtoReflect.Descriptor instead.
 func (*EditStreetUseResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{73}
+	return file_align_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *EditStreetUseResponse) GetDetailedProblems() []*StreetUseProblem {
@@ -6670,7 +6898,7 @@ type LaneFieldHeader struct {
 
 func (x *LaneFieldHeader) Reset() {
 	*x = LaneFieldHeader{}
-	mi := &file_align_proto_msgTypes[74]
+	mi := &file_align_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6682,7 +6910,7 @@ func (x *LaneFieldHeader) String() string {
 func (*LaneFieldHeader) ProtoMessage() {}
 
 func (x *LaneFieldHeader) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[74]
+	mi := &file_align_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6695,7 +6923,7 @@ func (x *LaneFieldHeader) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LaneFieldHeader.ProtoReflect.Descriptor instead.
 func (*LaneFieldHeader) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{74}
+	return file_align_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *LaneFieldHeader) GetL16Token() string {
@@ -6822,7 +7050,7 @@ type LaneFieldCells struct {
 
 func (x *LaneFieldCells) Reset() {
 	*x = LaneFieldCells{}
-	mi := &file_align_proto_msgTypes[75]
+	mi := &file_align_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6834,7 +7062,7 @@ func (x *LaneFieldCells) String() string {
 func (*LaneFieldCells) ProtoMessage() {}
 
 func (x *LaneFieldCells) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[75]
+	mi := &file_align_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6847,7 +7075,7 @@ func (x *LaneFieldCells) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LaneFieldCells.ProtoReflect.Descriptor instead.
 func (*LaneFieldCells) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{75}
+	return file_align_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *LaneFieldCells) GetClassGroup() string {
@@ -6908,7 +7136,7 @@ type LaneFieldCellSet struct {
 
 func (x *LaneFieldCellSet) Reset() {
 	*x = LaneFieldCellSet{}
-	mi := &file_align_proto_msgTypes[76]
+	mi := &file_align_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6920,7 +7148,7 @@ func (x *LaneFieldCellSet) String() string {
 func (*LaneFieldCellSet) ProtoMessage() {}
 
 func (x *LaneFieldCellSet) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[76]
+	mi := &file_align_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6933,7 +7161,7 @@ func (x *LaneFieldCellSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LaneFieldCellSet.ProtoReflect.Descriptor instead.
 func (*LaneFieldCellSet) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{76}
+	return file_align_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *LaneFieldCellSet) GetGroups() []*LaneFieldCells {
@@ -6956,7 +7184,7 @@ type UploadLaneFieldRequest struct {
 
 func (x *UploadLaneFieldRequest) Reset() {
 	*x = UploadLaneFieldRequest{}
-	mi := &file_align_proto_msgTypes[77]
+	mi := &file_align_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6968,7 +7196,7 @@ func (x *UploadLaneFieldRequest) String() string {
 func (*UploadLaneFieldRequest) ProtoMessage() {}
 
 func (x *UploadLaneFieldRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[77]
+	mi := &file_align_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6981,7 +7209,7 @@ func (x *UploadLaneFieldRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadLaneFieldRequest.ProtoReflect.Descriptor instead.
 func (*UploadLaneFieldRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{77}
+	return file_align_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *UploadLaneFieldRequest) GetPart() isUploadLaneFieldRequest_Part {
@@ -7036,7 +7264,7 @@ type UploadLaneFieldResponse struct {
 
 func (x *UploadLaneFieldResponse) Reset() {
 	*x = UploadLaneFieldResponse{}
-	mi := &file_align_proto_msgTypes[78]
+	mi := &file_align_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7048,7 +7276,7 @@ func (x *UploadLaneFieldResponse) String() string {
 func (*UploadLaneFieldResponse) ProtoMessage() {}
 
 func (x *UploadLaneFieldResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[78]
+	mi := &file_align_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7061,7 +7289,7 @@ func (x *UploadLaneFieldResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadLaneFieldResponse.ProtoReflect.Descriptor instead.
 func (*UploadLaneFieldResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{78}
+	return file_align_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *UploadLaneFieldResponse) GetFieldId() string {
@@ -7095,7 +7323,7 @@ type GetLaneFieldRequest struct {
 
 func (x *GetLaneFieldRequest) Reset() {
 	*x = GetLaneFieldRequest{}
-	mi := &file_align_proto_msgTypes[79]
+	mi := &file_align_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7107,7 +7335,7 @@ func (x *GetLaneFieldRequest) String() string {
 func (*GetLaneFieldRequest) ProtoMessage() {}
 
 func (x *GetLaneFieldRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[79]
+	mi := &file_align_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7120,7 +7348,7 @@ func (x *GetLaneFieldRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLaneFieldRequest.ProtoReflect.Descriptor instead.
 func (*GetLaneFieldRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{79}
+	return file_align_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *GetLaneFieldRequest) GetL16Token() string {
@@ -7153,7 +7381,7 @@ type GetLaneFieldResponse struct {
 
 func (x *GetLaneFieldResponse) Reset() {
 	*x = GetLaneFieldResponse{}
-	mi := &file_align_proto_msgTypes[80]
+	mi := &file_align_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7165,7 +7393,7 @@ func (x *GetLaneFieldResponse) String() string {
 func (*GetLaneFieldResponse) ProtoMessage() {}
 
 func (x *GetLaneFieldResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[80]
+	mi := &file_align_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7178,7 +7406,7 @@ func (x *GetLaneFieldResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLaneFieldResponse.ProtoReflect.Descriptor instead.
 func (*GetLaneFieldResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{80}
+	return file_align_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *GetLaneFieldResponse) GetOrigin() *Vector3 {
@@ -7252,7 +7480,7 @@ type LateralProfile struct {
 
 func (x *LateralProfile) Reset() {
 	*x = LateralProfile{}
-	mi := &file_align_proto_msgTypes[81]
+	mi := &file_align_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7264,7 +7492,7 @@ func (x *LateralProfile) String() string {
 func (*LateralProfile) ProtoMessage() {}
 
 func (x *LateralProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[81]
+	mi := &file_align_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7277,7 +7505,7 @@ func (x *LateralProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LateralProfile.ProtoReflect.Descriptor instead.
 func (*LateralProfile) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{81}
+	return file_align_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *LateralProfile) GetStationM() float32 {
@@ -7324,7 +7552,7 @@ type LateralProfileSet struct {
 
 func (x *LateralProfileSet) Reset() {
 	*x = LateralProfileSet{}
-	mi := &file_align_proto_msgTypes[82]
+	mi := &file_align_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7336,7 +7564,7 @@ func (x *LateralProfileSet) String() string {
 func (*LateralProfileSet) ProtoMessage() {}
 
 func (x *LateralProfileSet) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[82]
+	mi := &file_align_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7349,7 +7577,7 @@ func (x *LateralProfileSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LateralProfileSet.ProtoReflect.Descriptor instead.
 func (*LateralProfileSet) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{82}
+	return file_align_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *LateralProfileSet) GetProfiles() []*LateralProfile {
@@ -7375,7 +7603,7 @@ type LaneProposalReview struct {
 
 func (x *LaneProposalReview) Reset() {
 	*x = LaneProposalReview{}
-	mi := &file_align_proto_msgTypes[83]
+	mi := &file_align_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7387,7 +7615,7 @@ func (x *LaneProposalReview) String() string {
 func (*LaneProposalReview) ProtoMessage() {}
 
 func (x *LaneProposalReview) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[83]
+	mi := &file_align_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7400,7 +7628,7 @@ func (x *LaneProposalReview) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LaneProposalReview.ProtoReflect.Descriptor instead.
 func (*LaneProposalReview) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{83}
+	return file_align_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *LaneProposalReview) GetReviewId() string {
@@ -7479,7 +7707,7 @@ type LaneProposal struct {
 
 func (x *LaneProposal) Reset() {
 	*x = LaneProposal{}
-	mi := &file_align_proto_msgTypes[84]
+	mi := &file_align_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7491,7 +7719,7 @@ func (x *LaneProposal) String() string {
 func (*LaneProposal) ProtoMessage() {}
 
 func (x *LaneProposal) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[84]
+	mi := &file_align_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7504,7 +7732,7 @@ func (x *LaneProposal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LaneProposal.ProtoReflect.Descriptor instead.
 func (*LaneProposal) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{84}
+	return file_align_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *LaneProposal) GetFeatureId() string {
@@ -7558,7 +7786,7 @@ type ListLaneProposalsRequest struct {
 
 func (x *ListLaneProposalsRequest) Reset() {
 	*x = ListLaneProposalsRequest{}
-	mi := &file_align_proto_msgTypes[85]
+	mi := &file_align_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7570,7 +7798,7 @@ func (x *ListLaneProposalsRequest) String() string {
 func (*ListLaneProposalsRequest) ProtoMessage() {}
 
 func (x *ListLaneProposalsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[85]
+	mi := &file_align_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7583,7 +7811,7 @@ func (x *ListLaneProposalsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLaneProposalsRequest.ProtoReflect.Descriptor instead.
 func (*ListLaneProposalsRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{85}
+	return file_align_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *ListLaneProposalsRequest) GetL16Token() string {
@@ -7604,7 +7832,7 @@ type ListLaneProposalsResponse struct {
 
 func (x *ListLaneProposalsResponse) Reset() {
 	*x = ListLaneProposalsResponse{}
-	mi := &file_align_proto_msgTypes[86]
+	mi := &file_align_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7616,7 +7844,7 @@ func (x *ListLaneProposalsResponse) String() string {
 func (*ListLaneProposalsResponse) ProtoMessage() {}
 
 func (x *ListLaneProposalsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[86]
+	mi := &file_align_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7629,7 +7857,7 @@ func (x *ListLaneProposalsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLaneProposalsResponse.ProtoReflect.Descriptor instead.
 func (*ListLaneProposalsResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{86}
+	return file_align_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *ListLaneProposalsResponse) GetProposals() []*LaneProposal {
@@ -7668,7 +7896,7 @@ type ReviewLaneProposalRequest struct {
 
 func (x *ReviewLaneProposalRequest) Reset() {
 	*x = ReviewLaneProposalRequest{}
-	mi := &file_align_proto_msgTypes[87]
+	mi := &file_align_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7680,7 +7908,7 @@ func (x *ReviewLaneProposalRequest) String() string {
 func (*ReviewLaneProposalRequest) ProtoMessage() {}
 
 func (x *ReviewLaneProposalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[87]
+	mi := &file_align_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7693,7 +7921,7 @@ func (x *ReviewLaneProposalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewLaneProposalRequest.ProtoReflect.Descriptor instead.
 func (*ReviewLaneProposalRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{87}
+	return file_align_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *ReviewLaneProposalRequest) GetL16Token() string {
@@ -7755,7 +7983,7 @@ type ReviewLaneProposalResponse struct {
 
 func (x *ReviewLaneProposalResponse) Reset() {
 	*x = ReviewLaneProposalResponse{}
-	mi := &file_align_proto_msgTypes[88]
+	mi := &file_align_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7767,7 +7995,7 @@ func (x *ReviewLaneProposalResponse) String() string {
 func (*ReviewLaneProposalResponse) ProtoMessage() {}
 
 func (x *ReviewLaneProposalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[88]
+	mi := &file_align_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7780,7 +8008,7 @@ func (x *ReviewLaneProposalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewLaneProposalResponse.ProtoReflect.Descriptor instead.
 func (*ReviewLaneProposalResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{88}
+	return file_align_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *ReviewLaneProposalResponse) GetReview() *LaneProposalReview {
@@ -7809,7 +8037,7 @@ type RoadAssessment struct {
 
 func (x *RoadAssessment) Reset() {
 	*x = RoadAssessment{}
-	mi := &file_align_proto_msgTypes[89]
+	mi := &file_align_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7821,7 +8049,7 @@ func (x *RoadAssessment) String() string {
 func (*RoadAssessment) ProtoMessage() {}
 
 func (x *RoadAssessment) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[89]
+	mi := &file_align_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7834,7 +8062,7 @@ func (x *RoadAssessment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadAssessment.ProtoReflect.Descriptor instead.
 func (*RoadAssessment) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{89}
+	return file_align_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *RoadAssessment) GetComponent() string {
@@ -7881,7 +8109,7 @@ type RoadRing struct {
 
 func (x *RoadRing) Reset() {
 	*x = RoadRing{}
-	mi := &file_align_proto_msgTypes[90]
+	mi := &file_align_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7893,7 +8121,7 @@ func (x *RoadRing) String() string {
 func (*RoadRing) ProtoMessage() {}
 
 func (x *RoadRing) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[90]
+	mi := &file_align_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7906,7 +8134,7 @@ func (x *RoadRing) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadRing.ProtoReflect.Descriptor instead.
 func (*RoadRing) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{90}
+	return file_align_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *RoadRing) GetXyz() []float32 {
@@ -7962,7 +8190,7 @@ type RoadPatchStats struct {
 
 func (x *RoadPatchStats) Reset() {
 	*x = RoadPatchStats{}
-	mi := &file_align_proto_msgTypes[91]
+	mi := &file_align_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7974,7 +8202,7 @@ func (x *RoadPatchStats) String() string {
 func (*RoadPatchStats) ProtoMessage() {}
 
 func (x *RoadPatchStats) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[91]
+	mi := &file_align_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7987,7 +8215,7 @@ func (x *RoadPatchStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadPatchStats.ProtoReflect.Descriptor instead.
 func (*RoadPatchStats) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{91}
+	return file_align_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *RoadPatchStats) GetAreaM2() float32 {
@@ -8089,7 +8317,7 @@ type RoadProfileStation struct {
 
 func (x *RoadProfileStation) Reset() {
 	*x = RoadProfileStation{}
-	mi := &file_align_proto_msgTypes[92]
+	mi := &file_align_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8101,7 +8329,7 @@ func (x *RoadProfileStation) String() string {
 func (*RoadProfileStation) ProtoMessage() {}
 
 func (x *RoadProfileStation) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[92]
+	mi := &file_align_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8114,7 +8342,7 @@ func (x *RoadProfileStation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadProfileStation.ProtoReflect.Descriptor instead.
 func (*RoadProfileStation) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{92}
+	return file_align_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *RoadProfileStation) GetSM() float32 {
@@ -8189,7 +8417,7 @@ type RoadSurfacePatch struct {
 
 func (x *RoadSurfacePatch) Reset() {
 	*x = RoadSurfacePatch{}
-	mi := &file_align_proto_msgTypes[93]
+	mi := &file_align_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8201,7 +8429,7 @@ func (x *RoadSurfacePatch) String() string {
 func (*RoadSurfacePatch) ProtoMessage() {}
 
 func (x *RoadSurfacePatch) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[93]
+	mi := &file_align_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8214,7 +8442,7 @@ func (x *RoadSurfacePatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadSurfacePatch.ProtoReflect.Descriptor instead.
 func (*RoadSurfacePatch) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{93}
+	return file_align_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *RoadSurfacePatch) GetPatchId() string {
@@ -8375,7 +8603,7 @@ type RoadGap struct {
 
 func (x *RoadGap) Reset() {
 	*x = RoadGap{}
-	mi := &file_align_proto_msgTypes[94]
+	mi := &file_align_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8387,7 +8615,7 @@ func (x *RoadGap) String() string {
 func (*RoadGap) ProtoMessage() {}
 
 func (x *RoadGap) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[94]
+	mi := &file_align_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8400,7 +8628,7 @@ func (x *RoadGap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadGap.ProtoReflect.Descriptor instead.
 func (*RoadGap) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{94}
+	return file_align_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *RoadGap) GetFeatureId() string {
@@ -8476,7 +8704,7 @@ type RoadSurfaceLayer struct {
 
 func (x *RoadSurfaceLayer) Reset() {
 	*x = RoadSurfaceLayer{}
-	mi := &file_align_proto_msgTypes[95]
+	mi := &file_align_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8488,7 +8716,7 @@ func (x *RoadSurfaceLayer) String() string {
 func (*RoadSurfaceLayer) ProtoMessage() {}
 
 func (x *RoadSurfaceLayer) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[95]
+	mi := &file_align_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8501,7 +8729,7 @@ func (x *RoadSurfaceLayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadSurfaceLayer.ProtoReflect.Descriptor instead.
 func (*RoadSurfaceLayer) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{95}
+	return file_align_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *RoadSurfaceLayer) GetVersion() uint32 {
@@ -8624,7 +8852,7 @@ type ListRoadCorridorsRequest struct {
 
 func (x *ListRoadCorridorsRequest) Reset() {
 	*x = ListRoadCorridorsRequest{}
-	mi := &file_align_proto_msgTypes[96]
+	mi := &file_align_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8636,7 +8864,7 @@ func (x *ListRoadCorridorsRequest) String() string {
 func (*ListRoadCorridorsRequest) ProtoMessage() {}
 
 func (x *ListRoadCorridorsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[96]
+	mi := &file_align_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8649,7 +8877,7 @@ func (x *ListRoadCorridorsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoadCorridorsRequest.ProtoReflect.Descriptor instead.
 func (*ListRoadCorridorsRequest) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{96}
+	return file_align_proto_rawDescGZIP(), []int{99}
 }
 
 // One built corridor: its layer header (hashes, fit parameters, gaps and the
@@ -8673,7 +8901,7 @@ type RoadCorridorSummary struct {
 
 func (x *RoadCorridorSummary) Reset() {
 	*x = RoadCorridorSummary{}
-	mi := &file_align_proto_msgTypes[97]
+	mi := &file_align_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8685,7 +8913,7 @@ func (x *RoadCorridorSummary) String() string {
 func (*RoadCorridorSummary) ProtoMessage() {}
 
 func (x *RoadCorridorSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[97]
+	mi := &file_align_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8698,7 +8926,7 @@ func (x *RoadCorridorSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadCorridorSummary.ProtoReflect.Descriptor instead.
 func (*RoadCorridorSummary) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{97}
+	return file_align_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *RoadCorridorSummary) GetLayer() *RoadSurfaceLayer {
@@ -8766,7 +8994,7 @@ type ListRoadCorridorsResponse struct {
 
 func (x *ListRoadCorridorsResponse) Reset() {
 	*x = ListRoadCorridorsResponse{}
-	mi := &file_align_proto_msgTypes[98]
+	mi := &file_align_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8778,7 +9006,7 @@ func (x *ListRoadCorridorsResponse) String() string {
 func (*ListRoadCorridorsResponse) ProtoMessage() {}
 
 func (x *ListRoadCorridorsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[98]
+	mi := &file_align_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8791,7 +9019,7 @@ func (x *ListRoadCorridorsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoadCorridorsResponse.ProtoReflect.Descriptor instead.
 func (*ListRoadCorridorsResponse) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{98}
+	return file_align_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *ListRoadCorridorsResponse) GetCorridors() []*RoadCorridorSummary {
@@ -8811,7 +9039,7 @@ type RoadSurfaceChunk struct {
 
 func (x *RoadSurfaceChunk) Reset() {
 	*x = RoadSurfaceChunk{}
-	mi := &file_align_proto_msgTypes[99]
+	mi := &file_align_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8823,7 +9051,7 @@ func (x *RoadSurfaceChunk) String() string {
 func (*RoadSurfaceChunk) ProtoMessage() {}
 
 func (x *RoadSurfaceChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_align_proto_msgTypes[99]
+	mi := &file_align_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8836,7 +9064,7 @@ func (x *RoadSurfaceChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoadSurfaceChunk.ProtoReflect.Descriptor instead.
 func (*RoadSurfaceChunk) Descriptor() ([]byte, []int) {
-	return file_align_proto_rawDescGZIP(), []int{99}
+	return file_align_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *RoadSurfaceChunk) GetLayer() *RoadSurfaceLayer {
@@ -9122,7 +9350,7 @@ const file_align_proto_rawDesc = "" +
 	"\asources\x18\x13 \x03(\v2#.gerardus.align.v1alpha1.SourceInfoR\asources\x12%\n" +
 	"\x0eserver_version\x18\x14 \x01(\tR\rserverVersion\x120\n" +
 	"\x14supersedes_record_id\x18\x15 \x01(\tR\x12supersedesRecordId\"\x16\n" +
-	"\x14GetServerInfoRequest\"\x9b\x06\n" +
+	"\x14GetServerInfoRequest\"\xd5\x06\n" +
 	"\x15GetServerInfoResponse\x12%\n" +
 	"\x0eserver_version\x18\x01 \x01(\tR\rserverVersion\x12\x1f\n" +
 	"\vapi_version\x18\x02 \x01(\tR\n" +
@@ -9138,7 +9366,8 @@ const file_align_proto_rawDesc = "" +
 	" \x01(\tR\rcityTilesPath\x12(\n" +
 	"\x10city_tiles_epoch\x18\v \x01(\tR\x0ecityTilesEpoch\x120\n" +
 	"\x14road_surface_version\x18\f \x01(\rR\x12roadSurfaceVersion\x122\n" +
-	"\x15road_corridors_listed\x18\r \x01(\bR\x13roadCorridorsListed\"a\n" +
+	"\x15road_corridors_listed\x18\r \x01(\bR\x13roadCorridorsListed\x128\n" +
+	"\x18supports_road_generation\x18\x0e \x01(\bR\x16supportsRoadGeneration\"a\n" +
 	"\x12PrepareSiteRequest\x12\x1b\n" +
 	"\tl16_token\x18\x01 \x01(\tR\bl16Token\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x18\n" +
@@ -9146,6 +9375,24 @@ const file_align_proto_rawDesc = "" +
 	"\x13PrepareSiteResponse\x12?\n" +
 	"\bprogress\x18\x01 \x01(\v2!.gerardus.align.v1alpha1.ProgressH\x00R\bprogress\x123\n" +
 	"\x04site\x18\x02 \x01(\v2\x1d.gerardus.align.v1alpha1.SiteH\x00R\x04siteB\a\n" +
+	"\x05event\"\x91\x01\n" +
+	"\x1bGenerateRoadGeometryRequest\x12\x1b\n" +
+	"\tl16_token\x18\x01 \x01(\tR\bl16Token\x12\x19\n" +
+	"\bradius_m\x18\x02 \x01(\x02R\aradiusM\x12 \n" +
+	"\fhalf_width_m\x18\x03 \x01(\x02R\n" +
+	"halfWidthM\x12\x18\n" +
+	"\arefresh\x18\x04 \x01(\bR\arefresh\"\x95\x01\n" +
+	"\x15GeneratedRoadGeometry\x12\x1b\n" +
+	"\tl16_token\x18\x01 \x01(\tR\bl16Token\x12\x1f\n" +
+	"\vcorridor_id\x18\x02 \x01(\tR\n" +
+	"corridorId\x12\x1d\n" +
+	"\n" +
+	"build_hash\x18\x03 \x01(\tR\tbuildHash\x12\x1f\n" +
+	"\vpatch_count\x18\x04 \x01(\rR\n" +
+	"patchCount\"\xb2\x01\n" +
+	"\x1cGenerateRoadGeometryResponse\x12?\n" +
+	"\bprogress\x18\x01 \x01(\v2!.gerardus.align.v1alpha1.ProgressH\x00R\bprogress\x12H\n" +
+	"\x06result\x18\x02 \x01(\v2..gerardus.align.v1alpha1.GeneratedRoadGeometryH\x00R\x06resultB\a\n" +
 	"\x05event\"-\n" +
 	"\x0eGetSiteRequest\x12\x1b\n" +
 	"\tl16_token\x18\x01 \x01(\tR\bl16Token\"D\n" +
@@ -9665,11 +9912,11 @@ const file_align_proto_rawDesc = "" +
 	"\x13RoadAssessmentState\x12%\n" +
 	"!ROAD_ASSESSMENT_STATE_UNSPECIFIED\x10\x00\x12&\n" +
 	"\"ROAD_ASSESSMENT_STATE_NOT_ASSESSED\x10\x01\x12\"\n" +
-	"\x1eROAD_ASSESSMENT_STATE_ASSESSED\x10\x022\xd4\n" +
-	"\n" +
+	"\x1eROAD_ASSESSMENT_STATE_ASSESSED\x10\x022\xdc\v\n" +
 	"\vSiteService\x12n\n" +
 	"\rGetServerInfo\x12-.gerardus.align.v1alpha1.GetServerInfoRequest\x1a..gerardus.align.v1alpha1.GetServerInfoResponse\x12j\n" +
-	"\vPrepareSite\x12+.gerardus.align.v1alpha1.PrepareSiteRequest\x1a,.gerardus.align.v1alpha1.PrepareSiteResponse0\x01\x12\\\n" +
+	"\vPrepareSite\x12+.gerardus.align.v1alpha1.PrepareSiteRequest\x1a,.gerardus.align.v1alpha1.PrepareSiteResponse0\x01\x12\x85\x01\n" +
+	"\x14GenerateRoadGeometry\x124.gerardus.align.v1alpha1.GenerateRoadGeometryRequest\x1a5.gerardus.align.v1alpha1.GenerateRoadGeometryResponse0\x01\x12\\\n" +
 	"\aGetSite\x12'.gerardus.align.v1alpha1.GetSiteRequest\x1a(.gerardus.align.v1alpha1.GetSiteResponse\x12b\n" +
 	"\tListSites\x12).gerardus.align.v1alpha1.ListSitesRequest\x1a*.gerardus.align.v1alpha1.ListSitesResponse\x12z\n" +
 	"\x11ListRoadCorridors\x121.gerardus.align.v1alpha1.ListRoadCorridorsRequest\x1a2.gerardus.align.v1alpha1.ListRoadCorridorsResponse\x12v\n" +
@@ -9709,7 +9956,7 @@ func file_align_proto_rawDescGZIP() []byte {
 }
 
 var file_align_proto_enumTypes = make([]protoimpl.EnumInfo, 11)
-var file_align_proto_msgTypes = make([]protoimpl.MessageInfo, 103)
+var file_align_proto_msgTypes = make([]protoimpl.MessageInfo, 106)
 var file_align_proto_goTypes = []any{
 	(PoseSource)(0),                         // 0: gerardus.align.v1alpha1.PoseSource
 	(ReferenceLayer)(0),                     // 1: gerardus.align.v1alpha1.ReferenceLayer
@@ -9756,76 +10003,79 @@ var file_align_proto_goTypes = []any{
 	(*GetServerInfoResponse)(nil),           // 42: gerardus.align.v1alpha1.GetServerInfoResponse
 	(*PrepareSiteRequest)(nil),              // 43: gerardus.align.v1alpha1.PrepareSiteRequest
 	(*PrepareSiteResponse)(nil),             // 44: gerardus.align.v1alpha1.PrepareSiteResponse
-	(*GetSiteRequest)(nil),                  // 45: gerardus.align.v1alpha1.GetSiteRequest
-	(*GetSiteResponse)(nil),                 // 46: gerardus.align.v1alpha1.GetSiteResponse
-	(*ListSitesRequest)(nil),                // 47: gerardus.align.v1alpha1.ListSitesRequest
-	(*ListSitesResponse)(nil),               // 48: gerardus.align.v1alpha1.ListSitesResponse
-	(*StreamReferenceRequest)(nil),          // 49: gerardus.align.v1alpha1.StreamReferenceRequest
-	(*StreamReferenceResponse)(nil),         // 50: gerardus.align.v1alpha1.StreamReferenceResponse
-	(*UploadScanRequest)(nil),               // 51: gerardus.align.v1alpha1.UploadScanRequest
-	(*UploadScanResponse)(nil),              // 52: gerardus.align.v1alpha1.UploadScanResponse
-	(*PoseFromHintRequest)(nil),             // 53: gerardus.align.v1alpha1.PoseFromHintRequest
-	(*PoseFromHintResponse)(nil),            // 54: gerardus.align.v1alpha1.PoseFromHintResponse
-	(*RegisterRequest)(nil),                 // 55: gerardus.align.v1alpha1.RegisterRequest
-	(*RegisterResponse)(nil),                // 56: gerardus.align.v1alpha1.RegisterResponse
-	(*EvaluatePoseRequest)(nil),             // 57: gerardus.align.v1alpha1.EvaluatePoseRequest
-	(*EvaluatePoseResponse)(nil),            // 58: gerardus.align.v1alpha1.EvaluatePoseResponse
-	(*SolveTiePointsRequest)(nil),           // 59: gerardus.align.v1alpha1.SolveTiePointsRequest
-	(*SolveTiePointsResponse)(nil),          // 60: gerardus.align.v1alpha1.SolveTiePointsResponse
-	(*GetRegistrationRequest)(nil),          // 61: gerardus.align.v1alpha1.GetRegistrationRequest
-	(*GetRegistrationResponse)(nil),         // 62: gerardus.align.v1alpha1.GetRegistrationResponse
-	(*ReviewRegistrationRequest)(nil),       // 63: gerardus.align.v1alpha1.ReviewRegistrationRequest
-	(*ReviewRegistrationResponse)(nil),      // 64: gerardus.align.v1alpha1.ReviewRegistrationResponse
-	(*ReviewRegistrationsRequest)(nil),      // 65: gerardus.align.v1alpha1.ReviewRegistrationsRequest
-	(*ReviewRegistrationsResponse)(nil),     // 66: gerardus.align.v1alpha1.ReviewRegistrationsResponse
-	(*ListRegistrationRecordsRequest)(nil),  // 67: gerardus.align.v1alpha1.ListRegistrationRecordsRequest
-	(*ListRegistrationRecordsResponse)(nil), // 68: gerardus.align.v1alpha1.ListRegistrationRecordsResponse
-	(*GetSiteModelRequest)(nil),             // 69: gerardus.align.v1alpha1.GetSiteModelRequest
-	(*ModelScan)(nil),                       // 70: gerardus.align.v1alpha1.ModelScan
-	(*GetSiteModelResponse)(nil),            // 71: gerardus.align.v1alpha1.GetSiteModelResponse
-	(*DerivedBuildStatus)(nil),              // 72: gerardus.align.v1alpha1.DerivedBuildStatus
-	(*RefineSiteRequest)(nil),               // 73: gerardus.align.v1alpha1.RefineSiteRequest
-	(*RefinedScan)(nil),                     // 74: gerardus.align.v1alpha1.RefinedScan
-	(*ScanPair)(nil),                        // 75: gerardus.align.v1alpha1.ScanPair
-	(*RefineSiteResult)(nil),                // 76: gerardus.align.v1alpha1.RefineSiteResult
-	(*RefineSiteResponse)(nil),              // 77: gerardus.align.v1alpha1.RefineSiteResponse
-	(*StreetUseFeature)(nil),                // 78: gerardus.align.v1alpha1.StreetUseFeature
-	(*StreetUseEdit)(nil),                   // 79: gerardus.align.v1alpha1.StreetUseEdit
-	(*ListStreetUseRequest)(nil),            // 80: gerardus.align.v1alpha1.ListStreetUseRequest
-	(*ListStreetUseResponse)(nil),           // 81: gerardus.align.v1alpha1.ListStreetUseResponse
-	(*EditStreetUseRequest)(nil),            // 82: gerardus.align.v1alpha1.EditStreetUseRequest
-	(*StreetUseProblem)(nil),                // 83: gerardus.align.v1alpha1.StreetUseProblem
-	(*EditStreetUseResponse)(nil),           // 84: gerardus.align.v1alpha1.EditStreetUseResponse
-	(*LaneFieldHeader)(nil),                 // 85: gerardus.align.v1alpha1.LaneFieldHeader
-	(*LaneFieldCells)(nil),                  // 86: gerardus.align.v1alpha1.LaneFieldCells
-	(*LaneFieldCellSet)(nil),                // 87: gerardus.align.v1alpha1.LaneFieldCellSet
-	(*UploadLaneFieldRequest)(nil),          // 88: gerardus.align.v1alpha1.UploadLaneFieldRequest
-	(*UploadLaneFieldResponse)(nil),         // 89: gerardus.align.v1alpha1.UploadLaneFieldResponse
-	(*GetLaneFieldRequest)(nil),             // 90: gerardus.align.v1alpha1.GetLaneFieldRequest
-	(*GetLaneFieldResponse)(nil),            // 91: gerardus.align.v1alpha1.GetLaneFieldResponse
-	(*LateralProfile)(nil),                  // 92: gerardus.align.v1alpha1.LateralProfile
-	(*LateralProfileSet)(nil),               // 93: gerardus.align.v1alpha1.LateralProfileSet
-	(*LaneProposalReview)(nil),              // 94: gerardus.align.v1alpha1.LaneProposalReview
-	(*LaneProposal)(nil),                    // 95: gerardus.align.v1alpha1.LaneProposal
-	(*ListLaneProposalsRequest)(nil),        // 96: gerardus.align.v1alpha1.ListLaneProposalsRequest
-	(*ListLaneProposalsResponse)(nil),       // 97: gerardus.align.v1alpha1.ListLaneProposalsResponse
-	(*ReviewLaneProposalRequest)(nil),       // 98: gerardus.align.v1alpha1.ReviewLaneProposalRequest
-	(*ReviewLaneProposalResponse)(nil),      // 99: gerardus.align.v1alpha1.ReviewLaneProposalResponse
-	(*RoadAssessment)(nil),                  // 100: gerardus.align.v1alpha1.RoadAssessment
-	(*RoadRing)(nil),                        // 101: gerardus.align.v1alpha1.RoadRing
-	(*RoadPatchStats)(nil),                  // 102: gerardus.align.v1alpha1.RoadPatchStats
-	(*RoadProfileStation)(nil),              // 103: gerardus.align.v1alpha1.RoadProfileStation
-	(*RoadSurfacePatch)(nil),                // 104: gerardus.align.v1alpha1.RoadSurfacePatch
-	(*RoadGap)(nil),                         // 105: gerardus.align.v1alpha1.RoadGap
-	(*RoadSurfaceLayer)(nil),                // 106: gerardus.align.v1alpha1.RoadSurfaceLayer
-	(*ListRoadCorridorsRequest)(nil),        // 107: gerardus.align.v1alpha1.ListRoadCorridorsRequest
-	(*RoadCorridorSummary)(nil),             // 108: gerardus.align.v1alpha1.RoadCorridorSummary
-	(*ListRoadCorridorsResponse)(nil),       // 109: gerardus.align.v1alpha1.ListRoadCorridorsResponse
-	(*RoadSurfaceChunk)(nil),                // 110: gerardus.align.v1alpha1.RoadSurfaceChunk
-	nil,                                     // 111: gerardus.align.v1alpha1.LineFeature.TagsEntry
-	nil,                                     // 112: gerardus.align.v1alpha1.Registration.RefinementHeadsEntry
-	nil,                                     // 113: gerardus.align.v1alpha1.StreetUseFeature.TagsEntry
-	(*timestamppb.Timestamp)(nil),           // 114: google.protobuf.Timestamp
+	(*GenerateRoadGeometryRequest)(nil),     // 45: gerardus.align.v1alpha1.GenerateRoadGeometryRequest
+	(*GeneratedRoadGeometry)(nil),           // 46: gerardus.align.v1alpha1.GeneratedRoadGeometry
+	(*GenerateRoadGeometryResponse)(nil),    // 47: gerardus.align.v1alpha1.GenerateRoadGeometryResponse
+	(*GetSiteRequest)(nil),                  // 48: gerardus.align.v1alpha1.GetSiteRequest
+	(*GetSiteResponse)(nil),                 // 49: gerardus.align.v1alpha1.GetSiteResponse
+	(*ListSitesRequest)(nil),                // 50: gerardus.align.v1alpha1.ListSitesRequest
+	(*ListSitesResponse)(nil),               // 51: gerardus.align.v1alpha1.ListSitesResponse
+	(*StreamReferenceRequest)(nil),          // 52: gerardus.align.v1alpha1.StreamReferenceRequest
+	(*StreamReferenceResponse)(nil),         // 53: gerardus.align.v1alpha1.StreamReferenceResponse
+	(*UploadScanRequest)(nil),               // 54: gerardus.align.v1alpha1.UploadScanRequest
+	(*UploadScanResponse)(nil),              // 55: gerardus.align.v1alpha1.UploadScanResponse
+	(*PoseFromHintRequest)(nil),             // 56: gerardus.align.v1alpha1.PoseFromHintRequest
+	(*PoseFromHintResponse)(nil),            // 57: gerardus.align.v1alpha1.PoseFromHintResponse
+	(*RegisterRequest)(nil),                 // 58: gerardus.align.v1alpha1.RegisterRequest
+	(*RegisterResponse)(nil),                // 59: gerardus.align.v1alpha1.RegisterResponse
+	(*EvaluatePoseRequest)(nil),             // 60: gerardus.align.v1alpha1.EvaluatePoseRequest
+	(*EvaluatePoseResponse)(nil),            // 61: gerardus.align.v1alpha1.EvaluatePoseResponse
+	(*SolveTiePointsRequest)(nil),           // 62: gerardus.align.v1alpha1.SolveTiePointsRequest
+	(*SolveTiePointsResponse)(nil),          // 63: gerardus.align.v1alpha1.SolveTiePointsResponse
+	(*GetRegistrationRequest)(nil),          // 64: gerardus.align.v1alpha1.GetRegistrationRequest
+	(*GetRegistrationResponse)(nil),         // 65: gerardus.align.v1alpha1.GetRegistrationResponse
+	(*ReviewRegistrationRequest)(nil),       // 66: gerardus.align.v1alpha1.ReviewRegistrationRequest
+	(*ReviewRegistrationResponse)(nil),      // 67: gerardus.align.v1alpha1.ReviewRegistrationResponse
+	(*ReviewRegistrationsRequest)(nil),      // 68: gerardus.align.v1alpha1.ReviewRegistrationsRequest
+	(*ReviewRegistrationsResponse)(nil),     // 69: gerardus.align.v1alpha1.ReviewRegistrationsResponse
+	(*ListRegistrationRecordsRequest)(nil),  // 70: gerardus.align.v1alpha1.ListRegistrationRecordsRequest
+	(*ListRegistrationRecordsResponse)(nil), // 71: gerardus.align.v1alpha1.ListRegistrationRecordsResponse
+	(*GetSiteModelRequest)(nil),             // 72: gerardus.align.v1alpha1.GetSiteModelRequest
+	(*ModelScan)(nil),                       // 73: gerardus.align.v1alpha1.ModelScan
+	(*GetSiteModelResponse)(nil),            // 74: gerardus.align.v1alpha1.GetSiteModelResponse
+	(*DerivedBuildStatus)(nil),              // 75: gerardus.align.v1alpha1.DerivedBuildStatus
+	(*RefineSiteRequest)(nil),               // 76: gerardus.align.v1alpha1.RefineSiteRequest
+	(*RefinedScan)(nil),                     // 77: gerardus.align.v1alpha1.RefinedScan
+	(*ScanPair)(nil),                        // 78: gerardus.align.v1alpha1.ScanPair
+	(*RefineSiteResult)(nil),                // 79: gerardus.align.v1alpha1.RefineSiteResult
+	(*RefineSiteResponse)(nil),              // 80: gerardus.align.v1alpha1.RefineSiteResponse
+	(*StreetUseFeature)(nil),                // 81: gerardus.align.v1alpha1.StreetUseFeature
+	(*StreetUseEdit)(nil),                   // 82: gerardus.align.v1alpha1.StreetUseEdit
+	(*ListStreetUseRequest)(nil),            // 83: gerardus.align.v1alpha1.ListStreetUseRequest
+	(*ListStreetUseResponse)(nil),           // 84: gerardus.align.v1alpha1.ListStreetUseResponse
+	(*EditStreetUseRequest)(nil),            // 85: gerardus.align.v1alpha1.EditStreetUseRequest
+	(*StreetUseProblem)(nil),                // 86: gerardus.align.v1alpha1.StreetUseProblem
+	(*EditStreetUseResponse)(nil),           // 87: gerardus.align.v1alpha1.EditStreetUseResponse
+	(*LaneFieldHeader)(nil),                 // 88: gerardus.align.v1alpha1.LaneFieldHeader
+	(*LaneFieldCells)(nil),                  // 89: gerardus.align.v1alpha1.LaneFieldCells
+	(*LaneFieldCellSet)(nil),                // 90: gerardus.align.v1alpha1.LaneFieldCellSet
+	(*UploadLaneFieldRequest)(nil),          // 91: gerardus.align.v1alpha1.UploadLaneFieldRequest
+	(*UploadLaneFieldResponse)(nil),         // 92: gerardus.align.v1alpha1.UploadLaneFieldResponse
+	(*GetLaneFieldRequest)(nil),             // 93: gerardus.align.v1alpha1.GetLaneFieldRequest
+	(*GetLaneFieldResponse)(nil),            // 94: gerardus.align.v1alpha1.GetLaneFieldResponse
+	(*LateralProfile)(nil),                  // 95: gerardus.align.v1alpha1.LateralProfile
+	(*LateralProfileSet)(nil),               // 96: gerardus.align.v1alpha1.LateralProfileSet
+	(*LaneProposalReview)(nil),              // 97: gerardus.align.v1alpha1.LaneProposalReview
+	(*LaneProposal)(nil),                    // 98: gerardus.align.v1alpha1.LaneProposal
+	(*ListLaneProposalsRequest)(nil),        // 99: gerardus.align.v1alpha1.ListLaneProposalsRequest
+	(*ListLaneProposalsResponse)(nil),       // 100: gerardus.align.v1alpha1.ListLaneProposalsResponse
+	(*ReviewLaneProposalRequest)(nil),       // 101: gerardus.align.v1alpha1.ReviewLaneProposalRequest
+	(*ReviewLaneProposalResponse)(nil),      // 102: gerardus.align.v1alpha1.ReviewLaneProposalResponse
+	(*RoadAssessment)(nil),                  // 103: gerardus.align.v1alpha1.RoadAssessment
+	(*RoadRing)(nil),                        // 104: gerardus.align.v1alpha1.RoadRing
+	(*RoadPatchStats)(nil),                  // 105: gerardus.align.v1alpha1.RoadPatchStats
+	(*RoadProfileStation)(nil),              // 106: gerardus.align.v1alpha1.RoadProfileStation
+	(*RoadSurfacePatch)(nil),                // 107: gerardus.align.v1alpha1.RoadSurfacePatch
+	(*RoadGap)(nil),                         // 108: gerardus.align.v1alpha1.RoadGap
+	(*RoadSurfaceLayer)(nil),                // 109: gerardus.align.v1alpha1.RoadSurfaceLayer
+	(*ListRoadCorridorsRequest)(nil),        // 110: gerardus.align.v1alpha1.ListRoadCorridorsRequest
+	(*RoadCorridorSummary)(nil),             // 111: gerardus.align.v1alpha1.RoadCorridorSummary
+	(*ListRoadCorridorsResponse)(nil),       // 112: gerardus.align.v1alpha1.ListRoadCorridorsResponse
+	(*RoadSurfaceChunk)(nil),                // 113: gerardus.align.v1alpha1.RoadSurfaceChunk
+	nil,                                     // 114: gerardus.align.v1alpha1.LineFeature.TagsEntry
+	nil,                                     // 115: gerardus.align.v1alpha1.Registration.RefinementHeadsEntry
+	nil,                                     // 116: gerardus.align.v1alpha1.StreetUseFeature.TagsEntry
+	(*timestamppb.Timestamp)(nil),           // 117: google.protobuf.Timestamp
 }
 var file_align_proto_depIdxs = []int32{
 	13,  // 0: gerardus.align.v1alpha1.SiteFrame.origin:type_name -> gerardus.align.v1alpha1.GeodeticPosition
@@ -9836,14 +10086,14 @@ var file_align_proto_depIdxs = []int32{
 	13,  // 5: gerardus.align.v1alpha1.GeoPose.position:type_name -> gerardus.align.v1alpha1.GeodeticPosition
 	12,  // 6: gerardus.align.v1alpha1.GeoPose.orientation:type_name -> gerardus.align.v1alpha1.Quaternion
 	1,   // 7: gerardus.align.v1alpha1.SourceInfo.layer:type_name -> gerardus.align.v1alpha1.ReferenceLayer
-	114, // 8: gerardus.align.v1alpha1.SourceInfo.retrieved_at:type_name -> google.protobuf.Timestamp
+	117, // 8: gerardus.align.v1alpha1.SourceInfo.retrieved_at:type_name -> google.protobuf.Timestamp
 	1,   // 9: gerardus.align.v1alpha1.LayerSummary.layer:type_name -> gerardus.align.v1alpha1.ReferenceLayer
 	15,  // 10: gerardus.align.v1alpha1.Site.frame:type_name -> gerardus.align.v1alpha1.SiteFrame
 	20,  // 11: gerardus.align.v1alpha1.Site.layers:type_name -> gerardus.align.v1alpha1.LayerSummary
 	19,  // 12: gerardus.align.v1alpha1.Site.sources:type_name -> gerardus.align.v1alpha1.SourceInfo
-	114, // 13: gerardus.align.v1alpha1.Site.prepared_at:type_name -> google.protobuf.Timestamp
+	117, // 13: gerardus.align.v1alpha1.Site.prepared_at:type_name -> google.protobuf.Timestamp
 	2,   // 14: gerardus.align.v1alpha1.LineFeature.kind:type_name -> gerardus.align.v1alpha1.FeatureKind
-	111, // 15: gerardus.align.v1alpha1.LineFeature.tags:type_name -> gerardus.align.v1alpha1.LineFeature.TagsEntry
+	114, // 15: gerardus.align.v1alpha1.LineFeature.tags:type_name -> gerardus.align.v1alpha1.LineFeature.TagsEntry
 	22,  // 16: gerardus.align.v1alpha1.LineFeatureSet.features:type_name -> gerardus.align.v1alpha1.LineFeature
 	11,  // 17: gerardus.align.v1alpha1.Intersection.position:type_name -> gerardus.align.v1alpha1.Vector3
 	24,  // 18: gerardus.align.v1alpha1.Intersection.approaches:type_name -> gerardus.align.v1alpha1.Approach
@@ -9852,7 +10102,7 @@ var file_align_proto_depIdxs = []int32{
 	14,  // 21: gerardus.align.v1alpha1.ScanPoints.points:type_name -> gerardus.align.v1alpha1.PointBlock
 	11,  // 22: gerardus.align.v1alpha1.Heightfield.origin:type_name -> gerardus.align.v1alpha1.Vector3
 	3,   // 23: gerardus.align.v1alpha1.ScanHeader.kind:type_name -> gerardus.align.v1alpha1.ScanKind
-	114, // 24: gerardus.align.v1alpha1.ScanHeader.captured_at:type_name -> google.protobuf.Timestamp
+	117, // 24: gerardus.align.v1alpha1.ScanHeader.captured_at:type_name -> google.protobuf.Timestamp
 	30,  // 25: gerardus.align.v1alpha1.ScanHeader.transient:type_name -> gerardus.align.v1alpha1.Box3
 	11,  // 26: gerardus.align.v1alpha1.Box3.centre:type_name -> gerardus.align.v1alpha1.Vector3
 	11,  // 27: gerardus.align.v1alpha1.Box3.size_m:type_name -> gerardus.align.v1alpha1.Vector3
@@ -9866,8 +10116,8 @@ var file_align_proto_depIdxs = []int32{
 	36,  // 35: gerardus.align.v1alpha1.Registration.gates:type_name -> gerardus.align.v1alpha1.GateResult
 	33,  // 36: gerardus.align.v1alpha1.Registration.options:type_name -> gerardus.align.v1alpha1.RegistrationOptions
 	16,  // 37: gerardus.align.v1alpha1.Registration.initial_pose:type_name -> gerardus.align.v1alpha1.SensorPose
-	114, // 38: gerardus.align.v1alpha1.Registration.created_at:type_name -> google.protobuf.Timestamp
-	112, // 39: gerardus.align.v1alpha1.Registration.refinement_heads:type_name -> gerardus.align.v1alpha1.Registration.RefinementHeadsEntry
+	117, // 38: gerardus.align.v1alpha1.Registration.created_at:type_name -> google.protobuf.Timestamp
+	115, // 39: gerardus.align.v1alpha1.Registration.refinement_heads:type_name -> gerardus.align.v1alpha1.Registration.RefinementHeadsEntry
 	11,  // 40: gerardus.align.v1alpha1.TiePoint.sensor_point:type_name -> gerardus.align.v1alpha1.Vector3
 	11,  // 41: gerardus.align.v1alpha1.TiePoint.site_point:type_name -> gerardus.align.v1alpha1.Vector3
 	4,   // 42: gerardus.align.v1alpha1.RegistrationRecord.state:type_name -> gerardus.align.v1alpha1.RegistrationState
@@ -9878,7 +10128,7 @@ var file_align_proto_depIdxs = []int32{
 	18,  // 47: gerardus.align.v1alpha1.RegistrationRecord.geopose_wgs84:type_name -> gerardus.align.v1alpha1.GeoPose
 	35,  // 48: gerardus.align.v1alpha1.RegistrationRecord.quality:type_name -> gerardus.align.v1alpha1.FitQuality
 	36,  // 49: gerardus.align.v1alpha1.RegistrationRecord.gates:type_name -> gerardus.align.v1alpha1.GateResult
-	114, // 50: gerardus.align.v1alpha1.RegistrationRecord.reviewed_at:type_name -> google.protobuf.Timestamp
+	117, // 50: gerardus.align.v1alpha1.RegistrationRecord.reviewed_at:type_name -> google.protobuf.Timestamp
 	19,  // 51: gerardus.align.v1alpha1.RegistrationRecord.sources:type_name -> gerardus.align.v1alpha1.SourceInfo
 	1,   // 52: gerardus.align.v1alpha1.GetServerInfoResponse.available_layers:type_name -> gerardus.align.v1alpha1.ReferenceLayer
 	33,  // 53: gerardus.align.v1alpha1.GetServerInfoResponse.default_options:type_name -> gerardus.align.v1alpha1.RegistrationOptions
@@ -9886,152 +10136,156 @@ var file_align_proto_depIdxs = []int32{
 	1,   // 55: gerardus.align.v1alpha1.GetServerInfoResponse.default_intersections:type_name -> gerardus.align.v1alpha1.ReferenceLayer
 	38,  // 56: gerardus.align.v1alpha1.PrepareSiteResponse.progress:type_name -> gerardus.align.v1alpha1.Progress
 	21,  // 57: gerardus.align.v1alpha1.PrepareSiteResponse.site:type_name -> gerardus.align.v1alpha1.Site
-	21,  // 58: gerardus.align.v1alpha1.GetSiteResponse.site:type_name -> gerardus.align.v1alpha1.Site
-	21,  // 59: gerardus.align.v1alpha1.ListSitesResponse.sites:type_name -> gerardus.align.v1alpha1.Site
-	1,   // 60: gerardus.align.v1alpha1.StreamReferenceRequest.layers:type_name -> gerardus.align.v1alpha1.ReferenceLayer
-	11,  // 61: gerardus.align.v1alpha1.StreamReferenceRequest.centre:type_name -> gerardus.align.v1alpha1.Vector3
-	1,   // 62: gerardus.align.v1alpha1.StreamReferenceResponse.layer:type_name -> gerardus.align.v1alpha1.ReferenceLayer
-	14,  // 63: gerardus.align.v1alpha1.StreamReferenceResponse.points:type_name -> gerardus.align.v1alpha1.PointBlock
-	23,  // 64: gerardus.align.v1alpha1.StreamReferenceResponse.lines:type_name -> gerardus.align.v1alpha1.LineFeatureSet
-	26,  // 65: gerardus.align.v1alpha1.StreamReferenceResponse.intersections:type_name -> gerardus.align.v1alpha1.IntersectionSet
-	27,  // 66: gerardus.align.v1alpha1.StreamReferenceResponse.scan_points:type_name -> gerardus.align.v1alpha1.ScanPoints
-	28,  // 67: gerardus.align.v1alpha1.StreamReferenceResponse.ground_mesh:type_name -> gerardus.align.v1alpha1.Heightfield
-	110, // 68: gerardus.align.v1alpha1.StreamReferenceResponse.road_surface:type_name -> gerardus.align.v1alpha1.RoadSurfaceChunk
-	29,  // 69: gerardus.align.v1alpha1.UploadScanRequest.header:type_name -> gerardus.align.v1alpha1.ScanHeader
-	14,  // 70: gerardus.align.v1alpha1.UploadScanRequest.points:type_name -> gerardus.align.v1alpha1.PointBlock
-	31,  // 71: gerardus.align.v1alpha1.UploadScanResponse.scan:type_name -> gerardus.align.v1alpha1.Scan
-	32,  // 72: gerardus.align.v1alpha1.PoseFromHintRequest.hint:type_name -> gerardus.align.v1alpha1.PoseHint
-	16,  // 73: gerardus.align.v1alpha1.PoseFromHintResponse.pose:type_name -> gerardus.align.v1alpha1.SensorPose
-	17,  // 74: gerardus.align.v1alpha1.PoseFromHintResponse.summary:type_name -> gerardus.align.v1alpha1.PoseSummary
-	16,  // 75: gerardus.align.v1alpha1.RegisterRequest.initial_pose:type_name -> gerardus.align.v1alpha1.SensorPose
-	32,  // 76: gerardus.align.v1alpha1.RegisterRequest.hint:type_name -> gerardus.align.v1alpha1.PoseHint
-	33,  // 77: gerardus.align.v1alpha1.RegisterRequest.options:type_name -> gerardus.align.v1alpha1.RegistrationOptions
-	38,  // 78: gerardus.align.v1alpha1.RegisterResponse.progress:type_name -> gerardus.align.v1alpha1.Progress
-	34,  // 79: gerardus.align.v1alpha1.RegisterResponse.hypothesis:type_name -> gerardus.align.v1alpha1.Hypothesis
-	37,  // 80: gerardus.align.v1alpha1.RegisterResponse.registration:type_name -> gerardus.align.v1alpha1.Registration
-	16,  // 81: gerardus.align.v1alpha1.EvaluatePoseRequest.pose:type_name -> gerardus.align.v1alpha1.SensorPose
-	16,  // 82: gerardus.align.v1alpha1.EvaluatePoseResponse.pose:type_name -> gerardus.align.v1alpha1.SensorPose
-	17,  // 83: gerardus.align.v1alpha1.EvaluatePoseResponse.summary:type_name -> gerardus.align.v1alpha1.PoseSummary
-	35,  // 84: gerardus.align.v1alpha1.EvaluatePoseResponse.quality:type_name -> gerardus.align.v1alpha1.FitQuality
-	39,  // 85: gerardus.align.v1alpha1.SolveTiePointsRequest.tie_points:type_name -> gerardus.align.v1alpha1.TiePoint
-	16,  // 86: gerardus.align.v1alpha1.SolveTiePointsResponse.pose:type_name -> gerardus.align.v1alpha1.SensorPose
-	17,  // 87: gerardus.align.v1alpha1.SolveTiePointsResponse.summary:type_name -> gerardus.align.v1alpha1.PoseSummary
-	35,  // 88: gerardus.align.v1alpha1.SolveTiePointsResponse.quality:type_name -> gerardus.align.v1alpha1.FitQuality
-	37,  // 89: gerardus.align.v1alpha1.GetRegistrationResponse.registration:type_name -> gerardus.align.v1alpha1.Registration
-	16,  // 90: gerardus.align.v1alpha1.ReviewRegistrationRequest.accept_pose:type_name -> gerardus.align.v1alpha1.SensorPose
-	40,  // 91: gerardus.align.v1alpha1.ReviewRegistrationResponse.record:type_name -> gerardus.align.v1alpha1.RegistrationRecord
-	63,  // 92: gerardus.align.v1alpha1.ReviewRegistrationsRequest.reviews:type_name -> gerardus.align.v1alpha1.ReviewRegistrationRequest
-	40,  // 93: gerardus.align.v1alpha1.ReviewRegistrationsResponse.records:type_name -> gerardus.align.v1alpha1.RegistrationRecord
-	40,  // 94: gerardus.align.v1alpha1.ListRegistrationRecordsResponse.records:type_name -> gerardus.align.v1alpha1.RegistrationRecord
-	3,   // 95: gerardus.align.v1alpha1.ModelScan.kind:type_name -> gerardus.align.v1alpha1.ScanKind
-	4,   // 96: gerardus.align.v1alpha1.ModelScan.state:type_name -> gerardus.align.v1alpha1.RegistrationState
-	16,  // 97: gerardus.align.v1alpha1.ModelScan.pose:type_name -> gerardus.align.v1alpha1.SensorPose
-	70,  // 98: gerardus.align.v1alpha1.GetSiteModelResponse.scans:type_name -> gerardus.align.v1alpha1.ModelScan
-	72,  // 99: gerardus.align.v1alpha1.GetSiteModelResponse.derived_build:type_name -> gerardus.align.v1alpha1.DerivedBuildStatus
-	10,  // 100: gerardus.align.v1alpha1.DerivedBuildStatus.state:type_name -> gerardus.align.v1alpha1.DerivedBuildStatus.State
-	33,  // 101: gerardus.align.v1alpha1.RefineSiteRequest.options:type_name -> gerardus.align.v1alpha1.RegistrationOptions
-	16,  // 102: gerardus.align.v1alpha1.RefinedScan.before:type_name -> gerardus.align.v1alpha1.SensorPose
-	16,  // 103: gerardus.align.v1alpha1.RefinedScan.after:type_name -> gerardus.align.v1alpha1.SensorPose
-	35,  // 104: gerardus.align.v1alpha1.RefinedScan.before_quality:type_name -> gerardus.align.v1alpha1.FitQuality
-	35,  // 105: gerardus.align.v1alpha1.RefinedScan.after_quality:type_name -> gerardus.align.v1alpha1.FitQuality
-	74,  // 106: gerardus.align.v1alpha1.RefineSiteResult.scans:type_name -> gerardus.align.v1alpha1.RefinedScan
-	75,  // 107: gerardus.align.v1alpha1.RefineSiteResult.pairs:type_name -> gerardus.align.v1alpha1.ScanPair
-	38,  // 108: gerardus.align.v1alpha1.RefineSiteResponse.progress:type_name -> gerardus.align.v1alpha1.Progress
-	76,  // 109: gerardus.align.v1alpha1.RefineSiteResponse.result:type_name -> gerardus.align.v1alpha1.RefineSiteResult
-	2,   // 110: gerardus.align.v1alpha1.StreetUseFeature.kind:type_name -> gerardus.align.v1alpha1.FeatureKind
-	113, // 111: gerardus.align.v1alpha1.StreetUseFeature.tags:type_name -> gerardus.align.v1alpha1.StreetUseFeature.TagsEntry
-	114, // 112: gerardus.align.v1alpha1.StreetUseFeature.edited_at:type_name -> google.protobuf.Timestamp
-	78,  // 113: gerardus.align.v1alpha1.StreetUseEdit.upsert:type_name -> gerardus.align.v1alpha1.StreetUseFeature
-	78,  // 114: gerardus.align.v1alpha1.ListStreetUseResponse.features:type_name -> gerardus.align.v1alpha1.StreetUseFeature
-	79,  // 115: gerardus.align.v1alpha1.EditStreetUseRequest.edits:type_name -> gerardus.align.v1alpha1.StreetUseEdit
-	83,  // 116: gerardus.align.v1alpha1.EditStreetUseResponse.detailed_problems:type_name -> gerardus.align.v1alpha1.StreetUseProblem
-	78,  // 117: gerardus.align.v1alpha1.EditStreetUseResponse.features:type_name -> gerardus.align.v1alpha1.StreetUseFeature
-	114, // 118: gerardus.align.v1alpha1.LaneFieldHeader.window_start:type_name -> google.protobuf.Timestamp
-	114, // 119: gerardus.align.v1alpha1.LaneFieldHeader.window_end:type_name -> google.protobuf.Timestamp
-	11,  // 120: gerardus.align.v1alpha1.LaneFieldHeader.origin:type_name -> gerardus.align.v1alpha1.Vector3
-	86,  // 121: gerardus.align.v1alpha1.LaneFieldCellSet.groups:type_name -> gerardus.align.v1alpha1.LaneFieldCells
-	85,  // 122: gerardus.align.v1alpha1.UploadLaneFieldRequest.header:type_name -> gerardus.align.v1alpha1.LaneFieldHeader
-	86,  // 123: gerardus.align.v1alpha1.UploadLaneFieldRequest.cells:type_name -> gerardus.align.v1alpha1.LaneFieldCells
-	11,  // 124: gerardus.align.v1alpha1.GetLaneFieldResponse.origin:type_name -> gerardus.align.v1alpha1.Vector3
-	86,  // 125: gerardus.align.v1alpha1.GetLaneFieldResponse.cells:type_name -> gerardus.align.v1alpha1.LaneFieldCells
-	11,  // 126: gerardus.align.v1alpha1.LateralProfile.centre:type_name -> gerardus.align.v1alpha1.Vector3
-	92,  // 127: gerardus.align.v1alpha1.LateralProfileSet.profiles:type_name -> gerardus.align.v1alpha1.LateralProfile
-	5,   // 128: gerardus.align.v1alpha1.LaneProposalReview.decision:type_name -> gerardus.align.v1alpha1.LaneProposalDecision
-	114, // 129: gerardus.align.v1alpha1.LaneProposalReview.reviewed_at:type_name -> google.protobuf.Timestamp
-	22,  // 130: gerardus.align.v1alpha1.LaneProposal.line:type_name -> gerardus.align.v1alpha1.LineFeature
-	92,  // 131: gerardus.align.v1alpha1.LaneProposal.profiles:type_name -> gerardus.align.v1alpha1.LateralProfile
-	94,  // 132: gerardus.align.v1alpha1.LaneProposal.review:type_name -> gerardus.align.v1alpha1.LaneProposalReview
-	95,  // 133: gerardus.align.v1alpha1.ListLaneProposalsResponse.proposals:type_name -> gerardus.align.v1alpha1.LaneProposal
-	5,   // 134: gerardus.align.v1alpha1.ReviewLaneProposalRequest.decision:type_name -> gerardus.align.v1alpha1.LaneProposalDecision
-	94,  // 135: gerardus.align.v1alpha1.ReviewLaneProposalResponse.review:type_name -> gerardus.align.v1alpha1.LaneProposalReview
-	95,  // 136: gerardus.align.v1alpha1.ReviewLaneProposalResponse.proposal:type_name -> gerardus.align.v1alpha1.LaneProposal
-	9,   // 137: gerardus.align.v1alpha1.RoadAssessment.state:type_name -> gerardus.align.v1alpha1.RoadAssessmentState
-	7,   // 138: gerardus.align.v1alpha1.RoadRing.edge_source:type_name -> gerardus.align.v1alpha1.RoadBoundarySource
-	11,  // 139: gerardus.align.v1alpha1.RoadProfileStation.position:type_name -> gerardus.align.v1alpha1.Vector3
-	6,   // 140: gerardus.align.v1alpha1.RoadProfileStation.support:type_name -> gerardus.align.v1alpha1.RoadSupport
-	8,   // 141: gerardus.align.v1alpha1.RoadSurfacePatch.kind:type_name -> gerardus.align.v1alpha1.RoadPatchKind
-	6,   // 142: gerardus.align.v1alpha1.RoadSurfacePatch.support:type_name -> gerardus.align.v1alpha1.RoadSupport
-	101, // 143: gerardus.align.v1alpha1.RoadSurfacePatch.rings:type_name -> gerardus.align.v1alpha1.RoadRing
-	7,   // 144: gerardus.align.v1alpha1.RoadSurfacePatch.boundary_source:type_name -> gerardus.align.v1alpha1.RoadBoundarySource
-	103, // 145: gerardus.align.v1alpha1.RoadSurfacePatch.profile:type_name -> gerardus.align.v1alpha1.RoadProfileStation
-	100, // 146: gerardus.align.v1alpha1.RoadSurfacePatch.assessments:type_name -> gerardus.align.v1alpha1.RoadAssessment
-	102, // 147: gerardus.align.v1alpha1.RoadSurfacePatch.stats:type_name -> gerardus.align.v1alpha1.RoadPatchStats
-	105, // 148: gerardus.align.v1alpha1.RoadSurfaceLayer.gaps:type_name -> gerardus.align.v1alpha1.RoadGap
-	106, // 149: gerardus.align.v1alpha1.RoadCorridorSummary.layer:type_name -> gerardus.align.v1alpha1.RoadSurfaceLayer
-	108, // 150: gerardus.align.v1alpha1.ListRoadCorridorsResponse.corridors:type_name -> gerardus.align.v1alpha1.RoadCorridorSummary
-	106, // 151: gerardus.align.v1alpha1.RoadSurfaceChunk.layer:type_name -> gerardus.align.v1alpha1.RoadSurfaceLayer
-	104, // 152: gerardus.align.v1alpha1.RoadSurfaceChunk.patches:type_name -> gerardus.align.v1alpha1.RoadSurfacePatch
-	41,  // 153: gerardus.align.v1alpha1.SiteService.GetServerInfo:input_type -> gerardus.align.v1alpha1.GetServerInfoRequest
-	43,  // 154: gerardus.align.v1alpha1.SiteService.PrepareSite:input_type -> gerardus.align.v1alpha1.PrepareSiteRequest
-	45,  // 155: gerardus.align.v1alpha1.SiteService.GetSite:input_type -> gerardus.align.v1alpha1.GetSiteRequest
-	47,  // 156: gerardus.align.v1alpha1.SiteService.ListSites:input_type -> gerardus.align.v1alpha1.ListSitesRequest
-	107, // 157: gerardus.align.v1alpha1.SiteService.ListRoadCorridors:input_type -> gerardus.align.v1alpha1.ListRoadCorridorsRequest
-	49,  // 158: gerardus.align.v1alpha1.SiteService.StreamReference:input_type -> gerardus.align.v1alpha1.StreamReferenceRequest
-	69,  // 159: gerardus.align.v1alpha1.SiteService.GetSiteModel:input_type -> gerardus.align.v1alpha1.GetSiteModelRequest
-	80,  // 160: gerardus.align.v1alpha1.SiteService.ListStreetUse:input_type -> gerardus.align.v1alpha1.ListStreetUseRequest
-	82,  // 161: gerardus.align.v1alpha1.SiteService.EditStreetUse:input_type -> gerardus.align.v1alpha1.EditStreetUseRequest
-	90,  // 162: gerardus.align.v1alpha1.SiteService.GetLaneField:input_type -> gerardus.align.v1alpha1.GetLaneFieldRequest
-	96,  // 163: gerardus.align.v1alpha1.SiteService.ListLaneProposals:input_type -> gerardus.align.v1alpha1.ListLaneProposalsRequest
-	98,  // 164: gerardus.align.v1alpha1.SiteService.ReviewLaneProposal:input_type -> gerardus.align.v1alpha1.ReviewLaneProposalRequest
-	51,  // 165: gerardus.align.v1alpha1.RegistrationService.UploadScan:input_type -> gerardus.align.v1alpha1.UploadScanRequest
-	88,  // 166: gerardus.align.v1alpha1.RegistrationService.UploadLaneField:input_type -> gerardus.align.v1alpha1.UploadLaneFieldRequest
-	53,  // 167: gerardus.align.v1alpha1.RegistrationService.PoseFromHint:input_type -> gerardus.align.v1alpha1.PoseFromHintRequest
-	55,  // 168: gerardus.align.v1alpha1.RegistrationService.Register:input_type -> gerardus.align.v1alpha1.RegisterRequest
-	57,  // 169: gerardus.align.v1alpha1.RegistrationService.EvaluatePose:input_type -> gerardus.align.v1alpha1.EvaluatePoseRequest
-	59,  // 170: gerardus.align.v1alpha1.RegistrationService.SolveTiePoints:input_type -> gerardus.align.v1alpha1.SolveTiePointsRequest
-	61,  // 171: gerardus.align.v1alpha1.RegistrationService.GetRegistration:input_type -> gerardus.align.v1alpha1.GetRegistrationRequest
-	63,  // 172: gerardus.align.v1alpha1.RegistrationService.ReviewRegistration:input_type -> gerardus.align.v1alpha1.ReviewRegistrationRequest
-	65,  // 173: gerardus.align.v1alpha1.RegistrationService.ReviewRegistrations:input_type -> gerardus.align.v1alpha1.ReviewRegistrationsRequest
-	67,  // 174: gerardus.align.v1alpha1.RegistrationService.ListRegistrationRecords:input_type -> gerardus.align.v1alpha1.ListRegistrationRecordsRequest
-	73,  // 175: gerardus.align.v1alpha1.RegistrationService.RefineSite:input_type -> gerardus.align.v1alpha1.RefineSiteRequest
-	42,  // 176: gerardus.align.v1alpha1.SiteService.GetServerInfo:output_type -> gerardus.align.v1alpha1.GetServerInfoResponse
-	44,  // 177: gerardus.align.v1alpha1.SiteService.PrepareSite:output_type -> gerardus.align.v1alpha1.PrepareSiteResponse
-	46,  // 178: gerardus.align.v1alpha1.SiteService.GetSite:output_type -> gerardus.align.v1alpha1.GetSiteResponse
-	48,  // 179: gerardus.align.v1alpha1.SiteService.ListSites:output_type -> gerardus.align.v1alpha1.ListSitesResponse
-	109, // 180: gerardus.align.v1alpha1.SiteService.ListRoadCorridors:output_type -> gerardus.align.v1alpha1.ListRoadCorridorsResponse
-	50,  // 181: gerardus.align.v1alpha1.SiteService.StreamReference:output_type -> gerardus.align.v1alpha1.StreamReferenceResponse
-	71,  // 182: gerardus.align.v1alpha1.SiteService.GetSiteModel:output_type -> gerardus.align.v1alpha1.GetSiteModelResponse
-	81,  // 183: gerardus.align.v1alpha1.SiteService.ListStreetUse:output_type -> gerardus.align.v1alpha1.ListStreetUseResponse
-	84,  // 184: gerardus.align.v1alpha1.SiteService.EditStreetUse:output_type -> gerardus.align.v1alpha1.EditStreetUseResponse
-	91,  // 185: gerardus.align.v1alpha1.SiteService.GetLaneField:output_type -> gerardus.align.v1alpha1.GetLaneFieldResponse
-	97,  // 186: gerardus.align.v1alpha1.SiteService.ListLaneProposals:output_type -> gerardus.align.v1alpha1.ListLaneProposalsResponse
-	99,  // 187: gerardus.align.v1alpha1.SiteService.ReviewLaneProposal:output_type -> gerardus.align.v1alpha1.ReviewLaneProposalResponse
-	52,  // 188: gerardus.align.v1alpha1.RegistrationService.UploadScan:output_type -> gerardus.align.v1alpha1.UploadScanResponse
-	89,  // 189: gerardus.align.v1alpha1.RegistrationService.UploadLaneField:output_type -> gerardus.align.v1alpha1.UploadLaneFieldResponse
-	54,  // 190: gerardus.align.v1alpha1.RegistrationService.PoseFromHint:output_type -> gerardus.align.v1alpha1.PoseFromHintResponse
-	56,  // 191: gerardus.align.v1alpha1.RegistrationService.Register:output_type -> gerardus.align.v1alpha1.RegisterResponse
-	58,  // 192: gerardus.align.v1alpha1.RegistrationService.EvaluatePose:output_type -> gerardus.align.v1alpha1.EvaluatePoseResponse
-	60,  // 193: gerardus.align.v1alpha1.RegistrationService.SolveTiePoints:output_type -> gerardus.align.v1alpha1.SolveTiePointsResponse
-	62,  // 194: gerardus.align.v1alpha1.RegistrationService.GetRegistration:output_type -> gerardus.align.v1alpha1.GetRegistrationResponse
-	64,  // 195: gerardus.align.v1alpha1.RegistrationService.ReviewRegistration:output_type -> gerardus.align.v1alpha1.ReviewRegistrationResponse
-	66,  // 196: gerardus.align.v1alpha1.RegistrationService.ReviewRegistrations:output_type -> gerardus.align.v1alpha1.ReviewRegistrationsResponse
-	68,  // 197: gerardus.align.v1alpha1.RegistrationService.ListRegistrationRecords:output_type -> gerardus.align.v1alpha1.ListRegistrationRecordsResponse
-	77,  // 198: gerardus.align.v1alpha1.RegistrationService.RefineSite:output_type -> gerardus.align.v1alpha1.RefineSiteResponse
-	176, // [176:199] is the sub-list for method output_type
-	153, // [153:176] is the sub-list for method input_type
-	153, // [153:153] is the sub-list for extension type_name
-	153, // [153:153] is the sub-list for extension extendee
-	0,   // [0:153] is the sub-list for field type_name
+	38,  // 58: gerardus.align.v1alpha1.GenerateRoadGeometryResponse.progress:type_name -> gerardus.align.v1alpha1.Progress
+	46,  // 59: gerardus.align.v1alpha1.GenerateRoadGeometryResponse.result:type_name -> gerardus.align.v1alpha1.GeneratedRoadGeometry
+	21,  // 60: gerardus.align.v1alpha1.GetSiteResponse.site:type_name -> gerardus.align.v1alpha1.Site
+	21,  // 61: gerardus.align.v1alpha1.ListSitesResponse.sites:type_name -> gerardus.align.v1alpha1.Site
+	1,   // 62: gerardus.align.v1alpha1.StreamReferenceRequest.layers:type_name -> gerardus.align.v1alpha1.ReferenceLayer
+	11,  // 63: gerardus.align.v1alpha1.StreamReferenceRequest.centre:type_name -> gerardus.align.v1alpha1.Vector3
+	1,   // 64: gerardus.align.v1alpha1.StreamReferenceResponse.layer:type_name -> gerardus.align.v1alpha1.ReferenceLayer
+	14,  // 65: gerardus.align.v1alpha1.StreamReferenceResponse.points:type_name -> gerardus.align.v1alpha1.PointBlock
+	23,  // 66: gerardus.align.v1alpha1.StreamReferenceResponse.lines:type_name -> gerardus.align.v1alpha1.LineFeatureSet
+	26,  // 67: gerardus.align.v1alpha1.StreamReferenceResponse.intersections:type_name -> gerardus.align.v1alpha1.IntersectionSet
+	27,  // 68: gerardus.align.v1alpha1.StreamReferenceResponse.scan_points:type_name -> gerardus.align.v1alpha1.ScanPoints
+	28,  // 69: gerardus.align.v1alpha1.StreamReferenceResponse.ground_mesh:type_name -> gerardus.align.v1alpha1.Heightfield
+	113, // 70: gerardus.align.v1alpha1.StreamReferenceResponse.road_surface:type_name -> gerardus.align.v1alpha1.RoadSurfaceChunk
+	29,  // 71: gerardus.align.v1alpha1.UploadScanRequest.header:type_name -> gerardus.align.v1alpha1.ScanHeader
+	14,  // 72: gerardus.align.v1alpha1.UploadScanRequest.points:type_name -> gerardus.align.v1alpha1.PointBlock
+	31,  // 73: gerardus.align.v1alpha1.UploadScanResponse.scan:type_name -> gerardus.align.v1alpha1.Scan
+	32,  // 74: gerardus.align.v1alpha1.PoseFromHintRequest.hint:type_name -> gerardus.align.v1alpha1.PoseHint
+	16,  // 75: gerardus.align.v1alpha1.PoseFromHintResponse.pose:type_name -> gerardus.align.v1alpha1.SensorPose
+	17,  // 76: gerardus.align.v1alpha1.PoseFromHintResponse.summary:type_name -> gerardus.align.v1alpha1.PoseSummary
+	16,  // 77: gerardus.align.v1alpha1.RegisterRequest.initial_pose:type_name -> gerardus.align.v1alpha1.SensorPose
+	32,  // 78: gerardus.align.v1alpha1.RegisterRequest.hint:type_name -> gerardus.align.v1alpha1.PoseHint
+	33,  // 79: gerardus.align.v1alpha1.RegisterRequest.options:type_name -> gerardus.align.v1alpha1.RegistrationOptions
+	38,  // 80: gerardus.align.v1alpha1.RegisterResponse.progress:type_name -> gerardus.align.v1alpha1.Progress
+	34,  // 81: gerardus.align.v1alpha1.RegisterResponse.hypothesis:type_name -> gerardus.align.v1alpha1.Hypothesis
+	37,  // 82: gerardus.align.v1alpha1.RegisterResponse.registration:type_name -> gerardus.align.v1alpha1.Registration
+	16,  // 83: gerardus.align.v1alpha1.EvaluatePoseRequest.pose:type_name -> gerardus.align.v1alpha1.SensorPose
+	16,  // 84: gerardus.align.v1alpha1.EvaluatePoseResponse.pose:type_name -> gerardus.align.v1alpha1.SensorPose
+	17,  // 85: gerardus.align.v1alpha1.EvaluatePoseResponse.summary:type_name -> gerardus.align.v1alpha1.PoseSummary
+	35,  // 86: gerardus.align.v1alpha1.EvaluatePoseResponse.quality:type_name -> gerardus.align.v1alpha1.FitQuality
+	39,  // 87: gerardus.align.v1alpha1.SolveTiePointsRequest.tie_points:type_name -> gerardus.align.v1alpha1.TiePoint
+	16,  // 88: gerardus.align.v1alpha1.SolveTiePointsResponse.pose:type_name -> gerardus.align.v1alpha1.SensorPose
+	17,  // 89: gerardus.align.v1alpha1.SolveTiePointsResponse.summary:type_name -> gerardus.align.v1alpha1.PoseSummary
+	35,  // 90: gerardus.align.v1alpha1.SolveTiePointsResponse.quality:type_name -> gerardus.align.v1alpha1.FitQuality
+	37,  // 91: gerardus.align.v1alpha1.GetRegistrationResponse.registration:type_name -> gerardus.align.v1alpha1.Registration
+	16,  // 92: gerardus.align.v1alpha1.ReviewRegistrationRequest.accept_pose:type_name -> gerardus.align.v1alpha1.SensorPose
+	40,  // 93: gerardus.align.v1alpha1.ReviewRegistrationResponse.record:type_name -> gerardus.align.v1alpha1.RegistrationRecord
+	66,  // 94: gerardus.align.v1alpha1.ReviewRegistrationsRequest.reviews:type_name -> gerardus.align.v1alpha1.ReviewRegistrationRequest
+	40,  // 95: gerardus.align.v1alpha1.ReviewRegistrationsResponse.records:type_name -> gerardus.align.v1alpha1.RegistrationRecord
+	40,  // 96: gerardus.align.v1alpha1.ListRegistrationRecordsResponse.records:type_name -> gerardus.align.v1alpha1.RegistrationRecord
+	3,   // 97: gerardus.align.v1alpha1.ModelScan.kind:type_name -> gerardus.align.v1alpha1.ScanKind
+	4,   // 98: gerardus.align.v1alpha1.ModelScan.state:type_name -> gerardus.align.v1alpha1.RegistrationState
+	16,  // 99: gerardus.align.v1alpha1.ModelScan.pose:type_name -> gerardus.align.v1alpha1.SensorPose
+	73,  // 100: gerardus.align.v1alpha1.GetSiteModelResponse.scans:type_name -> gerardus.align.v1alpha1.ModelScan
+	75,  // 101: gerardus.align.v1alpha1.GetSiteModelResponse.derived_build:type_name -> gerardus.align.v1alpha1.DerivedBuildStatus
+	10,  // 102: gerardus.align.v1alpha1.DerivedBuildStatus.state:type_name -> gerardus.align.v1alpha1.DerivedBuildStatus.State
+	33,  // 103: gerardus.align.v1alpha1.RefineSiteRequest.options:type_name -> gerardus.align.v1alpha1.RegistrationOptions
+	16,  // 104: gerardus.align.v1alpha1.RefinedScan.before:type_name -> gerardus.align.v1alpha1.SensorPose
+	16,  // 105: gerardus.align.v1alpha1.RefinedScan.after:type_name -> gerardus.align.v1alpha1.SensorPose
+	35,  // 106: gerardus.align.v1alpha1.RefinedScan.before_quality:type_name -> gerardus.align.v1alpha1.FitQuality
+	35,  // 107: gerardus.align.v1alpha1.RefinedScan.after_quality:type_name -> gerardus.align.v1alpha1.FitQuality
+	77,  // 108: gerardus.align.v1alpha1.RefineSiteResult.scans:type_name -> gerardus.align.v1alpha1.RefinedScan
+	78,  // 109: gerardus.align.v1alpha1.RefineSiteResult.pairs:type_name -> gerardus.align.v1alpha1.ScanPair
+	38,  // 110: gerardus.align.v1alpha1.RefineSiteResponse.progress:type_name -> gerardus.align.v1alpha1.Progress
+	79,  // 111: gerardus.align.v1alpha1.RefineSiteResponse.result:type_name -> gerardus.align.v1alpha1.RefineSiteResult
+	2,   // 112: gerardus.align.v1alpha1.StreetUseFeature.kind:type_name -> gerardus.align.v1alpha1.FeatureKind
+	116, // 113: gerardus.align.v1alpha1.StreetUseFeature.tags:type_name -> gerardus.align.v1alpha1.StreetUseFeature.TagsEntry
+	117, // 114: gerardus.align.v1alpha1.StreetUseFeature.edited_at:type_name -> google.protobuf.Timestamp
+	81,  // 115: gerardus.align.v1alpha1.StreetUseEdit.upsert:type_name -> gerardus.align.v1alpha1.StreetUseFeature
+	81,  // 116: gerardus.align.v1alpha1.ListStreetUseResponse.features:type_name -> gerardus.align.v1alpha1.StreetUseFeature
+	82,  // 117: gerardus.align.v1alpha1.EditStreetUseRequest.edits:type_name -> gerardus.align.v1alpha1.StreetUseEdit
+	86,  // 118: gerardus.align.v1alpha1.EditStreetUseResponse.detailed_problems:type_name -> gerardus.align.v1alpha1.StreetUseProblem
+	81,  // 119: gerardus.align.v1alpha1.EditStreetUseResponse.features:type_name -> gerardus.align.v1alpha1.StreetUseFeature
+	117, // 120: gerardus.align.v1alpha1.LaneFieldHeader.window_start:type_name -> google.protobuf.Timestamp
+	117, // 121: gerardus.align.v1alpha1.LaneFieldHeader.window_end:type_name -> google.protobuf.Timestamp
+	11,  // 122: gerardus.align.v1alpha1.LaneFieldHeader.origin:type_name -> gerardus.align.v1alpha1.Vector3
+	89,  // 123: gerardus.align.v1alpha1.LaneFieldCellSet.groups:type_name -> gerardus.align.v1alpha1.LaneFieldCells
+	88,  // 124: gerardus.align.v1alpha1.UploadLaneFieldRequest.header:type_name -> gerardus.align.v1alpha1.LaneFieldHeader
+	89,  // 125: gerardus.align.v1alpha1.UploadLaneFieldRequest.cells:type_name -> gerardus.align.v1alpha1.LaneFieldCells
+	11,  // 126: gerardus.align.v1alpha1.GetLaneFieldResponse.origin:type_name -> gerardus.align.v1alpha1.Vector3
+	89,  // 127: gerardus.align.v1alpha1.GetLaneFieldResponse.cells:type_name -> gerardus.align.v1alpha1.LaneFieldCells
+	11,  // 128: gerardus.align.v1alpha1.LateralProfile.centre:type_name -> gerardus.align.v1alpha1.Vector3
+	95,  // 129: gerardus.align.v1alpha1.LateralProfileSet.profiles:type_name -> gerardus.align.v1alpha1.LateralProfile
+	5,   // 130: gerardus.align.v1alpha1.LaneProposalReview.decision:type_name -> gerardus.align.v1alpha1.LaneProposalDecision
+	117, // 131: gerardus.align.v1alpha1.LaneProposalReview.reviewed_at:type_name -> google.protobuf.Timestamp
+	22,  // 132: gerardus.align.v1alpha1.LaneProposal.line:type_name -> gerardus.align.v1alpha1.LineFeature
+	95,  // 133: gerardus.align.v1alpha1.LaneProposal.profiles:type_name -> gerardus.align.v1alpha1.LateralProfile
+	97,  // 134: gerardus.align.v1alpha1.LaneProposal.review:type_name -> gerardus.align.v1alpha1.LaneProposalReview
+	98,  // 135: gerardus.align.v1alpha1.ListLaneProposalsResponse.proposals:type_name -> gerardus.align.v1alpha1.LaneProposal
+	5,   // 136: gerardus.align.v1alpha1.ReviewLaneProposalRequest.decision:type_name -> gerardus.align.v1alpha1.LaneProposalDecision
+	97,  // 137: gerardus.align.v1alpha1.ReviewLaneProposalResponse.review:type_name -> gerardus.align.v1alpha1.LaneProposalReview
+	98,  // 138: gerardus.align.v1alpha1.ReviewLaneProposalResponse.proposal:type_name -> gerardus.align.v1alpha1.LaneProposal
+	9,   // 139: gerardus.align.v1alpha1.RoadAssessment.state:type_name -> gerardus.align.v1alpha1.RoadAssessmentState
+	7,   // 140: gerardus.align.v1alpha1.RoadRing.edge_source:type_name -> gerardus.align.v1alpha1.RoadBoundarySource
+	11,  // 141: gerardus.align.v1alpha1.RoadProfileStation.position:type_name -> gerardus.align.v1alpha1.Vector3
+	6,   // 142: gerardus.align.v1alpha1.RoadProfileStation.support:type_name -> gerardus.align.v1alpha1.RoadSupport
+	8,   // 143: gerardus.align.v1alpha1.RoadSurfacePatch.kind:type_name -> gerardus.align.v1alpha1.RoadPatchKind
+	6,   // 144: gerardus.align.v1alpha1.RoadSurfacePatch.support:type_name -> gerardus.align.v1alpha1.RoadSupport
+	104, // 145: gerardus.align.v1alpha1.RoadSurfacePatch.rings:type_name -> gerardus.align.v1alpha1.RoadRing
+	7,   // 146: gerardus.align.v1alpha1.RoadSurfacePatch.boundary_source:type_name -> gerardus.align.v1alpha1.RoadBoundarySource
+	106, // 147: gerardus.align.v1alpha1.RoadSurfacePatch.profile:type_name -> gerardus.align.v1alpha1.RoadProfileStation
+	103, // 148: gerardus.align.v1alpha1.RoadSurfacePatch.assessments:type_name -> gerardus.align.v1alpha1.RoadAssessment
+	105, // 149: gerardus.align.v1alpha1.RoadSurfacePatch.stats:type_name -> gerardus.align.v1alpha1.RoadPatchStats
+	108, // 150: gerardus.align.v1alpha1.RoadSurfaceLayer.gaps:type_name -> gerardus.align.v1alpha1.RoadGap
+	109, // 151: gerardus.align.v1alpha1.RoadCorridorSummary.layer:type_name -> gerardus.align.v1alpha1.RoadSurfaceLayer
+	111, // 152: gerardus.align.v1alpha1.ListRoadCorridorsResponse.corridors:type_name -> gerardus.align.v1alpha1.RoadCorridorSummary
+	109, // 153: gerardus.align.v1alpha1.RoadSurfaceChunk.layer:type_name -> gerardus.align.v1alpha1.RoadSurfaceLayer
+	107, // 154: gerardus.align.v1alpha1.RoadSurfaceChunk.patches:type_name -> gerardus.align.v1alpha1.RoadSurfacePatch
+	41,  // 155: gerardus.align.v1alpha1.SiteService.GetServerInfo:input_type -> gerardus.align.v1alpha1.GetServerInfoRequest
+	43,  // 156: gerardus.align.v1alpha1.SiteService.PrepareSite:input_type -> gerardus.align.v1alpha1.PrepareSiteRequest
+	45,  // 157: gerardus.align.v1alpha1.SiteService.GenerateRoadGeometry:input_type -> gerardus.align.v1alpha1.GenerateRoadGeometryRequest
+	48,  // 158: gerardus.align.v1alpha1.SiteService.GetSite:input_type -> gerardus.align.v1alpha1.GetSiteRequest
+	50,  // 159: gerardus.align.v1alpha1.SiteService.ListSites:input_type -> gerardus.align.v1alpha1.ListSitesRequest
+	110, // 160: gerardus.align.v1alpha1.SiteService.ListRoadCorridors:input_type -> gerardus.align.v1alpha1.ListRoadCorridorsRequest
+	52,  // 161: gerardus.align.v1alpha1.SiteService.StreamReference:input_type -> gerardus.align.v1alpha1.StreamReferenceRequest
+	72,  // 162: gerardus.align.v1alpha1.SiteService.GetSiteModel:input_type -> gerardus.align.v1alpha1.GetSiteModelRequest
+	83,  // 163: gerardus.align.v1alpha1.SiteService.ListStreetUse:input_type -> gerardus.align.v1alpha1.ListStreetUseRequest
+	85,  // 164: gerardus.align.v1alpha1.SiteService.EditStreetUse:input_type -> gerardus.align.v1alpha1.EditStreetUseRequest
+	93,  // 165: gerardus.align.v1alpha1.SiteService.GetLaneField:input_type -> gerardus.align.v1alpha1.GetLaneFieldRequest
+	99,  // 166: gerardus.align.v1alpha1.SiteService.ListLaneProposals:input_type -> gerardus.align.v1alpha1.ListLaneProposalsRequest
+	101, // 167: gerardus.align.v1alpha1.SiteService.ReviewLaneProposal:input_type -> gerardus.align.v1alpha1.ReviewLaneProposalRequest
+	54,  // 168: gerardus.align.v1alpha1.RegistrationService.UploadScan:input_type -> gerardus.align.v1alpha1.UploadScanRequest
+	91,  // 169: gerardus.align.v1alpha1.RegistrationService.UploadLaneField:input_type -> gerardus.align.v1alpha1.UploadLaneFieldRequest
+	56,  // 170: gerardus.align.v1alpha1.RegistrationService.PoseFromHint:input_type -> gerardus.align.v1alpha1.PoseFromHintRequest
+	58,  // 171: gerardus.align.v1alpha1.RegistrationService.Register:input_type -> gerardus.align.v1alpha1.RegisterRequest
+	60,  // 172: gerardus.align.v1alpha1.RegistrationService.EvaluatePose:input_type -> gerardus.align.v1alpha1.EvaluatePoseRequest
+	62,  // 173: gerardus.align.v1alpha1.RegistrationService.SolveTiePoints:input_type -> gerardus.align.v1alpha1.SolveTiePointsRequest
+	64,  // 174: gerardus.align.v1alpha1.RegistrationService.GetRegistration:input_type -> gerardus.align.v1alpha1.GetRegistrationRequest
+	66,  // 175: gerardus.align.v1alpha1.RegistrationService.ReviewRegistration:input_type -> gerardus.align.v1alpha1.ReviewRegistrationRequest
+	68,  // 176: gerardus.align.v1alpha1.RegistrationService.ReviewRegistrations:input_type -> gerardus.align.v1alpha1.ReviewRegistrationsRequest
+	70,  // 177: gerardus.align.v1alpha1.RegistrationService.ListRegistrationRecords:input_type -> gerardus.align.v1alpha1.ListRegistrationRecordsRequest
+	76,  // 178: gerardus.align.v1alpha1.RegistrationService.RefineSite:input_type -> gerardus.align.v1alpha1.RefineSiteRequest
+	42,  // 179: gerardus.align.v1alpha1.SiteService.GetServerInfo:output_type -> gerardus.align.v1alpha1.GetServerInfoResponse
+	44,  // 180: gerardus.align.v1alpha1.SiteService.PrepareSite:output_type -> gerardus.align.v1alpha1.PrepareSiteResponse
+	47,  // 181: gerardus.align.v1alpha1.SiteService.GenerateRoadGeometry:output_type -> gerardus.align.v1alpha1.GenerateRoadGeometryResponse
+	49,  // 182: gerardus.align.v1alpha1.SiteService.GetSite:output_type -> gerardus.align.v1alpha1.GetSiteResponse
+	51,  // 183: gerardus.align.v1alpha1.SiteService.ListSites:output_type -> gerardus.align.v1alpha1.ListSitesResponse
+	112, // 184: gerardus.align.v1alpha1.SiteService.ListRoadCorridors:output_type -> gerardus.align.v1alpha1.ListRoadCorridorsResponse
+	53,  // 185: gerardus.align.v1alpha1.SiteService.StreamReference:output_type -> gerardus.align.v1alpha1.StreamReferenceResponse
+	74,  // 186: gerardus.align.v1alpha1.SiteService.GetSiteModel:output_type -> gerardus.align.v1alpha1.GetSiteModelResponse
+	84,  // 187: gerardus.align.v1alpha1.SiteService.ListStreetUse:output_type -> gerardus.align.v1alpha1.ListStreetUseResponse
+	87,  // 188: gerardus.align.v1alpha1.SiteService.EditStreetUse:output_type -> gerardus.align.v1alpha1.EditStreetUseResponse
+	94,  // 189: gerardus.align.v1alpha1.SiteService.GetLaneField:output_type -> gerardus.align.v1alpha1.GetLaneFieldResponse
+	100, // 190: gerardus.align.v1alpha1.SiteService.ListLaneProposals:output_type -> gerardus.align.v1alpha1.ListLaneProposalsResponse
+	102, // 191: gerardus.align.v1alpha1.SiteService.ReviewLaneProposal:output_type -> gerardus.align.v1alpha1.ReviewLaneProposalResponse
+	55,  // 192: gerardus.align.v1alpha1.RegistrationService.UploadScan:output_type -> gerardus.align.v1alpha1.UploadScanResponse
+	92,  // 193: gerardus.align.v1alpha1.RegistrationService.UploadLaneField:output_type -> gerardus.align.v1alpha1.UploadLaneFieldResponse
+	57,  // 194: gerardus.align.v1alpha1.RegistrationService.PoseFromHint:output_type -> gerardus.align.v1alpha1.PoseFromHintResponse
+	59,  // 195: gerardus.align.v1alpha1.RegistrationService.Register:output_type -> gerardus.align.v1alpha1.RegisterResponse
+	61,  // 196: gerardus.align.v1alpha1.RegistrationService.EvaluatePose:output_type -> gerardus.align.v1alpha1.EvaluatePoseResponse
+	63,  // 197: gerardus.align.v1alpha1.RegistrationService.SolveTiePoints:output_type -> gerardus.align.v1alpha1.SolveTiePointsResponse
+	65,  // 198: gerardus.align.v1alpha1.RegistrationService.GetRegistration:output_type -> gerardus.align.v1alpha1.GetRegistrationResponse
+	67,  // 199: gerardus.align.v1alpha1.RegistrationService.ReviewRegistration:output_type -> gerardus.align.v1alpha1.ReviewRegistrationResponse
+	69,  // 200: gerardus.align.v1alpha1.RegistrationService.ReviewRegistrations:output_type -> gerardus.align.v1alpha1.ReviewRegistrationsResponse
+	71,  // 201: gerardus.align.v1alpha1.RegistrationService.ListRegistrationRecords:output_type -> gerardus.align.v1alpha1.ListRegistrationRecordsResponse
+	80,  // 202: gerardus.align.v1alpha1.RegistrationService.RefineSite:output_type -> gerardus.align.v1alpha1.RefineSiteResponse
+	179, // [179:203] is the sub-list for method output_type
+	155, // [155:179] is the sub-list for method input_type
+	155, // [155:155] is the sub-list for extension type_name
+	155, // [155:155] is the sub-list for extension extendee
+	0,   // [0:155] is the sub-list for field type_name
 }
 
 func init() { file_align_proto_init() }
@@ -10045,7 +10299,11 @@ func file_align_proto_init() {
 		(*PrepareSiteResponse_Progress)(nil),
 		(*PrepareSiteResponse_Site)(nil),
 	}
-	file_align_proto_msgTypes[39].OneofWrappers = []any{
+	file_align_proto_msgTypes[36].OneofWrappers = []any{
+		(*GenerateRoadGeometryResponse_Progress)(nil),
+		(*GenerateRoadGeometryResponse_Result)(nil),
+	}
+	file_align_proto_msgTypes[42].OneofWrappers = []any{
 		(*StreamReferenceResponse_Points)(nil),
 		(*StreamReferenceResponse_Lines)(nil),
 		(*StreamReferenceResponse_Intersections)(nil),
@@ -10053,42 +10311,42 @@ func file_align_proto_init() {
 		(*StreamReferenceResponse_GroundMesh)(nil),
 		(*StreamReferenceResponse_RoadSurface)(nil),
 	}
-	file_align_proto_msgTypes[40].OneofWrappers = []any{
+	file_align_proto_msgTypes[43].OneofWrappers = []any{
 		(*UploadScanRequest_Header)(nil),
 		(*UploadScanRequest_Points)(nil),
 	}
-	file_align_proto_msgTypes[45].OneofWrappers = []any{
+	file_align_proto_msgTypes[48].OneofWrappers = []any{
 		(*RegisterResponse_Progress)(nil),
 		(*RegisterResponse_Hypothesis)(nil),
 		(*RegisterResponse_Registration)(nil),
 	}
-	file_align_proto_msgTypes[52].OneofWrappers = []any{
+	file_align_proto_msgTypes[55].OneofWrappers = []any{
 		(*ReviewRegistrationRequest_AcceptHypothesisId)(nil),
 		(*ReviewRegistrationRequest_AcceptPose)(nil),
 		(*ReviewRegistrationRequest_RejectReason)(nil),
 		(*ReviewRegistrationRequest_RevertRecordId)(nil),
 	}
-	file_align_proto_msgTypes[66].OneofWrappers = []any{
+	file_align_proto_msgTypes[69].OneofWrappers = []any{
 		(*RefineSiteResponse_Progress)(nil),
 		(*RefineSiteResponse_Result)(nil),
 	}
-	file_align_proto_msgTypes[68].OneofWrappers = []any{
+	file_align_proto_msgTypes[71].OneofWrappers = []any{
 		(*StreetUseEdit_Upsert)(nil),
 		(*StreetUseEdit_RemoveFeatureId)(nil),
 		(*StreetUseEdit_RevertRowId)(nil),
 	}
-	file_align_proto_msgTypes[77].OneofWrappers = []any{
+	file_align_proto_msgTypes[80].OneofWrappers = []any{
 		(*UploadLaneFieldRequest_Header)(nil),
 		(*UploadLaneFieldRequest_Cells)(nil),
 	}
-	file_align_proto_msgTypes[87].OneofWrappers = []any{}
+	file_align_proto_msgTypes[90].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_align_proto_rawDesc), len(file_align_proto_rawDesc)),
 			NumEnums:      11,
-			NumMessages:   103,
+			NumMessages:   106,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

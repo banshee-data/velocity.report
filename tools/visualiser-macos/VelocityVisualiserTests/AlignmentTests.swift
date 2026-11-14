@@ -1069,6 +1069,10 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// What ListRoadCorridors answers.
     var listedCorridors: [Gerardus_Align_V1alpha1_RoadCorridorSummary] = []
     var roadCorridorsListed = false
+    var supportsRoadGeneration = false
+    var roadGenerationRequests: [Gerardus_Align_V1alpha1_GenerateRoadGeometryRequest] = []
+    var roadGenerationFailure: RPCError?
+    var roadGenerationHook: (() async -> Void)?
     /// What ListSites answers.
     var listedSites: [Gerardus_Align_V1alpha1_Site] = []
     /// road_surface_version GetServerInfo reports; 0 is a server without the layer.
@@ -1215,6 +1219,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         info.availableLayers = availableLayers
         info.roadSurfaceVersion = roadSurfaceVersion
         info.roadCorridorsListed = roadCorridorsListed
+        info.supportsRoadGeneration = supportsRoadGeneration
         info.supportsBoundedPlacement = supportsBoundedPlacement
         info.supportsLaneFields = supportsLaneFields
         info.streetUseRulesVersion = streetUseRulesVersion
@@ -1262,6 +1267,19 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     func listRoadCorridors() async throws -> [Gerardus_Align_V1alpha1_RoadCorridorSummary] {
         log("ListRoadCorridors")
         return listedCorridors
+    }
+
+    func generateRoadGeometry(
+        _ request: Gerardus_Align_V1alpha1_GenerateRoadGeometryRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_GeneratedRoadGeometry {
+        roadGenerationRequests.append(request)
+        await roadGenerationHook?()
+        if let roadGenerationFailure { throw roadGenerationFailure }
+        var result = Gerardus_Align_V1alpha1_GeneratedRoadGeometry()
+        result.l16Token = request.l16Token
+        result.patchCount = 2
+        return result
     }
 
     func listSites() async throws -> [Gerardus_Align_V1alpha1_Site] {

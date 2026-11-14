@@ -211,6 +211,59 @@ struct RoadCoverageSummary: Equatable {
         }
     }
 
+    @Published private(set) var generatingRoads = false
+    @Published private(set) var generationMessage: String?
+    @Published var generationRadiusM: Double = 150
+    @Published var inferredHalfWidthM: Double = 4
+    var supportsGeneration: Bool {
+        !alignment.isFixtureServer && alignment.serverInfo?.supportsRoadGeneration == true
+    }
+
+    /// The server owns a started build. A connection or site change must not
+    /// let its completion replace the geometry now being reviewed.
+    func generateRoads(siteToken token: String, refresh: Bool) async {
+        guard supportsGeneration, !generatingRoads, let client = alignment.gerardusClient else {
+            return
+        }
+        generatingRoads = true
+        generationMessage = "Preparing site reference…"
+        let address = alignment.serviceAddress
+        let previousSite = alignment.site?.l16Token
+        let previousOpened = openedSite
+        defer { generatingRoads = false }
+        do {
+            _ = try await client.prepareSite(
+                l16Token: token,
+                label: alignment.site?.l16Token == token ? alignment.site!.name : token
+            ) { _ in }
+            var request = Gerardus_Align_V1alpha1_GenerateRoadGeometryRequest()
+            request.l16Token = token
+            request.radiusM = Float(generationRadiusM)
+            request.halfWidthM = Float(inferredHalfWidthM)
+            request.refresh = refresh
+            let result = try await client.generateRoadGeometry(request) { [weak self] progress in
+                await self?.showGenerationProgress(progress)
+            }
+            guard alignment.serviceAddress == address, alignment.site?.l16Token == previousSite,
+                openedSite == previousOpened
+            else {
+                generationMessage = "Road build finished for \(token). Reopen that site to view it."
+                return
+            }
+            generationMessage =
+                "Generated \(result.patchCount) preview patches. Inferred widths require review."
+            await refreshSites()
+            guard alignment.serviceAddress == address, alignment.site?.l16Token == previousSite,
+                openedSite == previousOpened
+            else { return }
+            open(siteToken: token)
+        } catch { generationMessage = GerardusClientError.describe(error) }
+    }
+
+    private func showGenerationProgress(_ progress: Gerardus_Align_V1alpha1_Progress) {
+        generationMessage = progress.message.isEmpty ? progress.stage : progress.message
+    }
+
     // MARK: - Sites
 
     func paneToggled(open: Bool) {

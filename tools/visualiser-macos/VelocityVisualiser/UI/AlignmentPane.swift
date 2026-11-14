@@ -38,6 +38,10 @@ import SwiftUI
                     Button("Use local Gerardus") { session.useServiceAddress(.local) }
                 }
                 paintSwitch
+                if let site = session.site {
+                    Button("Generate road geometry…") { appState.showRoadPane = true }.help(
+                        "Open road generation for \(site.name)")
+                }
                 if session.showsReviewerField, !painter.isPainting { reviewerField }
             }.padding([.horizontal, .top]).padding(.bottom, 10)
             Divider()

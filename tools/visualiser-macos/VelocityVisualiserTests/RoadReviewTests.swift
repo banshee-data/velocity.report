@@ -5,6 +5,7 @@
 // bundle-edge crossing in both directions.
 
 import Foundation
+import GRPCCore
 import Testing
 import simd
 
@@ -141,6 +142,47 @@ struct RoadSurfaceStyleTests {
 }
 
 @MainActor struct RoadReviewSessionTests {
+    @Test func generationChecksCapabilityAndRetainsTheRequestedSite() async {
+        let service = FakeAlignmentService()
+        service.listedSites = [site(RoadFixture.siteA, label: "A")]
+        let alignment = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await alignment.probe()
+        let road = RoadReviewSession(alignment: alignment)
+        await road.generateRoads(siteToken: RoadFixture.siteA.l16Token, refresh: false)
+        #expect(service.roadGenerationRequests.isEmpty)
+        service.supportsRoadGeneration = true
+        service.roadSurfaceVersion = 1
+        await alignment.probe()
+        road.inferredHalfWidthM = 3.5
+        await road.generateRoads(siteToken: RoadFixture.siteA.l16Token, refresh: true)
+        #expect(service.roadGenerationRequests.count == 1)
+        #expect(service.roadGenerationRequests[0].halfWidthM == 3.5)
+        #expect(service.roadGenerationRequests[0].refresh)
+        #expect(road.openedSite == RoadFixture.siteA.l16Token)
+        #expect(!road.generatingRoads)
+        service.roadGenerationFailure = RPCError(
+            code: .failedPrecondition, message: "No ground dataset")
+        await road.generateRoads(siteToken: RoadFixture.siteA.l16Token, refresh: false)
+        #expect(road.generationMessage?.contains("No ground dataset") == true)
+        #expect(!road.generatingRoads)
+    }
+
+    @Test func changingAddressDuringGenerationDoesNotOpenItsOldResult() async {
+        let service = FakeAlignmentService()
+        service.supportsRoadGeneration = true
+        let alignment = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await alignment.probe()
+        let road = RoadReviewSession(alignment: alignment)
+        service.roadGenerationHook = {
+            await MainActor.run {
+                alignment.useServiceAddress(GerardusAddress(host: "other.local", port: 50061))
+            }
+        }
+        await road.generateRoads(siteToken: RoadFixture.siteA.l16Token, refresh: false)
+        #expect(road.openedSite == nil)
+        #expect(road.generationMessage?.contains("Reopen") == true)
+    }
+
     private func session(
         version: UInt32 = 1, sites: [Gerardus_Align_V1alpha1_Site]? = nil
     ) async -> (RoadReviewSession, FakeAlignmentService) {

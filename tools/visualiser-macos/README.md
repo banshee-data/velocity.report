@@ -293,3 +293,17 @@ site placement are blocked on that connection. Start the real Gerardus data
 service on port 50061, or select its address in Settings → Servers, to align a
 capture and load the site's geometry. Test road patches cannot establish the
 shape or alignment of the selected survey site.
+
+From **Align → Generate road geometry…**, or the Road pane's selected survey,
+choose a nearby-street radius and an inferred width per side, then **Generate
+roads**. This prepares the site's reference, asks Gerardus to fit its nearby City
+streets to indexed 3DEP, shows progress, and opens the generated surface. Matching
+requests reuse the cached preview; **Regenerate** rebuilds after source data
+changes. The same controls are available for an opened road site.
+
+These buttons require Gerardus's `supports_road_generation` capability. Older
+servers show an upgrade message. A started build continues on the server if the
+client disconnects; only one build runs at a time. Changing site or connection
+while it runs keeps the later view rather than opening a stale completion.
+Widths are inferred, junction overlaps need review, and missing ground remains
+open. See Gerardus's [site-generation contract](https://github.com/banshee-data/gerardus/blob/main/docs/roads/README.md#generate-near-a-prepared-site-from-the-visualiser).

@@ -1,0 +1,1 @@
+- Added site-specific Generate roads and Regenerate controls, with explicit inferred widths, streamed progress, automatic opening, older-server guidance and stale-result protection; vendored Gerardus's road-generation RPC and capability. See the [visualiser controls](../../../tools/visualiser-macos/README.md#game-controls-and-test-servers).
