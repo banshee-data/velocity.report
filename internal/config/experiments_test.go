@@ -46,8 +46,8 @@ func TestExperimentConfigsDeclareEveryChangeFromTheDefaults(t *testing.T) {
 			if row == "" {
 				t.Fatalf("config/experiments/README.md has no row for %s; add one naming what it changes and the report it serves", e.Name())
 			}
-			if len(changed) == 0 && !strings.Contains(row, "No changed keys") {
-				t.Fatalf("%s is the defaults; declare No changed keys for an intentional baseline control", path)
+			if !baselineDeclarationValid(changed, row) {
+				t.Fatalf("%s has an inconsistent baseline declaration; No changed keys is required exactly when the set equals defaults", path)
 			}
 			var undeclared []string
 			for _, p := range changed {
@@ -63,6 +63,33 @@ func TestExperimentConfigsDeclareEveryChangeFromTheDefaults(t *testing.T) {
 	}
 	if seen == 0 {
 		t.Fatal("config/experiments/ holds no parameter sets")
+	}
+}
+
+// baselineDeclarationValid distinguishes intentional controls from undeclared
+// copies, and prevents a stale control from claiming that drift is unchanged.
+func baselineDeclarationValid(changed []string, row string) bool {
+	return (len(changed) == 0) == strings.Contains(row, "No changed keys")
+}
+
+func TestExperimentBaselineDeclarations(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		changed []string
+		row     string
+		want    bool
+	}{
+		{"explicit unchanged control", nil, "No changed keys: baseline control; report.md", true},
+		{"missing control marker", nil, "baseline control; report.md", false},
+		{"stale control", []string{"l5.cv_kf_v1.max_coast_frames"}, "No changed keys: baseline control; report.md", false},
+		{"contradictory control", []string{"l5.cv_kf_v1.max_coast_frames"}, "No changed keys; max_coast_frames changed; report.md", false},
+		{"changed candidate", []string{"l5.cv_kf_v1.max_coast_frames"}, "max_coast_frames changed; report.md", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := baselineDeclarationValid(tc.changed, tc.row); got != tc.want {
+				t.Fatalf("declaration accepted=%t, want%t", got, tc.want)
+			}
+		})
 	}
 }
 
