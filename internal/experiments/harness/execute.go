@@ -125,7 +125,11 @@ func toolCommand(ctx context.Context, src, tool string, args []string) *exec.Cmd
 		return syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
 	}
 	c.WaitDelay = 5 * time.Second
-	for _, k := range []string{"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "LD_LIBRARY_PATH"} {
+	// The eligibility gate's configuration (cohort manifest, annotation root and
+	// use ledger) is how an unattended run is authorised; without it every
+	// development replay is refused. See eligibilitycli.
+	for _, k := range []string{"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "LD_LIBRARY_PATH",
+		"VELOCITY_COHORT_MANIFEST", "VELOCITY_ANNOTATION_ROOT", "VELOCITY_ELIGIBILITY_DB"} {
 		if v, ok := os.LookupEnv(k); ok {
 			c.Env = append(c.Env, k+"="+v)
 		}

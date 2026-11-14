@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -95,7 +96,7 @@ func build(ctx context.Context, root, evidence, sha string) (string, string, err
 	if err = c.Run(); err != nil {
 		return "", "", fmt.Errorf("offline tool build: %w (see %s)", err, log.Name())
 	}
-	versionBytes, err := os.ReadFile(filepath.Join(src, "VERSION"))
+	version, err := buildVersion(src)
 	if err != nil {
 		return "", "", err
 	}
@@ -103,7 +104,7 @@ func build(ctx context.Context, root, evidence, sha string) (string, string, err
 	for _, name := range []string{"lidar-state-estimation-baseline", "lidar-box-eval", "lidar-ground-truth-eval"} {
 		path := filepath.Join(bin, name)
 		output, e := exec.CommandContext(ctx, path, "-version").CombinedOutput()
-		if e != nil || !strings.Contains(string(output), "v"+trim(string(versionBytes))) || !strings.Contains(string(output), "git sha:  "+sha) {
+		if e != nil || !strings.Contains(string(output), "v"+version) || !strings.Contains(string(output), "git sha:  "+sha) {
 			return "", "", fmt.Errorf("%s has a missing or incorrect build stamp", name)
 		}
 		sum, e := hashFile(path)
@@ -131,4 +132,23 @@ func syncMain(ctx context.Context, root string) error {
 	}
 	_, e = git(ctx, root, "merge", "--ff-only", "--no-edit", "origin/main")
 	return e
+}
+
+var makefileVersion = regexp.MustCompile(`(?m)^VERSION\s*:?=\s*(\S+)`)
+
+// buildVersion is the version the Makefile stamps into every binary. A VERSION
+// file, when a checkout carries one, takes precedence.
+func buildVersion(src string) (string, error) {
+	if b, err := os.ReadFile(filepath.Join(src, "VERSION")); err == nil {
+		return trim(string(b)), nil
+	}
+	b, err := os.ReadFile(filepath.Join(src, "Makefile"))
+	if err != nil {
+		return "", fmt.Errorf("no build version in %s: %w", src, err)
+	}
+	m := makefileVersion.FindSubmatch(b)
+	if m == nil {
+		return "", fmt.Errorf("no VERSION file or Makefile VERSION in %s", src)
+	}
+	return string(m[1]), nil
 }
