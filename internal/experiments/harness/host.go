@@ -31,8 +31,9 @@ type Host struct {
 }
 
 type Corpus struct {
-	Corpus string `json:"corpus"`
-	Index  string `json:"index"`
+	Corpus      string `json:"corpus"`
+	Index       string `json:"index"`
+	CaptureRoot string `json:"capture_root,omitempty"`
 }
 
 type Reference struct {
@@ -68,6 +69,11 @@ func ReadHost(path string) (Host, error) {
 	if h.BuildRoot != "" && !filepath.IsAbs(h.BuildRoot) {
 		return h, fmt.Errorf("host paths must be absolute: %q", h.BuildRoot)
 	}
+	for name, c := range h.Corpora {
+		if c.CaptureRoot != "" && !filepath.IsAbs(c.CaptureRoot) {
+			return h, fmt.Errorf("corpus %s capture_root must be absolute", name)
+		}
+	}
 	if e := validatePublication(h.Publish); e != nil {
 		return h, e
 	}
@@ -82,4 +88,14 @@ func (h Host) BuildBase() string {
 		return h.BuildRoot
 	}
 	return h.EvidenceRoot
+}
+
+// captureHost applies a corpus-specific directory containing indexed captures.
+// An override replaces both the legacy root and its subdirectory.
+func captureHost(h Host, c Corpus) Host {
+	if c.CaptureRoot != "" {
+		h.CaptureRoot = c.CaptureRoot
+		h.CaptureSubdir = ""
+	}
+	return h
 }

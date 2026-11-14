@@ -84,6 +84,18 @@ makes that note available to the next scheduling pass.
 
 ## Executors and parameters
 
+Each host maps portable corpus/index files to its own absolute capture directory.
+A corpus entry's optional `capture_root` overrides the global `capture_root` and
+`capture_subdir` together. For example, bind `kirk-labelled` to
+`/mnt/captures/lidar` on Linux or `/Volumes/captures/lidar` on macOS, while
+retaining the legacy `s2` subdirectory for the first-segment corpus. Both replay
+executors use the same effective directory. Directory bindings participate in
+the run identity. Capture names remain relative and cannot escape that directory.
+The checked-in Kirk manifest selects kirk0 only; it does not supply labels or
+approve a run. Advertise `pcap:kirk` after verifying service-user reads, and
+`labels:kirk` only after installing reviewed references. A missing capability is
+a host declaration failure, not proof that a file is absent.
+
 Arms always name checked-in tuning files and their pinned fingerprints. Corpus
 and index files are checked-in inputs, mapped by the host profile. The first
 segment manifests select one capture from each of 23 screening sites, excluding

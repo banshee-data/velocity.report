@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "name": "kirk-labelled",
+  "source_index": "kirk-labelled-site-index.json",
+  "cases": [{ "id": "kirk0", "expected_capture_count": 1 }]
+}
