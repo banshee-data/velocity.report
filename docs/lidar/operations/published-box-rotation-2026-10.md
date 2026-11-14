@@ -17,6 +17,12 @@ segments of 23 corpus sites, the two labelled kirk captures and kirk0's reviewed
 
 ## Summary
 
+The later [web yaw investigation](published-scene-yaw-investigation.md) found that the scene
+player mirrored the published yaw when mapping it into Three.js. The findings below describe
+the estimator's published box in data coordinates; agreement of exported fields does not establish
+agreement of the web and native rendering transforms. The viewer correction leaves those
+estimator measurements unchanged.
+
 - **Why.** The box the visualiser and the scene assets draw is three estimates that need not
   agree: the tracked position (a medoid on the visible surface), a PCA heading smoothed at 8 % a
   frame behind three guards, and this frame's PCA extents measured along another axis. On 15

@@ -179,6 +179,11 @@ estimation and CV, CA and the multiple-model filter. A [cloud run](operations/cl
 reviewed labels from the capture, bootstrapped kirk0's identity figures and read the kirk0 halves
 of four of those experiments.
 
+The [published-scene yaw investigation](operations/published-scene-yaw-investigation.md) separates
+these estimator findings from a web rendering defect: the player mirrored the stored box heading
+while preserving the path. It records two exact turn windows, the viewer correction, and the
+physical-pose checks still needed when the capture volume returns.
+
 ## Terminology
 
 Core domain terms for the LiDAR tracking system. Tuning-pipeline terms (sweep,
