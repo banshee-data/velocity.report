@@ -3,7 +3,8 @@
 Produce reproducible per-site candidate, following, experimental DRAC and exclusion evidence,
 then review a few multi-vehicle periods to decide the next geometry investment. The working
 programme is November 14–15, 2026. Lombard at Broderick is the provisional intensive-review
-site, subject to capture, lane and reference preflight.
+site, subject to capture, lane and reference preflight and a matched manual screen against
+Embarcadero at Broadway's published scene.
 
 - **Status:** Planned for v0.5.2 at the owner's request; implementation, experiment approval,
   frozen arm configurations and field qualification remain pending.
@@ -54,6 +55,71 @@ review. Replayable packets, current evidence databases and frozen reference pack
 These readings differ in arm and eligibility. Dividing 0.2 by 92 would not give a qualification
 rate. Their contrast makes Lombard useful for diagnosing exclusions; it does not establish
 current measurement yield or guarantee suitable physical references.
+
+## Matched published-scene screen
+
+Screen Lombard at Broderick and Embarcadero at Broadway before choosing the intensive-review
+periods. This is W1/W3 reconnaissance within the existing budget, not a third experiment or a
+held-out qualification read. Both published manifests and timelines were accessible during
+planning, with approximately 1,202 and 1,209 seconds respectively. The raw PCAP volume is
+currently unavailable, so the screen must use the published assets and record their limitations.
+
+Freeze each scene's manifest/export identity, placement, available build/configuration metadata,
+display settings and window list before viewing. Missing provenance stays explicit. Use the
+same four 30-second half-open windows in each scene, at playback offsets 70–100, 130–160,
+190–220 and 250–280 seconds from its published start: two minutes per site. These offsets do
+not imply identical source acquisition windows, traffic state, signal phase or time of day.
+Check the measurement-family use ledger first; replace a forbidden or unavailable window only
+by the next allowed 30-second window at the same fixed one-minute spacing, record the reason,
+and never replace a window because its traffic is sparse or difficult.
+
+Use the same playback rate, approximate viewing scale and two complementary camera views.
+Allow pauses and seeks to inspect evidence, while counting throughput over the fixed capture
+duration rather than operator viewing time. Keep any extra illustrative clip separate from
+the matched totals. Record these observations per window and pool only the compatible counts:
+
+| Dimension             | Manual record and comparison                                                                                                                                                                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Traffic throughput    | Count apparent distinct vehicle passages using a documented visible reference line or bounded review region; separate vehicles already present at the boundary, uncertain identities and raw tracker IDs; report count per capture minute, not physical flow validation |
+| Visible vehicle sides | For the same apparent bodies, record front, rear, left/right side or unresolved support, with example playback instants; distinguish visible returns from the rendered box's faces                                                                                      |
+| Occlusion             | Record clear, partial and unresolved/hidden periods for each reviewed body, including FOV entry/exit separately; label duration estimates as approximate and retain unknowns                                                                                            |
+| Track continuity      | Count apparent bodies carried continuously, split among IDs, duplicated, swapped or lost/reacquired; retain uncertain associations and the window-boundary censoring rather than joining by proximity                                                                   |
+| Usable gaps           | Count apparent following periods with an identifiable pair, credible shared direction/path, and visible support for follower front and leader rear; record duration and why a period is unsuitable or unresolved; this is reviewability, not a qualified numeric gap    |
+
+Use one window ledger and a few timestamped examples, with the same definitions at both sites.
+Do not pool separate periods of one pair into independent physical encounters. Published scenes
+may be downsampled, filtered, quantised or produced by different builds; record what their
+metadata actually says. Counts, visibility, continuity and gap opportunities are approximate
+observations of the exports. They do not establish current tracker performance, raw-return
+completeness, true dimensions, relative-speed accuracy or DRAC validity. The historical
+opportunity/class-release tables above are contextual evidence, not matched control arms.
+
+Choose intensive periods for clear pair identity, relevant visible ends and a useful negative
+case, not throughput alone. Keep Lombard if it provides that evidence; if Broadway is more
+reviewable, record why and use it without claiming a general site ranking. If neither supports
+numeric gaps, retain qualitative findings and proceed with an accessible logger fixture rather
+than expanding the capture search. Reserve at most 45 of the existing 120 operator-minutes for
+this matched screen; record incomplete review if the allowance expires, then use the remainder
+for the selected periods and provenance. Engineer interpretation stays inside its existing two
+hours, and new review tooling still displaces geometry time.
+
+## Related investigations and dependencies
+
+Visibly skewed vehicle boxes are under separate investigation in Codex chat
+`01a1d775-1d4a-7142-b12a-3c51ac9bde9c`. Its cause is unresolved. Record affected scene/version,
+playback instant, track ID and the visual discrepancy; do not assume a rendering, transform,
+heading, timing or estimator cause. Treat affected box-derived endpoints and gaps as suspect
+until the investigation states what evidence remains usable. Inspect visible returns separately
+where possible. The screen can proceed with flagged unknowns; physical interpretation of
+affected boxes and any geometry comparison depending on them waits for a supported disposition.
+If the independent fix changes an export, retain the old findings under their original version
+and repeat only the affected comparison under explicitly recorded new provenance.
+
+Euler's SRAC maths is being prepared in a separate documentation-only PR. SRAC remains future
+research and adds no logger field, implementation task, experiment arm or acceptance gate to
+this weekend. Link its landed review when available; its results and any required shape or
+steering-state evidence must be assessed before scheduling implementation. Preserve that work
+independently of this plan and its existing following/DRAC scope.
 
 ## Work and acceptance
 
@@ -141,7 +207,9 @@ before execution. Raw outputs stay local; edited reports retain provenance and l
 
 ## Sunday demonstration
 
-Show the selected site's binding and analysis version, a repeatable evidence log with both
+Show the two-site matched-screen ledger and its approximate observations first, including
+skewed-box flags and any missing or incomplete windows. Then show the selected site's binding
+and analysis version, a repeatable evidence log with both
 speeds, reconciled candidate/eligible/excluded time, and three or four named review periods.
 Explain a supported value and an ambiguous or suppressed case where evidence permits them;
 otherwise show why no physical value qualifies. State separately which engineering checks
