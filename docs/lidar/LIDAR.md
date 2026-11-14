@@ -78,30 +78,31 @@ acquisition while separating diagnostic fates, border traits, and coasting evide
 The [merged-detection disposition](operations/pcl-merged-detection-partition-disposition.md) drops
 a standalone PCL splitting arm and records the evidence required by the existing revision owner.
 
-| Topic                    | Document                                                                                           |
-| ------------------------ | -------------------------------------------------------------------------------------------------- |
-| Ten-layer architecture   | [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md)                           |
-| Pipeline component map   | [architecture/lidar-pipeline-reference.md](architecture/lidar-pipeline-reference.md)               |
-| Tracking implementation  | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                         |
-| Packet format            | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)       |
-| Auto-tuning              | [operations/auto-tuning.md](operations/auto-tuning.md)                                             |
-| Refinement criteria      | [operations/retrospective-refinement-criteria.md](operations/retrospective-refinement-criteria.md) |
-| Uncertainty criteria     | [operations/adaptive-uncertainty-criteria.md](operations/adaptive-uncertainty-criteria.md)         |
-| Analysis worker          | [operations/analysis-worker.md](operations/analysis-worker.md)                                     |
-| Track labelling          | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
-| Point annotation         | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
-| Label sets               | [operations/label-sets.md](operations/label-sets.md)                                               |
-| Labelling workspace      | [operations/labelling-workspace.md](operations/labelling-workspace.md)                             |
-| Site location correction | [Broadway at Franklin](operations/broadway-franklin-location-correction.md)                        |
-| Label set migration      | [operations/annotation-label-set-migration.md](operations/annotation-label-set-migration.md)       |
-| Per-frame evaluation     | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
-| Recording-use guard plan | [../plans/lidar-recording-use-guard-plan.md](../plans/lidar-recording-use-guard-plan.md)           |
-| Headway report oracle    | [operations/headway-report-oracle.md](operations/headway-report-oracle.md)                         |
-| SUMO counting lines      | [SUMO headway comparison](operations/sumo-columbus-broadway-headways-2026-10.md)                   |
-| Near-edge frame cost     | [operations/near-edge-frame-cost-2026-10.md](operations/near-edge-frame-cost-2026-10.md)           |
-| macOS visualiser         | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
-| Geometry data purpose    | [../geometry-priors-data-purpose.md](../geometry-priors-data-purpose.md)                           |
-| Backlog                  | [../BACKLOG.md](../BACKLOG.md)                                                                     |
+| Topic                     | Document                                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------------------- |
+| Ten-layer architecture    | [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md)                           |
+| Pipeline component map    | [architecture/lidar-pipeline-reference.md](architecture/lidar-pipeline-reference.md)               |
+| Tracking implementation   | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                         |
+| Packet format             | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)       |
+| Auto-tuning               | [operations/auto-tuning.md](operations/auto-tuning.md)                                             |
+| Refinement criteria       | [operations/retrospective-refinement-criteria.md](operations/retrospective-refinement-criteria.md) |
+| Uncertainty criteria      | [operations/adaptive-uncertainty-criteria.md](operations/adaptive-uncertainty-criteria.md)         |
+| Analysis worker           | [operations/analysis-worker.md](operations/analysis-worker.md)                                     |
+| Track labelling           | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
+| Point annotation          | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
+| Label sets                | [operations/label-sets.md](operations/label-sets.md)                                               |
+| Labelling workspace       | [operations/labelling-workspace.md](operations/labelling-workspace.md)                             |
+| Site location correction  | [Broadway at Franklin](operations/broadway-franklin-location-correction.md)                        |
+| Label set migration       | [operations/annotation-label-set-migration.md](operations/annotation-label-set-migration.md)       |
+| Per-frame evaluation      | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
+| Recording-use guard plan  | [../plans/lidar-recording-use-guard-plan.md](../plans/lidar-recording-use-guard-plan.md)           |
+| Headway report oracle     | [operations/headway-report-oracle.md](operations/headway-report-oracle.md)                         |
+| Following evidence export | [Offline following and experimental DRAC evidence](operations/following-evidence-export.md)        |
+| SUMO counting lines       | [SUMO headway comparison](operations/sumo-columbus-broadway-headways-2026-10.md)                   |
+| Near-edge frame cost      | [operations/near-edge-frame-cost-2026-10.md](operations/near-edge-frame-cost-2026-10.md)           |
+| macOS visualiser          | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
+| Geometry data purpose     | [../geometry-priors-data-purpose.md](../geometry-priors-data-purpose.md)                           |
+| Backlog                   | [../BACKLOG.md](../BACKLOG.md)                                                                     |
 
 The [October near-edge campaign report](operations/near-edge-campaign-2026-10.md) preserves the
 completed experiment's per-case findings, methods, uncertainty limits, and follow-up decisions.
@@ -184,6 +185,13 @@ identity candidate, the extent as the weakest link, and what to build and leave 
 estimation and CV, CA and the multiple-model filter. A [cloud run](operations/cloud-run-kirk0-labelled-2026-11.md) rebuilt kirk0's
 reviewed labels from the capture, bootstrapped kirk0's identity figures and read the kirk0 halves
 of four of those experiments.
+
+The [published-scene yaw investigation](operations/published-scene-yaw-investigation.md) separates
+these estimator findings from a web rendering defect: the player mirrored the stored box heading
+while preserving the path. It records two exact turn windows, the viewer correction, and the
+physical-pose checks still needed when the capture volume returns.
+The [scene refresh](operations/scene-export-refresh-2026-11.md) records the subsequent exports,
+their source and registration choices, and the separate playback acceptance checks.
 
 ## Terminology
 
@@ -364,3 +372,9 @@ What leaves the machine: the site token goes to Gerardus at the address set; map
 OpenStreetMap only after consent. Nothing is sent to Gerardus but requests to read. The client is
 `web/src/lib/gerardus/` (the typed API client, the map styles, and the 3D builders as plain arrays,
 with tests); the 3D view is `web/src/lib/components/lidar/SiteScene3D.svelte`.
+
+The [current-baseline following reproducibility pilot](operations/following-baseline-reproducibility-2026-11.md)
+records the first completed source-bound export check and its physical-evidence limits.
+
+The [fixed-prefix development following screen](operations/following-development-prefixes-2026-11.md)
+records per-source reproducibility and exclusion accounting for Columbus at Broadway and Embarcadero at Bryant.

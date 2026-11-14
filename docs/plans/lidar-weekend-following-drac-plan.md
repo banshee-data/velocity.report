@@ -7,11 +7,12 @@ site, subject to capture, lane, reference and cohort preflight and the matched m
 against Embarcadero at Broadway's published scene. Both sites are now assigned to validation;
 the cohort restrictions below take precedence over their earlier provisional development use.
 
-- **Status:** Planned for v0.5.2 at the owner's request; implementation, experiment approval,
-  frozen arm configurations and field qualification remain pending.
+- **Status:** In progress for v0.5.2. DRAC arithmetic, offline export and the first three-source
+  development baseline are merged. A fresh source/v2 rerun is active; operator review, conditional
+  geometry work, harness acceptance and physical qualification remain outstanding.
 - **Scope:** A bounded offline logger, existing annotation/review capabilities, and a conditional
-  geometry-attribution screen. This PR records the plan; receiving implementation agents choose
-  the design and do the work in separate changes.
+  geometry-attribution screen. This document tracks the separately merged implementation and
+  experiments; later work retains its own configuration, evidence and review gates.
 - **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md).
 - **Related:** [Behaviour analytics](lidar-behaviour-analytics-plan.md),
   [physical-reference workflow](lidar-physical-reference-review-plan.md),
@@ -116,11 +117,14 @@ hours, and new review tooling still displaces geometry time.
 The skewed-box investigation in Codex chat `01a1d775-1d4a-7142-b12a-3c51ac9bde9c` identified
 a web-player yaw-sign defect, corrected in merged [PR #1024](https://github.com/banshee-data/velocity.report/pull/1024).
 The [renderer report](../lidar/operations/scene-player-yaw.md) distinguishes the corrected
-display transform from unchanged stored heading and unvalidated physical yaw. The parallel
-[PR #1027](https://github.com/banshee-data/velocity.report/pull/1027) contains overlapping work;
-reconcile it against #1024 rather than applying the correction twice. Its investigation and
-new asset-refresh work remain independently owned. Record the player module and asset/build
-versions used for review; old-player results are not current-renderer evidence.
+display transform from unchanged stored heading and unvalidated physical yaw. The follow-up
+[PR #1027](https://github.com/banshee-data/velocity.report/pull/1027) is also merged, preserving
+the investigation and extra geometric regressions without applying the correction twice.
+[PR #1031](https://github.com/banshee-data/velocity.report/pull/1031) refreshed all 24 indexed S2
+scenes; its [report](../lidar/operations/scene-export-refresh-2026-11.md) records integrity and
+rendered acceptance. The recording-archive audit and running preview remain independently owned.
+Record the player module and asset/build versions used for review; old-player results are not
+current-renderer evidence.
 
 Euler's [SRAC maths](../research/srac-steering-demand-maths.md) and
 [follow-up plan](lidar-srac-research-plan.md) landed in
@@ -132,11 +136,103 @@ clearance evidence are separate requirements, not supplied by sampling alone. Re
 episodes may later inform its synthetic cases, but ordinary non-collision recordings do not
 validate hypothetical avoidance, driver intent or crash risk.
 
+## November 14 progress and remaining work
+
+This refresh covers merged main `0359442e6` (#1040) and the related chats read on November 14,
+2026, after the owner requested a fresh three-source rerun and verification of all 24 recording
+archives. It supersedes the live-status wording in the November 13 snapshot below. An active
+request is not a completed run; its owning chat retains execution responsibility.
+
+### Delivered foundation and bounded experiments
+
+| Work                               | Evidence now available                                                                                                                                                                                                                                                                                                                                                         | Remaining acceptance or limitation                                                                                                                                                                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| W1: development evidence preflight | Kirkham, Columbus–Broadway and Embarcadero–Bryant captures admitted by hash under cohort revision 2 in the [Kirk pilot](../lidar/operations/following-baseline-reproducibility-2026-11.md) and [S2 report](../lidar/operations/following-development-prefixes-2026-11.md)                                                                                                      | Verify the fresh producer bindings; accepted lanes and independently reviewed physical references are not supplied by capture admission. Both proposed matched-screen sites remain validation                                                                         |
+| W2: arithmetic and offline logger  | Merged [#1033](https://github.com/banshee-data/velocity.report/pull/1033) and [#1034](https://github.com/banshee-data/velocity.report/pull/1034); [exporter runbook](../lidar/operations/following-evidence-export.md) retains both speeds, complete readable follower timelines, support, exclusions, versions and exact accounting                                           | Review-only experimental arithmetic, outside the public Measurement registry. Missing joint uncertainty stays missing; no physical metric promotion                                                                                                                   |
+| W2: first baseline campaign        | Merged [#1037](https://github.com/banshee-data/velocity.report/pull/1037) and [#1038](https://github.com/banshee-data/velocity.report/pull/1038), specs [l8fol0006](../../data/experiments/l8fol/l8fol0006.md) and [l8fol0007](../../data/experiments/l8fol/l8fol0007.md), using the checked-in [unchanged baseline](../../config/experiments/weekend-following-baseline.json) | Same-DB exports are byte-identical, all interval accounting reconciles, and raw-repeat tracking summaries agree at their declared scope. Complete independent databases/recordings were not proved byte-identical. No tuning was adopted                              |
+| Producer identity repairs          | Merged [#1039](https://github.com/banshee-data/velocity.report/pull/1039) records per-case calibration; [#1040](https://github.com/banshee-data/velocity.report/pull/1040) binds canonical scoring start, preceding warm-up and duration in source/v2                                                                                                                          | Fresh corpus manifests are schema 3. Historical manifests, reports and source/v1 evidence retain their original limitations and must not be rewritten or relabelled                                                                                                   |
+| Fresh three-source rerun           | Owner requested the rerun on current main in “🗣️ Discuss experiments”, chat `01a1d6bc-73c2-7330-98dd-6d7d249fd449`; active at this snapshot                                                                                                                                                                                                                                    | Its owning chat preregistered l8fol0008 in its isolated worktree. Fresh manifest/output paths, end-to-end calibration/window agreement, repeatability, accounting, report and archive verification are still to be recorded. Do not launch a duplicate from this plan |
+| W3: review preparation             | Reports nominate source-bound supported, non-closing, class-excluded and record-gap periods                                                                                                                                                                                                                                                                                    | Nominations are not reviewed physical encounters. Some precede the scoring VRLOG; obtain a permitted recording/replay covering them before promising seekable review                                                                                                  |
+| W4: face/extent attribution        | Existing geom0016 gate and two-hour conditional allowance retained                                                                                                                                                                                                                                                                                                             | No new facet tracker, state estimator, attribution run or physical geometry qualification has been delivered by the baseline campaign                                                                                                                                 |
+
+The original retained-DB populations are useful engineering evidence, not scoring-only site yield:
+
+| Source             | Total follower-seconds | Following-eligible follower-seconds | Supported experimental DRAC follower-seconds |
+| ------------------ | ---------------------: | ----------------------------------: | -------------------------------------------: |
+| Kirkham pilot      |             452.926531 |                           15.400613 |                                     2.700159 |
+| Columbus–Broadway  |            8250.408375 |                           88.395155 |                                    41.601939 |
+| Embarcadero–Bryant |           7376.1741237 |                          202.381849 |                                    63.496024 |
+
+Each population includes retained warm-up evidence; simultaneous followers contribute separately.
+Do not sum these as independent encounters, compare them as matched site rates, or count repeated
+exports/reruns as new traffic. The S2 report separately gives descriptive half-open scoring-header
+strata; its original full-DB rule remains unchanged. No-common-path decisions, record gaps, class
+suppression and unresolved identity/geometry motivate W3; they do not justify weakening gates.
+
+### Parallel work delivered and still owed
+
+- **Scenes and preview:** #1027 and #1031 are merged. All 24 indexed scenes passed the refresh's
+  product-integrity and rendered checks. In “Investigate skewed vehicle boxes (2)”, chat
+  `01a1d81f-c4d8-7e53-9453-578437798051`, the latest request is to verify that all 24 raw recordings
+  are archived on the LiDAR volume and leave the dev preview running. That archive-completeness
+  audit is active, not established by the merged scene-product checks. Preserve partial archives
+  and verify every source/copy before claiming completion; do not stop the owner's preview.
+- **Arrow capture access:** merged [#1032](https://github.com/banshee-data/velocity.report/pull/1032)
+  adds per-corpus capture roots and records deployed capture access, an enabled timer and a clean
+  scheduling pass. It establishes deployment/access, not a labelled experiment or H5 soak.
+- **Labels and harness:** merged [#1035](https://github.com/banshee-data/velocity.report/pull/1035)
+  checks scoring bindings and files before replay. “Audit arrow-worker harness and NFS”, chat
+  `01a1d916-4200-70e2-81b4-86d20b32cf75`, found approved `l4clus0008`, `l5id0013` and `l8fol0004`
+  skipped for missing `labels:kirk`. Install/verify linked label sets, exact pack revisions and
+  frozen splits, configure paired estimate DB bindings, then check manual closures, predecessors
+  and `macos-review` where required. A capability label alone cannot release a job. Recheck live
+  status after deployment of newer fixes; the observed heartbeat is historical evidence.
+- **Worker hygiene:** merged [#1036](https://github.com/banshee-data/velocity.report/pull/1036)
+  supplies [verified archival and guarded cleanup](../platform/operations/worker-hygiene.md).
+  Its tiny NAS smoke test and worktree plans do not establish production cleanup: all nine
+  inspected worktrees were retained and production evidence was not removed. Root capacity,
+  archive selection, actual space recovery, service-user ACLs and NFS interruption/locking tests
+  remain explicit operational follow-ups. Keep active SQLite/staging local and verified archives
+  on the expected NAS export; do not turn this planning update into a deletion or mount change.
+- **Remote submission:** “Submit jobs to arrow-worker”, chat `01a1d8e5-4c52-77c3-98b7-a001dc42a10e`,
+  found no app remote-control submission API and submitted no job. The separate SSH audit and
+  deployment establish host access; neither implies a ready labelled queue or an available
+  remote-control job connector. Retain the bounded-selection, recovery, App-publication,
+  security-review evidence and week-long soak gates from the harness handoff.
+- **Research and physical work:** 20 Hz/Pi qualification, SRAC solver/certificates, real-road
+  acceptance, frozen independent references and PET/safety validation remain in the separate
+  queues recorded below. No baseline result completes them.
+
+### Next actions and completion records
+
+1. Let the existing rerun owner finish or report a blocker. Require fresh schema-3 manifests,
+   source/v2 agreement across manifest, DB, recording and export, and per-case calibration
+   agreement. Keep actual retained/scored timestamps and EOF clipping explicit. Different windows
+   remain different extractions of potentially overlapping traffic, not independent exposure.
+2. Review three or four eligible development periods, starting with the reports' nominations and
+   checking recording coverage before seek. Record physical identity continuity, path/leader
+   ambiguity, visible endpoints, both speeds and any suspected lost returns. Include a negative
+   case; retain unknowns rather than treating tracker IDs as bodies.
+3. Finish the separately owned 24-recording archive audit and retain the requested preview.
+   Install/verify labelled scoring inputs and close real manual prerequisites before a bounded
+   arrow run. Complete recovery/publication/soak evidence separately from access and unit tests.
+4. Use W4 only if the frozen reference/evaluator prerequisites and remaining allowance permit it.
+   Otherwise publish the explicit attribution blocker and the next evidence needed.
+5. Add the rerun's authored report and verification outcome when available. Update remaining
+   backlog items from that evidence; physical publication still needs its independent gates.
+
+The sixteen engineer-hours and two operator-hours below are the original allocation, not a fresh
+sixteen-hour allowance after each merge. Arithmetic, logger implementation and the first bounded
+baseline have consumed/completed their deliverables. Prioritise the active identity verification
+and operator review; retain the two-hour geometry/review-tool trade-off. Re-estimate actual
+remaining time with the owner instead of promising the whole original programme again.
+
 ## November 13 reconciliation and task coverage
 
 This inventory covers the Pacific calendar day November 13, 2026 (08:00 UTC through the next
 08:00 UTC), through main `a4bdda9df` and the active-session snapshot taken during this update.
-Later messages or PR changes require another refresh. The existing 16-hour logger/review budget
+This is the retained November 13 snapshot; the November 14 section above supplies current status.
+The existing 16-hour logger/review budget
 is unchanged. Parallel jobs and later research below are accounted for, not silently added to it.
 
 ### Cohort decision before further diagnostic use
@@ -219,6 +315,7 @@ changes no cohort, deploys nothing and makes no physical-validation claim.
 ## Work and acceptance
 
 The following are outcome boundaries for later handoffs, not prescribed implementation designs.
+The November 14 progress section distinguishes completed implementation from remaining acceptance.
 Each implementation change must include its relevant tests and evidence. Substantial work can
 be handed to Claude independently after the shared contract and dependencies are settled.
 
@@ -240,7 +337,8 @@ or an unseen bumper.
 The server/analysis work owns reproducible equations, candidate/metric eligibility, exact speeds,
 endpoints, versions, path evidence and exclusion accounting. An offline export is sufficient for
 the first engineering exit; live production, a public API and broad schema changes can follow
-review of the contract and outputs. Reuse the central metric registry and existing L8 semantics.
+review of the contract and outputs. Retain existing L8 semantics. The shipped experimental DRAC
+primitive stays outside the public Measurement registry; promotion remains a separate decision.
 
 The visualiser already has seek/step, track selection/highlighting, track history, annotation
 navigation, physical references and report Compare. Following-reference authoring uses the
@@ -297,9 +395,11 @@ snapshot in use are distinct evidence states.
 Record Lombard's earlier screening/tuning exposures under their original measurement family;
 its current validation cohort still governs new use. Check each new segment's policy and use
 ledger before scoring. Preserve embarcadero-folsom's existing
-evaluation boundaries. Run at most the oracle's two selected experiments: current-baseline
-coverage/logging and conditional geom0016 tuning attribution; freeze configurations and rules
-before execution. Raw outputs stay local; edited reports retain provenance and limitations.
+evaluation boundaries. Preserve the oracle's two work families: current-baseline coverage/logging
+and conditional geom0016 tuning attribution. The owner subsequently authorised the l8fol0006/0007
+baseline campaign and fresh identity rerun recorded above; these are bounded preregistered runs,
+not permission to expand sites, tune thresholds or add geometry arms. Freeze each configuration
+and rule before execution. Raw outputs stay local; edited reports retain provenance and limitations.
 
 ## Sunday demonstration
 

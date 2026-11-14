@@ -1,0 +1,1 @@
+- Refreshed the indexed web scenes from the checked-in defaults and reviewed their playback with the corrected box transform. The [refresh report](../../lidar/operations/scene-export-refresh-2026-11.md) records source selection, per-site coverage, registration checks, and the limits of rendered and numerical evidence; raw recordings and review output remained local.

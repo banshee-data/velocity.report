@@ -3,7 +3,7 @@
   "worker": "arrow-worker",
   "class": "arrow",
   "cores": 4,
-  "capabilities": ["pcap:s2", "pcap-build"],
+  "capabilities": ["pcap:s2", "pcap:kirk", "pcap-build"],
   "evidence_root": "/mnt/results/velocity-harness",
   "build_root": "/var/lib/velocity-harness/builds",
   "stage_dir": "/var/lib/velocity-harness/stage",
@@ -17,6 +17,11 @@
     "d2-first-segment": {
       "corpus": "data/experiments/corpora/first-segment-corpus.json",
       "index": "data/experiments/corpora/first-segment-site-index.json"
+    },
+    "kirk-labelled": {
+      "corpus": "data/experiments/corpora/kirk-labelled-corpus.json",
+      "index": "data/experiments/corpora/kirk-labelled-site-index.json",
+      "capture_root": "/mnt/captures/lidar"
     }
   },
   "references": {}

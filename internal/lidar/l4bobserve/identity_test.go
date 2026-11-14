@@ -1,6 +1,8 @@
 package l4bobserve
 
 import (
+	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 )
@@ -58,5 +60,44 @@ func TestIdentityRejectsIncompleteEvidence(t *testing.T) {
 	}
 	if _, err := ObservationID("", "calibration/v1/x", 0, 0); err == nil {
 		t.Fatal("accepted observation without source identity")
+	}
+}
+
+func TestReplayWindowIdentityVersionsAndBindsEveryBoundary(t *testing.T) {
+	source := CaptureSource{ClipID: "clip", CapturePaths: []string{"capture"}, CaptureSHA256s: []string{strings.Repeat("a", 64)}, ExtractorID: "extractor"}
+	legacy, err := SourceID(source)
+	if err != nil || legacy != "source/v1/f0ed5c3fbd403403a463973bc261e713e80d39676333f908fa35b424b999aac4" {
+		t.Fatalf("legacy: %s %v", legacy, err)
+	}
+	w := ReplayWindow{StartOffsetNanos: 20, WarmupNanos: 10, DurationNanos: 30}
+	source.Window = &w
+	id, err := SourceID(source)
+	if err != nil || !strings.HasPrefix(id, "source/v2/") {
+		t.Fatalf("window: %s %v", id, err)
+	}
+	if again, err := SourceID(source); err != nil || again != id {
+		t.Fatalf("unstable: %s %v", again, err)
+	}
+	for _, changed := range []ReplayWindow{{21, 10, 30}, {20, 11, 30}, {20, 10, 31}, {20, 10, 0}, {}} {
+		source.Window = &changed
+		got, err := SourceID(source)
+		if err != nil || got == id || got == legacy {
+			t.Fatalf("window %+v: %s %v", changed, got, err)
+		}
+	}
+	source.Window = &w
+	encoded, _ := json.Marshal(source)
+	var decoded CaptureSource
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := SourceID(decoded); err != nil || got != id {
+		t.Fatalf("roundtrip %s %v", got, err)
+	}
+	for _, bad := range []ReplayWindow{{-1, 0, 0}, {1, -1, 0}, {1, 2, 0}, {1, 0, -1}, {math.MaxInt64, 0, 1}} {
+		source.Window = &bad
+		if _, err := SourceID(source); err == nil {
+			t.Fatalf("accepted %+v", bad)
+		}
 	}
 }

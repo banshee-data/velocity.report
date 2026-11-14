@@ -255,10 +255,14 @@ func main() {
 	if err := split.authorize(guard, resolvedCases, *experimentFlag, *tuning); err != nil {
 		fatal(err)
 	}
+	window, err := (replayeval.Config{StartSeconds: *warmup, WarmupSeconds: *warmup, DurationSeconds: *duration}).ObservationWindow()
+	if err != nil {
+		fatal(err)
+	}
 	var sourceManifestSHA256 string
 	var verifiedSourceManifest *sourceManifest
 	if *sourceManifestPath != "" {
-		manifest, err := buildSourceManifest(*corpusPath, *indexPath, *pcapRoot, *tuning, *sensorID, resolvedCases)
+		manifest, err := buildSourceManifest(*corpusPath, *indexPath, *pcapRoot, *tuning, *sensorID, resolvedCases, window)
 		if err != nil {
 			fatal(err)
 		}
@@ -271,7 +275,7 @@ func main() {
 		fmt.Printf("wrote immutable source manifest %s (%s)\n", *sourceManifestPath, sourceManifestSHA256)
 	}
 	if *existingSourceManifestPath != "" {
-		manifest, err := buildSourceManifest(*corpusPath, *indexPath, *pcapRoot, *tuning, *sensorID, resolvedCases)
+		manifest, err := buildSourceManifest(*corpusPath, *indexPath, *pcapRoot, *tuning, *sensorID, resolvedCases, window)
 		if err != nil {
 			fatal(err)
 		}
@@ -378,6 +382,15 @@ func (r corpusReplay) evidencePath(caseID string) string {
 // order. Each case's summary is on disk in its output directory before its
 // evidence is discarded, so a later case's failure costs only that case.
 func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertaintyCase, error) {
+	if r.sourceManifest != nil {
+		window, err := r.base.ObservationWindow()
+		if err != nil {
+			return nil, nil, err
+		}
+		if r.sourceManifest.Window != window {
+			return nil, nil, fmt.Errorf("source manifest replay window differs from configured replay")
+		}
+	}
 	var reused map[string]caseSummary
 	if r.resume {
 		var err error
@@ -416,6 +429,11 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			first.ObservationDBPath = r.evidencePath(selectedCase.ID)
 			first.ClipID = selectedCase.ID
 			first.ObservationCalibration = siteCalibration(first.SensorID, r.index[selectedCase.ID].NorthAzimuthDeg)
+			if r.sourceManifest != nil {
+				if err := r.sourceManifest.verifyCalibration(selectedCase.ID, first.ObservationCalibration); err != nil {
+					return nil, nil, err
+				}
+			}
 			first.ObservationMaxSamplePoints = r.samplePoints
 			first.ProfileEvidence = r.evidenceProfile
 		}

@@ -271,7 +271,9 @@ func TestKirk0ObservationContainer(t *testing.T) {
 	// failure generation says why the extraction stopped.
 	t.Run("repeat reproduces the evidence", func(t *testing.T) {
 		const stopAt = 40
-		repeat := kirk0Replay(pcap, filepath.Join(root, "repeat"), 0, 5)
+		// Repeat the same declared window; the injected stop, rather than a
+		// different requested extraction, bounds its committed prefix.
+		repeat := kirk0Replay(pcap, filepath.Join(root, "repeat"), 8, 2)
 		repeat.ObservationLogDir = filepath.Join(root, "repeat.vrlog")
 		repeat.ObservationFrames = func(f l4bobserve.FrameRecord) error {
 			if f.Sequence == stopAt {

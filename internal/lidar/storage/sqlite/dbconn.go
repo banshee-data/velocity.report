@@ -3,8 +3,17 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 )
+
+// ReadSnapshot adapts a read transaction to the existing store interface. It
+// refuses nested write transactions and keeps multi-query readers on one view.
+type ReadSnapshot struct{ *SQLTx }
+
+func (r ReadSnapshot) Begin() (*SQLTx, error) {
+	return nil, errors.New("read snapshot refuses nested transactions")
+}
 
 // SQLDB is a type alias for sql.DB, exported so that packages outside the
 // storage layer can reference the database connection type without importing

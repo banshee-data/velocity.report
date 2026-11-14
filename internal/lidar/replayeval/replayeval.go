@@ -55,6 +55,24 @@ import (
 // secondsToNanos converts a configured window in seconds to nanoseconds.
 func secondsToNanos(seconds float64) int64 { return int64(math.Round(seconds * 1e9)) }
 
+// ObservationWindow is the canonical window shared by the source declaration,
+// persisted evidence and recording manifest. Duration 0 and -1 both mean EOF.
+func (cfg Config) ObservationWindow() (l4bobserve.ReplayWindow, error) {
+	for _, v := range []float64{cfg.StartSeconds, cfg.WarmupSeconds, cfg.DurationSeconds} {
+		if math.IsNaN(v) || math.IsInf(v, 0) || math.Abs(v) >= float64(math.MaxInt64)/1e9 {
+			return l4bobserve.ReplayWindow{}, fmt.Errorf("replay windows must be finite representable seconds")
+		}
+	}
+	if cfg.StartSeconds < 0 || cfg.WarmupSeconds < 0 || cfg.WarmupSeconds > cfg.StartSeconds || (cfg.DurationSeconds < 0 && cfg.DurationSeconds != -1) {
+		return l4bobserve.ReplayWindow{}, fmt.Errorf("invalid replay window: require start >= warmup >= 0 and duration >= 0 or -1 (EOF)")
+	}
+	w := l4bobserve.ReplayWindow{StartOffsetNanos: secondsToNanos(cfg.StartSeconds), WarmupNanos: secondsToNanos(cfg.WarmupSeconds), DurationNanos: secondsToNanos(max(cfg.DurationSeconds, 0))}
+	if cfg.DurationSeconds > 0 && w.DurationNanos == 0 {
+		return w, fmt.Errorf("positive replay duration is below nanosecond resolution")
+	}
+	return w, w.Validate()
+}
+
 // sha256Sum is a small helper so the provenance block reads in one line.
 func sha256Sum(b []byte) []byte {
 	sum := sha256.Sum256(b)
@@ -712,16 +730,16 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if cfg.OutDir == "" {
 		return nil, fmt.Errorf("OutDir is required")
 	}
-	for _, v := range []float64{cfg.StartSeconds, cfg.DurationSeconds, cfg.WarmupSeconds} {
-		if math.IsNaN(v) || math.IsInf(v, 0) || math.Abs(v) >= float64(math.MaxInt64)/1e9 {
-			return nil, fmt.Errorf("replay windows must be finite representable seconds")
-		}
+	observationWindow, err := cfg.ObservationWindow()
+	if err != nil {
+		return nil, err
 	}
-	if cfg.StartSeconds < 0 || cfg.WarmupSeconds < 0 || cfg.WarmupSeconds > cfg.StartSeconds || (cfg.DurationSeconds < 0 && cfg.DurationSeconds != -1) {
-		return nil, fmt.Errorf("invalid replay window: require start >= warmup >= 0 and duration >= -1")
-	}
-	if cfg.DurationSeconds > 0 && cfg.DurationSeconds+cfg.WarmupSeconds >= float64(math.MaxInt64)/1e9 {
-		return nil, fmt.Errorf("processing window exceeds representable duration")
+	// Use exactly the declared nanosecond window throughout packet planning;
+	// inputs that canonicalise to one identity must produce one effective plan.
+	cfg.StartSeconds = float64(observationWindow.StartOffsetNanos) / 1e9
+	cfg.WarmupSeconds = float64(observationWindow.WarmupNanos) / 1e9
+	if cfg.DurationSeconds > 0 {
+		cfg.DurationSeconds = float64(observationWindow.DurationNanos) / 1e9
 	}
 	if entries, err := os.ReadDir(cfg.OutDir); err == nil && len(entries) != 0 {
 		return nil, fmt.Errorf("output directory must be empty: %s", cfg.OutDir)
@@ -795,7 +813,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 	firstTimestampNs := sequence.Start.UnixNano()
 	lastTimestampNs := sequence.End.UnixNano()
-	scoreStart := firstTimestampNs + int64(cfg.StartSeconds*1e9)
+	scoreStart := firstTimestampNs + observationWindow.StartOffsetNanos
 	if scoreStart < firstTimestampNs || scoreStart > lastTimestampNs {
 		return nil, fmt.Errorf("scoring window starts outside capture")
 	}
@@ -902,7 +920,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		}
 		observationSourceID, err = l4bobserve.SourceID(l4bobserve.CaptureSource{
 			ClipID: cfg.ClipID, CapturePaths: pcapFiles, CaptureSHA256s: rawHashes,
-			ExtractorID: extractorID,
+			ExtractorID: extractorID, Window: &observationWindow,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("derive observation source identity: %w", err)
@@ -1016,10 +1034,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 					// The tap's own coordinate frame; see newObservationFrameTap.
 					CoordinateFrame: "site/" + cfg.SensorID,
 					ClipID:          cfg.ClipID, CaptureFiles: files, ExtractorID: extractorID,
-					Window: vrlog.SourceWindow{StartOffsetNanos: secondsToNanos(cfg.StartSeconds),
-						// run normalised "the rest of the capture" to -1; the
-						// manifest's spelling of it is zero.
-						WarmupNanos: secondsToNanos(cfg.WarmupSeconds), DurationNanos: secondsToNanos(max(cfg.DurationSeconds, 0))},
+					Window: vrlog.SourceWindow(observationWindow),
 				},
 				Calibration: cfg.ObservationCalibration,
 				Limits:      cfg.ObservationLogLimits,

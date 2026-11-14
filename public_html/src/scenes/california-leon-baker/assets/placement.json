@@ -8,20 +8,20 @@
     "record_id": "gms:01M64Y5S3BNZTY2CTTQJW155PV",
     "registration_state": "manually_placed",
     "pose_source": "icp",
-    "model_id": "sha256:777a0b82edb8aa040ac6816d4e5d1cef491f4cec962655345a882d04a80aa87c",
-    "bundle_id": "sha256:badd92f386ae770ae3810eeadfd8f51dea723d20047bad2d7c5e9f7ca4ee140c",
+    "model_id": "sha256:aa880b32dae26edfc34d38cbbda52b10f82bed85f267b6b51e7b04a6bc3914cf",
+    "bundle_id": "sha256:9f1aa920ed57a23b1803fac10f15f907e27aa01977c3f96bebfe4d73c2f803aa",
     "reviewed_at": "2026-10-29T22:58:30.635139068Z",
     "check": {
       "method": "share of wall and kerb edge samples with a settled-background point in the same or a neighbouring 0.25 m voxel, at the pose and at the pose moved 2 m or turned 5 degrees; the pose passes when it scores highest, on 50 samples or more",
       "samples": 8000,
-      "at_pose": 0.036,
+      "at_pose": 0.037,
       "moved": {
-        "+2m_e+0m_n+0deg": 0.016,
+        "+2m_e+0m_n+0deg": 0.017,
         "-2m_e+0m_n+0deg": 0.012,
-        "+0m_e+2m_n+0deg": 0.019,
+        "+0m_e+2m_n+0deg": 0.02,
         "+0m_e-2m_n+0deg": 0.021,
         "+0m_e+0m_n+5deg": 0.014,
-        "+0m_e+0m_n-5deg": 0.014
+        "+0m_e+0m_n-5deg": 0.015
       },
       "passed": true
     }

@@ -12,7 +12,7 @@ import (
 
 // TestExperimentConfigsDeclareEveryChangeFromTheDefaults is the anti-drift
 // guard for config/experiments/. Each shipped parameter set loads under the
-// strict loader, differs from the defaults, and has a row in the
+// strict loader and has a row in the
 // directory's README naming every key it changes. A set copied from an
 // older defaults file then fails here, listing the keys it carries that its
 // row does not explain, rather than running quietly as something other
@@ -42,12 +42,12 @@ func TestExperimentConfigsDeclareEveryChangeFromTheDefaults(t *testing.T) {
 				t.Fatalf("loading %s: %v", path, err)
 			}
 			changed := changedConfigPaths(base, flatConfig(t, cfg))
-			if len(changed) == 0 {
-				t.Fatalf("%s is the defaults; a parameter set changes something", path)
-			}
 			row := readmeRow(string(readme), e.Name())
 			if row == "" {
 				t.Fatalf("config/experiments/README.md has no row for %s; add one naming what it changes and the report it serves", e.Name())
+			}
+			if !baselineDeclarationValid(changed, row) {
+				t.Fatalf("%s has an inconsistent baseline declaration; No changed keys is required exactly when the set equals defaults", path)
 			}
 			var undeclared []string
 			for _, p := range changed {
@@ -63,6 +63,38 @@ func TestExperimentConfigsDeclareEveryChangeFromTheDefaults(t *testing.T) {
 	}
 	if seen == 0 {
 		t.Fatal("config/experiments/ holds no parameter sets")
+	}
+}
+
+// baselineDeclarationValid distinguishes intentional controls from undeclared
+// copies, and prevents a stale control from claiming that drift is unchanged.
+func baselineDeclarationValid(changed []string, row string) bool {
+	cells := strings.Split(row, "|")
+	if len(cells) < 4 {
+		return false
+	}
+	return (len(changed) == 0) == strings.HasPrefix(strings.TrimSpace(cells[2]), "No changed keys")
+}
+
+func TestExperimentBaselineDeclarations(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		changed []string
+		row     string
+		want    bool
+	}{
+		{"explicit unchanged control", nil, "| baseline.json | No changed keys: baseline control | report.md |", true},
+		{"marker only in report", nil, "| baseline.json | unchanged | No changed keys.md |", false},
+		{"missing control marker", nil, "| baseline.json | baseline control | report.md |", false},
+		{"stale control", []string{"l5.cv_kf_v1.max_coast_frames"}, "| baseline.json | No changed keys: baseline control | report.md |", false},
+		{"contradictory control", []string{"l5.cv_kf_v1.max_coast_frames"}, "| baseline.json | No changed keys; max_coast_frames changed | report.md |", false},
+		{"changed candidate", []string{"l5.cv_kf_v1.max_coast_frames"}, "| baseline.json | max_coast_frames changed | report.md |", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := baselineDeclarationValid(tc.changed, tc.row); got != tc.want {
+				t.Fatalf("declaration accepted=%t, want%t", got, tc.want)
+			}
+		})
 	}
 }
 

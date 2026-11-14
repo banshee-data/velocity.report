@@ -4,6 +4,11 @@ The server applet is mounted under the unified `velocity` binary. It runs the ra
 
 ## Build
 
+`velocity report headway --evidence-context` exports offline following and experimental DRAC
+review evidence from a read-only source snapshot. See the
+[evidence runbook](../../../docs/lidar/operations/following-evidence-export.md) for explicit
+source/site bindings, cohort eligibility and repeatability.
+
 ```bash
 # Build the unified binary
 make build-velocity

@@ -33,7 +33,13 @@ Installation, by an administrator on arrow-worker:
    at `/usr/local/bin/velocity`.
 4. Copy `arrow-worker.example.json` to `/var/lib/velocity-harness/host.json` and
    check every path, corpus and capability. The example advertises S2 captures;
-   add kirk captures and labels only after their paths and frozen references exist. The NAS
+   the example also maps kirk0 at the capture root and advertises `pcap:kirk`.
+   Verify those reads as the service user. Corpus-specific `capture_root` replaces both
+   legacy path fields, so Kirk can sit beside `s2` without moving or copying captures.
+   On macOS set it to the corresponding `/Volumes/...` directory in the local host profile.
+   Selection checks each scoring unit’s reference binding and file availability before
+   building or replaying. Labels and frozen scoring references remain separate prerequisites; advertise
+   `labels:kirk` only when they are installed and verified. The NAS
    refuses `O_EXCL` and `chmod`, so the example keeps `evidence_root` there with
    `stage_attempts` and a local `build_root` ([runbook](../../docs/platform/operations/experiment-harness.md)).
 5. Create the eligibility inputs the unit's `VELOCITY_*` variables name. The use ledger is a
@@ -64,3 +70,7 @@ its entire process group on stop. It can write its own clone, cache and evidence
 paths. App scope and the path guard constrain publication to the one repository's
 new run notes. This deployment checklist is preparation, not evidence of a live
 NAS installation or a completed security review.
+
+For read-only storage surveys, verified NAS archival, and guarded retirement of old
+linked worktrees, see [worker storage hygiene](../../docs/platform/operations/worker-hygiene.md).
+Keep the offline module cache and active service data out of cleanup batches.

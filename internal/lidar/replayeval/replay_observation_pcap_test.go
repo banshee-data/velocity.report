@@ -140,6 +140,27 @@ func TestObservationStoragePreservesReplayBaseline(t *testing.T) {
 	if regionMap.RegionCount != regionSets[0].RegionCount || len(regionMap.TercileThresholds) != 2 {
 		t.Fatalf("identified region map: %d regions, thresholds %v", regionMap.RegionCount, regionMap.TercileThresholds)
 	}
+	// A second (overlapping) window is a different extraction, even when
+	// written into the same database. This does not make exposure independent.
+	other := with
+	other.OutDir = filepath.Join(dir, "other-window")
+	other.DurationSeconds = 5
+	otherResult, err := Run(other)
+	if err != nil {
+		t.Fatalf("second window in shared database: %v", err)
+	}
+	if otherResult.ObservationSourceID == result.ObservationSourceID {
+		t.Fatal("window identity collided")
+	}
+	otherRows, err := observationsqlite.NewObservationStore(database).ListBySource(otherResult.ObservationSourceID)
+	if err != nil || len(otherRows) == 0 {
+		t.Fatalf("second source evidence %d %v", len(otherRows), err)
+	}
+	// Freeze the region snapshot population again after the successful run.
+	regionSets, err = database.ListRegionSnapshots()
+	if err != nil {
+		t.Fatal(err)
+	}
 	duplicate := with
 	duplicate.OutDir = filepath.Join(dir, "duplicate")
 	if _, err := Run(duplicate); err == nil || !strings.Contains(err.Error(), "immutable observation") {

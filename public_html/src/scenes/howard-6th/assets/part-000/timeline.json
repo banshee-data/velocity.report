@@ -2006,7 +2006,7 @@
       "veh": 0,
       "ped": 0,
       "cyc": 0,
-      "oth": 1.32,
+      "oth": 1.64,
       "spd": 5.45,
       "n": 25
     },
@@ -2207,7 +2207,8 @@
         "start_mph": 30,
         "count": 8
       }
-    ]
+    ],
+    "directions": []
   },
   "max_total": 29.52,
   "max_speed": 15.54

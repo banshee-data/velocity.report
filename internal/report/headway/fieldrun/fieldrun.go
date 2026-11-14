@@ -107,6 +107,16 @@ type Result struct {
 
 // Run performs one provisional run against an evidence database.
 func Run(db sqlite.DBClient, spec Spec) (Result, error) {
+	return analyse(db, spec, true)
+}
+
+// Analyse reads and derives evidence without storing interactions. Callers can
+// use a read-only connection; unlike Run, this never changes the evidence DB.
+func Analyse(db sqlite.DBClient, spec Spec) (Result, error) {
+	return analyse(db, spec, false)
+}
+
+func analyse(db sqlite.DBClient, spec Spec, store bool) (Result, error) {
 	if spec.SourceID == "" {
 		return Result{}, errors.New("a field run needs a source id")
 	}
@@ -174,8 +184,10 @@ func Run(db sqlite.DBClient, spec Spec) (Result, error) {
 			return Result{}, fmt.Errorf("encounter %s has version %+v, not the run's %+v", fi.Event.EventID, v, res.Version)
 		}
 	}
-	if res.AlreadyStored, err = persist(db, version.SourceID, res.Version, res.Interactions); err != nil {
-		return Result{}, err
+	if store {
+		if res.AlreadyStored, err = persist(db, version.SourceID, res.Version, res.Interactions); err != nil {
+			return Result{}, err
+		}
 	}
 	return res, nil
 }
@@ -281,6 +293,11 @@ func ListVersions(store *sqlite.StateEstimateStore, spec Spec) ([]sqlite.Estimat
 		return store.ListBoxVersions()
 	}
 	return store.ListEstimateVersions()
+}
+
+// SelectVersion resolves metadata before an evidence read or eligibility decision.
+func SelectVersion(db sqlite.DBClient, spec Spec) (sqlite.EstimateVersion, error) {
+	return selectVersion(sqlite.NewStateEstimateStore(db), spec)
 }
 
 // selectVersion finds the one estimate version the spec names.

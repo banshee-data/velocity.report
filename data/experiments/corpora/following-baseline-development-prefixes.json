@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "name": "following-baseline-development-prefixes",
+  "source_index": "first-segment-site-index.json",
+  "purpose": "Fixed development-only Columbus/Bryant first-capture prefixes under l8fol0007, before any diagnostic replay.",
+  "cases": [
+    {
+      "id": "columbus-broadway",
+      "expected_capture_count": 1
+    },
+    {
+      "id": "embarcadero-bryant",
+      "expected_capture_count": 1
+    }
+  ]
+}

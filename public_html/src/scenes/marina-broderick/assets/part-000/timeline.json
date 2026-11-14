@@ -1445,20 +1445,20 @@
     },
     {
       "t": 800,
-      "veh": 0.24,
+      "veh": 0.96,
       "ped": 0,
       "cyc": 0,
-      "oth": 0.28,
-      "spd": 12.34,
+      "oth": 0.32,
+      "spd": 11.42,
       "n": 25
     },
     {
       "t": 805,
-      "veh": 0.48,
+      "veh": 0,
       "ped": 0.52,
       "cyc": 0.08,
-      "oth": 0.68,
-      "spd": 12.34,
+      "oth": 0.56,
+      "spd": 11.54,
       "n": 25
     },
     {
@@ -1934,7 +1934,7 @@
       "veh": 5.4,
       "ped": 1.4,
       "cyc": 0.76,
-      "oth": 8.84,
+      "oth": 8.8,
       "spd": 10.57,
       "n": 25
     },
@@ -2179,7 +2179,7 @@
     "minimum_speed": 5,
     "track_count": 328,
     "p50": 23.35,
-    "p85": 26.84,
+    "p85": 26.8,
     "p98": 29.68,
     "max": 36.26,
     "histogram": [
@@ -2210,6 +2210,88 @@
       {
         "start_mph": 35,
         "count": 1
+      }
+    ],
+    "directions": [
+      {
+        "id": "heading:0",
+        "name": "Direction A",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 170,
+        "p50": 24.47,
+        "p85": 27.25,
+        "p98": 30.82,
+        "max": 36.26,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 4
+          },
+          {
+            "start_mph": 10,
+            "count": 12
+          },
+          {
+            "start_mph": 15,
+            "count": 23
+          },
+          {
+            "start_mph": 20,
+            "count": 59
+          },
+          {
+            "start_mph": 25,
+            "count": 68
+          },
+          {
+            "start_mph": 30,
+            "count": 3
+          },
+          {
+            "start_mph": 35,
+            "count": 1
+          }
+        ]
+      },
+      {
+        "id": "heading:1",
+        "name": "Direction B",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 149,
+        "p50": 22.93,
+        "p85": 25.81,
+        "p98": 29.68,
+        "max": 30.47,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 4
+          },
+          {
+            "start_mph": 10,
+            "count": 5
+          },
+          {
+            "start_mph": 15,
+            "count": 18
+          },
+          {
+            "start_mph": 20,
+            "count": 84
+          },
+          {
+            "start_mph": 25,
+            "count": 36
+          },
+          {
+            "start_mph": 30,
+            "count": 2
+          }
+        ]
       }
     ]
   },

@@ -15,9 +15,9 @@
     {
       "t": 5,
       "veh": 0,
-      "ped": 0,
-      "cyc": 0.6,
-      "oth": 2.56,
+      "ped": 0.12,
+      "cyc": 0.64,
+      "oth": 2.44,
       "spd": 11.73,
       "n": 25
     },
@@ -25,8 +25,8 @@
       "t": 10,
       "veh": 0,
       "ped": 0.6,
-      "cyc": 0,
-      "oth": 4.44,
+      "cyc": 0.08,
+      "oth": 4.36,
       "spd": 9.99,
       "n": 25
     },
@@ -2382,6 +2382,76 @@
       {
         "start_mph": 25,
         "count": 4
+      }
+    ],
+    "directions": [
+      {
+        "id": "heading:0",
+        "name": "Direction A",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 81,
+        "p50": 14.41,
+        "p85": 21.34,
+        "p98": 24.29,
+        "max": 29.8,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 23
+          },
+          {
+            "start_mph": 10,
+            "count": 20
+          },
+          {
+            "start_mph": 15,
+            "count": 19
+          },
+          {
+            "start_mph": 20,
+            "count": 18
+          },
+          {
+            "start_mph": 25,
+            "count": 1
+          }
+        ]
+      },
+      {
+        "id": "heading:1",
+        "name": "Direction B",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 59,
+        "p50": 16.31,
+        "p85": 22.37,
+        "p98": 26.84,
+        "max": 27.16,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 8
+          },
+          {
+            "start_mph": 10,
+            "count": 14
+          },
+          {
+            "start_mph": 15,
+            "count": 22
+          },
+          {
+            "start_mph": 20,
+            "count": 12
+          },
+          {
+            "start_mph": 25,
+            "count": 3
+          }
+        ]
       }
     ]
   },

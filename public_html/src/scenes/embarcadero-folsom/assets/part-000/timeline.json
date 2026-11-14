@@ -2229,6 +2229,84 @@
         "start_mph": 35,
         "count": 6
       }
+    ],
+    "directions": [
+      {
+        "id": "heading:0",
+        "name": "Direction A",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 352,
+        "p50": 19.33,
+        "p85": 22.91,
+        "p98": 25.41,
+        "max": 29.1,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 47
+          },
+          {
+            "start_mph": 10,
+            "count": 39
+          },
+          {
+            "start_mph": 15,
+            "count": 110
+          },
+          {
+            "start_mph": 20,
+            "count": 143
+          },
+          {
+            "start_mph": 25,
+            "count": 13
+          }
+        ]
+      },
+      {
+        "id": "heading:1",
+        "name": "Direction B",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 285,
+        "p50": 27.31,
+        "p85": 31.38,
+        "p98": 35.19,
+        "max": 38.79,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 19
+          },
+          {
+            "start_mph": 10,
+            "count": 18
+          },
+          {
+            "start_mph": 15,
+            "count": 14
+          },
+          {
+            "start_mph": 20,
+            "count": 34
+          },
+          {
+            "start_mph": 25,
+            "count": 130
+          },
+          {
+            "start_mph": 30,
+            "count": 64
+          },
+          {
+            "start_mph": 35,
+            "count": 6
+          }
+        ]
+      }
     ]
   },
   "max_total": 45.4,

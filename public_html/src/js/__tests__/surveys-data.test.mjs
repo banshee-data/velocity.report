@@ -67,7 +67,7 @@ test("every published survey site resolves to a recording with a speed summary",
   );
   assert.equal(columbus.latest.speed.count, 1173);
   assert.equal(columbus.latest.speed.p85, 24.2);
-  assert.equal(columbus.latest.build, "0.5.1-pre50");
+  assert.equal(columbus.latest.build, "0.5.1-pre52");
   assert.equal(columbus.latest.assetsUrl, "/surveys/columbus-broadway/assets");
   assert.equal(columbus.latest.hasPointCloud, true);
   assert.ok(surveys.pipeline.build);

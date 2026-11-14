@@ -84,6 +84,18 @@ makes that note available to the next scheduling pass.
 
 ## Executors and parameters
 
+Each host maps portable corpus/index files to its own absolute capture directory.
+A corpus entry's optional `capture_root` overrides the global `capture_root` and
+`capture_subdir` together. For example, bind `kirk-labelled` to
+`/mnt/captures/lidar` on Linux or `/Volumes/captures/lidar` on macOS, while
+retaining the legacy `s2` subdirectory for the first-segment corpus. Both replay
+executors use the same effective directory. Directory bindings participate in
+the run identity. Capture names remain relative and cannot escape that directory.
+The checked-in Kirk manifest selects kirk0 only; it does not supply labels or
+approve a run. Advertise `pcap:kirk` after verifying service-user reads, and
+`labels:kirk` only after installing reviewed references. A missing capability is
+a host declaration failure, not proof that a file is absent.
+
 Arms always name checked-in tuning files and their pinned fingerprints. Corpus
 and index files are checked-in inputs, mapped by the host profile. The first
 segment manifests select one capture from each of 23 screening sites, excluding
@@ -199,3 +211,18 @@ have automated tests. The NAS installation, real App credentials, reproduced
 report bands, a held-out scoring acceptance and the week-long deployment soak
 still require their own recorded evidence. These are not established by runner
 unit tests.
+
+### Labelled scoring preflight
+
+Before building or replaying a spec containing `ground_truth_eval`, selection checks
+that every scoring unit has a host reference binding. Arm-specific bindings take
+precedence over the step-wide fallback. Each binding needs a named split, a readable
+absolute pack directory, and readable, non-empty regular files for its split manifest
+and both estimate databases. Missing inputs appear as `scoring preflight` skips in
+both dry runs and normal ticks, without consuming replay attempts.
+
+These are availability checks. The evaluator still verifies the frozen split's pins,
+reviewed reference membership, and the estimate versions. Install a complete linked
+label set and pack, retaining the revisions the split pins, then configure explicit
+baseline and candidate database bindings before advertising `labels:kirk`. The
+capability alone neither supplies references nor closes a spec's manual steps.

@@ -31,8 +31,9 @@ type Host struct {
 }
 
 type Corpus struct {
-	Corpus string `json:"corpus"`
-	Index  string `json:"index"`
+	Corpus      string `json:"corpus"`
+	Index       string `json:"index"`
+	CaptureRoot string `json:"capture_root,omitempty"`
 }
 
 type Reference struct {
@@ -68,6 +69,11 @@ func ReadHost(path string) (Host, error) {
 	if h.BuildRoot != "" && !filepath.IsAbs(h.BuildRoot) {
 		return h, fmt.Errorf("host paths must be absolute: %q", h.BuildRoot)
 	}
+	for name, c := range h.Corpora {
+		if c.CaptureRoot != "" && !filepath.IsAbs(c.CaptureRoot) {
+			return h, fmt.Errorf("corpus %s capture_root must be absolute", name)
+		}
+	}
 	if e := validatePublication(h.Publish); e != nil {
 		return h, e
 	}
@@ -82,4 +88,70 @@ func (h Host) BuildBase() string {
 		return h.BuildRoot
 	}
 	return h.EvidenceRoot
+}
+
+// captureHost applies a corpus-specific directory containing indexed captures.
+// An override replaces both the legacy root and its subdirectory.
+func captureHost(h Host, c Corpus) Host {
+	if c.CaptureRoot != "" {
+		h.CaptureRoot = c.CaptureRoot
+		h.CaptureSubdir = ""
+	}
+	return h
+}
+
+// scoringReference uses the same arm override and step fallback for selection
+// and execution. Capability declarations alone do not supply scoring inputs.
+func (h Host) scoringReference(slug, step, arm string) (Reference, error) {
+	key := slug + "/" + step + "/" + arm
+	ref, ok := h.References[key]
+	if !ok {
+		ref, ok = h.References[slug+"/"+step]
+	}
+	if !ok {
+		return Reference{}, fmt.Errorf("no frozen reference mapping for %s", key)
+	}
+	return ref, nil
+}
+
+// checkScoringInputs is a cheap preflight before building or replaying. The
+// evaluator remains responsible for frozen pins, reviewed truth and DB versions.
+func (ref Reference) checkScoringInputs() error {
+	if strings.TrimSpace(ref.Split) == "" {
+		return fmt.Errorf("reference split must be named")
+	}
+	for _, input := range []struct {
+		name, path string
+		directory  bool
+	}{
+		{"pack", ref.Pack, true}, {"manifest", ref.Manifest, false},
+		{"a_db", ref.ADB, false}, {"b_db", ref.BDB, false},
+	} {
+		if !filepath.IsAbs(input.path) {
+			return fmt.Errorf("reference %s path must be absolute", input.name)
+		}
+		info, err := os.Stat(input.path)
+		if err != nil {
+			return fmt.Errorf("reference %s: %w", input.name, err)
+		}
+		if input.directory && !info.IsDir() || !input.directory && !info.Mode().IsRegular() {
+			return fmt.Errorf("reference %s has wrong file type", input.name)
+		}
+		f, err := os.Open(input.path)
+		if err != nil {
+			return fmt.Errorf("reference %s: %w", input.name, err)
+		}
+		info, err = f.Stat()
+		f.Close()
+		if err != nil {
+			return fmt.Errorf("reference %s: %w", input.name, err)
+		}
+		if input.directory && !info.IsDir() || !input.directory && !info.Mode().IsRegular() {
+			return fmt.Errorf("reference %s has wrong file type", input.name)
+		}
+		if !input.directory && info.Size() == 0 {
+			return fmt.Errorf("reference %s is empty", input.name)
+		}
+	}
+	return nil
 }

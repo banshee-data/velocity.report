@@ -1,0 +1,1 @@
+- Added per-corpus capture directories so the experiment harness can resolve Kirk and S2 captures on different host mount layouts; added a portable kirk0 manifest and regression coverage for Linux and macOS paths, legacy bindings and path traversal. Label references and manual experiment prerequisites remain explicit gates.
