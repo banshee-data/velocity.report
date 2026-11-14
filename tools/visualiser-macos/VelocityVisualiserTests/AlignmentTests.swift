@@ -1232,6 +1232,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var prepareRefreshFlags: [Bool] = []
     /// What GetSite answers; nil is NOT_FOUND. Not logged in `calls`: the
     /// session reads it on its own when a site is chosen.
+    var prepareHook: ((String) async throws -> Void)?
     var storedSite: Gerardus_Align_V1alpha1_Site?
     /// The layers PrepareSite's bundle holds when it builds (refresh true) and
     /// when it answers from the stored one (refresh false).
@@ -1245,6 +1246,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Site {
         log("PrepareSite")
+        try await prepareHook?(l16Token)
         lock.lock()
         prepareRefreshFlags.append(refresh)
         lock.unlock()
@@ -1955,6 +1957,103 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         session.northAzimuthText = "35"
         await session.placeFromHint()
         return (session, service, sink)
+    }
+
+    @Test func selectedSiteAlwaysHasOneSelectableRow() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        var city = CitySite(id: "index-only", title: "Index only")
+        city.cells.l16 = "808580aab"
+        session.siteIndex = CitySiteIndex(sites: [city])
+        session.enterCitySite(city, clip: nil)
+        #expect(session.siteChoices.map(\.id) == ["city:index-only"])
+        let rows = AlignmentSession.siteChoices(
+            located: [site, site], index: session.siteIndex, selected: session.site)
+        #expect(Set(rows.map(\.id)).count == rows.count)
+        session.choose(site)
+        #expect(session.siteChoices.contains(where: { $0.id == site.id }))
+        session.chooseSite(id: "city:index-only")
+        #expect(session.site?.l16Token == "808580aab")
+    }
+
+    @Test func refreshingChoicesDoesNotUndoTheOperatorsSelection() async {
+        let service = FakeAlignmentService()
+        let (http, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        register { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data("{\"districts\":[]}".utf8))
+        }
+        let lookup = AlignmentSiteLookupClient(baseURL: baseURL, session: http)
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: lookup, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        await session.refreshSites(runID: nil)
+        #expect(session.site == site && session.siteMatch == .chosen)
+        #expect(session.siteChoices.map(\.id) == [site.id])
+    }
+
+    @Test func fixtureCannotUpdateReferenceDataEither() async {
+        let service = FakeAlignmentService()
+        service.serverVersion = "fixture"
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        await session.updateReferenceData()
+        #expect(session.errorMessage == GerardusSettings.fixtureMessage)
+        #expect(!service.calls.contains("PrepareSite"))
+    }
+
+    @Test func anOldPreparationCannotPlaceOrReportErrorsAtTheNextSite() async {
+        for fail in [false, true] {
+            let service = FakeAlignmentService()
+            let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+            await session.probe()
+            session.choose(site)
+            var next = site
+            next.clipID = "next"
+            next.l16Token = "808580aab"
+            service.prepareHook = { _ in
+                await MainActor.run { session.choose(next) }
+                if fail { throw RPCError(code: .unimplemented, message: "old server") }
+            }
+            await session.placeFromHint()
+            #expect(session.site == next)
+            #expect(session.pose == nil && session.errorMessage == nil && session.busy == nil)
+            #expect(!service.calls.contains("PoseFromHint"))
+        }
+    }
+
+    @Test func changingServerDuringPreparationDropsTheOldResponse() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        service.prepareHook = { _ in
+            await MainActor.run {
+                session.useServiceAddress(GerardusAddress(host: "new.local", port: 50061))
+            }
+        }
+        await session.placeFromHint()
+        #expect(session.pose == nil && session.busy == nil)
+        #expect(!service.calls.contains("PoseFromHint"))
+    }
+
+    @Test func unsupportedPreparationExplainsHowToRecover() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        service.prepareHook = { _ in
+            throw RPCError(code: .unimplemented, message: "PrepareSite not implemented")
+        }
+        await session.placeFromHint()
+        #expect(session.errorMessage?.contains("Settings") == true)
+        #expect(session.errorMessage?.contains("50061") == true)
+        #expect(session.busy == nil && session.pose == nil)
+        service.prepareHook = nil
+        await session.placeFromHint()
+        #expect(session.pose != nil)
     }
 
     @Test func noServerMeansUnavailable() async {

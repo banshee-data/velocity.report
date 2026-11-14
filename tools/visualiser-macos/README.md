@@ -317,3 +317,15 @@ client disconnects; only one build runs at a time. Changing site or connection
 while it runs keeps the later view rather than opening a stale completion.
 Widths are inferred, junction overlaps need review, and missing ground remains
 open. See Gerardus's [site-generation contract](https://github.com/banshee-data/gerardus/blob/main/docs/roads/README.md#generate-near-a-prepared-site-from-the-visualiser).
+
+The toolbar and Alignment site selectors use searchable, height-limited popovers.
+They close on selection, Escape, or switching to another application. Alignment
+keeps its selected site in the choices even when it came from the city index
+rather than the server's clip list. A manual selection survives a list refresh;
+the refresh arrow explicitly resolves the current capture again.
+
+Changing site, capture or Gerardus connection invalidates outstanding preparation
+responses. Late progress, errors and geometry cannot replace the next site's
+state or keep its controls busy. Fixture servers cannot place, update or
+regenerate reference data; choose **Use local Gerardus** or select the data
+server in Settings → Servers.

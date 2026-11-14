@@ -540,3 +540,26 @@ A definite validation refusal keeps the draft editable and gives a corrected
 intent a new request ID. A transport/internal failure retains the pending ID
 until its outcome is reconciled. Review heads follow the server's append order,
 independently of the timestamps used to display the records.
+
+## Endpoint and selection regression checks
+
+When adding or changing a Gerardus endpoint, keep the supported and older-server
+cases together. `go test ./internal/lidar/gerarduspb` exercises the vendored
+preparation/generation client and server over an in-memory gRPC transport: method
+dispatch, capability fields, progress/result oneofs, request parameters, stream
+completion and `UNIMPLEMENTED` status preservation. The existing frozen road
+fixtures independently check the upstream wire format and support semantics.
+Upstream Gerardus tests exercise the fitting implementation; a fake service in
+this repository does not establish that a deployed server implements an RPC.
+
+`make test-mac` covers selected sites absent from the clip list, duplicate choice
+IDs, manual selection during refresh, changing site or server while preparation
+is outstanding, late errors, fixture refusal and recovery after an unsupported
+preparation call. Endpoint changes need both a wire-contract test and the
+client's supported/error lifecycle cases. Keep the tests on the normal Go and
+macOS suite paths so they run with the existing CI jobs.
+
+The site lists use bounded popovers with search and a close control, and dismiss
+on Escape or application deactivation. Check both the toolbar and Alignment
+selectors while replay frames are arriving and after bringing another app to
+the front; a passing RPC test does not establish native popup behaviour.

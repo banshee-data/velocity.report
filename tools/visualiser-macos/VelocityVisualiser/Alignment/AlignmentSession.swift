@@ -453,6 +453,8 @@ struct ReferenceSummary: Equatable {
     /// Bumped when the address changes, so a probe of the old server that
     /// answers late cannot claim the session for it.
     private var addressGeneration = 0
+    private var preparationEpoch = 0
+    private var preparingEpoch: Int?
     private let lookup: AlignmentSiteLookupClient?
     private let defaults: UserDefaults?
     weak var sink: ReferenceOverlaySink?
@@ -674,15 +676,44 @@ struct ReferenceSummary: Equatable {
     /// Lists velocity.report's located cases and picks the open capture's.
     /// A site the operator chose by hand is kept unless the capture names
     /// another one.
-    func refreshSites(runID: String?) async {
+    var siteChoices: [AlignmentSite] {
+        Self.siteChoices(located: sites, index: siteIndex, selected: site)
+    }
+
+    nonisolated static func siteChoices(
+        located: [AlignmentSite], index: CitySiteIndex?, selected: AlignmentSite?
+    ) -> [AlignmentSite] {
+        var choices: [String: AlignmentSite] = [:]
+        for candidate in located where choices[candidate.id] == nil {
+            choices[candidate.id] = candidate
+        }
+        for city in index?.sites ?? []
+        where !choices.values.contains(where: { $0.l16Token == city.cells.l16 }) {
+            let candidate = AlignmentSite(city: city, clip: nil)
+            choices[candidate.id] = candidate
+        }
+        if let selected { choices[selected.id] = selected }
+        return choices.values.sorted {
+            let order = $0.name.localizedStandardCompare($1.name)
+            return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
+        }
+    }
+
+    func chooseSite(id: String) {
+        if let chosen = siteChoices.first(where: { $0.id == id }) { choose(chosen) }
+    }
+
+    func refreshSites(runID: String?, resolveCapture: Bool = false) async {
         guard isAvailable, let lookup else { return }
+        let epoch = preparationEpoch
         do { sites = try await lookup.locatedSites() } catch {
             errorMessage = "velocity.report has no site list: \(error.localizedDescription)"
             return
         }
         // A site the city view switched to is the site; the capture it
         // started is that site's.
-        if citySite != nil { return }
+        guard epoch == preparationEpoch else { return }
+        if !resolveCapture && (citySite != nil || siteMatch == .chosen) { return }
         let evidence = await lookup.openCaptureEvidence(runID: runID)
         var found = AlignmentSiteResolver.resolve(
             evidence, sites: sites, filesByCase: [:], index: siteIndex)
@@ -694,7 +725,9 @@ struct ReferenceSummary: Equatable {
             found = AlignmentSiteResolver.resolve(
                 evidence, sites: sites, filesByCase: files, index: siteIndex)
         }
+        guard epoch == preparationEpoch else { return }
         if let found {
+            citySite = nil
             if found.site != site { select(found.site) }
             siteMatch = found.match
             // The index's heading, unless the operator typed one.
@@ -712,7 +745,7 @@ struct ReferenceSummary: Equatable {
 
     /// The city site index, when one is loaded: it resolves the open
     /// capture's site and gives each site's heading.
-    var siteIndex: CitySiteIndex?
+    @Published var siteIndex: CitySiteIndex?
     /// The city site the visualiser switched to; nil when the site was
     /// inferred or chosen in the pane.
     @Published private(set) var citySite: CitySite?
@@ -806,16 +839,22 @@ struct ReferenceSummary: Equatable {
             defaults?.set(String(northAzimuth), forKey: Self.northAzimuthKeyPrefix + site.l16Token)
         }
         let heading = hintHeadingDeg
+        let epoch = preparationEpoch
+        preparingEpoch = epoch
         errorMessage = nil
         defer {
-            busy = nil
-            progress = nil
+            if preparingEpoch == epoch {
+                busy = nil
+                progress = nil
+                preparingEpoch = nil
+            }
         }
         do {
             busy = "Preparing \(site.name)"
             let prepared = try await client.prepareSite(l16Token: site.l16Token, label: site.name) {
-                [weak self] progress in await self?.show(progress)
+                [weak self] progress in await self?.show(progress, epoch: epoch)
             }
+            guard preparationEpoch == epoch else { return }
             preparedSite = prepared
             bundle = prepared
 
@@ -825,6 +864,7 @@ struct ReferenceSummary: Equatable {
             request.sensorID = sensorID
             request.hint = hint(heading: heading)
             let placed = try await client.poseFromHint(request)
+            guard preparationEpoch == epoch else { return }
             let start = SitePose(placed.pose)
             hintFrameIDs = (placed.pose.siteFrameID, placed.pose.sensorFrameID)
             hintPose = start
@@ -842,11 +882,13 @@ struct ReferenceSummary: Equatable {
             sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
 
             let (geometry, registered) = try await streamReferenceLayers(
-                client: client, l16Token: site.l16Token, centre: start.translation)
+                client: client, l16Token: site.l16Token, centre: start.translation, epoch: epoch)
+            guard preparationEpoch == epoch else { return }
             self.geometry = geometry
             referenceCentre = start.translation
             siteModelID = geometry.modelID
             await restyleReference()
+            guard preparationEpoch == epoch else { return }
             sink?.setReferenceModelMatrix(start.referenceModelMatrix)
             logger.info(
                 "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.footprints.count) footprints, \(geometry.boxes.count) box walls, \(geometry.scanOrder.count) registered scans (\(geometry.scanPointCount) points), \(geometry.observed.count) observed features, \(geometry.wallPlanes.count) wall planes, \(geometry.groundMeshCells) ground cells, model \(geometry.modelID)"
@@ -855,8 +897,10 @@ struct ReferenceSummary: Equatable {
             busy = "Reading the site model"
             await readSiteModelScans(client: client, l16Token: site.l16Token, streamed: registered)
 
+            guard preparationEpoch == epoch else { return }
             busy = "Reading records"
             await loadRecords()
+            guard preparationEpoch == epoch else { return }
             // The last decision is the best knowledge of where the sensor
             // stands: draw it, so Register starts from it rather than the
             // eye-read hint. Reset nudges goes back to the hint.
@@ -865,24 +909,38 @@ struct ReferenceSummary: Equatable {
             {
                 showRecord(record)
             }
-        } catch { errorMessage = GerardusClientError.describe(error) }
+        } catch { if preparationEpoch == epoch { errorMessage = Self.preparationError(error) } }
     }
 
     private func show(_ progress: Gerardus_Align_V1alpha1_Progress) { self.progress = progress }
+    private func show(_ progress: Gerardus_Align_V1alpha1_Progress, epoch: Int) {
+        if preparationEpoch == epoch { self.progress = progress }
+    }
+    nonisolated static func preparationError(_ error: Error) -> String {
+        if let rpc = error as? RPCError, rpc.code == .unimplemented {
+            return
+                "This Gerardus server cannot prepare sites. Connect to the data server in Settings → Servers (this Mac: 127.0.0.1:50061)."
+        }
+        return GerardusClientError.describe(error)
+    }
 
     /// The reference around `centre`, layer group by layer group, and the
     /// registered layers on their own so the caller can read the site model.
     private func streamReferenceLayers(
-        client: AlignmentServiceClient, l16Token: String, centre: SIMD3<Double>
+        client: AlignmentServiceClient, l16Token: String, centre: SIMD3<Double>, epoch: Int
     ) async throws -> (geometry: ReferenceGeometry, registered: ReferenceGeometry) {
+        guard preparationEpoch == epoch else { throw CancellationError() }
         busy = "Streaming the reference"
         var geometry = try await client.streamReference(
             referenceRequest(l16Token: l16Token, centre: centre))
+        guard preparationEpoch == epoch else { throw CancellationError() }
         busy = "Streaming the streets"
         geometry.merge(await streamStreetLayers(client: client, l16Token: l16Token, centre: centre))
+        guard preparationEpoch == epoch else { throw CancellationError() }
         busy = "Streaming buildings, markings, furniture and trees"
         geometry.merge(
             await streamFeatureLayers(client: client, l16Token: l16Token, centre: centre))
+        guard preparationEpoch == epoch else { throw CancellationError() }
         busy = "Streaming the site model"
         let registered = await streamRegisteredLayers(
             client: client, l16Token: l16Token, centre: centre)
@@ -895,13 +953,14 @@ struct ReferenceSummary: Equatable {
     /// Reads how current the chosen site's stored bundle is. Builds nothing.
     func refreshBundle() async {
         guard let client, let site else { return }
+        let epoch = preparationEpoch
         let found: Gerardus_Align_V1alpha1_Site?
         do { found = try await client.getSite(l16Token: site.l16Token) } catch {
             logger.info(
                 "No bundle read for \(site.l16Token): \(GerardusClientError.describe(error))")
             return
         }
-        guard self.site == site, busy == nil else { return }
+        guard preparationEpoch == epoch, self.site == site, busy == nil else { return }
         bundle = found
     }
 
@@ -935,21 +994,30 @@ struct ReferenceSummary: Equatable {
     }
 
     private func prepareAgain(refresh: Bool) async {
+        guard !isFixtureServer else {
+            errorMessage = GerardusSettings.fixtureMessage
+            return
+        }
         guard let client, let site, busy == nil else { return }
+        let epoch = preparationEpoch
+        preparingEpoch = epoch
         errorMessage = nil
         referenceDataNote = nil
         let before = Set(missingReferenceLayers)
         defer {
-            busy = nil
-            progress = nil
+            if preparingEpoch == epoch {
+                busy = nil
+                progress = nil
+                preparingEpoch = nil
+            }
         }
         do {
             busy =
                 refresh ? "Regenerating \(site.name)" : "Updating reference data for \(site.name)"
             let prepared = try await client.prepareSite(
                 l16Token: site.l16Token, label: site.name, refresh: refresh
-            ) { [weak self] progress in await self?.show(progress) }
-            guard self.site == site else { return }
+            ) { [weak self] progress in await self?.show(progress, epoch: epoch) }
+            guard preparationEpoch == epoch, self.site == site else { return }
             bundle = prepared
             let after = Set(missingReferenceLayers)
             referenceDataNote = ReferenceDataStatus.outcome(
@@ -958,16 +1026,19 @@ struct ReferenceSummary: Equatable {
             // Drawn already: draw it again from the new bundle at the same place.
             if let centre = referenceCentre, geometry != nil {
                 let (fresh, registered) = try await streamReferenceLayers(
-                    client: client, l16Token: site.l16Token, centre: centre)
-                guard self.site == site, referenceCentre == centre else { return }
+                    client: client, l16Token: site.l16Token, centre: centre, epoch: epoch)
+                guard preparationEpoch == epoch, self.site == site, referenceCentre == centre else {
+                    return
+                }
                 geometry = fresh
                 siteModelID = fresh.modelID
                 await restyleReference()
+                guard preparationEpoch == epoch else { return }
                 busy = "Reading the site model"
                 await readSiteModelScans(
                     client: client, l16Token: site.l16Token, streamed: registered)
             }
-        } catch { errorMessage = GerardusClientError.describe(error) }
+        } catch { if preparationEpoch == epoch { errorMessage = Self.preparationError(error) } }
     }
 
     /// The bundle's layers, on one call.
@@ -1389,10 +1460,12 @@ struct ReferenceSummary: Equatable {
             siteModelScanIDs = nil
             return
         }
+        let epoch = preparationEpoch
         var answer: Gerardus_Align_V1alpha1_GetSiteModelResponse?
         do { answer = try await client.getSiteModel(l16Token: l16Token) } catch {
             logger.info("No site model for \(l16Token): \(GerardusClientError.describe(error))")
         }
+        guard preparationEpoch == epoch else { return }
         siteModelScanIDs = Self.modelScanIDs(answer: answer, streamed: streamed)
         noteSiteModel(answer: answer, streamed: streamed)
     }
@@ -1493,6 +1566,13 @@ struct ReferenceSummary: Equatable {
     /// A different capture is open: its background and any run against the
     /// old one no longer apply. The reference stays until a site is placed.
     func captureChanged() {
+        preparationEpoch += 1
+        if preparingEpoch != nil {
+            busy = nil
+            progress = nil
+            preparingEpoch = nil
+        }
+        if siteMatch == .chosen { siteMatch = .none }
         registering?.cancel()
         evaluating?.cancel()
         dropCallOnTheWire()
@@ -2440,8 +2520,10 @@ struct ReferenceSummary: Equatable {
     /// The site's records, newest first.
     func loadRecords() async {
         guard let client, let site else { return }
+        let epoch = preparationEpoch
         do {
             let listed = try await client.listRegistrationRecords(l16Token: site.l16Token)
+            guard preparationEpoch == epoch else { return }
             // Append order chooses heads even if the wall clock moved back.
             // Timestamp sorting below is for display only.
             recordHeads = Dictionary(
@@ -2457,10 +2539,16 @@ struct ReferenceSummary: Equatable {
             pendingReview = nil
             reviewNeedsReload = false
             conflictingRecords = []
-        } catch { errorMessage = GerardusClientError.describe(error) }
+        } catch {
+            if preparationEpoch == epoch { errorMessage = GerardusClientError.describe(error) }
+        }
     }
 
     private func clearPlacement() {
+        preparationEpoch += 1
+        preparingEpoch = nil
+        busy = nil
+        progress = nil
         recordHeads = [:]
         pendingReview = nil
         pendingRefinement = nil
