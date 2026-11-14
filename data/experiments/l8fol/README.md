@@ -27,3 +27,7 @@ keeps raw-repeat, scope and physical-qualification limits explicit.
 
 The fixed two-source development screen [l8fol0007](l8fol0007.md) records exact export repeatability
 and accounting in its [authored report](../../../docs/lidar/operations/following-development-prefixes-2026-11.md).
+
+The fresh three-source [identity rerun](l8fol0008.md) verifies per-case calibration
+and window-bound source provenance; its [report](../../../docs/lidar/operations/following-identity-rerun-2026-11.md)
+records exact repeat exports, all-row audits and remaining companion-manifest requirements.
