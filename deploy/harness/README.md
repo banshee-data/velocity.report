@@ -69,3 +69,7 @@ its entire process group on stop. It can write its own clone, cache and evidence
 paths. App scope and the path guard constrain publication to the one repository's
 new run notes. This deployment checklist is preparation, not evidence of a live
 NAS installation or a completed security review.
+
+For read-only storage surveys, verified NAS archival, and guarded retirement of old
+linked worktrees, see [worker storage hygiene](../../docs/platform/operations/worker-hygiene.md).
+Keep the offline module cache and active service data out of cleanup batches.
