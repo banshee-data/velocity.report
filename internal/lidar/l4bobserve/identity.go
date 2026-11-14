@@ -56,7 +56,8 @@ type Calibration struct {
 
 // SourceID returns a content-addressed, versioned identity for one ordered
 // capture sequence. Reordering files deliberately changes the value: packet
-// order is evidence, not presentation.
+// order is evidence, not presentation. A declared window selects v2 and binds
+// all three boundaries; nil retains the exact historical v1 hash.
 func SourceID(source CaptureSource) (string, error) {
 	if strings.TrimSpace(source.ClipID) == "" {
 		return "", fmt.Errorf("clip identity is required")

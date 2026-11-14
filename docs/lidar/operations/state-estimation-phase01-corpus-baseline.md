@@ -581,7 +581,7 @@ The corpus tool's scoring start equals its `-warmup` value.
 
 Duration zero means the rest of the capture; replay's `-1` spelling canonicalises
 to the same EOF window. Fractional seconds canonicalise to the nearest nanosecond;
-a positive duration below that resolution is refused. The identity describes the
+a positive duration that rounds to zero is refused. The identity describes the
 requested processing/scoring window, not an assertion that packets cover every
 requested instant. Retained evidence can include warm-up; scoring VRLOGs omit it.
 EOF clipping and actual retained/scored timestamps still belong in reports.
