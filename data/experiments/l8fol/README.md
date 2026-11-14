@@ -20,3 +20,6 @@ Answered on 2026-10-20: [l8fol0001](l8fol0001.md), following opportunity on the 
 ([report](../../../docs/lidar/operations/following-class-evidence-kirk-2026-10.md));
 [l8fol0003](l8fol0003.md), the published box as the endpoint source
 ([report](../../../docs/lidar/operations/following-box-endpoints-2026-10.md)).
+
+The fixed two-source development screen [l8fol0007](l8fol0007.md) records exact export repeatability
+and accounting in its [authored report](../../../docs/lidar/operations/following-development-prefixes-2026-11.md).
