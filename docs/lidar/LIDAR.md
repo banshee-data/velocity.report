@@ -366,3 +366,6 @@ What leaves the machine: the site token goes to Gerardus at the address set; map
 OpenStreetMap only after consent. Nothing is sent to Gerardus but requests to read. The client is
 `web/src/lib/gerardus/` (the typed API client, the map styles, and the 3D builders as plain arrays,
 with tests); the 3D view is `web/src/lib/components/lidar/SiteScene3D.svelte`.
+
+The [current-baseline following reproducibility pilot](operations/following-baseline-reproducibility-2026-11.md)
+records the first completed source-bound export check and its physical-evidence limits.
