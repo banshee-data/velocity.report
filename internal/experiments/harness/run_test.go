@@ -506,3 +506,19 @@ func TestBuildVersionFromMakefile(t *testing.T) {
 		t.Fatalf("VERSION file must win, got %q, %v", v, e)
 	}
 }
+
+func TestToolCommandPassesEligibilityConfiguration(t *testing.T) {
+	t.Setenv("VELOCITY_COHORT_MANIFEST", "/m.json")
+	t.Setenv("VELOCITY_ANNOTATION_ROOT", "/a")
+	t.Setenv("VELOCITY_ELIGIBILITY_DB", "/l.db")
+	t.Setenv("VELOCITY_UNRELATED", "no")
+	env := strings.Join(toolCommand(context.Background(), t.TempDir(), "true", nil).Env, "\n")
+	for _, want := range []string{"VELOCITY_COHORT_MANIFEST=/m.json", "VELOCITY_ANNOTATION_ROOT=/a", "VELOCITY_ELIGIBILITY_DB=/l.db"} {
+		if !strings.Contains(env, want) {
+			t.Fatalf("executor environment lacks %s:\n%s", want, env)
+		}
+	}
+	if strings.Contains(env, "VELOCITY_UNRELATED") {
+		t.Fatal("other variables must stay scrubbed")
+	}
+}
