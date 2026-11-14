@@ -4,7 +4,7 @@ This report records the methods, provenance and observed results of two fixed de
 It follows the Kirk pilot and tests reproducible evidence generation rather than physical metric
 accuracy. Both sources produced byte-identical repeated exports with exactly reconciled interval accounting.
 
-- **Status:** Engineering checks complete; archive verification pending
+- **Status:** Engineering checks and evidence archive complete
 - **Related:** [Experiment l8fol0007](../../../data/experiments/l8fol/l8fol0007.md),
   [Kirk pilot](following-baseline-reproducibility-2026-11.md),
   [evidence exporter](following-evidence-export.md)
@@ -96,7 +96,9 @@ as scoring. Its interval is not the 230-second scoring population:
 
 The exporter reads the complete retained evidence, including those warm-up observations. Its row
 counts are 66,198 and 55,390 respectively, including zero-duration terminal samples.
-No scoring-only export or capture-start offset is inferred. The capture-time checks report no
+No scoring-only export or capture-start offset is inferred. All selected estimates had
+corresponding published-box records (zero boxless or unfiled estimates); this does not make their
+geometry physically correct. The capture-time checks report no
 backwards steps, duplicate timestamps or clamped gaps; maximum frame gaps were approximately
 0.107 and 0.108 seconds. These are software time checks, not synchronisation calibration.
 
@@ -148,6 +150,34 @@ conditions differ. Missing joint uncertainty bounds stay missing; no confidence 
 probabilistic safety claim is manufactured. Online estimates, inferred endpoints and unresolved
 geometry continue to be review evidence.
 
+### Descriptive scoring-recording stratum
+
+The primary result above remains the complete retained DB. As a separate descriptive conditional
+subset, intersect each exported half-open follower interval `[capture_unix_nanos,
+capture_unix_nanos + interval_nanos)` with the scoring recording's sampled header bounds
+`[start_ns, end_ns)`. Columbus uses `[1788380507086402330, 1788380736886903330)` and Bryant
+`[1788471707925341330, 1788471937815733330)`. The right endpoint is excluded; no extra frame
+period is inferred beyond the final recorded sample. This is not a new arm, a replacement
+acceptance rule or a rerun. It exposes how retained warm-up/outside evidence affects the
+full-DB summaries.
+
+| Follower-time quantity (seconds) | Columbus inside | Columbus outside | Bryant inside | Bryant outside |
+| -------------------------------- | --------------: | ---------------: | ------------: | -------------: |
+| Total                            |     6595.906949 |      1654.501426 |  6094.7271937 |     1281.44693 |
+| Following eligible               |       56.995133 |        31.400022 |    122.188331 |      80.193518 |
+| Following excluded               |      117.801992 |        82.007122 |     56.684756 |      43.890357 |
+| No leader                        |      894.508445 |       241.708812 |  829.14009397 |     312.585803 |
+| Pairing excluded                 |     3701.505016 |       902.686069 | 3014.76788306 |     416.187259 |
+| Record gap                       |     1825.096363 |       396.699401 | 2071.94612967 |     428.589993 |
+| DRAC supported                   |       22.601074 |        19.000865 |     44.197029 |      19.298995 |
+| DRAC no candidate                |     4596.013461 |      1144.394881 | 3843.90797703 |     728.773062 |
+
+Inside plus outside reconciles exactly to the original integer-nanosecond total for each source,
+and each stratum's complete exclusive timeline and DRAC outcome maps independently reconciles.
+The two selected DRAC rows above are descriptive quantities from a separate partition; do not
+add them to the timeline buckets. Repeated exports contribute no additional duration. No ranking
+or tuning decision follows the conditional yield difference.
+
 ## Diagnostic exclusions and review priorities
 
 The primary evidence reason selects one suppression explanation for a row, while point-level
@@ -192,6 +222,20 @@ review. For Columbus, inspect sample 1788380485185991330 Unix nanoseconds: follo
 0.242994 m/s. These are source/version-bound tracker IDs and point calculations, not verified
 vehicle identities or qualified extremes. They are not a matched site comparison.
 
+The nominated Columbus sample precedes its scoring VRLOG start `1788380507086402330`;
+its retained warm-up evidence requires a permitted packet/review replay or another recording,
+so it is not ready to seek in the scoring recording. The Bryant nomination lies within the
+recorded scoring bounds `1788471707925341330`–`1788471937815733330`; frame-level seek landing
+is still unverified. No additional replay was performed for either nomination.
+
+For an additional Columbus candidate inside the scoring recording, the post-hoc diagnostic
+selection is the earliest supported row in that timestamp domain (ties by follower then leader
+ID): sample `1788380529986405330`, follower `trk_3f040290-3760-45e5-9266-0270c397b44d`,
+leader `trk_6847e1c5-13f9-4087-904b-a8a9cc843634`, nominal DRAC 0.0000207953 m/s² and
+closing speed 0.0442791 m/s. This makes a recorded-range nomination available for each S2 site;
+it is not a further independent validation case. Timestamp inclusion alone does not prove that
+both boxes/tracks are visible or that a seek succeeds. Review remains pending.
+
 Inspect approximately one second either side, verifying seek landing and the same source/version;
 capture-relative offsets are not established here. A second nominated sample of either pair is
 part of the same period, not another independent encounter. The Kirk shortlist supplies excluded
@@ -223,6 +267,10 @@ For each exact exported source/estimator/model/parameter/stage group, the retain
 `COUNT(DISTINCT calibration_id) = 1` across all 66,198 or 55,390 estimates respectively.
 No mixed-calibration row was selected away.
 
+No accepted lane snapshot or registered road geometry was consumed by this baseline. L8 local
+paths and pairing derive from the observed tracks; a site-index north bearing or calibration
+identity does not make this lane-constrained pairing or physically validated road alignment.
+
 The analysis method is `following_encounter_v1/2789569b98eff6a4`, with the same uncalibrated path,
 pairing and exposure parameters described in the Kirk pilot. No field-derived acceptance limits
 are adopted here.
@@ -251,7 +299,16 @@ measurements are unavailable.
 
 ## Archive and decision
 
-Archive verification is pending; all completed local evidence is retained.
+The completed archive under NAS campaign
+`l8fol0007-20261114-0839/s2-prefixes` contains 72 files totalling 5,897,837,860 bytes,
+including both databases, all four exports, first/repeat recordings, source/binding manifests,
+process records and a consistent final eligibility-ledger snapshot. Every file matched its
+source SHA-256 on read-back. The verification-record SHA-256 is
+`15250215f98a063588b55231ecd4264f5157daa6cda47695eb3192e8c9a1c51c`.
+Completion and calibration-join verification records are retained beside that archive. The later
+descriptive scoring-stratum summary is retained separately with its derivation script; it does
+not rewrite or extend the frozen raw evidence. All local evidence and isolated clones remain
+retained; no raw artefact is committed to Git.
 
 Both fixed development prefixes satisfy the predeclared same-DB regeneration and exact-accounting
 checks. The manifest/database calibration discrepancy above remains a provenance limitation and
