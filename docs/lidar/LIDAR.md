@@ -18,6 +18,12 @@ The [empty-frame lifecycle validation](operations/empty-frame-lifecycle-cloud-va
 
 ## Quick links
 
+The [weekend following and DRAC evidence plan](../plans/lidar-weekend-following-drac-plan.md)
+connects the [oracle questions](../research/lidar-weekend-facets-headway-drac-oracle-brief.md)
+and [response](../research/lidar-weekend-facets-headway-drac-oracle-response.md) to the v0.5.2
+work: reproducible per-site logs, a bounded review subject to cohort eligibility, and conditional
+geometry attribution. Its daily coverage ledger tracks parallel delivery and acceptance work.
+
 The [20 Hz readiness audit](../research/lidar-20hz-readiness.md) identifies cadence assumptions,
 the proposed 48 ms processing budget, qualification work and expected analytical gains.
 

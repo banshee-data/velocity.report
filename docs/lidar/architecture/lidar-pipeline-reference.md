@@ -7,6 +7,10 @@ For the remaining 0.5.2 integration, use the
 The [merged-batch review](../operations/0.5.2-sprint-review.md) distinguishes delivered components
 from the missing physical-body producer, field acceptance and Following distance debug layer.
 
+The [weekend following and DRAC evidence plan](../../plans/lidar-weekend-following-drac-plan.md)
+schedules a bounded offline logging and review slice in v0.5.2, with conditional geometry
+attribution and explicit limits on physical qualification.
+
 ---
 
 ## Current data flow
