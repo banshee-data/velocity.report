@@ -320,3 +320,25 @@ suffixes intact, keep registry id deployment-neutral.
 | `aggregate.*`       | Sometimes          | Useful for rolling summaries, not historical report rows |
 | `track.*`           | No                 | Too high-cardinality                                     |
 | `cluster.*`         | Usually no         | Usually too ephemeral unless aggregated first            |
+
+## Experimental DRAC arithmetic
+
+`l8behaviour.EvaluateDRAC` is a review-only arithmetic primitive, not a registered public
+measurement or an addition to the following distribution. It returns experimental demand in
+m/s² under a constant-speed leader and immediate uniform follower braking, from the supported
+bumper gap and same-path projected speeds. It does not describe observed braking or crash risk.
+An evidence adapter must establish observed support and compatible following geometry; ordinary
+proximity alone is insufficient. Forward speeds must be finite and non-negative.
+
+The primitive retains distinct missing-input, invalid-input, missing-support, incompatible-path,
+unresolved-positive-gap, non-closing and uncertain-closing-direction outcomes. Suppressed demand
+is absent, never zero. It does not inherit headway's speed floor or ceiling and does not clamp
+small gaps. Numerically unrepresentable demand is invalid rather than infinity or a safe zero.
+
+Optional input bounds are inclusive deterministic bounds, not sigma or confidence intervals.
+Both gap and closing-speed bounds are needed for output bounds. A supplied interval must contain
+its nominal value and resolve a positive gap and closing direction. Missing or partial bounds
+remain explicit in the input evidence and do not imply zero uncertainty. Monotonic extrema over
+the declared intervals bound demand without assuming independent errors; their physical validity
+still depends on the source evidence. Physical qualification, thresholds and registry promotion
+require separate evidence and review.
