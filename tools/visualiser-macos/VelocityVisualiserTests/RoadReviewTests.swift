@@ -6,10 +6,160 @@
 
 import Foundation
 import GRPCCore
+import MetalKit
 import Testing
 import simd
 
 @testable import VelocityVisualiser
+
+@MainActor private final class RoadPlacementSink: RoadOverlaySink {
+    var roadSceneMatrix = matrix_identity_float4x4
+    var framedCentre: SIMD3<Float>?
+    func setRoadOverlay(_ vertices: RoadOverlayVertices?) {}
+    func setRoadModelMatrix(_ matrix: simd_float4x4) { roadSceneMatrix = matrix }
+    func frameRoad(centre: SIMD3<Float>, extent: Float) { framedCentre = centre }
+}
+
+@MainActor struct RoadScenePlacementTests {
+    @Test(arguments: [0.0, 35, 171, 180, 270]) func sameSiteRoadAndBuildingsSharePoseAtEveryHeading(
+        _ heading: Double
+    ) {
+        let source = RoadFixture.siteA
+        let bundle = site(source, label: "A")
+        let pose = SitePose(
+            translation: SIMD3(17, -23, 145),
+            rotation: simd_quatd(angle: -heading * .pi / 180, axis: SIMD3(0, 0, 1)))
+        let road = RoadReviewSession.modelMatrix(
+            pose: pose, referenceSite: bundle, roadSite: source)
+        #expect(road == pose.referenceModelMatrix)
+        let control = SIMD4<Float>(21, -9, 148, 1)
+        #expect(simd_distance(road * control, pose.referenceModelMatrix * control) < 1e-5)
+    }
+
+    @Test func neighbouringRoadOriginIsShiftedBeforeApplyingATiltedPose() {
+        let reference = RoadFixture.siteA
+        let road = RoadFixture.siteB
+        let pose = SitePose(
+            translation: SIMD3(-9, 23, 140),
+            rotation: simd_quatd(angle: 2.98, axis: simd_normalize(SIMD3(0.01, -0.03, 1))))
+        let matrix = RoadReviewSession.modelMatrix(
+            pose: pose, referenceSite: site(reference, label: "A"), roadSite: road)
+        let point = SIMD3<Float>(12, 6, 142)
+        let inReference = point + SIMD3<Float>(road.offset(in: reference))
+        let expected = pose.referenceModelMatrix * SIMD4(inReference, 1)
+        #expect(simd_distance(matrix * SIMD4(point, 1), expected) < 1e-4)
+        let identity = matrix_identity_float4x4
+        #expect(
+            RoadReviewSession.modelMatrix(pose: nil, referenceSite: nil, roadSite: road) == identity
+        )
+        #expect(
+            RoadReviewSession.modelMatrix(pose: pose, referenceSite: nil, roadSite: road)
+                == identity)
+        #expect(
+            RoadReviewSession.modelMatrix(
+                pose: pose, referenceSite: site(reference, label: "A"), roadSite: nil) == identity)
+    }
+
+    @Test func rendererDrawingAndPickingUseTheSamePlacementIncludingCityStream() throws {
+        let view = MTKView()
+        view.device = try #require(MTLCreateSystemDefaultDevice())
+        let renderer = try #require(MetalRenderer(metalView: view))
+        let pose = SitePose(
+            translation: SIMD3(18, -12, 140),
+            rotation: simd_quatd(angle: -.pi * 171 / 180, axis: SIMD3(0, 0, 1)))
+        renderer.setRoadModelMatrix(pose.referenceModelMatrix)
+        renderer.setReferenceModelMatrix(pose.referenceModelMatrix)
+        // Include the stream-to-city placement in both draw and ray paths.
+        renderer.streamWorldFromSensor.columns.3 = SIMD4(100, 200, 10, 1)
+        let control = SIMD4<Float>(21, -9, 142, 1)
+        let scene = renderer.roadSceneMatrix * control
+        renderer.camera.position = SIMD3(scene.x, scene.y, scene.z + 50)
+        renderer.camera.target = SIMD3(scene.x, scene.y, scene.z)
+        renderer.camera.up = SIMD3(0, 1, 0)
+        renderer.camera.aspectRatio = 1
+        renderer.uniforms.modelViewProjection =
+            renderer.camera.projectionMatrix * renderer.camera.viewMatrix * renderer.streamModel
+        renderer.uniforms.modelView = renderer.camera.viewMatrix * renderer.streamModel
+        let building = MetalRenderer.uniforms(
+            renderer.uniforms, model: renderer.referenceModelMatrix)
+        #expect(
+            simd_distance(
+                renderer.roadUniforms.modelViewProjection * control,
+                building.modelViewProjection * control) < 1e-5)
+        let ray = try #require(
+            renderer.rayInRoadFrame(
+                at: CGPoint(x: 400, y: 400), viewSize: CGSize(width: 800, height: 800)))
+        let hit = ray.origin + ray.direction * ((control.z - ray.origin.z) / ray.direction.z)
+        #expect(simd_distance(hit, SIMD3(control.x, control.y, control.z)) < 0.002)
+        renderer.setRoadModelMatrix(matrix_identity_float4x4)
+        #expect(renderer.roadUniforms.modelViewProjection == renderer.uniforms.modelViewProjection)
+    }
+
+    @Test(arguments: [true, false])
+    func placementTracksPreparationNudgesFramingAndDriveInEitherLoadOrder(
+        _ roadsFirst: Bool
+    ) async throws {
+        let service = FakeAlignmentService()
+        service.roadSurfaceVersion = 1
+        // The fake PrepareSite uses an origin at zero; match that here.
+        let source = RoadSiteSource(
+            l16Token: RoadFixture.siteA.l16Token, originLatitudeDeg: 0, originLongitudeDeg: 0)
+        service.listedSites = [site(source, label: "A")]
+        service.roadSurfaceHandler = { request, onChunk in
+            for (chunk, last) in try RoadFixture.chunks(site: request.l16Token) {
+                await onChunk(chunk, last)
+            }
+        }
+        let alignment = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await alignment.probe()
+        let road = RoadReviewSession(alignment: alignment)
+        road.paneToggled(open: true)
+        await road.refreshSites()
+        let sink = RoadPlacementSink()
+        road.sink = sink
+        if roadsFirst { road.open(siteToken: source.l16Token) }
+        alignment.choose(
+            AlignmentSite(
+                clipID: "a", l16Token: source.l16Token, l13Token: "", description: "A",
+                sensorID: "sensor", latitude: 0, longitude: 0))
+        await alignment.placeFromHint()
+        if !roadsFirst { road.open(siteToken: source.l16Token) }
+        #expect(
+            await eventually {
+                road.loader.state == .loaded
+                    && road.roadModelMatrix == service.hintPose.referenceModelMatrix
+            })
+        #expect(sink.roadSceneMatrix == road.roadModelMatrix)
+        let bounds = road.patches.compactMap(\.bounds)
+        let low = bounds.map(\.min).reduce(SIMD2<Float>(repeating: .infinity), simd_min)
+        let high = bounds.map(\.max).reduce(SIMD2<Float>(repeating: -.infinity), simd_max)
+        let heights = road.patches.flatMap(\.vertices).map(\.z).filter(\.isFinite)
+        let centre = (low + high) / 2
+        road.frameCorridor()
+        let framed = try #require(sink.framedCentre)
+        let expectedCentre = road.scenePoint(
+            SIMD3(centre.x, centre.y, heights.reduce(0, +) / Float(heights.count)))
+        #expect(simd_distance(framed, expectedCentre) < 1e-4)
+        let camera = FakeCameraSink()
+        let drive = RoadDriveSession(review: road)
+        drive.sink = camera
+        let start = try #require(drive.startOptions.first)
+        drive.begin(on: start.patchID)
+        let drivingPose = try #require(drive.driver?.pose())
+        #expect(simd_distance(camera.camera.position, road.scenePoint(drivingPose.position)) < 1e-4)
+        let before = road.roadModelMatrix
+        alignment.nudge(x: 2, yawSteps: 1)
+        #expect(await eventually { road.roadModelMatrix != before })
+        #expect(
+            await eventually {
+                simd_distance(camera.camera.position, road.scenePoint(drivingPose.position)) < 1e-4
+            })
+        drive.overhead()
+        road.close()
+        #expect(await eventually { road.roadModelMatrix == matrix_identity_float4x4 })
+        #expect(road.loader.sceneSource == nil)
+    }
+}
 
 private func site(_ s: RoadSiteSource, label: String) -> Gerardus_Align_V1alpha1_Site {
     var out = Gerardus_Align_V1alpha1_Site()

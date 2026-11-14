@@ -70,6 +70,9 @@ extension MetalRenderer: RoadFrameSource {}
         review.loader.$store.sink { [weak self] _ in
             DispatchQueue.main.async { self?.patchesChanged() }
         }.store(in: &subscriptions)
+        review.$roadModelMatrix.receive(on: DispatchQueue.main).sink { [weak self] _ in
+            self?.applyPose()
+        }.store(in: &subscriptions)
     }
 
     // MARK: - Starting
@@ -369,9 +372,9 @@ extension MetalRenderer: RoadFrameSource {}
     private func applyPose() {
         guard isDriving, let sink, let pose = driver?.pose() else { return }
         var camera = sink.camera
-        camera.position = pose.position
-        camera.target = pose.target
-        camera.up = SIMD3(0, 0, 1)
+        camera.position = review.scenePoint(pose.position)
+        camera.target = review.scenePoint(pose.target)
+        camera.up = review.sceneDirection(SIMD3(0, 0, 1))
         camera.projection = .perspective
         camera.fov = 70
         camera.nearPlane = 0.1

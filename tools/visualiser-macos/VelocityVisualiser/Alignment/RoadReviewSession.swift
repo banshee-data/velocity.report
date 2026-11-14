@@ -19,6 +19,9 @@ import simd
 /// MetalRenderer is the real one.
 protocol RoadOverlaySink: AnyObject {
     func setRoadOverlay(_ vertices: RoadOverlayVertices?)
+    func setRoadModelMatrix(_ matrix: simd_float4x4)
+    /// Road ENU to the camera's local scene, including city placement/recentring.
+    var roadSceneMatrix: simd_float4x4 { get }
     /// Frames the corridor from above, at a tilt, in the scene frame.
     func frameRoad(centre: SIMD3<Float>, extent: Float)
 }
@@ -154,7 +157,9 @@ struct RoadCoverageSummary: Equatable {
 
     let sceneWillChange = PassthroughSubject<Void, Never>()
     let loader = RoadSurfaceLoader()
-    weak var sink: RoadOverlaySink?
+    weak var sink: RoadOverlaySink? { didSet { sink?.setRoadModelMatrix(roadModelMatrix) } }
+    /// Road ENU to the stream's sensor frame. Identity for reference-only review.
+    @Published private(set) var roadModelMatrix = matrix_identity_float4x4
     /// The reference overlay's sink (kerbs, class-2 points); the alignment
     /// session's. Used only while no site is placed there.
     weak var referenceSink: ReferenceOverlaySink?
@@ -184,6 +189,40 @@ struct RoadCoverageSummary: Equatable {
         loader.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async { self?.objectWillChange.send() }
         }.store(in: &subscriptions)
+        Publishers.CombineLatest3(alignment.$pose, alignment.$preparedSite, loader.$sceneSource)
+            .receive(on: DispatchQueue.main).sink { [weak self] pose, site, scene in
+                guard let self else { return }
+                let matrix = Self.modelMatrix(pose: pose, referenceSite: site, roadSite: scene)
+                guard matrix != self.roadModelMatrix else { return }
+                self.roadModelMatrix = matrix
+                self.sink?.setRoadModelMatrix(matrix)
+            }.store(in: &subscriptions)
+    }
+
+    /// Both overlays arrive in ENU, but each bundle has its own origin. Shift
+    /// the corridor into the prepared reference's ENU before applying the same
+    /// inverse sensor pose used by its buildings. Do not rotate a standalone
+    /// corridor just because a capture was opened without a placed reference.
+    nonisolated static func modelMatrix(
+        pose: SitePose?, referenceSite: Gerardus_Align_V1alpha1_Site?, roadSite: RoadSiteSource?
+    ) -> simd_float4x4 {
+        guard let pose, let referenceSite, let roadSite else { return matrix_identity_float4x4 }
+        let offset = roadSite.offset(in: RoadSiteSource(referenceSite))
+        var shift = matrix_identity_float4x4
+        shift.columns.3 = SIMD4(SIMD3<Float>(offset), 1)
+        return pose.referenceModelMatrix * shift
+    }
+
+    var roadSceneMatrix: simd_float4x4 { sink?.roadSceneMatrix ?? roadModelMatrix }
+
+    func scenePoint(_ point: SIMD3<Float>) -> SIMD3<Float> {
+        let p = roadSceneMatrix * SIMD4(point, 1)
+        return SIMD3(p.x, p.y, p.z)
+    }
+
+    func sceneDirection(_ direction: SIMD3<Float>) -> SIMD3<Float> {
+        let d = roadSceneMatrix * SIMD4(direction, 0)
+        return simd_normalize(SIMD3(d.x, d.y, d.z))
     }
 
     // MARK: - Availability
@@ -653,11 +692,13 @@ struct RoadCoverageSummary: Equatable {
         }
         guard lo.x <= hi.x, n > 0 else { return }
         let c = (lo + hi) / 2
-        sink?.frameRoad(centre: SIMD3(c.x, c.y, z / n), extent: simd_length(hi - lo))
+        sink?.frameRoad(centre: scenePoint(SIMD3(c.x, c.y, z / n)), extent: simd_length(hi - lo))
     }
 }
 
 extension MetalRenderer: RoadOverlaySink {
+    var roadSceneMatrix: simd_float4x4 { streamModel * roadModelMatrix }
+
     func frameRoad(centre: SIMD3<Float>, extent: Float) {
         // The driving camera and the plan view hold the camera; leave them be.
         guard cameraHolder == nil else { return }
@@ -669,11 +710,17 @@ extension MetalRenderer: RoadOverlaySink {
         view?.needsDisplay = true
     }
 
-    /// The road camera and overlay share the review's own site frame,
-    /// independently of the capture's reference alignment matrix.
-    func rayInSiteFrame(
+    /// Return the camera ray in the same road ENU frame used by patch picking,
+    /// including the inverse of the alignment and the city's stream placement.
+    func rayInRoadFrame(
         at point: CGPoint, viewSize: CGSize
     ) -> (origin: SIMD3<Float>, direction: SIMD3<Float>)? {
-        CameraRay.ray(camera: camera, viewPoint: point, viewSize: viewSize)
+        guard let ray = CameraRay.ray(camera: camera, viewPoint: point, viewSize: viewSize) else {
+            return nil
+        }
+        let inverse = roadSceneMatrix.inverse
+        let p = inverse * SIMD4(ray.origin, 1)
+        let d = inverse * SIMD4(ray.direction, 0)
+        return (SIMD3(p.x, p.y, p.z), simd_normalize(SIMD3(d.x, d.y, d.z)))
     }
 }

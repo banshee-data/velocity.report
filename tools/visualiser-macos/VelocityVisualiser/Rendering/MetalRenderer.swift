@@ -401,6 +401,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// A one-shot capture of the next frame's colour, for review screenshots.
     private var pendingCapture: ((CGImage?) -> Void)?
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
+    private(set) var roadModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var referenceVisibility = ReferenceVisibility()
     /// Aerial points are dense; drawn at full size they bury the scan.
     static let referencePointScale: Float = 0.5
@@ -826,6 +827,14 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         view?.needsDisplay = true
     }
 
+    func setRoadModelMatrix(_ matrix: simd_float4x4) {
+        guard matrix != roadModelMatrix else { return }
+        roadModelMatrix = matrix
+        view?.needsDisplay = true
+    }
+
+    var roadUniforms: Uniforms { Self.uniforms(uniforms, model: roadModelMatrix) }
+
     /// Replaces the residual-coloured scan, or removes it with nil.
     /// `vertices` use the point layout, with a palette code in the
     /// intensity slot.
@@ -1032,9 +1041,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: count)
         }
-        // The road review has its own scene frame and camera. A capture's
-        // alignment transform must not move this independently opened corridor.
-        var road = uniforms
+        // A standalone corridor uses identity. Alongside a prepared reference,
+        // roads share its sensor pose after shifting their bundle's ENU origin.
+        var road = roadUniforms
         drawRoadOverlay(encoder: encoder, pipeline: pipeline, uniforms: &road)
         // Roof fills last, so the lines behind a translucent roof still show
         // through it.

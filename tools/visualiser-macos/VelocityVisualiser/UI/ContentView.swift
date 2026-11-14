@@ -2542,7 +2542,7 @@ class InteractiveMetalView: MTKView {
                 return
             }
             if let road = roadInput, road.isPaneOpen, let renderer,
-                let ray = renderer.rayInSiteFrame(at: viewPoint, viewSize: bounds.size),
+                let ray = renderer.rayInRoadFrame(at: viewPoint, viewSize: bounds.size),
                 road.pick(origin: ray.origin, direction: ray.direction) != nil
             {
                 return

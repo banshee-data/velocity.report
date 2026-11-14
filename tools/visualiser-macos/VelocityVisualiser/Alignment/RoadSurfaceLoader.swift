@@ -84,6 +84,8 @@ enum RoadLoadState: Equatable, Sendable {
     @Published private(set) var corridorKey: String = ""
     /// The scene frame's site token: the first site of the open corridor.
     @Published private(set) var sceneToken: String = ""
+    /// The origin of the frame all loaded patches have been shifted into.
+    @Published private(set) var sceneSource: RoadSiteSource?
     /// Sites that answered NOT_FOUND or otherwise gave nothing, with why.
     @Published private(set) var siteNotes: [String: String] = [:]
 
@@ -120,6 +122,7 @@ enum RoadLoadState: Equatable, Sendable {
         appliedChunks = 0
         corridorKey = corridor
         sceneToken = sites.first?.l16Token ?? ""
+        sceneSource = sites.first
         let availability = RoadSurfaceAvailability.forServer(version: serverRoadSurfaceVersion)
         guard availability.isAvailable else {
             state = .unavailable(availability)
@@ -157,6 +160,7 @@ enum RoadLoadState: Equatable, Sendable {
         state = .idle
         corridorKey = ""
         sceneToken = ""
+        sceneSource = nil
         siteNotes = [:]
     }
 
