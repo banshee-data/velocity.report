@@ -29,6 +29,7 @@ type EvidenceContext struct {
 	BuildGitSHA    string                    `json:"analysis_build_git_sha"`
 	PolicyID       string                    `json:"policy_id"`
 	SourceManifest *l4bobserve.CaptureSource `json:"source_manifest"`
+	CaptureFiles   []string                  `json:"capture_files,omitempty"`
 }
 
 // EvidenceRow represents one follower sample and the half-open interval to its
@@ -86,8 +87,8 @@ type EvidenceReadQuality struct {
 // contradict its timelines. Accounting is follower-time, not unique encounter
 // time or a population denominator; the same scene time can occur in two rows.
 func Evidence(r Result, c EvidenceContext) (EvidenceDocument, error) {
-	if c.SiteNamespace == "" || c.SiteID == "" || c.SourceID == "" || c.BindingID == "" || c.BuildGitSHA == "" || c.PolicyID == "" {
-		return EvidenceDocument{}, fmt.Errorf("evidence requires explicit site namespace, site, source, binding, build and policy")
+	if err := c.Validate(); err != nil {
+		return EvidenceDocument{}, err
 	}
 	if c.SourceID != r.Estimates.SourceID {
 		return EvidenceDocument{}, fmt.Errorf("context source differs from selected estimates")
@@ -151,11 +152,6 @@ func Evidence(r Result, c EvidenceContext) (EvidenceDocument, error) {
 	if err != nil {
 		return EvidenceDocument{}, err
 	}
-	for _, i := range interactions {
-		if i.Event.Version.InteractionVersion() != r.Version {
-			return EvidenceDocument{}, fmt.Errorf("analysis version differs from selected version")
-		}
-	}
 	d := EvidenceDocument{Schema: EvidenceSchema, Context: c, Version: r.Version, Params: r.Params, ReadQuality: EvidenceReadQuality{Selected: r.Estimates, Boxes: r.Boxes, SolidBodies: r.SolidBodies, BoxlessEstimates: r.BoxlessEstimates, UnfiledEstimates: r.UnfiledEstimates, SolidBodyGaps: r.SolidBodyGaps}, Trajectories: tracks, Analysis: a, Interactions: interactions, Rows: []EvidenceRow{}, Accounting: map[string]int64{}, DRACAccounting: map[string]int64{}}
 	points := map[string]map[int64]*l8behaviour.FollowingPoint{}
 	for _, e := range a.Encounters {
@@ -185,7 +181,8 @@ func Evidence(r Result, c EvidenceContext) (EvidenceDocument, error) {
 				row.Bucket = "following_excluded"
 				row.Point = points[tl.FollowerTrackID+"\x00"+dec.LeaderTrackID][dec.CaptureUnixNanos]
 				if p := row.Point; p != nil {
-					in.SamePath = dec.Reason == l8behaviour.ReasonUnspecified
+					candidate, found := dec.Candidate(dec.LeaderTrackID)
+					in.SamePath = found && candidate.Established && candidate.Synchronised && dec.Reason == l8behaviour.ReasonUnspecified
 					in.Observed = p.Leader != nil && p.Follower != nil && p.Leader.Trailing.Support == l8behaviour.SupportObserved && p.Follower.Leading.Support == l8behaviour.SupportObserved
 					if p.Leader != nil {
 						v := p.Leader.AlongSpeedMps
@@ -200,9 +197,6 @@ func Evidence(r Result, c EvidenceContext) (EvidenceDocument, error) {
 						in.GapM = &v
 					}
 					for _, reason := range p.Reasons {
-						if reason == l8behaviour.ReasonNoCommonPath || reason == l8behaviour.ReasonAmbiguousLeader {
-							in.SamePath = false
-						}
 						if reason != l8behaviour.ReasonEstimateNotFinal && reason != l8behaviour.ReasonBelowSpeedFloor && reason != l8behaviour.ReasonNonPositiveGap {
 							if evidenceReason == l8behaviour.ReasonUnspecified {
 								evidenceReason = reason
@@ -239,10 +233,41 @@ func Evidence(r Result, c EvidenceContext) (EvidenceDocument, error) {
 	return d, nil
 }
 
+// Validate checks that the declared binding has every required provenance axis.
+func (c EvidenceContext) Validate() error {
+	if c.SiteNamespace == "" || c.SiteID == "" || c.SourceID == "" || c.BindingID == "" || c.BuildGitSHA == "" || c.PolicyID == "" {
+		return fmt.Errorf("evidence requires explicit site namespace, site, source, binding, build and policy")
+	}
+	return nil
+}
+
 // WriteEvidence writes deterministic JSON under a context/version identity.
 // A repeat is a no-op; different bytes under the same identity are refused.
 // Linking a completed temporary file prevents partial files or writer races.
 func WriteEvidence(dir string, d EvidenceDocument) (string, error) {
+	return writeEvidence(dir, d, localEvidenceFiles())
+}
+
+// evidenceFiles isolates filesystem operations so durability failures can be
+// tested without relying on a full disk or corrupting a real output directory.
+type evidenceFile interface {
+	Write([]byte) (int, error)
+	Sync() error
+	Close() error
+	Name() string
+}
+type evidenceFiles struct {
+	mkdir  func(string, os.FileMode) error
+	temp   func(string, string) (evidenceFile, error)
+	remove func(string) error
+	link   func(string, string) error
+	read   func(string) ([]byte, error)
+}
+
+func localEvidenceFiles() evidenceFiles {
+	return evidenceFiles{mkdir: os.MkdirAll, temp: func(dir, pattern string) (evidenceFile, error) { return os.CreateTemp(dir, pattern) }, remove: os.Remove, link: os.Link, read: os.ReadFile}
+}
+func writeEvidence(dir string, d EvidenceDocument, files evidenceFiles) (string, error) {
 	if err := d.Validate(); err != nil {
 		return "", err
 	}
@@ -252,20 +277,24 @@ func WriteEvidence(dir string, d EvidenceDocument) (string, error) {
 	}
 	b = append(b, '\n')
 	key, _ := json.Marshal(struct {
-		Schema  string
-		Context EvidenceContext
-		Version l8behaviour.InteractionVersion
-	}{d.Schema, d.Context, d.Version})
+		Schema        string
+		SiteNamespace string
+		SiteID        string
+		SourceID      string
+		BuildGitSHA   string
+		PolicyID      string
+		Version       l8behaviour.InteractionVersion
+	}{d.Schema, d.Context.SiteNamespace, d.Context.SiteID, d.Context.SourceID, d.Context.BuildGitSHA, d.Context.PolicyID, d.Version})
 	sum := sha256.Sum256(key)
 	path := filepath.Join(dir, hex.EncodeToString(sum[:])+".json")
-	if err = os.MkdirAll(dir, 0755); err != nil {
+	if err = files.mkdir(dir, 0755); err != nil {
 		return "", err
 	}
-	tmp, err := os.CreateTemp(dir, ".following-")
+	tmp, err := files.temp(dir, ".following-")
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(tmp.Name())
+	defer files.remove(tmp.Name())
 	if _, err = tmp.Write(b); err != nil {
 		tmp.Close()
 		return "", err
@@ -277,11 +306,11 @@ func WriteEvidence(dir string, d EvidenceDocument) (string, error) {
 	if err = tmp.Close(); err != nil {
 		return "", err
 	}
-	if err = os.Link(tmp.Name(), path); err != nil {
+	if err = files.link(tmp.Name(), path); err != nil {
 		if !os.IsExist(err) {
 			return "", err
 		}
-		old, e := os.ReadFile(path)
+		old, e := files.read(path)
 		if e != nil {
 			return "", e
 		}

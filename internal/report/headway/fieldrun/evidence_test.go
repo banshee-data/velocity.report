@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l8behaviour"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 func evidenceFixture(t *testing.T) Result {
@@ -23,6 +24,40 @@ func evidenceFixture(t *testing.T) Result {
 		t.Fatalf("read-only analyse wrote records: %d %v", n, err)
 	}
 	return r
+}
+
+func TestEvidenceScenarioTimelineOutcomes(t *testing.T) {
+	for _, sc := range l8behaviour.EncounterScenarios() {
+		t.Run(sc.Name, func(t *testing.T) {
+			tr := sc.Trajectories[0]
+			r := Result{Trajectories: sc.Trajectories, Params: sc.Params, Estimates: sqlite.EstimateVersion{SourceID: testSource, EstimatorID: tr.Estimate.EstimatorID, ObservationModelID: tr.Estimate.ObsModelID, ParamHash: tr.Estimate.ParamHash, Stage: tr.Samples[0].Stage.String()}, Version: l8behaviour.InteractionVersion{EstimatorID: tr.Estimate.EstimatorID, ObsModelID: tr.Estimate.ObsModelID, ParamHash: tr.Estimate.ParamHash, EstimateStage: tr.Samples[0].Stage, MethodID: l8behaviour.FollowingEncounterMethodID + "/" + sc.Params.Hash()}}
+			c := evidenceContext()
+			c.SiteID = tr.Passage.SiteID
+			d, err := Evidence(r, c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var duration int64
+			for _, v := range d.Accounting {
+				duration += v
+			}
+			var want int64
+			for _, tr := range sc.Trajectories {
+				want += tr.Samples[len(tr.Samples)-1].CaptureUnixNanos - tr.Samples[0].CaptureUnixNanos
+			}
+			if duration != want {
+				t.Fatal("timeline duration not reconciled")
+			}
+			for _, row := range d.Rows {
+				if row.DRAC.Status == "ineligible_evidence" && row.DRAC.Calculation != nil {
+					t.Fatal("suppressed evidence has a calculation")
+				}
+				if row.Point != nil && row.Point.PredictedGap != nil && row.DRAC.Calculation != nil && row.DRAC.Calculation.ValueMPS2 != nil {
+					t.Fatal("prediction qualified as observed DRAC")
+				}
+			}
+		})
+	}
 }
 
 func evidenceContext() EvidenceContext {
@@ -104,6 +139,12 @@ func TestEvidenceRepeatAndAccounting(t *testing.T) {
 	if p != p2 || !bytes.Equal(first, got) {
 		t.Fatal("repeat changed deterministic bytes")
 	}
+	aliased := d
+	aliased.Context.BindingID = "another binding label"
+	aliased.Context.CaptureFiles = []string{"/another/mount/capture"}
+	if _, err = WriteEvidence(dir, aliased); err == nil {
+		t.Fatal("binding/path aliases silently created duplicate analysis")
+	}
 	second.Rows[0].Bucket = "tampered"
 	if _, err = WriteEvidence(dir, second); err == nil {
 		t.Fatal("same-identity conflict overwritten")
@@ -178,6 +219,27 @@ func TestEvidenceRefusesUnboundOrConflictingInput(t *testing.T) {
 		if _, err := Evidence(bad, c); err == nil {
 			t.Fatal("conflicting source evidence accepted")
 		}
+	}
+}
+
+func TestEvidenceBoxModelVersionAndInvalidDocument(t *testing.T) {
+	r := evidenceFixture(t)
+	r.Boxes = true
+	r.SolidBodies = false
+	r.Version.ObsModelID = l8behaviour.BoxObservationModelID(r.Estimates.ObservationModelID)
+	for i := range r.Trajectories {
+		r.Trajectories[i].Estimate.ObsModelID = r.Version.ObsModelID
+	}
+	d, err := Evidence(r, evidenceContext())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = d.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	d.Context.SourceID = ""
+	if err = d.Validate(); err == nil {
+		t.Fatal("invalid document context accepted")
 	}
 }
 

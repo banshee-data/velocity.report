@@ -43,6 +43,10 @@ source. Its cohort assignment must match the explicit site. The verified source 
 retained in the output. Validation and qualification cohorts remain protected by the normal
 eligibility rules.
 
+When the original capture paths are unavailable on this machine, set the context's optional
+`capture_files` to the local locations in the same order. Each location is hashed against the
+original source manifest; relocating a file does not alter the declared source identity.
+
 ## Interpret the evidence
 
 Each row represents a follower sample and its half-open interval to the next sample. The last
@@ -66,10 +70,16 @@ zero error. No DRAC threshold, production metric or safety claim is adopted.
 
 ## Repeat and review
 
-The filename identifies the context and analysis version. Identical regeneration is a no-op;
+The filename identifies the site namespace/site, source, analysis schema/version/build and
+eligibility policy. Binding labels and local capture paths are provenance rather than new
+analysis identities: changing them under the same identity produces a content conflict instead
+of silently adding a duplicate. Identical regeneration is a no-op;
 different bytes under that identity are refused. The writer re-derives rows and accounting before
 publishing, and concurrent writers publish only a completed file. New versions coexist. Keep
 outputs outside Git, and report methods, provenance and edited findings in an authored report.
+Use a local disk staging directory for this writer: it uses exclusive temporary-file creation
+and hard links, which a NAS mount may refuse. A filesystem error leaves the existing final
+record intact; copy verified completed files to archival storage afterwards.
 
 Tests cover deterministic regeneration, complete free-flow timelines, missing intervals, source
 and version mismatch, corrupted summaries, conflicting writes, concurrent repeat writes, cohort

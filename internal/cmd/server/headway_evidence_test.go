@@ -89,6 +89,20 @@ func TestHeadwayEvidenceCLI(t *testing.T) {
 	if n != 0 {
 		t.Fatal("export mutated interactions")
 	}
+	alias := filepath.Join(dir, "alias.pcap")
+	original, _ := os.ReadFile(capture)
+	os.WriteFile(alias, original, 0600)
+	binding.Context.CaptureFiles = []string{alias}
+	writeBinding()
+	if code, msg := call(); code == 0 || !strings.Contains(msg, "conflicting evidence") {
+		t.Fatalf("alias duplicated evidence: %d %s", code, msg)
+	}
+	binding.Context.CaptureFiles = []string{alias, alias}
+	writeBinding()
+	if code, msg := call(); code == 0 || !strings.Contains(msg, "capture_files") {
+		t.Fatalf("bad location mapping accepted: %d %s", code, msg)
+	}
+	binding.Context.CaptureFiles = nil
 	for _, c := range []struct {
 		name, want string
 		change     func()

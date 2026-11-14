@@ -56,29 +56,40 @@ func exportFollowingEvidence(dbPath string, spec fieldrun.Spec, contextPath, dir
 		return fmt.Errorf("binding capture identity differs from --source")
 	}
 	b.Context.SourceManifest = &b.Source
+	b.Context.BuildGitSHA = version.GitSHA
+	if err = b.Context.Validate(); err != nil {
+		return err
+	}
 	database, err := sqlite.OpenReadOnly(dbPath)
+	if err == nil {
+		defer database.Close()
+		_, err = database.Exec("PRAGMA query_only=ON")
+	}
 	if err != nil {
 		return err
 	}
-	defer database.Close()
-	// The source must be a frozen evidence database; query-only forbids accidental
-	// writes or migrations. Replay should publish a completed snapshot first.
-	if _, err = database.Exec("PRAGMA query_only=ON"); err != nil {
-		return err
-	}
+	// Resolve metadata and read all rows within the same read-only snapshot.
 	tx, err := sqlite.BeginReadOnly(context.Background(), database)
-	if err != nil {
-		return err
+	var selected sqlite.EstimateVersion
+	if err == nil {
+		defer tx.Rollback()
+		selected, err = fieldrun.SelectVersion(sqlite.ReadSnapshot{SQLTx: tx}, spec)
 	}
-	defer tx.Rollback()
-	selected, err := fieldrun.SelectVersion(sqlite.ReadSnapshot{SQLTx: tx}, spec)
 	if err != nil {
 		return err
 	}
 	spec.ParamHash = selected.ParamHash
 	b.Context.BuildGitSHA = version.GitSHA
 	req := eligibility.Request{Purpose: eligibility.PurposeDeveloperDiagnostic, ConfigDigest: spec.ParamHash}
-	for i, path := range b.Source.CapturePaths {
+	paths := b.Context.CaptureFiles
+	if len(paths) == 0 {
+		paths = b.Source.CapturePaths
+	}
+	if len(paths) != len(b.Source.CapturePaths) {
+		return fmt.Errorf("capture_files must match the ordered source captures")
+	}
+	b.Context.CaptureFiles = append([]string(nil), paths...)
+	for i, path := range paths {
 		id, e := eligibility.NewHasher().Capture(path)
 		if e != nil {
 			return e
@@ -92,9 +103,8 @@ func exportFollowingEvidence(dbPath string, spec fieldrun.Spec, contextPath, dir
 	if err != nil {
 		return err
 	}
-	if !auth.Allowed || !auth.Recorded {
-		return fmt.Errorf("development use was not authorised and recorded")
-	}
+	// Authorize returns nil only after the gated diagnostic use is allowed
+	// and its required ledger record has succeeded.
 	for _, in := range auth.Inputs {
 		if in.Assignment.SiteID != b.Context.SiteID {
 			return fmt.Errorf("site binding differs from cohort assignment")
@@ -104,10 +114,10 @@ func exportFollowingEvidence(dbPath string, spec fieldrun.Spec, contextPath, dir
 		return fmt.Errorf("binding policy differs from eligibility decision")
 	}
 	r, err := fieldrun.Analyse(sqlite.ReadSnapshot{SQLTx: tx}, spec)
-	if err != nil {
-		return err
+	var doc fieldrun.EvidenceDocument
+	if err == nil {
+		doc, err = fieldrun.Evidence(r, b.Context)
 	}
-	doc, err := fieldrun.Evidence(r, b.Context)
 	if err != nil {
 		return err
 	}
