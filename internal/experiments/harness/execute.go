@@ -194,6 +194,7 @@ func execute(ctx context.Context, src, bin string, h Host, sp *experiments.Spec,
 		if !ok {
 			return nil, nil, fmt.Errorf("host has no corpus mapping for %s", sp.CasesName())
 		}
+		h = captureHost(h, corpus)
 		caseID := u.Case
 		if caseID == "" {
 			ids := sp.CaseIDs()
@@ -390,6 +391,7 @@ func hashFile(path string) (string, error) {
 }
 
 func caseCaptures(src string, c Corpus, h Host, id string) ([]string, error) {
+	h = captureHost(h, c)
 	var corpus struct {
 		Cases []struct {
 			ID    string `json:"id"`
