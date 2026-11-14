@@ -100,12 +100,13 @@ monitored internal scratch, including the resident Kirk input, at a 10 GiB floor
 external `/Volumes/lidar` at 20 GiB. Resume thresholds were 14/24 GiB. Disk pauses: 0.
 Completed S2 frame chunks and DBs were copied to the fresh NAS archive and
 hash-verified before releasing their local copies. Ordinary read-only SQLite
-access to the NAS snapshot failed; immutable snapshot access worked, but random
+access to the snapshot on this Mac SMB mount failed; immutable snapshot access worked, but random
 reads were slow. Analysis therefore staged one byte-identical local DB at a time.
 Each export was published locally, copied and hash-verified on NAS, then released
 before the next export. Local links preserve the completed recording, DB and export
-paths. NAS did not support the exporter's hard-link publication operation, so no
-evidence export was published directly there. A small APFS-compression probe worked,
+paths. The Mac SMB mount rejected the exporter's hard-link publication operation,
+so no evidence export was published directly there. This is not a capability claim
+about the separate NFS export used by arrow-worker. A small APFS-compression probe worked,
 but the actual DB copy remained uncompressed; compression was abandoned. Its bytes
 matched the NAS snapshot and the copy was used as the local stage. Only a duplicate
 generated build binary was replaced by a link to the identical retained binary;

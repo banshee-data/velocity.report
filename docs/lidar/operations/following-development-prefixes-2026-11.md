@@ -328,5 +328,5 @@ estimation, 20 Hz, SRAC simulation and physical metric validation remain separat
 ## Producer follow-up
 
 The [fresh three-source identity rerun](following-identity-rerun-2026-11.md) verifies
-the replacement producer using new manifests and outputs. The original artifacts,
+the replacement producer using new manifests and outputs. The original artefacts,
 numerical findings and provenance limitations above remain historical evidence.

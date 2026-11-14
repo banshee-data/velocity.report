@@ -239,5 +239,5 @@ estimator, 20 Hz and SRAC remain separate decisions; nothing here promotes them.
 ## Producer follow-up
 
 The [fresh three-source identity rerun](following-identity-rerun-2026-11.md) verifies
-the replacement producer using new manifests and outputs. The original artifacts,
+the replacement producer using new manifests and outputs. The original artefacts,
 numerical findings and provenance limitations above remain historical evidence.
