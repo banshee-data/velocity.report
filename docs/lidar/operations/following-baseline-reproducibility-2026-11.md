@@ -148,23 +148,23 @@ in the existing review tools before adding a physical interpretation.
 
 ## Frozen provenance
 
-| Item                              | Recorded identity                                                                                                                               |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fresh main code base              | `4591a8e49` (merged offline exporter #1034); the later campaign commits add specification/configuration and guard tests, not runtime algorithms |
-| Producer and analyser build       | `0.5.1-pre52`, Git `79d36b80d43c92319d1028febe71276c49f4cb29`                                                                                   |
-| Build timestamps                  | Baseline tool 2026-11-14T08:28:52Z; analyser 2026-11-14T08:28:54Z                                                                               |
-| Baseline executable SHA-256       | `e067e13b85445c5132586236fbc8bdab8427646d488e88ff70a037adeb771ef8`                                                                              |
-| Config file SHA-256               | `9ad7377fa5d356ba5f9d8756d48721708071da3295702350c835110b38b41675`                                                                              |
-| Semantic/execution config SHA-256 | `ab0c4035780dcc678bc21b112890c1db6cdc9c802eb3d1ab5d0f8d442e872d08`; short fingerprint `ab0c4035780d`                                            |
-| Baseline case-parameter identity  | `a420a69447ffd29db3f38fade181daa3ce081b6cd46a33fcd0abf5cf7bd71b02`, distinct from tuning identity                                               |
-| Capture                           | kirk0.pcapng, 200,657,872 bytes, SHA-256 `2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a`                                     |
-| Source                            | `source/v1/10ed005c71bc2d0c73b7810b812576866bf9a64f5ef5d141c7f4510b1e351b6a`                                                                    |
-| Source manifest SHA-256           | `f9cd7dec43dd6a74d36145f3e173a448cb2a408a8598c4aa3f31119419361c54`                                                                              |
-| Corpus / index SHA-256            | `ae334e0ed561a7e82011d0bc3fcaea816e7cb5cfe35f912241f5c6fb33b116ad` / `b1bd6c7d3d83d79a86abf1736b69089cf7ffd9b88dd9e221ca3c736b3a5d696a`         |
-| Calibration                       | `calibration/v1/33b2530bc8f586eba3ceedb3b2c66351e471178d85e417c727f6a9a6ba982edd`                                                               |
-| Site binding                      | namespace `cohort-site`, site `kirkham-9th`, binding `l8fol0006/cohort-r2/kirk0`                                                                |
-| Eligibility policy SHA-256        | `3be8da2d17749c47f64165c93f8841d296519b73dd2ca28dfe211bbae53d5f63`                                                                              |
-| Analysis                          | stage `online`, estimator `cv_kf_v1`, observation model `published_box/medoid_v0`, method `following_encounter_v1/2789569b98eff6a4`             |
+| Item                                    | Recorded identity                                                                                                                               |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fresh main code base                    | `4591a8e49` (merged offline exporter #1034); the later campaign commits add specification/configuration and guard tests, not runtime algorithms |
+| Producer and analyser build             | `0.5.1-pre52`, Git `79d36b80d43c92319d1028febe71276c49f4cb29`                                                                                   |
+| Build timestamps                        | Baseline tool 2026-11-14T08:28:52Z; analyser 2026-11-14T08:28:54Z                                                                               |
+| Baseline executable SHA-256             | `e067e13b85445c5132586236fbc8bdab8427646d488e88ff70a037adeb771ef8`                                                                              |
+| Config file SHA-256                     | `9ad7377fa5d356ba5f9d8756d48721708071da3295702350c835110b38b41675`                                                                              |
+| Semantic/execution config SHA-256       | `ab0c4035780dcc678bc21b112890c1db6cdc9c802eb3d1ab5d0f8d442e872d08`; short fingerprint `ab0c4035780d`                                            |
+| Baseline case-parameter identity        | `a420a69447ffd29db3f38fade181daa3ce081b6cd46a33fcd0abf5cf7bd71b02`, distinct from tuning identity                                               |
+| Capture                                 | kirk0.pcapng, 200,657,872 bytes, SHA-256 `2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a`                                     |
+| Source                                  | `source/v1/10ed005c71bc2d0c73b7810b812576866bf9a64f5ef5d141c7f4510b1e351b6a`                                                                    |
+| Source manifest SHA-256                 | `f9cd7dec43dd6a74d36145f3e173a448cb2a408a8598c4aa3f31119419361c54`                                                                              |
+| Corpus / index SHA-256                  | `ae334e0ed561a7e82011d0bc3fcaea816e7cb5cfe35f912241f5c6fb33b116ad` / `b1bd6c7d3d83d79a86abf1736b69089cf7ffd9b88dd9e221ca3c736b3a5d696a`         |
+| Source-manifest calibration placeholder | `calibration/v1/33b2530bc8f586eba3ceedb3b2c66351e471178d85e417c727f6a9a6ba982edd`                                                               |
+| Site binding                            | namespace `cohort-site`, site `kirkham-9th`, binding `l8fol0006/cohort-r2/kirk0`                                                                |
+| Eligibility policy SHA-256              | `3be8da2d17749c47f64165c93f8841d296519b73dd2ca28dfe211bbae53d5f63`                                                                              |
+| Analysis                                | stage `online`, estimator `cv_kf_v1`, observation model `published_box/medoid_v0`, method `following_encounter_v1/2789569b98eff6a4`             |
 
 The source manifest retains ordered capture identities and extractor configuration. The source
 identity does not encode a replay window; the source ID alone cannot distinguish two windows
@@ -179,6 +179,14 @@ build fields and the replay entry records the configuration path rather than its
 the stamped binaries and frozen manifest above for those identities. The ledger records no
 held-out score and supplies no physical label-set revision. This pilot performs no reviewed
 geometry, identity or relative-speed score and claims no such reference.
+
+The source manifest's top-level calibration ID is the producer's identity-transform placeholder,
+not the calibration actually persisted for this case. The retained Kirk estimates instead bind
+`calibration/v1/979644821aa0bf6473d4309ae659e6f3fec41ac8e463e867196f08d5c1f12c2f`,
+created by the per-site calibration path. The frozen manifest is preserved unchanged; its global
+placeholder must not be used to claim the recorded case's transform. This metadata discrepancy
+is follow-up producer work. The current transform identity is content provenance, not a physical
+calibration or evidence that points were rotated into a validated site frame.
 
 ## Cost and evidence retention
 
