@@ -20,3 +20,7 @@ Answered on 2026-10-20: [l8fol0001](l8fol0001.md), following opportunity on the 
 ([report](../../../docs/lidar/operations/following-class-evidence-kirk-2026-10.md));
 [l8fol0003](l8fol0003.md), the published box as the endpoint source
 ([report](../../../docs/lidar/operations/following-box-endpoints-2026-10.md)).
+
+The current-default [Kirk reproducibility pilot](l8fol0006.md) produced exact same-DB evidence
+exports and reconciled follower-time; its [report](../../../docs/lidar/operations/following-baseline-reproducibility-2026-11.md)
+keeps raw-repeat, scope and physical-qualification limits explicit.
