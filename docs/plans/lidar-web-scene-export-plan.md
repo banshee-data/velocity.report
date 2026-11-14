@@ -17,6 +17,8 @@ records a correction to the viewer's heading transform, with Lombard–Broderick
 Embarcadero–Broadway examples. The export already preserves the stored heading: the correction
 needs a site build, without replaying or re-exporting the source scenes. Physical-pose acceptance
 remains separate from the viewer's coordinate contract.
+The subsequent [scene refresh report](../lidar/operations/scene-export-refresh-2026-11.md)
+records complete-source replays, export coverage, and rendered review under that correction.
 
 A `.vrlog` directory is the single source of truth for what a run analysed and
 logged, and it stays that way. What it is not is fetchable: it lives on a

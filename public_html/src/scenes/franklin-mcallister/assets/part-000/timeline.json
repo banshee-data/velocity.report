@@ -2225,7 +2225,8 @@
         "start_mph": 30,
         "count": 2
       }
-    ]
+    ],
+    "directions": []
   },
   "max_total": 70.27,
   "max_speed": 15.08

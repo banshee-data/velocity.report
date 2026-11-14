@@ -2499,6 +2499,92 @@
         "start_mph": 35,
         "count": 11
       }
+    ],
+    "directions": [
+      {
+        "id": "heading:0",
+        "name": "Direction A",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 455,
+        "p50": 26.17,
+        "p85": 30.11,
+        "p98": 34.56,
+        "max": 37.49,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 20
+          },
+          {
+            "start_mph": 10,
+            "count": 33
+          },
+          {
+            "start_mph": 15,
+            "count": 39
+          },
+          {
+            "start_mph": 20,
+            "count": 86
+          },
+          {
+            "start_mph": 25,
+            "count": 207
+          },
+          {
+            "start_mph": 30,
+            "count": 64
+          },
+          {
+            "start_mph": 35,
+            "count": 6
+          }
+        ]
+      },
+      {
+        "id": "heading:1",
+        "name": "Direction B",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 504,
+        "p50": 18.39,
+        "p85": 29.01,
+        "p98": 33.42,
+        "max": 35.54,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 88
+          },
+          {
+            "start_mph": 10,
+            "count": 97
+          },
+          {
+            "start_mph": 15,
+            "count": 91
+          },
+          {
+            "start_mph": 20,
+            "count": 82
+          },
+          {
+            "start_mph": 25,
+            "count": 94
+          },
+          {
+            "start_mph": 30,
+            "count": 47
+          },
+          {
+            "start_mph": 35,
+            "count": 5
+          }
+        ]
+      }
     ]
   },
   "max_total": 56.17,

@@ -1085,29 +1085,29 @@
     },
     {
       "t": 600,
-      "veh": 0.64,
+      "veh": 0.92,
       "ped": 0,
-      "cyc": 0.72,
-      "oth": 1.04,
+      "cyc": 1.08,
+      "oth": 1.44,
       "spd": 11.11,
       "n": 25
     },
     {
       "t": 605,
-      "veh": 0.24,
+      "veh": 0,
       "ped": 0,
-      "cyc": 0.32,
-      "oth": 0.64,
-      "spd": 11.11,
+      "cyc": 0.04,
+      "oth": 1.52,
+      "spd": 9.86,
       "n": 25
     },
     {
       "t": 610,
       "veh": 0,
       "ped": 0,
-      "cyc": 0.04,
-      "oth": 2.56,
-      "spd": 9.86,
+      "cyc": 0,
+      "oth": 1.96,
+      "spd": 4.39,
       "n": 25
     },
     {
@@ -1115,7 +1115,7 @@
       "veh": 0,
       "ped": 0,
       "cyc": 0,
-      "oth": 4.16,
+      "oth": 3.48,
       "spd": 8.96,
       "n": 25
     },
@@ -1124,7 +1124,7 @@
       "veh": 0.64,
       "ped": 0,
       "cyc": 0.08,
-      "oth": 6.68,
+      "oth": 6.4,
       "spd": 10.34,
       "n": 25
     },
@@ -1916,7 +1916,7 @@
       "veh": 0,
       "ped": 0,
       "cyc": 0,
-      "oth": 3.36,
+      "oth": 3.6,
       "spd": 10.59,
       "n": 25
     },
@@ -1925,7 +1925,7 @@
       "veh": 0.92,
       "ped": 0,
       "cyc": 0.08,
-      "oth": 3.84,
+      "oth": 3.8,
       "spd": 10.53,
       "n": 25
     },
@@ -2210,6 +2210,88 @@
       {
         "start_mph": 35,
         "count": 4
+      }
+    ],
+    "directions": [
+      {
+        "id": "heading:0",
+        "name": "Direction A",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 98,
+        "p50": 26.46,
+        "p85": 31.94,
+        "p98": 36.78,
+        "max": 37.83,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 1
+          },
+          {
+            "start_mph": 10,
+            "count": 0
+          },
+          {
+            "start_mph": 15,
+            "count": 7
+          },
+          {
+            "start_mph": 20,
+            "count": 26
+          },
+          {
+            "start_mph": 25,
+            "count": 42
+          },
+          {
+            "start_mph": 30,
+            "count": 18
+          },
+          {
+            "start_mph": 35,
+            "count": 4
+          }
+        ]
+      },
+      {
+        "id": "heading:1",
+        "name": "Direction B",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 85,
+        "p50": 25.01,
+        "p85": 27.81,
+        "p98": 31.18,
+        "max": 31.97,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 2
+          },
+          {
+            "start_mph": 10,
+            "count": 0
+          },
+          {
+            "start_mph": 15,
+            "count": 8
+          },
+          {
+            "start_mph": 20,
+            "count": 32
+          },
+          {
+            "start_mph": 25,
+            "count": 41
+          },
+          {
+            "start_mph": 30,
+            "count": 2
+          }
+        ]
       }
     ]
   },

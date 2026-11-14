@@ -96,13 +96,13 @@ describe("TrackVisual box orientation", () => {
   }
 });
 
-// Existing published chunks are the frozen regression inputs, not copies of
-// raw capture data. IDs and playback windows are documented in the report.
-for (const [site, chunk, id, start, end] of [
-  ["lombard-broderick", "0001", "gi", 104.6, 111.7],
-  ["embarcadero-broadway", "0000", "1v", 28.6, 43.9],
+// Exercise the published windows without binding to export-local track IDs,
+// which change when scenes are regenerated. No raw captures are copied here.
+for (const [site, chunk, start, end] of [
+  ["lombard-broderick", "0001", 104.6, 111.7],
+  ["embarcadero-broadway", "0000", 28.6, 43.9],
 ]) {
-  test(`${site}: published turn has the same orientation after sequential and non-sequential updates`, () => {
+  test(`${site}: published window has the same orientation after sequential and non-sequential updates`, () => {
     const path = new URL(
       `../../scenes/${site}/assets/part-000/frames/chunk_${chunk}.ndjson.gz`,
       import.meta.url,
@@ -113,8 +113,11 @@ for (const [site, chunk, id, start, end] of [
       .split("\n")
       .map((line) => JSON.parse(line))
       .filter((frame) => frame.t / 1e6 >= start && frame.t / 1e6 <= end)
-      .flatMap((frame) => frame.tr.filter((track) => track.id === id));
-    assert.ok(tracks.length > 30, "retain the complete turn window");
+      .flatMap((frame) => frame.tr ?? []);
+    assert.ok(
+      tracks.length > 30,
+      "retain samples throughout the playback window",
+    );
     const scene = new THREE.Scene();
     const sequential = new TrackVisual(scene, 0x00ff00);
     const seek = new TrackVisual(scene, 0x00ff00);

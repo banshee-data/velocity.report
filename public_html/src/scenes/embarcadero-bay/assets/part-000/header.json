@@ -14,11 +14,11 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "0c8fa3db2a0924a2a5da2363f17237306c8747d591421065d6ded7d7c2b95fbf",
+  "source_vrlog_sha256": "9f2100bcf8de79bb1b3e980505b643bd70e326af5bd7f233f8691ea886685d00",
   "tuning_hash": "sha256:c927ea3afe40a1be0fb1812083763d05a37269c7bfe6fe1098f91866fdec570d",
-  "build_version": "0.5.1-pre50",
-  "build_git_sha": "57e9e9f1a3d5e6c43b36371aafbdcc6c4099cefb",
-  "generated_at": "2026-11-02T02:04:24Z",
+  "build_version": "0.5.1-pre52",
+  "build_git_sha": "42c8b39d909e4b077aa355e3cc7a8fae1df77f18",
+  "generated_at": "2026-11-14T05:32:24Z",
   "units": {
     "length": "m",
     "speed": "m/s",
