@@ -1,0 +1,1 @@
+- Verified the [three-source identity rerun](../../lidar/operations/following-identity-rerun-2026-11.md) on fresh main: per-case calibration and window-bound sources agree, 137,567 observation IDs recompute without provenance mismatches, same-DB exports repeat exactly and interval accounting reconciles; retained companion-calibration requirements and physical-validation limits.

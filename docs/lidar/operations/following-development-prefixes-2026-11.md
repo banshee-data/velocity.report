@@ -324,3 +324,9 @@ explicitly. Separate output directories are not a remedy for overlapping source/
 do not pool a later replay of a different window as independent exposure. A source-window identity
 contract is follow-up engineering work before automated aggregation of such campaigns. Facet
 estimation, 20 Hz, SRAC simulation and physical metric validation remain separate experiments.
+
+## Producer follow-up
+
+The [fresh three-source identity rerun](following-identity-rerun-2026-11.md) verifies
+the replacement producer using new manifests and outputs. The original artefacts,
+numerical findings and provenance limitations above remain historical evidence.

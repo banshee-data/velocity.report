@@ -12,6 +12,9 @@ An intentional unchanged baseline control declares **No changed keys** in its ro
 loads through the strict parser and must remain identical to current defaults; drift must be
 declared before a later run.
 
+The unchanged [weekend baseline](weekend-following-baseline.json) also underpins the
+[fresh calibration/window rerun](../../docs/lidar/operations/following-identity-rerun-2026-11.md).
+
 How to run one, build a new one and map replay experiment names to keys:
 [CONFIG.md](../CONFIG.md#experiment-parameter-sets).
 

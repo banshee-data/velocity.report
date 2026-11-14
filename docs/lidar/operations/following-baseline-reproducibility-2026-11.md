@@ -235,3 +235,9 @@ Any additional site screen belongs to a separately frozen rule with exact develo
 window options and permitted-use identities before execution. Do not pool this pilot or its two
 exports with later windows as independent encounter evidence. Geometry-attribution, a new facet
 estimator, 20 Hz and SRAC remain separate decisions; nothing here promotes them.
+
+## Producer follow-up
+
+The [fresh three-source identity rerun](following-identity-rerun-2026-11.md) verifies
+the replacement producer using new manifests and outputs. The original artefacts,
+numerical findings and provenance limitations above remain historical evidence.

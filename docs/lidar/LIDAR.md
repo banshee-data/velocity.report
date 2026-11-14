@@ -378,3 +378,7 @@ records the first completed source-bound export check and its physical-evidence 
 
 The [fixed-prefix development following screen](operations/following-development-prefixes-2026-11.md)
 records per-source reproducibility and exclusion accounting for Columbus at Broadway and Embarcadero at Bryant.
+
+The [three-source identity rerun](operations/following-identity-rerun-2026-11.md)
+verifies fresh per-case calibration and replay-window provenance through the baseline,
+with all-row audits, repeated exports and explicit portability limits.
