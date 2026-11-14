@@ -256,7 +256,7 @@ func (l *Ledger) write(slug string, r UnitRecord) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(p), ".unit-*")
+	tmp, err := CreateTemp(filepath.Dir(p), ".unit-*")
 	if err != nil {
 		return err
 	}
