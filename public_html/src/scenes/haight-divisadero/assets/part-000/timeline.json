@@ -17,7 +17,7 @@
       "veh": 0,
       "ped": 0,
       "cyc": 0,
-      "oth": 2.88,
+      "oth": 3.46,
       "spd": 1.5,
       "n": 24
     },
@@ -26,8 +26,8 @@
       "veh": 0,
       "ped": 0.96,
       "cyc": 0,
-      "oth": 2.46,
-      "spd": 1.14,
+      "oth": 2.12,
+      "spd": 1.17,
       "n": 26
     },
     {
@@ -440,7 +440,7 @@
       "veh": 0,
       "ped": 0,
       "cyc": 0,
-      "oth": 1.24,
+      "oth": 1.36,
       "spd": 6.9,
       "n": 25
     },
@@ -449,7 +449,7 @@
       "veh": 0,
       "ped": 0,
       "cyc": 0.88,
-      "oth": 0.88,
+      "oth": 0.76,
       "spd": 8.33,
       "n": 25
     },
@@ -1689,7 +1689,7 @@
     {
       "t": 935,
       "veh": 0.56,
-      "ped": 0.96,
+      "ped": 1,
       "cyc": 0,
       "oth": 1.56,
       "spd": 6.48,
@@ -2112,6 +2112,72 @@
       {
         "start_mph": 25,
         "count": 3
+      }
+    ],
+    "directions": [
+      {
+        "id": "heading:0",
+        "name": "Direction A",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 83,
+        "p50": 20.45,
+        "p85": 23.29,
+        "p98": 29.08,
+        "max": 29.82,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 3
+          },
+          {
+            "start_mph": 10,
+            "count": 1
+          },
+          {
+            "start_mph": 15,
+            "count": 33
+          },
+          {
+            "start_mph": 20,
+            "count": 43
+          },
+          {
+            "start_mph": 25,
+            "count": 3
+          }
+        ]
+      },
+      {
+        "id": "heading:1",
+        "name": "Direction B",
+        "bearing_deg": null,
+        "source": "heading",
+        "speed_limit": null,
+        "track_count": 52,
+        "p50": 13.6,
+        "p85": 18.14,
+        "p98": 20.09,
+        "max": 20.36,
+        "histogram": [
+          {
+            "start_mph": 5,
+            "count": 9
+          },
+          {
+            "start_mph": 10,
+            "count": 24
+          },
+          {
+            "start_mph": 15,
+            "count": 17
+          },
+          {
+            "start_mph": 20,
+            "count": 2
+          }
+        ]
       }
     ]
   },

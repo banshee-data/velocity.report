@@ -48,6 +48,8 @@ The box-orientation tests compare transformed corners with data-space headings a
 published Lombard–Broderick and Embarcadero–Broadway turn windows through `TrackVisual`.
 The [yaw investigation](../docs/lidar/operations/published-scene-yaw-investigation.md) records the
 mirrored-heading defect, exact playback times, provenance, and remaining physical-pose checks.
+The [scene refresh report](../docs/lidar/operations/scene-export-refresh-2026-11.md) records the
+subsequent replay/export coverage and rendered acceptance checks.
 
 ## Street survey pages
 

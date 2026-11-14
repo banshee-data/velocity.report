@@ -183,6 +183,8 @@ The [published-scene yaw investigation](operations/published-scene-yaw-investiga
 these estimator findings from a web rendering defect: the player mirrored the stored box heading
 while preserving the path. It records two exact turn windows, the viewer correction, and the
 physical-pose checks still needed when the capture volume returns.
+The [scene refresh](operations/scene-export-refresh-2026-11.md) records the subsequent exports,
+their source and registration choices, and the separate playback acceptance checks.
 
 ## Terminology
 
