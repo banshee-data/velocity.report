@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8behaviour"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/report/chart"
@@ -51,6 +52,8 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 	paramHash := fs.String("param-hash", "", "With --db: estimator parameter hash, when the source holds several versions at the stage")
 	outputDir := fs.String("output", "", "Output directory (default: the current directory)")
 	paper := fs.String("paper", string(chart.PaperLetter), "Paper size: letter or a4")
+	evidenceContext := fs.String("evidence-context", "", "With --db: explicit site/source binding JSON; export review evidence instead of rendering PDF")
+	guard := eligibilitycli.RegisterFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -59,6 +62,18 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 		fs.Usage()
 		return 2
 	}
+	if *evidenceContext != "" {
+		if *outputDir == "" {
+			fmt.Fprintln(stderr, "error: --evidence-context requires explicit --output")
+			return 2
+		}
+		paperSet := false
+		fs.Visit(func(f *flag.Flag) { paperSet = paperSet || f.Name == "paper" })
+		if paperSet {
+			fmt.Fprintln(stderr, "error: --paper does not apply to evidence JSON")
+			return 2
+		}
+	}
 	if *oracle == (*dbPath != "") {
 		fmt.Fprintln(stderr, "error: give exactly one of --oracle (the synthetic oracle) or --db with --source "+
 			"(the provisional field report)")
@@ -66,6 +81,10 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if *oracle {
+		if *evidenceContext != "" {
+			fmt.Fprintln(stderr, "error: --evidence-context requires --db")
+			return 2
+		}
 		// Any --db-only flag given explicitly is refused, --stage included,
 		// though its default is not empty: the oracle would ignore it.
 		dbOnly := map[string]bool{"source": true, "solid-bodies": true, "boxes": true, "stage": true, "estimator": true,
@@ -120,6 +139,9 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 		if spec.Stage, err = l8behaviour.ParseEstimateStage(*stage); err != nil {
 			fmt.Fprintf(stderr, "error: --stage: %v; want final, fixed_lag or online\n", err)
 			return 2
+		}
+		if *evidenceContext != "" {
+			return runFollowingEvidence(*dbPath, spec, *evidenceContext, dir, guard, stdout, stderr)
 		}
 		var code int
 		if r, code = runFieldReport(*dbPath, spec, stdout, stderr); code != 0 {
