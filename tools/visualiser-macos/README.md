@@ -277,3 +277,19 @@ support and unrecorded legacy history. Gaps and estimate changes cannot create c
 strips. `make test-mac-trails` checks the pure geometry without an app host or Metal device;
 see the [native trail contract](../../docs/lidar/operations/native-trail-support-cloud-2026-11.md)
 for the wire fields, styles and remaining physical/visual acceptance work.
+
+### Game controls and test servers
+
+The toolbar's **Game** toggle (⌥⌘G) starts or stops free camera navigation and opens
+its Camera settings. W/S and ↑/↓ accelerate forward/back, A/D and ←/→ steer,
+Space brakes, Z/C strafe, and Q/E descend/climb. Escape exits Game. Hold Option
+while moving the mouse to look; click the 3D view to give it keyboard focus.
+This is free camera navigation; the Road pane's profile-following drive remains
+available for reviewing a loaded measured road corridor.
+
+A Gerardus server identifying itself as a fixture supplies test geometry. The
+Alignment pane explains this and offers **Use local Gerardus**; road loading and
+site placement are blocked on that connection. Start the real Gerardus data
+service on port 50061, or select its address in Settings → Servers, to align a
+capture and load the site's geometry. Test road patches cannot establish the
+shape or alignment of the selected survey site.

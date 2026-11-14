@@ -1,0 +1,1 @@
+- Added a visible Game camera toggle with throttle, steering, brake and exit controls; prevented Gerardus fixture geometry from being loaded as a survey site's roads and explained how to select the real alignment service. See the [visualiser controls](../../../tools/visualiser-macos/README.md#game-controls-and-test-servers).

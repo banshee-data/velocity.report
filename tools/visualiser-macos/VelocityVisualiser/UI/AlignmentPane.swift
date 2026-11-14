@@ -33,6 +33,10 @@ import SwiftUI
             // need cannot be scrolled out of sight while either is shown.
             VStack(alignment: .leading, spacing: 8) {
                 header
+                if session.isFixtureServer {
+                    Text(GerardusSettings.fixtureMessage).font(.caption).foregroundStyle(.orange)
+                    Button("Use local Gerardus") { session.useServiceAddress(.local) }
+                }
                 paintSwitch
                 if session.showsReviewerField, !painter.isPainting { reviewerField }
             }.padding([.horizontal, .top]).padding(.bottom, 10)

@@ -1076,10 +1076,12 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// Answers StreamReference for layer 17 when set; unset, the default
     /// gathers it from streamReference.
     var roadSurfaceHandler:
-        (@Sendable (
-            Gerardus_Align_V1alpha1_StreamReferenceRequest,
-            @Sendable (Gerardus_Align_V1alpha1_RoadSurfaceChunk, Bool) async -> Void
-        ) async throws -> Void)?
+        (
+            @Sendable (
+                Gerardus_Align_V1alpha1_StreamReferenceRequest,
+                @Sendable (Gerardus_Align_V1alpha1_RoadSurfaceChunk, Bool) async -> Void
+            ) async throws -> Void
+        )?
     /// Layers StreamReference refuses with PERMISSION_DENIED.
     var refusedLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
     /// The model_id the registered layers carry.
@@ -1137,6 +1139,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var refuseStreetUse: String?
     private var streetUseCounter = 0
     /// GetServerInfo's supports_lane_fields and street_use_rules_version.
+    var serverVersion = "0.1.0"
     var supportsLaneFields = false
     var streetUseRulesVersion: UInt32 = 0
     /// Every UploadLaneField, as its header and chunks; a repeat of stored
@@ -1207,7 +1210,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
             throw GerardusClientError.notConnected
         }
         var info = Gerardus_Align_V1alpha1_GetServerInfoResponse()
-        info.serverVersion = "0.1.0"
+        info.serverVersion = serverVersion
         info.apiVersion = "gerardus.align.v1alpha1"
         info.availableLayers = availableLayers
         info.roadSurfaceVersion = roadSurfaceVersion

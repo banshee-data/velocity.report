@@ -219,6 +219,13 @@ struct RoadCoverageSummary: Equatable {
     }
 
     func refreshSites() async {
+        guard !alignment.isFixtureServer else {
+            close()
+            sites = []
+            corridors = []
+            sitesNote = GerardusSettings.fixtureMessage
+            return
+        }
         guard let client = alignment.gerardusClient else {
             sites = []
             sitesNote = "Not connected to a Gerardus server."
@@ -248,6 +255,10 @@ struct RoadCoverageSummary: Equatable {
     /// Opens a named corridor through exactly the sites the server says hold
     /// it: no probing, no neighbour search.
     func open(corridor id: String) {
+        guard !alignment.isFixtureServer else {
+            sitesNote = GerardusSettings.fixtureMessage
+            return
+        }
         guard let choice = corridors.first(where: { $0.id == id }) else {
             sitesNote = "Corridor \(id) is not one this server lists."
             return
@@ -281,6 +292,10 @@ struct RoadCoverageSummary: Equatable {
     /// Opens the road surface through `token`'s bundle and its prepared
     /// neighbours. Cancels a load in flight; its late chunks are discarded.
     func open(siteToken token: String) {
+        guard !alignment.isFixtureServer else {
+            sitesNote = GerardusSettings.fixtureMessage
+            return
+        }
         guard let client = alignment.gerardusClient else {
             sitesNote = "Not connected to a Gerardus server."
             return

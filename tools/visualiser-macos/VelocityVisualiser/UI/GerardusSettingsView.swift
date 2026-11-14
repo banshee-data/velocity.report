@@ -14,6 +14,11 @@ import SwiftUI
 /// What the settings show about a server, from GetServerInfo. Kept apart from
 /// the view so it can be tested.
 enum GerardusSettings {
+    static func isFixture(_ version: String) -> Bool { version.lowercased().contains("fixture") }
+
+    static let fixtureMessage =
+        "This is a test fixture, not this site's measured geometry. Connect to a Gerardus data server in Settings → Servers to align the site and load its roads."
+
     /// "0.1.0+3f2a9c1e0b7d", Gerardus's server_version (the crate's version
     /// with its commit as semver build metadata), as its version and git sha.
     /// A version without build metadata has no sha.

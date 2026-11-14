@@ -319,6 +319,10 @@ struct ReferenceSummary: Equatable {
         }
     }
 
+    var isFixtureServer: Bool {
+        serverInfo.map { GerardusSettings.isFixture($0.serverVersion) } ?? false
+    }
+
     var supportsBoundedPlacement: Bool { serverInfo?.supportsBoundedPlacement == true }
     /// Whether the connected server can send the road surface preview, and
     /// why not when it cannot. Nil while no server has answered.
@@ -793,6 +797,10 @@ struct ReferenceSummary: Equatable {
     /// Prepares the site, places the sensor from its eye-read hint, and
     /// streams the reference around that position.
     func placeFromHint() async {
+        guard !isFixtureServer else {
+            errorMessage = GerardusSettings.fixtureMessage
+            return
+        }
         guard let client, let site, busy == nil else { return }
         if let northAzimuth = northAzimuthDeg {
             defaults?.set(String(northAzimuth), forKey: Self.northAzimuthKeyPrefix + site.l16Token)
