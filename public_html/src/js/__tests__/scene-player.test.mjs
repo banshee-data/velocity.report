@@ -77,6 +77,96 @@ describe("buildTrailHistories", () => {
 });
 
 describe("TrackVisual box placement", () => {
+  // Compare actual scene-graph corners with an independently rotated ENU
+  // rectangle. Axis-aligned boxes alone cannot expose mirrored yaw because
+  // a rectangle has the same footprint after a half-turn.
+  for (const degrees of [
+    0, 45, -45, 90, 135, -135, 180, 23, -67, 181, -181, 383,
+  ]) {
+    test(`maps the full box footprint at ${degrees} degrees`, () => {
+      const yaw = (degrees * Math.PI) / 180;
+      const t = {
+        x: 90,
+        y: 80,
+        bx: 3,
+        by: 7,
+        z: -2,
+        l: 6,
+        w: 2,
+        h: 3,
+        bh: yaw,
+      };
+      const visual = new TrackVisual(new THREE.Scene(), 0x00ff00);
+      visual.update(t);
+      for (const obj of [visual.fill, visual.edges]) {
+        obj.updateMatrixWorld(true);
+        for (const u of [-0.5, 0.5]) {
+          for (const v of [-0.5, 0.5]) {
+            for (const up of [-0.5, 0.5]) {
+              const actual = obj.localToWorld(new THREE.Vector3(u, up, v));
+              // Local +Z is south, so the ENU width coordinate is -v*w.
+              const east =
+                t.bx + u * t.l * Math.cos(yaw) + v * t.w * Math.sin(yaw);
+              const north =
+                t.by + u * t.l * Math.sin(yaw) - v * t.w * Math.cos(yaw);
+              const expected = new THREE.Vector3(
+                east,
+                t.z + (up + 0.5) * t.h,
+                -north,
+              );
+              assert.ok(
+                actual.distanceTo(expected) < 1e-9,
+                `${obj.type} corner follows ENU yaw`,
+              );
+            }
+          }
+        }
+      }
+      visual.dispose(visual.fill.parent);
+    });
+  }
+
+  test("heading fallback preserves yaw and a zero box heading takes precedence", () => {
+    const visual = new TrackVisual(new THREE.Scene(), 0x00ff00);
+    for (const [headings, yaw] of [
+      [{ hdg: -0.7 }, -0.7],
+      [{ bh: null, hdg: 0.4 }, 0.4],
+      [{ bh: 0, hdg: 0.8 }, 0],
+      [{}, 0],
+    ]) {
+      visual.update({ x: 0, y: 0, z: 0, l: 5, w: 2, h: 1, ...headings });
+      for (const obj of [visual.fill, visual.edges]) {
+        const axis = new THREE.Vector3(1, 0, 0).applyQuaternion(obj.quaternion);
+        assert.ok(
+          axis.distanceTo(new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw))) <
+            1e-9,
+        );
+      }
+    }
+    visual.dispose(visual.fill.parent);
+  });
+
+  test("published Embarcadero and Lombard box axes retain their stored velocity alignment", () => {
+    // Bounded numerical cases from the published chunks, not raw recordings.
+    // Provenance and interpretation: docs/lidar/operations/scene-player-yaw.md.
+    for (const { bh, vx, vy, minGap, maxGap } of [
+      { bh: 2.383, vx: -3.54, vy: 3.57, minGap: 1.7, maxGap: 1.9 },
+      { bh: -2.132, vx: -3.53, vy: -4.42, minGap: 6.4, maxGap: 6.6 },
+    ]) {
+      const visual = new TrackVisual(new THREE.Scene(), 0x00ff00);
+      visual.update({ x: 0, y: 0, z: 0, l: 4.3, w: 1.7, h: 1.4, bh });
+      const velocity = new THREE.Vector3(vx, 0, -vy).normalize();
+      for (const obj of [visual.fill, visual.edges]) {
+        const axis = new THREE.Vector3(1, 0, 0).applyQuaternion(obj.quaternion);
+        const gap =
+          (Math.acos(Math.min(1, Math.abs(axis.dot(velocity)))) * 180) /
+          Math.PI;
+        assert.ok(gap > minGap && gap < maxGap, `axis/velocity gap ${gap}`);
+      }
+      visual.dispose(visual.fill.parent);
+    }
+  });
+
   test("draws a published box centre, not the tracked position", () => {
     const visual = new TrackVisual(new THREE.Scene(), 0x00ff00);
     visual.update({
