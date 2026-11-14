@@ -12,7 +12,7 @@ import (
 
 // TestExperimentConfigsDeclareEveryChangeFromTheDefaults is the anti-drift
 // guard for config/experiments/. Each shipped parameter set loads under the
-// strict loader, differs from the defaults, and has a row in the
+// strict loader and has a row in the
 // directory's README naming every key it changes. A set copied from an
 // older defaults file then fails here, listing the keys it carries that its
 // row does not explain, rather than running quietly as something other
@@ -42,12 +42,12 @@ func TestExperimentConfigsDeclareEveryChangeFromTheDefaults(t *testing.T) {
 				t.Fatalf("loading %s: %v", path, err)
 			}
 			changed := changedConfigPaths(base, flatConfig(t, cfg))
-			if len(changed) == 0 {
-				t.Fatalf("%s is the defaults; a parameter set changes something", path)
-			}
 			row := readmeRow(string(readme), e.Name())
 			if row == "" {
 				t.Fatalf("config/experiments/README.md has no row for %s; add one naming what it changes and the report it serves", e.Name())
+			}
+			if len(changed) == 0 && !strings.Contains(row, "No changed keys") {
+				t.Fatalf("%s is the defaults; declare No changed keys for an intentional baseline control", path)
 			}
 			var undeclared []string
 			for _, p := range changed {

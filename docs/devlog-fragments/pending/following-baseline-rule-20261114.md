@@ -1,0 +1,1 @@
+- Preregistered the [current-baseline following evidence campaign](../../lidar/operations/following-baseline-reproducibility-2026-11.md), with an unchanged checked-in parameter set, same-DB versus raw-replay reproducibility rules, exact exclusion accounting and bounded development-only source selection; execution and physical qualification were pending at this commit.
