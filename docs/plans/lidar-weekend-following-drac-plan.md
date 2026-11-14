@@ -3,8 +3,9 @@
 Produce reproducible per-site candidate, following, experimental DRAC and exclusion evidence,
 then review a few multi-vehicle periods to decide the next geometry investment. The working
 programme is November 14–15, 2026. Lombard at Broderick is the provisional intensive-review
-site, subject to capture, lane and reference preflight and a matched manual screen against
-Embarcadero at Broadway's published scene.
+site, subject to capture, lane, reference and cohort preflight and the matched manual screen
+against Embarcadero at Broadway's published scene. Both sites are now assigned to validation;
+the cohort restrictions below take precedence over their earlier provisional development use.
 
 - **Status:** Planned for v0.5.2 at the owner's request; implementation, experiment approval,
   frozen arm configurations and field qualification remain pending.
@@ -46,6 +47,11 @@ preflight must inspect them, including snapshot/pose identity, directions and co
 configured external PCAP root and default internal LiDAR data root were unavailable during
 review. Replayable packets, current evidence databases and frozen reference packs are unverified.
 
+That access statement records the first review, not the latest state: the volume was reconnected
+later on November 13 and both configured data directories were present at the daily reconciliation.
+The scene-refresh chat has begun new work. Mounted storage does not establish hash-matched
+capture completeness, permissible development use or reviewed references; W1 must verify those.
+
 | Historical reading                                                                            | Population and meaning                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 92 vehicle pair-seconds and 116 vehicle track pairs                                           | [Opportunity screen](../lidar/operations/following-opportunity-corpus-2026-10.md#by-site), under `body-older`: track-centre corridor, speed and heading selector; vehicle size is a geometric screen |
@@ -58,11 +64,13 @@ current measurement yield or guarantee suitable physical references.
 
 ## Matched published-scene screen
 
-Screen Lombard at Broderick and Embarcadero at Broadway before choosing the intensive-review
-periods. This is W1/W3 reconnaissance within the existing budget, not a third experiment or a
-held-out qualification read. Both published manifests and timelines were accessible during
-planning, with approximately 1,202 and 1,209 seconds respectively. The raw PCAP volume is
-currently unavailable, so the screen must use the published assets and record their limitations.
+The proposed screen compares Lombard at Broderick and Embarcadero at Broadway before choosing
+intensive-review periods. Its original W1/W3 diagnostic use is now on hold for the cohort
+decision below: do not execute it as development reconnaissance merely because published files
+are accessible. It is not a third experiment or a held-out qualification read. Both published
+manifests and timelines were accessible during planning, with approximately 1,202 and 1,209 seconds respectively. The raw PCAP volume was
+unavailable then and is now reconnected; published assets remain approximate screening material,
+not a substitute for permitted, hash-verified raw evidence and independent references.
 
 Freeze each scene's manifest/export identity, placement, available build/configuration metadata,
 display settings and window list before viewing. Missing provenance stays explicit. Use the
@@ -105,21 +113,108 @@ hours, and new review tooling still displaces geometry time.
 
 ## Related investigations and dependencies
 
-Visibly skewed vehicle boxes are under separate investigation in Codex chat
-`01a1d775-1d4a-7142-b12a-3c51ac9bde9c`. Its cause is unresolved. Record affected scene/version,
-playback instant, track ID and the visual discrepancy; do not assume a rendering, transform,
-heading, timing or estimator cause. Treat affected box-derived endpoints and gaps as suspect
-until the investigation states what evidence remains usable. Inspect visible returns separately
-where possible. The screen can proceed with flagged unknowns; physical interpretation of
-affected boxes and any geometry comparison depending on them waits for a supported disposition.
-If the independent fix changes an export, retain the old findings under their original version
-and repeat only the affected comparison under explicitly recorded new provenance.
+The skewed-box investigation in Codex chat `01a1d775-1d4a-7142-b12a-3c51ac9bde9c` identified
+a web-player yaw-sign defect, corrected in merged [PR #1024](https://github.com/banshee-data/velocity.report/pull/1024).
+The [renderer report](../lidar/operations/scene-player-yaw.md) distinguishes the corrected
+display transform from unchanged stored heading and unvalidated physical yaw. The parallel
+[PR #1027](https://github.com/banshee-data/velocity.report/pull/1027) contains overlapping work;
+reconcile it against #1024 rather than applying the correction twice. Its investigation and
+new asset-refresh work remain independently owned. Record the player module and asset/build
+versions used for review; old-player results are not current-renderer evidence.
 
-Euler's SRAC maths is being prepared in a separate documentation-only PR. SRAC remains future
-research and adds no logger field, implementation task, experiment arm or acceptance gate to
-this weekend. Link its landed review when available; its results and any required shape or
-steering-state evidence must be assessed before scheduling implementation. Preserve that work
-independently of this plan and its existing following/DRAC scope.
+Euler's [SRAC maths](../research/srac-steering-demand-maths.md) and
+[follow-up plan](lidar-srac-research-plan.md) landed in
+[PR #1023](https://github.com/banshee-data/velocity.report/pull/1023).
+SRAC remains future research and adds no logger field, live solver, experiment arm or acceptance
+gate to this weekend. Its predicted and recorded-future 6.35 s modes require 127 future intervals
+and 128 states including now; a verified feasible witness, terminal support and continuous-time
+clearance evidence are separate requirements, not supplied by sampling alone. Reviewable traffic
+episodes may later inform its synthetic cases, but ordinary non-collision recordings do not
+validate hypothetical avoidance, driver intent or crash risk.
+
+## November 13 reconciliation and task coverage
+
+This inventory covers the Pacific calendar day November 13, 2026 (08:00 UTC through the next
+08:00 UTC), through main `a4bdda9df` and the active-session snapshot taken during this update.
+Later messages or PR changes require another refresh. The existing 16-hour logger/review budget
+is unchanged. Parallel jobs and later research below are accounted for, not silently added to it.
+
+### Cohort decision before further diagnostic use
+
+Merged [PR #1029](https://github.com/banshee-data/velocity.report/pull/1029) introduced manifest
+revision 2: Lombard–Broderick and Embarcadero–Broadway are validation sites, while Kirkham,
+Columbus–Broadway and Embarcadero–Bryant are development sites. Embarcadero–Folsom is qualification.
+The [eligibility rules](../lidar/operations/labelling-workspace.md#development-eligibility)
+refuse validation inputs for tuning, diagnostics and development evaluation, independently of
+an episode's earlier split label. Public availability or a historical tuning read does not
+override the current cohort.
+
+W1 must record the actual manifest/ledger decision. Keep the two-site screen as a pending
+protocol: use it only in an eligible, explicitly defined validation/review workflow, or after
+an explicit owner cohort decision with contamination history retained. Do not bypass a guard
+by calling the activity production or by reading an export. Default logger development to
+Kirkham, Columbus or Embarcadero–Bryant. Neither the new policy nor a fresh export makes previously
+seen episodes independent. Do not alter cohort assignments in this planning PR.
+
+### Source-to-work ledger
+
+| Source reviewed                                                                                                                                                                                                                                                         | State at reconciliation                                                                                   | Weekend disposition, owner role and completion evidence                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| This planning chat and [PR #1022](https://github.com/banshee-data/velocity.report/pull/1022)                                                                                                                                                                            | W1–W4 planned; matched screen not executed                                                                | Logger implementer and operator retain the existing budget; Sunday output remains reproducible records, exclusions and a bounded review or explicit blocked status                                                                                                                                                                         |
+| Voice chat “Discuss facet tracking experiments”, `01a1d6bc-73c2-7330-98dd-6d7d249fd449`                                                                                                                                                                                 | Requested identity/relative-speed diagnosis, point-loss follow-up, review tools and unattended candidates | W3 records both speeds, leader changes, fragmentation, observed ends and suspected lost returns; retention/cluster repairs require a separately frozen comparison after attribution                                                                                                                                                        |
+| [#1021](https://github.com/banshee-data/velocity.report/pull/1021), [#1025](https://github.com/banshee-data/velocity.report/pull/1025), [#1026](https://github.com/banshee-data/velocity.report/pull/1026): harness selection, first-install fixes and deployment files | Merged; runbook records local/NAS kirk0 fixture equivalence, not an approved-campaign or soak result      | Harness owner verifies bounded selection, executor/reference compatibility, Git/timer behaviour, restart/resource gates and publication recovery under the [existing handoff](platform-experiment-harness-next-steps.md); report each acceptance separately; this is a parallel queue                                                      |
+| Voice shortlist: `l5id0013`, `l5id0016`, `ground0002`; geom0016 already W4                                                                                                                                                                                              | Candidates, not verified launch-ready jobs                                                                | Harness owner verifies approvals, predecessors, manual closures, checked-in arm configs, archived inputs and supported evaluators; defer incompatible candidates with named blockers rather than weakening their scoring or broadening automatic ticks                                                                                     |
+| [#1029](https://github.com/banshee-data/velocity.report/pull/1029): cohort revision 2                                                                                                                                                                                   | Merged assignment changes the proposed site use                                                           | Owner/eligibility reviewer resolves the diagnostic-versus-validation boundary first; record manifest digest and decisions. Its empty qualification capture also needs source recovery/hash verification before any later qualification use                                                                                                 |
+| Chats “Fix published scene box yaw” and “Investigate skewed vehicle boxes”; [#1024](https://github.com/banshee-data/velocity.report/pull/1024), [#1027](https://github.com/banshee-data/velocity.report/pull/1027)                                                      | #1024 merged; overlapping #1027 open                                                                      | Rendering owner reconciles the duplicate PR and retains regression/investigation evidence. Verify Lombard +109.807 s and Broadway +36.819 s with the corrected player; then separate residual stored-yaw/turn/coast issues from display defects using permitted return-level evidence                                                      |
+| Chat “Investigate skewed vehicle boxes (2)”, `01a1d81f-c4d8-7e53-9453-578437798051`                                                                                                                                                                                     | Fresh scene exports and a local preview requested; work active, asset PR/result not yet verified          | Publishing owner records stamped builds, same-database provenance, allowed capture identities, fresh manifests and interrupted-run recovery; review the separate asset PR and preview before any authorised merge. Verify dedicated API ports: an active-session update reports a replay interrupted by test traffic on shared port 8080   |
+| Chat “Refine the SRAC Euler prompt”; merged [#1023](https://github.com/banshee-data/velocity.report/pull/1023)                                                                                                                                                          | Maths and horizon contract complete as documentation                                                      | Research owner carries solver/certificate viewer, synthetic examples and physical qualification into its separate follow-up plan; no SRAC implementation in W2                                                                                                                                                                             |
+| Same chat; merged [#1030](https://github.com/banshee-data/velocity.report/pull/1030)                                                                                                                                                                                    | 20 Hz/48 ms source audit complete; readiness unproven                                                     | Performance owner follows the [20 Hz report](../research/lidar-20hz-readiness.md): instrument acquisition/assembly/service/age/drop funnel, audit time/count contracts and export stride, then obtain native 10/20 Hz workloads and workload-matched baselines; defer sensor/default changes and Pi qualification from this weekend's core |
+| Chat “Review PRs and push fixes”; merged [#1018](https://github.com/banshee-data/velocity.report/pull/1018), [#1019](https://github.com/banshee-data/velocity.report/pull/1019), [Gerardus #85](https://github.com/banshee-data/gerardus/pull/85)                       | Contract/client fixes delivered; road-surface evidence remains fixture-only                               | Road-review owner retains real `ggp-mlk-1` build/access, supported geometry/mesh checks and ten-minute rendered/memory/latency acceptance under the [road review](../ui/visualiser/road-surface-review.md); separate acceptance queue, not evidence of vehicle lane maps or metric-qualified road geometry                                 |
+| Friday briefing, “Schedule Friday Briefing” and cloud chat `01a09444-614c-7a13-b508-7247d427e01f`                                                                                                                                                                       | New noise/metric-validity research recommendations, not repository adoption                               | W2/W3 retain estimator/filter stage, jitter/drift/offset and relative-speed diagnostics. Literature owner verifies the primary study before a new experiment or threshold; derived-metric validation remains necessary even if position/speed errors improve; PET remains deferred                                                         |
+| ChatGPT “Develop SRAC Metric Prompt”                                                                                                                                                                                                                                    | Initial broader prototype ideas superseded by the docs-only Euler request                                 | Covered by #1023; keep AV/human modes, nominal-versus-additional demand and predicted-versus-retrospective evidence distinctions without scheduling its proposed simulator this weekend                                                                                                                                                    |
+
+### Practical ordering and cut rules from today's work
+
+1. W1 checks mounted sources, current cohort policy, actual frozen references and available
+   analysis versions. Settle permitted development inputs before selecting review or machine jobs.
+2. Rendering/publishing owners finish their existing jobs separately. A player-only yaw correction
+   needs no raw replay; the requested fresh pipeline exports are a different deliverable and may
+   take hours. Do not restart completed recordings merely because export failed. Check build stamps,
+   shared database paths, `local.mk` and scene-assets preflight, with private server ports and
+   per-worker storage. Test processes must not share the production replay-control endpoint.
+3. W2 develops on permitted development evidence while W3 performs only the allowed review work.
+   If validation use remains unresolved, demonstrate the development-site logger and show the
+   two-site protocol as blocked rather than claiming the manual comparison ran.
+4. The harness owner selects only prerequisite-complete approved work, using explicit supported
+   slug runs if automatic selection remains unbounded. A running timer or installation fixture
+   does not complete H1/H3 acceptance or the week-long H5 soak. Do not enable an unrestricted
+   campaign merely to meet Sunday.
+5. W4 remains conditional on the existing geom0016 rule, repeatability, masks and evaluator support.
+   Reviewed cases also record return-loss, class, heading and relative-speed hypotheses; they do
+   not justify new tracker tuning within a validation cohort.
+6. Keep the 20 Hz qualification, 6.35 s SRAC solver, real-road acceptance and stronger PET/safety
+   studies as separately owned follow-ups. Record blockers and next evidence, not a completed
+   weekend promise or an unbudgeted extra implementation lane.
+
+### Review coverage and limits
+
+Read the local Codex histories for the related chats named above, including the voice chat and
+this chat; the older “Explore facet-based LiDAR tracking” chat was checked and its latest substantive
+turn predates today. Read the relevant ChatGPT SRAC prompt and Friday briefing, plus the cloud
+briefing's current-day turn. Voice history was paginated to its beginning. Active and archived
+local/cloud Codex and ChatGPT inventories were checked; older pages were bounded once their
+latest activity preceded this day. Unrelated account/business, household, network and other-repo
+chats were excluded from repository task interpretation. Direct Claude transcripts were not
+available through those inventories; today's repository PR descriptions and merged documents
+provide their engineering record, without claiming every external session was read.
+
+All eleven velocity.report PRs created or updated in the selected day and present in the query
+were reconciled (#1018, #1019, #1021, #1022, #1023, #1024, #1025, #1026, #1027, #1029 and #1030); Gerardus #85
+was the cross-repository dependency. The authoritative enumeration is the source ledger above:
+#1020 is a stack link, not a separate PR in the returned set. #1017 is prior-day synthesis
+already incorporated in the oracle response. Live jobs and PRs may change after the snapshot;
+the source chat owners retain execution/merge responsibility. This update launches no jobs,
+changes no cohort, deploys nothing and makes no physical-validation claim.
 
 ## Work and acceptance
 
@@ -129,7 +224,7 @@ be handed to Claude independently after the shared contract and dependencies are
 
 | Work                            | Problem and desired outcome                                                                                                                                                             | Dependencies                                                                      | Acceptance and evidence                                                                                                                                                                |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| W1: evidence preflight          | Identify accessible packets or persisted evidence, accepted placement/lanes, pack/reference revisions and evaluation history                                                            | Existing manifests, site/run/clip records, operator access                        | One explicit site/source/version binding, readable evidence, known missing fields and split roles; a recorded fallback if access fails                                                 |
+| W1: evidence preflight          | Identify permitted cohort/use, accessible packets or persisted evidence, accepted placement/lanes, pack/reference revisions and evaluation history                                      | Existing manifests, site/run/clip records, operator access                        | One explicit site/source/version binding and permitted use, readable evidence, known missing fields and split roles; a recorded fallback if access or eligibility fails                |
 | W2: per-site logger             | Existing interaction rows omit both speeds and complete follower paths/timelines; retain enough evidence to reproduce candidate, following and experimental DRAC outputs and exclusions | W1; frozen formula, applicability and provenance contract                         | Deterministic analytical content; exact values and reason accounting; no inferred site join from time overlap; explicit missing uncertainty; synthetic and storage/export checks below |
 | W3: intensive review            | Distinguish bodies from fragmented tracks, credible leaders from adjacent/crossing traffic, and visible endpoints from unsupported shape                                                | W1 and W2's period identities; existing visualiser and annotation tools           | Three or four source-bound periods with identities, uncertainty, support, changes and disagreement recorded; physical references only where independently supported                    |
 | W4: conditional geometry screen | Determine whether remaining end error is extent shortfall or material face placement before funding new facets                                                                          | Frozen masks/references and matching replay evidence; existing geom0016 evaluator | Repeatable control/face-state tuning screen and P/S attribution under the existing rule, or an explicit insufficient-evidence report; no adoption from tuning alone                    |
@@ -181,10 +276,10 @@ screen can use kirk0's existing supported tuning evidence; Lombard is not assume
 physical truth ready. Preserve the oracle's eight-hour fallback: one site, primitive/tests,
 exact export, repeatability and a short report.
 
-If Lombard packets cannot be recovered within preflight, use its published scene for qualitative
-reconnaissance and an accessible evidence dataset for the executable logger. Identify the two
-demonstrations separately. Capture/label access failures must not trigger an unbounded new
-capture campaign or consume held-out windows to find a better result.
+If Lombard is unavailable or its diagnostic use is refused, use an eligible development site
+for the executable logger. Any permitted published-scene validation/review is a separate
+demonstration with its actual use purpose recorded. Capture/label access failures must not trigger
+an unbounded new capture campaign or consume held-out windows to find a better result.
 
 ## Validation and evaluation boundaries
 
@@ -199,18 +294,20 @@ unsaved-edit guards and retained assisted provenance for any changed workflow. P
 Compare's held-out restriction must remain enforced. Lane proposals, authored lanes and the
 snapshot in use are distinct evidence states.
 
-Lombard segments already read remain screening/tuning for the corresponding measurement family.
-Check each new segment's use ledger before scoring. Preserve embarcadero-folsom's existing
+Record Lombard's earlier screening/tuning exposures under their original measurement family;
+its current validation cohort still governs new use. Check each new segment's policy and use
+ledger before scoring. Preserve embarcadero-folsom's existing
 evaluation boundaries. Run at most the oracle's two selected experiments: current-baseline
 coverage/logging and conditional geom0016 tuning attribution; freeze configurations and rules
 before execution. Raw outputs stay local; edited reports retain provenance and limitations.
 
 ## Sunday demonstration
 
-Show the two-site matched-screen ledger and its approximate observations first, including
-skewed-box flags and any missing or incomplete windows. Then show the selected site's binding
-and analysis version, a repeatable evidence log with both
-speeds, reconciled candidate/eligible/excluded time, and three or four named review periods.
+Show the two-site matched-screen ledger and its approximate observations only if that review
+was permitted and executed; otherwise show the cohort/access blocker and the preserved protocol.
+Include player/export provenance, skewed-box follow-up and any missing or incomplete windows.
+Then show the eligible development site's binding and analysis version, a repeatable evidence log
+with both speeds, reconciled candidate/eligible/excluded time, and three or four named review periods.
 Explain a supported value and an ambiguous or suppressed case where evidence permits them;
 otherwise show why no physical value qualifies. State separately which engineering checks
 passed and what remains missing for physical publication. A geometry screen reports its actual

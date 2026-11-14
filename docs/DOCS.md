@@ -14,6 +14,9 @@ Documentation structure, scope, and naming conventions.
 For project-wide numeric constants and default thresholds, see
 [MAGIC_NUMBERS.md](../MAGIC_NUMBERS.md).
 
+Research proposals include [SRAC steering-demand maths](research/srac-steering-demand-maths.md)
+and its [staged validation plan](plans/lidar-srac-research-plan.md).
+
 ## /docs/ root structure
 
 - `/data/` # Stable data references, maths notes, and explorations

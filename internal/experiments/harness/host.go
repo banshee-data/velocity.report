@@ -19,6 +19,8 @@ type Host struct {
 	Capabilities  []string             `json:"capabilities"`
 	EvidenceRoot  string               `json:"evidence_root"`
 	StageDir      string               `json:"stage_dir"`
+	BuildRoot     string               `json:"build_root,omitempty"`
+	StageAttempts bool                 `json:"stage_attempts,omitempty"`
 	CaptureRoot   string               `json:"capture_root"`
 	CaptureSubdir string               `json:"capture_subdir"`
 	DiskFloorGB   float64              `json:"disk_floor_gb"`
@@ -63,8 +65,21 @@ func ReadHost(path string) (Host, error) {
 			return h, fmt.Errorf("host paths must be absolute: %q", p)
 		}
 	}
+	if h.BuildRoot != "" && !filepath.IsAbs(h.BuildRoot) {
+		return h, fmt.Errorf("host paths must be absolute: %q", h.BuildRoot)
+	}
 	if e := validatePublication(h.Publish); e != nil {
 		return h, e
 	}
 	return h, nil
+}
+
+// BuildBase is the directory that holds builds/<commit>. Builds are a
+// rebuildable cache that needs exclusive file creation, so it can sit on local
+// disk while the evidence root is on a share that refuses O_EXCL.
+func (h Host) BuildBase() string {
+	if h.BuildRoot != "" {
+		return h.BuildRoot
+	}
+	return h.EvidenceRoot
 }

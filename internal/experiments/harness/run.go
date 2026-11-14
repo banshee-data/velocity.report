@@ -396,11 +396,11 @@ func runSpec(ctx context.Context, o Options, sp *experiments.Spec, sha string) (
 		r = Run{}
 	}
 	if r.ID == "" {
-		versionBytes, e := os.ReadFile(filepath.Join(o.Root, "VERSION"))
+		version, e := buildVersion(o.Root)
 		if e != nil {
 			return "", "", e
 		}
-		r = Run{Slug: sp.ID, ID: time.Now().UTC().Format("20060102T150405.000000000Z") + "-" + sha[:7], Commit: sha, SpecDigest: specDigest, InputDigest: inputDigest, BuildVersion: trim(string(versionBytes)), Host: h.Worker, Class: h.Class, Started: time.Now().UTC(), Arms: sp.Arms, Sources: map[string]string{}, Measures: map[string]map[string]float64{}, SummaryDigests: map[string]string{}}
+		r = Run{Slug: sp.ID, ID: time.Now().UTC().Format("20060102T150405.000000000Z") + "-" + sha[:7], Commit: sha, SpecDigest: specDigest, InputDigest: inputDigest, BuildVersion: version, Host: h.Worker, Class: h.Class, Started: time.Now().UTC(), Arms: sp.Arms, Sources: map[string]string{}, Measures: map[string]map[string]float64{}, SummaryDigests: map[string]string{}}
 	}
 	if r.RetryLimits == nil {
 		r.RetryLimits = map[string]int{}
@@ -592,7 +592,7 @@ func runSpec(ctx context.Context, o Options, sp *experiments.Spec, sha string) (
 				}
 				if bin == "" {
 					buildCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
-					src, bin, e = o.buildTools(buildCtx, o.Root, h.EvidenceRoot, r.Commit)
+					src, bin, e = o.buildTools(buildCtx, o.Root, h.BuildBase(), r.Commit)
 					cancel()
 					if e != nil {
 						return r.ID, "", e
@@ -621,8 +621,24 @@ func runSpec(ctx context.Context, o Options, sp *experiments.Spec, sha string) (
 					return r.ID, "", fmt.Errorf("unit %s has no positive timeout estimate", u.ID())
 				}
 				unitCtx, cancel := context.WithTimeout(ctx, timeout)
-				measures, summary, execErr := execute(unitCtx, src, bin, h, sp, st, u, out, recs, &r, func() error { return save() })
+				// An evidence share that refuses O_EXCL cannot take the executors'
+				// own exclusive creates, so such a host runs each attempt in local
+				// staging and copies the finished attempt across.
+				work := out
+				if h.StageAttempts {
+					work = filepath.Join(h.StageDir, r.ID, "work", filepath.FromSlash(u.ID()), fmt.Sprintf("attempt-%d", attempt))
+					if e = os.MkdirAll(work, 0755); e != nil {
+						cancel()
+						return r.ID, "", e
+					}
+				}
+				measures, summary, execErr := execute(unitCtx, src, bin, h, sp, st, u, work, recs, &r, func() error { return save() })
 				cancel()
+				if work != out {
+					if e = archiveStage(work, out); e != nil {
+						execErr = errors.Join(execErr, e)
+					}
+				}
 				if execErr == nil {
 					if e = atomicFile(filepath.Join(out, "tool-summary.json"), summary); e != nil {
 						execErr = e

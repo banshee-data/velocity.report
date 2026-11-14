@@ -1,6 +1,6 @@
 [Unit]
 Description=Offline velocity experiment harness
-RequiresMountsFor=/mnt/captures /mnt/results
+RequiresMountsFor=/mnt/captures /mnt/results /var/lib/velocity-harness
 ConditionPathExists=/var/lib/velocity-harness/host.json
 
 [Service]
@@ -9,19 +9,24 @@ User=velocity-harness
 Group=velocity-harness
 WorkingDirectory=/var/lib/velocity-harness/repo
 ExecStart=/usr/local/bin/velocity experiments tick -root /var/lib/velocity-harness/repo -host /var/lib/velocity-harness/host.json
+Environment=PATH=/usr/local/go-1.27.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/var/lib/velocity-harness
 Environment=GOPROXY=off
 Environment=GOSUMDB=off
 Environment=GOTOOLCHAIN=local
 Environment=GOCACHE=/var/lib/velocity-harness/cache/go-build
 Environment=GOPATH=/var/lib/velocity-harness/cache/go
-Environment=TMPDIR=/srv/banshee/evidence/harness-stage
+Environment=TMPDIR=/var/lib/velocity-harness/stage
+Environment=VELOCITY_COHORT_MANIFEST=/var/lib/velocity-harness/repo/config/cohorts/cohort-manifest.json
+Environment=VELOCITY_ANNOTATION_ROOT=/var/lib/velocity-harness/annotations
+Environment=VELOCITY_ELIGIBILITY_DB=/var/lib/velocity-harness/eligibility.db
 UMask=0027
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadOnlyPaths=/mnt/captures
-ReadWritePaths=/var/lib/velocity-harness /mnt/results/velocity-harness /srv/banshee/evidence/harness-stage
+ReadWritePaths=/var/lib/velocity-harness /mnt/results/velocity-harness
 KillMode=control-group
 TimeoutStartSec=infinity
 TimeoutStopSec=30

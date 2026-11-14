@@ -2,6 +2,9 @@
 
 The `lidar-bench` tool measures the LiDAR L1–L6 tracking pipeline over a PCAP to detect processing-speed regressions before they reach production. It is the end-to-end perf gate run by `make test-perf` and nightly CI.
 
+The [20 Hz readiness audit](../../research/lidar-20hz-readiness.md) distinguishes this offline
+algorithm gate from deployed-path latency and sets out the work needed for a 48 ms service target.
+
 ## Overview
 
 `lidar-bench` times the full pipeline (foreground extraction → DBSCAN clustering → Kalman tracking → classification) and compares the result against a committed baseline, so algorithm improvements, new features, or refactoring don't inadvertently degrade processing speed. It is a dev/CI tool, separate from the operational `velocity lidar pcap-split` (scan, motion stats, splits).
