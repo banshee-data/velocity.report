@@ -281,6 +281,17 @@ func eligible(ctx context.Context, root string, set *experiments.Set, sp *experi
 		if _, e := params(st); e != nil {
 			return e.Error()
 		}
+		if st.Kind == "ground_truth_eval" {
+			for _, u := range sp.Units(st) {
+				ref, err := h.scoringReference(sp.ID, st.ID, u.Arm)
+				if err == nil {
+					err = ref.checkScoringInputs()
+				}
+				if err != nil {
+					return fmt.Sprintf("scoring preflight %s/%s/%s: %v", sp.ID, st.ID, u.Arm, err)
+				}
+			}
+		}
 	}
 	if !machine {
 		return "no machine steps"
