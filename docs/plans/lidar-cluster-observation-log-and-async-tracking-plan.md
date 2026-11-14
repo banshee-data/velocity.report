@@ -10,6 +10,7 @@ storage, queues, battery operation, and processing elsewhere.
 - **Related:** [Bodies in motion](lidar-bodies-in-motion-plan.md),
   [offline analysis](lidar-offline-analysis-tooling-plan.md),
   [performance measurement](lidar-performance-measurement-harness-plan.md),
+  [20 Hz readiness findings](../research/lidar-20hz-readiness.md),
   [VRLOG recording contract review](lidar-vrlog-recording-contract-review.md)
 - **Evidence baseline:** Repository commit `9b2014b90`; source inspection, existing benchmark
   documentation, and manufacturer specifications. Section 10 adds the committed kirk0 Mac
