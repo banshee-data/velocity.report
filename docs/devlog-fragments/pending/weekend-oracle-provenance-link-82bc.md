@@ -1,0 +1,1 @@
+- Replaced the weekend oracle brief's app-only chat link with its title and identifier plus a repository plan link, preserving discussion provenance while fixing the dead-link CI check.

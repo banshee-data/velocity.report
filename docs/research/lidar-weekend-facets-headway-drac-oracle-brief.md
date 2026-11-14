@@ -10,7 +10,10 @@ Use the questions below to choose the development work and at most three experim
   Experiments, implementation, adoption and user decisions remain pending.
 - **Scope:** Fixed roadside LiDAR, physical body estimation, facet diagnostics, interaction
   persistence, and site-level measurement coverage.
-- **Starting discussion:** [Explore facet-based LiDAR tracking](codex://threads/01a0f41f-e8f6-7912-8e49-1d8814bf123a).
+- **Starting discussion:** Explore facet-based LiDAR tracking, Codex chat
+  `01a0f41f-e8f6-7912-8e49-1d8814bf123a`; its
+  [facet registration plan](../plans/lidar-facet-registration-experiment-plan.md) is the
+  repository reference.
 - **New research:** [PR #1017](https://github.com/banshee-data/velocity.report/pull/1017),
   merged at `e9ff0a16a614cc990bd5bfcbcbe3da7087537eef`.
 
