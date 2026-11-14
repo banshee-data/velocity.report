@@ -282,12 +282,12 @@ func execute(ctx context.Context, src, bin string, h Host, sp *experiments.Spec,
 			}
 		}
 	case "ground_truth_eval":
-		ref, ok := h.References[sp.ID+"/"+st.ID+"/"+u.Arm]
-		if !ok {
-			ref, ok = h.References[sp.ID+"/"+st.ID]
+		ref, err := h.scoringReference(sp.ID, st.ID, u.Arm)
+		if err != nil {
+			return nil, nil, err
 		}
-		if !ok {
-			return nil, nil, fmt.Errorf("no frozen reference mapping for %s/%s/%s", sp.ID, st.ID, u.Arm)
+		if err = ref.checkScoringInputs(); err != nil {
+			return nil, nil, err
 		}
 		for _, path := range []string{ref.Manifest, ref.ADB, ref.BDB} {
 			if !filepath.IsAbs(path) {
@@ -318,9 +318,9 @@ func execute(ctx context.Context, src, bin string, h Host, sp *experiments.Spec,
 		return nil, nil, e
 	}
 	if p.Retention && st.Kind == "ground_truth_eval" {
-		ref, ok := h.References[sp.ID+"/"+st.ID+"/"+u.Arm]
-		if !ok {
-			ref = h.References[sp.ID+"/"+st.ID]
+		ref, err := h.scoringReference(sp.ID, st.ID, u.Arm)
+		if err != nil {
+			return nil, nil, err
 		}
 		args = []string{"retention", "-pack", ref.Pack, "-split-manifest", ref.Manifest, "-split", ref.Split, "-db", ref.BDB, "-json", filepath.Join(out, "retention.json")}
 		if p.SplitRole == "tuning" {

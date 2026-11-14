@@ -1,0 +1,1 @@
+- Added scoring-input preflight to harness selection so a missing reference binding or unavailable pack, split, or estimate database skips the experiment before tool builds and replay attempts; shared arm override resolution with the executor and tested dry-run and normal-tick refusal, while leaving frozen-reference validation to the evaluator.

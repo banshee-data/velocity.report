@@ -211,3 +211,18 @@ have automated tests. The NAS installation, real App credentials, reproduced
 report bands, a held-out scoring acceptance and the week-long deployment soak
 still require their own recorded evidence. These are not established by runner
 unit tests.
+
+### Labelled scoring preflight
+
+Before building or replaying a spec containing `ground_truth_eval`, selection checks
+that every scoring unit has a host reference binding. Arm-specific bindings take
+precedence over the step-wide fallback. Each binding needs a named split, a readable
+absolute pack directory, and readable, non-empty regular files for its split manifest
+and both estimate databases. Missing inputs appear as `scoring preflight` skips in
+both dry runs and normal ticks, without consuming replay attempts.
+
+These are availability checks. The evaluator still verifies the frozen split's pins,
+reviewed reference membership, and the estimate versions. Install a complete linked
+label set and pack, retaining the revisions the split pins, then configure explicit
+baseline and candidate database bindings before advertising `labels:kirk`. The
+capability alone neither supplies references nor closes a spec's manual steps.
