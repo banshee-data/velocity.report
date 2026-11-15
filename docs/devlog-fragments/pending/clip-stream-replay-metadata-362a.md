@@ -1,1 +1,2 @@
 - Notified the visualiser stream after a clip replay starts successfully, matching file replay so live inspection receives replay metadata; covered exactly-once notification and refusals or failed starts without notification.
+- Recorded source-bound regeneration, matching-recording identity checks, missing lane geometry and slow-client limitations in the [Lombard–Broderick and Columbus–Broadway review](../../ui/visualiser/following-review-2026-11.md).
