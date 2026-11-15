@@ -339,3 +339,18 @@ the selected point's endpoints, projected speeds, uncertainty and experimental D
 no new arithmetic or lane attribution and does not overlay an unverified file on playback.
 See the [Lombard–Broderick and Columbus–Broadway readiness review](../../docs/ui/visualiser/following-review-2026-11.md)
 for sources, walkthroughs, and the outstanding geometry and recording-binding gates.
+
+### Regenerating a recording with its site binding
+
+Use a located clip's `POST /api/lidar/clips/{clip_id}/replay`, rather than a file-only
+PCAP start, to retain the clip/site relationship in Runs. Its optional recording controls are
+`full_frames`, `settle_before_recording`, `speed_mode` (`analysis`, `realtime`, or `scaled`),
+and `speed_ratio` (positive for `scaled`). Defaults preserve the existing clip replay behaviour;
+multi-capture clips require analysis speed. Full frames require the gRPC publisher.
+The clip's stored capture sequence and time window remain authoritative.
+
+Start a dedicated server with `--config` naming the checked-in parameter file before running
+these review replays. Keep its database and recording root together, preserve existing evidence,
+and check the completed run's `clip_id`, `frame_mode`, header bounds and producer stamp before
+opening it in Runs. A full-frame recording contains background points in every rotation;
+settling first gives a second, recorded pass over the complete clip window.
