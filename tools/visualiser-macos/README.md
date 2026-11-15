@@ -246,6 +246,23 @@ The app stores preferences in `~/Library/Preferences/com.velocity.visualiser.pli
 
 ## Development
 
+### Analysis runs
+
+The Analysis Runs browser loads the run history in pages and groups runs by
+their recorded clip. A located clip shows its site label when one is available.
+Runs made without a clip association remain under **No clip**; a source filename
+alone does not establish which site or interval the run represents. A listed
+VRLOG path does not guarantee that the recording is still present on the server.
+Foreground-only recordings show **FG** in the Frames column. The duration shows
+the recorded interval, which may be shorter than the source capture.
+
+The [weekend focus inventory](../../docs/ui/visualiser/weekend-focus-recording-inventory.md)
+names the four complete foreground recordings in the main catalogue, their verification and
+the remaining Gerardus alignment dependencies.
+Choosing a current accepted registration in Alignment remembers its scan for that clip across
+review runs and app restarts. If that scan loses its accepted head, placement asks for another
+accepted record rather than silently choosing a different scan.
+
 ### Running tests
 
 ```bash
@@ -277,3 +294,74 @@ support and unrecorded legacy history. Gaps and estimate changes cannot create c
 strips. `make test-mac-trails` checks the pure geometry without an app host or Metal device;
 see the [native trail contract](../../docs/lidar/operations/native-trail-support-cloud-2026-11.md)
 for the wire fields, styles and remaining physical/visual acceptance work.
+
+### Game controls and test servers
+
+The toolbar's **Game** toggle (⌥⌘G) starts or stops free camera navigation and opens
+its Camera settings. W/S and ↑/↓ accelerate forward/back, A/D and ←/→ steer,
+Space brakes, Z/C strafe, and Q/E descend/climb. Escape exits Game. Hold Option
+while moving the mouse to look; click the 3D view to give it keyboard focus.
+This is free camera navigation; the Road pane's profile-following drive remains
+available for reviewing a loaded measured road corridor.
+
+A Gerardus server identifying itself as a fixture supplies test geometry. The
+Alignment pane explains this and offers **Use local Gerardus**; road loading and
+site placement are blocked on that connection. Start the real Gerardus data
+service on port 50061, or select its address in Settings → Servers, to align a
+capture and load the site's geometry. Test road patches cannot establish the
+shape or alignment of the selected survey site.
+
+From **Align → Generate road geometry…**, or the Road pane's selected survey,
+choose a nearby-street radius and an inferred width per side, then **Generate
+roads**. This prepares the site's reference, asks Gerardus to fit its nearby City
+streets to indexed 3DEP, shows progress, and opens the generated surface. Matching
+requests reuse the cached preview; **Regenerate** rebuilds after source data
+changes. The same controls are available for an opened road site.
+
+These buttons require Gerardus's `supports_road_generation` capability. Older
+servers show an upgrade message. A started build continues on the server if the
+client disconnects; only one build runs at a time. Changing site or connection
+while it runs keeps the later view rather than opening a stale completion.
+Widths are inferred, junction overlaps need review, and missing ground remains
+open. See Gerardus's [site-generation contract](https://github.com/banshee-data/gerardus/blob/main/docs/roads/README.md#generate-near-a-prepared-site-from-the-visualiser).
+
+The toolbar and Alignment site selectors use searchable, height-limited popovers.
+They close on selection, Escape, or switching to another application. Alignment
+keeps its selected site in the choices even when it came from the city index
+rather than the server's clip list. A manual selection survives a list refresh;
+the refresh arrow explicitly resolves the current capture again.
+
+Changing site, capture or Gerardus connection invalidates outstanding preparation
+responses. Late progress, errors and geometry cannot replace the next site's
+state or keep its controls busy. Fixture servers cannot place, update or
+regenerate reference data; choose **Use local Gerardus** or select the data
+server in Settings → Servers.
+
+### Following evidence review
+
+Runs can search an exact run ID, source path, clip or recorded site before repeats are folded.
+The Inspector shows recording context and opens the existing offline following JSON through
+**Following evidence (offline baseline)**. It retains all exported candidate decisions and shows
+the selected point's endpoints, projected speeds, uncertainty and experimental DRAC. It performs
+no new arithmetic or lane attribution and does not overlay an unverified file on playback.
+See the [Lombard–Broderick and Columbus–Broadway readiness review](../../docs/ui/visualiser/following-review-2026-11.md)
+for sources, walkthroughs, and the outstanding geometry and recording-binding gates.
+
+### Regenerating a recording with its site binding
+
+Use a located clip's `POST /api/lidar/clips/{clip_id}/replay`, rather than a file-only
+PCAP start, to retain the clip/site relationship in Runs. Its optional recording controls are
+`full_frames`, `settle_before_recording`, `speed_mode` (`analysis`, `realtime`, or `scaled`),
+and `speed_ratio` (positive for `scaled`). Defaults preserve the existing clip replay behaviour;
+multi-capture clips require analysis speed. Full frames require the gRPC publisher.
+The clip's stored capture sequence and time window remain authoritative.
+
+Start a dedicated server with `--config` naming the checked-in parameter file before running
+these review replays. Keep its database and recording root together, preserve existing evidence,
+and check the completed run's `clip_id`, `frame_mode`, header bounds and producer stamp before
+opening it in Runs. A full-frame recording contains background points in every rotation;
+settling first gives a second, recorded pass over the complete clip window.
+
+On a machine short of internal disk space, set `VELOCITY_LOCAL_BIN` in untracked `local.mk`
+to an external executable path before `make build-radar-local`. The target still applies the
+normal build tags and version stamps; recording and database paths are configured separately.

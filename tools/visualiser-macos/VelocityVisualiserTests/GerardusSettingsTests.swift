@@ -21,6 +21,23 @@ import Testing
         return defaults
     }
 
+    @Test func fixtureCannotPlaceOrLoadRoadGeometry() async {
+        let service = FakeAlignmentService()
+        service.serverVersion = "fixture"
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await session.probe()
+        #expect(session.isFixtureServer)
+        await session.placeFromHint()
+        #expect(session.errorMessage == GerardusSettings.fixtureMessage)
+        #expect(!service.calls.contains("PrepareSite"))
+        let road = RoadReviewSession(alignment: session)
+        await road.refreshSites()
+        road.open(siteToken: "80858771f")
+        #expect(road.sites.isEmpty && road.patches.isEmpty)
+        #expect(road.sitesNote == GerardusSettings.fixtureMessage)
+        #expect(!GerardusSettings.isFixture("0.1.0+abcdef"))
+    }
+
     @Test func theServerVersionCarriesItsGitSha() {
         let v = GerardusSettings.version("0.1.0+3f2a9c1e0b7d")
         #expect(v.version == "0.1.0" && v.gitSHA == "3f2a9c1e0b7d")

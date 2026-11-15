@@ -1,0 +1,1 @@
+- Added full-frame, settle-first, and replay-speed controls to the existing clip replay endpoint so regenerated review recordings keep their stored source window and clip/site association in Runs; added pcap-tagged tests for option propagation, publisher refusal, and incompatible multi-capture pacing.

@@ -11,6 +11,48 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
+func TestListRunsPagination(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := sqlite.NewRunStore(sqlDB)
+	setupTestRun(t, store, "page-a")
+	setupTestRun(t, store, "page-b")
+	if _, err := sqlDB.Exec("UPDATE lidar_runs SET created_at = ?", int64(1794614400000000000)); err != nil {
+		t.Fatal(err)
+	}
+	ws := &Server{db: &db.DB{DB: sqlDB}}
+	seen := map[string]bool{}
+	for index, path := range []string{"/api/lidar/runs?limit=1&offset=0", "/api/lidar/runs?limit=1&offset=1", "/api/lidar/runs?limit=1&offset=2"} {
+		w := httptest.NewRecorder()
+		ws.handleListRuns(w, httptest.NewRequest(http.MethodGet, path, nil))
+		var body struct {
+			Runs []struct {
+				RunID string `json:"run_id"`
+			} `json:"runs"`
+		}
+		if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &body) != nil || body.Runs == nil {
+			t.Fatalf("%s: %d %s", path, w.Code, w.Body.String())
+		}
+		if index < 2 && (len(body.Runs) != 1 || body.Runs[0].RunID != []string{"page-b", "page-a"}[index]) {
+			t.Fatalf("unexpected page order at offset %d: %+v", index, body.Runs)
+		}
+		for _, run := range body.Runs {
+			if seen[run.RunID] {
+				t.Fatalf("duplicate run %s", run.RunID)
+			}
+			seen[run.RunID] = true
+		}
+	}
+	if len(seen) != 2 {
+		t.Fatalf("got %d runs", len(seen))
+	}
+	w := httptest.NewRecorder()
+	ws.handleListRuns(w, httptest.NewRequest(http.MethodGet, "/api/lidar/runs?offset=-1", nil))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("negative offset: %d", w.Code)
+	}
+}
+
 // With sweeps=1 the runs list names the sweep whose stored results list a
 // run, so the Runs page can fold a sweep's runs under it; a run no sweep
 // lists names none, and without sweeps=1 no run names one.

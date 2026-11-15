@@ -36,7 +36,15 @@ import SwiftUI
             Divider()
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 14) {
+                    if let site = appState.alignment.site {
+                        Text("Selected survey: \(site.name)").font(.subheadline.weight(.semibold))
+                        RoadGenerationControls(session: session, token: site.l16Token)
+                        Divider()
+                    }
                     sitesSection
+                    if let token = session.openedSite, token != appState.alignment.site?.l16Token {
+                        RoadGenerationControls(session: session, token: token)
+                    }
                     statusSection
                     Divider()
                     layersSection
@@ -459,5 +467,39 @@ import SwiftUI
     /// "segment/straight/0" from the full id.
     static func short(_ id: String) -> String {
         id.split(separator: "/").suffix(3).joined(separator: "/")
+    }
+}
+
+@available(macOS 15.0, *) struct RoadGenerationControls: View {
+    @ObservedObject var session: RoadReviewSession
+    let token: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Road geometry preview").font(.subheadline.weight(.semibold))
+            Stepper(
+                "Nearby streets: \(Int(session.generationRadiusM)) m",
+                value: $session.generationRadiusM, in: 50...250, step: 25)
+            Stepper(
+                "Inferred width: \(session.inferredHalfWidthM.formatted()) m each side",
+                value: $session.inferredHalfWidthM, in: 2...10, step: 0.5)
+            HStack {
+                Button("Generate roads") {
+                    Task { await session.generateRoads(siteToken: token, refresh: false) }
+                }
+                Button("Regenerate") {
+                    Task { await session.generateRoads(siteToken: token, refresh: true) }
+                }
+            }.disabled(!session.supportsGeneration || session.generatingRoads)
+            if session.generatingRoads { ProgressView().controlSize(.small) }
+            Text(
+                session.supportsGeneration
+                    ? "Uses cached City centrelines and 3DEP ground. Widths are inferred; junction overlaps need review. Missing ground stays open. Whole nearby segments may extend beyond the selection radius."
+                    : "Connect to a Gerardus version supporting road generation to enable these buttons."
+            ).font(.caption).foregroundStyle(.secondary)
+            if let message = session.generationMessage {
+                Text(message).font(.caption).textSelection(.enabled)
+            }
+        }.disabled(session.generatingRoads)
     }
 }

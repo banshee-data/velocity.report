@@ -23,7 +23,9 @@ import SwiftUI
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 row("velocity.report", velocity, lastError: connection.lastError)
-                row("Gerardus", gerardus, lastError: session.probeFailure)
+                row(
+                    session.isFixtureServer ? "Gerardus (test fixture)" : "Gerardus", gerardus,
+                    lastError: session.probeFailure)
             }.padding(.horizontal, 8).padding(.vertical, 6).background(.black.opacity(0.55))
                 .clipShape(RoundedRectangle(cornerRadius: 6)).contentShape(
                     RoundedRectangle(cornerRadius: 6))

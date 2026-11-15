@@ -1069,6 +1069,10 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// What ListRoadCorridors answers.
     var listedCorridors: [Gerardus_Align_V1alpha1_RoadCorridorSummary] = []
     var roadCorridorsListed = false
+    var supportsRoadGeneration = false
+    var roadGenerationRequests: [Gerardus_Align_V1alpha1_GenerateRoadGeometryRequest] = []
+    var roadGenerationFailure: RPCError?
+    var roadGenerationHook: (() async -> Void)?
     /// What ListSites answers.
     var listedSites: [Gerardus_Align_V1alpha1_Site] = []
     /// road_surface_version GetServerInfo reports; 0 is a server without the layer.
@@ -1076,10 +1080,12 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// Answers StreamReference for layer 17 when set; unset, the default
     /// gathers it from streamReference.
     var roadSurfaceHandler:
-        (@Sendable (
-            Gerardus_Align_V1alpha1_StreamReferenceRequest,
-            @Sendable (Gerardus_Align_V1alpha1_RoadSurfaceChunk, Bool) async -> Void
-        ) async throws -> Void)?
+        (
+            @Sendable (
+                Gerardus_Align_V1alpha1_StreamReferenceRequest,
+                @Sendable (Gerardus_Align_V1alpha1_RoadSurfaceChunk, Bool) async -> Void
+            ) async throws -> Void
+        )?
     /// Layers StreamReference refuses with PERMISSION_DENIED.
     var refusedLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
     /// The model_id the registered layers carry.
@@ -1137,6 +1143,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var refuseStreetUse: String?
     private var streetUseCounter = 0
     /// GetServerInfo's supports_lane_fields and street_use_rules_version.
+    var serverVersion = "0.1.0"
     var supportsLaneFields = false
     var streetUseRulesVersion: UInt32 = 0
     /// Every UploadLaneField, as its header and chunks; a repeat of stored
@@ -1207,11 +1214,12 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
             throw GerardusClientError.notConnected
         }
         var info = Gerardus_Align_V1alpha1_GetServerInfoResponse()
-        info.serverVersion = "0.1.0"
+        info.serverVersion = serverVersion
         info.apiVersion = "gerardus.align.v1alpha1"
         info.availableLayers = availableLayers
         info.roadSurfaceVersion = roadSurfaceVersion
         info.roadCorridorsListed = roadCorridorsListed
+        info.supportsRoadGeneration = supportsRoadGeneration
         info.supportsBoundedPlacement = supportsBoundedPlacement
         info.supportsLaneFields = supportsLaneFields
         info.streetUseRulesVersion = streetUseRulesVersion
@@ -1224,6 +1232,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var prepareRefreshFlags: [Bool] = []
     /// What GetSite answers; nil is NOT_FOUND. Not logged in `calls`: the
     /// session reads it on its own when a site is chosen.
+    var prepareHook: ((String) async throws -> Void)?
     var storedSite: Gerardus_Align_V1alpha1_Site?
     /// The layers PrepareSite's bundle holds when it builds (refresh true) and
     /// when it answers from the stored one (refresh false).
@@ -1237,6 +1246,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Site {
         log("PrepareSite")
+        try await prepareHook?(l16Token)
         lock.lock()
         prepareRefreshFlags.append(refresh)
         lock.unlock()
@@ -1259,6 +1269,19 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     func listRoadCorridors() async throws -> [Gerardus_Align_V1alpha1_RoadCorridorSummary] {
         log("ListRoadCorridors")
         return listedCorridors
+    }
+
+    func generateRoadGeometry(
+        _ request: Gerardus_Align_V1alpha1_GenerateRoadGeometryRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_GeneratedRoadGeometry {
+        roadGenerationRequests.append(request)
+        await roadGenerationHook?()
+        if let roadGenerationFailure { throw roadGenerationFailure }
+        var result = Gerardus_Align_V1alpha1_GeneratedRoadGeometry()
+        result.l16Token = request.l16Token
+        result.patchCount = 2
+        return result
     }
 
     func listSites() async throws -> [Gerardus_Align_V1alpha1_Site] {
@@ -1936,6 +1959,103 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         return (session, service, sink)
     }
 
+    @Test func selectedSiteAlwaysHasOneSelectableRow() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        var city = CitySite(id: "index-only", title: "Index only")
+        city.cells.l16 = "808580aab"
+        session.siteIndex = CitySiteIndex(sites: [city])
+        session.enterCitySite(city, clip: nil)
+        #expect(session.siteChoices.map(\.id) == ["city:index-only"])
+        let rows = AlignmentSession.siteChoices(
+            located: [site, site], index: session.siteIndex, selected: session.site)
+        #expect(Set(rows.map(\.id)).count == rows.count)
+        session.choose(site)
+        #expect(session.siteChoices.contains(where: { $0.id == site.id }))
+        session.chooseSite(id: "city:index-only")
+        #expect(session.site?.l16Token == "808580aab")
+    }
+
+    @Test func refreshingChoicesDoesNotUndoTheOperatorsSelection() async {
+        let service = FakeAlignmentService()
+        let (http, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        register { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data("{\"districts\":[]}".utf8))
+        }
+        let lookup = AlignmentSiteLookupClient(baseURL: baseURL, session: http)
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: lookup, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        await session.refreshSites(runID: nil)
+        #expect(session.site == site && session.siteMatch == .chosen)
+        #expect(session.siteChoices.map(\.id) == [site.id])
+    }
+
+    @Test func fixtureCannotUpdateReferenceDataEither() async {
+        let service = FakeAlignmentService()
+        service.serverVersion = "fixture"
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        await session.updateReferenceData()
+        #expect(session.errorMessage == GerardusSettings.fixtureMessage)
+        #expect(!service.calls.contains("PrepareSite"))
+    }
+
+    @Test func anOldPreparationCannotPlaceOrReportErrorsAtTheNextSite() async {
+        for fail in [false, true] {
+            let service = FakeAlignmentService()
+            let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+            await session.probe()
+            session.choose(site)
+            var next = site
+            next.clipID = "next"
+            next.l16Token = "808580aab"
+            service.prepareHook = { _ in
+                await MainActor.run { session.choose(next) }
+                if fail { throw RPCError(code: .unimplemented, message: "old server") }
+            }
+            await session.placeFromHint()
+            #expect(session.site == next)
+            #expect(session.pose == nil && session.errorMessage == nil && session.busy == nil)
+            #expect(!service.calls.contains("PoseFromHint"))
+        }
+    }
+
+    @Test func changingServerDuringPreparationDropsTheOldResponse() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        service.prepareHook = { _ in
+            await MainActor.run {
+                session.useServiceAddress(GerardusAddress(host: "new.local", port: 50061))
+            }
+        }
+        await session.placeFromHint()
+        #expect(session.pose == nil && session.busy == nil)
+        #expect(!service.calls.contains("PoseFromHint"))
+    }
+
+    @Test func unsupportedPreparationExplainsHowToRecover() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        service.prepareHook = { _ in
+            throw RPCError(code: .unimplemented, message: "PrepareSite not implemented")
+        }
+        await session.placeFromHint()
+        #expect(session.errorMessage?.contains("Settings") == true)
+        #expect(session.errorMessage?.contains("50061") == true)
+        #expect(session.busy == nil && session.pose == nil)
+        service.prepareHook = nil
+        await session.placeFromHint()
+        #expect(session.pose != nil)
+    }
+
     @Test func noServerMeansUnavailable() async {
         let service = FakeAlignmentService()
         service.reachable = false
@@ -2357,6 +2477,72 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(!session.canRegister)
         // The reference stays drawn until a site is placed again.
         #expect(session.reference != nil)
+    }
+
+    @Test func preferredScanSurvivesNewRunIDsAndFailsClosedForStaleHeads() {
+        var wanted = record("chosen", at: 20, eastM: 4, captureRef: "original-clip")
+        wanted.scanID = "chosen-scan"
+        var other = record("other", at: 30, eastM: 9, captureRef: "another-position")
+        other.scanID = "other-scan"
+        let heads = [wanted.scanID: wanted.recordID, other.scanID: other.recordID]
+        #expect(
+            AlignmentSession.defaultRecord(
+                [other, wanted], captureRef: "new-review-run", scanID: nil,
+                preferredScanID: wanted.scanID, heads: heads)?.recordID == wanted.recordID)
+        #expect(
+            AlignmentSession.acceptedRecord(
+                [other, wanted], heads: heads, captureRef: "new-review-run", scanID: nil,
+                preferredScanID: wanted.scanID)?.recordID == wanted.recordID)
+        #expect(
+            AlignmentSession.defaultRecord(
+                [other], captureRef: "new-review-run", scanID: nil, preferredScanID: wanted.scanID,
+                heads: heads) == nil)
+        var rejection = record("rejected-head", at: 10, eastM: 0, state: .rejected)
+        rejection.scanID = wanted.scanID
+        let rejectedHeads = [wanted.scanID: rejection.recordID]
+        #expect(
+            AlignmentSession.defaultRecord(
+                [other, wanted, rejection], captureRef: "new-review-run", scanID: nil,
+                preferredScanID: wanted.scanID, heads: rejectedHeads) == nil,
+            "Append-order rejection wins even when the wall clock moved backwards")
+        #expect(
+            AlignmentSession.acceptedRecord(
+                [other, wanted, rejection], heads: rejectedHeads, captureRef: "new-review-run",
+                scanID: nil, preferredScanID: wanted.scanID) == nil)
+    }
+
+    @Test func choosingAnAcceptedScanPersistsForTheClipAcrossSessions() async {
+        let suite = "alignment-selection-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let service = FakeAlignmentService()
+        var wanted = record("chosen", at: 20, eastM: 4, captureRef: site.clipID)
+        wanted.scanID = "chosen-scan"
+        var other = record("other", at: 30, eastM: 9, captureRef: "another-position")
+        other.scanID = "other-scan"
+        service.records = [other, wanted]
+        let first = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: defaults)
+        await first.probe()
+        first.choose(site)
+        first.northAzimuthText = "35"
+        await first.placeFromHint()
+        #expect(
+            defaults.string(forKey: AlignmentSession.preferredScanKey(site)) == nil,
+            "Automatic fallback does not pin an unchosen scan")
+        first.showRecord(wanted)
+        #expect(defaults.string(forKey: AlignmentSession.preferredScanKey(site)) == wanted.scanID)
+        let restored = AlignmentSession(
+            makeClient: { _ in service }, lookup: nil, defaults: defaults)
+        await restored.probe()
+        restored.choose(site)
+        restored.noteLoadedRun(fullFrames: false, captureRef: "new-review-run")
+        restored.northAzimuthText = "35"
+        await restored.placeFromHint()
+        #expect(restored.selectedRecordID == wanted.recordID)
+        #expect(restored.acceptedRecord?.recordID == wanted.recordID)
+        var elsewhere = site
+        elsewhere.clipID = "another-visit"
+        #expect(defaults.string(forKey: AlignmentSession.preferredScanKey(elsewhere)) == nil)
     }
 }
 

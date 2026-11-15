@@ -5,12 +5,13 @@ VelocityVisualiser, the macOS 3D point cloud viewer for LiDAR data.
 
 ## Architecture & design
 
-| Document                               | Content                                 |
-| -------------------------------------- | --------------------------------------- |
-| [architecture.md](architecture.md)     | System design, Track A/B split          |
-| [api-contracts.md](api-contracts.md)   | gRPC/protobuf `FrameBundle` wire format |
-| [implementation.md](implementation.md) | Milestone checklist (M0–M8)             |
-| [menu-layout.md](menu-layout.md)       | macOS menu bar and keyboard shortcuts   |
+| Document                                       | Content                                                     |
+| ---------------------------------------------- | ----------------------------------------------------------- |
+| [architecture.md](architecture.md)             | System design, Track A/B split                              |
+| [api-contracts.md](api-contracts.md)           | gRPC/protobuf `FrameBundle` wire format                     |
+| [implementation.md](implementation.md)         | Milestone checklist (M0–M8)                                 |
+| [menu-layout.md](menu-layout.md)               | macOS menu bar and keyboard shortcuts                       |
+| [workspace-ux-audit.md](workspace-ux-audit.md) | UI flow audit, building-layer checks and redesign questions |
 
 ## Feature specifications
 

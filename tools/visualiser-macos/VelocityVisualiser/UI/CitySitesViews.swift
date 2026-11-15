@@ -48,19 +48,21 @@ enum CitySiteText {
                 Button(action: { Task { await city.step(-1) } }) {
                     Image(systemName: "chevron.left")
                 }.help("Previous site")
-                Menu {
-                    ForEach(city.sites) { site in
-                        Button(CitySiteText.row(site)) { Task { await city.select(site) } }
+                SiteChoicePopover(
+                    title: menuTitle, selection: city.currentSite?.id ?? "",
+                    rows: city.sites.map { SiteChoiceRow(id: $0.id, title: CitySiteText.row($0)) }
+                        + (city.currentSite == nil
+                            ? []
+                            : [
+                                SiteChoiceRow(
+                                    id: "", title: "No site: show what the server streams")
+                            ])
+                ) { id in
+                    if id.isEmpty {
+                        city.leaveSite()
+                    } else if let site = city.sites.first(where: { $0.id == id }) {
+                        Task { await city.select(site) }
                     }
-                    if city.currentSite != nil {
-                        Divider()
-                        Button("No site: show what the server streams") { city.leaveSite() }
-                    }
-                } label: {
-                    Label(
-                        menuTitle,
-                        systemImage: city.switchError == nil
-                            ? "mappin.and.ellipse" : "exclamationmark.triangle")
                 }.frame(maxWidth: 220).help(menuHelp)
                 Button(action: { Task { await city.step(1) } }) {
                     Image(systemName: "chevron.right")
@@ -480,5 +482,67 @@ struct CityMarkerLabel: View {
         case .failed(let why): return "Proposals not read: \(why). \(open)"
         case .reading, nil: return "Reading the proposals. \(open)"
         }
+    }
+}
+
+/// A bounded, searchable site list. Native menus rebuilt by live frame
+/// updates can remain above other applications after focus changes.
+struct SiteChoiceRow: Identifiable {
+    let id: String
+    let title: String
+}
+
+@available(macOS 15.0, *) struct SiteChoicePopover: View {
+    let title: String
+    let selection: String
+    let rows: [SiteChoiceRow]
+    let choose: (String) -> Void
+    @State private var presented = false
+    @State private var search = ""
+
+    var body: some View {
+        Button {
+            search = ""
+            presented.toggle()
+        } label: {
+            HStack {
+                Text(title).lineLimit(1)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.down")
+            }
+        }.accessibilityLabel("Choose site").popover(isPresented: $presented) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    TextField("Find a site", text: $search).textFieldStyle(.roundedBorder)
+                    Button("Close") { presented = false }
+                }
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(
+                            rows.filter {
+                                search.isEmpty || $0.title.localizedCaseInsensitiveContains(search)
+                            }
+                        ) { row in
+                            Button {
+                                presented = false
+                                choose(row.id)
+                            } label: {
+                                HStack {
+                                    Image(
+                                        systemName: row.id == selection
+                                            ? "checkmark.circle.fill" : "circle")
+                                    Text(row.title).multilineTextAlignment(.leading)
+                                    Spacer()
+                                }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                }
+            }.padding(12).frame(width: 360, height: min(420, CGFloat(rows.count * 38 + 64)))
+                .onExitCommand { presented = false }
+        }.onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+        ) { _ in presented = false }.onChange(of: selection) { _, _ in presented = false }
+            .onDisappear { presented = false }
     }
 }

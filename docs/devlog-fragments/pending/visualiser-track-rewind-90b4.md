@@ -1,0 +1,1 @@
+- Refreshed cached inspector rows immediately when a replay index rewinds, preventing a new site or backward seek from waiting to reach the previous index at low frame rates; tested source resets, large indices and forward-throttle boundaries.

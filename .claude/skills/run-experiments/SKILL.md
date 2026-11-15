@@ -34,25 +34,33 @@ output may go.
 
 ```bash
 hostname; uname -sm; echo "${CLAUDE_CODE_REMOTE:-}"; df -h . /tmp
-ls /Volumes/lidar/lidar/pcaps /Volumes/banshee-captures/lidar /mnt/captures/lidar 2>/dev/null | head
+ls /Volumes/lidar/lidar/pcaps /srv/banshee/evidence /mnt/captures/lidar 2>/dev/null | head
 ```
 
 **Local** (the Mac, or any machine with captures attached).
 
-- Captures: any PCAP present. `LIDAR_PCAP_DIR` from `local.mk` (on the Mac
+- Captures: local PCAPs. `LIDAR_PCAP_DIR` from `local.mk` (on the Mac
   `/Volumes/lidar/lidar/pcaps`: S2 segments under `s2/`, whole placements under
-  `sf-street-speeds/raw/lidar/`), the NAS at `/Volumes/banshee-captures/lidar`, and kirk0.
-- Scratch: `~/vr-scratch/<run>/` on the internal disk.
-- Raw output: archived to `/Volumes/banshee-results/velocity-campaign/<run>/`, the results share
-  on `arrow.local`. LiDAR data goes on no other volume.
+  `sf-street-speeds/raw/lidar/`), and kirk0. Required captures must remain available without NAS access.
+- Scratch and raw evidence: `/Volumes/lidar/evidence/velocity-campaign/<run>/`, or an existing
+  local layout recorded in the run's provenance. Small active SQLite databases may use
+  `~/vr-scratch/<run>/` on the internal disk when needed for locking or performance; keep
+  their complete dependency set local and move consistent closed snapshots to lidar.
+- Archival: optional final copies on the NAS when available. An archive receipt never
+  authorises removing required local evidence. Follow the [local evidence storage policy](../../../docs/platform/operations/local-evidence-storage.md).
 
 **arrow-worker** (the VM `bansheeworker` on the TrueNAS host `arrow`).
 
-- Captures: the NAS over NFS, read-only, at `/mnt/captures/lidar`
-  (`-pcap-root /mnt/captures/lidar -pcap-subdir s2`).
+- Captures: a verified worker-local input set under `/srv/banshee/evidence/<run>/inputs/`.
+  `/mnt/captures/lidar` is an archival source over NFS, not the replay working set. Stage
+  bounded inputs before the run and point `-pcap-root` at the local copy. When the NAS is
+  unavailable, use existing verified local inputs or report the missing corpus; do not start
+  a run that depends on reconnecting it.
 - Scratch and raw output: `/srv/banshee/evidence/<run>/`.
 - Limits: 8 cores, 5.8 GB memory, about 17 GB free, and `/tmp` is a 2.9 GB tmpfs. Run one case
   at a time with `-evidence-per-case -discard-evidence`, and at most two lanes.
+  Preflight capacity and retention: only discard proven regenerable scratch; required evidence
+  must remain local. Stop rather than deleting required evidence to make room for another case.
 
 **Cloud** (`CLAUDE_CODE_REMOTE=true`, no volumes mounted).
 
@@ -103,12 +111,12 @@ Cut five-minute segments from a placement with `cmd/tools/pcap-split` when the q
 on segments. A cloud host has no Pi, no NAS and no labels beyond kirk0's: choose
 questions that kirk0 and a few placements can answer, and say in the report which corpus stood in.
 
-**Locally, keep reads and writes on different drives.** A replay that reads its capture from a
-volume and writes its evidence to the same one contends with itself. Read captures from the LiDAR
-volume or the NAS and write to the internal disk. NAS captures double a replay's wall time against
-the internal disk, and the USB LiDAR volume is slower still, so for a long run stage the run's
-segments on the internal disk when there is room (`df -h /` first; keep 10 GB free). SQLite
-evidence on the USB volume is seek-bound: never write evidence there. Port 8080 and UDP 2369 (and
+**Local I/O.** Reading captures and writing evidence on one drive can cause contention. When
+needed, stage a bounded capture subset or an active SQLite database on the internal disk
+(`df -h /` first; keep 10 GB free). Required large files and durable evidence still belong on
+lidar. Independently verify hashes before removing a redundant staged copy, and use SQLite's
+backup operation or stop its owner before copying a database. Performance is not a reason to
+depend on a NAS mount or remove the last required local copy. Port 8080 and UDP 2369 (and
 8081, on a server built before v0.5.2) may belong to a long-running server: scratch servers use
 `--listen` on 18080 and `--lidar-live-udp-port 12369`. Every LiDAR route, and the LiDAR Status
 page's replay form (`/app/lidar/status`), is on the `--listen` port; `--lidar-listen` is retired
@@ -173,9 +181,10 @@ loosen a rule after seeing a result.
    set only for candidates that pass. Run arms in parallel lanes up to the host's cores and
    memory, one case per lane, and track units with `go run ./cmd/tools/experiments units` and
    `mark`, so a restarted lane skips what is done.
-5. **Raw output stays out of Git.** Evidence, rows, logs and JSON summaries live in scratch, and
-   are archived (locally to banshee-results) as each run directory finishes; delete the local
-   per-frame rows only once the archived copy compares equal. Never stage a `results` directory;
+5. **Raw output stays out of Git.** Required evidence, rows, logs and JSON summaries remain
+   local on lidar. NAS archival is optional and does not permit deleting required local rows.
+   Propose removal only after an explicit retention decision or verification of a redundant
+   local copy, following the [free-space workflow](../free-space/SKILL.md). Never stage a `results` directory;
    run `make check-no-results` before every commit.
 6. **The report.** In `docs/lidar/operations/`, as `AGENTS.md` describes: question, method, arms,
    the numbers the rule was applied to, per-case summaries where they decide it, what it does not

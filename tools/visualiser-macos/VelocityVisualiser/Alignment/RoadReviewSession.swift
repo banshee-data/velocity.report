@@ -19,6 +19,9 @@ import simd
 /// MetalRenderer is the real one.
 protocol RoadOverlaySink: AnyObject {
     func setRoadOverlay(_ vertices: RoadOverlayVertices?)
+    func setRoadModelMatrix(_ matrix: simd_float4x4)
+    /// Road ENU to the camera's local scene, including city placement/recentring.
+    var roadSceneMatrix: simd_float4x4 { get }
     /// Frames the corridor from above, at a tilt, in the scene frame.
     func frameRoad(centre: SIMD3<Float>, extent: Float)
 }
@@ -154,7 +157,9 @@ struct RoadCoverageSummary: Equatable {
 
     let sceneWillChange = PassthroughSubject<Void, Never>()
     let loader = RoadSurfaceLoader()
-    weak var sink: RoadOverlaySink?
+    weak var sink: RoadOverlaySink? { didSet { sink?.setRoadModelMatrix(roadModelMatrix) } }
+    /// Road ENU to the stream's sensor frame. Identity for reference-only review.
+    @Published private(set) var roadModelMatrix = matrix_identity_float4x4
     /// The reference overlay's sink (kerbs, class-2 points); the alignment
     /// session's. Used only while no site is placed there.
     weak var referenceSink: ReferenceOverlaySink?
@@ -184,6 +189,40 @@ struct RoadCoverageSummary: Equatable {
         loader.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async { self?.objectWillChange.send() }
         }.store(in: &subscriptions)
+        Publishers.CombineLatest3(alignment.$pose, alignment.$preparedSite, loader.$sceneSource)
+            .receive(on: DispatchQueue.main).sink { [weak self] pose, site, scene in
+                guard let self else { return }
+                let matrix = Self.modelMatrix(pose: pose, referenceSite: site, roadSite: scene)
+                guard matrix != self.roadModelMatrix else { return }
+                self.roadModelMatrix = matrix
+                self.sink?.setRoadModelMatrix(matrix)
+            }.store(in: &subscriptions)
+    }
+
+    /// Both overlays arrive in ENU, but each bundle has its own origin. Shift
+    /// the corridor into the prepared reference's ENU before applying the same
+    /// inverse sensor pose used by its buildings. Do not rotate a standalone
+    /// corridor just because a capture was opened without a placed reference.
+    nonisolated static func modelMatrix(
+        pose: SitePose?, referenceSite: Gerardus_Align_V1alpha1_Site?, roadSite: RoadSiteSource?
+    ) -> simd_float4x4 {
+        guard let pose, let referenceSite, let roadSite else { return matrix_identity_float4x4 }
+        let offset = roadSite.offset(in: RoadSiteSource(referenceSite))
+        var shift = matrix_identity_float4x4
+        shift.columns.3 = SIMD4(SIMD3<Float>(offset), 1)
+        return pose.referenceModelMatrix * shift
+    }
+
+    var roadSceneMatrix: simd_float4x4 { sink?.roadSceneMatrix ?? roadModelMatrix }
+
+    func scenePoint(_ point: SIMD3<Float>) -> SIMD3<Float> {
+        let p = roadSceneMatrix * SIMD4(point, 1)
+        return SIMD3(p.x, p.y, p.z)
+    }
+
+    func sceneDirection(_ direction: SIMD3<Float>) -> SIMD3<Float> {
+        let d = roadSceneMatrix * SIMD4(direction, 0)
+        return simd_normalize(SIMD3(d.x, d.y, d.z))
     }
 
     // MARK: - Availability
@@ -211,6 +250,59 @@ struct RoadCoverageSummary: Equatable {
         }
     }
 
+    @Published private(set) var generatingRoads = false
+    @Published private(set) var generationMessage: String?
+    @Published var generationRadiusM: Double = 150
+    @Published var inferredHalfWidthM: Double = 4
+    var supportsGeneration: Bool {
+        !alignment.isFixtureServer && alignment.serverInfo?.supportsRoadGeneration == true
+    }
+
+    /// The server owns a started build. A connection or site change must not
+    /// let its completion replace the geometry now being reviewed.
+    func generateRoads(siteToken token: String, refresh: Bool) async {
+        guard supportsGeneration, !generatingRoads, let client = alignment.gerardusClient else {
+            return
+        }
+        generatingRoads = true
+        generationMessage = "Preparing site reference…"
+        let address = alignment.serviceAddress
+        let previousSite = alignment.site?.l16Token
+        let previousOpened = openedSite
+        defer { generatingRoads = false }
+        do {
+            _ = try await client.prepareSite(
+                l16Token: token,
+                label: alignment.site?.l16Token == token ? alignment.site!.name : token
+            ) { _ in }
+            var request = Gerardus_Align_V1alpha1_GenerateRoadGeometryRequest()
+            request.l16Token = token
+            request.radiusM = Float(generationRadiusM)
+            request.halfWidthM = Float(inferredHalfWidthM)
+            request.refresh = refresh
+            let result = try await client.generateRoadGeometry(request) { [weak self] progress in
+                await self?.showGenerationProgress(progress)
+            }
+            guard alignment.serviceAddress == address, alignment.site?.l16Token == previousSite,
+                openedSite == previousOpened
+            else {
+                generationMessage = "Road build finished for \(token). Reopen that site to view it."
+                return
+            }
+            generationMessage =
+                "Generated \(result.patchCount) preview patches. Inferred widths require review."
+            await refreshSites()
+            guard alignment.serviceAddress == address, alignment.site?.l16Token == previousSite,
+                openedSite == previousOpened
+            else { return }
+            open(siteToken: token)
+        } catch { generationMessage = GerardusClientError.describe(error) }
+    }
+
+    private func showGenerationProgress(_ progress: Gerardus_Align_V1alpha1_Progress) {
+        generationMessage = progress.message.isEmpty ? progress.stage : progress.message
+    }
+
     // MARK: - Sites
 
     func paneToggled(open: Bool) {
@@ -219,6 +311,13 @@ struct RoadCoverageSummary: Equatable {
     }
 
     func refreshSites() async {
+        guard !alignment.isFixtureServer else {
+            close()
+            sites = []
+            corridors = []
+            sitesNote = GerardusSettings.fixtureMessage
+            return
+        }
         guard let client = alignment.gerardusClient else {
             sites = []
             sitesNote = "Not connected to a Gerardus server."
@@ -248,6 +347,10 @@ struct RoadCoverageSummary: Equatable {
     /// Opens a named corridor through exactly the sites the server says hold
     /// it: no probing, no neighbour search.
     func open(corridor id: String) {
+        guard !alignment.isFixtureServer else {
+            sitesNote = GerardusSettings.fixtureMessage
+            return
+        }
         guard let choice = corridors.first(where: { $0.id == id }) else {
             sitesNote = "Corridor \(id) is not one this server lists."
             return
@@ -281,6 +384,10 @@ struct RoadCoverageSummary: Equatable {
     /// Opens the road surface through `token`'s bundle and its prepared
     /// neighbours. Cancels a load in flight; its late chunks are discarded.
     func open(siteToken token: String) {
+        guard !alignment.isFixtureServer else {
+            sitesNote = GerardusSettings.fixtureMessage
+            return
+        }
         guard let client = alignment.gerardusClient else {
             sitesNote = "Not connected to a Gerardus server."
             return
@@ -585,11 +692,13 @@ struct RoadCoverageSummary: Equatable {
         }
         guard lo.x <= hi.x, n > 0 else { return }
         let c = (lo + hi) / 2
-        sink?.frameRoad(centre: SIMD3(c.x, c.y, z / n), extent: simd_length(hi - lo))
+        sink?.frameRoad(centre: scenePoint(SIMD3(c.x, c.y, z / n)), extent: simd_length(hi - lo))
     }
 }
 
 extension MetalRenderer: RoadOverlaySink {
+    var roadSceneMatrix: simd_float4x4 { streamModel * roadModelMatrix }
+
     func frameRoad(centre: SIMD3<Float>, extent: Float) {
         // The driving camera and the plan view hold the camera; leave them be.
         guard cameraHolder == nil else { return }
@@ -601,11 +710,17 @@ extension MetalRenderer: RoadOverlaySink {
         view?.needsDisplay = true
     }
 
-    /// The road camera and overlay share the review's own site frame,
-    /// independently of the capture's reference alignment matrix.
-    func rayInSiteFrame(
+    /// Return the camera ray in the same road ENU frame used by patch picking,
+    /// including the inverse of the alignment and the city's stream placement.
+    func rayInRoadFrame(
         at point: CGPoint, viewSize: CGSize
     ) -> (origin: SIMD3<Float>, direction: SIMD3<Float>)? {
-        CameraRay.ray(camera: camera, viewPoint: point, viewSize: viewSize)
+        guard let ray = CameraRay.ray(camera: camera, viewPoint: point, viewSize: viewSize) else {
+            return nil
+        }
+        let inverse = roadSceneMatrix.inverse
+        let p = inverse * SIMD4(ray.origin, 1)
+        let d = inverse * SIMD4(ray.direction, 0)
+        return (SIMD3(p.x, p.y, p.z), simd_normalize(SIMD3(d.x, d.y, d.z)))
     }
 }

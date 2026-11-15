@@ -458,7 +458,11 @@ extension MetalRenderer: CameraControlSink {
 
     /// A key went down in the 3D view. True when flight took it.
     func flyKeyDown(_ keyCode: UInt16) -> Bool {
-        guard isFlying, FlyDynamics.keys[keyCode] != nil else { return false }
+        guard isFlying, FlyDynamics.accepts(keyCode) else { return false }
+        if keyCode == 53 {
+            setFlying(false)
+            return true
+        }
         cancelFlyTo()
         heldKeys.insert(keyCode)
         startTimer()
@@ -467,7 +471,7 @@ extension MetalRenderer: CameraControlSink {
 
     /// A key came up. True when flight had it.
     func flyKeyUp(_ keyCode: UInt16) -> Bool {
-        guard isFlying, FlyDynamics.keys[keyCode] != nil else { return false }
+        guard isFlying, FlyDynamics.accepts(keyCode) else { return false }
         heldKeys.remove(keyCode)
         return true
     }
@@ -596,6 +600,16 @@ extension MetalRenderer: CameraControlSink {
             }
         }
         if isFlying, let sink {
+            let yaw = FlyDynamics.steering(held: heldKeys) * dt * 1.5
+            if yaw != 0 {
+                let turned = FlyDynamics.look(CameraPose(sink.camera), yaw: yaw, pitch: 0)
+                sink.holdCamera(.fly, turned.applied(to: sink.camera))
+                onCameraMoved()
+            }
+            if heldKeys.contains(49) {
+                motion = FlyMotion()
+                return
+            }
             motion = FlyDynamics.step(
                 motion, input: FlyDynamics.input(held: heldKeys), dt: dt, fly: settings.fly)
             let speed = FlyDynamics.speed(motion, settings: settings)

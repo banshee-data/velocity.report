@@ -11,8 +11,23 @@ import SwiftUI
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Toggle(isOn: $appState.showCameraPane) { Label("Camera", systemImage: "move.3d") }
-            .toggleStyle(.button).help("Orbit or fly the 3D view's camera (⌥⌘C)")
+        HStack {
+            Toggle(isOn: $appState.showCameraPane) { Label("Camera", systemImage: "move.3d") }
+                .toggleStyle(.button).help("Camera settings (⌥⌘C)")
+            Toggle(
+                isOn: Binding(
+                    get: { appState.camera.isFlying },
+                    set: { on in
+                        if on {
+                            appState.showCameraPane = true
+                            appState.camera.settings.mode = .fly
+                        }
+                        appState.camera.setFlying(on)
+                    })
+            ) { Label("Game", systemImage: "gamecontroller") }.toggleStyle(.button)
+                .keyboardShortcut("g", modifiers: [.command, .option]).help(
+                    "Toggle game controls: W/S throttle, A/D steer, Space brake (⌥⌘G)")
+        }
     }
 }
 
@@ -388,7 +403,7 @@ private struct RadiusRow: View {
                 Label(session.isFlying ? "Flying" : "Fly", systemImage: "airplane")
             }.toggleStyle(.button).disabled(!session.isFlying && session.blocker != nil)
             Text(
-                "W/S or ↑/↓ forward and back, A/D or ←/→ sideways, Q/E down and up. Hold ⌥ and move the mouse to look. Click the 3D view first if the keys do nothing."
+                "W/S or ↑/↓ accelerate forward/back. A/D or ←/→ turn left/right. Space brakes. Z/C strafe, Q/E descend/climb. Hold ⌥ and move the mouse to look. Escape exits Game. Click the 3D view to use the keys."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
             if session.isFlying {

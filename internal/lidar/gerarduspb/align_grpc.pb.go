@@ -68,18 +68,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SiteService_GetServerInfo_FullMethodName      = "/gerardus.align.v1alpha1.SiteService/GetServerInfo"
-	SiteService_PrepareSite_FullMethodName        = "/gerardus.align.v1alpha1.SiteService/PrepareSite"
-	SiteService_GetSite_FullMethodName            = "/gerardus.align.v1alpha1.SiteService/GetSite"
-	SiteService_ListSites_FullMethodName          = "/gerardus.align.v1alpha1.SiteService/ListSites"
-	SiteService_ListRoadCorridors_FullMethodName  = "/gerardus.align.v1alpha1.SiteService/ListRoadCorridors"
-	SiteService_StreamReference_FullMethodName    = "/gerardus.align.v1alpha1.SiteService/StreamReference"
-	SiteService_GetSiteModel_FullMethodName       = "/gerardus.align.v1alpha1.SiteService/GetSiteModel"
-	SiteService_ListStreetUse_FullMethodName      = "/gerardus.align.v1alpha1.SiteService/ListStreetUse"
-	SiteService_EditStreetUse_FullMethodName      = "/gerardus.align.v1alpha1.SiteService/EditStreetUse"
-	SiteService_GetLaneField_FullMethodName       = "/gerardus.align.v1alpha1.SiteService/GetLaneField"
-	SiteService_ListLaneProposals_FullMethodName  = "/gerardus.align.v1alpha1.SiteService/ListLaneProposals"
-	SiteService_ReviewLaneProposal_FullMethodName = "/gerardus.align.v1alpha1.SiteService/ReviewLaneProposal"
+	SiteService_GetServerInfo_FullMethodName        = "/gerardus.align.v1alpha1.SiteService/GetServerInfo"
+	SiteService_PrepareSite_FullMethodName          = "/gerardus.align.v1alpha1.SiteService/PrepareSite"
+	SiteService_GenerateRoadGeometry_FullMethodName = "/gerardus.align.v1alpha1.SiteService/GenerateRoadGeometry"
+	SiteService_GetSite_FullMethodName              = "/gerardus.align.v1alpha1.SiteService/GetSite"
+	SiteService_ListSites_FullMethodName            = "/gerardus.align.v1alpha1.SiteService/ListSites"
+	SiteService_ListRoadCorridors_FullMethodName    = "/gerardus.align.v1alpha1.SiteService/ListRoadCorridors"
+	SiteService_StreamReference_FullMethodName      = "/gerardus.align.v1alpha1.SiteService/StreamReference"
+	SiteService_GetSiteModel_FullMethodName         = "/gerardus.align.v1alpha1.SiteService/GetSiteModel"
+	SiteService_ListStreetUse_FullMethodName        = "/gerardus.align.v1alpha1.SiteService/ListStreetUse"
+	SiteService_EditStreetUse_FullMethodName        = "/gerardus.align.v1alpha1.SiteService/EditStreetUse"
+	SiteService_GetLaneField_FullMethodName         = "/gerardus.align.v1alpha1.SiteService/GetLaneField"
+	SiteService_ListLaneProposals_FullMethodName    = "/gerardus.align.v1alpha1.SiteService/ListLaneProposals"
+	SiteService_ReviewLaneProposal_FullMethodName   = "/gerardus.align.v1alpha1.SiteService/ReviewLaneProposal"
 )
 
 // SiteServiceClient is the client API for SiteService service.
@@ -96,6 +97,7 @@ type SiteServiceClient interface {
 	// disconnects does not cancel it.
 	PrepareSite(ctx context.Context, in *PrepareSiteRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[PrepareSiteResponse], error)
 	// A prepared site. NOT_FOUND until PrepareSite has completed for it.
+	GenerateRoadGeometry(ctx context.Context, in *GenerateRoadGeometryRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GenerateRoadGeometryResponse], error)
 	GetSite(ctx context.Context, in *GetSiteRequest, opts ...grpc.CallOption) (*GetSiteResponse, error)
 	// Every prepared site.
 	ListSites(ctx context.Context, in *ListSitesRequest, opts ...grpc.CallOption) (*ListSitesResponse, error)
@@ -180,6 +182,25 @@ func (c *siteServiceClient) PrepareSite(ctx context.Context, in *PrepareSiteRequ
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SiteService_PrepareSiteClient = grpc.ServerStreamingClient[PrepareSiteResponse]
 
+func (c *siteServiceClient) GenerateRoadGeometry(ctx context.Context, in *GenerateRoadGeometryRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GenerateRoadGeometryResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SiteService_ServiceDesc.Streams[1], SiteService_GenerateRoadGeometry_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[GenerateRoadGeometryRequest, GenerateRoadGeometryResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SiteService_GenerateRoadGeometryClient = grpc.ServerStreamingClient[GenerateRoadGeometryResponse]
+
 func (c *siteServiceClient) GetSite(ctx context.Context, in *GetSiteRequest, opts ...grpc.CallOption) (*GetSiteResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetSiteResponse)
@@ -212,7 +233,7 @@ func (c *siteServiceClient) ListRoadCorridors(ctx context.Context, in *ListRoadC
 
 func (c *siteServiceClient) StreamReference(ctx context.Context, in *StreamReferenceRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamReferenceResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SiteService_ServiceDesc.Streams[1], SiteService_StreamReference_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &SiteService_ServiceDesc.Streams[2], SiteService_StreamReference_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -303,6 +324,7 @@ type SiteServiceServer interface {
 	// disconnects does not cancel it.
 	PrepareSite(*PrepareSiteRequest, grpc.ServerStreamingServer[PrepareSiteResponse]) error
 	// A prepared site. NOT_FOUND until PrepareSite has completed for it.
+	GenerateRoadGeometry(*GenerateRoadGeometryRequest, grpc.ServerStreamingServer[GenerateRoadGeometryResponse]) error
 	GetSite(context.Context, *GetSiteRequest) (*GetSiteResponse, error)
 	// Every prepared site.
 	ListSites(context.Context, *ListSitesRequest) (*ListSitesResponse, error)
@@ -363,6 +385,9 @@ func (UnimplementedSiteServiceServer) GetServerInfo(context.Context, *GetServerI
 }
 func (UnimplementedSiteServiceServer) PrepareSite(*PrepareSiteRequest, grpc.ServerStreamingServer[PrepareSiteResponse]) error {
 	return status.Error(codes.Unimplemented, "method PrepareSite not implemented")
+}
+func (UnimplementedSiteServiceServer) GenerateRoadGeometry(*GenerateRoadGeometryRequest, grpc.ServerStreamingServer[GenerateRoadGeometryResponse]) error {
+	return status.Error(codes.Unimplemented, "method GenerateRoadGeometry not implemented")
 }
 func (UnimplementedSiteServiceServer) GetSite(context.Context, *GetSiteRequest) (*GetSiteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSite not implemented")
@@ -443,6 +468,17 @@ func _SiteService_PrepareSite_Handler(srv interface{}, stream grpc.ServerStream)
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SiteService_PrepareSiteServer = grpc.ServerStreamingServer[PrepareSiteResponse]
+
+func _SiteService_GenerateRoadGeometry_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GenerateRoadGeometryRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SiteServiceServer).GenerateRoadGeometry(m, &grpc.GenericServerStream[GenerateRoadGeometryRequest, GenerateRoadGeometryResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SiteService_GenerateRoadGeometryServer = grpc.ServerStreamingServer[GenerateRoadGeometryResponse]
 
 func _SiteService_GetSite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetSiteRequest)
@@ -669,6 +705,11 @@ var SiteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "PrepareSite",
 			Handler:       _SiteService_PrepareSite_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GenerateRoadGeometry",
+			Handler:       _SiteService_GenerateRoadGeometry_Handler,
 			ServerStreams: true,
 		},
 		{

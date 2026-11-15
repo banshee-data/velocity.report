@@ -32,7 +32,7 @@ Click a patch to inspect it: its id, CNN, boundary source and the counts of its 
 
 ## Driving view
 
-Closing or replacing the corridor stops its driving clock and releases its camera. The road overlay, picking ray and driving camera share their own review frame, independently of an open capture's alignment transform.
+Closing or replacing the corridor stops its driving clock and releases its camera. A standalone corridor uses its first bundle's east-north-up review frame. Alongside a prepared Alignment reference, the corridor is shifted into that reference's east-north-up origin and drawn through the same inverse sensor pose as its buildings. Picking, overhead framing and the driving camera use that placement too, including pose nudges. Opening a capture without a prepared reference does not rotate an independent corridor.
 
 **Start driving** builds a route from a patch's profile and takes the camera under the `drive` holder (orbit, flight and the plan view are refused while it is held; **Overhead** gives it back and frames the corridor). Speed, eye height (1.5 m to start), pause and a position slider control it.
 

@@ -73,6 +73,10 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     ) async throws -> Gerardus_Align_V1alpha1_Site
     /// The stored bundle's description, or nil when none has been prepared
     /// (NOT_FOUND). Builds nothing.
+    func generateRoadGeometry(
+        _ request: Gerardus_Align_V1alpha1_GenerateRoadGeometryRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_GeneratedRoadGeometry
     func getSite(l16Token: String) async throws -> Gerardus_Align_V1alpha1_Site?
     /// Every prepared bundle the server holds: how a corridor's neighbouring
     /// sites are found. Empty from a client that cannot list them.
@@ -161,6 +165,13 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
 
 /// A client that has no street use answers as a server from before it would.
 @available(macOS 15.0, *) extension AlignmentServiceClient {
+    func generateRoadGeometry(
+        _ request: Gerardus_Align_V1alpha1_GenerateRoadGeometryRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_GeneratedRoadGeometry {
+        throw RPCError(code: .unimplemented, message: "Upgrade Gerardus to generate road geometry")
+    }
+
     /// Prepare as Place from hint does: the stored bundle when there is one.
     func prepareSite(
         l16Token: String, label: String,
@@ -348,6 +359,27 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
             }
             guard let site else { throw GerardusClientError.incompleteStream("PrepareSite") }
             return site
+        }
+    }
+
+    func generateRoadGeometry(
+        _ request: Gerardus_Align_V1alpha1_GenerateRoadGeometryRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_GeneratedRoadGeometry {
+        try await siteService().generateRoadGeometry(request: ClientRequest(message: request)) {
+            response in
+            var result: Gerardus_Align_V1alpha1_GeneratedRoadGeometry?
+            for try await message in response.messages {
+                switch message.event {
+                case .progress(let progress): await onProgress(progress)
+                case .result(let generated): result = generated
+                case nil: break
+                }
+            }
+            guard let result else {
+                throw GerardusClientError.incompleteStream("GenerateRoadGeometry")
+            }
+            return result
         }
     }
 

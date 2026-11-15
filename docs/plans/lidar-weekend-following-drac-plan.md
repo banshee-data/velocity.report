@@ -208,6 +208,13 @@ suppression and unresolved identity/geometry motivate W3; they do not justify we
 
 ### Next actions and completion records
 
+The [focus recording inventory](../ui/visualiser/weekend-focus-recording-inventory.md) adds
+complete settled-first foreground recordings for Kirkham, Columbus–Broadway, Embarcadero–Bryant
+and Lombard–Broderick to the main catalogue. File and site-link checks passed. Accepted Gerardus
+poses were verified, but missing local geometry dependencies and Kirkham's scan selection remain
+alignment prerequisites. This adds review coverage without changing cohort admission or the
+frozen following-evidence runs.
+
 1. Retain the [completed rerun report](../lidar/operations/following-identity-rerun-2026-11.md)
    and its schema-3 manifests, source/v2 bindings and complete per-case calibration audits.
    Keep actual retained/scored timestamps and EOF clipping explicit. Different windows remain

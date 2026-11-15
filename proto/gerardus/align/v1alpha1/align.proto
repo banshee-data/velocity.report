@@ -71,6 +71,8 @@ service SiteService {
   rpc PrepareSite(PrepareSiteRequest) returns (stream PrepareSiteResponse);
 
   // A prepared site. NOT_FOUND until PrepareSite has completed for it.
+  rpc GenerateRoadGeometry(GenerateRoadGeometryRequest) returns (stream GenerateRoadGeometryResponse);
+
   rpc GetSite(GetSiteRequest) returns (GetSiteResponse);
 
   // Every prepared site.
@@ -765,6 +767,7 @@ message GetServerInfoResponse {
   // True when ListRoadCorridors is served. Independent of road_surface_version
   // so the layer's contract version and its hashes do not move.
   bool road_corridors_listed = 13;
+  bool supports_road_generation = 14;
 }
 
 message PrepareSiteRequest {
@@ -777,6 +780,27 @@ message PrepareSiteResponse {
   oneof event {
     Progress progress = 1;
     Site site = 2;                  // last message
+  }
+}
+
+message GenerateRoadGeometryRequest {
+  string l16_token = 1;
+  // Defaults: 150 m selection radius and 4 m either side of the centreline.
+  // Selects whole nearby segments, so the output can extend beyond radius_m.
+  float radius_m = 2; // 50..250
+  float half_width_m = 3; // 2..10; inferred, not measured kerb positions
+  bool refresh = 4; // false reuses an identical cached request
+}
+message GeneratedRoadGeometry {
+  string l16_token = 1;
+  string corridor_id = 2;
+  string build_hash = 3;
+  uint32 patch_count = 4;
+}
+message GenerateRoadGeometryResponse {
+  oneof event {
+    Progress progress = 1;
+    GeneratedRoadGeometry result = 2;
   }
 }
 

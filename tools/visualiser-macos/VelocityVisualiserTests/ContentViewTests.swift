@@ -15,6 +15,25 @@ import XCTest
 
 @testable import VelocityVisualiser
 
+struct TrackListRefreshTests {
+    @Test func sourceRewindDoesNotRetainPreviousRecordingRows() {
+        #expect(shouldRefreshTrackList(index: 0, previousIndex: 2_163_241, fps: 5))
+        #expect(shouldRefreshTrackList(index: 100, previousIndex: .max, fps: 5))
+    }
+
+    @Test func slowForwardPlaybackKeepsFiveFrameThrottle() {
+        #expect(!shouldRefreshTrackList(index: 100, previousIndex: 100, fps: 5))
+        #expect(!shouldRefreshTrackList(index: 104, previousIndex: 100, fps: 5))
+        #expect(shouldRefreshTrackList(index: 105, previousIndex: 100, fps: 5))
+    }
+
+    @Test func normalAndUnknownRatesRefreshWithoutThrottle() {
+        for fps in [0.0, -1.0, 18.0, 60.0] {
+            #expect(shouldRefreshTrackList(index: 101, previousIndex: 100, fps: fps))
+        }
+    }
+}
+
 // MARK: - Format Rate Tests
 
 struct FormatRateTests {

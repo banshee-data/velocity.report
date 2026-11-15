@@ -104,8 +104,8 @@ struct RunModelTests {
             runId: "run-001", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: vrlogPath, notes: nil, sourceName: nil
-        )
+            status: "completed", errorMessage: nil, vrlogPath: vrlogPath, notes: nil,
+            sourceName: nil)
     }
 }
 
@@ -224,6 +224,70 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
         } catch is RunTrackLabelAPIClient.APIError {
             // Expected
         }
+    }
+
+    func testListAllRunsRequestsFollowingPages() async throws {
+        let client = makeMockRunTrackClient()
+        MockURLProtocol.requestHandler = { request in
+            let offset =
+                URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first(
+                    where: { $0.name == "offset" })?.value ?? "0"
+            let rows: String
+            if offset == "2" {
+                rows = ""
+            } else {
+                rows = """
+                    {"run_id":"r\(offset)","created_at":"2026-11-01T00:00:00Z",
+                     "source_type":"pcap","sensor_id":"s","duration_secs":1,
+                     "total_frames":1,"total_clusters":0,"total_tracks":0,"confirmed_tracks":0,
+                     "status":"completed","source_path":null,"error_message":null,
+                     "vrlog_path":null,"notes":null,"source_name":null}
+                    """
+            }
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (
+                response,
+                "{\"runs\":[\(rows)],\"count\":\(rows.isEmpty ? 0 : 1)}".data(using: .utf8)!
+            )
+        }
+        let runs = try await client.listAllRuns(pageSize: 1)
+        XCTAssertEqual(runs.map(\.runId), ["r0", "r1"])
+    }
+
+    func testListAllRunsStopsWhenAnOlderServerRepeatsAPage() async throws {
+        let client = makeMockRunTrackClient()
+        var requests = 0
+        MockURLProtocol.requestHandler = { request in
+            requests += 1
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let json = """
+                {"runs":[{"run_id":"repeated","created_at":"2026-11-01T00:00:00Z",
+                "source_type":"pcap","sensor_id":"s","duration_secs":1,"total_frames":1,
+                "total_clusters":0,"total_tracks":0,"confirmed_tracks":0,"status":"completed"}],"count":1}
+                """
+            return (response, Data(json.utf8))
+        }
+        do {
+            _ = try await client.listAllRuns(pageSize: 1)
+            XCTFail("Expected repeated-page error")
+        } catch RunTrackLabelAPIClient.APIError.paginationUnsupported {
+            XCTAssertEqual(requests, 2)
+        }
+    }
+
+    func testListAllRunsHandlesEmptyHistoryAndNormalisesPageSize() async throws {
+        let client = makeMockRunTrackClient()
+        MockURLProtocol.requestHandler = { request in
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems
+            XCTAssertEqual(query?.first(where: { $0.name == "limit" })?.value, "1")
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data("{\"runs\":[],\"count\":0}".utf8))
+        }
+        let runs = try await client.listAllRuns(pageSize: 0)
+        XCTAssertTrue(runs.isEmpty)
     }
 
     // MARK: - getRun
@@ -589,7 +653,8 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
         MockURLProtocol.requestHandler = { request in
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!
-            let body = #"{"error":"the VRLOG directory /Volumes/lidar/vrlog cannot be read: is the volume it is on mounted?"}"#
+            let body =
+                #"{"error":"the VRLOG directory /Volumes/lidar/vrlog cannot be read: is the volume it is on mounted?"}"#
             return (response, body.data(using: .utf8)!)
         }
 

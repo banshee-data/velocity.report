@@ -394,11 +394,24 @@ enum FlyDynamics {
     static let keys: [UInt16: SIMD3<Float>] = [
         13: SIMD3(0, 1, 0), 126: SIMD3(0, 1, 0),  // W, ↑: forward
         1: SIMD3(0, -1, 0), 125: SIMD3(0, -1, 0),  // S, ↓: back
-        0: SIMD3(-1, 0, 0), 123: SIMD3(-1, 0, 0),  // A, ←: left
-        2: SIMD3(1, 0, 0), 124: SIMD3(1, 0, 0),  // D, →: right
+        6: SIMD3(-1, 0, 0),  // Z: strafe left
+        8: SIMD3(1, 0, 0),  // C: strafe right
         12: SIMD3(0, 0, -1),  // Q: down
         14: SIMD3(0, 0, 1),  // E: up
     ]
+
+    static let steeringKeys: Set<UInt16> = [0, 2, 123, 124]
+
+    /// Positive yaw turns left in the Z-up world; opposite keys cancel.
+    static func steering(held: Set<UInt16>) -> Double {
+        let left = held.contains(0) || held.contains(123)
+        let right = held.contains(2) || held.contains(124)
+        return (left ? 1 : 0) - (right ? 1 : 0)
+    }
+
+    static func accepts(_ key: UInt16) -> Bool {
+        keys[key] != nil || steeringKeys.contains(key) || key == 49 || key == 53
+    }
 
     /// The direction the held keys add up to; zero when they cancel.
     static func input(held: Set<UInt16>) -> SIMD3<Float> {

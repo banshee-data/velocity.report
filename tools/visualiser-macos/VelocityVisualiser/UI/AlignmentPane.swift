@@ -33,7 +33,15 @@ import SwiftUI
             // need cannot be scrolled out of sight while either is shown.
             VStack(alignment: .leading, spacing: 8) {
                 header
+                if session.isFixtureServer {
+                    Text(GerardusSettings.fixtureMessage).font(.caption).foregroundStyle(.orange)
+                    Button("Use local Gerardus") { session.useServiceAddress(.local) }
+                }
                 paintSwitch
+                if let site = session.site {
+                    Button("Generate road geometry…") { appState.showRoadPane = true }.help(
+                        "Open road generation for \(site.name)")
+                }
                 if session.showsReviewerField, !painter.isPainting { reviewerField }
             }.padding([.horizontal, .top]).padding(.bottom, 10)
             Divider()
@@ -125,27 +133,22 @@ import SwiftUI
 
     // MARK: Site
 
-    private var siteSelection: Binding<String> {
-        Binding(
-            get: { session.site?.id ?? "" },
-            set: { id in
-                if let chosen = session.sites.first(where: { $0.id == id }) {
-                    session.choose(chosen)
-                }
-            })
-    }
-
     private var siteSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Picker("Site", selection: siteSelection) {
-                    if session.site == nil { Text("Choose a site").tag("") }
-                    ForEach(session.sites) { site in
-                        Text("\(site.name) · \(site.l16Display)").tag(site.id)
+                SiteChoicePopover(
+                    title: session.site.map { "\($0.name) · \($0.l16Display)" } ?? "Choose a site",
+                    selection: session.site?.id ?? "",
+                    rows: session.siteChoices.map {
+                        SiteChoiceRow(id: $0.id, title: "\($0.name) · \($0.l16Display)")
                     }
-                }
-                Button(action: { Task { await session.refreshSites(runID: appState.currentRunID) } }
-                ) { Image(systemName: "arrow.clockwise") }.buttonStyle(.borderless).help(
+                ) { session.chooseSite(id: $0) }
+                Button(action: {
+                    Task {
+                        await session.refreshSites(
+                            runID: appState.currentRunID, resolveCapture: true)
+                    }
+                }) { Image(systemName: "arrow.clockwise") }.buttonStyle(.borderless).help(
                     "Look up the open capture's site again")
             }
             Text(session.siteMatch.explanation).font(.caption).foregroundStyle(.secondary)
@@ -167,12 +170,12 @@ import SwiftUI
                 ).font(.caption2).foregroundStyle(.secondary)
                 HStack {
                     Button("Place from hint") { Task { await session.placeFromHint() } }.disabled(
-                        session.busy != nil
+                        session.busy != nil || session.isFixtureServer
                     ).help(
                         "Prepare the site, place the sensor from its hint, and draw the reference")
                     if session.bundle != nil {
                         Button("Regenerate…") { session.requestRegenerate() }.disabled(
-                            session.busy != nil
+                            session.busy != nil || session.isFixtureServer
                         ).help("Download every source again and cut 3DEP again; asks first")
                         Button {
                             showingReferenceInfo.toggle()
@@ -210,7 +213,7 @@ import SwiftUI
                     if session.referenceDataIsOutOfDate {
                         Button("Update reference data") {
                             Task { await session.updateReferenceData() }
-                        }.disabled(session.busy != nil).help(
+                        }.disabled(session.busy != nil || session.isFixtureServer).help(
                             "Gerardus adds the layers the bundle lacks from the downloads it already holds. Nothing is downloaded again."
                         )
                     }
@@ -822,7 +825,7 @@ import SwiftUI
                     ).clipShape(RoundedRectangle(cornerRadius: 4)).contentShape(Rectangle())
                 }.buttonStyle(.plain).disabled(!record.hasPose).help(
                     record.hasPose
-                        ? "Draw the sensor where this decision put it; Accept then records it again"
+                        ? "Draw this pose; accepted current scans are remembered for this clip"
                         : "A rejected decision carries no pose")
             }
         }

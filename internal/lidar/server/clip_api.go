@@ -428,7 +428,11 @@ func (ws *Server) handleReplayClip(w http.ResponseWriter, r *http.Request, clipI
 
 	// Parse optional params override from request body
 	var req struct {
-		ParamsJSON json.RawMessage `json:"params_json,omitempty"`
+		ParamsJSON            json.RawMessage `json:"params_json,omitempty"`
+		FullFrames            bool            `json:"full_frames,omitempty"`
+		SettleBeforeRecording bool            `json:"settle_before_recording,omitempty"`
+		SpeedMode             string          `json:"speed_mode,omitempty"`
+		SpeedRatio            float64         `json:"speed_ratio,omitempty"`
 	}
 	if r.Body != nil {
 		defer r.Body.Close()
@@ -437,6 +441,23 @@ func (ws *Server) handleReplayClip(w http.ResponseWriter, r *http.Request, clipI
 			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 			return
 		}
+	}
+
+	// Refuse unsupported recording requests before changing tracker or grid state.
+	if req.FullFrames && ws.fullFrames == nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "full_frames needs the visualiser gRPC stream, and this server was started without it")
+		return
+	}
+
+	switch req.SpeedMode {
+	case "", "analysis", "realtime", "scaled":
+	default:
+		ws.writeJSONError(w, http.StatusBadRequest, "speed_mode must be analysis, realtime, or scaled")
+		return
+	}
+	if req.SpeedRatio < 0 || (req.SpeedMode == "scaled" && req.SpeedRatio <= 0) {
+		ws.writeJSONError(w, http.StatusBadRequest, "speed_ratio must be positive for scaled replay and cannot be negative")
+		return
 	}
 
 	// Determine which params to use as launch intent lineage.
@@ -486,14 +507,23 @@ func (ws *Server) handleReplayClip(w http.ResponseWriter, r *http.Request, clipI
 		return
 	}
 
+	if len(casePaths) > 1 && req.SpeedMode != "" && req.SpeedMode != "analysis" {
+		ws.writeJSONError(w, http.StatusBadRequest, "multi-capture clip replay requires speed_mode=analysis")
+		return
+	}
+
 	config := ReplayConfig{
-		StartSeconds:        startSecs,
-		DurationSeconds:     durationSecs,
-		AnalysisMode:        true, // Preserve state after completion
-		SensorID:            clip.SensorID,
-		PreferredRunID:      preferredRunID,
-		ClipID:              clipID,
-		RequestedParamsJSON: paramsJSON,
+		SpeedMode:             req.SpeedMode,
+		SpeedRatio:            req.SpeedRatio,
+		FullFrames:            req.FullFrames,
+		SettleBeforeRecording: req.SettleBeforeRecording,
+		StartSeconds:          startSecs,
+		DurationSeconds:       durationSecs,
+		AnalysisMode:          true, // Preserve state after completion
+		SensorID:              clip.SensorID,
+		PreferredRunID:        preferredRunID,
+		ClipID:                clipID,
+		RequestedParamsJSON:   paramsJSON,
 	}
 	if len(casePaths) > 1 {
 		// Multi-file replay is planned before it starts, so a broken join is
@@ -516,6 +546,12 @@ func (ws *Server) handleReplayClip(w http.ResponseWriter, r *http.Request, clipI
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
 	}
+	// As the file replay route does, tell the stream server to attach replay
+	// metadata. A source-bound run is still a PCAP replay until it completes.
+	if ws.onPCAPStarted != nil {
+		ws.onPCAPStarted()
+	}
+
 	runID := lastRunIDForClip(ws)
 	if runID == "" {
 		runID = preferredRunID

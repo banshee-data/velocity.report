@@ -58,6 +58,11 @@ private enum RunBrowserLayout {
     @Environment(\.dismiss) private var dismiss
     /// The rows whose folded repeats are shown, by the lead run's ID.
     @State private var expandedFolds: Set<String> = []
+    @State private var query = ""
+
+    private var matchingRuns: [Run] {
+        RunGrouping.search(runBrowserState.runs, query: query, clips: runBrowserState.clips)
+    }
 
     init() { _runBrowserState = StateObject(wrappedValue: RunBrowserState()) }
 
@@ -76,6 +81,15 @@ private enum RunBrowserLayout {
             }.padding()
 
             Divider()
+
+            TextField("Find run ID, source file, clip or recorded site", text: $query)
+                .textFieldStyle(.roundedBorder).padding(.horizontal).padding(.vertical, 8)
+                .accessibilityLabel("Find a recording")
+            if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(
+                    "\(matchingRuns.count) matching runs. File names do not establish a site binding."
+                ).font(.caption).foregroundStyle(.secondary).padding(.bottom, 6)
+            }
 
             // Content
             if runBrowserState.isLoading && runBrowserState.runs.isEmpty {
@@ -111,9 +125,8 @@ private enum RunBrowserLayout {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(
-                            RunGrouping.groups(runBrowserState.runs, clips: runBrowserState.clips)
-                        ) { group in
+                        ForEach(RunGrouping.groups(matchingRuns, clips: runBrowserState.clips)) {
+                            group in
                             RunClipGroupHeader(group: group)
                             ForEach(group.rows) { row in
                                 runRow(row.run)

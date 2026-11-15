@@ -528,9 +528,22 @@ struct FlyDynamicsTests {
         #expect(FlyDynamics.speed(early, settings: back) == 0)
     }
 
+    @Test func steeringTurnsInsteadOfPanning() {
+        let pose = CameraPose(position: .zero, target: SIMD3(0, 10, 0))
+        for (keys, sign) in [(Set<UInt16>([0]), Float(-1)), (Set<UInt16>([124]), Float(1))] {
+            let turned = FlyDynamics.look(
+                pose, yaw: FlyDynamics.steering(held: keys) * .pi / 2, pitch: 0)
+            #expect(near(turned.position, .zero))
+            #expect(near(simd_normalize(turned.target), SIMD3(sign, 0, 0), 1e-5))
+            #expect(FlyDynamics.input(held: keys) == .zero)
+        }
+        #expect(FlyDynamics.steering(held: [0, 2]) == 0)
+        #expect(FlyDynamics.accepts(49) && FlyDynamics.accepts(53))
+    }
+
     @Test func theKeysAddUpToADirection() {
         #expect(FlyDynamics.input(held: [13, 1]) == .zero)
-        #expect(FlyDynamics.input(held: [13, 2]) == SIMD3(1, 1, 0))
+        #expect(FlyDynamics.input(held: [13, 8]) == SIMD3(1, 1, 0))
         #expect(FlyDynamics.input(held: [126, 14]) == SIMD3(0, 1, 1))
         #expect(FlyDynamics.input(held: [12]) == SIMD3(0, 0, -1))
         #expect(FlyDynamics.input(held: [99]) == .zero)
@@ -750,6 +763,22 @@ struct CameraPanePersistenceTests {
         #expect(s.measured?.source == "picked points")
         // Not picking, a click is not the pane's.
         #expect(!s.pick(at: .zero, viewSize: size))
+    }
+
+    @Test func gameBrakesAndEscapeReleasesTheCamera() {
+        var settings = fixedOrbit()
+        settings.mode = .fly
+        let (s, sink) = session(settings)
+        s.setFlying(true)
+        #expect(s.flyKeyDown(13))
+        s.advance(by: 0.1, now: 0)
+        #expect(s.flyKeyDown(49))
+        let stopped = sink.camera.position
+        s.advance(by: 0.1, now: 0)
+        #expect(s.flySpeed == 0)
+        #expect(sink.camera.position == stopped)
+        #expect(s.flyKeyDown(53))
+        #expect(!s.isFlying && sink.holder == nil)
     }
 
     @Test func flightHoldsTheCameraAndLeavesItWhereItFlew() {

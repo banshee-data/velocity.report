@@ -108,7 +108,7 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
         error = nil
 
         do {
-            let fetchedRuns = try await apiClient.listRuns(limit: 50)
+            let fetchedRuns = try await apiClient.listAllRuns()
             runs = fetchedRuns
             logger.info("Fetched \(fetchedRuns.count) runs")
             await fetchClips()

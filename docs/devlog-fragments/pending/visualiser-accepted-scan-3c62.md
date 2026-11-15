@@ -1,0 +1,1 @@
+- Remembered an explicitly selected current accepted alignment scan per site and clip across review runs and app restarts; missing or rejected saved heads require a new selection. Regression tests cover replay run IDs, append-order rejection, persistence and clip isolation.

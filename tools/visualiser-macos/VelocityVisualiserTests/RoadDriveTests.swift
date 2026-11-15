@@ -418,7 +418,7 @@ struct RoadDriverTests {
         #expect(drive.driver?.playing != true)
     }
 
-    @Test func roadPickingUsesTheReviewFrameWithAnAlignedCaptureOpen() throws {
+    @Test func standaloneRoadPickingIgnoresAnUnrelatedReferenceMatrix() throws {
         let view = MTKView(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
         let renderer = try #require(MetalRenderer(metalView: view))
         let point = CGPoint(x: 100, y: 100)
@@ -427,7 +427,7 @@ struct RoadDriverTests {
         var alignment = matrix_identity_float4x4
         alignment.columns.3 = SIMD4(100, 200, 30, 1)
         renderer.setReferenceModelMatrix(alignment)
-        let actual = try #require(renderer.rayInSiteFrame(at: point, viewSize: view.bounds.size))
+        let actual = try #require(renderer.rayInRoadFrame(at: point, viewSize: view.bounds.size))
         #expect(simd_length(actual.origin - expected.origin) < 1e-5)
         #expect(simd_length(actual.direction - expected.direction) < 1e-5)
     }

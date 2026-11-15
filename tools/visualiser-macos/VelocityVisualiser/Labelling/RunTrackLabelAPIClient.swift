@@ -55,10 +55,13 @@ class RunTrackLabelAPIClient {
     // MARK: - Run Operations
 
     /// List recent analysis runs.
-    func listRuns(limit: Int = 50) async throws -> [Run] {
+    func listRuns(limit: Int = 50, offset: Int? = nil) async throws -> [Run] {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("api/lidar/runs"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if let offset {
+            components.queryItems?.append(URLQueryItem(name: "offset", value: "\(offset)"))
+        }
 
         let (data, response) = try await session.data(from: components.url!)
 
@@ -68,6 +71,23 @@ class RunTrackLabelAPIClient {
 
         let wrapper = try Self.goDecoder.decode(RunsResponse.self, from: data)
         return wrapper.runs
+    }
+
+    /// Read the complete list. Older servers ignore offset; detect a repeated
+    /// page and report the error instead of looping indefinitely.
+    func listAllRuns(pageSize: Int = 200) async throws -> [Run] {
+        let pageSize = max(pageSize, 1)
+        var all: [Run] = []
+        var seen = Set<String>()
+        while true {
+            let page = try await listRuns(limit: pageSize, offset: all.count)
+            guard Set(page.map(\.runId)).count == page.count,
+                page.allSatisfy({ !seen.contains($0.runId) })
+            else { throw APIError.paginationUnsupported }
+            all.append(contentsOf: page)
+            seen.formUnion(page.map(\.runId))
+            if page.count < pageSize { return all }
+        }
     }
 
     /// Get a single analysis run by ID.
@@ -270,6 +290,7 @@ class RunTrackLabelAPIClient {
     enum APIError: Error, LocalizedError {
         case requestFailed(URLResponse)
         case decodingFailed(Error)
+        case paginationUnsupported
         /// A refusal with the server's own reason, from its {"error": …} body.
         case server(status: Int, message: String)
 
@@ -290,6 +311,9 @@ class RunTrackLabelAPIClient {
                 }
                 return "Request failed"
             case .decodingFailed(let error): return "Decoding failed: \(error.localizedDescription)"
+            case .paginationUnsupported:
+                return
+                    "The server did not advance the runs list. Update the server to see all runs."
             }
         }
     }
@@ -312,6 +336,8 @@ struct ClipSummary: Codable, Equatable {
     let clipId: String
     var description: String? = nil
     var location: Location? = nil
+    var siteId: String? = nil
+    var siteLabel: String? = nil
 
     struct Location: Codable, Equatable {
         var siteId: String? = nil
@@ -324,11 +350,9 @@ struct ClipSummary: Codable, Equatable {
         return trimmed.isEmpty ? "Clip \(clipId.prefix(8))" : trimmed
     }
 
-    /// The site the clip was captured at, when known: the site's S2 cell as
-    /// the server displays it. Sites have labels only through a lookup per
-    /// site, which the run browser does not make.
+    /// The operator's site label, or its S2 cell when no label is available.
     var site: String? {
-        for value in [location?.s2L16Display, location?.siteId] {
+        for value in [siteLabel, location?.s2L16Display, siteId, location?.siteId] {
             if let value, !value.isEmpty { return value }
         }
         return nil

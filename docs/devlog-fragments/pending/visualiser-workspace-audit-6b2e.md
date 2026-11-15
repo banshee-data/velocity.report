@@ -1,0 +1,1 @@
+- Recorded a [VelocityVisualiser workspace audit](../../ui/visualiser/workspace-ux-audit.md) with the UI flow index, live building and roof checks, panel-space observations, road coverage inconsistencies and challengeable design preferences; kept raw screenshots and local storage snapshots outside Git and separated viewer behaviour from physical geometry validation.

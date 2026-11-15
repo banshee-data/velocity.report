@@ -49,6 +49,13 @@ run lists (no per-run follow-up queries). Store helpers live in
 - `GET /api/lidar/runs/{run_id}`: single run detail
 - `GET /api/lidar/runs/{run_id}/labelling-progress`: dedicated progress endpoint
 
+The run list accepts `limit` (default 50) and a non-negative `offset` (default 0).
+Pages use descending creation time, then descending run ID to resolve equal timestamps.
+An exhausted page returns `runs: []`. Optional sensor and status filters are applied
+within the selected page. The macOS browser requests successive unfiltered pages
+until the last page, and refuses repeated entries to avoid looping against an older
+server that ignores `offset`.
+
 `labelling-progress.labelled` = `classified + tagged_only`, keeping
 run-browser progress and labelling-progress semantics aligned.
 

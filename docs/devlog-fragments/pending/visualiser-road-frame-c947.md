@@ -1,0 +1,1 @@
+- Corrected the road preview's placement beside aligned buildings: shifted corridor origins into the prepared reference frame and applied the same inverse sensor pose to drawing, picking, framing and driving, with regression cases for near-half-turn headings, neighbouring origins, load order and nudges; standalone corridors retained their own frame.
