@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -40,8 +41,13 @@ func TestClipReplayRecordingOptions(t *testing.T) {
 			}
 			oldStart, oldLast := startPCAPInternalForClip, lastRunIDForClip
 			defer func() { startPCAPInternalForClip, lastRunIDForClip = oldStart, oldLast }()
+			notified := 0
+			ws.onPCAPStarted = func() { notified++ }
 			called := false
 			startPCAPInternalForClip = func(_ *Server, path string, cfg ReplayConfig) error {
+				if notified != 0 {
+					t.Fatal("stream notified before successful start")
+				}
 				called = true
 				if path != "review.pcap" || cfg.ClipID != clip.ClipID || cfg.SensorID != clip.SensorID || cfg.StartSeconds != start || cfg.DurationSeconds != duration || !cfg.AnalysisMode || cfg.SpeedMode != tc.mode || cfg.SpeedRatio != tc.ratio || cfg.FullFrames != tc.full || cfg.SettleBeforeRecording != tc.settle {
 					t.Fatalf("lost recording request or source/window binding: %s %+v", path, cfg)
@@ -53,6 +59,13 @@ func TestClipReplayRecordingOptions(t *testing.T) {
 			ws.handleClipByID(w, httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/replay", strings.NewReader(tc.body)))
 			if w.Code != tc.status {
 				t.Fatalf("%d: %s", w.Code, w.Body.String())
+			}
+			wantNotifications := 0
+			if tc.status == http.StatusAccepted {
+				wantNotifications = 1
+			}
+			if notified != wantNotifications {
+				t.Fatalf("stream notified %d times, want %d", notified, wantNotifications)
 			}
 			if called != (tc.status == http.StatusAccepted) {
 				t.Fatalf("start called=%v for status %d", called, w.Code)
@@ -77,6 +90,24 @@ func TestClipReplayRejectsPacedMultiCapture(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleClipByID(w, httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/replay", strings.NewReader(`{"speed_mode":"scaled","speed_ratio":0.5}`)))
 	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "multi-capture") {
+		t.Fatalf("%d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestClipReplayStartFailureDoesNotNotifyStream(t *testing.T) {
+	ws := setupTestClipServer(t)
+	defer ws.db.DB.Close()
+	clip := &sqlite.Clip{SensorID: "failed-recording", Files: []sqlite.ClipCapture{{PCAPFile: "one.pcap"}}}
+	if err := sqlite.NewClipStore(ws.db).InsertClip(clip); err != nil {
+		t.Fatal(err)
+	}
+	old := startPCAPInternalForClip
+	defer func() { startPCAPInternalForClip = old }()
+	startPCAPInternalForClip = func(*Server, string, ReplayConfig) error { return errors.New("recording unavailable") }
+	ws.onPCAPStarted = func() { t.Fatal("failed replay advertised to the stream") }
+	w := httptest.NewRecorder()
+	ws.handleClipByID(w, httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/replay", nil))
+	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("%d: %s", w.Code, w.Body.String())
 	}
 }

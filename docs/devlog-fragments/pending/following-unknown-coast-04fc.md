@@ -1,0 +1,1 @@
+- Kept an absent exported coast age visibly unavailable in the following inspector instead of displaying a fabricated zero-duration value.

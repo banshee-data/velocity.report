@@ -122,7 +122,7 @@ struct FollowingEvidenceView: View {
                 if let e = p.follower?.leading { endpoint(e, name: "Follower front") }
                 if let e = p.leader?.trailing { endpoint(e, name: "Leader rear") }
                 Text(
-                    "Reasons: \((p.reasons ?? []).joined(separator: ", ")) · coast \(p.coastAgeNanos ?? 0) ns"
+                    "Reasons: \((p.reasons ?? []).joined(separator: ", ")) · coast \(p.coastAgeNanos.map { String($0) } ?? "unavailable") ns"
                 )
             }
             Text(

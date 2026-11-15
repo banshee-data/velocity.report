@@ -546,6 +546,12 @@ func (ws *Server) handleReplayClip(w http.ResponseWriter, r *http.Request, clipI
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
 	}
+	// As the file replay route does, tell the stream server to attach replay
+	// metadata. A source-bound run is still a PCAP replay until it completes.
+	if ws.onPCAPStarted != nil {
+		ws.onPCAPStarted()
+	}
+
 	runID := lastRunIDForClip(ws)
 	if runID == "" {
 		runID = preferredRunID
