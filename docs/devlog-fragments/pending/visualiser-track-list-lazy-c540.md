@@ -1,0 +1,1 @@
+- Made the inspector's scrolling track list create visible rows lazily, reducing eager layout work as replay accumulates track identities; selection, sorting and measurement calculations are unchanged.

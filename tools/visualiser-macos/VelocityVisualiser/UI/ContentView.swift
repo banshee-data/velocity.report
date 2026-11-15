@@ -1676,7 +1676,7 @@ struct TrackListView: View {
             }
 
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     if isRunMode { runTrackListContent } else { frameTrackListContent }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }.scrollIndicators(.never)
