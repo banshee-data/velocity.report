@@ -9,6 +9,15 @@ that module when adding guidance instead of restating its rules here.
 
 ## Keep experiment findings in Git and raw outputs local
 
+Required evidence and large working files belong on the directly attached `/Volumes/lidar`
+volume. The NAS is a final archival store; local development, replay, alignment, builds and
+validation must work with it disconnected. Never replace required local evidence with a
+NAS-only copy or symlink, or delete it merely because an archival copy passed verification.
+Before cleanup, trace service configuration, symlinks, dataset indexes and database/blob
+references. Keep their complete dependency set local and verify it without NAS access.
+See [local evidence storage](docs/platform/operations/local-evidence-storage.md) and the
+[free-space workflow](.claude/skills/free-space/SKILL.md).
+
 Commit detailed, human-readable experiment reports in `docs/`. Preserve the question, methods,
 arm definitions, numerical findings (including per-case summaries where they affect the decision),
 interpretation, limitations, frozen provenance, and recommendations. Reports must distinguish
@@ -340,7 +349,7 @@ The following repository workflow skills are available as Claude Code slash comm
 | decision-review           | `/decision-review [scope]`            | High-capability preparation of open project, schema, maths, and research decisions         |
 | decision-review-voice     | `/decision-review-voice <packet>`     | Lightweight discussion; save confirmed choices as ready for integration                    |
 | decision-review-integrate | `/decision-review-integrate <packet>` | High-capability review, downstream updates, PR, and focused return questions               |
-| free-space                | `/free-space [--min-mb N]`            | Find disk space to free; plan verified moves of captures and results to the NAS            |
+| free-space                | `/free-space [--min-mb N]`            | Find disk space to free; keep required evidence on lidar and archive optional copies       |
 
 Skill definitions: [.claude/skills/\*/SKILL.md](.claude/skills/).
 

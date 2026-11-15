@@ -1,36 +1,22 @@
 #!/usr/bin/env bash
 # free-space-scan.sh - read-only survey of where disk space can be freed.
 #
-#   scripts/free-space-scan.sh            scan the internal disk, the lidar volume and the NAS shares
+#   scripts/free-space-scan.sh            scan the internal disk, the local lidar volume
 #   scripts/free-space-scan.sh --min-mb 500   lower the size threshold (default 1000 MB)
 #
 # Never deletes, moves or writes anything. It prints candidates with a class, a suggested
-# NAS share and whether a PASS record matching its name exists. Moving and deleting are
+# local destination. A file-name class never establishes retention. Moving and deleting are
 # separate, deliberate steps: see .claude/skills/free-space/SKILL.md.
 #
-# Overrides (environment): LIDAR_VOL, NAS_CAPTURES, NAS_RESULTS, NAS_MEDIA, NAS_HOST,
+# Overrides (environment): LIDAR_VOL,
 # CODE_DIR, MIN_MB, SCAN_TIMEOUT (seconds per directory, default 300).
 
 set -u
 
 LIDAR=${LIDAR_VOL:-/Volumes/lidar}
-NAS_CAPTURES=${NAS_CAPTURES:-/Volumes/banshee-captures}
-NAS_RESULTS=${NAS_RESULTS:-/Volumes/banshee-results}
-NAS_MEDIA=${NAS_MEDIA:-/Volumes/media}
-NAS_HOST=${NAS_HOST:-arrow.local}
 CODE_DIR=${CODE_DIR:-$HOME/code}
 MIN_MB=${MIN_MB:-1000}
 SCAN_TIMEOUT=${SCAN_TIMEOUT:-300}
-while [ $# -gt 0 ]; do
-  case $1 in
-    --min-mb) MIN_MB=${2:?--min-mb needs a number}; shift ;;
-    -h | --help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "unknown argument: $1" >&2; exit 2 ;;
-  esac
-  shift
-done
-case $MIN_MB in '' | *[!0-9]*) echo "--min-mb must be a whole number of MB" >&2; exit 2 ;; esac
-VALIDATE_DIR="$LIDAR/offload/_logs"
 
 limited() { perl -e 'alarm shift; exec @ARGV' "$SCAN_TIMEOUT" "$@"; }
 
@@ -43,40 +29,27 @@ classify() {
   local n
   n=$(basename "$1" | tr '[:upper:]' '[:lower:]')
   case $n in
-    *pcap* | *sensor_data* | *capture*) echo captures ;;
-    *deriveddata* | *cache* | *node_modules* | .gocache | .tox | *.xcresult) echo regenerable ;;
+    *pcap* | *sensor_data* | *capture* | *vrlog*) echo captures ;;
+    *evidence* | *gerardus* | *roof* | *reference* | *label*) echo evidence ;;
+    *deriveddata* | *cache* | *node_modules* | .gocache | .tox | *.xcresult) echo cache-review ;;
     *result* | *campaign* | *output* | s2-* | *experiment* | *sweep* | *replay*) echo results ;;
     *video* | *photo* | *music* | *movie* | *fiction* | *.mov | *.mp4 | done) echo media ;;
     *) echo review ;;
   esac
 }
 
+# Policy recommendations only: verify dependencies before any deletion.
 destination() {
-  case $1 in
-    captures) echo "$NAS_CAPTURES" ;;
-    results) echo "$NAS_RESULTS" ;;
-    media) echo "$NAS_MEDIA" ;;
-    regenerable) echo "delete (rebuilds itself)" ;;
-    *) echo "decide" ;;
+  local cls=$1 path=$2
+  case "$path/" in
+    "$LIDAR/"*) echo "KEEP local copy; review retention"; return ;;
   esac
-}
-
-# A copy counts as verified only if a validate_*.txt naming the item says "VERDICT: PASS".
-nas_status() {
-  local base f
-  base=$(basename "$1" | tr '[:upper:] ' '[:lower:]-')
-  for f in "$VALIDATE_DIR"/validate_*.txt; do
-    [ -e "$f" ] || continue
-    case $(basename "$f" | tr '[:upper:]' '[:lower:]') in
-      *"$base"*)
-        if grep -q "VERDICT: PASS" "$f" 2> /dev/null; then
-          echo "name-match PASS ($(basename "$f"))"
-          return
-        fi
-        ;;
-    esac
-  done
-  echo "no PASS record by name"
+  case $cls in
+    captures|results|evidence) echo "$LIDAR/evidence (verify dependencies)" ;;
+    media) echo "$LIDAR (review retention)" ;;
+    cache-review) echo "review local rebuild inputs before deletion" ;;
+    *) echo "review ownership and dependencies" ;;
+  esac
 }
 
 # scan_children DIR [skip-regex]: sizes of DIR's direct children above the threshold, largest first.
@@ -93,69 +66,79 @@ scan_children() {
     | while IFS=$'\t' read -r kb path; do
       local cls
       cls=$(classify "$path")
-      printf '%s  %-11s -> %-28s %-34s %s\n' "$(human "$kb")" "$cls" "$(destination "$cls")" "$(nas_status "$path")" "$path"
+      printf '%s  %-11s -> %-28s %-34s %s\n' "$(human "$kb")" "$cls" "$(destination "$cls" "$path")" "retention unverified" "$path"
     done
 }
 
-echo "== Free space"
-df -h / "$LIDAR" "$NAS_CAPTURES" "$NAS_RESULTS" "$NAS_MEDIA" 2> /dev/null | awk 'NR == 1 || !seen[$1 $9]++'
+main() {
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --min-mb) MIN_MB=${2:?--min-mb needs a number}; shift ;;
+      -h | --help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+      *) echo "unknown argument: $1" >&2; exit 2 ;;
+    esac
+    shift
+  done
+  case $MIN_MB in '' | *[!0-9]*) echo "--min-mb must be a whole number of MB" >&2; exit 2 ;; esac
+  echo "== Free space"
+  df -h / "$LIDAR" 2> /dev/null | awk 'NR == 1 || !seen[$1 $9]++'
 
-echo
-echo "== NAS mounts"
-for m in "$NAS_CAPTURES" "$NAS_RESULTS" "$NAS_MEDIA"; do
-  if mount | grep -q " on $m "; then
-    echo "mounted   $m"
+  echo
+  echo "== Local evidence policy"
+  echo "Required evidence stays on lidar. NAS copies are optional final archives."
+  [ -d "$LIDAR" ] || echo "MISSING: $LIDAR; keep originals and restore the local volume before moving files."
+
+  echo
+  echo "== Internal disk: home folder (>= ${MIN_MB} MB)"
+  scan_children "$HOME" '^(Library|\.Trash)$'
+
+  echo
+  echo "== Internal disk: ~/Library (>= ${MIN_MB} MB; Mobile Documents skipped)"
+  scan_children "$HOME/Library" '^(Mobile Documents)$'
+  scan_children "$HOME/Library/Developer"
+  scan_children "$HOME/Library/Application Support"
+
+  echo
+  echo "== Internal disk: repos in $CODE_DIR (>= ${MIN_MB} MB)"
+  scan_children "$CODE_DIR"
+
+  echo
+  echo "== Internal disk: Trash"
+  [ -d "$HOME/.Trash" ] && du -sk "$HOME/.Trash" 2> /dev/null | awk '{print $1}' | while read -r kb; do echo "$(human "$kb")  $HOME/.Trash (empty it yourself)"; done
+
+  echo
+  echo "== Internal disk: idle git worktrees (dry run)"
+  SWEEP="$(dirname "$0")/worktree-sweep.sh"
+  if [ -x "$SWEEP" ]; then
+    "$SWEEP" 2>&1 | tail -n 40
   else
-    echo "MISSING   $m   remount: osascript -e 'mount volume \"smb://$USER@$NAS_HOST._smb._tcp.local/$(basename "$m")\"'"
+    echo "scripts/worktree-sweep.sh not found"
   fi
-done
-[ -d "$LIDAR" ] || echo "NOTE: $LIDAR is not mounted; skipping lidar sections"
 
-echo
-echo "== Internal disk: home folder (>= ${MIN_MB} MB)"
-scan_children "$HOME" '^(Library|\.Trash)$'
-
-echo
-echo "== Internal disk: ~/Library (>= ${MIN_MB} MB; Mobile Documents skipped)"
-scan_children "$HOME/Library" '^(Mobile Documents)$'
-scan_children "$HOME/Library/Developer"
-scan_children "$HOME/Library/Application Support"
-
-echo
-echo "== Internal disk: repos in $CODE_DIR (>= ${MIN_MB} MB)"
-scan_children "$CODE_DIR"
-
-echo
-echo "== Internal disk: Trash"
-[ -d "$HOME/.Trash" ] && du -sk "$HOME/.Trash" 2> /dev/null | awk '{print $1}' | while read -r kb; do echo "$(human "$kb")  $HOME/.Trash (empty it yourself)"; done
-
-echo
-echo "== Internal disk: idle git worktrees (dry run)"
-SWEEP="$(dirname "$0")/worktree-sweep.sh"
-if [ -x "$SWEEP" ]; then
-  "$SWEEP" 2>&1 | tail -n 40
-else
-  echo "scripts/worktree-sweep.sh not found"
-fi
-
-echo
-echo "== Internal disk: single files >= 1 GiB outside Library"
-limited find "$HOME" -xdev -type f -size +1G -not -path "$HOME/Library/*" -not -path "*/.Trash/*" -print0 2> /dev/null \
-  | xargs -0 -n1 du -sk 2> /dev/null | sort -rn | head -n 25 \
-  | while IFS=$'\t' read -r kb path; do printf '%s  %s\n' "$(human "$kb")" "$path"; done
-
-if [ -d "$LIDAR" ]; then
   echo
-  echo "== lidar volume: top level (>= ${MIN_MB} MB)"
-  scan_children "$LIDAR"
-  echo
-  echo "== lidar volume: offload/ and lidar/ (>= ${MIN_MB} MB)"
-  scan_children "$LIDAR/offload" '^_(logs|manifests)$'
-  scan_children "$LIDAR/lidar"
-fi
+  echo "== Internal disk: single files >= 1 GiB outside Library"
+  limited find "$HOME" -xdev -type f -size +1G -not -path "$HOME/Library/*" -not -path "*/.Trash/*" -print0 2> /dev/null \
+    | xargs -0 -n1 du -sk 2> /dev/null | sort -rn | head -n 25 \
+    | while IFS=$'\t' read -r kb path; do printf '%s  %s\n' "$(human "$kb")" "$path"; done
 
-echo
-echo "== Reading this output"
-echo "Class 'captures'/'results'/'media' items are NAS candidates. 'verified' means a validate_*.txt"
-echo "matched a PASS record by name only: confirm it is the same tree before the user deletes."
-echo "'no PASS record' means unknown, not absent: check the NAS, then copy and verify. Class 'review' needs a human decision. Nothing was changed."
+  if [ -d "$LIDAR" ]; then
+    echo
+    echo "== lidar volume: top level (>= ${MIN_MB} MB)"
+    scan_children "$LIDAR"
+    echo
+    echo "== lidar volume: offload/ and lidar/ (>= ${MIN_MB} MB)"
+    scan_children "$LIDAR/offload" '^_(logs|manifests)$'
+    scan_children "$LIDAR/lidar"
+  fi
+
+  echo
+  echo "== Reading this output"
+  echo "Required large files belong on lidar. Items already there are kept by default."
+  echo "Name-based classes do not establish disposability; trace services, symlinks, indexes and blobs."
+  echo "An archive PASS receipt never permits deleting required local evidence."
+  echo "Verify complete local copies and test without NAS access before proposing deletion. Nothing was changed."
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

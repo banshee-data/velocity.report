@@ -1,0 +1,1 @@
+- Made directly attached lidar storage the home of required evidence and large working files, revised cleanup guidance and scan recommendations to retain local copies independently of NAS archives, and added regression tests for retention recommendations.
