@@ -389,11 +389,13 @@ build-radar-linux-docker:
 	@VERSION="$(VERSION)" BUILD_TIME="$(BUILD_TIME)" GIT_SHA="$(GIT_SHA)" ./image/scripts/build-image.sh --binaries-only
 	@echo "Binaries available:"; ls -l image/velocity-binaries || true
 
+VELOCITY_LOCAL_BIN ?= velocity-report-local
+
 build-radar-local:
 	@./scripts/ensure-web-stub.sh
 	@$(MAKE) ensure-offline-docs-build
 	$(call ensure-typst-dist,$(TYPST_GOOS),$(TYPST_GOARCH))
-	go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/velocity
+	go build -tags=$(VELOCITY_BUILD_TAGS) -ldflags "$(LDFLAGS)" -o "$(VELOCITY_LOCAL_BIN)" ./cmd/velocity
 
 # Download a typst binary into the embed dir for the selected target (default:
 # host). The next `-tags typst_embed` build bakes it into the velocity binary.

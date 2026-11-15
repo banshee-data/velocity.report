@@ -1,0 +1,1 @@
+- Made the local server build destination overridable through `VELOCITY_LOCAL_BIN`, preserving the default path and Makefile version stamps so a review server can be built on an external volume when internal disk space is exhausted.

@@ -354,3 +354,7 @@ these review replays. Keep its database and recording root together, preserve ex
 and check the completed run's `clip_id`, `frame_mode`, header bounds and producer stamp before
 opening it in Runs. A full-frame recording contains background points in every rotation;
 settling first gives a second, recorded pass over the complete clip window.
+
+On a machine short of internal disk space, set `VELOCITY_LOCAL_BIN` in untracked `local.mk`
+to an external executable path before `make build-radar-local`. The target still applies the
+normal build tags and version stamps; recording and database paths are configured separately.
