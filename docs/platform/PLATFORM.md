@@ -13,6 +13,9 @@ The [experiment harness runbook](operations/experiment-harness.md) covers offlin
 execution on arrow-worker, restart recovery, checked-in provenance and connected
 run-note publication.
 
+The [local evidence storage policy](operations/local-evidence-storage.md) keeps required
+evidence and large working files on the attached lidar volume, independently of NAS archives.
+
 ## Scope
 
 This hub owns topics where the lasting value is a structural property of the shared

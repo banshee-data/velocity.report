@@ -1,5 +1,10 @@
 # Worker storage hygiene
 
+For Mac development and review, follow [local evidence storage](local-evidence-storage.md):
+required evidence and large working files stay on `/Volumes/lidar`. The NAS is an optional
+final archival destination. This worker archival procedure does not authorise removing a
+required local copy or introducing a runtime dependency on the NAS.
+
 - **Scope:** Linux workers, including arrow-worker
 - **Tool:** [worker-hygiene.py](../../../scripts/worker-hygiene.py)
 

@@ -1095,6 +1095,7 @@ VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PYTHON_VERSION = 3.12
 PYTHON_TEST_PATHS = \
+	scripts/test_free_space_scan.py \
 	scripts/test_worker_hygiene.py \
 	scripts/test_config_tools.py \
 	scripts/test_changed_go_coverage.py \
