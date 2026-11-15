@@ -329,3 +329,13 @@ responses. Late progress, errors and geometry cannot replace the next site's
 state or keep its controls busy. Fixture servers cannot place, update or
 regenerate reference data; choose **Use local Gerardus** or select the data
 server in Settings → Servers.
+
+### Following evidence review
+
+Runs can search an exact run ID, source path, clip or recorded site before repeats are folded.
+The Inspector shows recording context and opens the existing offline following JSON through
+**Following evidence (offline baseline)**. It retains all exported candidate decisions and shows
+the selected point's endpoints, projected speeds, uncertainty and experimental DRAC. It performs
+no new arithmetic or lane attribution and does not overlay an unverified file on playback.
+See the [Lombard–Broderick and Columbus–Broadway readiness review](../../docs/ui/visualiser/following-review-2026-11.md)
+for sources, walkthroughs, and the outstanding geometry and recording-binding gates.

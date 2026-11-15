@@ -45,6 +45,23 @@ enum RunGrouping {
         return clip.isEmpty ? nil : clip
     }
 
+    /// Search recorded metadata before folding, so an exact older run remains visible.
+    /// Text matches are discovery only: they establish no site/source association.
+    static func search(_ runs: [Run], query: String, clips: [String: ClipSummary]) -> [Run] {
+        let words = query.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        guard !words.isEmpty else { return runs }
+        return runs.filter { run in
+            let clip = clipID(of: run).flatMap { clips[$0] }
+            let fields = [
+                run.runId, run.sourcePath, run.sourceName, run.clipId, clip?.name, clip?.site,
+                run.sensorId, run.frameMode, run.paramsHash, run.configHash,
+            ].compactMap { $0 }
+            return words.allSatisfy { word in
+                fields.contains { $0.localizedCaseInsensitiveContains(word) }
+            }
+        }
+    }
+
     /// Group runs by clip, in the order the runs come (the server's is newest
     /// first, so the clip with the newest run leads), with "No clip" last.
     /// Within a group the runs keep their order and repeats fold.

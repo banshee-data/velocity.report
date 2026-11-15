@@ -24,6 +24,23 @@ private func makeRun(
 }
 
 final class RunGroupingTests: XCTestCase {
+    func testSearchFindsAnOlderFoldedRunWithoutInferringASite() {
+        let runs = [
+            makeRun("new"), makeRun("old-id"), makeRun("other", source: "/pcaps/elsewhere"),
+        ]
+        XCTAssertEqual(
+            RunGrouping.search(runs, query: " OLD-ID ", clips: [:]).map(\.runId), ["old-id"])
+        XCTAssertEqual(
+            RunGrouping.search(runs, query: "KIRK hesai-01", clips: [:]).map(\.runId),
+            ["new", "old-id"])
+        XCTAssertTrue(RunGrouping.search(runs, query: "Broadway", clips: [:]).isEmpty)
+        XCTAssertEqual(RunGrouping.search(runs, query: "  ", clips: [:]).count, 3)
+        let clipped = [makeRun("c", clip: "clip")]
+        let clips = ["clip": ClipSummary(clipId: "clip", siteLabel: "Broadway")]
+        XCTAssertEqual(
+            RunGrouping.search(clipped, query: "broadway clip", clips: clips).map(\.runId), ["c"])
+    }
+
     private func ids(_ group: RunClipGroup) -> [[String]] {
         group.rows.map { [$0.run.runId] + $0.folded.map(\.runId) }
     }

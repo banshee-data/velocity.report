@@ -387,3 +387,10 @@ what shipped, when it ships (D-33).
 
 - [ ] The painter draws no per-track trails in the plan view; the field is the only traffic layer there
 - [ ] Turn lanes are drawn by hand; proposals leave turning traffic unclaimed
+
+## Two-site review readiness
+
+The [Lombard–Broderick and Columbus–Broadway review](../ui/visualiser/following-review-2026-11.md)
+records the inspected painter/snapshot write path, available recordings, offline baseline
+inspector, and missing accepted snapshots and lane-following adapter. The baseline inspector
+does not complete the lane-aligned following or turning-movement work.

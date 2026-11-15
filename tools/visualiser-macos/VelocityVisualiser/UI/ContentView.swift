@@ -1210,6 +1210,9 @@ struct SidePanelView: View {
                         TrackInspectorHeaderView(trackID: trackID)
                     }
 
+                    RecordingReviewContext()
+                    FollowingEvidenceView()
+
                     // Label panel
                     LabelPanelView()
 
