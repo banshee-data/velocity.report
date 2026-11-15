@@ -35,11 +35,11 @@ purchase decision. Ethernet UDP alone does not establish compatibility with the 
 
 ## Latest
 
-Latest research: [November 1, 2026][review-latest]. Every price and most specifications are
-search snippets; the proxy failed to resolve vendor, distributor, and resale pages. Only the Hesai
-SDK 2.0 README opened. No verified active offer has been established, and no model newly met the
-range screen. The Pandar40P's cheap offers remain leads to investigate; four offers last observed on
-2026-09-19 reached the 28-day limit and left the table.
+Latest research: [November 15, 2026][review-latest]. Every price and most specifications are
+search snippets; the proxy failed to resolve vendor and eBay pages. Only the Hesai SDK 2.0 README
+opened. No verified active offer has been established, and no model newly met the range screen. The
+Pandar40P's cheap offers remain leads to investigate; eleven offers last observed on 2026-10-11 or
+2026-10-15 reached the 28-day limit and left the table.
 
 ### Models
 
@@ -50,7 +50,7 @@ the source URLs and limitations, not to a new verification of them.
 
 | Model/revision        | Range at 10%                       | Range screen | Lifecycle claim                                      | Evidence                                                                                                     |
 | --------------------- | ---------------------------------- | ------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Hesai Pandar40P       | 200 m                              | Meets range  | Legacy; in SDK 2.0 table; no end-of-life notice seen | [Snippet, September 19][review-september]; [SDK page opened, November 1][review-latest]                      |
+| Hesai Pandar40P       | 200 m                              | Meets range  | Legacy; in SDK 2.0 table; no end-of-life notice seen | [Snippet, September 19][review-september]; [SDK page opened, November 15][review-latest]                     |
 | Hesai Pandar128E3X    | 200 m                              | Meets range  | Reported current                                     | [Snippet, September 19][review-september]                                                                    |
 | Hesai OT128           | 200 m                              | Meets range  | Launched September 2024; reported in mass production | [Snippet, September 19][review-september]; [snippet, October 15][review-october-15]                          |
 | Hesai Pandar64        | 200 m reported                     | Meets range  | In SDK 2.0 table                                     | [Snippet, October 11][review-october-11]                                                                     |
@@ -73,7 +73,7 @@ the source URLs and limitations, not to a new verification of them.
 Model notes retain the extra specification claims without widening the comparison table. Each
 observation link supplies its sources; these notes are replaced when better evidence arrives.
 
-- **Pandar40P:** 40 channels, 40° vertical FOV, 1.52 kg, 18 W typical; IMU not stated. SDK compatibility and absence of a notice do not prove continued production. [Observed September 19][review-september]; SDK table [opened November 1][review-latest].
+- **Pandar40P:** 40 channels, 40° vertical FOV, 1.52 kg, 18 W typical; IMU not stated. SDK compatibility and absence of a notice do not prove continued production. [Observed September 19][review-september]; SDK table [opened November 15][review-latest].
 - **Pandar128E3X:** 128 channels, 40° vertical FOV, 1.63 kg, 27 W maximum; IMU not stated. [Observed September 19][review-september].
 - **OT128:** 128 channels, 40° vertical FOV, 2.2 kg; 29 W in brochure/manual snippets conflicts with 18 W at a reseller. IMU not stated. [Observed September 19][review-september].
 - **Pandar64:** the 200 m figure is a snippet of Hesai's comparison page; no datasheet opened. Weight, power, and IMU not stated. [Observed October 11][review-october-11].
@@ -81,7 +81,7 @@ observation link supplies its sources; these notes are replaced when better evid
 - **OS2 Rev 7:** 32, 64, or 128 channels, 22.5° vertical FOV, 930 g; 20 W supply and 22–28 W peak cold. An IMU is reported, but its part number came from an earlier revision. [Observed September 19][review-september].
 - **OS1 Max Rev 8:** 128 or 256 channels; 45° vertical FOV in the announcement versus 43.9° in the datasheet snippet. Weight, power, and IMU not stated; resellers quote price on enquiry. [Observed September 19][review-september] and [October 15][review-october-15].
 - **OS1:** 455 g, 14–20 W, and IAM-20680HT IMU were reported under a combined Rev 7/8 label. Keep those claims unassigned until revision-specific evidence is checked; the cited datasheet is Rev 7. The recorded Rev 7 FOV conflict is 45° versus 42.4°. [Observed September 19][review-september].
-- **Helios-32:** 32 channels, 26° vertical FOV, about 1.0 kg, 12 W; **Helios-16P:** 16 channels, 30°, about 1 kg, 11 W typical. Both IMUs are unstated. The Helios 32 H32F70 variant (70° vertical FOV) is reported at 110 m at 10% for channels 7–13 only; a distributor snippet gives 70 m, and RobotShop gives 80 m for the RS-Helios-1615. A November 1 snippet repeats 110 m at 10% for the Helios-16P, while a technical report gives 90 m for the series. A 150 m maximum is not a 10% figure. [Observed September 19][review-september], [October 11][review-october-11], [October 15][review-october-15], and [November 1][review-latest].
+- **Helios-32:** 32 channels, 26° vertical FOV, about 1.0 kg, 12 W; **Helios-16P:** 16 channels, 30°, about 1 kg, 11 W typical. Both IMUs are unstated. The Helios 32 H32F70 variant (70° vertical FOV) is reported at 110 m at 10% for channels 7–13 only; a distributor snippet gives 70 m, and RobotShop gives 80 m for the RS-Helios-1615. A [November 1][review-november-01] snippet repeats 110 m at 10% for the Helios-16P, while a technical report and, on November 15, retailers citing the manual give 90 m. A 150 m maximum is not a 10% figure. [Observed September 19][review-september], [October 11][review-october-11], [October 15][review-october-15], [November 1][review-november-01], and [November 15][review-latest].
 - **Ruby Plus:** 128 channels, 40° vertical FOV, 30 W; weight and IMU not stated. [Observed September 19][review-september].
 
 Excluded from routine tracking: Livox Mid-360 and Mid-360S, RoboSense Airy, LSLiDAR C32W and CH32R
@@ -95,10 +95,11 @@ must establish eligibility, and an opened listing page must tie the price, condi
 availability to one identifiable item. The offer must meet the budget rule. A snippet, storefront
 range, or implied price pairing remains an unverified lead.
 
-**Under-budget leads:** Pandar40P from ProTech Supply (storefront US $149.50–299; eBay item
-227057977340 with US $399 new, pairing implied; its US $179.40 used price was not re-seen). None has
-an opened page; delivery and tax are not resolved. A VLP-16 product page at US $355 is under budget
-but the VLP-16 has no recorded 10% figure.
+**Under-budget leads:** Pandar40P from ProTech Supply: eBay item 226044651928 at US $179.40 used
+(snippet dated 2025-10-15 by the page), item 227057977340 at US $399 new (pairing implied), and a
+storefront range of US $149.50–299. None has an opened page; delivery, tax, and current availability
+are not resolved. A VLP-16 product page from US $355 is under budget but the VLP-16 has no recorded
+10% figure.
 
 Freshness is **28 elapsed UTC days from the last observation of that offer**, independent of how
 many reviews ran. At 28 days or more it is stale and leaves this table; sold, ended, and unavailable
@@ -110,50 +111,47 @@ after a blocked check. Neither means the model is over budget.
 
 Availability is unknown for every row: no listing page opened. The table preserves the stated
 currencies and condition claims; it does not select a lowest active price. Rows last observed on
-2026-10-11 reach 28 days on 2026-11-08, and rows from 2026-10-15 on 2026-11-12.
+2026-11-01 reach 28 days on 2026-11-29.
 
-| Model/revision                       | Asking price        | Condition claim                            | Availability/evidence          | Last observed | Source                                       |
-| ------------------------------------ | ------------------- | ------------------------------------------ | ------------------------------ | ------------- | -------------------------------------------- |
-| Pandar40P, revision not stated       | US $149.50–299      | Warranty; individual item not identified   | Unknown; storefront snippet    | 2026-11-01    | [eBay: protechsupply][offer-protechsupply]   |
-| Pandar40P, revision not stated       | US $399             | New; business seller                       | Unknown; pairing implied       | 2026-11-01    | [eBay: 227057977340][offer-40p-protech-item] |
-| Pandar40P, revision not stated       | About US $520       | Used                                       | Unknown; pairing implied       | 2026-11-01    | [eBay: 276528730135][offer-40p-520]          |
-| Pandar40P, revision not stated       | US $550             | Used, 90-day warranty; PremiumPLC, Utica   | Unknown; snippet               | 2026-11-01    | [eBay: 365679803957][offer-40p-michigan]     |
-| XT32, revision not stated            | 1,750 EUR or offer  | Original accessories; private, Germany     | Unknown; snippet               | 2026-11-01    | [eBay: 406739554237][offer-xt32-used]        |
-| XT32, revision not stated            | US $2,138.07        | New                                        | Unknown; store snippet         | 2026-10-15    | [eBay: nebulaautomation][offer-xt32-new]     |
-| XT32, XT16 attribution to confirm    | US $1,400           | New; backordered                           | Unknown; snippet               | 2026-11-01    | [Robotics Center][offer-xt32-rc]             |
-| XT32M2X                              | US $10,499          | New reseller offer                         | Unknown; snippet               | 2026-10-15    | [Openelab][offer-openelab]                   |
-| OS2-128 Rev 7 attribution to confirm | 5,850 EUR ex VAT    | New store offer                            | Unknown; snippet               | 2026-10-11    | [Ghostysky][offer-ghostysky]                 |
-| OS2-64 Rev 7                         | 32,791 EUR          | New store offer; in stock per snippet      | Unknown; snippet               | 2026-11-01    | [RobotShop EU][offer-os2-robotshop]          |
-| OT128                                | 7,200 EUR           | New store offer                            | Unknown; listing-title snippet | 2026-10-11    | [quadruped.de][offer-ot128]                  |
-| OT128                                | US $12,476          | New supplier listing                       | Unknown; snippet               | 2026-10-15    | [Accio][offer-ot128-accio]                   |
-| OS1-32, revision not stated          | US $4,599 or $5,230 | New; Hefei or Hong Kong                    | Unknown; pairing implied       | 2026-10-15    | [eBay: 316022902445][offer-os1-32]           |
-| VLP-32C                              | US $1,198           | Upgraded bundle with GNSS                  | Unknown; store snippet         | 2026-10-15    | [eBay: cezday][offer-vlp32c-cezday]          |
-| VLP-32C                              | US $1,325 or offer  | Open box; bundle with GPS/GNSS             | Unknown; snippet               | 2026-11-01    | [eBay: 305167420502][offer-vlp32c-openbox]   |
-| VLP-16                               | US $399 or offer    | Used; Israel; US $65 shipping              | Unknown; snippet               | 2026-10-15    | [eBay: 267463768804][offer-vlp16-israel]     |
-| VLP-16                               | US $355             | Not stated; free shipping                  | Unknown; product-page snippet  | 2026-11-01    | [eBay: ePID 10057809993][offer-vlp16-epid]   |
-| VLP-16                               | US $500 or offer    | Seller refurbished; no returns             | Unknown; snippet               | 2026-11-01    | [eBay: 186755704215][offer-vlp16-refurb]     |
-| VLP-16                               | US $733.42          | Used; Shenzhen; US $35 shipping            | Unknown; snippet               | 2026-11-01    | [eBay: 176843082973][offer-vlp16-shenzhen]   |
-| Helios, 16/32 variant unresolved     | US $1,630–2,590     | New supplier offer                         | Unknown; snippet               | 2026-10-15    | [Alibaba: 1601757765596][offer-alibaba]      |
-| Helios series, variant unresolved    | US $1,800           | New, device only                           | Unknown; snippet               | 2026-10-15    | [RoboSense store][offer-helios-store]        |
-| Helios 32 H32F70                     | US $4,669; 3,999 €  | New store offer                            | Unknown; snippet               | 2026-10-15    | [OpenELab][offer-helios-openelab]            |
-| Helios, 1615 attribution to confirm  | US $4,786           | New store offer, on demand                 | Unknown; snippet               | 2026-11-01    | [RobotShop][offer-robotshop]                 |
-| RS-LiDAR-16                          | 523.91 EUR          | Used, "99% new"; ten; Shenzhen; 35 EUR P&P | Unknown; snippet               | 2026-10-15    | [eBay: 316241231630][offer-rs16-a]           |
-| RS-LiDAR-16                          | US $541.01          | Used; three; Shenzhen; US $30 shipping     | Unknown; snippet               | 2026-10-15    | [eBay: 157485527025][offer-rs16-b]           |
+| Model/revision                      | Asking price       | Condition claim                          | Availability/evidence         | Last observed | Source                                       |
+| ----------------------------------- | ------------------ | ---------------------------------------- | ----------------------------- | ------------- | -------------------------------------------- |
+| Pandar40P, revision not stated      | US $179.40         | Used; ProTech Supply; page dated 2025-10 | Unknown; snippet              | 2026-11-15    | [eBay: 226044651928][offer-40p-179]          |
+| Pandar40P, revision not stated      | US $149.50–299     | Warranty; individual item not identified | Unknown; storefront snippet   | 2026-11-01    | [eBay: protechsupply][offer-protechsupply]   |
+| Pandar40P, revision not stated      | US $399            | New; business seller                     | Unknown; pairing implied      | 2026-11-01    | [eBay: 227057977340][offer-40p-protech-item] |
+| Pandar40P, revision not stated      | US $520 or offer   | Used, with warranty; Rocklin             | Unknown; snippet              | 2026-11-15    | [eBay: 276528730135][offer-40p-520]          |
+| Pandar40P, revision not stated      | US $550            | Used, 90-day warranty; US $28.25 P&P     | Unknown; snippet              | 2026-11-15    | [eBay: 365679803957][offer-40p-michigan]     |
+| XT32, revision not stated           | 1,750 EUR          | Private seller, Germany; no returns      | Unknown; snippet              | 2026-11-15    | [eBay: 406739554237][offer-xt32-used]        |
+| XT32, revision not stated           | US $1,960          | New; Shenzhen; page dated 2025-04        | Unknown; snippet              | 2026-11-15    | [eBay: 316640744654][offer-xt32-new]         |
+| XT32, XT16 attribution to confirm   | US $1,400          | New; backordered                         | Unknown; snippet              | 2026-11-01    | [Robotics Center][offer-xt32-rc]             |
+| OS2-64 Rev 7                        | 32,791 EUR         | New store offer; in stock per snippet    | Unknown; snippet              | 2026-11-01    | [RobotShop EU][offer-os2-robotshop]          |
+| OT128                               | US $11,490 sample  | New supplier offer                       | Unknown; snippet              | 2026-11-15    | [Alibaba: 1601800819872][offer-ot128]        |
+| OT128                               | US $21,080         | New; backordered; quote from US $15,600  | Unknown; snippet              | 2026-11-15    | [Robotics Center][offer-ot128-rc]            |
+| VLP-32C                             | US $1,198          | Plug & Scan bundle                       | Unknown; store snippet        | 2026-11-15    | [eBay: cezday][offer-vlp32c-cezday]          |
+| VLP-32C                             | US $1,325 or offer | Open box; bundle with GPS/GNSS           | Unknown; snippet              | 2026-11-15    | [eBay: 305167420502][offer-vlp32c-openbox]   |
+| VLP-32C 80-VLP-32-C-EV-A            | US $1,149          | New; 30-day returns; katiil3             | Unknown; pairing implied      | 2026-11-15    | [eBay: 267399691509][offer-vlp32c-new]       |
+| VLP-16                              | From US $355       | Used section of product page             | Unknown; product-page snippet | 2026-11-15    | [eBay: ePID 10057809993][offer-vlp16-epid]   |
+| VLP-16                              | US $500 or offer   | Seller refurbished; no returns           | Unknown; snippet              | 2026-11-15    | [eBay: 186755704215][offer-vlp16-refurb]     |
+| VLP-16                              | US $733.42         | Used                                     | Unknown; snippet              | 2026-11-15    | [eBay: 176843082973][offer-vlp16-shenzhen]   |
+| Helios, 16/32 variant unresolved    | US $1,630–2,590    | New supplier offer                       | Unknown; pairing implied      | 2026-11-15    | [Alibaba: 1601757765596][offer-alibaba]      |
+| Helios 16                           | US $1,800          | New; backordered                         | Unknown; snippet              | 2026-11-15    | [AIFit Lab][offer-helios-aifit]              |
+| Helios, 1615 attribution to confirm | US $4,786          | New store offer, on demand               | Unknown; snippet              | 2026-11-01    | [RobotShop][offer-robotshop]                 |
+| RS-LiDAR-16                         | 523.91 EUR         | Used, "99% new"; ten available           | Unknown; snippet              | 2026-11-15    | [eBay: 316241231630][offer-rs16-a]           |
+| RS-LiDAR-16                         | About US $1,121    | Used; 30-day returns                     | Unknown; snippet              | 2026-11-15    | [eBay: 388839052234][offer-rs16-b]           |
 
-Rows re-seen on 2026-11-01 refresh only the fields the snippet showed: the VLP-16 item 267463768804
-was re-seen without a price, so its date stays at 2026-10-15. Item 305167420502, recorded as a
-VLP-16 at about US $399 on 2026-10-05, is now described as an open-box VLP-32C bundle; see the
-[November 1 entry][review-latest]. The 2026-09-19 offers from PremiumPLC, Lablink, KartaView, and
-eBay 316843061791 reached 28 days unrefreshed and left this table; sold VLP-32C, RS-LiDAR-16, and
-OS1-32 offers and the ended Ouster offers stay in the [archive][review-october-15]. Listings without
-a stated price remain there as research leads.
+Rows re-seen on 2026-11-15 refresh only the fields the snippet showed. The US $179.40 Pandar40P
+price, earlier paired with item 227057977340, is now tied by snippet to item 226044651928; RobotShop
+Canada shows about US $7,038 for the Helios-1615, which leaves the US $4,786 US-store figure
+unrefreshed. eBay 388641059791 (US $149.99, defective, model not named) is not a candidate; see the
+[November 15 entry][review-latest]. Offers last observed on 2026-10-11 or 2026-10-15 reached 28 days
+unrefreshed and left this table; sold and ended offers stay in the [archive][review-november-01].
+Listings without a stated price remain there as research leads.
 
 ### Coverage gaps
 
 - Vendor, distributor, and resale pages failed to resolve again; all prices are snippets. Verify primary hardware pages and individual offers before shortlisting; a seller's condition claim is not a physical inspection.
 - No 10% range figure for Pandar20, HDL-32E, RS-LiDAR-16, or RS-LiDAR-32. The Helios figures conflict (110, 90, 80, and 70 m), and Pandar64's figure rests on one snippet.
-- Several Ouster revision claims remain unresolved. The only OS2 price seen on November 1 is a 32,791 EUR snippet; no used OS1 or OS2 eBay listing surfaced.
-- The VLP-16 offers under US $450 cannot be shortlisted while the VLP-16 has no recorded 10% figure; the eBay product page does not tie its US $355 price to a condition or item.
+- Several Ouster revision claims remain unresolved. OS2 prices seen are a 32,791 EUR store snippet and a new OS2-128 eBay snippet at US $7,360.60 without an item number; no used OS1 or OS2 eBay listing surfaced.
+- The VLP-16 offers under US $450 cannot be shortlisted while the VLP-16 has no recorded 10% figure; the eBay product page does not tie its US $355 starting price to one item.
 - Missing weights, power figures, and IMU facts are recorded in the model notes. Currency, shipping, tax, accessory, and IMU costs must be resolved for a complete budget.
 - Lifecycle evidence does not establish ongoing production: SDK support and absence of an end-of-life notice are limited observations.
 
@@ -202,29 +200,27 @@ two legacy anchors stay in place; future dated headings belong only in the annua
 [review-october]: lidar-market-reviews/2026.md#2026-10-05
 [review-october-11]: lidar-market-reviews/2026.md#2026-10-11
 [review-october-15]: lidar-market-reviews/2026.md#2026-10-15
-[review-latest]: lidar-market-reviews/2026.md#2026-11-01
+[review-november-01]: lidar-market-reviews/2026.md#2026-11-01
+[review-latest]: lidar-market-reviews/2026.md#2026-11-15
+[offer-40p-179]: https://www.ebay.de/itm/226044651928
 [offer-protechsupply]: https://www.ebay.com/usr/protechsupply
 [offer-40p-protech-item]: https://www.ebay.de/itm/227057977340
 [offer-40p-520]: https://www.ebay.de/itm/276528730135
 [offer-40p-michigan]: https://www.ebay.de/itm/365679803957
 [offer-xt32-used]: https://www.ebay.de/itm/406739554237
-[offer-xt32-new]: https://www.ebay.com/str/nebulaautomation/Industrial-Automation-Motion-Controls/_i.html
+[offer-xt32-new]: https://www.ebay.de/itm/316640744654
 [offer-xt32-rc]: https://www.roboticscenter.ai/ar/store/product/hesai-technology-hesai-xt32
-[offer-openelab]: https://openelab.com/products/hesai-xt32m2x-32-channel-lidar
-[offer-ghostysky]: https://www.ghostysky.com/home/shop-ouster-lidars/
 [offer-os2-robotshop]: https://eu.robotshop.com/products/mybotshop-ouster-multi-layer-3d-lidar-os2-rev-7-64
-[offer-ot128]: https://www.quadruped.de/Hesai-OT128_1
-[offer-ot128-accio]: https://es.accio.com/plp/ot128
-[offer-os1-32]: https://www.ebay.de/itm/316022902445
+[offer-ot128]: https://www.alibaba.fr/product-detail/Hesai-OT128-128-Channel-LiDAR-Sensor_1601800819872.html
 [offer-vlp32c-cezday]: https://www.ebay.com/str/cezday
-[offer-vlp16-israel]: https://www.ebay.de/itm/267463768804
+[offer-vlp32c-new]: https://www.ebay.de/itm/267399691509
+[offer-ot128-rc]: https://www.roboticscenter.ai/es/store/product/hesai-ot128
+[offer-helios-aifit]: https://aifitlab.com/products/robosense-helios-series-lidar
 [offer-vlp32c-openbox]: https://www.ebay.com/itm/305167420502
 [offer-vlp16-epid]: https://www.ebay.com/p/10057809993
 [offer-vlp16-refurb]: https://www.ebay.com/itm/186755704215
 [offer-vlp16-shenzhen]: https://www.ebay.de/itm/176843082973
-[offer-alibaba]: https://www.alibaba.fr/product-detail/Helios-RS-Helios16-32-Robosense-LiDAR_1601757765596.html
-[offer-helios-store]: https://store.robosense.ai/products/helios-series
-[offer-helios-openelab]: https://openelab.com/products/robosense-helios-h32f70-lidar-sensor
+[offer-alibaba]: https://www.alibaba.co.uk/product-detail/Helios-RS-Helios16-32-Robosense-LiDAR_1601757765596.html
 [offer-robotshop]: https://robotshop.com/products/robosense-lidar-rs-helios-1615-150-m-us
 [offer-rs16-a]: https://www.ebay.de/itm/316241231630
-[offer-rs16-b]: https://www.ebay.de/itm/157485527025
+[offer-rs16-b]: https://www.ebay.de/itm/388839052234
