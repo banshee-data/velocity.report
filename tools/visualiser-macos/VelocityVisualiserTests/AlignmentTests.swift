@@ -2478,6 +2478,72 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         // The reference stays drawn until a site is placed again.
         #expect(session.reference != nil)
     }
+
+    @Test func preferredScanSurvivesNewRunIDsAndFailsClosedForStaleHeads() {
+        var wanted = record("chosen", at: 20, eastM: 4, captureRef: "original-clip")
+        wanted.scanID = "chosen-scan"
+        var other = record("other", at: 30, eastM: 9, captureRef: "another-position")
+        other.scanID = "other-scan"
+        let heads = [wanted.scanID: wanted.recordID, other.scanID: other.recordID]
+        #expect(
+            AlignmentSession.defaultRecord(
+                [other, wanted], captureRef: "new-review-run", scanID: nil,
+                preferredScanID: wanted.scanID, heads: heads)?.recordID == wanted.recordID)
+        #expect(
+            AlignmentSession.acceptedRecord(
+                [other, wanted], heads: heads, captureRef: "new-review-run", scanID: nil,
+                preferredScanID: wanted.scanID)?.recordID == wanted.recordID)
+        #expect(
+            AlignmentSession.defaultRecord(
+                [other], captureRef: "new-review-run", scanID: nil, preferredScanID: wanted.scanID,
+                heads: heads) == nil)
+        var rejection = record("rejected-head", at: 10, eastM: 0, state: .rejected)
+        rejection.scanID = wanted.scanID
+        let rejectedHeads = [wanted.scanID: rejection.recordID]
+        #expect(
+            AlignmentSession.defaultRecord(
+                [other, wanted, rejection], captureRef: "new-review-run", scanID: nil,
+                preferredScanID: wanted.scanID, heads: rejectedHeads) == nil,
+            "Append-order rejection wins even when the wall clock moved backwards")
+        #expect(
+            AlignmentSession.acceptedRecord(
+                [other, wanted, rejection], heads: rejectedHeads, captureRef: "new-review-run",
+                scanID: nil, preferredScanID: wanted.scanID) == nil)
+    }
+
+    @Test func choosingAnAcceptedScanPersistsForTheClipAcrossSessions() async {
+        let suite = "alignment-selection-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let service = FakeAlignmentService()
+        var wanted = record("chosen", at: 20, eastM: 4, captureRef: site.clipID)
+        wanted.scanID = "chosen-scan"
+        var other = record("other", at: 30, eastM: 9, captureRef: "another-position")
+        other.scanID = "other-scan"
+        service.records = [other, wanted]
+        let first = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: defaults)
+        await first.probe()
+        first.choose(site)
+        first.northAzimuthText = "35"
+        await first.placeFromHint()
+        #expect(
+            defaults.string(forKey: AlignmentSession.preferredScanKey(site)) == nil,
+            "Automatic fallback does not pin an unchosen scan")
+        first.showRecord(wanted)
+        #expect(defaults.string(forKey: AlignmentSession.preferredScanKey(site)) == wanted.scanID)
+        let restored = AlignmentSession(
+            makeClient: { _ in service }, lookup: nil, defaults: defaults)
+        await restored.probe()
+        restored.choose(site)
+        restored.noteLoadedRun(fullFrames: false, captureRef: "new-review-run")
+        restored.northAzimuthText = "35"
+        await restored.placeFromHint()
+        #expect(restored.selectedRecordID == wanted.recordID)
+        #expect(restored.acceptedRecord?.recordID == wanted.recordID)
+        var elsewhere = site
+        elsewhere.clipID = "another-visit"
+        #expect(defaults.string(forKey: AlignmentSession.preferredScanKey(elsewhere)) == nil)
+    }
 }
 
 // MARK: - Site model in the session

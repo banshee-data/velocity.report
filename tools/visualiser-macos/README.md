@@ -256,6 +256,13 @@ VRLOG path does not guarantee that the recording is still present on the server.
 Foreground-only recordings show **FG** in the Frames column. The duration shows
 the recorded interval, which may be shorter than the source capture.
 
+The [weekend focus inventory](../../docs/ui/visualiser/weekend-focus-recording-inventory.md)
+names the four complete foreground recordings in the main catalogue, their verification and
+the remaining Gerardus alignment dependencies.
+Choosing a current accepted registration in Alignment remembers its scan for that clip across
+review runs and app restarts. If that scan loses its accepted head, placement asks for another
+accepted record rather than silently choosing a different scan.
+
 ### Running tests
 
 ```bash

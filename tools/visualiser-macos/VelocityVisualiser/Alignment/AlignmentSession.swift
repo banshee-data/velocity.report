@@ -905,9 +905,13 @@ struct ReferenceSummary: Equatable {
             // stands: draw it, so Register starts from it rather than the
             // eye-read hint. Reset nudges goes back to the hint.
             if let record = Self.defaultRecord(
-                records, captureRef: loadedRunCaptureRef ?? site.clipID, scanID: scan?.scanID)
+                records, captureRef: loadedRunCaptureRef ?? site.clipID, scanID: scan?.scanID,
+                preferredScanID: preferredScanID, heads: recordHeads)
             {
-                showRecord(record)
+                showRecord(record, rememberSelection: false)
+            } else if preferredScanID != nil {
+                errorMessage =
+                    "The saved scan is no longer accepted for this clip. Choose an accepted record."
             }
         } catch { if preparationEpoch == epoch { errorMessage = Self.preparationError(error) } }
     }
@@ -1253,9 +1257,29 @@ struct ReferenceSummary: Equatable {
     /// Snaps the drawn pose to a record's: the sensor where that decision put
     /// it. Accept then records it again as MANUALLY_PLACED, the operator
     /// having chosen it. A rejected record carries no pose and is left alone.
-    func showRecord(_ record: Gerardus_Align_V1alpha1_RegistrationRecord) {
+    func showRecord(
+        _ record: Gerardus_Align_V1alpha1_RegistrationRecord, rememberSelection: Bool = true
+    ) {
         guard record.hasPose else { return }
+        if rememberSelection { rememberAcceptedScan(record) }
         setPose(SitePose(record.pose), source: .manual, record: record.recordID)
+    }
+
+    private func rememberAcceptedScan(_ record: Gerardus_Align_V1alpha1_RegistrationRecord) {
+        guard record.hasPose, !record.scanID.isEmpty, let site,
+            recordHeads[record.scanID] == record.recordID,
+            record.state == .registered || record.state == .manuallyPlaced
+        else { return }
+        defaults?.set(record.scanID, forKey: Self.preferredScanKey(site))
+    }
+
+    static func preferredScanKey(_ site: AlignmentSite) -> String {
+        "alignment.preferredScan.\(site.l16Token).\(site.clipID)"
+    }
+
+    private var preferredScanID: String? {
+        guard let site else { return nil }
+        return defaults?.string(forKey: Self.preferredScanKey(site))
     }
 
     /// The record drawn by default once a site's records are read on
@@ -1267,7 +1291,7 @@ struct ReferenceSummary: Equatable {
     var acceptedRecord: Gerardus_Align_V1alpha1_RegistrationRecord? {
         Self.acceptedRecord(
             records, heads: recordHeads, captureRef: loadedRunCaptureRef ?? site?.clipID,
-            scanID: scan?.scanID)
+            scanID: scan?.scanID, preferredScanID: preferredScanID)
     }
 
     /// The head of the open capture's scan (its newest record in append
@@ -1275,9 +1299,16 @@ struct ReferenceSummary: Equatable {
     /// scan leaves none.
     nonisolated static func acceptedRecord(
         _ records: [Gerardus_Align_V1alpha1_RegistrationRecord], heads: [String: String],
-        captureRef: String?, scanID: String?
+        captureRef: String?, scanID: String?, preferredScanID: String? = nil
     ) -> Gerardus_Align_V1alpha1_RegistrationRecord? {
-        records.first { record in
+        if let preferredScanID {
+            return records.first { record in
+                record.scanID == preferredScanID && heads[record.scanID] == record.recordID
+                    && record.hasPose
+                    && (record.state == .registered || record.state == .manuallyPlaced)
+            }
+        }
+        return records.first { record in
             let own =
                 (captureRef.map { !$0.isEmpty && record.captureRef == $0 } ?? false)
                 || (scanID.map { !$0.isEmpty && record.scanID == $0 } ?? false)
@@ -1288,8 +1319,22 @@ struct ReferenceSummary: Equatable {
 
     nonisolated static func defaultRecord(
         _ records: [Gerardus_Align_V1alpha1_RegistrationRecord], captureRef: String?,
-        scanID: String?
+        scanID: String?, preferredScanID: String? = nil, heads: [String: String]? = nil
     ) -> Gerardus_Align_V1alpha1_RegistrationRecord? {
+        if let preferredScanID {
+            let record: Gerardus_Align_V1alpha1_RegistrationRecord?
+            if let heads {
+                record = records.first {
+                    $0.recordID == heads[preferredScanID] && $0.scanID == preferredScanID
+                }
+            } else {
+                record = records.first { $0.scanID == preferredScanID }
+            }
+            guard let head = record, head.hasPose,
+                head.state == .registered || head.state == .manuallyPlaced
+            else { return nil }
+            return head
+        }
         let posed = records.filter(\.hasPose)
         let own = posed.first { record in
             (captureRef.map { !$0.isEmpty && record.captureRef == $0 } ?? false)
@@ -2257,6 +2302,7 @@ struct ReferenceSummary: Equatable {
             rejectReason = ""
             recorded = true
             await loadRecords()
+            rememberAcceptedScan(record)
             if record.hasPose { selectedRecordID = record.recordID }
         } catch {
             errorMessage = GerardusClientError.describe(error)

@@ -825,7 +825,7 @@ import SwiftUI
                     ).clipShape(RoundedRectangle(cornerRadius: 4)).contentShape(Rectangle())
                 }.buttonStyle(.plain).disabled(!record.hasPose).help(
                     record.hasPose
-                        ? "Draw the sensor where this decision put it; Accept then records it again"
+                        ? "Draw this pose; accepted current scans are remembered for this clip"
                         : "A rejected decision carries no pose")
             }
         }
