@@ -1129,7 +1129,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         compositeRenderer?.processFrame(frame)
 
         // Legacy path: Update point cloud buffer directly for full frames
-        if frame.frameType == .full, let pointCloud = frame.pointCloud, pointCloud.pointCount > 0 {
+        if frame.frameType == .full, let pointCloud = frame.pointCloud {
             updatePointBuffer(pointCloud)
         }
 
@@ -1182,7 +1182,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// Only reallocates when capacity is insufficient or excessively large.
     private func updatePointBuffer(_ pointCloud: PointCloudFrame) {
         let count = pointCloud.pointCount
-        guard count > 0 else { return }
+        guard pointCloud.hasValidPointLayout, count > 0 else {
+            pointCount = 0
+            return
+        }
 
         // M7: Check if we need to reallocate the buffer
         let neededVertices = count * 5  // 5 floats per vertex
@@ -1199,6 +1202,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 // Allocation failed; ensure capacity metadata does not claim a valid buffer.
                 pointBuffer = nil
                 pointBufferCapacity = 0
+                pointCount = 0
             }
         }
 

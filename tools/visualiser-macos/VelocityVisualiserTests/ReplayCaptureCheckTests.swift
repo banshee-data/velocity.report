@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import Metal
 import Testing
 import simd
 
@@ -110,6 +111,30 @@ struct ReplayCaptureCheckTests {
         // A server or recording without return identity sends none.
         proto.pointCloud.packetKeys = []
         #expect(client.decodeFrameBundle(proto).pointCloud?.packetKeys == [])
+    }
+
+    @Test func wireByteValuesDoNotTrapAndMalformedCountsRemainDetectable() throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        var proto = Velocity_Visualiser_V1_FrameBundle()
+        proto.pointCloud.x = [1]
+        proto.pointCloud.y = [2]
+        proto.pointCloud.z = [3]
+        proto.pointCloud.intensity = [UInt32.max]
+        proto.pointCloud.classification = [UInt32.max]
+        proto.pointCloud.pointCount = 1
+        let cloud = client.decodeFrameBundle(proto).pointCloud!
+        #expect(cloud.intensity == [255])
+        #expect(cloud.classification == [255])
+        #expect(cloud.hasValidPointLayout)
+        proto.pointCloud.pointCount = Int32.max
+        let malformed = client.decodeFrameBundle(proto)
+        #expect(malformed.pointCloud?.hasValidPointLayout == false)
+        let renderer = CompositePointCloudRenderer(
+            device: try #require(MTLCreateSystemDefaultDevice()))
+        renderer.processFrame(FrameBundle(pointCloud: cloud))
+        #expect(renderer.getStats().foreground == 1)
+        renderer.processFrame(malformed)
+        #expect(renderer.getStats().foreground == 0)
     }
 
     private func pointFrame(at timestampNs: Int64, keys: [UInt64]) -> FrameBundle {

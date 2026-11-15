@@ -125,7 +125,7 @@ class CompositePointCloudRenderer {
             if let background = frame.background {
                 updateBackgroundBuffer(background)
                 backgroundSeq = background.sequenceNumber
-                cacheState = .cached(seq: backgroundSeq)
+                cacheState = background.hasValidPointLayout ? .cached(seq: backgroundSeq) : .empty
             }
 
         case .foreground:
@@ -140,7 +140,7 @@ class CompositePointCloudRenderer {
             if let background = frame.background {
                 updateBackgroundBuffer(background)
                 backgroundSeq = background.sequenceNumber
-                cacheState = .cached(seq: backgroundSeq)
+                cacheState = background.hasValidPointLayout ? .cached(seq: backgroundSeq) : .empty
             }
 
         case .delta:
@@ -176,8 +176,14 @@ class CompositePointCloudRenderer {
             "UpdateBackgroundBuffer", "seq=\(snapshot.sequenceNumber) points=\(count)")
         defer { trace.end("used=\(backgroundPointCount) capacity=\(backgroundBufferCapacity / 5)") }
 
-        guard count > 0 else {
+        guard snapshot.hasValidPointLayout, count > 0 else {
             backgroundPointCount = 0
+            previousBackgroundBuffer = nil
+            previousBackgroundPointCount = 0
+            isTransitioning = false
+            if !snapshot.hasValidPointLayout {
+                PerformanceTrace.event("InvalidBackgroundLayout", "seq=\(snapshot.sequenceNumber)")
+            }
             return
         }
 
@@ -244,8 +250,11 @@ class CompositePointCloudRenderer {
             "UpdateForegroundBuffer", "frame=\(pointCloud.frameID) points=\(count)")
         defer { trace.end("used=\(foregroundPointCount) capacity=\(foregroundBufferCapacity / 5)") }
 
-        guard count > 0 else {
+        guard pointCloud.hasValidPointLayout, count > 0 else {
             foregroundPointCount = 0
+            if !pointCloud.hasValidPointLayout {
+                PerformanceTrace.event("InvalidPointCloudLayout", "frame=\(pointCloud.frameID)")
+            }
             return
         }
 

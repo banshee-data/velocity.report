@@ -867,6 +867,20 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
         return renderer
     }
 
+    func testMalformedAndEmptyCloudsClearLegacyPoints() throws {
+        let renderer = try createRenderer()
+        let valid = PointCloudFrame(x: [1], y: [2], z: [3], intensity: [4], pointCount: 1)
+        for invalid in [
+            PointCloudFrame(pointCount: 10), PointCloudFrame(),
+            PointCloudFrame(x: [1], y: [2], z: [3], pointCount: 1),
+        ] {
+            renderer.updateFrame(FrameBundle(pointCloud: valid))
+            XCTAssertEqual(renderer.pointCount, 1)
+            renderer.updateFrame(FrameBundle(pointCloud: invalid))
+            XCTAssertEqual(renderer.pointCount, 0)
+        }
+    }
+
     func testUpdateFrameEmpty() throws {
         let renderer = try createRenderer()
         let frame = FrameBundle()
