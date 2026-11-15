@@ -1,6 +1,6 @@
 # Weekend focus recording inventory
 
-- **Status:** Four complete foreground recordings verified in the main catalogue; alignment dependencies remain unavailable
+- **Status:** Four complete foreground recordings verified; all four sites and Ashbury's foreground preview loaded in the visualiser with NAS shares unmounted
 - **Related:** [Weekend evidence plan](../../plans/lidar-weekend-following-drac-plan.md), [Gerardus alignment](gerardus-alignment.md)
 
 The November 14 weekend review now has complete, settled-first foreground recordings for
@@ -67,12 +67,18 @@ Live registration-record queries confirmed accepted poses for all four sites:
 | Embarcadero at Bryant | `80858070d` | Operator-accepted manual placement, `gms:01M684AR57ZPDAHJKC6ZTABDS8`          |
 | Lombard at Broderick  | `808580d49` | Operator-accepted manual placement, `gms:01M65C8GPFW8M1PEW4F9M54TZY`          |
 
-Alignment is not ready for an unattended handoff. `GetSiteModel` failed for all four because the
-active service's prepared-site and blob paths reference the unavailable `/Volumes/banshee-results`
-mount. A checked local experiment copy contained some dependencies but lacked the accepted Bryant
-and Lombard scan blobs. Restore the complete matching dependencies locally, then verify a cold
-alignment start with the NAS disconnected. Kirkham additionally needs an explicit accepted scan
-selection; multiple live poses must not be collapsed into an arbitrary automatic choice.
+Initially, `GetSiteModel` failed for all four because prepared-site and blob paths referenced
+the unavailable `/Volumes/banshee-results` mount. A checked local experiment copy lacked the
+accepted Bryant and Lombard scan blobs. The subsequent [local recovery](gerardus-local-focus-recovery.md)
+restored the matching bundles, scan blobs, source subsets and geometry products on lidar.
+Cold-start model identities and all 56 reference-layer stream hashes matched the NAS-backed
+baseline while NAS reads and outbound connections were blocked. Kirkham's explicit accepted
+focus scan was selected and persisted in the rebuilt visualiser; historical scans were retained.
+The recovery record gives the durable launcher, active database paths and verification limits.
+Its [five-site follow-up](gerardus-local-focus-recovery.md#five-site-verification-with-the-nas-unmounted)
+adds native loads with the shares actually unmounted, Ashbury's 90-second preview
+and the observed client restart. Ashbury's preview does not extend the four full-capture
+recordings listed above.
 
 ## Frozen provenance and limits
 
