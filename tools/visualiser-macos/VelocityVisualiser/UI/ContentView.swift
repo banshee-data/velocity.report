@@ -469,6 +469,14 @@ func bestRunTrackHits(trackId: String, frameTrack: Track?, trackMaxHits: [String
     max(frameTrack?.hits ?? 0, trackMaxHits[trackId] ?? 0)
 }
 
+/// A seek or new source can rewind the index. It must refresh immediately,
+/// rather than waiting for the new source to reach the previous source's index.
+func shouldRefreshTrackList(index: UInt64, previousIndex: UInt64, fps: Double) -> Bool {
+    if index < previousIndex { return true }
+    if fps <= 0 || fps >= 18 { return true }
+    return index - previousIndex >= 5
+}
+
 /// Format the row metric shown next to the track ID.
 /// Extracted from TrackListView row rendering for testability.
 func trackMetricDisplay(sortOrder: TrackSortOrder, speed: Double?, hits: Int?) -> String? {
@@ -1695,10 +1703,11 @@ struct TrackListView: View {
             // Throttle the track-list re-sort when FPS drops below 18.
             // Skip frames to avoid the O(n·log·n) sort + SwiftUI diff on
             // every single frame — only sync every 5th frame when lagging.
-            if appState.fps > 0 && appState.fps < 18 {
-                let gap = newIndex > lastSyncedFrameIndex ? newIndex - lastSyncedFrameIndex : 0
-                guard gap >= 5 else { return }
-            }
+            guard
+                shouldRefreshTrackList(
+                    index: newIndex, previousIndex: lastSyncedFrameIndex, fps: appState.fps)
+            else { return }
+            if newIndex < lastSyncedFrameIndex { previousRanks = [:] }
             lastSyncedFrameIndex = newIndex
             if sortOrder.usesLeaderboardMetric { updateRanks() }
             syncTrackListOrder()
