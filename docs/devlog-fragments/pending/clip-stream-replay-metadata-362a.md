@@ -1,0 +1,1 @@
+- Notified the visualiser stream after a clip replay starts successfully, matching file replay so live inspection receives replay metadata; covered exactly-once notification and refusals or failed starts without notification.
