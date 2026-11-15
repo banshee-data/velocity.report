@@ -84,6 +84,12 @@ struct BackgroundSnapshot {
     var gridMetadata: GridMetadata?
 
     var pointCount: Int { x.count }
+
+    /// Snapshot confidence is a required parallel array, unlike optional
+    /// foreground classification. Never manufacture coordinates for short data.
+    var hasValidPointLayout: Bool {
+        y.count == x.count && z.count == x.count && confidence.count == x.count
+    }
 }
 
 struct FrameBundle {
@@ -136,6 +142,13 @@ struct PointCloudFrame {
     var decimationMode: DecimationMode = .none
     var decimationRatio: Float = 1.0
     var pointCount: Int = 0
+
+    /// Wire counts are untrusted. Required arrays must agree exactly; optional
+    /// classification retains the legacy per-point fallback when absent/short.
+    var hasValidPointLayout: Bool {
+        pointCount >= 0 && x.count == pointCount && y.count == pointCount && z.count == pointCount
+            && intensity.count == pointCount
+    }
 
     /// Every packet that contributed a return to the frame, as 64-bit packet
     /// keys (the first 8 bytes of SHA-256 over the UDP payload). About 180 a

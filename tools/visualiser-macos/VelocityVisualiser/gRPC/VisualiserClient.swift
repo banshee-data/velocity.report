@@ -685,11 +685,17 @@ final class LockedState<Value>: @unchecked Sendable {
             let pc = proto.pointCloud
             frame.pointCloud = PointCloudFrame(
                 frameID: pc.frameID, timestampNanos: pc.timestampNs, sensorID: pc.sensorID, x: pc.x,
-                y: pc.y, z: pc.z, intensity: pc.intensity.map { UInt8($0) },
-                classification: pc.classification.map { UInt8($0) },
+                y: pc.y, z: pc.z, intensity: pc.intensity.map { UInt8(clamping: $0) },
+                classification: pc.classification.map { UInt8(clamping: $0) },
                 decimationMode: DecimationMode(rawValue: Int(pc.decimationMode.rawValue)) ?? .none,
                 decimationRatio: pc.decimationRatio, pointCount: Int(pc.pointCount),
                 packetKeys: pc.packetKeys)
+        }
+
+        if let cloud = frame.pointCloud, !cloud.hasValidPointLayout {
+            logger.error(
+                "Malformed point cloud in frame \(frame.frameID): count=\(cloud.pointCount), xyz=\(cloud.x.count)/\(cloud.y.count)/\(cloud.z.count), intensity=\(cloud.intensity.count). Rendering suppressed."
+            )
         }
 
         // Clusters

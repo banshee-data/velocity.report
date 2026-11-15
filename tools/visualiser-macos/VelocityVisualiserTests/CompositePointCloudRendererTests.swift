@@ -23,6 +23,67 @@ struct CompositePointCloudRendererTests {
 
     enum TestError: Error { case metalNotAvailable }
 
+    @Test func malformedParallelArraysClearForegroundAndRecover() throws {
+        let renderer = CompositePointCloudRenderer(device: try createDevice())
+        let valid = PointCloudFrame(
+            x: [1, 2], y: [3, 4], z: [5, 6], intensity: [7, 8], pointCount: 2)
+        var invalids = [PointCloudFrame]()
+        var bad = valid
+        bad.x = []
+        invalids.append(bad)
+        bad = valid
+        bad.y = [3]
+        invalids.append(bad)
+        bad = valid
+        bad.z = []
+        invalids.append(bad)
+        bad = valid
+        bad.intensity = [7]
+        invalids.append(bad)
+        bad = valid
+        bad.pointCount = -1
+        invalids.append(bad)
+        bad = valid
+        bad.pointCount = Int.max
+        invalids.append(bad)
+        bad = valid
+        bad.pointCount = 1
+        invalids.append(bad)
+        for kind in [FrameType.full, .foreground] {
+            for invalid in invalids {
+                renderer.processFrame(FrameBundle(pointCloud: valid, frameType: kind))
+                #expect(renderer.getStats().foreground == 2)
+                renderer.foregroundPointFilter = { _, _ in true }
+                renderer.processFrame(FrameBundle(pointCloud: invalid, frameType: kind))
+                #expect(renderer.getStats().foreground == 0)
+            }
+        }
+        var optionalClassification = valid
+        optionalClassification.classification = [2]
+        renderer.processFrame(
+            FrameBundle(pointCloud: optionalClassification, frameType: .foreground))
+        #expect(renderer.getStats().foreground == 2)
+    }
+
+    @Test func malformedBackgroundClearsCacheAndRecovers() throws {
+        let renderer = CompositePointCloudRenderer(device: try createDevice())
+        let valid = BackgroundSnapshot(
+            sequenceNumber: 1, x: [1, 2], y: [3, 4], z: [5, 6], confidence: [1, 2])
+        for field in 0..<3 {
+            renderer.processFrame(FrameBundle(frameType: .background, background: valid))
+            var bad = valid
+            if field == 0 { bad.y = [] }
+            if field == 1 { bad.z = [5] }
+            if field == 2 { bad.confidence = [] }
+            renderer.processFrame(FrameBundle(frameType: .background, background: bad))
+            #expect(renderer.getStats().background == 0)
+            #expect(renderer.cacheState.description == "Empty")
+            #expect(!renderer.advanceTransition())
+        }
+        renderer.processFrame(FrameBundle(frameType: .background, background: valid))
+        #expect(renderer.getStats().background == 2)
+    }
+
     // MARK: - Initialisation Tests
 
     @Test func rendererInitialisation() throws {

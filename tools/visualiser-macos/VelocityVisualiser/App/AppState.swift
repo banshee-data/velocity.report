@@ -18,6 +18,8 @@ private let logger = DevLogger(category: "AppState")
 /// Global application state, observable by SwiftUI views.
 @available(macOS 15.0, *) @MainActor class AppState: ObservableObject {
 
+    let followingReview = FollowingReviewSession()
+
     private static let testEnvironmentKeys = [
         "XCTestConfigurationFilePath", "XCTestBundlePath", "XCInjectBundleInto",
     ]

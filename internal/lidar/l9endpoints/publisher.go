@@ -712,7 +712,7 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 // broadcastLoop distributes frames to all connected clients.
 // Uses reference counting (M7) to enable safe pool reuse: each client
 // that receives a frame calls Retain() before use and Release() after
-// protobuf conversion. The pool reclaims slices when all clients are done.
+// sending. The broadcaster also owns a reference throughout the fan-out.
 func (p *Publisher) broadcastLoop() {
 	defer p.wg.Done()
 
@@ -721,42 +721,47 @@ func (p *Publisher) broadcastLoop() {
 		case <-p.stopCh:
 			return
 		case frame := <-p.frameChan:
-			// Remember the scene so a client that connects later can be given
-			// it. A background frame is published once and never repeated
-			// until the next refresh, so a client whose stream started even a
-			// few milliseconds afterwards would render nothing over it — which
-			// is exactly what a replay load does, publishing the recording's
-			// background and then restarting the stream to pick it up.
-			p.rememberBackground(frame)
-
-			p.clientsMu.RLock()
-			clientCount := len(p.clients)
-			for _, client := range p.clients {
-				// Retain for this client (M7 reference counting).
-				// Release is called in streamFromPublisher after protobuf conversion.
-				if frame.PointCloud != nil {
-					frame.PointCloud.Retain()
-				}
-				if !p.enqueueForClient(client, frame) {
-					// Release the Retain we just did since frame wasn't sent.
-					if frame.PointCloud != nil {
-						frame.PointCloud.Release()
-					}
-					// Client-stage loss: the frame was published, this client
-					// could not take it. Counted separately from publish-stage
-					// drops so the two are not summed into one ratio.
-					p.clientDroppedFrames.Add(1)
-				}
-			}
-			p.clientsMu.RUnlock()
-
-			// If no clients are connected, release the frame immediately
-			// so pooled slices aren't leaked.
-			if clientCount == 0 && frame.PointCloud != nil {
-				frame.PointCloud.Release()
-			}
+			p.broadcastFrame(frame)
 		}
 	}
+}
+
+// broadcastFrame keeps pooled point arrays alive until every client has been offered them.
+func (p *Publisher) broadcastFrame(frame *FrameBundle) {
+	// Own a reference for the entire fan-out. A fast consumer or a full
+	// first queue can release its reference before the next client is retained.
+	// Without this owner that returns the shared arrays to the pool mid-loop.
+	if frame.PointCloud != nil {
+		frame.PointCloud.Retain()
+		defer frame.PointCloud.Release()
+	}
+	// Remember the scene so a client that connects later can be given
+	// it. A background frame is published once and never repeated
+	// until the next refresh, so a client whose stream started even a
+	// few milliseconds afterwards would render nothing over it — which
+	// is exactly what a replay load does, publishing the recording's
+	// background and then restarting the stream to pick it up.
+	p.rememberBackground(frame)
+
+	p.clientsMu.RLock()
+	for _, client := range p.clients {
+		// Retain for this client (M7 reference counting).
+		// Release is called in streamFromPublisher after the send completes.
+		if frame.PointCloud != nil {
+			frame.PointCloud.Retain()
+		}
+		if !p.enqueueForClient(client, frame) {
+			// Release the Retain we just did since frame wasn't sent.
+			if frame.PointCloud != nil {
+				frame.PointCloud.Release()
+			}
+			// Client-stage loss: the frame was published, this client
+			// could not take it. Counted separately from publish-stage
+			// drops so the two are not summed into one ratio.
+			p.clientDroppedFrames.Add(1)
+		}
+	}
+	p.clientsMu.RUnlock()
 }
 
 // enqueueForClient queues a frame for one client, reporting whether it was

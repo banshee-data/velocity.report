@@ -344,6 +344,12 @@ The Inspector shows recording context and opens the existing offline following J
 **Following evidence (offline baseline)**. It retains all exported candidate decisions and shows
 the selected point's endpoints, projected speeds, uncertainty and experimental DRAC. It performs
 no new arithmetic or lane attribution and does not overlay an unverified file on playback.
+Use **Audit this period…** to record identity continuity, leader/path ambiguity, visible
+endpoints, evidence for both speeds and a scoped conclusion. Unknown and disputed cases remain
+explicit. **Save audit…** writes a separate source/version-bound JSON file; **Open audit…**
+refuses different evidence bytes. Hiding the Inspector preserves unsaved review records.
+Follow the [following audit workflow](../../docs/ui/visualiser/following-audit-workflow.md)
+for period boundaries, local storage and the remaining physical-review gates.
 See the [Lombard–Broderick and Columbus–Broadway readiness review](../../docs/ui/visualiser/following-review-2026-11.md)
 for sources, walkthroughs, and the outstanding geometry and recording-binding gates.
 

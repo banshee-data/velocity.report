@@ -90,3 +90,7 @@ record intact; copy verified completed files to archival storage afterwards.
 Tests cover deterministic regeneration, complete free-flow timelines, missing intervals, source
 and version mismatch, corrupted summaries, conflicting writes, concurrent repeat writes, cohort
 refusal and a fixture-based CLI export. They establish software behaviour, not field accuracy.
+
+The macOS Inspector can retain source-bound operator observations alongside an immutable export.
+See the [following audit workflow](../../ui/visualiser/following-audit-workflow.md). Audit records
+preserve ambiguity and negative cases; they do not change exported decisions or qualify DRAC.

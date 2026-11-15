@@ -1295,3 +1295,47 @@ func TestPublisher_EmitFirstBackground_NonePresent(t *testing.T) {
 		t.Fatal("timed out waiting for first frame")
 	}
 }
+
+// Rejected queues must balance their references, and a frame with no remaining
+// consumers must release its arrays.
+func TestPublisherBroadcastOwnsPointCloudAcrossRejectedQueues(t *testing.T) {
+	p := NewPublisher(DefaultConfig())
+	for _, id := range []string{"slow-a", "slow-b"} {
+		p.clients[id] = &clientStream{frameCh: make(chan *FrameBundle)}
+	}
+	pc := &PointCloudFrame{X: []float32{1}, Y: []float32{2}, Z: []float32{3}, Intensity: []uint8{4}, PointCount: 1}
+	p.broadcastFrame(&FrameBundle{PointCloud: pc})
+	if got := pc.refCount.Load(); got != 0 {
+		t.Fatalf("fan-out released the arrays more than once: references=%d", got)
+	}
+	if pc.X != nil || p.clientDroppedFrames.Load() != 2 {
+		t.Fatal("rejected frame was not released and counted")
+	}
+}
+
+func TestPublisherBroadcastKeepsQueuedPointsUntilLastConsumer(t *testing.T) {
+	for n := 0; n < 64; n++ {
+		p := NewPublisher(DefaultConfig())
+		p.clients["full"] = &clientStream{frameCh: make(chan *FrameBundle)}
+		ready := &clientStream{frameCh: make(chan *FrameBundle, 1)}
+		p.clients["ready"] = ready
+		pc := &PointCloudFrame{X: []float32{1}, Y: []float32{2}, Z: []float32{3}, Intensity: []uint8{4}, PointCount: 1}
+		frame := &FrameBundle{PointCloud: pc}
+		p.broadcastFrame(frame)
+		received := <-ready.frameCh
+		if got := pc.refCount.Load(); got != 1 || len(received.PointCloud.X) != 1 {
+			t.Fatalf("queued consumer lost its points: references=%d, x=%v", got, pc.X)
+		}
+		received.PointCloud.Release()
+		if pc.refCount.Load() != 0 || pc.X != nil {
+			t.Fatal("last consumer did not release the point arrays")
+		}
+	}
+	p := NewPublisher(DefaultConfig())
+	pc := &PointCloudFrame{X: []float32{1}, PointCount: 1}
+	p.broadcastFrame(&FrameBundle{PointCloud: pc})
+	if pc.refCount.Load() != 0 || pc.X != nil {
+		t.Fatal("no-client frame leaked")
+	}
+	p.broadcastFrame(&FrameBundle{}) // Frames without points need no owner.
+}

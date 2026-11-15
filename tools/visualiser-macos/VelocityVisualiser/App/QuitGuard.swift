@@ -14,6 +14,13 @@ import AppKit
 
     private struct Entry { weak var session: AnnotationSession? }
     private var entries: [Entry] = []
+    private struct FollowingEntry { weak var session: FollowingReviewSession? }
+    private var followingEntries: [FollowingEntry] = []
+
+    func register(_ session: FollowingReviewSession) {
+        followingEntries.removeAll { $0.session == nil || $0.session === session }
+        followingEntries.append(FollowingEntry(session: session))
+    }
 
     func register(_ session: AnnotationSession) {
         entries.removeAll { $0.session == nil || $0.session === session }
@@ -36,7 +43,14 @@ import AppKit
                 return "an edit still in progress in \(session.pack.directory.lastPathComponent)"
             }
         }
-        return blocked.isEmpty ? nil : blocked.joined(separator: "; ")
+        followingEntries.removeAll { $0.session == nil }
+        let following = followingEntries.compactMap { $0.session }.compactMap {
+            session -> String? in
+            session.auditUnsaved
+                ? "a following/DRAC audit (\(session.audit?.records.count ?? 0) records)" : nil
+        }
+        let summaries = blocked + following
+        return summaries.isEmpty ? nil : summaries.joined(separator: "; ")
     }
 }
 
@@ -47,7 +61,7 @@ final class QuitGuard: NSObject, NSApplicationDelegate {
                 return .terminateNow
             }
             let alert = NSAlert()
-            alert.messageText = "Quit with unsaved annotation work?"
+            alert.messageText = "Quit with unsaved review work?"
             alert.informativeText = "Unsaved: \(summary). Quitting discards it."
             alert.addButton(withTitle: "Keep Working")
             alert.addButton(withTitle: "Quit Anyway")
