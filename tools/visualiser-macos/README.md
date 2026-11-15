@@ -257,8 +257,11 @@ Foreground-only recordings show **FG** in the Frames column. The duration shows
 the recorded interval, which may be shorter than the source capture.
 
 The [weekend focus inventory](../../docs/ui/visualiser/weekend-focus-recording-inventory.md)
-names the four complete foreground recordings in the main catalogue, their verification and
-the remaining Gerardus alignment dependencies.
+names the four complete foreground recordings in the main catalogue and their verification.
+The [local Gerardus recovery](../../docs/ui/visualiser/gerardus-local-focus-recovery.md)
+records the working set on lidar, restart command, initial cold checks with NAS access blocked,
+and the later native five-site checks with NAS shares unmounted. Ashbury's existing foreground
+recording is a 90-second preview; the four focus recordings cover their complete captures.
 Choosing a current accepted registration in Alignment remembers its scan for that clip across
 review runs and app restarts. If that scan loses its accepted head, placement asks for another
 accepted record rather than silently choosing a different scan.
