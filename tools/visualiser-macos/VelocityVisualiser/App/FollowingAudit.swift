@@ -189,6 +189,8 @@ struct FollowingAudit: Codable, Equatable {
 /// Owned by AppState so hiding the Inspector preserves evidence and unsaved
 /// observations. Explicit file replacement asks before discarding them.
 @MainActor final class FollowingReviewSession: ObservableObject {
+    @Published private(set) var loading = false
+    @Published var error: String?
     @Published var document: FollowingEvidence?
     @Published var fileIdentity = ""
     @Published var evidenceURL: URL?
@@ -199,4 +201,15 @@ struct FollowingAudit: Codable, Equatable {
     @Published var auditUnsaved = false
 
     init() { UnsavedWorkRegistry.shared.register(self) }
+
+    /// Import ownership survives Inspector removal/recreation. Only its owner
+    /// finishes the import; another view cannot start an overlapping load.
+    func beginImport() -> Bool {
+        guard !loading else { return false }
+        loading = true
+        error = nil
+        return true
+    }
+
+    func finishImport() { loading = false }
 }

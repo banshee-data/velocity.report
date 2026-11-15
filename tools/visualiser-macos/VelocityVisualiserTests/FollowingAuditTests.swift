@@ -42,6 +42,25 @@ final class FollowingAuditTests: XCTestCase {
         return record
     }
 
+    @MainActor func testOnlyOneImportOwnsTheReviewSession() {
+        let session = FollowingReviewSession()
+        session.error = "previous failure"
+        XCTAssertTrue(session.beginImport())
+        XCTAssertNil(session.error)
+        XCTAssertTrue(session.loading)
+        // A recreated Inspector observes this same owner, rather than a fresh
+        // view-local busy flag. It cannot overlap or clear the first import.
+        XCTAssertFalse(session.beginImport())
+        XCTAssertTrue(session.loading)
+        session.error = "read failed"
+        session.finishImport()
+        XCTAssertFalse(session.loading)
+        XCTAssertEqual(session.error, "read failed")
+        XCTAssertTrue(session.beginImport())
+        XCTAssertNil(session.error)
+        session.finishImport()
+    }
+
     @MainActor func testUnsavedAuditParticipatesInQuitGuard() {
         let session = FollowingReviewSession()
         session.auditUnsaved = true

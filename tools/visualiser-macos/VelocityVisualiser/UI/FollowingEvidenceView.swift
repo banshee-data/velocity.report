@@ -13,17 +13,16 @@ struct FollowingEvidenceView: View {
 private struct FollowingEvidenceContent: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var review: FollowingReviewSession
-    @State private var error: String?
-    @State private var loading = false
     @State private var auditLimit = 20
     @State private var draft: FollowingAudit.Record?
 
     var body: some View {
         DisclosureGroup("Following evidence (offline baseline)") {
             VStack(alignment: .leading, spacing: 8) {
-                Button(loading ? "Reading evidence…" : "Open following evidence…", action: open)
-                    .disabled(loading)
-                if let error { Text(error).foregroundStyle(.orange) }
+                Button(
+                    review.loading ? "Reading evidence…" : "Open following evidence…", action: open
+                ).disabled(review.loading)
+                if let error = review.error { Text(error).foregroundStyle(.orange) }
                 if let doc = review.document {
                     provenance(doc)
                     HStack {
@@ -87,7 +86,7 @@ private struct FollowingEvidenceContent: View {
                     }
                     ForEach(rows, id: \.followerTrackId) { row in rowView(row, doc: doc) }
                 }
-            }.font(.caption).textSelection(.enabled).padding(.top, 6).disabled(loading)
+            }.font(.caption).textSelection(.enabled).padding(.top, 6).disabled(review.loading)
         }.sheet(item: $draft) { record in
             if let doc = review.document {
                 FollowingAuditEditor(record: record) { edited in
@@ -244,8 +243,8 @@ private struct FollowingEvidenceContent: View {
             review.audit = try FollowingAudit.decode(
                 Data(contentsOf: url), evidence: doc, sha256: review.fileIdentity)
             review.auditUnsaved = false
-            error = nil
-        } catch { self.error = error.localizedDescription }
+            review.error = nil
+        } catch { review.error = error.localizedDescription }
     }
 
     private func saveAudit() {
@@ -266,8 +265,8 @@ private struct FollowingEvidenceContent: View {
             }
             try audit.encoded().write(to: url, options: .atomic)
             review.auditUnsaved = false
-            error = nil
-        } catch { self.error = error.localizedDescription }
+            review.error = nil
+        } catch { review.error = error.localizedDescription }
     }
 
     private func endpoint(_ e: FollowingEvidence.Endpoint, name: String) -> some View {
@@ -290,9 +289,9 @@ private struct FollowingEvidenceContent: View {
         panel.allowedContentTypes = [.json]
         panel.message = "Choose a following_evidence_v1 export from velocity report headway."
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        loading = true
-        error = nil
+        guard review.beginImport() else { return }
         Task {
+            defer { review.finishImport() }
             do {
                 let result = try await Task.detached {
                     let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
@@ -313,8 +312,7 @@ private struct FollowingEvidenceContent: View {
                 review.auditUnsaved = false
                 review.times = result.2
                 review.timestamp = String(review.times[0])
-            } catch { self.error = error.localizedDescription }
-            loading = false
+            } catch { review.error = error.localizedDescription }
         }
     }
 }
