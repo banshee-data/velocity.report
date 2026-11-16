@@ -902,6 +902,14 @@ func (s *Server) PlaybackPosition() PlaybackPositionInfo {
 	// the packet counters above are the PCAP equivalent.
 	if vrlogMode && s.publisher != nil {
 		if reader := s.publisher.VRLogReader(); reader != nil {
+			// VRLOG clocks and transport state belong to the recording, not
+			// to a previous PCAP replay's packet counters.
+			info.TimestampNs, info.LogStartNs, info.LogEndNs = 0, 0, 0
+			if provider, ok := reader.(interface{ ReplayPosition() PlaybackPositionInfo }); ok {
+				position := provider.ReplayPosition()
+				position.ReplayEpoch = info.ReplayEpoch
+				return position
+			}
 			info.CurrentFrame = reader.CurrentFrame()
 			info.TotalFrames = reader.TotalFrames()
 		}

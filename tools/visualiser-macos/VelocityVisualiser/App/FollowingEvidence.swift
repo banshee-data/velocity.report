@@ -4,6 +4,14 @@ import CryptoKit
 import Foundation
 
 struct FollowingEvidence: Decodable, Sendable {
+    struct ReviewSlice: Decodable, Sendable {
+        let canonicalEvidenceSha256: String
+        let sampleStartNanos: Int64
+        let sampleEndExclusiveNanos: Int64
+        let recordingHeaderSha256: String
+        let recordingBuildGitSha: String
+        let calibrationId: String
+    }
     struct SourceManifest: Decodable, Sendable {
         struct Window: Decodable, Sendable {
             let startOffsetNanos: Int64
@@ -132,13 +140,34 @@ struct FollowingEvidence: Decodable, Sendable {
     let analysisVersion: Version
     let analysis: Analysis
     let rows: [Row]
+    let reviewSlice: ReviewSlice?
 
     static func decode(_ data: Data) throws -> FollowingEvidence {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let doc = try decoder.decode(Self.self, from: data)
-        guard doc.schema == "following_evidence_v1" else {
+        guard ["following_evidence_v1", "following_review_slice_v1"].contains(doc.schema) else {
             throw ReviewError.invalid("Unsupported evidence schema")
+        }
+        if doc.schema == "following_review_slice_v1" {
+            func isSHA(_ value: String) -> Bool {
+                value.hasPrefix("sha256:") && value.count == 71
+                    && value.dropFirst(7).allSatisfy { $0.isHexDigit }
+            }
+            guard let slice = doc.reviewSlice, isSHA(slice.canonicalEvidenceSha256),
+                isSHA(slice.recordingHeaderSha256), !slice.recordingBuildGitSha.isEmpty,
+                !slice.calibrationId.isEmpty,
+                slice.sampleStartNanos < slice.sampleEndExclusiveNanos,
+                doc.rows.allSatisfy({
+                    $0.captureUnixNanos >= slice.sampleStartNanos
+                        && $0.captureUnixNanos < slice.sampleEndExclusiveNanos
+                })
+            else {
+                throw ReviewError.invalid(
+                    "Missing slice provenance or samples outside its declared window")
+            }
+        } else if doc.reviewSlice != nil {
+            throw ReviewError.invalid("Slice metadata requires the review-slice schema")
         }
         guard
             [

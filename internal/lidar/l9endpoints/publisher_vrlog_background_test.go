@@ -1,11 +1,64 @@
 package l9endpoints
 
 import (
+	"errors"
 	"io"
 	"sync"
 	"testing"
 	"time"
 )
+
+type countedBackgroundReader struct {
+	*scanOnlyReader
+	count     uint64
+	known     bool
+	reads     int
+	seekError error
+}
+
+func (r *countedBackgroundReader) RecordedBackgroundFrames() (uint64, bool) { return r.count, r.known }
+func (r *countedBackgroundReader) ReadFrame() (*FrameBundle, error) {
+	r.reads++
+	return r.scanOnlyReader.ReadFrame()
+}
+func (r *countedBackgroundReader) Seek(i uint64) error {
+	if r.seekError != nil {
+		return r.seekError
+	}
+	return r.scanOnlyReader.Seek(i)
+}
+
+func TestKnownForegroundRecordingDoesNotScanEveryFrameBeforeLoad(t *testing.T) {
+	for _, known := range []bool{true, false} {
+		cloud := &PointCloudFrame{X: []float32{1}, Y: []float32{2}, Z: []float32{3}}
+		r := &countedBackgroundReader{scanOnlyReader: newScanOnlyReader([]*FrameBundle{{FrameType: FrameTypeForeground, PointCloud: cloud}}), known: known}
+		p := NewPublisher(DefaultConfig())
+		if err := p.emitFirstBackground(r); err != nil {
+			t.Fatal(err)
+		}
+		if known && r.reads != 0 {
+			t.Fatal("scanned a recording whose complete header proves no background")
+		}
+		if !known && (r.reads != 1 || cloud.X != nil) {
+			t.Fatal("legacy scan did not read and release its skipped foreground frame")
+		}
+	}
+}
+
+func TestStartupSeekFailureDoesNotDeadlockReplayStop(t *testing.T) {
+	r := &countedBackgroundReader{scanOnlyReader: newScanOnlyReader([]*FrameBundle{{}}), known: true, seekError: errors.New("seek failure")}
+	p := NewPublisher(DefaultConfig())
+	done := make(chan error, 1)
+	go func() { done <- p.StartVRLogReplay(r) }()
+	select {
+	case err := <-done:
+		if err == nil || p.IsVRLogActive() {
+			t.Fatal("failed startup remained active")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("startup failure deadlocked waiting for a goroutine that never started")
+	}
+}
 
 // Sequence numbers chosen to be distinct so a background frame can be traced
 // back to its source: the VRLOG's own recording, or the live background grid.

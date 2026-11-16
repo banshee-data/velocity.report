@@ -194,7 +194,10 @@ import SwiftUI
                 Text("Well-formed is not the same as right: this checks the mesh, not the road.")
                     .font(.caption2).foregroundStyle(.secondary)
             } else {
-                Text("No resident patches.").font(.caption).foregroundStyle(.secondary)
+                Text(
+                    session.patches.contains(where: \.isResident)
+                        ? "Checking resident patches…" : "No resident patches."
+                ).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -216,9 +219,9 @@ import SwiftUI
                         "\(c.patchCount) patches · frame accuracy \(String(format: "%.1f", c.frameAccuracyM * 1000)) mm"
                     ).font(.caption)
                     Text(
-                        "Inventory \(Self.metres(c.inventoryLengthM)): surfaced \(Self.metres(c.surfacedLengthM)) (\(Int((c.surfacedShare * 100).rounded())) %), of which inferred width \(Self.metres(c.inferredLengthM)); missing \(Self.metres(c.missingLengthM))."
+                        "\(c.inventoryCoverageText). Surfaced \(Self.metres(c.surfacedLengthM)); inferred-width extent \(Self.metres(c.inferredLengthM)); missing \(Self.metres(c.missingLengthM))."
                     ).font(.caption).fixedSize(horizontal: false, vertical: true)
-                    Text("This is a corridor, not the whole park.").font(.caption).foregroundStyle(
+                    Text("Coverage describes this corridor only.").font(.caption).foregroundStyle(
                         .orange)
                     ForEach(Array(c.gaps.enumerated()), id: \.offset) { _, gap in
                         Text(

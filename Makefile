@@ -3010,6 +3010,11 @@ build-pcl-frame-export: ## Build the offline one-frame PCL compatibility exporte
 
 # Offline harness builds are cached by commit outside the checkout.
 EXPERIMENT_TOOLS_DIR ?= $(CURDIR)/.tmp/experiment-tools
+.PHONY: build-following-review
+build-following-review: ## Build the stamped operator following-review preparer
+	@mkdir -p "$(EXPERIMENT_TOOLS_DIR)"
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(EXPERIMENT_TOOLS_DIR)/following-review-prepare" ./cmd/tools/following-review-prepare
+
 .PHONY: build-experiment-tools check-harness-notes
 build-experiment-tools: ## Build stamped offline experiment executors (requires libpcap)
 	@./scripts/ensure-web-stub.sh

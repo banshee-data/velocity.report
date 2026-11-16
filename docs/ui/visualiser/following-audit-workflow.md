@@ -7,7 +7,14 @@
 
 ## Review an explicit source
 
-Open the Inspector and expand **Following evidence (offline baseline)**. Open a
+Open **Inspector** (or **Paint streets → Review tracks / following…**). This leaves
+painting and closes the other task columns so viewport clicks select tracks; unsaved street
+edits remain in the painter. Select a track in the list to expose classification and quality
+flags. If the app joined an already running VRLOG, choose **Use current replay for labels**:
+this locates its run without seeking or restarting playback. An unmatched or changing replay
+remains unbound; use Runs to choose its recording explicitly.
+
+Expand **Following / headway / DRAC evidence**. Open a
 `following_evidence_v1` export produced by `velocity report headway`. Retain the exact
 export on the attached LiDAR volume: an audit names its SHA-256, explicit site/source/binding,
 analysis stage, estimator, observation model, method, parameter hash, analyser build and
@@ -17,7 +24,10 @@ separate audit. Selecting a city site does not bind an export to the recording.
 Use **Previous sample**, **Next sample**, or an exact Unix-nanosecond timestamp and follower
 track ID. **Use frame time** copies the current frame time and selected track; it does not
 interpolate or seek. The viewer retains the export's candidate decisions, projected speeds,
-endpoint support, gaps, suppressions and experimental DRAC. It does not recompute them.
+endpoint support, gaps, suppressions and experimental DRAC. It does not recompute them. The main replay database may hold runs and labels without the
+source-bound state estimates needed for an export. A road mesh, accepted scan or saved lane set
+does not supply those estimates. Missing exports require the separate replay/analysis workflow;
+opening Inspector alone cannot produce following measurements.
 
 Check recording coverage and capture/source, calibration and analysis-version provenance before
 reviewing visible traffic. The audit captures current run, source path, recording path, capture

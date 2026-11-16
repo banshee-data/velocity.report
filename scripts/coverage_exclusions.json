@@ -25,6 +25,11 @@
       "reason": "Multi-call binary entrypoint: dispatches os.Args to an applet's Main and exits. Nothing to assert that the applet tests do not already cover."
     },
     {
+      "path": "cmd/tools/following-review-prepare/main.go",
+      "functions": ["main"],
+      "reason": "Process entrypoint binds global flags and exits on failure. Preparation, fixed review admission, recording/export publication and failure handling are tested directly."
+    },
+    {
       "path": "cmd/tools/gen-vrlog/main.go",
       "reason": "Developer tool whose whole body is func main(): flag parsing then a call into internal/lidar/l9endpoints/recorder, which is covered directly."
     },
@@ -38,9 +43,7 @@
     },
     {
       "path": "cmd/tools/backfill_lidar_run_config/main.go",
-      "functions": [
-        "main"
-      ],
+      "functions": ["main"],
       "reason": "func main() wrapper. All the logic lives in run(), which takes its os.Stat, DB-open and backfill dependencies as parameters and is tested directly in the same package."
     },
     {
@@ -60,10 +63,7 @@
     },
     {
       "path": "cmd/tools/lidar-scene-extract/main.go",
-      "functions": [
-        "main",
-        "parseFlags"
-      ],
+      "functions": ["main", "parseFlags"],
       "reason": "main orchestrates the PCAP read and JSON write behind log.Fatalf; parseFlags binds to the global flag.CommandLine, so calling it from a test would consume the test binary's own flags. The scene-building logic it drives — voxel keying, scan-boundary detection, warmup/loop phases, the deterministic static snapshot — is tested directly."
     },
     {
@@ -77,9 +77,7 @@
     },
     {
       "path": "internal/report/archive.go",
-      "functions": [
-        "BuildZip"
-      ],
+      "functions": ["BuildZip"],
       "reason": "BuildZip's behaviour is well covered (contents, deterministic ordering, empty input); its only uncovered statements are the two branches taken when the zip writer fails, and it writes to an internal bytes.Buffer, which cannot. The reader-side failures in the same file — unparseable archive, unopenable entry, corrupt payload — are all tested."
     },
     {
@@ -98,17 +96,12 @@
     },
     {
       "path": "internal/api/serial.go",
-      "functions": [
-        "testSerialPort"
-      ],
+      "functions": ["testSerialPort"],
       "reason": "Opens a real serial device and exchanges probe commands with it. The validation and failed-open branches are still tested (see serial_coverage_test.go) \u2014 they just cannot carry the function past the floor, because the post-open command exchange needs an OPS243 on the other end."
     },
     {
       "path": "internal/cmd/device/tailscale.go",
-      "functions": [
-        "enableTailscaled",
-        "disableTailscaled"
-      ],
+      "functions": ["enableTailscaled", "disableTailscaled"],
       "reason": "Privileged systemd lifecycle: shells out to /usr/bin/systemctl and waits on /var/run/tailscale/tailscaled.sock. Only meaningful on the Pi image, where the sudoers grant exists."
     },
     {
@@ -132,18 +125,12 @@
     },
     {
       "path": "internal/tailscaleinstall/installer.go",
-      "functions": [
-        "fetch",
-        "run"
-      ],
+      "functions": ["fetch", "run"],
       "reason": "fetch performs the HTTPS release download; run shells out to the installed binary. Both need network and a Debian-family host. The surrounding logic \u2014 checksum verification, archive extraction, service file writing, health checks \u2014 stays in scope."
     },
     {
       "path": "internal/cmd/server/radar.go",
-      "functions": [
-        "Main",
-        "runTransitsCommand"
-      ],
+      "functions": ["Main", "runTransitsCommand"],
       "reason": "Process entrypoints: flag registration, server construction, signal handling and goroutine wiring, terminating in log.Fatalf/os.Exit and a blocking wg.Wait. Testing them means running the server. The rest of the file \u2014 the serial snapshot helpers, tailscaleServeTarget, and the visualiser/HINT adapters \u2014 stays in scope."
     }
   ]

@@ -23,6 +23,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -149,6 +150,9 @@ type Config struct {
 	// output size, so it is off unless the recording is meant for the
 	// visualiser rather than for metrics.
 	IncludePoints bool
+	// ForegroundOnly records classified foreground returns only, for operator
+	// review. It changes recording payloads, never perception or estimates.
+	ForegroundOnly bool
 	// IncludeDebug records predictions, innovations, associations, and raw
 	// cluster boxes alongside track estimates. Disabled by default.
 	IncludeDebug bool
@@ -866,7 +870,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// Close is idempotent; the explicit close below still reports finalisation errors.
 	defer rec.Close()
 	pub := &recordingPublisher{rec: rec, dropPoints: !cfg.IncludePoints, recordAfterNanos: scoreStart}
-	adapter := l9endpoints.NewFrameAdapter(cfg.SensorID)
+	adapter := replayFrameAdapter(cfg)
 
 	// Provenance. Without it a recording cannot say which code and which
 	// parameters produced it, which is the one thing an A/B corpus has to be
@@ -937,7 +941,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			return nil, fmt.Errorf("ObservationMaxSamplePoints must be between 1 and 1024 when ObservationDBPath is set")
 		}
 		maxSamplePoints = cfg.ObservationMaxSamplePoints
-		database, err := db.NewDB(cfg.ObservationDBPath)
+		database, err := openOfflineEvidenceDB(cfg.ObservationDBPath)
 		if err != nil {
 			return nil, fmt.Errorf("open observation database: %w", err)
 		}
@@ -1293,6 +1297,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		"tracker_boundary_policy": "retain", "settled_at_boundary": settledAtBoundary,
 		"require_settled": cfg.RequireSettled, "sensor_id": cfg.SensorID, "udp_port": cfg.UDPPort,
 		"include_points": cfg.IncludePoints, "include_debug": cfg.IncludeDebug, "params_sha256": paramsHash,
+		"foreground_only":    cfg.ForegroundOnly,
 		"calibration_sha256": "sha256:" + hex.EncodeToString(sha256Sum(parserJSON)),
 		"build_version":      version.Version, "build_git_sha": version.GitSHA,
 		"build_stamped":    version.GitSHA != "" && version.GitSHA != "unknown" && version.GitSHA != "dev",
@@ -2102,4 +2107,23 @@ func surfaceGroundFor(cfg Config, tuning *config.TuningConfig, experiments []str
 		return nil, fmt.Errorf("surface-ground: %w", err)
 	}
 	return block, nil
+}
+
+// openOfflineEvidenceDB keeps the offline writer's working B-tree pages in a
+// bounded cache and checkpoints in larger batches. On an attached rotating
+// volume, a tiny cache and a checkpoint every 4 MiB otherwise alternate capture
+// reads with thousands of random database reads and writes. WAL/NORMAL
+// durability and the atomic per-frame transactions remain unchanged. URI
+// parameters apply to every pooled connection, including prepared statements.
+func openOfflineEvidenceDB(path string) (*db.DB, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	u := url.URL{Scheme: "file", Path: absolute}
+	q := url.Values{}
+	q.Add("_pragma", "cache_size(-65536)")
+	q.Add("_pragma", "wal_autocheckpoint(16384)")
+	u.RawQuery = q.Encode()
+	return db.NewDB(u.String())
 }

@@ -51,4 +51,28 @@ final class FollowingEvidenceTests: XCTestCase {
                 with: "\"calculation\":{\"status\":\"supported\",\"value_mps2\":1}"),
         ] { XCTAssertThrowsError(try FollowingEvidence.decode(Data(bad.utf8))) }
     }
+
+    func testReviewSlicesKeepExactSamplesAndRequireTheirProvenance() throws {
+        let sha = "sha256:" + String(repeating: "a", count: 64)
+        let metadata = """
+            "review_slice":{"canonical_evidence_sha256":"\(sha)",
+            "sample_start_nanos":1788380529986405320,"sample_end_exclusive_nanos":1788380529986405340,
+            "recording_header_sha256":"\(sha)","recording_build_git_sha":"producer","calibration_id":"calibration/v1/a"},
+            """
+        let json = fixture.replacingOccurrences(
+            of: "\"schema\":\"following_evidence_v1\",",
+            with: "\"schema\":\"following_review_slice_v1\"," + metadata)
+        let doc = try FollowingEvidence.decode(Data(json.utf8))
+        XCTAssertEqual(doc.rows[0].captureUnixNanos, 1_788_380_529_986_405_330)
+        XCTAssertEqual(doc.reviewSlice?.canonicalEvidenceSha256, sha)
+        XCTAssertNil(doc.rows[0].experimentalDrac.calculation)
+        for bad in [
+            json.replacingOccurrences(of: "1788380529986405340", with: "1788380529986405325"),
+            json.replacingOccurrences(of: sha, with: "missing"),
+            json.replacingOccurrences(
+                of: "following_review_slice_v1", with: "following_evidence_v1"),
+            fixture.replacingOccurrences(
+                of: "following_evidence_v1", with: "following_review_slice_v1"),
+        ] { XCTAssertThrowsError(try FollowingEvidence.decode(Data(bad.utf8))) }
+    }
 }

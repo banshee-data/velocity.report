@@ -509,6 +509,52 @@ private let logger = DevLogger(category: "AppState")
 
     @Published var currentRunID: String?  // Current run being replayed
     @Published var showRunBrowser: Bool = false  // Show run browser sheet
+    @Published var reviewContextMessage: String?
+    @Published private(set) var isResolvingReviewRun = false
+
+    /// Leave drawing mode without discarding marks, giving track picking and
+    /// the review controls the viewport and one inspector column.
+    func openTrackReview() {
+        streets.setPainting(false)
+        showRoadPane = false
+        showAlignmentPane = false
+        showCameraPane = false
+        showSidePanel = true
+    }
+
+    /// Attach a late-joining client to the replay's run without seeking,
+    /// reloading the recording or restarting the stream.
+    func useCurrentReplayForReview(status: (() async throws -> PlaybackStatus)? = nil) async {
+        guard !isResolvingReviewRun, currentRunID == nil, sourceMode == .vrlog else { return }
+        isResolvingReviewRun = true
+        reviewContextMessage = nil
+        defer { isResolvingReviewRun = false }
+        let generation = playbackStateGeneration
+        let readStatus = status ?? { try await self.runTrackLabelClient.getPlaybackStatus() }
+        do {
+            let before = try await readStatus()
+            if runBrowserState.runs.isEmpty { await runBrowserState.fetchRuns() }
+            let after = try await readStatus()
+            guard generation == playbackStateGeneration, currentRunID == nil, sourceMode == .vrlog,
+                before.mode == "vrlog", after.mode == "vrlog", before.vrlogPath == after.vrlogPath,
+                let id = LaneSteps.replayRun(
+                    vrlogPath: after.vrlogPath,
+                    runs: runBrowserState.runs.map { ($0.runId, $0.vrlogPath) }),
+                let run = runBrowserState.runs.first(where: { $0.runId == id })
+            else {
+                reviewContextMessage =
+                    "The replay changed or has no unique run. Choose its recording in Runs."
+                return
+            }
+            let clip = run.clipId?.trimmingCharacters(in: .whitespaces) ?? ""
+            alignment.noteLoadedRun(
+                fullFrames: run.holdsFullFrames, captureRef: clip.isEmpty ? id : clip)
+            currentRunID = id
+            runBrowserState.selectedRunID = id
+        } catch {
+            reviewContextMessage = "Could not identify the replay: \(error.localizedDescription)"
+        }
+    }
 
     /// The run whose recording the server is replaying, when no run is open
     /// here: a replay started from the web, or before the app restarted.
@@ -1330,6 +1376,8 @@ private let logger = DevLogger(category: "AppState")
         inViewTrackIDs = []
         userLabels = [:]
         userQualityFlags = [:]
+        selectTrack(nil)
+        reviewContextMessage = nil
         alignment.captureChanged()
     }
 

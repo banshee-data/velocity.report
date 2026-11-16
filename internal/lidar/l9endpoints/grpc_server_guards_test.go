@@ -215,3 +215,33 @@ func TestStreamSyntheticReturnsSendError(t *testing.T) {
 		t.Errorf("streamSynthetic returned %v, want the send error", err)
 	}
 }
+
+type positionFrameReader struct {
+	*scanOnlyReader
+	position PlaybackPositionInfo
+}
+
+func (r *positionFrameReader) ReplayPosition() PlaybackPositionInfo { return r.position }
+
+func TestPlaybackPositionUsesRecordingClockAndTransport(t *testing.T) {
+	p := NewPublisher(DefaultConfig())
+	r := &positionFrameReader{scanOnlyReader: newScanOnlyReader(nil), position: PlaybackPositionInfo{
+		Paused: true, Rate: 2, Seekable: true, CurrentFrame: 4, TotalFrames: 10,
+		TimestampNs: 4000, LogStartNs: 1000, LogEndNs: 9000}}
+	p.vrlogReader = r
+	s := NewServer(p)
+	s.SetVRLogMode(true)
+	s.SetPCAPTimestamps(100, 200)
+	s.playbackMu.Lock()
+	s.replayEpoch = 8
+	s.playbackMu.Unlock()
+	want := r.position
+	want.ReplayEpoch = 8
+	if got := s.PlaybackPosition(); got != want {
+		t.Fatalf("got %+v, want recording state %+v", got, want)
+	}
+	p.vrlogReader = newScanOnlyReader(nil)
+	if got := s.PlaybackPosition(); got.LogStartNs != 0 || got.LogEndNs != 0 {
+		t.Fatalf("legacy reader inherited stale PCAP bounds: %+v", got)
+	}
+}

@@ -5,14 +5,15 @@ VelocityVisualiser, the macOS 3D point cloud viewer for LiDAR data.
 
 ## Architecture & design
 
-| Document                                                   | Content                                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------ |
-| [architecture.md](architecture.md)                         | System design, Track A/B split                                           |
-| [api-contracts.md](api-contracts.md)                       | gRPC/protobuf `FrameBundle` wire format                                  |
-| [implementation.md](implementation.md)                     | Milestone checklist (M0–M8)                                              |
-| [menu-layout.md](menu-layout.md)                           | macOS menu bar and keyboard shortcuts                                    |
-| [following-audit-workflow.md](following-audit-workflow.md) | Source-bound operator review records for following and experimental DRAC |
-| [workspace-ux-audit.md](workspace-ux-audit.md)             | UI flow audit, building-layer checks and redesign questions              |
+| Document                                                                           | Content                                                                  |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [architecture.md](architecture.md)                                                 | System design, Track A/B split                                           |
+| [api-contracts.md](api-contracts.md)                                               | gRPC/protobuf `FrameBundle` wire format                                  |
+| [implementation.md](implementation.md)                                             | Milestone checklist (M0–M8)                                              |
+| [menu-layout.md](menu-layout.md)                                                   | macOS menu bar and keyboard shortcuts                                    |
+| [following-audit-workflow.md](following-audit-workflow.md)                         | Source-bound operator review records for following and experimental DRAC |
+| [mesh-and-following-readiness-2026-11.md](mesh-and-following-readiness-2026-11.md) | Mesh failures, annotation fixes and five-site source-matched preparation |
+| [workspace-ux-audit.md](workspace-ux-audit.md)                                     | UI flow audit, building-layer checks and redesign questions              |
 
 ## Feature specifications
 

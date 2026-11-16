@@ -9,6 +9,24 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 )
 
+func TestBackgroundCountDistinguishesCompleteAndLegacyAccounting(t *testing.T) {
+	for _, c := range []struct {
+		header LogHeader
+		known  bool
+	}{
+		{LogHeader{TotalFrames: 100, RotationFrames: 100}, true},
+		{LogHeader{TotalFrames: 100, RotationFrames: 98, BackgroundFrames: 2}, true},
+		{LogHeader{TotalFrames: 100}, false},
+		{LogHeader{TotalFrames: 100, RotationFrames: 101}, false},
+	} {
+		r := &Replayer{header: c.header}
+		count, known := r.RecordedBackgroundFrames()
+		if known != c.known || count != c.header.BackgroundFrames {
+			t.Fatalf("header %+v: %d,%v", c.header, count, known)
+		}
+	}
+}
+
 // Frame accounting must let a reader recover the sensor-rotation count.
 // TotalFrames counts every record, including background snapshots, because it
 // indexes index.bin. Only RotationFrames is comparable with an analysis run's
@@ -139,5 +157,24 @@ func TestBackgroundFramesDoNotSetTimeRange(t *testing.T) {
 	}
 	if span := h.EndNs - h.StartNs; span <= 0 {
 		t.Errorf("span %d must be positive", span)
+	}
+}
+
+func TestReplayPositionDoesNotAdvanceRecording(t *testing.T) {
+	r := &Replayer{header: LogHeader{StartNs: 1000, EndNs: 9000},
+		index: []IndexEntry{{TimestampNs: 1000}, {TimestampNs: 4000}, {TimestampNs: 9000}}, paused: true, rate: 2}
+	for _, c := range []struct {
+		frame     uint64
+		timestamp int64
+	}{{0, 1000}, {2, 4000}, {3, 9000}} {
+		r.currentFrame = c.frame
+		got := r.ReplayPosition()
+		if got.CurrentFrame != c.frame || got.TimestampNs != c.timestamp || !got.Paused || got.Rate != 2 || !got.Seekable || got.TotalFrames != 3 || got.LogStartNs != 1000 || got.LogEndNs != 9000 || r.currentFrame != c.frame {
+			t.Fatalf("position at %d = %+v", c.frame, got)
+		}
+	}
+	r = &Replayer{}
+	if got := r.ReplayPosition(); got.TimestampNs != 0 || got.Rate != 1 {
+		t.Fatalf("empty recording position %+v", got)
 	}
 }
