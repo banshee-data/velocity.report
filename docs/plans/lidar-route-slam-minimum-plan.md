@@ -1,0 +1,172 @@
+# Route SLAM minimum: priors registration along a drive and the ego track (v0.6.0 spike)
+
+The smallest work that turns the archive's drives between registered static sites into two
+results: (a) the drive registered against Gerardus's public priors along its route, and (b) the
+sensor platform's own track, with its speed, acceleration, jerk and vibration and the
+uncertainty of each. This plan fixes the boundary, records what the first pull request
+implements, and lists the questions an independent mathematical review must settle before
+the hydra evaluation is read as evidence.
+
+- **Status:** Proposed. First-pass implementation in this change; evaluation pending on hydra, where the captures are
+- **Decisions:** D-36 (Gerardus owns registration; v0.6.0–v0.6.4 is the SLAM/mobile series), D-38 (priors are measured spatial data)
+- **Layers:** offline tooling over L1 decode and L2 rotations (`internal/lidar/motionexport`), offline platform kinematics (`internal/lidar/egotrack`); Gerardus odometry, prior factors and pose graph
+- **Target:** v0.6.0, the SLAM spike Gerardus runs as S0–S3; this plan narrows it to point-to-point drives
+- **Companion plans:** [lidar-route-capture-plan](lidar-route-capture-plan.md) (trajectory contract, rigs, later items), [lidar-motion-capture-architecture-plan](lidar-motion-capture-architecture-plan.md) (`PoseProvider`); Gerardus `docs/plans/MOBILE-SLAM-REPLAY.md` (S0–S3) and `docs/research/2026-10-24-registration-and-slam-maths.md` (§4 sizing)
+- **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
+- **Review brief:** [lidar-route-slam-oracle-brief](lidar-route-slam-oracle-brief.md)
+
+## Motivation
+
+Gerardus's mobile mapping plan assumes a new capture day: a walked block loop that starts and
+ends at one registered corner, so loop closure fixes the drift. That capture does not exist.
+What does exist is three days of car drives, 1–3 September 2026, recorded by the same
+Pandar40P between the 24 tripod sites. Each site now has an accepted sensor pose (Gerardus
+`docs/REGISTRATION-STATUS.md` §1). So every drive between two consecutive sites is a trajectory
+whose two ends are already known: a bridge between two anchors, not a loop. `pcap-split` cuts
+these drives off as motion and nothing reads them.
+
+A bridge needs no loop closure. Its far-end anchor is an independent check when the solve
+leaves it out, and the stops at traffic lights give zero-velocity intervals that expose drift
+for free. The minimum work is therefore smaller than S0–S3: export, odometry, prior factors
+and a two-anchor solve, then a kinematics pass that states its own error bars. If this
+does not work on car drives with two registered ends, a walked loop will not rescue the
+along-street observability problem either, and the spike learns that early.
+
+## Current state
+
+- **Anchors.** Six sites are `REGISTERED` with stated σ of 2–19 mm and 0.004–0.024° heading.
+  Eighteen are `MANUALLY_PLACED`, and most of those carry no covariance. Five have a narrow
+  export-check margin (1st-mission, hyde-ofarrell, pierce-haight, marina-broderick,
+  embarcadero-bay).
+- **Drives.** `tools/s2-archive/site-index.json` gives 20 same-day consecutive pairs, 5–34 min
+  apart (one of 82 min). One pair has both ends `REGISTERED`:
+  lombard-laguna → columbus-north-point, 16.3 min, inside one rotation series
+  (`s2_sf_2_…_00026` to `_00030`). Seven more have one registered end.
+- **Point time.** The recorded point time is the PCAP arrival time plus the channel firetime
+  (`parse/extract.go`, `blockToPoints`), and block index contributes nothing
+  ([timing audit](../lidar/architecture/portable-capture-timing.md#what-the-repository-does-today)).
+  On the perf capture `lidar_20Hz.pcapng`, recorded block times scattered 252 µs RMS (4.9 ms
+  maximum) about a straight line in rotor azimuth (this change's exporter, first 3 s).
+- **Pose.** No `PoseProvider`, no per-frame pose rows, no trajectory reader in the pipeline.
+- **Gerardus.** Robust point-to-plane ICP with the static gates (`register.rs`), the 6×6
+  information and its rank, and an SE(3) Gauss–Newton pose graph (`graph.rs`, used by
+  `RefineSite`). It has no odometry map, no de-skew and no `slam` subcommands yet.
+
+## What this change implements
+
+| Piece              | Where                                                          | What it does                                                                                                                                                                                                                                                                   | Tested by                                                                                                                                                                                               |
+| ------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Motion export (S0) | `internal/lidar/motionexport`, `cmd/tools/lidar-motion-export` | L1 decode and L2 rotations only, over an ordered capture list graded at each join; sensor-frame LAS 1.4 (point format 6, extra bytes `ring`, `azimuth_deg`, `frame`), split by capture time; `run.json` and `frames.csv`                                                       | Synthetic rotations with arrival jitter and the missing block offset; header layout; independent read with `laspy` on real packets                                                                      |
+| Azimuth clock      | `motionexport.PointTimes`                                      | Fits each rotation's block times to a line in unwrapped block azimuth, keeps each point's channel offset, and reports the fit's period and residual                                                                                                                            | Synthetic: error under 20 µs RMS against 300 µs arrival jitter; refuses partial rotations                                                                                                               |
+| Ego track (b)      | `internal/lidar/egotrack`, `cmd/tools/lidar-ego-track`         | Reads a provisional trajectory file; local weighted cubic fits with exact covariance give speed, longitudinal and lateral acceleration, jerk and yaw rate with 1σ; stops; Welch spectrum of the vibration the path does not explain, with the fit's gain; end-anchor residuals | Synthetic drive: values within 4σ, jerk integral across each step equals the change in acceleration, stated σ matches the empirical scatter within 0.75–1.3, vibration peak and amplitude, gaps refused |
+| Build targets      | `Makefile`                                                     | `make build-lidar-motion-export`, `make build-lidar-ego-track` with the build stamp                                                                                                                                                                                            | —                                                                                                                                                                                                       |
+
+### Choices made, and why
+
+- **Time is session seconds, not GPS time.** The LAS time field holds seconds since the
+  manifest's `epoch_utc`, and the global-encoding GPS bit is clear. The replay clock is PCAP
+  arrival time, and calling it GPS time would assert an epoch nothing has validated.
+  Gerardus de-skew needs only relative time.
+- **The rotor is the clock.** The Gerardus maths note (§4.1) recommends `τ = azimuth / 360°`
+  over the block index. A per-rotation line removes arrival jitter and the block sawtooth
+  together. It does not touch the L1 decode path, so the perf gate is unaffected. What remains
+  is a constant offset of about half a packet's block span (about 250 µs), because the recorded
+  time names the packet, not the block. A constant offset cancels between consecutive scans. It
+  does not cancel against another sensor's clock (the radar comparison).
+- **No perception in the export.** Running the export as a frame tap on the replay pipeline
+  loses every rotation before L3 settles (about 30 s) and pays for L3–L6. On the 100 MB perf
+  capture it also ran out of memory in the cloud container. The exporter therefore drives
+  `ReadPCAPSequence` and an offline frame builder directly, and needs no tuning config.
+- **Uncompressed LAS.** No Go LAZ dependency is added. A full rotation is about 60–70 k returns
+  at 39 bytes, roughly 25 MB a second. The first drive (16 min) is about 23 GB at full density,
+  or about 6 GB with `-azimuth-stride 4`. Compress on hydra with `laszip` or PDAL if needed.
+- **Noise model in the ego track.** σ assumes independent per-pose noise. Correlated odometry
+  error (drift, a slow yaw bias) biases the derivatives without widening σ. That is what the
+  held-out far anchor and the stop displacement test. The summary says so in its notes.
+- **The trajectory schema is provisional.** `velocity.report/ego-trajectory/v0` is the subset of
+  the route plan's [trajectory contract](lidar-route-capture-plan.md#trajectory-contract) the
+  ego track needs. It is replaced by Gerardus's proto once that exists, and the reader refuses
+  any other schema.
+
+## Design: the two-anchor bridge
+
+```text
+hydra: archive pcaps (ordered, joins graded)
+  -> lidar-motion-export             LAS segments + run.json + frames.csv   (velocity.report)
+  -> slam import / odometry          de-skew, KISS-ICP-style local map      (Gerardus)
+  -> submaps every ~50 m             EvaluatePose(refine) vs the site bundle (3DEP, DataSF)
+  -> pose graph                      odometry + prior factors (weak directions projected out)
+                                     + static_pose anchor A, + anchor B unless held out
+  -> trajectory (EPSG:7131)          per-submap gates, anchor residuals
+  -> lidar-ego-track                 speed, accel, jerk, yaw rate, stops, jitter, ±σ  (velocity.report)
+```
+
+Two solves per drive: **A-only** (B held out: the honest check of drift and prior registration)
+and **A+B** (the product trajectory). For the first pair both ends are `REGISTERED`, so both
+solves are possible. With a `MANUALLY_PLACED` end, the held-out comparison needs an assumed σ
+for that end, and the review brief asks what σ that should be.
+
+### (a) Minimum for priors registration along the route
+
+| #   | Work                                                                                                                       | Repo                             | Size | State       |
+| --- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ---- | ----------- |
+| a1  | Motion export with per-point time and manifest                                                                             | velocity.report                  | M    | this change |
+| a2  | Anchors file: A and B `static_pose` from the accepted registration records, in the bundle's CRS                            | Gerardus (reads its own records) | S    | open        |
+| a3  | Odometry: voxel-hash local map with running moments, adaptive threshold, constant-velocity de-skew from the exported times | Gerardus                         | M    | open        |
+| a4  | Submaps and prior factors with the existing `EvaluatePose(refine)` gates and rank projection                               | Gerardus                         | M    | open        |
+| a5  | Bridge solve in `graph.rs` with relative-pose odometry factors and anchor factors; A-only and A+B                          | Gerardus                         | S–M  | open        |
+| a6  | Trajectory written in `velocity.report/ego-trajectory/v0` (or a converter), frame EPSG:7131                                | Gerardus                         | S    | open        |
+
+Loop closure (S2), IMU, world-frame foreground and map building (S4+) are not needed for (a).
+
+### (b) Minimum for the ego track
+
+| #   | Work                                                                                                                | Repo            | Size | State       |
+| --- | ------------------------------------------------------------------------------------------------------------------- | --------------- | ---- | ----------- |
+| b1  | Kinematics with stated σ, stops, jitter, anchor residuals                                                           | velocity.report | M    | this change |
+| b2  | File-backed pose lookup with gap refusal (`Trajectory.PoseAt`)                                                      | velocity.report | S    | this change |
+| b3  | A trajectory to read: a6 above                                                                                      | Gerardus        | —    | open        |
+| b4  | Independent checks on hydra: held-out anchor B, stop displacement, distance against the registered A–B route length | evaluation      | S    | open        |
+
+## Evaluation on hydra
+
+The run is specified in [route-drive-bridge-first-pair](../../data/experiments/try/route-drive-bridge-first-pair.md).
+Its outputs (LAS, trajectory, kinematics) are raw evidence and operator location history.
+They stay on hydra's local volume, and only the authored report with its summary tables comes
+back to Git.
+
+## Out of scope for the minimum
+
+- Correcting point time inside L1 (block offset, native time precedence). It is a separate
+  change that recaptures the perf baselines. The azimuth clock makes it unnecessary for the
+  spike.
+- Loop closure, Scan Context, the walked capture day, IMU and GNSS sidecars.
+- World-anchored foreground and tracking other vehicles from the moving rig (route plan Items
+  5 and 12).
+- Publishing anything derived from a trajectory. The route plan's privacy rule holds: the
+  trajectory is the operator's location history.
+
+## Risks
+
+| Risk                                                              | Likelihood | Impact | Mitigation                                                                                      |
+| ----------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------- |
+| Drive files do not join (gaps between rotations)                  | Medium     | High   | The exporter refuses a broken join; pick a pair inside one series                               |
+| Car-speed de-skew residue exceeds the 0.20 m prior gates in turns | Medium     | Medium | Exported times allow CT-ICP-style per-sweep poses later; report gates per submap by yaw rate    |
+| Along-street priors weak mid-block, so A-only drift dominates     | High       | Medium | Expected; the held-out B residual measures it; add `feature` anchors at intersections if needed |
+| Traffic (moving vehicles) biases odometry                         | Medium     | Medium | Robust kernel; compare residuals at stops with and without traffic                              |
+| Ego jerk is dominated by pose noise at 10 Hz                      | High       | Medium | σ is stated per sample; the review brief asks for the detectability floor                       |
+| `MANUALLY_PLACED` ends carry no σ                                 | High       | Low    | Use only both-registered pairs for held-out claims; treat others as qualitative                 |
+
+## Checklist
+
+### Complete
+
+- [x] Motion export with azimuth clock, LAS 1.4 and manifest (a1)
+- [x] Ego-track kinematics, stops, jitter, anchors and pose lookup (b1, b2)
+- [x] Oracle brief for the Gerardus implementation questions
+
+### Outstanding
+
+- [ ] Hydra: export the first pair and read `frames.csv` timing (`S`)
+- [ ] Gerardus: a2–a6 (`M`)
+- [ ] Hydra: ego track and held-out anchor B on the first pair, authored report (`S`)
