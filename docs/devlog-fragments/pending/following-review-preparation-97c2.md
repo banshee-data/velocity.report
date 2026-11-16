@@ -2,3 +2,4 @@
 - Added fixed-purpose annotation-review preparation with paired foreground recordings, source-bound following evidence and hashed one-minute native review files; retained validation-cohort restrictions and documented the [five-site readiness findings](../../ui/visualiser/mesh-and-following-readiness-2026-11.md), including unqualified mesh intersections and remaining physical-review gates.
 - Avoided a complete startup decode for foreground recordings whose headers declare no background snapshots; fixed cleanup of failed startup seeks and isolated the live-toggle regression from the operator's running service.
 - Reported the recording's clock and transport state in VRLOG playback status instead of stale PCAP counters.
+- Bounded the offline evidence writer's page cache and enlarged its checkpoint batches to reduce random I/O when capture and evidence share an attached rotating volume.

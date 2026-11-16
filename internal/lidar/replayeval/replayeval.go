@@ -23,6 +23,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -940,7 +941,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			return nil, fmt.Errorf("ObservationMaxSamplePoints must be between 1 and 1024 when ObservationDBPath is set")
 		}
 		maxSamplePoints = cfg.ObservationMaxSamplePoints
-		database, err := db.NewDB(cfg.ObservationDBPath)
+		database, err := openOfflineEvidenceDB(cfg.ObservationDBPath)
 		if err != nil {
 			return nil, fmt.Errorf("open observation database: %w", err)
 		}
@@ -2106,4 +2107,23 @@ func surfaceGroundFor(cfg Config, tuning *config.TuningConfig, experiments []str
 		return nil, fmt.Errorf("surface-ground: %w", err)
 	}
 	return block, nil
+}
+
+// openOfflineEvidenceDB keeps the offline writer's working B-tree pages in a
+// bounded cache and checkpoints in larger batches. On an attached rotating
+// volume, a tiny cache and a checkpoint every 4 MiB otherwise alternate capture
+// reads with thousands of random database reads and writes. WAL/NORMAL
+// durability and the atomic per-frame transactions remain unchanged. URI
+// parameters apply to every pooled connection, including prepared statements.
+func openOfflineEvidenceDB(path string) (*db.DB, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	u := url.URL{Scheme: "file", Path: absolute}
+	q := url.Values{}
+	q.Add("_pragma", "cache_size(-65536)")
+	q.Add("_pragma", "wal_autocheckpoint(16384)")
+	u.RawQuery = q.Encode()
+	return db.NewDB(u.String())
 }

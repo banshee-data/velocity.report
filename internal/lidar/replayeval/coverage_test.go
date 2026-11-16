@@ -1,6 +1,7 @@
 package replayeval
 
 import (
+	"context"
 	"math"
 	"os"
 	"path/filepath"
@@ -217,5 +218,33 @@ func TestObservationWindowCanonicalisation(t *testing.T) {
 		if _, err := cfg.ObservationWindow(); err == nil {
 			t.Fatalf("accepted %+v", cfg)
 		}
+	}
+}
+
+func TestOfflineEvidenceDatabaseUsesBoundedConnectionCache(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence # with spaces.db")
+	database, err := openOfflineEvidenceDB(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	// Hold one connection while the pool opens another: the cache policy
+	// must apply to both, rather than only the initial Exec's connection.
+	connection, err := database.Conn(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	for pragma, want := range map[string]int{"cache_size": -65536, "wal_autocheckpoint": 16384, "synchronous": 1} {
+		var got int
+		if err := database.QueryRow("PRAGMA " + pragma).Scan(&got); err != nil || got != want {
+			t.Fatalf("%s: got %d, want %d, error %v", pragma, got, want, err)
+		}
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openOfflineEvidenceDB(filepath.Join(t.TempDir(), "missing", "evidence.db")); err == nil {
+		t.Fatal("accepted a missing output parent")
 	}
 }

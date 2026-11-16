@@ -117,6 +117,14 @@ Its paired recording is local, but that export cannot be called an offline depen
 preparation keeps all required outputs on `/Volumes/lidar` and preserves the older archive.
 Raw streams, logs, process samples, frozen job plans and output receipts stay outside Git.
 
+The first Kirkham preparation used the default SQLite cache and checkpoint spacing on the
+same attached rotating volume as its capture. Progress slowed from 200 frames in 23 s to
+200 frames in almost six minutes as the database grew. A process sample showed reads and
+fsync dominating execution. Subsequent offline evidence writers use a bounded 64 MiB page
+cache per connection and a 64 MiB WAL checkpoint interval. WAL/NORMAL durability and atomic
+frame transactions remain unchanged. This is an I/O scheduling change, not a perception or
+following parameter change; tests retain the observation-on/off replay comparison.
+
 ## Validation and remaining work
 
 The native suite passed with 858 XCTest cases and 2,000 Swift Testing tests after the review

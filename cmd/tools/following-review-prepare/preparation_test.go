@@ -109,6 +109,10 @@ func TestPreparationPublishesVerifiablePairedReviewOrNoCompletion(t *testing.T) 
 				return &replayeval.Result{VRLOGPath: cfg.OutDir, FramesRecorded: len(tr.Samples), ObservationSourceID: source}, nil
 			}
 			analyse := func(database sqlite.DBClient, s fieldrun.Spec) (fieldrun.Result, error) {
+				var cache int
+				if err := database.QueryRow("PRAGMA cache_size").Scan(&cache); err != nil || cache != -65536 {
+					t.Fatalf("analysis cache: %d, %v", cache, err)
+				}
 				if failure == "database" {
 					return fieldrun.Analyse(database, s)
 				}

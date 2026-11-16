@@ -154,6 +154,12 @@ func prepareWith(o options, guard *eligibilitycli.CLIFlags,
 		return err
 	}
 	defer database.Close()
+	// Analysis is sequential and read-only. Keep its random index lookups
+	// in a bounded page cache on the attached evidence volume as well.
+	database.SetMaxOpenConns(1)
+	if _, err = database.Exec("PRAGMA cache_size = -65536"); err != nil {
+		return err
+	}
 	r, err := analyse(database, fieldrun.Spec{SourceID: sourceID, Boxes: true, Stage: l8behaviour.StageOnline})
 	if err != nil {
 		return err
