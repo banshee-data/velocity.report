@@ -32,6 +32,11 @@ under **Inspector → Following / headway / DRAC evidence**. Review adjacent min
 original sample interval crosses a file boundary, and save a separate audit for each file.
 The canonical export and original recordings remain available for independent verification.
 
+Offline evidence uses a bounded 512 MiB SQLite page cache per connection. Its WAL grows
+during replay, then a checked `TRUNCATE` checkpoint consolidates and synchronises it before
+export. A blocked or failed checkpoint refuses success. Interrupted attempts remain
+unpublished and retain their local database/WAL for inspection or recovery from the source.
+
 These are operator review artefacts, not physically qualified measurements. See the
 [workflow](../../../docs/ui/visualiser/following-audit-workflow.md) and
 [five-site readiness report](../../../docs/ui/visualiser/mesh-and-following-readiness-2026-11.md).

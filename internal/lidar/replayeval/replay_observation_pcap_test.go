@@ -4,6 +4,7 @@ package replayeval
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,33 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
+
+func TestObservationCheckpointFailureCannotPublishReplaySuccess(t *testing.T) {
+	dir := t.TempDir()
+	cfg := Config{PCAPFile: requireKirk0(t), OutDir: filepath.Join(dir, "vrlog"),
+		SensorID: "checkpoint-test", UDPPort: 2369, StartSeconds: 20, WarmupSeconds: 20,
+		DurationSeconds: 4, RequireSettled: true, ClipID: "checkpoint-case",
+		ObservationDBPath: filepath.Join(dir, "observations.db"), ObservationMaxSamplePoints: 64,
+		ObservationCalibration: identityReplayCalibration("checkpoint-test")}
+	failure := errors.New("checkpoint storage failure")
+	d := defaultRuntime()
+	called := false
+	d.checkpointEvidence = func(database observationsqlite.DBClient) error {
+		called = true
+		var estimates int
+		if err := database.QueryRow("SELECT COUNT(*) FROM lidar_track_estimates").Scan(&estimates); err != nil || estimates == 0 {
+			t.Fatalf("checkpoint did not follow persisted frames: %d %v", estimates, err)
+		}
+		return failure
+	}
+	result, err := run(cfg, d)
+	if !called || result != nil || !errors.Is(err, failure) {
+		t.Fatalf("checkpoint failure published success: called=%v result=%+v err=%v", called, result, err)
+	}
+	if _, err := os.Stat(filepath.Join(cfg.OutDir, "replay_manifest.json")); !os.IsNotExist(err) {
+		t.Fatal("checkpoint failure wrote a successful replay manifest")
+	}
+}
 
 func identityReplayCalibration(sensorID string) l4bobserve.Calibration {
 	return l4bobserve.Calibration{

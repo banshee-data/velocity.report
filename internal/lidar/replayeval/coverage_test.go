@@ -235,7 +235,7 @@ func TestOfflineEvidenceDatabaseUsesBoundedConnectionCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer connection.Close()
-	for pragma, want := range map[string]int{"cache_size": -65536, "wal_autocheckpoint": 16384, "synchronous": 1} {
+	for pragma, want := range map[string]int{"cache_size": -524288, "wal_autocheckpoint": 0, "synchronous": 1} {
 		var got int
 		if err := database.QueryRow("PRAGMA " + pragma).Scan(&got); err != nil || got != want {
 			t.Fatalf("%s: got %d, want %d, error %v", pragma, got, want, err)
@@ -246,5 +246,59 @@ func TestOfflineEvidenceDatabaseUsesBoundedConnectionCache(t *testing.T) {
 	}
 	if _, err := openOfflineEvidenceDB(filepath.Join(t.TempDir(), "missing", "evidence.db")); err == nil {
 		t.Fatal("accepted a missing output parent")
+	}
+}
+
+func TestOfflineEvidenceCheckpointRefusesPinnedReaderAndQueryFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "checkpoint.db")
+	database, err := openOfflineEvidenceDB(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	database.SetMaxOpenConns(2)
+	if _, err = database.Exec("CREATE TABLE checkpoint_probe(value INTEGER); INSERT INTO checkpoint_probe VALUES(1)"); err != nil {
+		t.Fatal(err)
+	}
+	connection, err := database.Conn(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	reader, err := connection.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Rollback()
+	var count int
+	if err = reader.QueryRow("SELECT COUNT(*) FROM checkpoint_probe").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = database.Exec("PRAGMA busy_timeout=5; INSERT INTO checkpoint_probe VALUES(2)"); err != nil {
+		t.Fatal(err)
+	}
+	if err = checkpointOfflineEvidence(database); err == nil || !strings.Contains(err.Error(), "incomplete") {
+		t.Fatalf("accepted a checkpoint blocked by an old reader: %v", err)
+	}
+	if err = reader.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if err = connection.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = checkpointOfflineEvidence(database); err != nil {
+		t.Fatal(err)
+	}
+	if err = database.QueryRow("SELECT COUNT(*) FROM checkpoint_probe").Scan(&count); err != nil || count != 2 {
+		t.Fatalf("lost committed rows: %d %v", count, err)
+	}
+	if info, e := os.Stat(path + "-wal"); e == nil && info.Size() != 0 {
+		t.Fatal("successful checkpoint left an unconsolidated WAL")
+	}
+	if err = database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = checkpointOfflineEvidence(database); err == nil {
+		t.Fatal("ignored checkpoint query failure")
 	}
 }

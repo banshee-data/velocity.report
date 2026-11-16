@@ -1254,6 +1254,13 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if observationFrameErr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("observation frames: %w", observationFrameErr)
 	}
+	// All frame callbacks and refinement writes have finished. Consolidate
+	// and sync the WAL before returning a recording that an exporter can use.
+	if evidenceDB != nil {
+		if cerr := runtime.checkpointEvidence(evidenceDB); cerr != nil && replayErr == nil {
+			replayErr = cerr
+		}
+	}
 	if replayErr != nil {
 		observationLogFailure = "pcap replay failed: " + replayErr.Error()
 		return nil, fmt.Errorf("pcap replay: %w", replayErr)
@@ -2110,10 +2117,10 @@ func surfaceGroundFor(cfg Config, tuning *config.TuningConfig, experiments []str
 }
 
 // openOfflineEvidenceDB keeps the offline writer's working B-tree pages in a
-// bounded cache and checkpoints in larger batches. On an attached rotating
-// volume, a tiny cache and a checkpoint every 4 MiB otherwise alternate capture
-// reads with thousands of random database reads and writes. WAL/NORMAL
-// durability and the atomic per-frame transactions remain unchanged. URI
+// bounded cache and consolidates the WAL after replay. On an attached rotating
+// volume, periodic checkpoints otherwise alternate capture reads with random
+// database writes and device-wide flushes. WAL/NORMAL and atomic per-frame
+// transactions remain in use; successful publication requires the final sync. URI
 // parameters apply to every pooled connection, including prepared statements.
 func openOfflineEvidenceDB(path string) (*db.DB, error) {
 	absolute, err := filepath.Abs(path)
@@ -2122,8 +2129,19 @@ func openOfflineEvidenceDB(path string) (*db.DB, error) {
 	}
 	u := url.URL{Scheme: "file", Path: absolute}
 	q := url.Values{}
-	q.Add("_pragma", "cache_size(-65536)")
-	q.Add("_pragma", "wal_autocheckpoint(16384)")
+	q.Add("_pragma", "cache_size(-524288)")
+	q.Add("_pragma", "wal_autocheckpoint(0)")
 	u.RawQuery = q.Encode()
 	return db.NewDB(u.String())
+}
+
+func checkpointOfflineEvidence(database observationsqlite.DBClient) error {
+	var busy, logFrames, checkpointed int
+	if err := database.QueryRow("PRAGMA wal_checkpoint(TRUNCATE)").Scan(&busy, &logFrames, &checkpointed); err != nil {
+		return fmt.Errorf("checkpoint observation database: %w", err)
+	}
+	if busy != 0 || logFrames != 0 || checkpointed != 0 {
+		return fmt.Errorf("checkpoint observation database incomplete: busy=%d log=%d checkpointed=%d", busy, logFrames, checkpointed)
+	}
+	return nil
 }
