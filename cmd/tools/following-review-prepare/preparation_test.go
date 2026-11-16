@@ -147,6 +147,19 @@ func TestPreparationPublishesVerifiablePairedReviewOrNoCompletion(t *testing.T) 
 			if e != nil {
 				t.Fatal(e)
 			}
+			ledgerDB, e := sqlite.OpenReadOnly(ledger)
+			if e != nil {
+				t.Fatal(e)
+			}
+			defer ledgerDB.Close()
+			var configDigest, buildSHA, buildVersion string
+			if e = ledgerDB.QueryRow("SELECT config_digest, build_git_sha, build_version FROM lidar_data_uses LIMIT 1").Scan(&configDigest, &buildSHA, &buildVersion); e != nil {
+				t.Fatal(e)
+			}
+			wantDigest, e := eligibility.FileSHA256(o.Tuning)
+			if e != nil || configDigest != wantDigest || buildSHA != version.GitSHA || buildVersion != version.Version {
+				t.Fatalf("incorrect ledger provenance: %s %s %s (%v)", configDigest, buildSHA, buildVersion, e)
+			}
 			var receipt struct {
 				Evidence string      `json:"evidence"`
 				Slices   []sliceFile `json:"slices"`

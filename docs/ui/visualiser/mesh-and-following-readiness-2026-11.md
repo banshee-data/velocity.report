@@ -101,8 +101,43 @@ for viewing. Source, calibration, analyser and recording-header identities remai
 
 Preparation is admitted as `annotation_review`, with a durable use-ledger record. It is not a
 development evaluation or tuning run. Lombard remains in the validation cohort; a regression
-verifies that reviewing it does not allow a subsequent developer-diagnostic read. Missing
-capture assignments remain explicit in the ledger rather than changing the cohort manifest.
+verifies that reviewing it does not allow a subsequent developer-diagnostic read. The first
+attempts retained explicit refusals for missing or conflicting full-capture byte identities.
+Revision 3 subsequently pins the four requested full captures to their existing site
+assignments; no site's cohort changes. Kirkham's bytes were already pinned.
+
+### Full-capture identity reconciliation
+
+The user's request covers the five current recordings, whose parent-run, clip and catalogue
+site bindings are listed above. These full sources differ from the older screening inputs
+already in the cohort manifest. Their exact bytes now have separate capture entries:
+
+| Site               | Full-capture SHA-256                                               | Existing cohort |
+| ------------------ | ------------------------------------------------------------------ | --------------- |
+| Ashbury–Downey     | `2eec35d381fa4c4ba5a6bf1218982c76e53749287d53691115261f14d8aefbed` | development     |
+| Columbus–Broadway  | `aa69875be4dd45094d79c371ca25e434b3a4d8bec0966c116931720cc1653b66` | development     |
+| Embarcadero–Bryant | `03e10c86b718f068c8733559b1020b56a4e7ae1ec0361529f4fb19e75090fdf3` | development     |
+| Lombard–Broderick  | `1eb08d9e6ced4e20bf07db2140434fbff314b779beb909d602929d44b4c34643` | validation      |
+
+The bindings use the existing parent run's exact source path and clip, plus the catalogue's
+S2 L16 site token. Names alone do not establish the assignment. The earlier Ashbury pin
+`072e9801…` is retained. Its current `s2-sf-0.pcapng` contains 2,209,822 timestamped packets;
+the local named street archive contains 2,209,786 and hashes to `0f6811cd…`. Their ordered
+packet hashes differ, and the current source ends 19.959 ms later. They remain distinct
+sources; the archive was not substituted for the requested current recording.
+
+The preparer's use ledger now records the exact tuning-file SHA-256 and producer build,
+alongside the policy digest. The first Kirkham preparation's older ledger entry retained a
+config path and omitted its build fields; its recording header and canonical export retain
+the producer and configuration identities. Those historical ledger rows are preserved.
+
+Kirkham's first prepared review independently decoded 631 foreground frames, 2,574,168
+foreground points and 136 recorded track IDs over 62.998697 s after its warm-up. Its 5,624
+rows include three eligible following samples, all non-closing, so none supplies a closing
+DRAC calculation. Excluded samples retain their reasons. Seventy-three recorded tracks have
+durable estimator metadata; the other 63 use recorded kinematics and box means over distinct
+observed updates within the recording for the run browser. No human labels were copied or
+invented. The tracks API returns all 136 rows after registration.
 
 The full canonical export is retained locally. One-minute `following_review_slice_v1` files
 project its exact rows, candidate decisions, path IDs and analysis version for the native
