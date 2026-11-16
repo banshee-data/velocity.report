@@ -86,6 +86,13 @@ every exported sample is covered by the paired recording. These review recording
 bounded; the original complete foreground recordings remain available. Data from overlapping
 windows is not additional independent exposure.
 
+Both frozen preparer builds used `ObservationMaxSamplePoints: 256`, a fixed per-cluster
+evidence-retention policy separate from the tuning file's `max_sample_points: 0`. The
+paired VRLOG retains every foreground point produced by L3 without that cap. L5 box and
+solid-body estimation can consume retained points, so the evidence policy is not
+universally storage-only. The producer build and this policy are part of provenance;
+a matching tuning fingerprint alone does not establish equivalence with older runs.
+
 | Site               | Parent run                                             |  Source bytes | Unrecorded warm-up |
 | ------------------ | ------------------------------------------------------ | ------------: | -----------------: |
 | Ashbury–Downey     | `f718874e-5c25-4e68-af4b-d128a292b385`                 | 2,960,366,452 |               70 s |
@@ -220,6 +227,53 @@ with missing inputs. The tracks API returns all 1,516 exact recorded IDs. These 
 establish output completeness and software status, not physical measurement accuracy.
 Columbus, Bryant and Lombard remain queued or processing until their completion,
 independent decoding, registration and native review checks pass.
+
+### Merged-main offline check
+
+PRs #1048 and #1049 passed CI and merged, followed by the review, preparation and source
+handover fixes through #1053. Make-built Go and native binaries from main
+`f9a6ba362e07bd5e97014a07cf42f88a4789b06d` reported that SHA in the API and About dialog.
+Their independently hashed archive remains on the attached volume; the archived app passed
+deep, strict signature verification. All returned workflow runs for #1053 succeeded, and
+there were no outstanding review threads at merge.
+
+With NAS shares unmounted and Gerardus restricted to local data, all five sites loaded
+their foreground replay, buildings and accepted scans in that merged app:
+
+| Site               | Replay checked                        | Buildings | Roof planes | Walls | Accepted scans | Scan points |
+| ------------------ | ------------------------------------- | --------: | ----------: | ----: | -------------: | ----------: |
+| Ashbury–Downey     | New paired review, 11,574 frames      |       349 |       1,110 | 5,641 |              2 |      87,299 |
+| Kirkham–9th        | New paired review, 631 frames         |       301 |         847 | 5,011 |              7 |     330,865 |
+| Columbus–Broadway  | Existing parent replay, 20,398 frames |       277 |         961 | 5,077 |              1 |      36,611 |
+| Embarcadero–Bryant | Existing parent replay, 13,671 frames |        41 |         156 |   796 |              1 |      50,128 |
+| Lombard–Broderick  | Existing parent replay, 12,059 frames |       266 |         669 | 5,144 |              1 |     117,901 |
+
+Kirkham selected its registered accepted scan `sha256:9f547025e08237d02163c19d5a6f7e3caa20e513e7283ae974581573e410bbb3`
+and displayed the accepted 235.3° heading. Each Runs selection replaced the site and placement
+hint; **Align → Place from hint** loaded that site's reference. These checks establish
+offline availability and site selection, not acceptance of the road mesh. The three parent
+replay checks do not replace the pending checks of their new paired evidence.
+
+Ashbury and Kirkham additionally imported their matching minute files on merged main,
+selected an actual recorded track, sought to an exact sample timestamp, exposed classification
+and quality controls, and opened the manual audit form. Each form was cancelled with zero
+operator records saved. Both members of each inspected pair were independently decoded
+in that exact recorded frame.
+
+Ashbury's illustrative first-minute sample displayed a 13.5062353 m gap, 1.2915821 s net
+time gap and 0.33977255 m/s² experimental DRAC. It was selected to exercise numeric display,
+not to characterise risk or exposure. Kirkham's positive-duration sample displayed a
+30.8390454 m gap and 29.7311826 s net time gap, with numeric demand correctly suppressed
+because the pair was non-closing. Across Kirkham's three eligible samples, one has zero
+duration and the other two sum to 0.199921 s of eligible exposure. Three isolated samples
+must not be described as three intervals of exposure.
+
+The native view correctly reports that recording source identity is unavailable: imported
+files are manual review evidence, without automatic playback binding or overlays. Header,
+source, configuration, timestamp and exact track-ID agreement were checked independently.
+Online estimates retain `estimate_not_final`; suppressed named metrics are distinct from
+the baseline arithmetic shown for inspection. Neither successful import nor a numeric DRAC
+value supplies physical identity, common-path, endpoint, speed or uncertainty qualification.
 
 ## Validation and remaining work
 

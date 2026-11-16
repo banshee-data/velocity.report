@@ -1,0 +1,1 @@
+- Recorded the merged-main offline checks for five site references and foreground replays, documented the fixed retained-point policy, and preserved the limits of manual following review in the [readiness report](../../ui/visualiser/mesh-and-following-readiness-2026-11.md).
