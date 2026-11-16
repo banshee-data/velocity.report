@@ -328,6 +328,52 @@ struct PlaybackStatusModelTests {
 }
 
 @available(macOS 15.0, *) @MainActor final class RunBrowserReplayLoadHelperTests: XCTestCase {
+    func testLoadingAnotherSiteReplacesItsContextWithoutStartingPackets() async throws {
+        let state = SpyRunBrowserAppState()
+        let old = CitySite(id: "old", title: "Previous", cells: .init(l16: "old-cell"))
+        let next = CitySite(id: "next", title: "Next", cells: .init(l16: "next-cell"))
+        state.alignment.siteIndex = CitySiteIndex(sites: [old, next])
+        state.enterSite(SiteContext(site: old))
+        let previousContext = state.siteContext.id
+        var run = makeBrowserRun(id: "new-recording")
+        run.clipId = "new-clip"
+        state.runBrowserState.runs = [run]
+        state.runBrowserState.clips = [
+            "new-clip": ClipSummary(clipId: "new-clip", siteId: "next-cell")
+        ]
+        await loadRunForReplayAndUpdateAppState(
+            runID: run.runId, appState: state, runBrowserState: state.runBrowserState
+        ) { VRLogLoadResponse(success: true, vrlogPath: "/vrlog/new", frameEncoding: "protobuf") }
+        XCTAssertNotEqual(state.siteContext.id, previousContext)
+        XCTAssertEqual(state.siteContext.site, next)
+        XCTAssertEqual(state.city.currentSite, next)
+        XCTAssertEqual(state.alignment.citySite, next)
+        XCTAssertEqual(state.siteContext.source, .recording(runID: run.runId))
+    }
+
+    func testUnlocatedRecordingCannotRetainPreviousSite() async throws {
+        for token in [nil, "missing", "ambiguous"] as [String?] {
+            let state = SpyRunBrowserAppState()
+            let old = CitySite(id: "old", title: "Previous", cells: .init(l16: "ambiguous"))
+            let other = CitySite(id: "other", title: "Other", cells: .init(l16: "ambiguous"))
+            state.alignment.siteIndex = CitySiteIndex(sites: [old, other])
+            state.enterSite(SiteContext(site: old))
+            var run = makeBrowserRun(id: "unlocated")
+            run.clipId = "clip"
+            state.runBrowserState.runs = [run]
+            state.runBrowserState.clips = ["clip": ClipSummary(clipId: "clip", siteId: token)]
+            await loadRunForReplayAndUpdateAppState(
+                runID: run.runId, appState: state, runBrowserState: state.runBrowserState
+            ) {
+                VRLogLoadResponse(success: true, vrlogPath: "/vrlog/new", frameEncoding: "protobuf")
+            }
+            XCTAssertNil(state.siteContext.site)
+            XCTAssertNil(state.city.currentSite)
+            XCTAssertNil(state.alignment.site)
+            XCTAssertNil(state.alignment.citySite)
+        }
+    }
+
     func testLoadRunForReplayAndUpdateAppStateSuccess() async throws {
         let state = SpyRunBrowserAppState()
         state.isPaused = true
@@ -399,6 +445,10 @@ struct PlaybackStatusModelTests {
 
     func testLoadRunForReplayAndUpdateAppStateFailureSkipsReplayActivation() async throws {
         let state = SpyRunBrowserAppState()
+        state.enterSite(SiteContext(site: CitySite(id: "keep", title: "Keep this site")))
+        let previousContext = state.siteContext.id
+        let previousPlaybackMode = state.playbackMode
+        state.prepareForNewReplayCallCount = 0
         state.currentRunID = nil
         state.selectedTrackID = "previous-run-track"
 
@@ -409,9 +459,11 @@ struct PlaybackStatusModelTests {
         XCTAssertEqual(state.prepareForNewReplayCallCount, 0)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 0)
         // A failed load returns before playback state is reset or replay activated.
-        XCTAssertEqual(state.playbackMode, .live)
+        XCTAssertEqual(state.playbackMode, previousPlaybackMode)
         XCTAssertNil(state.currentRunID)
         XCTAssertEqual(state.selectedTrackID, "previous-run-track")
+        XCTAssertEqual(state.siteContext.id, previousContext)
+        XCTAssertEqual(state.siteContext.siteID, "keep")
     }
 }
 

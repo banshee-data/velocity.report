@@ -186,6 +186,13 @@ rechecks its source and cancellation after acquiring the transition lock, so an 
 watcher cannot stop a newer recording. Concurrent stop/load, callback lock ordering,
 load failure and stale-watcher regressions exercise this boundary.
 
+A second check opened Ashbury from Runs while Kirkham was selected. The new recording
+loaded, but the toolbar, placement hint and resident reference still belonged to Kirkham.
+Successful run loading now replaces the complete site context using the run's recorded
+clip-to-site binding, without starting another PCAP. Missing, conflicting or ambiguous
+bindings clear the old site rather than inheriting its geometry. A refused load preserves
+the current context. Regressions cover the different-site and unresolved-site cases.
+
 The private local city index now includes Kirkham–9th alongside the existing public
 entries, using its already registered Gerardus scan and accepted pose. Its five focus
 capture bindings name the exact requested current sources. The private index and its

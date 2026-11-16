@@ -208,6 +208,21 @@ enum CityLiveServers {
 }
 
 extension AppState {
+    /// Runs can change sites without going through the site picker. Drop the
+    /// previous reference even when this recording has no located clip.
+    /// Only an unambiguous recorded clip binding selects a city site.
+    func enterRecordingSite(runID: String, run: Run?, clips: [String: ClipSummary]) {
+        let clip = run?.clipId.flatMap { clips[$0] }
+        let tokens = Set(
+            [clip?.siteId, clip?.location?.siteId].compactMap { value in
+                value?.trimmingCharacters(in: .whitespacesAndNewlines)
+            }.filter { !$0.isEmpty })
+        let site =
+            tokens.count == 1
+            ? tokens.first.flatMap { alignment.siteIndex?.site(l16Token: $0) } : nil
+        enterSite(SiteContext(site: site, source: .recording(runID: runID)))
+    }
+
     /// Leaves the current site for `site` and starts its frames: a live
     /// server named for it, else a replay of its captures on the connected
     /// server. Returns what it started, or throws why nothing could be.
