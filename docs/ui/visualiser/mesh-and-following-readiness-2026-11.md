@@ -173,6 +173,54 @@ Tests cover a pinned reader, a closed database, failure propagation and unchange
 replay scores with and without observation storage. Operational timings on this shared host
 are not an isolated performance benchmark or evidence of physical measurement accuracy.
 
+## Offline launch and source handover
+
+A final native check on main `45312b2` exposed a separate source transition fault:
+choosing Kirkham started its PCAP analysis, and opening a prepared VRLOG left that
+packet producer running behind the recorded playback. The status named VRLOG while
+recording remained active with no recording run ID. The replacement now serialises
+operator source changes, cancels and waits for the PCAP finaliser, stops UDP input,
+and drains pending frame callbacks before resetting state and loading the VRLOG.
+It keeps the live socket closed throughout the replacement. A parked replay watcher
+rechecks its source and cancellation after acquiring the transition lock, so an old
+watcher cannot stop a newer recording. Concurrent stop/load, callback lock ordering,
+load failure and stale-watcher regressions exercise this boundary.
+
+A second check opened Ashbury from Runs while Kirkham was selected. The new recording
+loaded, but the toolbar, placement hint and resident reference still belonged to Kirkham.
+Successful run loading now replaces the complete site context using the run's recorded
+clip-to-site binding, without starting another PCAP. Missing, conflicting or ambiguous
+bindings clear the old site rather than inheriting its geometry. A refused load preserves
+the current context. Regressions cover the different-site and unresolved-site cases.
+The recorded clip's sensor and eye-read coordinates are retained for placement; missing
+or invalid coordinates leave the site unselected. The browser restores its new selection
+after the context reset. A request cancelled while draining the previous producer restores
+live input without starting the new recording.
+
+The private local city index now includes Kirkham–9th alongside the existing public
+entries, using its already registered Gerardus scan and accepted pose. Its five focus
+capture bindings name the exact requested current sources. The private index and its
+receipt live on the attached evidence volume; this does not publish Kirkham geometry
+or accept a new pose. The native folder chooser grants access to that local root.
+
+Make-built main `45312b2` launch binaries were independently copied and hashed at the
+normal internal launch paths, retaining the originals on the attached volume. This
+avoids cold executable paging competing with the observation database on the rotating
+disk. A first catalogue request took 4.8 ms after this change, compared with earlier
+4–6 s requests that could exceed the native lookup timeout. These shared-host timings
+are operational observations, not an isolated benchmark. Required data remain on
+`/Volumes/lidar`, with NAS shares unmounted.
+
+Ashbury's prepared recording independently decoded 11,574 foreground frames and
+9,040,486 foreground points, with zero background points and 1,516 recorded track IDs.
+Its matching canonical export contains 31,000 rows projected into 20 minute slices:
+610 supported closing samples, 723 eligible non-closing samples, 11,781 no-leader rows,
+15,018 excluded pairings, 2,587 record gaps, 187 ineligible following rows and 94 rows
+with missing inputs. The tracks API returns all 1,516 exact recorded IDs. These counts
+establish output completeness and software status, not physical measurement accuracy.
+Columbus, Bryant and Lombard remain queued or processing until their completion,
+independent decoding, registration and native review checks pass.
+
 ## Validation and remaining work
 
 The native suite passed with 858 XCTest cases and 2,000 Swift Testing tests after the review

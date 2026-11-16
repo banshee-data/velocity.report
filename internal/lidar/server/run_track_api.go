@@ -21,7 +21,7 @@ var deleteRunTrackRowsAffected = func(result interface{ RowsAffected() (int64, e
 
 var (
 	startPCAPInternalForReprocess = func(ws *Server, pcapPath string, config ReplayConfig) error {
-		return ws.StartPCAPInternal(pcapPath, config)
+		return ws.startPCAPInternalLocked(pcapPath, config)
 	}
 	lastRunIDForReprocess = func(ws *Server) string {
 		return ws.LastRunID()
@@ -614,6 +614,12 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 	preferredRunID := fmt.Sprintf("reprocess-%s-%s", runIDPrefix, uuidPrefix)
 
 	// Reset tracker and background grid for deterministic analysis
+	ws.sourceTransitionMu.Lock()
+	defer ws.sourceTransitionMu.Unlock()
+	if ws.PipelineState().ReplayActive {
+		ws.writeJSONError(w, http.StatusConflict, "a replay is already running: stop it first via POST /api/lidar/replay/stop")
+		return
+	}
 	if ws.tracker != nil {
 		ws.tracker.Reset()
 	}

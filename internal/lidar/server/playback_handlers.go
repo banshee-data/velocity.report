@@ -217,6 +217,12 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	ws.sourceTransitionMu.Lock()
+	defer ws.sourceTransitionMu.Unlock()
+	if r.Context().Err() != nil {
+		ws.writeJSONError(w, http.StatusRequestTimeout, "request ended before the source switch began")
+		return
+	}
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
@@ -351,6 +357,12 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ws.sourceTransitionMu.Lock()
+	defer ws.sourceTransitionMu.Unlock()
+	if r.Context().Err() != nil {
+		ws.writeJSONError(w, http.StatusRequestTimeout, "request ended before the source switch began")
+		return
+	}
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
@@ -603,8 +615,35 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 	diagf("VRLOG load: run_id=%q path=%s (resolved from %s)", body.RunID, canonicalPath, vrlogPath)
 	vrlogPath = canonicalPath
 
+	ws.sourceTransitionMu.Lock()
+	defer ws.sourceTransitionMu.Unlock()
+	if r.Context().Err() != nil {
+		refuse(http.StatusRequestTimeout, "request ended before the source switch began")
+		return
+	}
+	// Loading a recording replaces the packet producer too. Cancellation
+	// drains its callbacks and closes its recorder before recorded frames
+	// can be published. Waiting must happen outside dataSourceMu.
+	if err := ws.finishReplayTransition("loading VRLOG", true, false); err != nil {
+		refuse(http.StatusInternalServerError, fmt.Sprintf("could not stop the previous source: %v", err))
+		return
+	}
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
+	ws.stopLiveListenerLocked()
+	if r.Context().Err() != nil {
+		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
+			opsf("Failed to restore live listener after cancelled VRLOG load: %v", restartErr)
+		}
+		refuse(http.StatusRequestTimeout, "request ended while the previous source was stopping")
+		return
+	}
+
 	frameEncoding, err := ws.onVRLogLoad(vrlogPath)
 	if err != nil {
+		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
+			opsf("Failed to restore live listener after VRLOG load error: %v", restartErr)
+		}
 		refuse(http.StatusInternalServerError, fmt.Sprintf("could not load VRLOG %s: %v", vrlogPath, err))
 		return
 	}
@@ -616,9 +655,7 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 	// listener keeps feeding L1/L2 while recorded frames are streamed, so the
 	// two interleave — and reporting the source as "vrlog" while live packets
 	// are still being processed would be a new falsehood rather than a fix.
-	ws.dataSourceMu.Lock()
 	ws.stopLiveListenerLocked()
-	ws.dataSourceMu.Unlock()
 
 	// Record the source. Without this the data-source surfaces kept reporting
 	// whatever preceded the replay — usually "live" — for its whole duration.

@@ -76,6 +76,7 @@ func (ws *Server) watchForLiveWhileParked() {
 	// replay, so an older timestamp says the sensor was streaming before, not
 	// that it is streaming now.
 	parkedAt := time.Now()
+	parkedSource := ws.PipelineState()
 
 	go func() {
 		ticker := time.NewTicker(parkedLiveWatchInterval)
@@ -88,19 +89,27 @@ func (ws *Server) watchForLiveWhileParked() {
 				if !ws.stats.LastPacketAt().After(parkedAt) {
 					continue
 				}
-				// Re-check under the current state: an operator may have gone
-				// live or loaded another replay while this was waiting.
-				if ws.PipelineState().Source == SourceModeLive {
-					return
-				}
-				diagf("[DataSource] live input resumed under a parked replay for sensor=%s; taking it live", ws.sensorID)
-				if err := ws.returnToLive("live input resumed under a parked replay", true); err != nil {
+				if err := ws.returnParkedSourceToLive(ctx, parkedSource); err != nil {
 					opsf("[DataSource] failed to take live input under a parked replay: %v", err)
 				}
 				return
 			}
 		}
 	}()
+}
+
+// A watcher can have observed a packet just as a new source cancels it.
+// Recheck after serialising with that source change, before stopping anything.
+func (ws *Server) returnParkedSourceToLive(ctx context.Context, parked PipelineState) error {
+	ws.sourceTransitionMu.Lock()
+	defer ws.sourceTransitionMu.Unlock()
+	current := ws.PipelineState()
+	if ctx.Err() != nil || current.Source == SourceModeLive || current.ReplayActive ||
+		current.Source != parked.Source || current.SourcePath != parked.SourcePath {
+		return nil
+	}
+	diagf("[DataSource] live input resumed under a parked replay for sensor=%s; taking it live", ws.sensorID)
+	return ws.returnToLiveLocked("live input resumed under a parked replay", true)
 }
 
 // ReturnToLive stops whatever replay is driving the pipeline and restores live
@@ -127,6 +136,22 @@ func (ws *Server) ReturnToLive(reason string) error {
 // against itself. Every other caller passes true and waits for the replay to
 // finish before the pipeline is declared live.
 func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
+	if stopActiveReplay {
+		ws.sourceTransitionMu.Lock()
+		defer ws.sourceTransitionMu.Unlock()
+	}
+	return ws.returnToLiveLocked(reason, stopActiveReplay)
+}
+
+// The operator holds sourceTransitionMu. A producer tearing itself down
+// passes false and must never wait for that mutex or its own completion.
+func (ws *Server) returnToLiveLocked(reason string, stopActiveReplay bool) error {
+	return ws.finishReplayTransition(reason, stopActiveReplay, true)
+}
+
+// restartLive is false while loading another recorded source. In that case
+// the live socket must stay closed between draining input and publishing it.
+func (ws *Server) finishReplayTransition(reason string, stopActiveReplay, restartLive bool) error {
 	before := ws.PipelineState()
 
 	// Whatever brought us here supersedes a parked replay's wait for live.
@@ -157,6 +182,23 @@ func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 		}
 		if done != nil {
 			<-done
+		}
+	}
+	// The cancelled producer can arm a parked watcher on its way out.
+	ws.cancelParkedLiveWatch()
+	// A parked watcher may have opened UDP while the PCAP finaliser exited.
+	// Stop packet input, then drain queued callbacks without dataSourceMu:
+	// callbacks can acquire that mutex themselves. Reset alone does not drain
+	// the frame builder's callback queue.
+	ws.dataSourceMu.Lock()
+	ws.stopLiveListenerLocked()
+	ws.dataSourceMu.Unlock()
+	if stopActiveReplay {
+		if fb := getReplayFrameBuilder(ws.sensorID); fb != nil {
+			if drainer, ok := fb.(replayCallbackDrainer); ok {
+				drainer.FlushPendingFrames()
+				drainer.WaitForCallbacks()
+			}
 		}
 	}
 
@@ -204,8 +246,10 @@ func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 	// clear a replay whenever the socket was busy, which is the wedge again in
 	// a new disguise. Report it loudly instead; LiveListenerRunning stays false
 	// in the state and on the status surfaces.
-	if err := ws.startLiveListenerLocked(); err != nil {
-		opsf("[DataSource] returned to live but the listener did not restart (%s): %v", reason, err)
+	if restartLive {
+		if err := ws.startLiveListenerLocked(); err != nil {
+			opsf("[DataSource] returned to live but the listener did not restart (%s): %v", reason, err)
+		}
 	}
 
 	// The source was already set live above, before the listener work, so the

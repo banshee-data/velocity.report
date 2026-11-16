@@ -710,12 +710,12 @@ func TestClipCov2_ReplayPCAPInProgress(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleClipByID(w, req)
 
-	// StartPCAPInternal fails because pcap already in progress
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	// An active replay is refused before any tracker or grid reset.
+	if w.Code != http.StatusConflict {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusConflict, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "PCAP replay") {
-		t.Errorf("expected PCAP replay error, got: %s", w.Body.String())
+	if !strings.Contains(w.Body.String(), "a replay is already running") {
+		t.Errorf("expected active replay refusal, got: %s", w.Body.String())
 	}
 }
 

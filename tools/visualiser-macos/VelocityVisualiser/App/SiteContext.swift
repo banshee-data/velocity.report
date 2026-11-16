@@ -47,6 +47,8 @@ enum SiteSource: Equatable, Sendable {
     case live(sensorID: String)
     /// A replay of the site's captures on the connected server.
     case replay(clipID: String, sensorID: String, files: [String])
+    /// An already loaded VRLOG; entering its site must not start a PCAP.
+    case recording(runID: String)
     /// The connected server holds nothing for this site.
     case nothingToPlay
 }

@@ -31,11 +31,12 @@ private enum RunBrowserLayout {
     let loadResponse = await loadRunForReplay()
     guard loadResponse != nil else { return }
 
-    // Only reset playback state after a successful load.
-    appState.prepareForNewReplay()
     // Whether Accumulate frames can collect from this VRLOG: only a run
     // recorded with full frames carries background in its frames.
     let run = runBrowserState.runs.first { $0.runId == runID }
+    // Reset all per-site state only after a successful load. The previous
+    // site's geometry and hint must never accompany a different recording.
+    appState.enterRecordingSite(runID: runID, run: run, clips: runBrowserState.clips)
     // Its background is uploaded under the run's own name (its clip, else the
     // run id), never the site picker's, which may be another position.
     let clip = run?.clipId?.trimmingCharacters(in: .whitespaces) ?? ""
@@ -43,6 +44,8 @@ private enum RunBrowserLayout {
         fullFrames: run?.holdsFullFrames == true, captureRef: clip.isEmpty ? runID : clip)
     // Set currentRunID so labels route to run-track API
     appState.currentRunID = runID
+    // enterSite clears the shared browser's previous selection too.
+    runBrowserState.selectedRunID = runID
     await runBrowserState.primeTrackCache(runID: runID)
     // Restart the gRPC stream AFTER the VRLOG has loaded on the
     // server.  Doing this before the HTTP POST would disconnect

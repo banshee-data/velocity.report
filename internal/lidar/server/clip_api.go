@@ -14,7 +14,7 @@ import (
 
 var (
 	startPCAPInternalForClip = func(ws *Server, pcapPath string, config ReplayConfig) error {
-		return ws.StartPCAPInternal(pcapPath, config)
+		return ws.startPCAPInternalLocked(pcapPath, config)
 	}
 	lastRunIDForClip = func(ws *Server) string {
 		return ws.LastRunID()
@@ -534,6 +534,12 @@ func (ws *Server) handleReplayClip(w http.ResponseWriter, r *http.Request, clipI
 	}
 
 	// Reset tracker to ensure deterministic track IDs starting from track_1
+	ws.sourceTransitionMu.Lock()
+	defer ws.sourceTransitionMu.Unlock()
+	if ws.PipelineState().ReplayActive {
+		ws.writeJSONError(w, http.StatusConflict, "a replay is already running: stop it first via POST /api/lidar/replay/stop")
+		return
+	}
 	if ws.tracker != nil {
 		ws.tracker.Reset()
 	}

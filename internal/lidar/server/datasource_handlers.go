@@ -106,11 +106,22 @@ func (ws *Server) StopLiveListenerInternal() {
 
 // StartPCAPInternal starts PCAP replay (called by RealDataSourceManager).
 func (ws *Server) StartPCAPInternal(pcapFile string, config ReplayConfig) error {
+	ws.sourceTransitionMu.Lock()
+	defer ws.sourceTransitionMu.Unlock()
+	return ws.startPCAPInternalLocked(pcapFile, config)
+}
+
+// The caller owns sourceTransitionMu through any start notification too.
+func (ws *Server) startPCAPInternalLocked(pcapFile string, config ReplayConfig) error {
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
 	return ws.startPCAPLockedWithConfig(pcapFile, config)
 }
 
 // StopPCAPInternal stops the current PCAP replay (called by RealDataSourceManager).
 func (ws *Server) StopPCAPInternal() {
+	ws.sourceTransitionMu.Lock()
+	defer ws.sourceTransitionMu.Unlock()
 	ws.pcapMu.Lock()
 	cancel := ws.pcapCancel
 	done := ws.pcapDone
@@ -167,6 +178,7 @@ func (ws *Server) startPCAPForSweep(pcapFile string, replay ReplayConfig, maxRet
 	}
 
 	for retry := 0; retry < maxRetries; retry++ {
+		ws.sourceTransitionMu.Lock()
 		ws.dataSourceMu.Lock()
 
 		// ReplayActive rather than PCAPInProgress: a VRLOG replay holds the
@@ -174,6 +186,7 @@ func (ws *Server) startPCAPForSweep(pcapFile string, replay ReplayConfig, maxRet
 		// before tryBeginPCAPReplay refused the start.
 		if ws.PipelineState().ReplayActive {
 			ws.dataSourceMu.Unlock()
+			ws.sourceTransitionMu.Unlock()
 			if retry == 0 {
 				diagf("PCAP replay in progress, waiting...")
 			}
@@ -191,6 +204,7 @@ func (ws *Server) startPCAPForSweep(pcapFile string, replay ReplayConfig, maxRet
 				opsf("failed to restart live listener after reset error: %v", startErr)
 			}
 			ws.dataSourceMu.Unlock()
+			ws.sourceTransitionMu.Unlock()
 			return fmt.Errorf("reset state: %w", err)
 		}
 
@@ -206,6 +220,7 @@ func (ws *Server) startPCAPForSweep(pcapFile string, replay ReplayConfig, maxRet
 		}); err != nil {
 			_ = ws.startLiveListenerLocked()
 			ws.dataSourceMu.Unlock()
+			ws.sourceTransitionMu.Unlock()
 			return fmt.Errorf("start PCAP: %w", err)
 		}
 
@@ -214,6 +229,7 @@ func (ws *Server) startPCAPForSweep(pcapFile string, replay ReplayConfig, maxRet
 		if ws.onPCAPStarted != nil {
 			ws.onPCAPStarted()
 		}
+		ws.sourceTransitionMu.Unlock()
 		return nil
 	}
 	return fmt.Errorf("%w: a replay was still running after %d attempts; stop it via POST /api/lidar/replay/stop",
@@ -222,6 +238,8 @@ func (ws *Server) startPCAPForSweep(pcapFile string, replay ReplayConfig, maxRet
 
 // StopPCAPForSweep cancels any running PCAP replay and restores live mode.
 func (ws *Server) StopPCAPForSweep() error {
+	ws.sourceTransitionMu.Lock()
+	defer ws.sourceTransitionMu.Unlock()
 	ws.dataSourceMu.Lock()
 	if ws.PipelineState().Source != SourceModeCapture {
 		ws.dataSourceMu.Unlock()
