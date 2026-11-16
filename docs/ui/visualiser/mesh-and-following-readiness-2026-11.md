@@ -56,8 +56,10 @@ NAS unmounted. A later Columbus replay made both clients unresponsive while stre
 process sample showed SwiftUI graph updates, including Alignment's site selector. That sample
 does not establish a root cause or a successful five-site native recheck. The recording header
 retains valid capture bounds although the HTTP playback-status response showed zero bounds.
-The status accessor currently reads the PCAP clock even for VRLOG replay; zero HTTP bounds
-therefore do not establish lost recording metadata. An obsolete live-toggle test also sent
+The status accessor read the PCAP clock even for VRLOG replay; zero HTTP bounds
+therefore did not establish lost recording metadata. It now reads a coherent recording
+snapshot, including bounds, position, pause and rate without advancing playback.
+An obsolete live-toggle test also sent
 real replay-stop requests to the local service. It was removed in favour of the existing
 stubbed regression, and native checks are kept separate from test execution.
 

@@ -627,6 +627,29 @@ func (r *Replayer) RecordedBackgroundFrames() (uint64, bool) {
 	return h.BackgroundFrames, h.RotationFrames <= h.TotalFrames && h.BackgroundFrames == h.TotalFrames-h.RotationFrames
 }
 
+// ReplayPosition returns a coherent snapshot without decoding or advancing a
+// frame. The timestamp is the last frame consumed, or the next frame at start.
+func (r *Replayer) ReplayPosition() l9endpoints.PlaybackPositionInfo {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	info := l9endpoints.PlaybackPositionInfo{Paused: r.paused, Rate: r.rate, Seekable: true,
+		CurrentFrame: r.currentFrame, TotalFrames: uint64(len(r.index)),
+		LogStartNs: r.header.StartNs, LogEndNs: r.header.EndNs}
+	if len(r.index) > 0 {
+		i := r.currentFrame
+		if i > 0 {
+			i--
+		}
+		if i < uint64(len(r.index)) {
+			info.TimestampNs = r.index[i].TimestampNs
+		}
+	}
+	if info.Rate == 0 {
+		info.Rate = 1
+	}
+	return info
+}
+
 // TotalFrames returns the total number of frames in the log.
 func (r *Replayer) TotalFrames() uint64 {
 	return r.header.TotalFrames

@@ -159,3 +159,22 @@ func TestBackgroundFramesDoNotSetTimeRange(t *testing.T) {
 		t.Errorf("span %d must be positive", span)
 	}
 }
+
+func TestReplayPositionDoesNotAdvanceRecording(t *testing.T) {
+	r := &Replayer{header: LogHeader{StartNs: 1000, EndNs: 9000},
+		index: []IndexEntry{{TimestampNs: 1000}, {TimestampNs: 4000}, {TimestampNs: 9000}}, paused: true, rate: 2}
+	for _, c := range []struct {
+		frame     uint64
+		timestamp int64
+	}{{0, 1000}, {2, 4000}, {3, 9000}} {
+		r.currentFrame = c.frame
+		got := r.ReplayPosition()
+		if got.CurrentFrame != c.frame || got.TimestampNs != c.timestamp || !got.Paused || got.Rate != 2 || !got.Seekable || got.TotalFrames != 3 || got.LogStartNs != 1000 || got.LogEndNs != 9000 || r.currentFrame != c.frame {
+			t.Fatalf("position at %d = %+v", c.frame, got)
+		}
+	}
+	r = &Replayer{}
+	if got := r.ReplayPosition(); got.TimestampNs != 0 || got.Rate != 1 {
+		t.Fatalf("empty recording position %+v", got)
+	}
+}
