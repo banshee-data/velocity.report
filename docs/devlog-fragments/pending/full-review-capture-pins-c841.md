@@ -1,0 +1,2 @@
+- Pinned the requested full Ashbury, Columbus, Bryant and Lombard capture bytes to their existing site cohorts, preserving earlier identities and Lombard's validation role; documented the [source reconciliation and Kirkham review findings](../../ui/visualiser/mesh-and-following-readiness-2026-11.md).
+- Recorded tuning-file digests and producer builds in the review preparer's use ledger, with a regression checking the persisted provenance.

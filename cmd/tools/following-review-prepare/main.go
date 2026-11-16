@@ -67,9 +67,10 @@ func (o options) validate() error {
 	return nil
 }
 
-func authorizeReview(guard *eligibilitycli.CLIFlags, id eligibility.Identity, site, tuning string) (eligibility.Decision, error) {
+func authorizeReview(guard *eligibilitycli.CLIFlags, id eligibility.Identity, site, tuningDigest string) (eligibility.Decision, error) {
 	d, err := guard.Authorize("following-review-prepare", eligibility.Request{
-		Purpose: eligibility.PurposeAnnotationReview, ConfigDigest: tuning, Inputs: []eligibility.Input{{Identity: id}},
+		Purpose: eligibility.PurposeAnnotationReview, ConfigDigest: tuningDigest, Inputs: []eligibility.Input{{Identity: id}},
+		BuildVersion: version.Version, BuildGitSHA: version.GitSHA,
 	})
 	if err != nil {
 		return d, err
@@ -109,7 +110,11 @@ func prepareWith(o options, guard *eligibilitycli.CLIFlags,
 	if err != nil {
 		return err
 	}
-	admission, err := authorizeReview(guard, id, o.Site, o.Tuning)
+	tuningDigest, err := eligibility.FileSHA256(o.Tuning)
+	if err != nil {
+		return err
+	}
+	admission, err := authorizeReview(guard, id, o.Site, tuningDigest)
 	if err != nil {
 		return err
 	}

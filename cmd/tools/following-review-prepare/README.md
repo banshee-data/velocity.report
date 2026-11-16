@@ -20,6 +20,7 @@ frames and the complete transform. Declare the actual coordinate relationship; t
 not infer it from a name or an accepted map pose. A known cohort source must match `-site`.
 The policy purpose is fixed to annotation review, including for validation-cohort material;
 this command has no tuning, candidate-scoring or experiment switches.
+Its use-ledger entry records the tuning file's exact SHA-256 and the stamped producer build.
 
 The warm-up prefix is processed but not recorded. Settling is required at its boundary, and
 the rest of the source is recorded to EOF. Canonical evidence excludes samples outside the
