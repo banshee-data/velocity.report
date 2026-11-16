@@ -10,20 +10,22 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
+	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // replayRuntime keeps infrastructure failure tests local to a run, without
 // mutable package globals or timing-dependent filesystem sabotage.
 type replayRuntime struct {
-	hashFile      func(string) (string, error)
-	loadParser    func() (*parse.Pandar40PConfig, error)
-	background    func(string, *config.TuningConfig, []float64) (*l3grid.BackgroundManager, error)
-	newRecorder   func(string, string) (*recorder.Recorder, error)
-	closeRecorder func(*recorder.Recorder) error
-	marshal       func(any) ([]byte, error)
-	marshalIndent func(any, string, string) ([]byte, error)
-	writeFile     func(string, []byte, os.FileMode) error
-	writeBaseline func(string, l5tracks.TrackingMetrics) error
+	hashFile           func(string) (string, error)
+	loadParser         func() (*parse.Pandar40PConfig, error)
+	background         func(string, *config.TuningConfig, []float64) (*l3grid.BackgroundManager, error)
+	newRecorder        func(string, string) (*recorder.Recorder, error)
+	closeRecorder      func(*recorder.Recorder) error
+	checkpointEvidence func(observationsqlite.DBClient) error
+	marshal            func(any) ([]byte, error)
+	marshalIndent      func(any, string, string) ([]byte, error)
+	writeFile          func(string, []byte, os.FileMode) error
+	writeBaseline      func(string, l5tracks.TrackingMetrics) error
 	// pacedSpeed replays against the wall clock at this multiple of capture
 	// time when positive. Zero, the only production value, reads as fast as
 	// the pipeline accepts packets. It exists so a test can show that pacing,
@@ -36,8 +38,9 @@ func defaultRuntime() replayRuntime {
 	return replayRuntime{
 		hashFile: fileSHA256, loadParser: parse.LoadPandar40PConfig,
 		background: prepareBackground, newRecorder: recorder.NewRecorder,
-		closeRecorder: (*recorder.Recorder).Close,
-		marshal:       json.Marshal, marshalIndent: json.MarshalIndent,
+		closeRecorder:      (*recorder.Recorder).Close,
+		checkpointEvidence: checkpointOfflineEvidence,
+		marshal:            json.Marshal, marshalIndent: json.MarshalIndent,
 		writeFile: os.WriteFile, writeBaseline: writeTrackingBaseline,
 	}
 }

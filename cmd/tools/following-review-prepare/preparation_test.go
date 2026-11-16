@@ -110,7 +110,7 @@ func TestPreparationPublishesVerifiablePairedReviewOrNoCompletion(t *testing.T) 
 			}
 			analyse := func(database sqlite.DBClient, s fieldrun.Spec) (fieldrun.Result, error) {
 				var cache int
-				if err := database.QueryRow("PRAGMA cache_size").Scan(&cache); err != nil || cache != -65536 {
+				if err := database.QueryRow("PRAGMA cache_size").Scan(&cache); err != nil || cache != -524288 {
 					t.Fatalf("analysis cache: %d, %v", cache, err)
 				}
 				if failure == "database" {

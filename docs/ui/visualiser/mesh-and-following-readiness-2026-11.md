@@ -136,7 +136,8 @@ foreground points and 136 recorded track IDs over 62.998697 s after its warm-up.
 rows include three eligible following samples, all non-closing, so none supplies a closing
 DRAC calculation. Excluded samples retain their reasons. Seventy-three recorded tracks have
 durable estimator metadata; the other 63 use recorded kinematics and box means over distinct
-observed updates within the recording for the run browser. No human labels were copied or
+recorded observation-count states for the run browser, which may include coasting. These
+browser summaries are not the following analyser's estimator input. No human labels were copied or
 invented. The tracks API returns all 136 rows after registration.
 
 The full canonical export is retained locally. One-minute `following_review_slice_v1` files
@@ -155,10 +156,22 @@ Raw streams, logs, process samples, frozen job plans and output receipts stay ou
 The first Kirkham preparation used the default SQLite cache and checkpoint spacing on the
 same attached rotating volume as its capture. Progress slowed from 200 frames in 23 s to
 200 frames in almost six minutes as the database grew. A process sample showed reads and
-fsync dominating execution. Subsequent offline evidence writers use a bounded 64 MiB page
+fsync dominating execution. An intermediate change selected a bounded 64 MiB page
 cache per connection and a 64 MiB WAL checkpoint interval. WAL/NORMAL durability and atomic
 frame transactions remain unchanged. This is an I/O scheduling change, not a perception or
 following parameter change; tests retain the observation-on/off replay comparison.
+
+That intermediate policy still produced long pauses on the full Ashbury capture as its WAL
+reached about 65 MiB. The revised offline policy uses a bounded 512 MiB cache, disables
+automatic checkpoints during the finite replay, and requires a successful `TRUNCATE`
+checkpoint after all frames and refinement writes finish. Export refuses both query errors
+and an incomplete/busy checkpoint. WAL/NORMAL keeps frame transactions consistent; the
+unpublished power-loss recovery window is longer until the final sync. The original capture
+and recordings are preserved. SQLite documents the [checkpoint sync and truncation contract](https://www.sqlite.org/c3ref/wal_checkpoint_v2.html)
+and [NORMAL-mode sync behaviour](https://www.sqlite.org/pragma.html#pragma_synchronous).
+Tests cover a pinned reader, a closed database, failure propagation and unchanged Kirkham
+replay scores with and without observation storage. Operational timings on this shared host
+are not an isolated performance benchmark or evidence of physical measurement accuracy.
 
 ## Validation and remaining work
 

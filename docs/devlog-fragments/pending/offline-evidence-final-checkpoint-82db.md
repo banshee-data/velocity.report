@@ -1,0 +1,2 @@
+- Deferred offline evidence checkpoints until replay finishes, bounded the SQLite page cache, and refused export when final WAL consolidation fails; preserved frame transactions and documented the unpublished recovery window in the [readiness report](../../ui/visualiser/mesh-and-following-readiness-2026-11.md).
+- Tested blocked checkpoints, query failures and failure propagation, alongside the real Kirkham observation-on/off replay equivalence check.
