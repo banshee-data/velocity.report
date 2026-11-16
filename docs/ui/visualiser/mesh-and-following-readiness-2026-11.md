@@ -93,6 +93,22 @@ solid-body estimation can consume retained points, so the evidence policy is not
 universally storage-only. The producer build and this policy are part of provenance;
 a matching tuning fingerprint alone does not establish equivalence with older runs.
 
+The frozen parameter file is `config/experiments/weekend-following-baseline.json`, with
+exact file SHA-256 `9ad7377fa5d356ba5f9d8756d48721708071da3295702350c835110b38b41675`
+and canonical parameter fingerprint
+`sha256:ab0c4035780dcc678bc21b112890c1db6cdc9c802eb3d1ab5d0f8d442e872d08`.
+The calibration is `calibration/v1/30226f66f62ba71b24694c07b3793ab761657aa67d43b929c4cb33ad6d099e28`:
+sensor `hesai-pandar40p`, sensor frame to sensor frame, identity transform. The recording
+header's renderer frame label, `site/hesai-pandar40p` with reference `ENU`, does not
+establish a surveyed transform. Physical qualification must use the explicit calibration
+declaration and separately verified site placement.
+
+Kirkham's registered preparation was produced by
+`c6a4f98bfecce8d9b7f6d67555df52ed488bf265`. Ashbury and the frozen queue for the other
+three sites use `0d9e55fbe7eec91c3468b361046e60248022b396`. Both report
+`0.5.1-pre52`; their distinct build identities remain in the paired header and evidence.
+The visualiser's later main build is a separate identity from these data producers.
+
 | Site               | Parent run                                             |  Source bytes | Unrecorded warm-up |
 | ------------------ | ------------------------------------------------------ | ------------: | -----------------: |
 | Ashbury–Downey     | `f718874e-5c25-4e68-af4b-d128a292b385`                 | 2,960,366,452 |               70 s |
@@ -122,6 +138,7 @@ already in the cohort manifest. Their exact bytes now have separate capture entr
 | Site               | Full-capture SHA-256                                               | Existing cohort |
 | ------------------ | ------------------------------------------------------------------ | --------------- |
 | Ashbury–Downey     | `2eec35d381fa4c4ba5a6bf1218982c76e53749287d53691115261f14d8aefbed` | development     |
+| Kirkham–9th        | `2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a` | development     |
 | Columbus–Broadway  | `aa69875be4dd45094d79c371ca25e434b3a4d8bec0966c116931720cc1653b66` | development     |
 | Embarcadero–Bryant | `03e10c86b718f068c8733559b1020b56a4e7ae1ec0361529f4fb19e75090fdf3` | development     |
 | Lombard–Broderick  | `1eb08d9e6ced4e20bf07db2140434fbff314b779beb909d602929d44b4c34643` | validation      |
@@ -225,8 +242,18 @@ Its matching canonical export contains 31,000 rows projected into 20 minute slic
 15,018 excluded pairings, 2,587 record gaps, 187 ineligible following rows and 94 rows
 with missing inputs. The tracks API returns all 1,516 exact recorded IDs. These counts
 establish output completeness and software status, not physical measurement accuracy.
-Columbus, Bryant and Lombard remain queued or processing until their completion,
-independent decoding, registration and native review checks pass.
+Columbus's preparation subsequently completed and independently decoded 19,629 foreground
+frames, 111,885,204 foreground points and 8,631 recorded track IDs, with zero background
+frames. Its 459,139 rows project into 33 minute slices, each below 48 MB. The row buckets
+contain 323,783 excluded pairings, 30,059 record gaps, 90,866 no-leader rows, 8,267 excluded
+following rows and 6,164 eligible following rows. Of the eligible rows, 2,369 have a supported
+closing calculation, 3,793 are non-closing and two have invalid DRAC input. A further ten
+excluded rows retain a supported calculation; their calculation status does not make the
+interval eligible. The API returns all 8,631 exact recorded IDs. These are sample counts,
+not exposure durations or physically qualified findings.
+
+Columbus's new paired native check remains pending. Bryant and Lombard remain queued or
+processing until completion, independent decoding, registration and native checks pass.
 
 ### Merged-main offline check
 
@@ -261,10 +288,11 @@ operator records saved. Both members of each inspected pair were independently d
 in that exact recorded frame.
 
 Ashbury's illustrative first-minute sample displayed a 13.5062353 m gap, 1.2915821 s net
-time gap and 0.33977255 m/s² experimental DRAC. It was selected to exercise numeric display,
-not to characterise risk or exposure. Kirkham's positive-duration sample displayed a
-30.8390454 m gap and 29.7311826 s net time gap, with numeric demand correctly suppressed
-because the pair was non-closing. Across Kirkham's three eligible samples, one has zero
+time gap and 0.33977255 m/s² experimental DRAC at capture timestamp `1788290848418901330` ns.
+It was selected to exercise numeric display, not to characterise risk or exposure.
+Kirkham's positive-duration sample displayed a 30.8390454 m gap and 29.7311826 s net time
+gap at `1764973088326342330` ns, with numeric demand correctly suppressed because the pair
+was non-closing. Across Kirkham's three eligible samples, one has zero
 duration and the other two sum to 0.199921 s of eligible exposure. Three isolated samples
 must not be described as three intervals of exposure.
 
