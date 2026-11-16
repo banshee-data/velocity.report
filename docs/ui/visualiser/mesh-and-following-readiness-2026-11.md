@@ -192,6 +192,10 @@ Successful run loading now replaces the complete site context using the run's re
 clip-to-site binding, without starting another PCAP. Missing, conflicting or ambiguous
 bindings clear the old site rather than inheriting its geometry. A refused load preserves
 the current context. Regressions cover the different-site and unresolved-site cases.
+The recorded clip's sensor and eye-read coordinates are retained for placement; missing
+or invalid coordinates leave the site unselected. The browser restores its new selection
+after the context reset. A request cancelled while draining the previous producer restores
+live input without starting the new recording.
 
 The private local city index now includes Kirkham–9th alongside the existing public
 entries, using its already registered Gerardus scan and accepted pose. Its five focus

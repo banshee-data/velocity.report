@@ -328,6 +328,39 @@ struct PlaybackStatusModelTests {
 }
 
 @available(macOS 15.0, *) @MainActor final class RunBrowserReplayLoadHelperTests: XCTestCase {
+    func testLocatedClipDecodesItsPlacementHint() throws {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let clip = try decoder.decode(
+            ClipSummary.self,
+            from: Data(
+                #"{"clip_id":"clip","location":{"site_id":"cell","s2_l13_token":"parent","origin_lat":37.7638,"origin_lon":-122.4466}}"#
+                    .utf8))
+        XCTAssertEqual(clip.location?.originLat, 37.7638)
+        XCTAssertEqual(clip.location?.originLon, -122.4466)
+        XCTAssertEqual(clip.location?.s2L13Token, "parent")
+    }
+
+    func testMissingOrConflictingHintCannotSelectARecordingSite() {
+        for location in [
+            nil, ClipSummary.Location(originLat: 91, originLon: -122),
+            .init(originLat: 37, originLon: nil),
+            .init(siteId: "conflict", originLat: 37, originLon: -122),
+        ] as [ClipSummary.Location?] {
+            let state = SpyRunBrowserAppState()
+            let site = CitySite(id: "site", title: "Site", cells: .init(l16: "cell"))
+            state.alignment.siteIndex = CitySiteIndex(sites: [site])
+            state.enterSite(SiteContext(site: site))
+            var run = makeBrowserRun(id: "recording")
+            run.clipId = "clip"
+            state.enterRecordingSite(
+                runID: run.runId, run: run,
+                clips: ["clip": ClipSummary(clipId: "clip", location: location, siteId: "cell")])
+            XCTAssertNil(state.siteContext.site)
+            XCTAssertNil(state.alignment.site)
+        }
+    }
+
     func testLoadingAnotherSiteReplacesItsContextWithoutStartingPackets() async throws {
         let state = SpyRunBrowserAppState()
         let old = CitySite(id: "old", title: "Previous", cells: .init(l16: "old-cell"))
@@ -339,7 +372,9 @@ struct PlaybackStatusModelTests {
         run.clipId = "new-clip"
         state.runBrowserState.runs = [run]
         state.runBrowserState.clips = [
-            "new-clip": ClipSummary(clipId: "new-clip", siteId: "next-cell")
+            "new-clip": ClipSummary(
+                clipId: "new-clip", location: .init(originLat: 37.76, originLon: -122.46),
+                siteId: "next-cell")
         ]
         await loadRunForReplayAndUpdateAppState(
             runID: run.runId, appState: state, runBrowserState: state.runBrowserState
@@ -348,6 +383,10 @@ struct PlaybackStatusModelTests {
         XCTAssertEqual(state.siteContext.site, next)
         XCTAssertEqual(state.city.currentSite, next)
         XCTAssertEqual(state.alignment.citySite, next)
+        XCTAssertEqual(state.alignment.site?.clipID, "new-clip")
+        XCTAssertEqual(state.alignment.site?.sensorID, "hesai-01")
+        XCTAssertEqual(state.alignment.site?.latitude, 37.76)
+        XCTAssertEqual(state.alignment.site?.longitude, -122.46)
         XCTAssertEqual(state.siteContext.source, .recording(runID: run.runId))
     }
 
@@ -361,7 +400,10 @@ struct PlaybackStatusModelTests {
             var run = makeBrowserRun(id: "unlocated")
             run.clipId = "clip"
             state.runBrowserState.runs = [run]
-            state.runBrowserState.clips = ["clip": ClipSummary(clipId: "clip", siteId: token)]
+            state.runBrowserState.clips = [
+                "clip": ClipSummary(
+                    clipId: "clip", location: .init(originLat: 37, originLon: -122), siteId: token)
+            ]
             await loadRunForReplayAndUpdateAppState(
                 runID: run.runId, appState: state, runBrowserState: state.runBrowserState
             ) {
@@ -394,6 +436,7 @@ struct PlaybackStatusModelTests {
         XCTAssertEqual(state.restartGRPCStreamCallCount, 1)
         XCTAssertNotEqual(state.playbackMode, .live)
         XCTAssertEqual(state.currentRunID, "run-123")
+        XCTAssertEqual(state.runBrowserState.selectedRunID, "run-123")
         XCTAssertFalse(state.isPaused)
         XCTAssertFalse(state.replayFinished)
         XCTAssertEqual(state.currentTimestamp, 0)

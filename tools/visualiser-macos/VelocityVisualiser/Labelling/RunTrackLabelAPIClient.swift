@@ -342,6 +342,9 @@ struct ClipSummary: Codable, Equatable {
     struct Location: Codable, Equatable {
         var siteId: String? = nil
         var s2L16Display: String? = nil
+        var s2L13Token: String? = nil
+        var originLat: Double? = nil
+        var originLon: Double? = nil
     }
 
     /// The clip's name: its description, else the start of its ID.

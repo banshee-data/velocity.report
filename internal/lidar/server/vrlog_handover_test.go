@@ -163,6 +163,22 @@ func TestVRLogHandoverFailureAndCancelledRequest(t *testing.T) {
 	}
 }
 
+func TestVRLogHandoverCancelledDuringDrainDoesNotStartRecording(t *testing.T) {
+	loaded := false
+	ws := &Server{state: newPipelineState(), onVRLogLoad: func(string) (string, error) {
+		loaded = true
+		return "protobuf", nil
+	}}
+	w, req := handoverRequest(t, ws)
+	ctx, cancel := context.WithCancel(req.Context())
+	defer cancel()
+	ws.onPCAPStopped = cancel
+	ws.handleVRLogLoad(w, req.WithContext(ctx))
+	if w.Code != http.StatusRequestTimeout || loaded || ws.PipelineState().Source != SourceModeLive {
+		t.Fatalf("cancelled drain: status=%d loaded=%v state=%+v", w.Code, loaded, ws.PipelineState())
+	}
+}
+
 func TestParkedSourceCannotStopAReplacement(t *testing.T) {
 	for _, reason := range []string{"cancelled watcher", "another recording", "another source kind", "same recording restarted"} {
 		t.Run(reason, func(t *testing.T) {

@@ -631,6 +631,13 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 	ws.stopLiveListenerLocked()
+	if r.Context().Err() != nil {
+		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
+			opsf("Failed to restore live listener after cancelled VRLOG load: %v", restartErr)
+		}
+		refuse(http.StatusRequestTimeout, "request ended while the previous source was stopping")
+		return
+	}
 
 	frameEncoding, err := ws.onVRLogLoad(vrlogPath)
 	if err != nil {

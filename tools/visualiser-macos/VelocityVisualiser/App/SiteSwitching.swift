@@ -220,7 +220,19 @@ extension AppState {
         let site =
             tokens.count == 1
             ? tokens.first.flatMap { alignment.siteIndex?.site(l16Token: $0) } : nil
-        enterSite(SiteContext(site: site, source: .recording(runID: runID)))
+        let source = SiteSource.recording(runID: runID)
+        guard let site, let clip, let run, let lat = clip.location?.originLat,
+            let lon = clip.location?.originLon, lat.isFinite, lon.isFinite,
+            (-90...90).contains(lat), (-180...180).contains(lon)
+        else {
+            enterSite(SiteContext(source: source))
+            return
+        }
+        let located = AlignmentSite(
+            clipID: clip.clipId, l16Token: site.cells.l16,
+            l13Token: clip.location?.s2L13Token ?? site.cells.l13, description: clip.name,
+            sensorID: run.sensorId, latitude: lat, longitude: lon)
+        enterSite(SiteContext(site: site, source: source), alignmentSite: located)
     }
 
     /// Leaves the current site for `site` and starts its frames: a live

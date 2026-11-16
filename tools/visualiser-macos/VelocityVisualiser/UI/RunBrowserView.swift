@@ -44,6 +44,8 @@ private enum RunBrowserLayout {
         fullFrames: run?.holdsFullFrames == true, captureRef: clip.isEmpty ? runID : clip)
     // Set currentRunID so labels route to run-track API
     appState.currentRunID = runID
+    // enterSite clears the shared browser's previous selection too.
+    runBrowserState.selectedRunID = runID
     await runBrowserState.primeTrackCache(runID: runID)
     // Restart the gRPC stream AFTER the VRLOG has loaded on the
     // server.  Doing this before the HTTP POST would disconnect
