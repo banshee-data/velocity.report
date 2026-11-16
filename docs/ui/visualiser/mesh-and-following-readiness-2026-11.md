@@ -252,8 +252,35 @@ excluded rows retain a supported calculation; their calculation status does not 
 interval eligible. The API returns all 8,631 exact recorded IDs. These are sample counts,
 not exposure durations or physically qualified findings.
 
-Columbus's new paired native check remains pending. Bryant and Lombard remain queued or
-processing until completion, independent decoding, registration and native checks pass.
+Bryant's preparation then independently decoded 12,924 foreground frames, 37,056,415
+foreground points and 8,937 recorded track IDs, with zero background frames. Its 213,147
+rows project into 22 minute slices: 133,421 excluded pairings, 21,685 record gaps, 47,072
+no-leader rows, 4,552 excluded following rows and 6,417 eligible following rows. The eligible
+rows contain 1,973 supported closing calculations and 4,444 non-closing cases. Exclusions
+retain 3,624 ineligible cases, 914 missing-input cases and 14 unresolved positive gaps.
+The API returns all 8,937 exact recorded IDs.
+
+These four prepared reviews have passed independent file and API verification, followed
+by native replay, reference loading and matching evidence import:
+
+| Site               | Registered review run                                   | Frames | Foreground points | Recorded IDs | Evidence rows | Minute files |
+| ------------------ | ------------------------------------------------------- | -----: | ----------------: | -----------: | ------------: | -----------: |
+| Ashbury–Downey     | `following-review-a5254a5f-82c5-4c69-a3a3-0c40f8a9fde1` | 11,574 |         9,040,486 |        1,516 |        31,000 |           20 |
+| Kirkham–9th        | `following-review-9ea0ede2-e4fc-48b7-a6a0-9f84fddd6202` |    631 |         2,574,168 |          136 |         5,624 |            2 |
+| Columbus–Broadway  | `following-review-b71ec25e-18ee-477e-994b-7b4e09cca73d` | 19,629 |       111,885,204 |        8,631 |       459,139 |           33 |
+| Embarcadero–Bryant | `following-review-9e777570-8286-4f3a-be91-74e913b4513d` | 12,924 |        37,056,415 |        8,937 |       213,147 |           22 |
+
+The header and canonical-export identities are frozen independently of the minute files,
+whose hashes remain in each complete preparation's receipt:
+
+| Site               | Recording-header SHA-256                                           | Canonical-export SHA-256                                           |
+| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Ashbury–Downey     | `525cd8bdb96969cd4342d7685e884d6bb11e2a0fc004f23088f94530de72bece` | `6189612a1ef2e36efffef03be89907f967398a3faf65bafa55ebf5b448ba12ac` |
+| Kirkham–9th        | `97d4e41070e6ce9ab67fd415c619fa190a98dc8b8c0dd45e176f105ac94c88a3` | `3365f3d5b615a1313493be7c118d97a2094e841d18fb81a6f5093590a219ace9` |
+| Columbus–Broadway  | `7052f58cd16bb2fbfb6aeaf3cb6f1d8218bcb9240d340cda209606fa57b5a65c` | `76cf7427c14afad57114d95a8daa50430fcd930fb481327e7b71af39fae50023` |
+| Embarcadero–Bryant | `ed2fcef7cd27fcf9f0c51ca02a309814b2b1d8d61d3d9f71655e0c29b1e42e0a` | `b961ff87666c2cddf2f70ad5e2cee44a05d3eb29efd82ca32d02dfa3dd83b427` |
+
+Lombard's final preparation remains in progress. No partial output is offered as a ready review.
 
 ### Merged-main offline check
 
@@ -271,17 +298,18 @@ their foreground replay, buildings and accepted scans in that merged app:
 | ------------------ | ------------------------------------- | --------: | ----------: | ----: | -------------: | ----------: |
 | Ashbury–Downey     | New paired review, 11,574 frames      |       349 |       1,110 | 5,641 |              2 |      87,299 |
 | Kirkham–9th        | New paired review, 631 frames         |       301 |         847 | 5,011 |              7 |     330,865 |
-| Columbus–Broadway  | Existing parent replay, 20,398 frames |       277 |         961 | 5,077 |              1 |      36,611 |
-| Embarcadero–Bryant | Existing parent replay, 13,671 frames |        41 |         156 |   796 |              1 |      50,128 |
+| Columbus–Broadway  | New paired review, 19,629 frames      |       277 |         961 | 5,077 |              1 |      36,611 |
+| Embarcadero–Bryant | New paired review, 12,924 frames      |        41 |         156 |   796 |              1 |      50,128 |
 | Lombard–Broderick  | Existing parent replay, 12,059 frames |       266 |         669 | 5,144 |              1 |     117,901 |
 
 Kirkham selected its registered accepted scan `sha256:9f547025e08237d02163c19d5a6f7e3caa20e513e7283ae974581573e410bbb3`
 and displayed the accepted 235.3° heading. Each Runs selection replaced the site and placement
 hint; **Align → Place from hint** loaded that site's reference. These checks establish
-offline availability and site selection, not acceptance of the road mesh. The three parent
-replay checks do not replace the pending checks of their new paired evidence.
+offline availability and site selection, not acceptance of the road mesh. Lombard's parent
+replay check does not replace the pending check of its new paired evidence. Earlier native
+receipts remain alongside the later paired-recording checks.
 
-Ashbury and Kirkham additionally imported their matching minute files on merged main,
+Ashbury, Kirkham, Columbus, and Bryant imported their matching minute files on merged main,
 selected an actual recorded track, sought to an exact sample timestamp, exposed classification
 and quality controls, and opened the manual audit form. Each form was cancelled with zero
 operator records saved. Both members of each inspected pair were independently decoded
@@ -295,6 +323,21 @@ gap at `1764973088326342330` ns, with numeric demand correctly suppressed becaus
 was non-closing. Across Kirkham's three eligible samples, one has zero
 duration and the other two sum to 0.199921 s of eligible exposure. Three isolated samples
 must not be described as three intervals of exposure.
+
+Columbus's first-minute sample at `1788380529986405330` ns displayed a 47.141 m gap,
+5.6954 s net time gap and 2.0795e-05 m/s² experimental DRAC. Bryant's first recorded frame,
+`1788471707925341330` ns, displayed 13.565 m, 1.1736 s, and 0.0044617 m/s² respectively.
+Both selections used a positive-duration eligible pair, preferring a supported calculation
+and the earliest sample time in the first minute. Their exact follower and leader IDs were
+decoded in recording offsets 229 and 0 respectively, original frame IDs 931 and 702.
+The audit forms retained the original interval ends, and were cancelled without saving.
+
+One UI request timed out during Bryant's reference load. Pausing and re-reading the
+window recovered the check without restarting the app; the reference had loaded. These
+checks establish loading and paused review, not a playback frame-rate guarantee. A Columbus
+paint-pane request for the current recording's lane field also timed out. No passed result
+is claimed for that route or for lane inference: the following checks here use the separate
+Inspector import and track-derived local paths.
 
 The native view correctly reports that recording source identity is unavailable: imported
 files are manual review evidence, without automatic playback binding or overlays. Header,
@@ -311,8 +354,8 @@ checks actual point filtering and leaves the default replay payload unchanged. P
 cover exact recording bounds, unchanged source samples, slice partition boundaries, retained
 straddling intervals, source-site mismatch and annotation-only validation-cohort admission.
 
-Complete and independently decode all five prepared recordings, verify source/header/export
-hashes and slice coverage, register their actual tracks and clips, then repeat native playback
+Complete and independently decode Lombard's prepared recording, verify its source/header/export
+hashes and slice coverage, register its actual tracks and clip, then repeat native playback
 and evidence import with the NAS unmounted. Keep mesh failures visible until the road generator
 provides non-overlapping junctions and valid boundary rings. No measured following accuracy,
 DRAC threshold, lateral-risk interpretation or physical qualification has been adopted.
