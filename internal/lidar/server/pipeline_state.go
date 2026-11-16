@@ -491,6 +491,7 @@ func (ws *Server) setSourceVRLog(path string) {
 		s.Source = SourceModeVRLog
 		s.SourcePath = path
 		s.ReplayActive = true
+		s.Recording = false
 		s.Pass = ReplayPassNone
 		s.TotalPasses = 1
 		s.CurrentPacket = 0

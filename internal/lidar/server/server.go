@@ -112,6 +112,10 @@ type Server struct {
 	// everything an observer can see lives in state above.
 	pcapMu     sync.Mutex
 	pcapCancel context.CancelFunc
+	// Serialise operator source changes, outside dataSourceMu. A transition
+	// may wait for PCAP callbacks to drain; those callbacks never take this
+	// mutex. Parked live watchers recheck their ownership after taking it.
+	sourceTransitionMu sync.Mutex
 	// parkedLiveWatchCancel stops the watcher that hands a parked replay over to
 	// live input. Guarded by pcapMu with the other replay-lifecycle fields.
 	parkedLiveWatchCancel context.CancelFunc

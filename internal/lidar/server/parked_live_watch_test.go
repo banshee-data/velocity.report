@@ -214,7 +214,7 @@ func TestParkedWatcherStillClaimsLiveWhenStateResetFails(t *testing.T) {
 	ws.setBaseContext(ctx)
 	ws.setSourceVRLog("/var/lib/velocity-report/vrlog/run-reset-error")
 
-	ws.watchForLiveWhileParked()
+	ws.ParkFinishedReplay("replay reached the end")
 	t.Cleanup(ws.cancelParkedLiveWatch)
 	stats.AddPacket(100)
 
@@ -232,15 +232,19 @@ func TestParkedWatcherStillClaimsLiveWhenStateResetFails(t *testing.T) {
 func TestParkedReplayHandsOverOnlyAfterANewLivePacket(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
+	stopped := make(chan struct{}, 1)
 
 	stats := NewPacketStats()
 	stats.AddPacket(100) // packet from before the replay parked
 	ws := &Server{
-		state:       newPipelineState(),
-		sensorID:    "parked-live-watch",
-		stats:       stats,
-		udpListener: network.NewUDPListener(network.UDPListenerConfig{Address: ":0"}),
+		state:             newPipelineState(),
+		sensorID:          "parked-live-watch",
+		stats:             stats,
+		udpListener:       network.NewUDPListener(network.UDPListenerConfig{Address: ":0"}),
+		udpListenerConfig: network.UDPListenerConfig{Address: ":0"},
+		onPCAPStopped:     func() { stopped <- struct{}{} },
 	}
+	t.Cleanup(func() { ws.cancelParkedLiveWatch(); stopLiveListenerIfRunning(ws) })
 	ws.setBaseContext(ctx)
 	ws.setSourceVRLog("/var/lib/velocity-report/vrlog/run-abc")
 
@@ -262,9 +266,12 @@ func TestParkedReplayHandsOverOnlyAfterANewLivePacket(t *testing.T) {
 	}
 
 	stats.AddPacket(100)
-	deadline := time.Now().Add(3 * parkedLiveWatchInterval)
-	for ws.PipelineState().Source != SourceModeLive && time.Now().Before(deadline) {
-		time.Sleep(10 * time.Millisecond)
+	// The handover now closes and drains UDP before resetting, then binds
+	// the replacement listener. Wait for the transition, not its live claim.
+	select {
+	case <-stopped:
+	case <-time.After(4 * parkedLiveWatchInterval):
+		t.Fatal("live handover did not finish")
 	}
 
 	got := ws.PipelineState()
