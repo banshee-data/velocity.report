@@ -618,6 +618,15 @@ func (r *Replayer) Header() LogHeader {
 	return r.header
 }
 
+// RecordedBackgroundFrames reports whether frame accounting proves the number
+// of snapshots. Legacy headers without accounting remain unknown, not zero.
+func (r *Replayer) RecordedBackgroundFrames() (uint64, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	h := r.header
+	return h.BackgroundFrames, h.RotationFrames <= h.TotalFrames && h.BackgroundFrames == h.TotalFrames-h.RotationFrames
+}
+
 // TotalFrames returns the total number of frames in the log.
 func (r *Replayer) TotalFrames() uint64 {
 	return r.header.TotalFrames

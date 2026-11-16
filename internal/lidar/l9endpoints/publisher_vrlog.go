@@ -36,6 +36,9 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	// still held.
 	if err := p.emitFirstBackground(reader); err != nil {
 		diagf("[Visualiser] emitFirstBackground failed: %v", err)
+		// No replay goroutine owns this count yet. Release it before Stop
+		// waits, or a failed startup seek deadlocks the load request.
+		p.vrlogWg.Done()
 		p.StopVRLogReplay()
 		return fmt.Errorf("emit first background: %w", err)
 	}
@@ -55,6 +58,13 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 // replayed frames' recorded background sequence.  A recording made before the
 // background grid settled holds none, and the flag stays false.
 func (p *Publisher) emitFirstBackground(reader FrameReader) error {
+	if counter, ok := reader.(interface{ RecordedBackgroundFrames() (uint64, bool) }); ok {
+		if count, known := counter.RecordedBackgroundFrames(); known && count == 0 {
+			// A complete foreground recording can be gigabytes long. Do not
+			// decode it all before responding to load just to find no snapshot.
+			return reader.Seek(0)
+		}
+	}
 	total := reader.TotalFrames()
 	for i := uint64(0); i < total; i++ {
 		frame, err := reader.ReadFrame()
@@ -75,6 +85,9 @@ func (p *Publisher) emitFirstBackground(reader FrameReader) error {
 			p.publishReplay(frame)
 			diagf("[Visualiser] Emitted first background frame at index %d", i)
 			break
+		}
+		if frame.PointCloud != nil {
+			frame.PointCloud.Release()
 		}
 	}
 	// Reset to the start so the main replay loop reads from frame 0.

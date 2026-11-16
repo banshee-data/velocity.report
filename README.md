@@ -216,6 +216,8 @@ Use `--db-path` to point at an existing database elsewhere.
 
 The web frontend connects to the Go server over HTTP (port 80 on the Pi image, 8080 in local dev).
 The macOS visualiser uses gRPC (:50051) for streaming point cloud data.
+Its [following review workflow](docs/ui/visualiser/following-audit-workflow.md) keeps track labels,
+source-bound distance/headway evidence and experimental DRAC audits separate from physical qualification.
 For the full architecture see [ARCHITECTURE.md](ARCHITECTURE.md).
 Sensor fusion plans live in [VISION.md](docs/VISION.md).
 

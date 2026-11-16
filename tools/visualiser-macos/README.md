@@ -343,8 +343,11 @@ server in Settings → Servers.
 ### Following evidence review
 
 Runs can search an exact run ID, source path, clip or recorded site before repeats are folded.
+Inspector leaves Paint streets and opens track classification and quality flags; the painter
+also offers **Review tracks / following…**. **Use current replay for labels** attaches a
+late-joining client to a uniquely matched run without restarting playback.
 The Inspector shows recording context and opens the existing offline following JSON through
-**Following evidence (offline baseline)**. It retains all exported candidate decisions and shows
+**Following / headway / DRAC evidence**. It retains all exported candidate decisions and shows
 the selected point's endpoints, projected speeds, uncertainty and experimental DRAC. It performs
 no new arithmetic or lane attribution and does not overlay an unverified file on playback.
 Use **Audit this period…** to record identity continuity, leader/path ambiguity, visible

@@ -497,6 +497,17 @@ struct RoadDriverTests {
 }
 
 struct RoadMeshAuditTests {
+    @Test func anAbsentInventoryDoesNotClaimZeroCoverage() {
+        var coverage = RoadCoverageSummary(
+            corridorID: "site", patchCount: 21, inventoryLengthM: 0, surfacedLengthM: 1958,
+            inferredLengthM: 1992, missingLengthM: 33, gaps: [], frameAccuracyM: 0.001,
+            buildHash: "build")
+        #expect(coverage.inventoryCoverageText.contains("percentage unknown"))
+        #expect(!coverage.inventoryCoverageText.contains("0 %"))
+        coverage.inventoryLengthM = 2000
+        #expect(coverage.inventoryCoverageText.contains("98 % surfaced"))
+    }
+
     @Test func theFixtureIsWellFormedAndItsSeamsAreWithinFiveMillimetres() throws {
         let store = try RoadFixture.store(site: "80858771f")
         let audit = RoadMeshAudit.audit(store.patches)
@@ -543,6 +554,20 @@ struct RoadMeshAuditTests {
         #expect(across.overlapTotal == 2)
         let within = RoadMeshAudit.audit([patch("both", a + b, [0, 1, 2, 3, 4, 5])])
         #expect(within.patches.first?.overlapsWithin == 2)
+    }
+
+    @Test func sharedEdgesAtLargeReferenceCoordinatesAreNotOverlaps() {
+        for i in 0..<1000 {
+            let t = Float(i) / 1000
+            let a = SIMD2<Float>(48436.528 + t, 25634.208 + t)
+            let b = a + SIMD2<Float>(0.43, 0.27)
+            let c = a + SIMD2<Float>(0.25, 0.83)
+            let d = a + SIMD2<Float>(-0.18, 0.56)
+            #expect(!RoadMeshAudit.overlaps([a, b, c], [a, c, d]))
+            // A real crossing still fails at the same coordinate scale.
+            let offset = SIMD2<Float>(0.02, 0.02)
+            #expect(RoadMeshAudit.overlaps([a, b, c], [a + offset, b + offset, c + offset]))
+        }
     }
 
     @Test func aHeightStepAtASharedSeamIsReported() {

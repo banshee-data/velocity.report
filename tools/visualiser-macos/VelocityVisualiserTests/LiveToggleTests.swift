@@ -29,8 +29,7 @@ import XCTest
         for mode in [SourceMode.pcap, .pcapAnalysis, .vrlog] {
             state.sourceMode = mode
             XCTAssertFalse(
-                state.isLiveSource,
-                "source \(mode.rawValue) should read as replay, not live")
+                state.isLiveSource, "source \(mode.rawValue) should read as replay, not live")
         }
     }
 
@@ -43,7 +42,8 @@ import XCTest
 
         XCTAssertFalse(
             state.isLiveSource,
-            "a finished replay still owns the pipeline; the toggle must not flip itself back to live")
+            "a finished replay still owns the pipeline; the toggle must not flip itself back to live"
+        )
     }
 
     /// Before the first frame there is no source. It must not read as live:
@@ -65,21 +65,9 @@ import XCTest
             "the segmented control must offer both states so the current one reads as selected")
     }
 
-    /// Guard against a second request while one is in flight.
-    func testReturnToLiveIgnoresASecondPressWhileInFlight() {
-        let state = AppState()
-        state.sourceMode = .vrlog
-        state.isReturningToLive = true
-
-        state.returnToLive()
-
-        XCTAssertTrue(
-            state.isReturningToLive,
-            "a press during an in-flight request should be ignored, not queued")
-        XCTAssertEqual(
-            state.sourceMode, .vrlog,
-            "the source must not change until the server confirms the switch")
-    }
+    // Re-entrancy is covered by ReturnToLiveStreamTests with a stubbed
+    // client. Setting the observable progress flag here does not set the
+    // synchronous guard: the old test posted to the operator's real server.
 }
 
 @available(macOS 15.0, *) @MainActor final class SettlingStatusTests: XCTestCase {

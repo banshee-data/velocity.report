@@ -155,8 +155,8 @@ import XCTest
         frame.frameID = 99
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            logStartNs: 0, logEndNs: 10, playbackRate: 1.0, paused: false,
-            currentFrameIndex: 1, totalFrames: 2, seekable: false)
+            logStartNs: 0, logEndNs: 10, playbackRate: 1.0, paused: false, currentFrameIndex: 1,
+            totalFrames: 2, seekable: false)
 
         state.onFrameReceived(frame, generation: 999)
         await Task.yield()
@@ -430,8 +430,8 @@ import XCTest
         frame.frameID = 12
         frame.timestampNanos = 1_500
         frame.playbackInfo = PlaybackInfo(
-            logStartNs: 100, logEndNs: 200, playbackRate: 1.0, paused: false,
-            currentFrameIndex: 1, totalFrames: 2, seekable: false)
+            logStartNs: 100, logEndNs: 200, playbackRate: 1.0, paused: false, currentFrameIndex: 1,
+            totalFrames: 2, seekable: false)
 
         state.onFrameReceived(frame)
         state.prepareForNewReplay()  // bumps generation before deferred Task runs
@@ -944,8 +944,8 @@ import XCTest
         frame.frameID = 1
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 2.0,
-            paused: false, currentFrameIndex: 50, totalFrames: 500)
+            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 2.0, paused: false,
+            currentFrameIndex: 50, totalFrames: 500)
 
         state.onFrameReceived(frame)
         await Task.yield()
@@ -1016,8 +1016,8 @@ import XCTest
         frame.frameID = 1
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
-            currentFrameIndex: 99, totalFrames: 100, sourceMode: .live)
+            logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false, currentFrameIndex: 99,
+            totalFrames: 100, sourceMode: .live)
 
         state.onFrameReceived(frame)
         await Task.yield()
@@ -1187,6 +1187,78 @@ import XCTest
 }
 
 // MARK: - Assign Label / Quality Tests
+
+@available(macOS 15.0, *) @MainActor final class TrackReviewEntryTests: XCTestCase {
+    func testReviewGivesTrackPickingOneInspectorWithoutResettingSelection() {
+        let state = AppState()
+        state.showRoadPane = true
+        state.showAlignmentPane = true
+        state.showCameraPane = true
+        state.currentRunID = "existing"
+        state.selectedTrackID = "track"
+        state.currentTimestamp = 123
+        state.openTrackReview()
+        XCTAssertTrue(state.showSidePanel)
+        XCTAssertFalse(state.streets.isPainting)
+        XCTAssertFalse(state.showRoadPane)
+        XCTAssertFalse(state.showAlignmentPane)
+        XCTAssertFalse(state.showCameraPane)
+        XCTAssertEqual(state.currentRunID, "existing")
+        XCTAssertEqual(state.selectedTrackID, "track")
+        XCTAssertEqual(state.currentTimestamp, 123)
+    }
+
+    func testJoiningReplayBindsItsRunWithoutReloadOrSeek() async throws {
+        let state = AppState()
+        let rpc = FakePlaybackRPCClient()
+        state.playbackCommandClientOverride = rpc
+        state.sourceMode = .vrlog
+        state.currentTimestamp = 456
+        let run = Run(
+            runId: "review-run", createdAt: Date(), sourceType: "pcap", sourcePath: "/capture.pcap",
+            sensorId: "sensor", durationSecs: 10, totalFrames: 100, totalClusters: 1,
+            totalTracks: 1, confirmedTracks: 1, status: "completed", errorMessage: nil,
+            vrlogPath: "/recordings/review-run", notes: nil, sourceName: nil)
+        state.runBrowserState.runs = [run]
+        var reads = 0
+        await state.useCurrentReplayForReview {
+            reads += 1
+            return self.status("/recordings/review-run")
+        }
+        XCTAssertEqual(reads, 2)
+        XCTAssertEqual(state.currentRunID, "review-run")
+        XCTAssertEqual(state.runBrowserState.selectedRunID, "review-run")
+        XCTAssertEqual(state.currentTimestamp, 456)
+        XCTAssertEqual(rpc.restartStreamCallCount, 0)
+        XCTAssertTrue(rpc.seekFrameCalls.isEmpty)
+    }
+
+    func testReplayChangingDuringIdentificationCannotBindLabels() async {
+        let state = AppState()
+        state.sourceMode = .vrlog
+        state.runBrowserState.runs = [
+            Run(
+                runId: "review-run", createdAt: Date(), sourceType: "pcap",
+                sourcePath: "/capture.pcap", sensorId: "sensor", durationSecs: 10, totalFrames: 100,
+                totalClusters: 1, totalTracks: 1, confirmedTracks: 1, status: "completed",
+                errorMessage: nil, vrlogPath: "/recordings/review-run", notes: nil, sourceName: nil)
+        ]
+        var reads = 0
+        await state.useCurrentReplayForReview {
+            reads += 1
+            return self.status(reads == 1 ? "/recordings/review-run" : "/recordings/other")
+        }
+        XCTAssertNil(state.currentRunID)
+        XCTAssertNotNil(state.reviewContextMessage)
+        XCTAssertFalse(state.isResolvingReviewRun)
+    }
+
+    private func status(_ path: String) -> PlaybackStatus {
+        PlaybackStatus(
+            mode: "vrlog", paused: true, rate: 1, seekable: true, currentFrame: 7, totalFrames: 100,
+            timestampNs: 456, logStartNs: 100, logEndNs: 1000, vrlogPath: path)
+    }
+}
 
 @available(macOS 15.0, *) @MainActor final class AssignLabelTests: XCTestCase {
 
@@ -1501,8 +1573,8 @@ import XCTest
         frame.frameID = 1
         frame.timestampNanos = 1_000_000_000
         frame.playbackInfo = PlaybackInfo(
-            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
-            paused: false, currentFrameIndex: 0, totalFrames: 100, seekable: true)
+            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 0, totalFrames: 100, seekable: true)
 
         state.onFrameReceived(frame)
         await Task.yield()
@@ -1638,8 +1710,8 @@ import XCTest
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 100_000_000
             frame.playbackInfo = PlaybackInfo(
-                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
-                paused: false, currentFrameIndex: i, totalFrames: 10)
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+                currentFrameIndex: i, totalFrames: 10)
             frame.tracks = TrackSet(
                 frameID: i, timestampNanos: Int64(i) * 100_000_000,
                 tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: Float(i))], trails: []
@@ -1678,8 +1750,8 @@ import XCTest
             frame.frameID = i
             frame.timestampNanos = Int64(i) * 100_000_000
             frame.playbackInfo = PlaybackInfo(
-                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
-                paused: false, currentFrameIndex: i, totalFrames: 100)
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+                currentFrameIndex: i, totalFrames: 100)
             frame.tracks = TrackSet(
                 frameID: i, timestampNanos: Int64(i) * 100_000_000,
                 tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: Float(i))], trails: []
@@ -1701,8 +1773,8 @@ import XCTest
             frame.frameID = 5
             frame.timestampNanos = 500_000_000
             frame.playbackInfo = PlaybackInfo(
-                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
-                paused: true, currentFrameIndex: 5, totalFrames: 10)
+                logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: true,
+                currentFrameIndex: 5, totalFrames: 10)
             frame.tracks = TrackSet(
                 frameID: 5, timestampNanos: 500_000_000,
                 tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0)], trails: [])
@@ -1999,8 +2071,8 @@ import XCTest
         frame.frameID = 100
         frame.timestampNanos = 1_500_000_000
         frame.playbackInfo = PlaybackInfo(
-            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
-            paused: false, currentFrameIndex: 100, totalFrames: 394)
+            logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 100, totalFrames: 394)
         frame.tracks = TrackSet(
             frameID: 100, timestampNanos: 1_500_000_000,
             tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0)], trails: [])
@@ -2060,8 +2132,8 @@ import XCTest
         frame.frameID = 0
         frame.timestampNanos = 500_000_000
         frame.playbackInfo = PlaybackInfo(
-            logStartNs: 500_000_000, logEndNs: 40_000_000_000, playbackRate: 1.0,
-            paused: false, currentFrameIndex: 0, totalFrames: 394)
+            logStartNs: 500_000_000, logEndNs: 40_000_000_000, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 0, totalFrames: 394)
         frame.tracks = TrackSet(
             frameID: 0, timestampNanos: 500_000_000,
             tracks: [Track(trackID: "t-new-001", state: .confirmed, speedMps: 3.0)], trails: [])

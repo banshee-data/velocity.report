@@ -173,6 +173,13 @@ struct RoadMeshAudit: Equatable, Sendable {
     /// centroids misses crossing edges and narrow intersections. Shared edges
     /// and corners have zero area and remain valid seams.
     static func overlaps(_ a: [SIMD2<Float>], _ b: [SIMD2<Float>]) -> Bool {
+        // Reference coordinates can be tens of kilometres from the origin.
+        // Float dot products there lose millimetres and turn shared edges
+        // into apparent positive-area intersections. Work near one origin in
+        // Double, retaining the geometry's original Float coordinates.
+        let origin = SIMD2<Double>(Double(a[0].x), Double(a[0].y))
+        let a = a.map { SIMD2<Double>(Double($0.x), Double($0.y)) - origin }
+        let b = b.map { SIMD2<Double>(Double($0.x), Double($0.y)) - origin }
         for triangle in [a, b] {
             for i in 0..<3 {
                 let edge = triangle[(i + 1) % 3] - triangle[i]

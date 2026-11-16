@@ -82,8 +82,7 @@ struct RunComputedPropertyTests {
             runId: "4ea0f3ab-1234-5678-9abc-def012345678", createdAt: Date(), sourceType: "pcap",
             sourcePath: "/data/kirk1.pcap", sensorId: "hesai-01", durationSecs: 180.0,
             totalFrames: 1800, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil,
-            sourceName: "kirk1")
+            status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil, sourceName: "kirk1")
         // UUID: first 8 chars up to first dash
         #expect(run.shortIdPrefix == "4ea0f3ab")
         #expect(run.sourceName == "kirk1")
@@ -166,15 +165,13 @@ struct RunComputedPropertyTests {
 
     private func makeRun(
         vrlogPath: String? = nil, status: String = "completed", errorMessage: String? = nil,
-        notes: String? = nil, sourcePath: String? = "/data/test.vrlog",
-        sourceName: String? = "test"
+        notes: String? = nil, sourcePath: String? = "/data/test.vrlog", sourceName: String? = "test"
     ) -> Run {
         Run(
-            runId: "run-test", createdAt: Date(), sourceType: "vrlog",
-            sourcePath: sourcePath, sensorId: "hesai-01", durationSecs: 120.0,
-            totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: status, errorMessage: errorMessage, vrlogPath: vrlogPath, notes: notes,
-            sourceName: sourceName)
+            runId: "run-test", createdAt: Date(), sourceType: "vrlog", sourcePath: sourcePath,
+            sensorId: "hesai-01", durationSecs: 120.0, totalFrames: 1200, totalClusters: 500,
+            totalTracks: 25, confirmedTracks: 20, status: status, errorMessage: errorMessage,
+            vrlogPath: vrlogPath, notes: notes, sourceName: sourceName)
     }
 }
 
@@ -337,6 +334,8 @@ struct PlaybackStatusModelTests {
         state.replayFinished = true
         state.currentTimestamp = 123
         state.currentRunID = nil
+        state.selectedTrackID = "previous-run-track"
+        state.selectedTrackData = Track(trackID: "previous-run-track")
 
         await loadRunForReplayAndUpdateAppState(
             runID: "run-123", appState: state, runBrowserState: state.runBrowserState
@@ -352,6 +351,8 @@ struct PlaybackStatusModelTests {
         XCTAssertFalse(state.isPaused)
         XCTAssertFalse(state.replayFinished)
         XCTAssertEqual(state.currentTimestamp, 0)
+        XCTAssertNil(state.selectedTrackID)
+        XCTAssertNil(state.selectedTrackData)
     }
 
     /// Loading a run tells Accumulate frames whether its VRLOG carries
@@ -399,6 +400,7 @@ struct PlaybackStatusModelTests {
     func testLoadRunForReplayAndUpdateAppStateFailureSkipsReplayActivation() async throws {
         let state = SpyRunBrowserAppState()
         state.currentRunID = nil
+        state.selectedTrackID = "previous-run-track"
 
         await loadRunForReplayAndUpdateAppState(
             runID: "run-123", appState: state, runBrowserState: state.runBrowserState
@@ -409,6 +411,7 @@ struct PlaybackStatusModelTests {
         // A failed load returns before playback state is reset or replay activated.
         XCTAssertEqual(state.playbackMode, .live)
         XCTAssertNil(state.currentRunID)
+        XCTAssertEqual(state.selectedTrackID, "previous-run-track")
     }
 }
 

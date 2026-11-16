@@ -128,6 +128,15 @@ struct RoadCoverageSummary: Equatable {
 
     /// Share of the inventory surfaced, 0–1; 0 with no inventory.
     var surfacedShare: Float { inventoryLengthM > 0 ? surfacedLengthM / inventoryLengthM : 0 }
+
+    /// A missing denominator is unknown coverage, never a measured zero.
+    var inventoryCoverageText: String {
+        guard inventoryLengthM.isFinite, inventoryLengthM > 0, surfacedLengthM.isFinite else {
+            return "Inventory unavailable; coverage percentage unknown"
+        }
+        return
+            "Inventory \(String(format: "%.0f", inventoryLengthM)) m: \(String(format: "%.0f", surfacedShare * 100)) % surfaced"
+    }
 }
 
 @available(macOS 15.0, *) @MainActor final class RoadReviewSession: ObservableObject {

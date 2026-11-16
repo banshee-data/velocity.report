@@ -9,6 +9,24 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 )
 
+func TestBackgroundCountDistinguishesCompleteAndLegacyAccounting(t *testing.T) {
+	for _, c := range []struct {
+		header LogHeader
+		known  bool
+	}{
+		{LogHeader{TotalFrames: 100, RotationFrames: 100}, true},
+		{LogHeader{TotalFrames: 100, RotationFrames: 98, BackgroundFrames: 2}, true},
+		{LogHeader{TotalFrames: 100}, false},
+		{LogHeader{TotalFrames: 100, RotationFrames: 101}, false},
+	} {
+		r := &Replayer{header: c.header}
+		count, known := r.RecordedBackgroundFrames()
+		if known != c.known || count != c.header.BackgroundFrames {
+			t.Fatalf("header %+v: %d,%v", c.header, count, known)
+		}
+	}
+}
+
 // Frame accounting must let a reader recover the sensor-rotation count.
 // TotalFrames counts every record, including background snapshots, because it
 // indexes index.bin. Only RotationFrames is comparable with an analysis run's

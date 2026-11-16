@@ -26,6 +26,7 @@ import SwiftUI
 }
 
 @available(macOS 15.0, *) struct StreetPainterPane: View {
+    @EnvironmentObject var appState: AppState
     @ObservedObject var painter: StreetPainterSession
     @ObservedObject var session: AlignmentSession
     @AppStorage(StreetPainterSession.authorKey) private var author = ""
@@ -77,6 +78,9 @@ import SwiftUI
                         ? "Save or revert the changes first" : "Read this site's marks again")
             }
             Text(statusLine).font(.caption).foregroundStyle(.secondary)
+            Button("Review tracks / following…") { appState.openTrackReview() }.help(
+                "Leave painting to select tracks, save labels and inspect following evidence. Street edits are retained."
+            )
             Text(
                 "Top-down over the placed reference, north up. Drag to pan, scroll to zoom; the view does not turn while painting."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(

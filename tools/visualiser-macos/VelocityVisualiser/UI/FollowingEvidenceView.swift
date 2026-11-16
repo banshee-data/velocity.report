@@ -17,8 +17,13 @@ private struct FollowingEvidenceContent: View {
     @State private var draft: FollowingAudit.Record?
 
     var body: some View {
-        DisclosureGroup("Following evidence (offline baseline)") {
+        DisclosureGroup("Following / headway / DRAC evidence") {
             VStack(alignment: .leading, spacing: 8) {
+                if review.document == nil {
+                    Text(
+                        "Open a matching following_evidence_v1 export to inspect front-to-rear distance, net time gap and experimental DRAC, then record an audit. A VRLOG or saved road mesh alone does not contain this analysis."
+                    ).foregroundStyle(.secondary)
+                }
                 Button(
                     review.loading ? "Reading evidence…" : "Open following evidence…", action: open
                 ).disabled(review.loading)
@@ -131,9 +136,22 @@ private struct FollowingEvidenceContent: View {
                     "Source manifest unavailable; capture bytes and replay window cannot be verified here."
                 )
             }
+            if let slice = doc.reviewSlice {
+                Text("Canonical export \(slice.canonicalEvidenceSha256)")
+                Text(
+                    "Sample anchors \(slice.sampleStartNanos)–\(slice.sampleEndExclusiveNanos) ns (end excluded). Original sample intervals may extend past this slice."
+                )
+                Text(
+                    "Recording producer \(slice.recordingBuildGitSha) · header \(slice.recordingHeaderSha256) · calibration \(slice.calibrationId)"
+                )
+                Text(
+                    "This is a bounded projection of the canonical analysis. Verify its recording/header and canonical export before interpreting playback agreement."
+                )
+            } else {
+                Text("Recording producer build is not supplied by this evidence contract.")
+            }
             Text(
-                "Recording producer build is not supplied by this evidence contract. File review does not repeat the exporter's arithmetic or capture-hash validation."
-            )
+                "File review does not repeat the exporter's arithmetic or capture-hash validation.")
             Text(
                 "Track-derived local path; no lane snapshot. Coordinate frame ID is absent from this export. File evidence is not overlaid on playback."
             )
@@ -287,7 +305,8 @@ private struct FollowingEvidenceContent: View {
         guard confirmReplacingUnsavedAudit() else { return }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
-        panel.message = "Choose a following_evidence_v1 export from velocity report headway."
+        panel.message =
+            "Choose a following export or a following_review_slice_v1 minute from the prepared review bundle."
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard review.beginImport() else { return }
         Task {
@@ -327,6 +346,19 @@ struct RecordingReviewContext: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Chosen site: \(appState.siteContext.site?.title ?? "none")")
                 Text("Run: \(appState.currentRunID ?? "unavailable")")
+                if appState.currentRunID == nil, appState.sourceMode == .vrlog {
+                    Button(
+                        appState.isResolvingReviewRun
+                            ? "Identifying replay…" : "Use current replay for labels"
+                    ) { Task { await appState.useCurrentReplayForReview() } }.disabled(
+                        appState.isResolvingReviewRun)
+                    Text(
+                        "Identifies the run without restarting playback. Otherwise choose it in Runs before saving labels."
+                    )
+                }
+                if let message = appState.reviewContextMessage {
+                    Text(message).foregroundStyle(.orange)
+                }
                 Text("Source: \(run?.sourcePath ?? "unavailable")")
                 Text("Recording: \(run?.vrlogPath ?? "unavailable")")
                 Text("Capture time: \(appState.currentTimestamp) ns")

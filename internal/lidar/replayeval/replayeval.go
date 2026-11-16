@@ -149,6 +149,9 @@ type Config struct {
 	// output size, so it is off unless the recording is meant for the
 	// visualiser rather than for metrics.
 	IncludePoints bool
+	// ForegroundOnly records classified foreground returns only, for operator
+	// review. It changes recording payloads, never perception or estimates.
+	ForegroundOnly bool
 	// IncludeDebug records predictions, innovations, associations, and raw
 	// cluster boxes alongside track estimates. Disabled by default.
 	IncludeDebug bool
@@ -866,7 +869,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	// Close is idempotent; the explicit close below still reports finalisation errors.
 	defer rec.Close()
 	pub := &recordingPublisher{rec: rec, dropPoints: !cfg.IncludePoints, recordAfterNanos: scoreStart}
-	adapter := l9endpoints.NewFrameAdapter(cfg.SensorID)
+	adapter := replayFrameAdapter(cfg)
 
 	// Provenance. Without it a recording cannot say which code and which
 	// parameters produced it, which is the one thing an A/B corpus has to be
@@ -1293,6 +1296,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		"tracker_boundary_policy": "retain", "settled_at_boundary": settledAtBoundary,
 		"require_settled": cfg.RequireSettled, "sensor_id": cfg.SensorID, "udp_port": cfg.UDPPort,
 		"include_points": cfg.IncludePoints, "include_debug": cfg.IncludeDebug, "params_sha256": paramsHash,
+		"foreground_only":    cfg.ForegroundOnly,
 		"calibration_sha256": "sha256:" + hex.EncodeToString(sha256Sum(parserJSON)),
 		"build_version":      version.Version, "build_git_sha": version.GitSHA,
 		"build_stamped":    version.GitSHA != "" && version.GitSHA != "unknown" && version.GitSHA != "dev",

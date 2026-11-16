@@ -687,9 +687,14 @@ struct ToolbarView: View {
                 }.help("Browse analysis runs")
 
                 Divider().frame(height: 20)
-                Button(action: { appState.showSidePanel.toggle() }) {
-                    Label("Inspector", systemImage: "sidebar.trailing")
-                }.help("Toggle track inspector")
+                Button(action: {
+                    if appState.showSidePanel {
+                        appState.showSidePanel = false
+                    } else {
+                        appState.openTrackReview()
+                    }
+                }) { Label("Inspector", systemImage: "sidebar.trailing") }.help(
+                    "Track labels and following / headway / DRAC review; leaves Paint streets")
 
                 Divider().frame(height: 20)
                 Button(action: { appState.showFilterPane.toggle() }) {
@@ -1219,10 +1224,10 @@ struct SidePanelView: View {
                     }
 
                     RecordingReviewContext()
-                    FollowingEvidenceView()
 
                     // Label panel
                     LabelPanelView()
+                    FollowingEvidenceView()
 
                     // History chart + detail cards (only when a track is selected)
                     if let trackID = appState.selectedTrackID {
