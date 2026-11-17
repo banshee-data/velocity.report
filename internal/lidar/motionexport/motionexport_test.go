@@ -100,6 +100,52 @@ func TestAzimuthClockRemovesArrivalJitterAndBlockSawtooth(t *testing.T) {
 	}
 }
 
+// On a real capture each block keeps only the channels that returned, so the
+// mean point time of a packet's blocks differs by a few microseconds of
+// channel firetime. Ordering blocks by that mean shuffled them within a
+// packet, and where a packet straddled the 0/360° seam the unwrap put some
+// blocks a whole turn off: their points were timed 1-3 rotations early. On the
+// September archive that was 0.7% of points in 89% of rotations.
+func TestAzimuthClockUnwrapsTheSeamWhenChannelsDropOut(t *testing.T) {
+	t0 := time.Date(2026, 9, 2, 18, 33, 0, 0, time.UTC)
+	for r := 0; r < 20; r++ {
+		rng := rand.New(rand.NewSource(int64(100 + r)))
+		// Start azimuths off the 2° packet grid, so one packet straddles 0°.
+		all, allTruth := rotation(t0, 350.1+0.1*float64(r%19), 0, 4, rng, uint32(r*1000))
+		var pts []l2frames.Point
+		var truth []float64
+		for i := 0; i < len(all); i += 4 {
+			keep := 1 + rng.Intn(15) // a non-empty subset of the four channels
+			for c := 0; c < 4; c++ {
+				if keep&(1<<c) != 0 {
+					pts = append(pts, all[i+c])
+					truth = append(truth, allTruth[i+c])
+				}
+			}
+		}
+		clock, fit := PointTimes(pts, t0, true)
+		if !fit.OK || fit.Rejected != 0 {
+			t.Fatalf("rotation %d: fit %+v", r, fit)
+		}
+		if fit.SpanDeg > 360 || fit.SpanDeg < 359 {
+			t.Errorf("rotation %d: unwrapped span %.1f°, want just under 360°", r, fit.SpanDeg)
+		}
+		// Recorded times carry the packet sawtooth (up to ~250 µs about the
+		// line); a block a turn off would be 100 ms.
+		if fit.MaxResidUS > 1000 {
+			t.Errorf("rotation %d: max residual %.0f µs, want no block a turn off", r, fit.MaxResidUS)
+		}
+		_, off := centredRMS(clock, truth)
+		worst := 0.0
+		for i := range clock {
+			worst = math.Max(worst, math.Abs(clock[i]-truth[i]-off))
+		}
+		if worst > 50e-6 {
+			t.Errorf("rotation %d: a point is %.1f ms from its firing time", r, worst*1e3)
+		}
+	}
+}
+
 func TestPointTimesRefusesAPartialRotation(t *testing.T) {
 	rng := rand.New(rand.NewSource(1))
 	t0 := time.Unix(0, 0)

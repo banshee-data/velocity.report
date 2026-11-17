@@ -70,15 +70,15 @@ func PointTimes(points []l2frames.Point, epoch time.Time, useClock bool) ([]floa
 		fit.Reason = "fewer than 20 blocks"
 		return rec, fit
 	}
-	order := make([]int, len(blocks))
-	for j := range order {
-		order[j] = j
-	}
-	sort.SliceStable(order, func(a, b int) bool { return blocks[order[a]].t < blocks[order[b]].t })
-	// Unwrap in time order; dual-return pairs share an azimuth and stay equal.
+	// Unwrap in firing order: blocks are first seen in packet and block order,
+	// as the frame builder appends parsed points. Do not reorder by mean block
+	// time. Within a packet that differs only by which channels returned, so it
+	// shuffles the packet's blocks, and where a packet straddles the 0/360°
+	// seam some unwrap a whole turn off. Dual-return pairs share an azimuth and
+	// stay equal.
 	offset := 0.0
-	prev := blocks[order[0]].az
-	for _, j := range order {
+	prev := blocks[0].az
+	for j := range blocks {
 		a := blocks[j].az + offset
 		for a < prev-180 {
 			offset += 360
@@ -87,7 +87,7 @@ func PointTimes(points []l2frames.Point, epoch time.Time, useClock bool) ([]floa
 		blocks[j].az = a
 		prev = a
 	}
-	fit.SpanDeg = blocks[order[len(order)-1]].az - blocks[order[0]].az
+	fit.SpanDeg = blocks[len(blocks)-1].az - blocks[0].az
 
 	t0, k := lineFit(blocks)
 	// One robust pass: drop blocks far off the line (late or bunched packets).
