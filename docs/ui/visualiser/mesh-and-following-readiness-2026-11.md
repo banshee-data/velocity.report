@@ -1,6 +1,6 @@
 # Road mesh and five-site following review readiness
 
-- **Status:** Implementation verified; full five-site preparation and native recheck in progress
+- **Status:** Five paired reviews verified; mesh repair and physical qualification remain pending
 - **Scope:** Ashbury–Downey, Kirkham–9th, Columbus–Broadway, Embarcadero–Bryant and Lombard–Broderick
 - **Related:** [Operator workflow](following-audit-workflow.md), [weekend plan](../../plans/lidar-weekend-following-drac-plan.md), [workspace audit](workspace-ux-audit.md)
 
@@ -104,8 +104,8 @@ establish a surveyed transform. Physical qualification must use the explicit cal
 declaration and separately verified site placement.
 
 Kirkham's registered preparation was produced by
-`c6a4f98bfecce8d9b7f6d67555df52ed488bf265`. Ashbury and the frozen queue for the other
-three sites use `0d9e55fbe7eec91c3468b361046e60248022b396`. Both report
+`c6a4f98bfecce8d9b7f6d67555df52ed488bf265`. Ashbury and the other three sites were
+produced by `0d9e55fbe7eec91c3468b361046e60248022b396`. Both report
 `0.5.1-pre52`; their distinct build identities remain in the paired header and evidence.
 The visualiser's later main build is a separate identity from these data producers.
 
@@ -260,7 +260,17 @@ rows contain 1,973 supported closing calculations and 4,444 non-closing cases. E
 retain 3,624 ineligible cases, 914 missing-input cases and 14 unresolved positive gaps.
 The API returns all 8,937 exact recorded IDs.
 
-These four prepared reviews have passed independent file and API verification, followed
+Lombard's final preparation independently decoded 11,318 foreground frames, 48,473,684
+foreground points and 6,144 recorded track IDs, with zero background frames. Its 159,265
+rows project into 19 minute slices: 103,098 excluded pairings, 12,026 record gaps, 31,176
+no-leader rows, 5,189 excluded following rows and 7,776 eligible following rows. Eligible
+rows contain 3,417 supported closing calculations, 4,306 non-closing cases and 53 invalid-input
+cases. Excluded rows retain 3,369 ineligible cases, 1,342 missing-input cases, 88 supported
+calculations, 240 invalid-input cases, 127 non-closing cases and 23 unresolved positive gaps.
+The 88 excluded calculations remain excluded. The API returns all 6,144 exact recorded IDs;
+2,537 have durable estimator metadata and 3,607 use recorded browser summaries.
+
+All five prepared reviews have passed independent file and API verification, followed
 by native replay, reference loading and matching evidence import:
 
 | Site               | Registered review run                                   | Frames | Foreground points | Recorded IDs | Evidence rows | Minute files |
@@ -269,6 +279,7 @@ by native replay, reference loading and matching evidence import:
 | Kirkham–9th        | `following-review-9ea0ede2-e4fc-48b7-a6a0-9f84fddd6202` |    631 |         2,574,168 |          136 |         5,624 |            2 |
 | Columbus–Broadway  | `following-review-b71ec25e-18ee-477e-994b-7b4e09cca73d` | 19,629 |       111,885,204 |        8,631 |       459,139 |           33 |
 | Embarcadero–Bryant | `following-review-9e777570-8286-4f3a-be91-74e913b4513d` | 12,924 |        37,056,415 |        8,937 |       213,147 |           22 |
+| Lombard–Broderick  | `following-review-9cfda4b3-358c-4a8d-a096-637e79342fc7` | 11,318 |        48,473,684 |        6,144 |       159,265 |           19 |
 
 The header and canonical-export identities are frozen independently of the minute files,
 whose hashes remain in each complete preparation's receipt:
@@ -279,8 +290,13 @@ whose hashes remain in each complete preparation's receipt:
 | Kirkham–9th        | `97d4e41070e6ce9ab67fd415c619fa190a98dc8b8c0dd45e176f105ac94c88a3` | `3365f3d5b615a1313493be7c118d97a2094e841d18fb81a6f5093590a219ace9` |
 | Columbus–Broadway  | `7052f58cd16bb2fbfb6aeaf3cb6f1d8218bcb9240d340cda209606fa57b5a65c` | `76cf7427c14afad57114d95a8daa50430fcd930fb481327e7b71af39fae50023` |
 | Embarcadero–Bryant | `ed2fcef7cd27fcf9f0c51ca02a309814b2b1d8d61d3d9f71655e0c29b1e42e0a` | `b961ff87666c2cddf2f70ad5e2cee44a05d3eb29efd82ca32d02dfa3dd83b427` |
+| Lombard–Broderick  | `2f5885d0edacf4fff160a04d0c18f0bdb0c21e9fc79cb75fa6aea6becb28dbf0` | `867c595c0df057c331f7ec57b6f5c4dbb46ecc071d2eb3a3585647b17e58a70f` |
 
-Lombard's final preparation remains in progress. No partial output is offered as a ready review.
+After the four paired native checks, the operator remounted the NAS and asked that its
+shares stay mounted. This task did not change those mounts. The final mount inspection
+subsequently showed no NAS shares. Lombard's reference and paused evidence review were
+rechecked in that observed state, before saving its final receipt. Earlier snapshots remain
+alongside the completed checks; the task does not attribute the mount change to itself.
 
 ### Merged-main offline check
 
@@ -294,22 +310,21 @@ there were no outstanding review threads at merge.
 With NAS shares unmounted and Gerardus restricted to local data, all five sites loaded
 their foreground replay, buildings and accepted scans in that merged app:
 
-| Site               | Replay checked                        | Buildings | Roof planes | Walls | Accepted scans | Scan points |
-| ------------------ | ------------------------------------- | --------: | ----------: | ----: | -------------: | ----------: |
-| Ashbury–Downey     | New paired review, 11,574 frames      |       349 |       1,110 | 5,641 |              2 |      87,299 |
-| Kirkham–9th        | New paired review, 631 frames         |       301 |         847 | 5,011 |              7 |     330,865 |
-| Columbus–Broadway  | New paired review, 19,629 frames      |       277 |         961 | 5,077 |              1 |      36,611 |
-| Embarcadero–Bryant | New paired review, 12,924 frames      |        41 |         156 |   796 |              1 |      50,128 |
-| Lombard–Broderick  | Existing parent replay, 12,059 frames |       266 |         669 | 5,144 |              1 |     117,901 |
+| Site               | Replay checked                   | Buildings | Roof planes | Walls | Accepted scans | Scan points |
+| ------------------ | -------------------------------- | --------: | ----------: | ----: | -------------: | ----------: |
+| Ashbury–Downey     | New paired review, 11,574 frames |       349 |       1,110 | 5,641 |              2 |      87,299 |
+| Kirkham–9th        | New paired review, 631 frames    |       301 |         847 | 5,011 |              7 |     330,865 |
+| Columbus–Broadway  | New paired review, 19,629 frames |       277 |         961 | 5,077 |              1 |      36,611 |
+| Embarcadero–Bryant | New paired review, 12,924 frames |        41 |         156 |   796 |              1 |      50,128 |
+| Lombard–Broderick  | New paired review, 11,318 frames |       266 |         669 | 5,144 |              1 |     117,901 |
 
 Kirkham selected its registered accepted scan `sha256:9f547025e08237d02163c19d5a6f7e3caa20e513e7283ae974581573e410bbb3`
 and displayed the accepted 235.3° heading. Each Runs selection replaced the site and placement
 hint; **Align → Place from hint** loaded that site's reference. These checks establish
-offline availability and site selection, not acceptance of the road mesh. Lombard's parent
-replay check does not replace the pending check of its new paired evidence. Earlier native
-receipts remain alongside the later paired-recording checks.
+offline availability and site selection, not acceptance of the road mesh. Lombard's earlier
+parent-replay check and the later paired-recording check both remain in the local evidence.
 
-Ashbury, Kirkham, Columbus, and Bryant imported their matching minute files on merged main,
+All five sites imported their matching minute files on merged main,
 selected an actual recorded track, sought to an exact sample timestamp, exposed classification
 and quality controls, and opened the manual audit form. Each form was cancelled with zero
 operator records saved. Both members of each inspected pair were independently decoded
@@ -332,8 +347,16 @@ and the earliest sample time in the first minute. Their exact follower and leade
 decoded in recording offsets 229 and 0 respectively, original frame IDs 931 and 702.
 The audit forms retained the original interval ends, and were cancelled without saving.
 
-One UI request timed out during Bryant's reference load. Pausing and re-reading the
-window recovered the check without restarting the app; the reference had loaded. These
+Lombard's sample at `1788367172526609330` ns, recording offset 3 and original frame 704,
+displayed a 37.062 m gap, 3.534 s net time gap and 7.9717e-06 m/s² experimental DRAC.
+Both exact track IDs were independently decoded in that frame. The positive-duration
+eligible sample exercised numeric display; it does not characterise risk or exposure.
+Its audit retained the exclusive end `1788367172626615330` ns and was cancelled with
+zero operator records saved.
+
+One UI request timed out during Bryant's reference load. Two native control requests
+also timed out while Lombard was streaming. Pausing through the gRPC API and re-reading
+the window recovered the check without restarting the app; the reference loaded. These
 checks establish loading and paused review, not a playback frame-rate guarantee. A Columbus
 paint-pane request for the current recording's lane field also timed out. No passed result
 is claimed for that route or for lane inference: the following checks here use the separate
@@ -354,8 +377,9 @@ checks actual point filtering and leaves the default replay payload unchanged. P
 cover exact recording bounds, unchanged source samples, slice partition boundaries, retained
 straddling intervals, source-site mismatch and annotation-only validation-cohort admission.
 
-Complete and independently decode Lombard's prepared recording, verify its source/header/export
-hashes and slice coverage, register its actual tracks and clip, then repeat native playback
-and evidence import with the NAS unmounted. Keep mesh failures visible until the road generator
+All five complete recordings have independently verified source/header/export identities,
+slice coverage and recorded track sets, exact clip registration, API checks and native review
+receipts. The local review index exposes the five complete bundles and matching minute files.
+Keep mesh failures visible until the road generator
 provides non-overlapping junctions and valid boundary rings. No measured following accuracy,
 DRAC threshold, lateral-risk interpretation or physical qualification has been adopted.
