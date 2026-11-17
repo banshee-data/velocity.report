@@ -3011,6 +3011,21 @@ PCL_FRAME_EXPORT_BIN ?= /tmp/pcl-frame-export
 build-pcl-frame-export: ## Build the offline one-frame PCL compatibility exporter
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(PCL_FRAME_EXPORT_BIN)" ./cmd/tools/pcl-frame-export
 
+# Route SLAM spike (docs/plans/lidar-route-slam-minimum-plan.md). Outputs are
+# raw evidence and location history: write them outside the checkout.
+LIDAR_MOTION_EXPORT_BIN ?= /tmp/lidar-motion-export
+LIDAR_EGO_TRACK_BIN ?= /tmp/lidar-ego-track
+
+.PHONY: build-lidar-motion-export
+build-lidar-motion-export: ## Build the motion-segment LAS exporter (route SLAM S0)
+	@./scripts/ensure-web-stub.sh
+	@./scripts/ensure-docs-stub.sh
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(LIDAR_MOTION_EXPORT_BIN)" ./cmd/tools/lidar-motion-export
+
+.PHONY: build-lidar-ego-track
+build-lidar-ego-track: ## Build the ego-track kinematics tool (speed, jerk, jitter from a trajectory)
+	go build -ldflags "$(LDFLAGS)" -o "$(LIDAR_EGO_TRACK_BIN)" ./cmd/tools/lidar-ego-track
+
 # Offline harness builds are cached by commit outside the checkout.
 EXPERIMENT_TOOLS_DIR ?= $(CURDIR)/.tmp/experiment-tools
 .PHONY: build-following-review

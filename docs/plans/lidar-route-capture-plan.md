@@ -10,6 +10,7 @@ support, and measurement quality must pass explicit gates before either result i
 - **Companion plans:** [static-sensor-nudge-tolerance-plan](static-sensor-nudge-tolerance-plan.md) is the tripod case the stop regime generalises; [motion-static-parameter-tuning-plan](motion-static-parameter-tuning-plan.md) owns the motion classifier sweep; [spatial-priors-service-review](spatial-priors-service-review.md) owns route reconstruction and rig hardware findings; [lidar-motion-capture-architecture-plan](lidar-motion-capture-architecture-plan.md) is the 7DOF design this borrows ego-motion compensation from and leaves 3D orientation to; [lidar-l7-scene-plan](lidar-l7-scene-plan.md) owns road polygons and the scene graph; [speed-percentile-aggregation-alignment-plan](speed-percentile-aggregation-alignment-plan.md) owns the aggregate rules the segment outputs follow
 - **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
 - **Timing design:** [portable-capture-timing.md](../lidar/architecture/portable-capture-timing.md) owns clock choices, acquisition semantics, component costs, and qualification
+- **Spike minimum:** [lidar-route-slam-minimum-plan](lidar-route-slam-minimum-plan.md) narrows v0.6.0 to the archive's drives between registered sites: motion export, priors registration along the drive, and the ego track
 
 ## Motivation
 
