@@ -8,9 +8,9 @@ its drive, and on the rotation rate for a car. The first disagreement is settled
 derivation. The second is settled by the owner's mount fact, which only run B had. The third is
 left to the native 20 Hz arm both runs designed in the same way.
 
-- **Status:** Comparison and proposed reconciliation, written in the main session after both runs
-  finished. Nothing executed or adopted; the reconciled gates replace neither run's text and are
-  not owner decisions. The phase plans are updated to the reconciliation, still as proposals.
+- **Status:** Comparison and reconciliation, written in the main session after both runs
+  finished. The owner pinned the reconciled gates and took the decisions below at their defaults on
+  2026-11-17. They replace neither run's text. The phase plans carry them.
 - **Scope:** Questions 1–32 of the [oracle brief](lidar-route-slam-oracle-brief.md), answered by
   [run A](lidar-route-slam-oracle-response-fable.md) and [run B](lidar-route-slam-oracle-response-opus.md).
 - **Baseline:** both runs read the brief, plan and evaluation spec as at velocity.report
@@ -245,7 +245,7 @@ Proposals for the owner to pin. "A" and "B" give each run's value.
 
 ## Open questions
 
-Owner decisions, each with the reconciled default:
+Owner decisions, all taken at these defaults on 2026-11-17:
 
 1. Accept the reconciled phase boundary: ego track gated in phase 1, priors in phase 2, and the
    20 Hz capture conditional on the turn-submap test. Default: yes.
@@ -256,7 +256,7 @@ Owner decisions, each with the reconciled default:
 5. Report ego kinematics at the sensor and at a road-reference point. Default: both.
 6. Treat the roof-tripod car drives as a vibration proxy for the bike, as route plan Item 2
    assumes? Run B says no: a ratchet-strapped tripod on a car roof has its own strap and leg
-   modes. Default: no; re-word the backlog item when its slot comes up.
+   modes. Default: no. The backlog item is re-worded when its slot comes up.
 7. The operator records the tripod's height on the roof and the strap layout on future drives
    (run B). Default: yes.
 8. Make field-of-view-relative completion a separate change? Default: yes, outside the spike.

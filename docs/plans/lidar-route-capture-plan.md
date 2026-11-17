@@ -168,16 +168,16 @@ mobile output and publish no headway claim.
 One trajectory file per capture, produced offline and consumed by the `PoseProvider` interface the
 motion capture architecture plan already defines:
 
-| Field                     | Meaning                                                                                                                                  |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Frame index and timestamp | Matches the L2 frame it applies to                                                                                                       |
-| Pose                      | Position and unit quaternion in the capture's local frame                                                                                |
-| Velocity                  | Linear and angular, for de-biasing and for the ego speed threshold                                                                       |
-| Quality                   | Registration residual, inlier fraction, and a velocity uncertainty                                                                       |
-| Placement                 | Optional transform from the local frame to WGS84, with its source                                                                        |
-| Provenance                | Odometry tool and version, parameters, IMU present or not                                                                                |
-| Timing                    | Acquisition-time convention, clock/boot segment, time scale, mapping and delay-calibration version, uncertainty, and lock/holdover state |
-| Calibration               | IMU-to-LiDAR rotation and lever arm, uncertainty, and calibration identity, separate from timing and rotor phase                         |
+| Field                     | Meaning                                                                                                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frame index and timestamp | Matches the L2 frame it applies to                                                                                                                          |
+| Pose                      | Position and unit quaternion in the capture's local frame                                                                                                   |
+| Velocity                  | Not carried: velocity.report derives linear and angular velocity from the poses (route SLAM decision, 2026-11-17), so the trajectory is differentiated once |
+| Quality                   | Registration residual, inlier fraction, and a velocity uncertainty                                                                                          |
+| Placement                 | Optional transform from the local frame to WGS84, with its source                                                                                           |
+| Provenance                | Odometry tool and version, parameters, IMU present or not                                                                                                   |
+| Timing                    | Acquisition-time convention, clock/boot segment, time scale, mapping and delay-calibration version, uncertainty, and lock/holdover state                    |
+| Calibration               | IMU-to-LiDAR rotation and lever arm, uncertainty, and calibration identity, separate from timing and rotor phase                                            |
 
 The local frame is the sensor's pose at the first frame. Placement comes from phone-grade GNSS
 snapped to the road graph, refined by registration against the priors where they exist. Without

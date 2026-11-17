@@ -97,6 +97,10 @@ the checkout.
 
 ## Success criteria
 
+The owner pinned phase 1's gate 1 on 2026-11-17. It replaces criteria 2–4 below for the
+registration and ego-track arms. Both oracle runs showed those criteria could pass with a wrong
+trajectory. Criteria 1, 5 and 6 still apply.
+
 - [ ] At least 99% of exported rotations have `clock_ok`, and no rotation in motion is a period outlier without a packet gap to explain it
 - [ ] Held-out B residual (A-only solve) within 2% of the drive distance, and stated with the submap gate outcomes along the route
 - [ ] Every stop at least 5 s long shows displacement under 0.3 m on the A+B solve
@@ -120,7 +124,17 @@ the checkout.
 
 ## Result
 
-Fill after running.
+Partial: steps 1–3 only, on this drive and two development drives. See the
+[first exports report](../../../docs/lidar/operations/route-slam-first-exports-2026-11.md).
+
+- **Seam defect.** A defect in the azimuth clock timed 0.7% of points one to three rotations
+  early. After the fix (`7cfe581`), every rotation passed the clock fit, with a median residual
+  of 176–188 µs.
+- **Criterion 1 fails strictly.** One rotation of this drive (frame 93) is 5.9% off the median
+  period with no packet gap.
+- **Re-export needed.** The clock gate was tightened afterwards (`866b9d4`), so the drives need
+  re-exporting before criterion 1 is read.
+- **Criteria 2–6 untested.** They need a trajectory.
 
 ## Next action
 
