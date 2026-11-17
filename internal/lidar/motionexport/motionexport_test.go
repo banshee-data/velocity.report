@@ -363,3 +363,38 @@ func TestClockFitRefusesWhenTooManyBlocksAreRejected(t *testing.T) {
 		t.Error("a refused fit must fall back to recorded times")
 	}
 }
+
+func TestLASHeaderBoundsContainTheStoredCoordinates(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "b.las")
+	w, err := CreateLAS(path, "test", time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 0.00026 m rounds up to one grid step (0.0005 m); -0.00076 rounds down to
+	// two (-0.001 m). Bounds taken from the raw values would exclude both.
+	for _, p := range []LASPoint{{X: 0.00026, Y: -0.00076, Z: 1.23426, Ring: 1}, {X: -0.00076, Y: 0.00026, Z: 1.23376, Ring: 2}} {
+		if err := w.Write(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	info, err := ReadLASInfo(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for c, want := range [][2]float64{{-0.001, 0.0005}, {-0.001, 0.0005}, {1.234, 1.2345}} {
+		if math.Abs(info.Min[c]-want[0]) > 1e-12 || math.Abs(info.Max[c]-want[1]) > 1e-12 {
+			t.Errorf("axis %d bounds [%.6f, %.6f], want the stored [%.6f, %.6f]", c, info.Min[c], info.Max[c], want[0], want[1])
+		}
+	}
+	if info.FirstPointXYZ[0] > info.Max[0] || info.FirstPointXYZ[0] < info.Min[0] {
+		t.Errorf("stored x %.6f outside header bounds", info.FirstPointXYZ[0])
+	}
+}

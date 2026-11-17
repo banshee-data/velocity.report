@@ -83,8 +83,12 @@ func (w *LASWriter) Write(p LASPoint) error {
 			return fmt.Errorf("coordinate %v outside the LAS grid", v)
 		}
 		q[i] = int32(math.Round(v / lasScale))
-		w.min[i] = math.Min(w.min[i], v)
-		w.max[i] = math.Max(w.max[i], v)
+		// Bound the stored coordinate, not v: rounding can put it up to half
+		// a grid step outside v's range, and strict readers check stored
+		// points against the header.
+		stored := float64(q[i]) * lasScale
+		w.min[i] = math.Min(w.min[i], stored)
+		w.max[i] = math.Max(w.max[i], stored)
 	}
 	if math.IsNaN(p.TimeS) || math.IsInf(p.TimeS, 0) {
 		return errors.New("non-finite point time")
