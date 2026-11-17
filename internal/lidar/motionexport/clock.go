@@ -47,7 +47,21 @@ type block struct {
 // from the line like the rest, which is right for a late packet and wrong if
 // the line does not describe them (as when the seam was unwrapped a turn off),
 // so a fit that rejects many is not trusted.
-const MaxRejectedShare = 0.10
+//
+// The robust pass repeats until its kept set settles, and on bunched PCAP
+// arrival it drops up to 18.6% of a rotation's blocks while the kept ones sit
+// under 330 µs RMS about the line at normal periods (three S2 drives,
+// 2026-09-01/02; 99.9th percentile 12.8%). At 10% that refused 118 of 28,050
+// rotations and sent them to packet time, the worse estimate. A fit that
+// truly loses the rotation fails the kept residual or the span instead.
+const MaxRejectedShare = 0.25
+
+// MaxSpanDeg is the widest unwrapped block azimuth a rotation may span. The
+// frame builder keeps a few blocks past the seam (up to 1804 blocks, 360.6°,
+// on the 2026-09-02 S2 drives). A block unwrapped a turn off adds about 360°
+// and, timed from the line, would be a whole period wrong; the rejected-share
+// cap does not catch one such block.
+const MaxSpanDeg = 370.0
 
 // MaxKeptRMSResidUS is the largest RMS residual of the kept blocks about the
 // line, in microseconds, for the fit to be trusted. The missing per-block
@@ -96,6 +110,7 @@ func PointTimes(points []l2frames.Point, epoch time.Time, useClock bool) ([]floa
 	// stay equal.
 	offset := 0.0
 	prev := blocks[0].az
+	lo, hi := prev, prev
 	for j := range blocks {
 		a := blocks[j].az + offset
 		for a < prev-180 {
@@ -104,8 +119,10 @@ func PointTimes(points []l2frames.Point, epoch time.Time, useClock bool) ([]floa
 		}
 		blocks[j].az = a
 		prev = a
+		lo, hi = math.Min(lo, a), math.Max(hi, a)
 	}
-	fit.SpanDeg = blocks[len(blocks)-1].az - blocks[0].az
+	// Max minus min, so a block a turn off mid-frame widens it too.
+	fit.SpanDeg = hi - lo
 
 	// Robust passes: drop blocks far off the line (late or bunched packets),
 	// refit, and repeat until the kept set settles. One pass is not enough:
@@ -166,6 +183,8 @@ func PointTimes(points []l2frames.Point, epoch time.Time, useClock bool) ([]floa
 		fit.Reason = fmt.Sprintf("kept-block residual %.0f µs RMS exceeds %.0f µs", fit.RMSResidUS, MaxKeptRMSResidUS)
 	case fit.SpanDeg < 300:
 		fit.Reason = "block azimuth spans less than 300°"
+	case fit.SpanDeg > MaxSpanDeg:
+		fit.Reason = fmt.Sprintf("block azimuth spans %.1f°, more than one turn", fit.SpanDeg)
 	case fit.PeriodS < 0.04 || fit.PeriodS > 0.25:
 		fit.Reason = "rotation period outside 0.04-0.25 s"
 	default:

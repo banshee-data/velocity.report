@@ -160,8 +160,8 @@ Items 3–7 are Gerardus work; their titles are proposed entries for Gerardus's 
 **Steps:**
 
 1. Gate a rotation's clock on period deviation (≤ 0.5% of a running median of 5), boundary step
-   (≤ 100 µs), kept-block residual (≤ 500 µs RMS) and rejected share (≤ 10% of blocks); never fall
-   back silently to packet time.
+   (≤ 100 µs), kept-block residual (≤ 500 µs RMS), unwrapped span (≤ 370°) and rejected share
+   (≤ 25% of blocks); never fall back silently to packet time.
 2. Write the fit's intercept and slope, the time source used, and a fit-based pose reference
    time per rotation; record the tail motor speed and the calibration tables' hash in `run.json`.
 3. Interpolate a rotation whose fit fails from its neighbours and label its time source; never
@@ -180,6 +180,12 @@ matches the tail motor speed.
 - `866b9d4` has since added two of this item's gates (the rejected-share cap at 10% and the
   kept-RMS limit at 500 µs) and recorded per-join grades in `run.json`. The drives need
   re-exporting under them.
+- Re-exported at `-azimuth-stride 32` under the 10% cap, the three drives lost 118 of 28,050
+  rotations to it. The robust pass rejects up to 18.6% of blocks to bunched arrival (99.9th
+  percentile 12.8%), and the kept blocks still sit under 330 µs RMS at normal periods. With the cap
+  at 25% and the span capped at 370°, only lombard-laguna frames 93 and 145 are refused, both by
+  the kept residual (10 and 18 ms RMS). The frame builder keeps up to 1804 blocks (360.6°) at the
+  seam, so the span cap sits above a full turn.
 - The period-deviation and boundary-step gates are not built yet, so the 99.5% criterion is not
   yet tested.
 

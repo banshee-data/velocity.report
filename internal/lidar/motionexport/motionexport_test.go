@@ -113,17 +113,7 @@ func TestAzimuthClockUnwrapsTheSeamWhenChannelsDropOut(t *testing.T) {
 		rng := rand.New(rand.NewSource(int64(100 + r)))
 		// Start azimuths off the 2° packet grid, so one packet straddles 0°.
 		all, allTruth := rotation(t0, 350.1+0.1*float64(r%19), 0, 4, rng, uint32(r*1000))
-		var pts []l2frames.Point
-		var truth []float64
-		for i := 0; i < len(all); i += 4 {
-			keep := 1 + rng.Intn(15) // a non-empty subset of the four channels
-			for c := 0; c < 4; c++ {
-				if keep&(1<<c) != 0 {
-					pts = append(pts, all[i+c])
-					truth = append(truth, allTruth[i+c])
-				}
-			}
-		}
+		pts, truth := dropChannels(all, allTruth, rng)
 		clock, fit := PointTimes(pts, t0, true)
 		if !fit.OK || fit.Rejected != 0 {
 			t.Fatalf("rotation %d: fit %+v", r, fit)
@@ -144,6 +134,55 @@ func TestAzimuthClockUnwrapsTheSeamWhenChannelsDropOut(t *testing.T) {
 		if worst > 50e-6 {
 			t.Errorf("rotation %d: a point is %.1f ms from its firing time", r, worst*1e3)
 		}
+	}
+}
+
+// dropChannels keeps a random non-empty subset of each block's four channels,
+// as a real capture keeps only the channels that returned.
+func dropChannels(all []l2frames.Point, allTruth []float64, rng *rand.Rand) ([]l2frames.Point, []float64) {
+	var pts []l2frames.Point
+	var truth []float64
+	for i := 0; i < len(all); i += 4 {
+		keep := 1 + rng.Intn(15)
+		for c := 0; c < 4; c++ {
+			if keep&(1<<c) != 0 {
+				pts = append(pts, all[i+c])
+				truth = append(truth, allTruth[i+c])
+			}
+		}
+	}
+	return pts, truth
+}
+
+// A frame whose blocks unwrap to more than one turn would time some of them a
+// whole period wrong. The line can still fit every block, so neither the
+// rejected share nor the kept residual catches it; the span does.
+func TestAzimuthClockRefusesMoreThanOneTurn(t *testing.T) {
+	rng := rand.New(rand.NewSource(3))
+	t0 := time.Date(2026, 9, 2, 18, 33, 0, 0, time.UTC)
+	a, _ := rotation(t0, 10, 0, 2, rng, 0)
+	b, _ := rotation(t0.Add(100*time.Millisecond), 10, 0, 2, rng, 1000)
+	pts := append(append([]l2frames.Point(nil), a...), b...)
+	rec, fit := PointTimes(pts, t0, true)
+	if fit.OK || !strings.Contains(fit.Reason, "more than one turn") {
+		t.Fatalf("two turns accepted: %+v", fit)
+	}
+	if fit.SpanDeg < 700 {
+		t.Errorf("span %.1f°, want about 720°", fit.SpanDeg)
+	}
+	if rec[len(a)+5] != pts[len(a)+5].Timestamp.Sub(t0).Seconds() {
+		t.Error("a refused fit must fall back to recorded times")
+	}
+	// The frame builder can keep a few blocks past the seam: real rotations
+	// have up to 1804 blocks. Those are one turn on, correctly, and pass.
+	over := append([]l2frames.Point(nil), a...)
+	for _, p := range b {
+		if p.UDPSequence == 1000 && p.BlockID < 4 {
+			over = append(over, p)
+		}
+	}
+	if _, fit := PointTimes(over, t0, true); !fit.OK || fit.Blocks != 1804 || math.Abs(fit.SpanDeg-360.6) > 0.01 {
+		t.Errorf("1804-block rotation refused: %+v", fit)
 	}
 }
 
@@ -351,17 +390,74 @@ func TestClockFitRefusesWhenTooManyBlocksAreRejected(t *testing.T) {
 	rng := rand.New(rand.NewSource(22))
 	t0 := time.Date(2026, 9, 2, 18, 33, 0, 0, time.UTC)
 	pts, _ := rotation(t0, 10, 20e-6, 4, rng, 0)
-	late := map[uint32]bool{}
-	for pk := uint32(0); pk < 180; pk += 7 { // 26 packets, 260 of 1800 blocks: 14%
-		late[pk] = true
+	// 54 packets, 540 of 1800 blocks (30%), alternately 5 ms late and early,
+	// so the line stays put and the robust pass rejects them all. Delays of
+	// one sign pull the line until the kept residual refuses the fit instead.
+	late, early := map[uint32]bool{}, map[uint32]bool{}
+	for pk := uint32(0); pk < 180; pk++ {
+		if pk%10 != 0 && pk%10 != 3 && pk%10 != 6 {
+			continue
+		}
+		if (pk/3)%2 == 0 {
+			late[pk] = true
+		} else {
+			early[pk] = true
+		}
 	}
 	delayPackets(pts, late, 5*time.Millisecond)
+	delayPackets(pts, early, -5*time.Millisecond)
 	rec, fit := PointTimes(pts, t0, true)
 	if fit.OK || !strings.Contains(fit.Reason, "rejected") {
 		t.Fatalf("fit with %d of %d blocks rejected should be refused: %+v", fit.Rejected, fit.Blocks, fit)
 	}
 	if rec[0] != pts[0].Timestamp.Sub(t0).Seconds() {
 		t.Error("a refused fit must fall back to recorded times")
+	}
+}
+
+// Real drives drop up to 18.6% of a rotation's blocks to bunched arrival
+// while the line still fits the rest; such a rotation keeps its clock.
+func TestClockFitKeepsARotationWithBunchedArrival(t *testing.T) {
+	rng := rand.New(rand.NewSource(22))
+	t0 := time.Date(2026, 9, 2, 18, 33, 0, 0, time.UTC)
+	pts, truth := rotation(t0, 10, 20e-6, 4, rng, 0)
+	late := map[uint32]bool{}
+	for pk := uint32(0); pk < 180; pk += 7 { // 26 packets, 260 of 1800 blocks: 14%
+		late[pk] = true
+	}
+	delayPackets(pts, late, 5*time.Millisecond)
+	clock, fit := PointTimes(pts, t0, true)
+	if !fit.OK || fit.Rejected != 260 {
+		t.Fatalf("14%% late blocks: %+v", fit)
+	}
+	if rms, _ := centredRMS(clock, truth); rms > 20e-6 {
+		t.Errorf("clock error %.1f µs RMS", rms*1e6)
+	}
+}
+
+// Decimation must keep evenly spaced azimuth columns when channels drop out:
+// the first point of each block is then a different channel, and ordering
+// blocks by its recorded time shuffled them within a packet.
+func TestBlockStrideKeepsEvenColumnsWhenChannelsDropOut(t *testing.T) {
+	rng := rand.New(rand.NewSource(6))
+	all, truth := rotation(time.Unix(1_700_000_000, 0), 0, 0, 4, rng, 0)
+	pts, _ := dropChannels(all, truth, rng)
+	for _, stride := range []int{2, 3, 4} {
+		e := &Exporter{cfg: Config{AzimuthStride: stride}}
+		keep := e.blockStride(pts)
+		blocks := map[int]bool{}
+		for i, p := range pts {
+			j := int(p.UDPSequence)*10 + p.BlockID
+			if keep[i] != (j%stride == 0) {
+				t.Fatalf("stride %d: block %d kept=%t", stride, j, keep[i])
+			}
+			if keep[i] {
+				blocks[j] = true
+			}
+		}
+		if want := (1800 + stride - 1) / stride; len(blocks) != want {
+			t.Errorf("stride %d: kept %d blocks, want %d", stride, len(blocks), want)
+		}
 	}
 }
 
