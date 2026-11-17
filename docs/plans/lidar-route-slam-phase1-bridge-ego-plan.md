@@ -38,8 +38,32 @@ independent before any number is read as evidence.
 
 - **Built (#1056):** `lidar-motion-export` (LAS 1.4, azimuth clock, `run.json`, `frames.csv`,
   `-keep-every-rotation`) and `lidar-ego-track` (local cubic kinematics with σ, stops, vibration
-  spectrum, end anchors). Both are tested on synthetic data only; neither has run on a
-  full-rotation drive.
+  spectrum, end anchors). `lidar-ego-track` is tested on synthetic data only, since no
+  trajectory exists yet. `lidar-motion-export` has now run on real drives (next bullet).
+- **First real exports (hydra, owner, `7cfe581`):** three September drives, 28,050 rotations,
+  exported at `-azimuth-stride 4`.
+  - **Defect found:** the first-pass azimuth clock ordered a rotation's blocks by mean point time
+    before unwrapping. Real returns drop channels, so that mean shuffled blocks within a packet.
+    Where a packet straddled 0°/360°, some blocks unwrapped a whole turn off, and their points
+    were timed one to three rotations early.
+  - **Before the fix:**
+    - 0.7% of points were mistimed, in 89% of rotations;
+    - the median clock residual was 9–18 ms;
+    - up to 23% of rotations were more than 2% off the median period.
+  - **After the fix (unwrapping in firing order):**
+    - the median clock residual is 176–188 µs;
+    - every rotation's clock fit is accepted;
+    - one period outlier remains, in the test drive.
+
+  The residual is the scatter of the recorded packet times about each rotation's line, not a
+  measured timing accuracy. It sits just above the roughly 160 µs floor both oracle runs
+  derived from the missing per-block offsets, consistent with the clock carrying the timing.
+  "Accepted" means the exporter's current gates (span at least 300°, period 0.04–0.25 s), not
+  item 1's tighter ones.
+
+  Neither oracle run caught the defect, though both read `clock.go`. The authored evaluation
+  report, with the drives named and their tables, is still to be written.
+
 - **Gerardus:** robust point-to-plane ICP and the static gates (`src/register.rs`), a small pose
   graph (`src/graph.rs`). No odometry, de-skew, import or bridge solve.
 - **Mount (owner, after run A):** for every ride between sites where the capture is continuous,
@@ -144,6 +168,10 @@ Items 3–7 are Gerardus work; their titles are proposed entries for Gerardus's 
 
 **Milestone:** v0.6.0. Continue if at least 99.5% of rotations are trusted and the fitted rate
 matches the tail motor speed.
+
+**Evidence so far:** after `7cfe581`, all 28,050 rotations of three drives pass the current
+clock fit, with a median residual of 176–188 µs (see Current state). Item 1's tighter gates have
+not been run, so the 99.5% criterion is not yet tested.
 
 ### Item 2: pose-free stillness and lift labels
 
