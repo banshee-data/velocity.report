@@ -7,7 +7,38 @@ import UniformTypeIdentifiers
 /// displayed verbatim; it never paints a pairing onto an unverified recording.
 struct FollowingEvidenceView: View {
     @EnvironmentObject var appState: AppState
-    var body: some View { FollowingEvidenceContent(review: appState.followingReview) }
+    var body: some View { FollowingReviewEntry(review: appState.followingReview) }
+}
+
+private struct FollowingReviewEntry: View {
+    @EnvironmentObject var appState: AppState
+    @ObservedObject var review: FollowingReviewSession
+    var body: some View {
+        if let pending = review.pendingSave {
+            Button("Retry review save · \(pending.runID.suffix(8))") {
+                Task { await review.retryPendingSave() }
+            }.disabled(review.savingRecord)
+        }
+        if review.isManaged {
+            FollowingRelationshipView(review: review)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Button("Review this recording") {
+                    if let id = appState.currentRunID {
+                        Task { await appState.openFollowingReview(id) }
+                    }
+                }.disabled(appState.currentRunID == nil)
+                if appState.currentRunID == nil {
+                    Text("Choose a recording in Runs to review its following relationships.").font(
+                        .caption
+                    ).foregroundStyle(.secondary)
+                }
+                DisclosureGroup("Advanced evidence file import") {
+                    FollowingEvidenceContent(review: review)
+                }
+            }
+        }
+    }
 }
 
 private struct FollowingEvidenceContent: View {

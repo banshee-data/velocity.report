@@ -496,6 +496,7 @@ struct SiteChoiceRow: Identifiable {
     let title: String
     let selection: String
     let rows: [SiteChoiceRow]
+    var accessibilityTitle = "Choose site"
     let choose: (String) -> Void
     @State private var presented = false
     @State private var search = ""
@@ -510,7 +511,7 @@ struct SiteChoiceRow: Identifiable {
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.down")
             }
-        }.accessibilityLabel("Choose site").popover(isPresented: $presented) {
+        }.accessibilityLabel(accessibilityTitle).popover(isPresented: $presented) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     TextField("Find a site", text: $search).textFieldStyle(.roundedBorder)

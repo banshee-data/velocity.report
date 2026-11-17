@@ -14,7 +14,8 @@ private enum RunBrowserLayout {
     static let runWidth: CGFloat = 80
     static let dateWidth: CGFloat = 120
     // The clip is the group's header now, so the file takes its column.
-    static let fileWidth: CGFloat = 336
+    static let fileWidth: CGFloat = 260
+    static let reviewWidth: CGFloat = 76
     static let framesWidth: CGFloat = 44
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
@@ -185,7 +186,22 @@ private enum RunBrowserLayout {
     /// A run's row: tapping it opens the run, or closes the sheet when it is
     /// the run already open.
     private func runRow(_ run: Run) -> some View {
-        RunRowView(run: run, isSelected: runBrowserState.selectedRunID == run.runId) {
+        RunRowView(
+            run: run, isSelected: runBrowserState.selectedRunID == run.runId,
+            onReview: {
+                Task {
+                    guard run.hasVRLog else { return }
+                    if appState.currentRunID != run.runId {
+                        await loadRunForReplayAndUpdateAppState(
+                            runID: run.runId, appState: appState, runBrowserState: runBrowserState
+                        ) { await runBrowserState.loadRunForReplay(run.runId) }
+                    }
+                    guard appState.currentRunID == run.runId else { return }
+                    dismiss()
+                    await appState.openFollowingReview(run.runId)
+                }
+            }
+        ) {
             Task {
                 if runBrowserState.selectedRunID == run.runId {
                     dismiss()
@@ -256,6 +272,7 @@ private struct RunBrowserHeaderRow: View {
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
+            Text("Review").frame(width: RunBrowserLayout.reviewWidth, alignment: .center)
         }.frame(maxWidth: .infinity, alignment: .leading).font(.caption).foregroundColor(.secondary)
     }
 }
@@ -265,7 +282,16 @@ private struct RunBrowserHeaderRow: View {
     let run: Run
     let isSelected: Bool
     let onSelect: () -> Void
+    let onReview: (() -> Void)?
     @State private var isHovered = false
+
+    init(run: Run, isSelected: Bool, onReview: (() -> Void)? = nil, onSelect: @escaping () -> Void)
+    {
+        self.run = run
+        self.isSelected = isSelected
+        self.onReview = onReview
+        self.onSelect = onSelect
+    }
 
     private var rowBackground: Color {
         if isSelected { return Color.accentColor.opacity(0.1) }
@@ -317,6 +343,10 @@ private struct RunBrowserHeaderRow: View {
             // Col 8: Label rollup
             RunLabelRollupIcon(rollup: run.labelRollup).frame(
                 width: RunBrowserLayout.labelsWidth, alignment: .center)
+            Button("Following", action: { onReview?() }).buttonStyle(.borderless).disabled(
+                !run.hasVRLog || onReview == nil
+            ).frame(width: RunBrowserLayout.reviewWidth).help(
+                "Open this recording's following evidence and saved review")
         }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(
             .horizontal, RunBrowserLayout.rowInset.leading
         ).contentShape(Rectangle()).onTapGesture {

@@ -46,7 +46,7 @@ import AppKit
         followingEntries.removeAll { $0.session == nil }
         let following = followingEntries.compactMap { $0.session }.compactMap {
             session -> String? in
-            session.auditUnsaved
+            (session.auditUnsaved || session.pendingSave != nil)
                 ? "a following/DRAC audit (\(session.audit?.records.count ?? 0) records)" : nil
         }
         let summaries = blocked + following

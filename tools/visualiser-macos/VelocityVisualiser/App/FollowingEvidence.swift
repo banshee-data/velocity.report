@@ -188,6 +188,9 @@ struct FollowingEvidence: Decodable, Sendable {
                 Set(candidates.map(\.trackId)).count == candidates.count,
                 candidates.allSatisfy({ !$0.trackId.isEmpty && $0.trackId != row.followerTrackId })
             else { throw ReviewError.invalid("Conflicting follower, time or candidate identities") }
+            guard !row.captureUnixNanos.addingReportingOverflow(row.intervalNanos).overflow else {
+                throw ReviewError.invalid("Follower interval exceeds the capture clock.")
+            }
             if let leader = row.decision.leaderTrackId, !leader.isEmpty,
                 !candidates.contains(where: { $0.trackId == leader })
             {

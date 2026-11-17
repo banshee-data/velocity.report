@@ -74,6 +74,7 @@ struct FollowingAudit: Codable, Equatable {
         var reviewer = ""
         var savedAt = Date()
         var followerTrackID: String
+        var proposedLeaderTrackID: String?
         var startNanos: Int64
         var endExclusiveNanos: Int64
         var identityContinuity: Observation = .unknown
@@ -113,6 +114,23 @@ struct FollowingAudit: Codable, Equatable {
         guard !limit.overflow, record.endExclusiveNanos <= limit.partialValue else {
             throw FollowingEvidence.ReviewError.invalid(
                 "Audit period exceeds this follower's exported evidence.")
+        }
+        if let proposed = record.proposedLeaderTrackID {
+            guard
+                samples.first(where: { $0.captureUnixNanos == record.startNanos })?.decision
+                    .candidates?.contains(where: { $0.trackId == proposed }) == true,
+                proposed != record.followerTrackID
+            else {
+                throw FollowingEvidence.ReviewError.invalid(
+                    "The proposed leader must be a candidate at this exact sample.")
+            }
+        }
+        try validateContent(record)
+    }
+
+    static func validateContent(_ record: Record) throws {
+        guard !record.followerTrackID.isEmpty, record.startNanos <= record.endExclusiveNanos else {
+            throw FollowingEvidence.ReviewError.invalid("Invalid review identity or period.")
         }
         guard !record.reviewer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             !record.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -156,7 +174,7 @@ struct FollowingAudit: Codable, Equatable {
     func encoded() throws -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let data = try encoder.encode(self)
         guard data.count <= 16 * 1024 * 1024 else {
             throw FollowingEvidence.ReviewError.invalid(
@@ -166,12 +184,13 @@ struct FollowingAudit: Codable, Equatable {
         return data
     }
 
-    static func decode(_ data: Data, evidence: FollowingEvidence, sha256: String) throws -> Self {
+    static func decode(
+        _ data: Data, evidence: FollowingEvidence, sha256: String, validatePeriods: Bool = true
+    ) throws -> Self {
         guard data.count <= 16 * 1024 * 1024 else {
             throw FollowingEvidence.ReviewError.invalid("Audit exceeds the 16 MiB limit.")
         }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        let decoder = jsonDecoder()
         let audit = try decoder.decode(Self.self, from: data)
         guard audit.schema == "following_audit_v1",
             audit.binding == Binding(evidence: evidence, sha256: sha256),
@@ -181,9 +200,29 @@ struct FollowingAudit: Codable, Equatable {
                 "Audit belongs to different evidence bytes, source or analysis version, or has conflicting records."
             )
         }
-        for record in audit.records { try validate(record, evidence: evidence) }
+        for record in audit.records {
+            if validatePeriods {
+                try validate(record, evidence: evidence)
+            } else {
+                try validateContent(record)
+            }
+        }
         return audit
     }
+    static func jsonDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let value = try decoder.singleValueContainer().decode(String.self)
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = fractional.date(from: value) ?? ISO8601DateFormatter().date(from: value) {
+                return date
+            }
+            throw FollowingEvidence.ReviewError.invalid("Invalid UTC review timestamp.")
+        }
+        return decoder
+    }
+
 }
 
 /// Owned by AppState so hiding the Inspector preserves evidence and unsaved
@@ -199,6 +238,18 @@ struct FollowingAudit: Codable, Equatable {
     @Published var times: [Int64] = []
     @Published var audit: FollowingAudit?
     @Published var auditUnsaved = false
+    @Published var managedMetadata: FollowingReviewMetadata?
+    @Published var managedGeometry: FollowingReviewGeometry?
+    @Published var managedRunID: String?
+    @Published var loadingWindow = false
+    @Published var savingRecord = false
+    @Published var pendingSave: FollowingPendingSave?
+    var managedTransport: FollowingReviewTransport?
+    var managedGeneration = 0
+    var windowTask: Task<Void, Never>?
+    var sampleIndices: [String: [Int64: Int]] = [:]
+    var geometryIndex: [String: FollowingReviewGeometry.Path] = [:]
+    @Published var followerChoices: [String] = []
 
     init() { UnsavedWorkRegistry.shared.register(self) }
 
