@@ -1,8 +1,8 @@
 {
   "schema": "velocity.report/cohort-manifest",
   "schema_version": 1,
-  "revision": 3,
-  "frozen_utc": "2026-11-16T03:02:22Z",
+  "revision": 4,
+  "frozen_utc": "2026-11-17T22:11:00Z",
   "sites": [
     {
       "site_id": "kirkham-9th",
@@ -47,7 +47,7 @@
     {
       "site_id": "lombard-broderick",
       "cohort": "validation",
-      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development."
+      "rationale": "Owner assignment of November 13, 2026 in this PR: first-segment screening sites in capture order, every fourth site (4, 8, 12, 16, 20) validation, the rest development. Assignment retained; software-development/QA exposed through the November 2026 following-review walkthrough and UI/provenance fixes (#1064; continuing work in #1065). Not an untouched end-to-end/UI holdout. No estimator tuning or physical validation established by these reports; numerical validation claims require an isolation/impact assessment. See docs/lidar/operations/lombard-broderick-corpus-exposure.md."
     },
     {
       "site_id": "marina-broderick",
