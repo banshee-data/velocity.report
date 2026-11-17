@@ -310,3 +310,56 @@ func TestExporterKeepsOneRotationInN(t *testing.T) {
 		t.Errorf("third exported frame should be source rotation 4:\n%s", b)
 	}
 }
+
+// delayPackets adds d to the recorded time of every point in the given
+// packets, as a late-arriving packet would carry.
+func delayPackets(pts []l2frames.Point, packets map[uint32]bool, d time.Duration) {
+	for i := range pts {
+		if packets[pts[i].UDPSequence] {
+			pts[i].Timestamp = pts[i].Timestamp.Add(d)
+		}
+	}
+}
+
+func TestClockFitReportsLatePacketsAndKeepsThemOutOfItsResidual(t *testing.T) {
+	rng := rand.New(rand.NewSource(21))
+	t0 := time.Date(2026, 9, 2, 18, 33, 0, 0, time.UTC)
+	pts, truth := rotation(t0, 10, 20e-6, 4, rng, 0)
+	// Three of 180 packets arrive 5 ms late: 30 of 1800 blocks.
+	delayPackets(pts, map[uint32]bool{40: true, 90: true, 140: true}, 5*time.Millisecond)
+	clock, fit := PointTimes(pts, t0, true)
+	if !fit.OK {
+		t.Fatalf("a few late packets should not refuse the fit: %+v", fit)
+	}
+	if fit.Rejected != 30 {
+		t.Errorf("rejected %d blocks, want the 30 late ones", fit.Rejected)
+	}
+	if fit.MaxRejectedResidUS < 4000 {
+		t.Errorf("max rejected residual %.0f µs should show the 5 ms delay", fit.MaxRejectedResidUS)
+	}
+	if fit.MaxResidUS > 1000 || fit.RMSResidUS > 400 {
+		t.Errorf("kept-block residual (rms %.0f, max %.0f µs) must exclude the rejected blocks", fit.RMSResidUS, fit.MaxResidUS)
+	}
+	// The line is right for a late packet: its points take their firing time.
+	if rms, _ := centredRMS(clock, truth); rms > 20e-6 {
+		t.Errorf("clock error %.1f µs RMS with late packets", rms*1e6)
+	}
+}
+
+func TestClockFitRefusesWhenTooManyBlocksAreRejected(t *testing.T) {
+	rng := rand.New(rand.NewSource(22))
+	t0 := time.Date(2026, 9, 2, 18, 33, 0, 0, time.UTC)
+	pts, _ := rotation(t0, 10, 20e-6, 4, rng, 0)
+	late := map[uint32]bool{}
+	for pk := uint32(0); pk < 180; pk += 7 { // 26 packets, 260 of 1800 blocks: 14%
+		late[pk] = true
+	}
+	delayPackets(pts, late, 5*time.Millisecond)
+	rec, fit := PointTimes(pts, t0, true)
+	if fit.OK || !strings.Contains(fit.Reason, "rejected") {
+		t.Fatalf("fit with %d of %d blocks rejected should be refused: %+v", fit.Rejected, fit.Blocks, fit)
+	}
+	if rec[0] != pts[0].Timestamp.Sub(t0).Seconds() {
+		t.Error("a refused fit must fall back to recorded times")
+	}
+}

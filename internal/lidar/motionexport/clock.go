@@ -1,6 +1,7 @@
 package motionexport
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"time"
@@ -14,14 +15,18 @@ import (
 // missing per-block offset (a sawtooth of up to ten 55.56 µs block
 // separations per packet) that point times carry today.
 type ClockFit struct {
-	Blocks     int     `json:"blocks"`
-	Rejected   int     `json:"rejected"`
-	PeriodS    float64 `json:"period_s"`     // seconds per 360°
-	RMSResidUS float64 `json:"rms_resid_us"` // packet-time residual about the line
-	MaxResidUS float64 `json:"max_resid_us"`
-	SpanDeg    float64 `json:"span_deg"`
-	OK         bool    `json:"ok"`
-	Reason     string  `json:"reason,omitempty"`
+	Blocks   int     `json:"blocks"`
+	Rejected int     `json:"rejected"`
+	PeriodS  float64 `json:"period_s"` // seconds per 360°
+	// RMSResidUS and MaxResidUS are the recorded block times' residual about
+	// the line over the blocks the fit kept. MaxRejectedResidUS is the largest
+	// residual among the blocks the robust pass dropped (zero if none).
+	RMSResidUS         float64 `json:"rms_resid_us"`
+	MaxResidUS         float64 `json:"max_resid_us"`
+	MaxRejectedResidUS float64 `json:"max_rejected_resid_us"`
+	SpanDeg            float64 `json:"span_deg"`
+	OK                 bool    `json:"ok"`
+	Reason             string  `json:"reason,omitempty"`
 }
 
 type blockKey struct {
@@ -36,6 +41,19 @@ type block struct {
 	keep  bool
 	count int
 }
+
+// MaxRejectedShare is the largest fraction of a rotation's blocks the robust
+// pass may drop before the clock fit is refused. Rejected blocks are timed
+// from the line like the rest, which is right for a late packet and wrong if
+// the line does not describe them (as when the seam was unwrapped a turn off),
+// so a fit that rejects many is not trusted.
+const MaxRejectedShare = 0.10
+
+// MaxKeptRMSResidUS is the largest RMS residual of the kept blocks about the
+// line, in microseconds, for the fit to be trusted. The missing per-block
+// offsets alone put about 160 µs under any rotation; the first hydra exports
+// had a median of 176–188 µs.
+const MaxKeptRMSResidUS = 500.0
 
 // PointTimes returns per-point times (seconds since epoch) for one frame.
 // With useClock the block reference time comes from the azimuth line and each
@@ -89,32 +107,63 @@ func PointTimes(points []l2frames.Point, epoch time.Time, useClock bool) ([]floa
 	}
 	fit.SpanDeg = blocks[len(blocks)-1].az - blocks[0].az
 
+	// Robust passes: drop blocks far off the line (late or bunched packets),
+	// refit, and repeat until the kept set settles. One pass is not enough:
+	// enough late blocks drag the first line, inflate the median residual
+	// and so widen the cut that would have dropped them.
 	t0, k := lineFit(blocks)
-	// One robust pass: drop blocks far off the line (late or bunched packets).
-	res := make([]float64, 0, len(blocks))
-	for _, b := range blocks {
-		res = append(res, math.Abs(b.t-(t0+k*b.az)))
+	for pass := 0; pass < 8; pass++ {
+		var kept []float64
+		res := make([]float64, len(blocks))
+		for j, b := range blocks {
+			res[j] = math.Abs(b.t - (t0 + k*b.az))
+			if b.keep {
+				kept = append(kept, res[j])
+			}
+		}
+		sort.Float64s(kept)
+		cut := math.Max(4*1.4826*kept[len(kept)/2], 50e-6)
+		changed := false
+		for j := range blocks {
+			keep := res[j] <= cut
+			if keep != blocks[j].keep {
+				blocks[j].keep = keep
+				changed = true
+			}
+		}
+		t0, k = lineFit(blocks)
+		if !changed {
+			break
+		}
 	}
-	sorted := append([]float64(nil), res...)
-	sort.Float64s(sorted)
-	cut := math.Max(4*1.4826*sorted[len(sorted)/2], 50e-6)
-	for j := range blocks {
-		if res[j] > cut {
-			blocks[j].keep = false
+	for _, b := range blocks {
+		if !b.keep {
 			fit.Rejected++
 		}
 	}
-	t0, k = lineFit(blocks)
-	ss, mx := 0.0, 0.0
+	ss, mx, mxRej := 0.0, 0.0, 0.0
+	kept := 0
 	for _, b := range blocks {
 		r := math.Abs(b.t - (t0 + k*b.az))
+		if !b.keep {
+			mxRej = math.Max(mxRej, r)
+			continue
+		}
+		kept++
 		ss += r * r
 		mx = math.Max(mx, r)
 	}
 	fit.PeriodS = k * 360
-	fit.RMSResidUS = math.Sqrt(ss/float64(len(blocks))) * 1e6
+	if kept > 0 {
+		fit.RMSResidUS = math.Sqrt(ss/float64(kept)) * 1e6
+	}
 	fit.MaxResidUS = mx * 1e6
+	fit.MaxRejectedResidUS = mxRej * 1e6
 	switch {
+	case float64(fit.Rejected) > MaxRejectedShare*float64(len(blocks)):
+		fit.Reason = fmt.Sprintf("robust pass rejected %d of %d blocks (over %.0f%%)", fit.Rejected, len(blocks), 100*MaxRejectedShare)
+	case fit.RMSResidUS > MaxKeptRMSResidUS:
+		fit.Reason = fmt.Sprintf("kept-block residual %.0f µs RMS exceeds %.0f µs", fit.RMSResidUS, MaxKeptRMSResidUS)
 	case fit.SpanDeg < 300:
 		fit.Reason = "block azimuth spans less than 300°"
 	case fit.PeriodS < 0.04 || fit.PeriodS > 0.25:

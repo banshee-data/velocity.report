@@ -201,7 +201,7 @@ func NewExporter(cfg Config, man Manifest) (*Exporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprintln(csv, "frame,rotation,start_s,points,complete,packet_gaps,clock_ok,period_s,rms_resid_us,max_resid_us,blocks,rejected")
+	fmt.Fprintln(csv, "frame,rotation,start_s,points,complete,packet_gaps,clock_ok,period_s,rms_resid_us,max_resid_us,blocks,rejected,max_rejected_resid_us")
 	man.Schema = ManifestSchema
 	man.Note = "provisional: Gerardus plans run.json as a proto message; point time is NOT GPS time, whatever the LAS header's time-type bit says: read it by time.convention here"
 	man.Time.Source = cfg.TimeSource
@@ -282,7 +282,7 @@ func (e *Exporter) AddFrame(f *l2frames.LiDARFrame) error {
 	e.file.Points = e.w.Count()
 	rec := FrameRecord{Frame: e.frame, Rotation: rotation, StartS: start.Sub(e.cfg.Epoch).Seconds(), Points: n, Complete: f.SpinComplete, PacketGaps: f.PacketGaps, Clock: fit}
 	e.records = append(e.records, rec)
-	fmt.Fprintf(e.csv, "%d,%d,%.6f,%d,%t,%d,%t,%.6f,%.1f,%.1f,%d,%d\n", rec.Frame, rec.Rotation, rec.StartS, rec.Points, rec.Complete, rec.PacketGaps, fit.OK, fit.PeriodS, fit.RMSResidUS, fit.MaxResidUS, fit.Blocks, fit.Rejected)
+	fmt.Fprintf(e.csv, "%d,%d,%.6f,%d,%t,%d,%t,%.6f,%.1f,%.1f,%d,%d,%.1f\n", rec.Frame, rec.Rotation, rec.StartS, rec.Points, rec.Complete, rec.PacketGaps, fit.OK, fit.PeriodS, fit.RMSResidUS, fit.MaxResidUS, fit.Blocks, fit.Rejected, fit.MaxRejectedResidUS)
 	e.man.Frames.Exported++
 	e.frame++
 	return nil
