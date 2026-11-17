@@ -40,8 +40,12 @@ independent before any number is read as evidence.
   full-rotation drive.
 - **Gerardus:** robust point-to-plane ICP and the static gates (`src/register.rs`), a small pose
   graph (`src/graph.rs`). No odometry, de-skew, import or bridge solve.
-- **Unknown:** how the sensor rode between sites (on its tripod on the vehicle, or carried). Run A
-  could not tell, and the handover check and regime labelling exist because of it.
+- **Mount (owner, after run A):** for every ride between sites where the capture is continuous,
+  the sensor stayed on its tripod, ratchet-strapped to the roof of a car. It was not carried.
+  The tripod still moved from the ground to the roof and back at each site. So a site's
+  accepted pose (tripod on the ground) is not the drive's first pose (tripod on the roof). The
+  handover has to measure that step, not just check that the pose held. Oracle run B received
+  this fact; run A did not.
 
 ## Findings
 
@@ -205,7 +209,7 @@ residual exceeds 2% in both directions and an outside KISS-ICP run agrees.
 
 | Risk                                                         | Likelihood | Impact | Mitigation                                                           |
 | ------------------------------------------------------------ | ---------- | ------ | -------------------------------------------------------------------- |
-| The mount moved between the static capture and the drive     | Medium     | High   | Item 6 tests it at each end; a failed end loses only its own anchor  |
+| The ground-to-roof step at a site is mis-registered          | Medium     | High   | Item 6 registers it at each end; a failed end loses only its anchor  |
 | Gates were set by one oracle and never cross-checked         | High       | Medium | Owner pins them before evaluation 1; a second run can still be asked |
 | Along-street motion is unobservable on some blocks           | Medium     | High   | Report the along-street eigenvalue share per rotation on drive one   |
 | Traffic biases odometry at stops                             | Medium     | Medium | Compare still-interval drift with and without dense traffic          |
@@ -217,7 +221,8 @@ residual exceeds 2% in both directions and an outside KISS-ICP run agrees.
 
 Each with run A's default; none is taken yet.
 
-- How did the sensor ride between sites? Default: treat as unknown.
+- How did the sensor ride between sites? **Answered by the owner:** on its tripod, ratchet-strapped
+  to a car roof, wherever the capture is continuous.
 - Accept the phase boundary (ego track before priors)? Default: yes.
 - Reserve lombard-laguna → columbus-north-point as a never-tuned test drive? Default: yes.
 - Use manually placed ends for held-out claims? Default: no; use those drives to test the
