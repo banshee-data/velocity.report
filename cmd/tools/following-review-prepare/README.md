@@ -26,6 +26,13 @@ The warm-up prefix is processed but not recorded. Settling is required at its bo
 the rest of the source is recorded to EOF. Canonical evidence excludes samples outside the
 recording's actual capture bounds. The complete database retains warm-up provenance.
 
+The preparer fixes `ObservationMaxSamplePoints` at 256 for retained per-cluster evidence
+samples. This is separate from the tuning file's `max_sample_points` setting and does not
+cap the foreground point cloud in the paired VRLOG. L5 box and solid-body estimation can
+consume retained points, so this policy must not be treated as universally storage-only.
+Record the producer build and this fixed policy alongside the tuning fingerprint when
+comparing runs; the fingerprint alone does not establish equivalence with older producers.
+
 Only `complete.json` signals that replay, analysis, canonical validation and review-file
 publication all succeeded. It names every native file and its SHA-256. Open a matching minute
 under **Inspector → Following / headway / DRAC evidence**. Review adjacent minutes when an
