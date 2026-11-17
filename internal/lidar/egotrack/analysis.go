@@ -62,21 +62,21 @@ func sq(v float64) float64 { return v * v }
 // that is aliased into the band, not removed, so a peak is a lower bound on
 // what the mount does, not a measurement of its full spectrum.
 type Spectrum struct {
-	SampleRateHz float64   `json:"sample_rate_hz"`
-	NyquistHz    float64   `json:"nyquist_hz"`
-	Segments     int       `json:"segments"`
+	SampleRateHz float64 `json:"sample_rate_hz"`
+	NyquistHz    float64 `json:"nyquist_hz"`
+	Segments     int     `json:"segments"`
 	// SegmentSamples is the Welch segment length used at this pose rate.
-	SegmentSamples int `json:"segment_samples"`
-	FreqHz       []float64 `json:"freq_hz"`
-	PSDZ         []float64 `json:"psd_z_m2_per_hz"`
-	PSDPitch     []float64 `json:"psd_pitch_rad2_per_hz"`
-	PSDRoll      []float64 `json:"psd_roll_rad2_per_hz"`
-	RMSZM        float64   `json:"rms_z_m"`
-	RMSPitchDeg  float64   `json:"rms_pitch_deg"`
-	RMSRollDeg   float64   `json:"rms_roll_deg"`
-	PeakPitchHz  float64   `json:"peak_pitch_hz"`
-	PeakRollHz   float64   `json:"peak_roll_hz"`
-	PeakZHz      float64   `json:"peak_z_hz"`
+	SegmentSamples int       `json:"segment_samples"`
+	FreqHz         []float64 `json:"freq_hz"`
+	PSDZ           []float64 `json:"psd_z_m2_per_hz"`
+	PSDPitch       []float64 `json:"psd_pitch_rad2_per_hz"`
+	PSDRoll        []float64 `json:"psd_roll_rad2_per_hz"`
+	RMSZM          float64   `json:"rms_z_m"`
+	RMSPitchDeg    float64   `json:"rms_pitch_deg"`
+	RMSRollDeg     float64   `json:"rms_roll_deg"`
+	PeakPitchHz    float64   `json:"peak_pitch_hz"`
+	PeakRollHz     float64   `json:"peak_roll_hz"`
+	PeakZHz        float64   `json:"peak_z_hz"`
 	// ResidualGain is |1 - H(f)| of the local fit at each frequency: the
 	// residual is the motion seen through this filter, so it under-reads
 	// slow motion (the fit follows it) and over-reads where the fit's
