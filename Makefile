@@ -779,7 +779,10 @@ wiring:
 # Build macOS LiDAR visualiser (requires macOS and Xcode)
 VISUALISER_DIR = tools/visualiser-macos
 MAC_CONFIG ?= Release
-VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
+VISUALISER_BUILD_DIR ?= $(VISUALISER_DIR)/build
+MAC_TEST_DERIVED_DATA ?= $(MAC_DIR)/DerivedData
+MAC_XCODE_FLAGS ?=
+MAC_TEST_OPTIONS ?=
 VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/VelocityVisualiser.app
 VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
 VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/$(BUILD_TS_COMPACT)-VelocityVisualiser-$(DEV_VERSION)-$(GIT_SHA_SHORT).dmg
@@ -830,11 +833,11 @@ build-mac:
 		"$(GIT_SHA)" \
 		"$(BUILD_TIME)" \
 		> $(VISUALISER_DIR)/VelocityVisualiser/App/BuildInfo.swift
-	@cd $(VISUALISER_DIR) && xcodebuild \
+	@cd $(VISUALISER_DIR) && xcodebuild $(MAC_XCODE_FLAGS) \
 		-project VelocityVisualiser.xcodeproj \
 		-scheme VelocityVisualiser \
 		-configuration $(MAC_CONFIG) \
-		-derivedDataPath build \
+		-derivedDataPath "$(abspath $(VISUALISER_BUILD_DIR))" \
 		build
 	@$(MAKE) fix-buildinfo
 	@echo "✓ Visualiser build complete: $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/"
@@ -1666,17 +1669,17 @@ test-mac:
 		"$(GIT_SHA)" \
 		"$(BUILD_TIME)" \
 		> $(MAC_DIR)/VelocityVisualiser/App/BuildInfo.swift
-	@cd $(MAC_DIR) && xcodebuild build-for-testing \
+	@cd $(MAC_DIR) && xcodebuild $(MAC_XCODE_FLAGS) build-for-testing \
 		-project VelocityVisualiser.xcodeproj \
 		-scheme VelocityVisualiser \
 		-skip-testing:VelocityVisualiserUITests \
-		-derivedDataPath ./DerivedData \
+		-derivedDataPath "$(abspath $(MAC_TEST_DERIVED_DATA))" \
 		-destination 'platform=macOS'
-	@cd $(MAC_DIR) && xcodebuild test-without-building \
+	@cd $(MAC_DIR) && xcodebuild $(MAC_XCODE_FLAGS) test-without-building $(MAC_TEST_OPTIONS) \
 		-project VelocityVisualiser.xcodeproj \
 		-scheme VelocityVisualiser \
 		-skip-testing:VelocityVisualiserUITests \
-		-derivedDataPath ./DerivedData \
+		-derivedDataPath "$(abspath $(MAC_TEST_DERIVED_DATA))" \
 		-destination 'platform=macOS'
 
 # Run macOS visualiser tests with coverage
@@ -1707,7 +1710,7 @@ test-mac-cov:
 		-skip-testing:VelocityVisualiserUITests \
 		-destination 'platform=macOS' \
 		-enableCodeCoverage YES \
-		-derivedDataPath ./DerivedData \
+		-derivedDataPath "$(abspath $(MAC_TEST_DERIVED_DATA))" \
 		-resultBundlePath ./coverage/TestResults.xcresult
 	@echo ""
 	@echo "Coverage data generated in $(MAC_DIR)/coverage/TestResults.xcresult"

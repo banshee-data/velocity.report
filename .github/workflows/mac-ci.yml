@@ -107,11 +107,20 @@ jobs:
           cd tools/visualiser-macos
           xcodebuild clean build \
             -scheme VelocityVisualiser \
+            -derivedDataPath DerivedData \
             -destination 'platform=macOS' \
             -configuration Debug \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: Test recording review contracts
+        run: >-
+          make test-mac
+          MAC_XCODE_FLAGS='CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO'
+          MAC_TEST_OPTIONS='-only-testing:VelocityVisualiserTests/FollowingManagedReviewTests
+          -only-testing:VelocityVisualiserTests/FollowingAuditTests
+          -only-testing:VelocityVisualiserTests/FollowingEvidenceTests'
 
   # Versioned DMG artefact — runs on tagged releases and manual dispatch.
   dmg:

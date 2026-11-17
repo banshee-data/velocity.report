@@ -342,22 +342,28 @@ server in Settings → Servers.
 
 ### Following evidence review
 
-Runs can search an exact run ID, source path, clip or recorded site before repeats are folded.
-Inspector leaves Paint streets and opens track classification and quality flags; the painter
-also offers **Review tracks / following…**. **Use current replay for labels** attaches a
-late-joining client to a uniquely matched run without restarting playback.
-The Inspector shows recording context and opens the existing offline following JSON through
-**Following / headway / DRAC evidence**. It retains all exported candidate decisions and shows
-the selected point's endpoints, projected speeds, uncertainty and experimental DRAC. It performs
-no new arithmetic or lane attribution and does not overlay an unverified file on playback.
-Use **Audit this period…** to record identity continuity, leader/path ambiguity, visible
-endpoints, evidence for both speeds and a scoped conclusion. Unknown and disputed cases remain
-explicit. **Save audit…** writes a separate source/version-bound JSON file; **Open audit…**
-refuses different evidence bytes. Hiding the Inspector preserves unsaved review records.
-Follow the [following audit workflow](../../docs/ui/visualiser/following-audit-workflow.md)
-for period boundaries, local storage and the remaining physical-review gates.
-See the [Lombard–Broderick and Columbus–Broadway readiness review](../../docs/ui/visualiser/following-review-2026-11.md)
-for sources, walkthroughs, and the outstanding geometry and recording-binding gates.
+Choose **Following** on a recording in **Runs**, or **Review this recording** in Inspector.
+VV retrieves its verified following evidence, fitted paths and saved annotations from the backend.
+Minute boundaries are automatic; normal review has no evidence or audit file chooser.
+
+Select a follower to see its chosen leader, competing candidates and projected front-to-rear
+gap. Other following links retain their own gaps. A shared timeline supports exact-sample
+navigation and shows missing or excluded periods. Viewport overlays require matching frame,
+source and recording coordinates; unknown agreement withholds the overlay.
+
+**Correct**, **Wrong** and **Uncertain** open a period review, with optional observed leader,
+endpoint/identity/speed observations and notes. Records save automatically and stay separate
+from the analyser's decisions. Failed saves retain the same record for retry. Detailed provenance
+and legacy file compatibility remain behind disclosure controls.
+
+See the [operator workflow](../../docs/ui/visualiser/following-audit-workflow.md) and
+[backend contract](../../docs/lidar/operations/following-managed-review.md). These experimental
+review tools do not establish physically qualified traffic-safety measurements.
+
+Native build output can use attached storage through `VISUALISER_BUILD_DIR` and
+`MAC_TEST_DERIVED_DATA`. `MAC_XCODE_FLAGS` can reuse existing local package checkouts;
+`MAC_TEST_OPTIONS` selects focused tests. Small active build databases may use a suitable
+internal filesystem when locking requires it; preserve required evidence independently of caches.
 
 ### Regenerating a recording with its site binding
 

@@ -7,18 +7,40 @@ struct FollowingAuditEditor: View {
     @State var record: FollowingAudit.Record
     @State private var endTime = ""
     @State private var error: String?
+    var candidateTrackIDs: [String] = []
+    var timeOriginNanos: Int64? = nil
+    var initialEndText: String? = nil
+    var onDraftChange: (FollowingAudit.Record) -> Void = { _ in }
+    var onEndTextChange: (String) -> Void = { _ in }
+    var onCancel: () -> Void = {}
     let save: (FollowingAudit.Record) throws -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Following / experimental DRAC audit").font(.headline)
-            Text("Follower \(record.followerTrackID) · starts \(record.startNanos) ns")
-                .textSelection(.enabled)
+            Text("Follower \(record.followerTrackID.suffix(8)) · \(startLabel)").textSelection(
+                .enabled)
             Form {
                 TextField("Reviewer label", text: $record.reviewer)
-                TextField("Period end (exclusive Unix ns)", text: $endTime)
+                TextField(
+                    timeOriginNanos == nil
+                        ? "Period end (exclusive Unix ns)" : "Period end (seconds into recording)",
+                    text: $endTime)
                 observation("Physical identity continuity", selection: $record.identityContinuity)
                 observation("Leader / common-path evidence", selection: $record.leaderAndPath)
+                if !candidateTrackIDs.isEmpty {
+                    Picker(
+                        "Observed leader",
+                        selection: Binding(
+                            get: { record.proposedLeaderTrackID ?? "" },
+                            set: { record.proposedLeaderTrackID = $0.isEmpty ? nil : $0 })
+                    ) {
+                        Text("Unknown / no alternative asserted").tag("")
+                        ForEach(candidateTrackIDs, id: \.self) { id in
+                            Text(String(id.suffix(8))).tag(id)
+                        }
+                    }
+                }
                 observation("Visible front / rear endpoints", selection: $record.visibleEndpoints)
                 observation("Evidence for both projected speeds", selection: $record.speedEvidence)
                 Picker("Review conclusion", selection: $record.conclusion) {
@@ -38,10 +60,13 @@ struct FollowingAuditEditor: View {
             if let error { Text(error).foregroundStyle(.red) }
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Cancel") {
+                    onCancel()
+                    dismiss()
+                }.keyboardShortcut(.cancelAction)
                 Button("Add review record") {
-                    guard let end = Int64(endTime) else {
-                        error = "Enter an exact Int64 Unix-nanosecond period end."
+                    guard let end = decodedEnd else {
+                        error = "Enter a valid period end within the recording."
                         return
                     }
                     record.endExclusiveNanos = end
@@ -49,7 +74,32 @@ struct FollowingAuditEditor: View {
                     do { try save(record) } catch { self.error = error.localizedDescription }
                 }.keyboardShortcut(.defaultAction)
             }
-        }.padding(20).frame(width: 620).onAppear { endTime = String(record.endExclusiveNanos) }
+        }.onChange(of: record) { _, value in onDraftChange(value) }.onChange(of: endTime) {
+            _, value in onEndTextChange(value)
+        }.padding(20).frame(width: 620).onAppear {
+            if let initialEndText {
+                endTime = initialEndText
+            } else if let origin = timeOriginNanos {
+                endTime = String(format: "%.9f", Double(record.endExclusiveNanos - origin) / 1e9)
+            } else {
+                endTime = String(record.endExclusiveNanos)
+            }
+        }
+    }
+
+    private var startLabel: String {
+        if let origin = timeOriginNanos {
+            return String(format: "%.3f seconds", Double(record.startNanos - origin) / 1e9)
+        }
+        return "\(record.startNanos) ns"
+    }
+    private var decodedEnd: Int64? {
+        guard let origin = timeOriginNanos else { return Int64(endTime) }
+        guard let seconds = Double(endTime), seconds.isFinite, seconds >= 0,
+            seconds * 1e9 < Double(Int64.max - origin)
+        else { return nil }
+        let end = origin.addingReportingOverflow(Int64((seconds * 1e9).rounded()))
+        return end.overflow ? nil : end.partialValue
     }
 
     private func observation(

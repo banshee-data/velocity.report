@@ -400,6 +400,51 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private var frameTick: (() -> Void)?
     /// A one-shot capture of the next frame's colour, for review screenshots.
     private var pendingCapture: ((CGImage?) -> Void)?
+    private(set) var followingReviewOverlay = FollowingReviewOverlay()
+    private var followingReviewBuffer: MTLBuffer?
+    private var followingReviewVertexCount = 0
+
+    func setFollowingReviewOverlay(_ overlay: FollowingReviewOverlay) {
+        let rolesChanged =
+            followingReviewOverlay.followerID != overlay.followerID
+            || followingReviewOverlay.leaderID != overlay.leaderID
+            || followingReviewOverlay.candidateIDs != overlay.candidateIDs
+        let verticesChanged = followingReviewOverlay.vertices != overlay.vertices
+        followingReviewOverlay = overlay
+        if verticesChanged {
+            followingReviewBuffer =
+                overlay.vertices.isEmpty
+                ? nil
+                : device.makeBuffer(
+                    bytes: overlay.vertices,
+                    length: overlay.vertices.count * MemoryLayout<Float>.stride,
+                    options: .storageModeShared)
+            followingReviewVertexCount =
+                followingReviewBuffer == nil ? 0 : overlay.vertices.count / 7
+        }
+        if rolesChanged, let tracks = _lastTracks { updateBoxInstances(TrackSet(tracks: tracks)) }
+        if rolesChanged || verticesChanged { view?.needsDisplay = true }
+    }
+
+    private func followingColour(_ id: String, alpha: Float) -> SIMD4<Float>? {
+        guard followingReviewOverlay.followerID != nil else { return nil }
+        if id == followingReviewOverlay.followerID { return SIMD4(0.15, 0.85, 0.95, alpha) }
+        if id == followingReviewOverlay.leaderID { return SIMD4(0.72, 0.45, 1, alpha) }
+        if followingReviewOverlay.candidateIDs.contains(id) {
+            return SIMD4(0.9, 0.65, 0.2, alpha * 0.6)
+        }
+        return SIMD4(0.5, 0.5, 0.5, alpha * 0.25)
+    }
+
+    private func drawFollowingReview(encoder: MTLRenderCommandEncoder) {
+        guard let pipeline = linePipeline, let buffer = followingReviewBuffer,
+            followingReviewVertexCount >= 2
+        else { return }
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+        encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+        encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: followingReviewVertexCount)
+    }
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var roadModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var referenceVisibility = ReferenceVisibility()
@@ -1299,7 +1344,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             // Add colour based on state (4 floats)
             // M6: Highlight selected track
             let isSelected = selectedTrackID == track.trackID
-            if isSelected {
+            if let colour = followingColour(track.trackID, alpha: track.alpha) {
+                instances.append(contentsOf: [colour.x, colour.y, colour.z, colour.w])
+            } else if isSelected {
                 instances.append(1.0)  // r (white highlight)
                 instances.append(1.0)  // g
                 instances.append(1.0)  // b
@@ -1753,6 +1800,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         drawReferenceOverlay(encoder: encoder)
         drawStreetOverlay(encoder: encoder)
         drawCameraPath(encoder: encoder)
+        drawFollowingReview(encoder: encoder)
 
         // M4: Draw cluster boxes first (behind tracks)
         if showClusters, let pipeline = boxPipeline, let boxVerts = boxVertices,
@@ -2003,6 +2051,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         // Track selection
         selectedTrackID = nil
         _lastTracks = nil
+        setFollowingReviewOverlay(FollowingReviewOverlay())
     }
 
     /// The site whose geometry the renderer holds; "" before one is chosen.

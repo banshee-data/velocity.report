@@ -5,7 +5,43 @@
   [weekend plan](../../plans/lidar-weekend-following-drac-plan.md),
   [review readiness](following-review-2026-11.md)
 
-## Review an explicit source
+## Recording review
+
+Choose **Following** on a recording in **Runs**, or **Review this recording** in Inspector.
+VV loads the paired recording and retrieves its verified evidence, fitted paths and saved
+annotations from the backend. Minute boundaries are automatic: normal review has no evidence
+or audit file chooser. Missing preparations show an unavailable reason rather than borrowing
+another recording's evidence. First verification can take longer on large preparations.
+
+Select a follower in the viewport, track list or searchable chooser. The relationship map shows
+its selected leader, dashed alternatives, projected front-to-rear gap and other following links
+with their own gaps. Both projected speeds, net time gap and eligible experimental DRAC accompany
+the visual. Excluded arithmetic is not promoted into the primary DRAC result. The shared timeline
+shows following, exclusions, gaps and leader changes; clicking it seeks an exact exported sample.
+Missing samples and unsupported path extent are not interpolated.
+
+Viewport highlights additionally require exact frame/source agreement. A projected gap overlay
+requires verified recording coordinates; otherwise only the source-bound review map is available.
+The display height is the follower's plane, not a measured bumper surface or surveyed road plane.
+These checks establish software provenance, not physical geometry, identity or DRAC accuracy.
+
+**Correct**, **Wrong** and **Uncertain** open a period review. Record an optional observed leader
+from that sample's candidates, reviewer, period end and notes, keeping endpoint, identity and speed
+observations independent. Period ends are entered as seconds into the recording and retained as
+exact Int64 capture nanoseconds. A relationship choice alone does not qualify the other fields.
+
+Records save to the backend automatically. They are append-only and bound to the recording and
+canonical evidence version, so moving between minutes preserves the same audit. A failed save
+retains the original record, server and binding for **Retry review save**; duplicate requests are
+idempotent. Pending saves participate in the quit guard. Operator corrections never overwrite
+the analyser's chosen leader or recalculate its DRAC. Detailed provenance stays under disclosure.
+See the [backend contract](../../lidar/operations/following-managed-review.md).
+
+## Advanced file review
+
+The file workflow below remains available under **Advanced evidence file import** for older
+exports and portable audits. It is separate from recording-managed review; files are not silently
+imported into the backend audit.
 
 Open **Inspector** (or **Paint streets → Review tracks / following…**). This leaves
 painting and closes the other task columns so viewport clicks select tracks; unsaved street
@@ -36,7 +72,7 @@ It deliberately does not label that context verified: a matching time or source 
 establish all of those agreements. Missing recording or independent reference evidence remains
 missing. Describe the evidence actually checked in the notes.
 
-## Record a period
+## Advanced: record a period
 
 Choose **Audit this period…** on an exact follower sample. Supply a reviewer label, period end,
 observations and notes. The default period is that row's exported interval. Periods are half-open
@@ -63,7 +99,7 @@ successful following. Do not choose a threshold from this small diagnostic revie
 The review-record list reopens the exact evidence sample; it does not seek the recording.
 Add a new record describing a correction rather than silently overwriting an earlier observation.
 
-## Save, reopen and report
+## Advanced: save, reopen and report
 
 **Save audit…** writes `following_audit_v1` JSON atomically to a separate file. Keep it and the
 original export outside Git, on `/Volumes/lidar`; the NAS is an archival destination, not a

@@ -507,7 +507,11 @@ private let logger = DevLogger(category: "AppState")
 
     // MARK: - Run State
 
-    @Published var currentRunID: String?  // Current run being replayed
+    @Published var currentRunID: String? {  // Current run being replayed
+        didSet {
+            if currentRunID != oldValue { followingReview.recordingChanged(to: currentRunID) }
+        }
+    }
     @Published var showRunBrowser: Bool = false  // Show run browser sheet
     @Published var reviewContextMessage: String?
     @Published private(set) var isResolvingReviewRun = false
@@ -520,6 +524,14 @@ private let logger = DevLogger(category: "AppState")
         showAlignmentPane = false
         showCameraPane = false
         showSidePanel = true
+    }
+
+    func openFollowingReview(_ runID: String) async {
+        if currentRunID != runID { await openRun(runID) }
+        guard currentRunID == runID else { return }
+        openTrackReview()
+        await followingReview.openRecording(runID: runID, at: currentTimestamp)
+        refreshFollowingOverlay()
     }
 
     /// Attach a late-joining client to the replay's run without seeking,
@@ -1949,6 +1961,11 @@ private let logger = DevLogger(category: "AppState")
 
         // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
+        if followingReview.isManaged {
+            followingReview.followPlayback(
+                at: frame.timestampNanos, selectedTrackID: selectedTrackID)
+        }
+        refreshFollowingOverlay()
         if alignment.isAvailable {
             if let background = frame.background { alignment.noteBackground(background) }
             // The frame tap for Accumulate frames (Gerardus site model spike

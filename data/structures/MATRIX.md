@@ -67,7 +67,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 ## 2. HTTP API endpoints: LiDAR server
 
 **Source:** `internal/lidar/server/routes.go`, `track_api.go`, `run_track_api.go`, `scene_api.go`, [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go)\
-**Mac consumers:** `RunTrackLabelAPIClient.swift`, `LabelAPIClient.swift` (HTTP, not gRPC)
+**Mac consumers:** `RunTrackLabelAPIClient.swift`, `LabelAPIClient.swift`, `FollowingReviewAPI.swift` (HTTP, not gRPC)
 
 | Layer          | File                      | Endpoint                                             | DB  | Web | Mac |
 | -------------- | ------------------------- | ---------------------------------------------------- | --- | --- | --- |
@@ -132,11 +132,11 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Tracks         | `track_api.go`            | `GET /api/lidar/tracks/metrics`                      | -   | ✅  | -   |
 | Clusters       | `track_api.go`            | `GET /api/lidar/clusters`                            | ✅  | ✅  | -   |
 | Observations   | `track_api.go`            | `GET /api/lidar/observations`                        | ✅  | ✅  | -   |
-| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review`          | ✅  | -   | -   |
-| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review/evidence` | ✅  | -   | -   |
-| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review/geometry` | ✅  | -   | -   |
-| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review/audit`    | ✅  | -   | -   |
-| Following      | `following_review_api.go` | `POST /api/lidar/runs/{id}/following-review/audit`   | ✅  | -   | -   |
+| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review`          | ✅  | -   | ✅  |
+| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review/evidence` | ✅  | -   | ✅  |
+| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review/geometry` | ✅  | -   | ✅  |
+| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review/audit`    | ✅  | -   | ✅  |
+| Following      | `following_review_api.go` | `POST /api/lidar/runs/{id}/following-review/audit`   | ✅  | -   | ✅  |
 | Runs           | `run_track_api.go`        | `GET /api/lidar/runs`                                | ✅  | ✅  | ✅  |
 | Runs           | `run_track_api.go`        | `GET /api/lidar/runs/{id}`                           | ✅  | ✅  | ✅  |
 | Runs           | `run_track_api.go`        | `DELETE /api/lidar/runs/{id}`                        | ✅  | ✅  | -   |
@@ -232,8 +232,8 @@ via `RunBrowserState`.
 | ------ | -------------------------------- | --- | --- | ----------------------------------------------------------- |
 | LiDAR  | `lidar_param_sets`               | ✅  | -   | Immutable requested/effective/legacy parameter assets       |
 | LiDAR  | `lidar_run_configs`              | ✅  | -   | Immutable executed config assets shown in run metadata      |
-| LiDAR  | `lidar_following_audit_bindings` | -   | -   | Immutable binding per run and canonical evidence digest     |
-| LiDAR  | `lidar_following_audit_records`  | -   | -   | Append-only operator observations; version-isolated history |
+| LiDAR  | `lidar_following_audit_bindings` | -   | ✅  | Immutable binding per run and canonical evidence digest     |
+| LiDAR  | `lidar_following_audit_records`  | -   | ✅  | Append-only operator observations; version-isolated history |
 | LiDAR  | `lidar_runs`                     | ✅  | ✅  | Run browser + label UI                                      |
 | LiDAR  | `lidar_clusters`                 | ✅  | ✅  | Cluster display, gRPC                                       |
 | LiDAR  | `lidar_tracks`                   | ✅  | ✅  | Track display, gRPC                                         |
@@ -306,13 +306,13 @@ The current schema has 695 fields, including generated fields. Newly added rows 
 | `lidar_run_configs`              | `build_version`                     | TEXT          | ✅  | ✅  | -   |
 | `lidar_run_configs`              | `build_git_sha`                     | TEXT          | ✅  | ✅  | -   |
 | `lidar_run_configs`              | `created_at`                        | INTEGER       | ✅  | -   | -   |
-| `lidar_following_audit_bindings` | `run_id`                            | TEXT PK       | ✅  | -   | -   |
-| `lidar_following_audit_bindings` | `evidence_digest`                   | TEXT PK       | ✅  | -   | -   |
-| `lidar_following_audit_bindings` | `binding_json`                      | TEXT JSON     | ✅  | -   | -   |
-| `lidar_following_audit_records`  | `run_id`                            | TEXT PK       | ✅  | -   | -   |
-| `lidar_following_audit_records`  | `evidence_digest`                   | TEXT PK       | ✅  | -   | -   |
-| `lidar_following_audit_records`  | `record_id`                         | TEXT PK       | ✅  | -   | -   |
-| `lidar_following_audit_records`  | `record_json`                       | TEXT JSON     | ✅  | -   | -   |
+| `lidar_following_audit_bindings` | `run_id`                            | TEXT PK       | ✅  | -   | ✅  |
+| `lidar_following_audit_bindings` | `evidence_digest`                   | TEXT PK       | ✅  | -   | ✅  |
+| `lidar_following_audit_bindings` | `binding_json`                      | TEXT JSON     | ✅  | -   | ✅  |
+| `lidar_following_audit_records`  | `run_id`                            | TEXT PK       | ✅  | -   | ✅  |
+| `lidar_following_audit_records`  | `evidence_digest`                   | TEXT PK       | ✅  | -   | ✅  |
+| `lidar_following_audit_records`  | `record_id`                         | TEXT PK       | ✅  | -   | ✅  |
+| `lidar_following_audit_records`  | `record_json`                       | TEXT JSON     | ✅  | -   | ✅  |
 | `lidar_runs`                     | `run_id`                            | TEXT PK       | ✅  | ✅  | -   |
 | `lidar_runs`                     | `created_at`                        | INTEGER       | ✅  | ✅  | -   |
 | `lidar_runs`                     | `source_type`                       | TEXT          | ✅  | ✅  | -   |
@@ -1326,9 +1326,9 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 124   | 81  | 95  | 14  |
+| HTTP endpoints (LiDAR)  | 124   | 81  | 95  | 19  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
-| DB tables               | 55    | -   | 40  | 8   |
+| DB tables               | 55    | -   | 40  | 10  |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   |
 | cmd/ entry points       | 15    | -   | -   | -   |
