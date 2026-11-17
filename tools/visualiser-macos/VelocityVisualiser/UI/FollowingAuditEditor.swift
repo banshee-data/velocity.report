@@ -7,9 +7,13 @@ struct FollowingAuditEditor: View {
     @State var record: FollowingAudit.Record
     @State private var endTime = ""
     @State private var error: String?
-    let save: (FollowingAudit.Record) throws -> Void
     var candidateTrackIDs: [String] = []
     var timeOriginNanos: Int64? = nil
+    var initialEndText: String? = nil
+    var onDraftChange: (FollowingAudit.Record) -> Void = { _ in }
+    var onEndTextChange: (String) -> Void = { _ in }
+    var onCancel: () -> Void = {}
+    let save: (FollowingAudit.Record) throws -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -56,7 +60,10 @@ struct FollowingAuditEditor: View {
             if let error { Text(error).foregroundStyle(.red) }
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Cancel") {
+                    onCancel()
+                    dismiss()
+                }.keyboardShortcut(.cancelAction)
                 Button("Add review record") {
                     guard let end = decodedEnd else {
                         error = "Enter a valid period end within the recording."
@@ -67,8 +74,12 @@ struct FollowingAuditEditor: View {
                     do { try save(record) } catch { self.error = error.localizedDescription }
                 }.keyboardShortcut(.defaultAction)
             }
+        }.onChange(of: record) { _, value in onDraftChange(value) }.onChange(of: endTime) {
+            _, value in onEndTextChange(value)
         }.padding(20).frame(width: 620).onAppear {
-            if let origin = timeOriginNanos {
+            if let initialEndText {
+                endTime = initialEndText
+            } else if let origin = timeOriginNanos {
                 endTime = String(format: "%.9f", Double(record.endExclusiveNanos - origin) / 1e9)
             } else {
                 endTime = String(record.endExclusiveNanos)

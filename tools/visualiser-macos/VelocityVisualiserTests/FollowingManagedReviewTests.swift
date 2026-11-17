@@ -170,6 +170,45 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         XCTAssertFalse(review.savingRecord)
     }
 
+    func testDraftSurvivesSourceChangeAndSubmissionKeepsOriginalBinding() async throws {
+        try install()
+        let review = FollowingReviewSession()
+        await review.openRecording(runID: "run", at: 1000, transport: transport)
+        var record = FollowingAudit.Record(
+            row: try XCTUnwrap(review.selectedRow), playback: .init(runID: "run"))
+        record.reviewer = "operator"
+        record.notes = "Uncertain through occlusion"
+        review.startDraft(record)
+        review.managedDraft?.endText = "0.000002000"
+        let registry = UnsavedWorkRegistry()
+        registry.register(review)
+        XCTAssertNotNil(registry.unsavedSummary)
+        review.recordingChanged(to: "another")
+        XCTAssertEqual(review.managedDraft?.record.notes, record.notes)
+        XCTAssertEqual(review.managedDraft?.endText, "0.000002000")
+        try review.submitDraft(record)
+        XCTAssertNil(review.managedDraft)
+        XCTAssertEqual(review.pendingSave?.runID, "run")
+        XCTAssertEqual(review.pendingSave?.binding.evidenceSHA256, canonical)
+        XCTAssertEqual(review.pendingSave?.record.id, record.id)
+        await review.retryPendingSave()
+        XCTAssertNil(review.error)
+        XCTAssertNil(review.pendingSave)
+        XCTAssertNil(registry.unsavedSummary)
+    }
+
+    func testDRACDisplayDoesNotDependOnHeadwayBucket() throws {
+        let bytes = String(decoding: slice(), as: UTF8.self).replacingOccurrences(
+            of: "following_eligible", with: "speed_floor"
+        ).replacingOccurrences(of: #""status":"non_closing""#, with: #""status":"supported""#)
+            .replacingOccurrences(
+                of: #""closing_speed_mps":-1"#, with: #""closing_speed_mps":2,"value_mps2":0.5"#)
+        let doc = try FollowingEvidence.decode(Data(bytes.utf8))
+        XCTAssertEqual(followingDRACValue(try XCTUnwrap(doc.rows.first)), 0.5)
+        let nonClosing = try FollowingEvidence.decode(slice())
+        XCTAssertNil(followingDRACValue(try XCTUnwrap(nonClosing.rows.first)))
+    }
+
     func testPathProjectionRefusesUnobservedExtentAndSceneRetainsCandidateIdentity() async throws {
         try install()
         let geometry = try await transport.geometry(runID: "run", at: 1000, metadata: metadata())

@@ -14,29 +14,56 @@ private struct FollowingReviewEntry: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var review: FollowingReviewSession
     var body: some View {
-        if let pending = review.pendingSave {
-            Button("Retry review save · \(pending.runID.suffix(8))") {
-                Task { await review.retryPendingSave() }
-            }.disabled(review.savingRecord)
-        }
-        if review.isManaged {
-            FollowingRelationshipView(review: review)
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                Button("Review this recording") {
-                    if let id = appState.currentRunID {
-                        Task { await appState.openFollowingReview(id) }
+        VStack(alignment: .leading, spacing: 8) {
+            if let pending = review.pendingSave {
+                Button("Retry review save · \(pending.runID.suffix(8))") {
+                    Task { await review.retryPendingSave() }
+                }.disabled(review.savingRecord)
+            }
+            if review.isManaged {
+                FollowingRelationshipView(review: review)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button("Review this recording") {
+                        if let id = appState.currentRunID {
+                            Task { await appState.openFollowingReview(id) }
+                        }
+                    }.disabled(appState.currentRunID == nil)
+                    if appState.currentRunID == nil {
+                        Text("Choose a recording in Runs to review its following relationships.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                }.disabled(appState.currentRunID == nil)
-                if appState.currentRunID == nil {
-                    Text("Choose a recording in Runs to review its following relationships.").font(
-                        .caption
-                    ).foregroundStyle(.secondary)
-                }
-                DisclosureGroup("Advanced evidence file import") {
-                    FollowingEvidenceContent(review: review)
+                    DisclosureGroup("Advanced evidence file import") {
+                        FollowingEvidenceContent(review: review)
+                    }
                 }
             }
+        }.sheet(
+            item: Binding(
+                get: { review.managedDraft },
+                set: { value in if let value { review.managedDraft = value } })
+        ) { draft in
+            FollowingAuditEditor(
+                record: draft.record,
+                candidateTrackIDs: draft.evidence.rows.first(where: {
+                    $0.captureUnixNanos == draft.record.startNanos
+                        && $0.followerTrackId == draft.record.followerTrackID
+                })?.decision.candidates?.map(\.trackId) ?? [], timeOriginNanos: draft.timeOrigin,
+                initialEndText: draft.endText,
+                onDraftChange: { record in
+                    guard review.managedDraft?.id == draft.id else { return }
+                    review.managedDraft?.record = record
+                },
+                onEndTextChange: { value in
+                    guard review.managedDraft?.id == draft.id else { return }
+                    review.managedDraft?.endText = value
+                },
+                onCancel: { if review.managedDraft?.id == draft.id { review.managedDraft = nil } },
+                save: { record in
+                    try review.submitDraft(record)
+                    Task { await review.retryPendingSave() }
+                }
+            ).interactiveDismissDisabled()
         }
     }
 }

@@ -79,6 +79,20 @@ The store limits each version to 10,000 records and a conservative 16 MiB docume
 including a 64 KiB wrapper reserve. A failed append leaves the prior document intact. A newer
 observation can be appended; it does not silently erase or supersede an earlier review.
 
+## Native review
+
+In VV, choose **Following** beside a recording in Runs. Evidence, fitted paths and the existing
+audit load together. Select a follower to see its chosen leader, competing candidates and
+projected front-to-rear gap. Other visible following pairs retain their own gap measurements.
+The timeline and recording clock stay linked; unavailable samples do not borrow nearby pairs.
+Headway and experimental DRAC retain separate eligibility: a headway speed-floor exclusion does
+not hide a supported DRAC calculation.
+
+Correct, Wrong and Uncertain open a period review. An unfinished draft retains its original
+recording, evidence version, notes and end-time text across playback or inspector changes.
+Submitting captures that context before saving; a failed save can be retried with the same
+record identity. Quitting with a draft or pending save asks before discarding it.
+
 ## Validation boundary
 
 Fixture tests cover exact bytes, source/version/window mismatch, malformed receipts, symlink

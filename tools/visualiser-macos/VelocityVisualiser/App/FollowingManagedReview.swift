@@ -7,6 +7,17 @@ struct FollowingPendingSave {
     let transport: FollowingReviewTransport
 }
 
+struct FollowingReviewDraft: Identifiable {
+    var record: FollowingAudit.Record
+    var endText: String?
+    let runID: String
+    let binding: FollowingAudit.Binding
+    let evidence: FollowingEvidence
+    let transport: FollowingReviewTransport
+    let timeOrigin: Int64
+    var id: UUID { record.id }
+}
+
 extension FollowingReviewSession {
     var isManaged: Bool { managedRunID != nil }
 
@@ -35,7 +46,7 @@ extension FollowingReviewSession {
     func openRecording(
         runID: String, at: Int64, transport: FollowingReviewTransport = FollowingReviewTransport()
     ) async {
-        guard !auditUnsaved, pendingSave == nil else {
+        guard !auditUnsaved, pendingSave == nil, managedDraft == nil else {
             error = "Save the outstanding review before opening another review."
             return
         }
@@ -152,6 +163,31 @@ extension FollowingReviewSession {
                 runID: runID, binding: binding, record: record, transport: transport)
             await retryPendingSave()
         } catch { if managedGeneration == generation { self.error = error.localizedDescription } }
+    }
+
+    func startDraft(_ record: FollowingAudit.Record) {
+        guard managedDraft == nil, pendingSave == nil, let runID = managedRunID,
+            let binding = audit?.binding, let doc = document, let transport = managedTransport,
+            let origin = managedMetadata?.startNanos
+        else { return }
+        managedDraft = FollowingReviewDraft(
+            record: record, runID: runID, binding: binding, evidence: doc, transport: transport,
+            timeOrigin: origin)
+    }
+
+    /// Capture the original recording and evidence synchronously, before the
+    /// form disappears or a task can run after a source transition.
+    func submitDraft(_ record: FollowingAudit.Record) throws {
+        guard let draft = managedDraft, draft.record.id == record.id, pendingSave == nil,
+            !savingRecord
+        else {
+            throw FollowingEvidence.ReviewError.invalid(
+                "Resolve the outstanding review save first.")
+        }
+        try FollowingAudit.validate(record, evidence: draft.evidence)
+        pendingSave = FollowingPendingSave(
+            runID: draft.runID, binding: draft.binding, record: record, transport: draft.transport)
+        managedDraft = nil
     }
 
     func retryPendingSave() async {

@@ -73,10 +73,16 @@ struct FollowingRelationshipScene {
     }
 }
 
+func followingDRACValue(_ row: FollowingEvidence.Row) -> Double? {
+    guard row.experimentalDrac.status == "supported",
+        row.experimentalDrac.calculation?.status == "supported"
+    else { return nil }
+    return row.experimentalDrac.calculation?.valueMps2
+}
+
 struct FollowingRelationshipView: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var review: FollowingReviewSession
-    @State private var draft: FollowingAudit.Record?
     @State private var sliderSeconds: Double = 0
 
     private var bound: Bool {
@@ -150,11 +156,7 @@ struct FollowingRelationshipView: View {
                             })
                         metric(
                             "Experimental DRAC",
-                            (row.bucket == "following_eligible"
-                                && row.experimentalDrac.status == "supported"
-                                ? row.experimentalDrac.calculation?.valueMps2 : nil).map {
-                                    "\(number($0)) m/s²"
-                                })
+                            followingDRACValue(row).map { "\(number($0)) m/s²" })
                     }
                     Text(
                         "Follower \(row.followerSpeedMps.map { number($0) } ?? "—") · leader \(row.leaderSpeedMps.map { number($0) } ?? "—") m/s"
@@ -240,16 +242,6 @@ struct FollowingRelationshipView: View {
                     at: appState.currentTimestamp, selectedTrackID: appState.selectedTrackID)
             }
             appState.refreshFollowingOverlay()
-        }.sheet(item: $draft) { record in
-            FollowingAuditEditor(
-                record: record,
-                save: { edited in
-                    guard let doc = review.document else { return }
-                    try FollowingAudit.validate(edited, evidence: doc)
-                    draft = nil
-                    Task { await review.saveManagedRecord(edited) }
-                }, candidateTrackIDs: review.selectedRow?.decision.candidates?.map(\.trackId) ?? [],
-                timeOriginNanos: review.managedMetadata?.startNanos)
         }
     }
 
@@ -294,7 +286,7 @@ struct FollowingRelationshipView: View {
     }
     private func beginReview(_ row: FollowingEvidence.Row, observation: FollowingAudit.Observation)
     {
-        draft = FollowingAudit.Record(
+        var record = FollowingAudit.Record(
             row: row,
             playback: .init(
                 runID: appState.currentRunID,
@@ -302,9 +294,10 @@ struct FollowingRelationshipView: View {
                     $0.runId == appState.currentRunID
                 }?.vrlogPath, captureNanos: appState.currentTimestamp,
                 startNanos: appState.logStartTimestamp, endNanos: appState.logEndTimestamp))
-        draft?.leaderAndPath = observation
-        draft?.reviewer = review.audit?.records.last?.reviewer ?? ""
-        if observation == .consistent { draft?.proposedLeaderTrackID = row.decision.leaderTrackId }
+        record.leaderAndPath = observation
+        record.reviewer = review.audit?.records.last?.reviewer ?? ""
+        if observation == .consistent { record.proposedLeaderTrackID = row.decision.leaderTrackId }
+        review.startDraft(record)
     }
 }
 

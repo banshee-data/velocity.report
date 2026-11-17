@@ -244,6 +244,7 @@ struct FollowingAudit: Codable, Equatable {
     @Published var loadingWindow = false
     @Published var savingRecord = false
     @Published var pendingSave: FollowingPendingSave?
+    @Published var managedDraft: FollowingReviewDraft?
     var managedTransport: FollowingReviewTransport?
     var managedGeneration = 0
     var windowTask: Task<Void, Never>?
