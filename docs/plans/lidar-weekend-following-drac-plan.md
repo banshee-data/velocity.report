@@ -22,6 +22,9 @@ and permitted use must be resolved before diagnostic review.
   [facet experiment](lidar-facet-registration-experiment-plan.md),
   [v0.5.2 backlog](../BACKLOG.md#v052---unattended-experiment-harness--following-evidence-052).
 
+The [motion-capture operations runbook](../lidar/operations/motion-capture-following-operations.md)
+extends the bounded weekend work into an inventory-led batch and review sequence for existing captures.
+
 ## Outcome and boundary
 
 On Sunday, select an explicit site, source and analysis version, reproduce its logs and

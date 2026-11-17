@@ -1,0 +1,1 @@
+- Documented the [existing motion-capture operations sequence](../../lidar/operations/motion-capture-following-operations.md), separating archive inventory, opportunity screening, reproducible DRAC processing, native review, and physical qualification; retained cohort restrictions and explicit unknown coverage.
