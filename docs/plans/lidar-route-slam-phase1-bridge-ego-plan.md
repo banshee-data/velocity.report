@@ -58,8 +58,12 @@ independent before any number is read as evidence.
   The residual is the scatter of the recorded packet times about each rotation's line, not a
   measured timing accuracy. It sits just above the roughly 160 µs floor both oracle runs
   derived from the missing per-block offsets, consistent with the clock carrying the timing.
-  "Accepted" means the exporter's current gates (span at least 300°, period 0.04–0.25 s), not
-  item 1's tighter ones.
+  "Accepted" means the gates at `7cfe581`: span at least 300° and period 0.04–0.25 s. The
+  owner's review then led to `866b9d4`, which changes them, so these figures need a re-run on the
+  current head:
+  - the robust pass repeats until its kept set settles;
+  - a fit is refused above 10% rejected blocks or above 500 µs kept-block RMS;
+  - residuals now cover kept blocks only.
 
   Neither oracle run caught the defect, though both read `clock.go`. The authored evaluation
   report, with the drives named and their tables, is still to be written.
@@ -169,9 +173,15 @@ Items 3–7 are Gerardus work; their titles are proposed entries for Gerardus's 
 **Milestone:** v0.6.0. Continue if at least 99.5% of rotations are trusted and the fitted rate
 matches the tail motor speed.
 
-**Evidence so far:** after `7cfe581`, all 28,050 rotations of three drives pass the current
-clock fit, with a median residual of 176–188 µs (see Current state). Item 1's tighter gates have
-not been run, so the 99.5% criterion is not yet tested.
+**Evidence so far:**
+
+- After `7cfe581`, all 28,050 rotations of three drives passed the clock fit, with a median
+  residual of 176–188 µs (see Current state).
+- `866b9d4` has since added two of this item's gates (the rejected-share cap at 10% and the
+  kept-RMS limit at 500 µs) and recorded per-join grades in `run.json`. The drives need
+  re-exporting under them.
+- The period-deviation and boundary-step gates are not built yet, so the 99.5% criterion is not
+  yet tested.
 
 ### Item 2: pose-free stillness and lift labels
 
