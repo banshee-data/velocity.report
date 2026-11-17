@@ -75,7 +75,7 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
     private func metadataBytes() -> Data {
         Data(
             """
-            {"schema":"following_review_session_v1","run_id":"run","recording_path":"/recording","evidence_sha256":"\(canonical)","recording_header_sha256":"\(header)","source_id":"source/v2/a","calibration_id":"calibration","start_nanos":1000,"end_exclusive_nanos":3000,"slices":[{"id":"0","start_nanos":1000,"end_exclusive_nanos":2000,"rows":1},{"id":"1","start_nanos":2000,"end_exclusive_nanos":3000,"rows":1}]}
+            {"schema":"following_review_session_v1","run_id":"run","evidence_sha256":"\(canonical)","recording_header_sha256":"\(header)","source_id":"source/v2/a","calibration_id":"calibration","start_nanos":1000,"end_exclusive_nanos":3000,"slices":[{"id":"0","start_nanos":1000,"end_exclusive_nanos":2000,"rows":1},{"id":"1","start_nanos":2000,"end_exclusive_nanos":3000,"rows":1}]}
             """.utf8)
     }
     private func geometryBytes() -> Data {
@@ -463,13 +463,28 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
                 geometry: geometry, row: row, path: path
             ).followerID)
 
+        var boundMetadata = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: metadataBytes()) as? [String: Any])
+        boundMetadata["recording_path"] = "/recording"
+        let recordingMetadata = try FollowingReviewTransport.decode(
+            FollowingReviewMetadata.self,
+            from: JSONSerialization.data(withJSONObject: boundMetadata))
+        // A new-server binding cannot fall back to trail IDs when its frame
+        // recording identity is absent, even if those IDs match the source.
+        frame.tracks?.trails = [TrackTrail(trackID: "f", points: [provenance])]
+        XCTAssertTrue(
+            FollowingReviewOverlay.make(
+                frame: frame, runID: "run", metadata: recordingMetadata, managedRunID: "run",
+                geometry: geometry, row: row, path: path
+            ).vertices.isEmpty)
+        frame.tracks?.trails = []
         frame.playbackInfo = PlaybackInfo(
             recordingPath: "/recording", recordingHeaderSHA256: header, sourceMode: .vrlog)
         func overlay(
             _ value: FrameBundle, geometry valueGeometry: FollowingReviewGeometry? = nil
         ) throws -> FollowingReviewOverlay {
             FollowingReviewOverlay.make(
-                frame: value, runID: "run", metadata: try metadata(), managedRunID: "run",
+                frame: value, runID: "run", metadata: recordingMetadata, managedRunID: "run",
                 geometry: valueGeometry ?? geometry, row: row, path: path)
         }
         let verified = try overlay(frame)

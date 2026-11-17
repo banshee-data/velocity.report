@@ -105,6 +105,9 @@ calibration and coordinate geometry withhold the gap. Older servers without reco
 still require an explicit matching frame-source identity. Upgrading does not relax the
 coordinate guard or qualify physical bumper positions. This relies on the existing immutable
 preparation contract; a header digest is not a checksum of every recording chunk.
+Once the session supplies a recording binding, missing frame recording context cannot fall
+back to trail IDs, even when they match. The older-server source-only path is labelled as
+having no recording identity.
 
 Correct, Wrong and Uncertain open a period review. An unfinished draft retains its original
 recording, evidence version, notes and end-time text across playback or inspector changes.

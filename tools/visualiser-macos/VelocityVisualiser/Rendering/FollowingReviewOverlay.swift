@@ -30,7 +30,7 @@ struct FollowingReviewOverlay {
         let hasRecordingIdentity =
             playback?.recordingPath.isEmpty == false
             || playback?.recordingHeaderSHA256.isEmpty == false
-        if hasRecordingIdentity {
+        if hasRecordingIdentity || metadata.recordingPath != nil {
             guard let playback, playback.sourceMode == .vrlog,
                 let expectedPath = metadata.recordingPath, !expectedPath.isEmpty,
                 playback.recordingPath == expectedPath,
@@ -84,7 +84,7 @@ struct FollowingReviewOverlay {
             result.notice =
                 hasRecordingIdentity
                 ? "3D gap: recording and analysis match."
-                : "3D gap: frame source and analysis match."
+                : "3D gap: frame source matches; recording identity unavailable."
         }
         return result
     }
