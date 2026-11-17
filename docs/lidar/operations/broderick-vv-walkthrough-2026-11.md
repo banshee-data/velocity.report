@@ -103,8 +103,17 @@ volume. At capture `1788367178027002330`, a bounded stream check found both sele
 and matched the actual reader path and header digest against the verified session. The original
 header's digest was `sha256:2f5885d0edacf4fff160a04d0c18f0bdb0c21e9fc79cb75fa6aea6becb28dbf0`;
 the frame still had no trail source IDs. Geometry retained the expected source, calibration,
-canonical digest and recording-coordinate placement. These API and software checks do not
-establish that the 3D overlay was seen in VV; that visual check was still pending Mac unlock.
+canonical digest and recording-coordinate placement.
+
+After unlocking the Mac, the same native build opened Broderick through its Following action
+without file selection. A saved-review link selected the exact pair and capture. The main 3D
+viewport displayed the cyan projected gap line between the selected follower and leader, while
+the relationship view showed 19.4 m, 1.69 s and “3D gap: recording and analysis match.” An
+Uncertain software-test review, `84522b80-59c8-4f1c-815b-c0912351dc13`, retained that exact frame's
+recording path, header digest and capture time through the backend audit API. Its four physical
+observations remained unknown and its conclusion was insufficient evidence. Both earlier audit
+records were unchanged. The screenshot and raw checks remain on attached storage; this confirms
+software association and persistence, not physical endpoint accuracy.
 
 ## Attached-drive diagnosis
 
