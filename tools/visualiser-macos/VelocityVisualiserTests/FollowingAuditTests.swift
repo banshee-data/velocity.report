@@ -7,6 +7,44 @@ final class FollowingAuditTests: XCTestCase {
     private let instant: Int64 = 1_788_380_529_986_405_330
     private let digest = "sha256:" + String(repeating: "a", count: 64)
 
+    @MainActor func testPlaybackContextRetainsOnlyExactFrameSourceEvidence() {
+        let state = AppState(autoConnectOnStartup: false)
+        state.currentRunID = "review-run"
+        state.currentTimestamp = instant
+        state.logStartTimestamp = instant - 100
+        state.logEndTimestamp = instant + 100
+        var frame = FrameBundle()
+        frame.timestampNanos = instant
+        frame.coordinateFrame = CoordinateFrameInfo(frameID: "sensor-frame")
+        var point = TrackPoint()
+        point.timestampNanos = instant
+        point.sourceID = "source/v2/b"
+        var other = point
+        other.sourceID = "source/v2/a"
+        var old = point
+        old.timestampNanos = instant - 1
+        old.sourceID = "source/v2/old"
+        var unknown = point
+        unknown.sourceID = ""
+        frame.tracks = TrackSet(
+            tracks: [],
+            trails: [TrackTrail(trackID: "f", points: [point, other, point, old, unknown])])
+        state.currentFrame = frame
+        let context = state.currentFollowingAuditPlayback
+        XCTAssertEqual(context.runID, "review-run")
+        XCTAssertEqual(context.captureNanos, instant)
+        XCTAssertEqual(context.startNanos, instant - 100)
+        XCTAssertEqual(context.endNanos, instant + 100)
+        XCTAssertEqual(context.coordinateFrameID, "sensor-frame")
+        XCTAssertEqual(context.frameSourceIDs, ["source/v2/a", "source/v2/b"])
+
+        state.currentTimestamp = instant + 1
+        XCTAssertTrue(state.currentFollowingAuditPlayback.frameSourceIDs.isEmpty)
+        XCTAssertNil(state.currentFollowingAuditPlayback.coordinateFrameID)
+        state.currentFrame = nil
+        XCTAssertTrue(state.currentFollowingAuditPlayback.frameSourceIDs.isEmpty)
+    }
+
     private func evidence(source: String = "source/v2/a") throws -> FollowingEvidence {
         let rows: [[String: Any]] = (0..<3).map { index in
             let time = instant + Int64(index * 100)

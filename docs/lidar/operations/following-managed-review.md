@@ -93,6 +93,11 @@ recording, evidence version, notes and end-time text across playback or inspecto
 Submitting captures that context before saving; a failed save can be retried with the same
 record identity. Quitting with a draft or pending save asks before discarding it.
 
+Managed and imported drafts retain the same playback context: registered source and recording
+paths, capture and recording bounds, and any coordinate-frame and source IDs from the exact
+displayed frame. Empty IDs, historical trail points and a stale frame do not supply a source
+match. This context records what was available for review; it does not qualify the measurement.
+
 ## Validation boundary
 
 Fixture tests cover exact bytes, source/version/window mismatch, malformed receipts, symlink
