@@ -69,127 +69,132 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 **Source:** `internal/lidar/server/routes.go`, `track_api.go`, `run_track_api.go`, `scene_api.go`, [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go)\
 **Mac consumers:** `RunTrackLabelAPIClient.swift`, `LabelAPIClient.swift` (HTTP, not gRPC)
 
-| Layer          | File                    | Endpoint                                        | DB  | Web | Mac |
-| -------------- | ----------------------- | ----------------------------------------------- | --- | --- | --- |
-| Status         | `routes.go`             | `GET /health`                                   | -   | ✅  | -   |
-| Status         | `routes.go`             | `GET /api/lidar/status`                         | -   | ✅  | -   |
-| Status         | `routes.go`             | `POST /api/lidar/persist`                       | ✅  | ✅  | -   |
-| Snapshot       | `routes.go`             | `GET /api/lidar/snapshot`                       | ✅  | ✅  | -   |
-| Snapshot       | `routes.go`             | `GET /api/lidar/snapshots`                      | ✅  | ✅  | -   |
-| Snapshot       | `routes.go`             | `POST /api/lidar/snapshots/cleanup`             | ✅  | ✅  | -   |
-| Export         | `routes.go`             | `GET /api/lidar/export_snapshot`                | ✅  | ✅  | -   |
-| Export         | `routes.go`             | `GET /api/lidar/export_next_frame`              | -   | ✅  | -   |
-| Export         | `routes.go`             | `GET /api/lidar/export_frame_sequence`          | -   | ✅  | -   |
-| Export         | `routes.go`             | `GET /api/lidar/export_foreground`              | -   | ✅  | -   |
-| Traffic        | `routes.go`             | `GET /api/lidar/traffic`                        | -   | ✅  | -   |
-| Traffic        | `routes.go`             | `GET /api/lidar/acceptance`                     | -   | ✅  | -   |
-| Traffic        | `routes.go`             | `POST /api/lidar/acceptance/reset`              | -   | ✅  | -   |
-| Tuning         | `routes.go`             | `GET/POST /api/lidar/params`                    | ✅  | ✅  | -   |
-| Sweep          | `routes.go`             | `POST /api/lidar/sweep/start`                   | ✅  | ✅  | -   |
-| Sweep          | `routes.go`             | `GET /api/lidar/sweep/status`                   | ✅  | ✅  | -   |
-| Sweep          | `routes.go`             | `POST /api/lidar/sweep/stop`                    | ✅  | ✅  | -   |
-| Sweep          | `routes.go`             | `GET /api/lidar/sweep/explain/`                 | -   | ✅  | -   |
-| Auto-tune      | `routes.go`             | `GET/POST /api/lidar/sweep/auto`                | -   | ✅  | -   |
-| Auto-tune      | `routes.go`             | `POST /api/lidar/sweep/auto/stop`               | -   | ✅  | -   |
-| Auto-tune      | `routes.go`             | `POST /api/lidar/sweep/auto/suspend`            | -   | ✅  | -   |
-| Auto-tune      | `routes.go`             | `POST /api/lidar/sweep/auto/resume`             | -   | ✅  | -   |
-| Auto-tune      | `routes.go`             | `GET /api/lidar/sweep/auto/suspended`           | -   | ✅  | -   |
-| HINT           | `routes.go`             | `POST /api/lidar/sweep/hint/continue`           | ✅  | ✅  | -   |
-| HINT           | `routes.go`             | `POST /api/lidar/sweep/hint/stop`               | -   | ✅  | -   |
-| HINT           | `routes.go`             | `GET/POST /api/lidar/sweep/hint`                | ✅  | ✅  | -   |
-| Background     | `routes.go`             | `GET /api/lidar/grid_status`                    | -   | ✅  | -   |
-| Background     | `routes.go`             | `GET /api/lidar/settling_eval`                  | -   | ✅  | -   |
-| Background     | `routes.go`             | `POST /api/lidar/grid_reset`                    | ✅  | ✅  | -   |
-| Background     | `routes.go`             | `GET /api/lidar/grid_heatmap`                   | -   | ✅  | -   |
-| Background     | `routes.go`             | `GET /api/lidar/background/grid`                | ✅  | ✅  | -   |
-| Background     | `routes.go`             | `GET /api/lidar/background/regions`             | -   | ✅  | -   |
-| Background     | `grid_chart.go`         | `GET /api/charts/grid` (SVG)                    | -   | ✅  | -   |
-| PCAP           | `routes.go`             | `GET /api/lidar/data_source`                    | -   | ✅  | -   |
-| PCAP           | `routes.go`             | `POST /api/lidar/pcap/start`                    | -   | ✅  | -   |
-| PCAP           | `routes.go`             | `POST /api/lidar/pcap/stop`                     | -   | ✅  | -   |
-| PCAP           | `routes.go`             | `POST /api/lidar/pcap/resume_live`              | -   | ✅  | -   |
-| PCAP           | `routes.go`             | `POST /api/lidar/replay/full_frames`            | -   | -   | ✅  |
-| PCAP           | `routes.go`             | `GET /api/lidar/pcap/files`                     | -   | ✅  | -   |
-| Playback       | `routes.go`             | `GET /api/lidar/playback/status`                | -   | -   | 🔶  |
-| Playback       | `routes.go`             | `POST /api/lidar/playback/pause`                | -   | -   | -   |
-| Playback       | `routes.go`             | `POST /api/lidar/playback/play`                 | -   | -   | -   |
-| Playback       | `routes.go`             | `POST /api/lidar/playback/seek`                 | -   | -   | -   |
-| Playback       | `routes.go`             | `POST /api/lidar/playback/rate`                 | -   | -   | -   |
-| Playback       | `routes.go`             | `POST /api/lidar/vrlog/load`                    | -   | -   | ✅  |
-| Playback       | `routes.go`             | `POST /api/lidar/vrlog/stop`                    | -   | -   | ✅  |
-| Charts         | `routes.go`             | `GET /api/lidar/chart/polar`                    | -   | ✅  | -   |
-| Charts         | `routes.go`             | `GET /api/lidar/chart/heatmap`                  | -   | ✅  | -   |
-| Charts         | `routes.go`             | `GET /api/lidar/chart/foreground`               | -   | ✅  | -   |
-| Charts         | `routes.go`             | `GET /api/lidar/chart/clusters`                 | -   | ✅  | -   |
-| Charts         | `routes.go`             | `GET /api/lidar/chart/traffic`                  | -   | ✅  | -   |
-| Tracks         | `track_api.go`          | `GET /api/lidar/tracks`                         | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/active`                  | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/{id}`                    | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`          | `PUT /api/lidar/tracks/{id}`                    | ✅  | -   | -   |
-| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/{id}/observations`       | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/history`                 | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/summary`                 | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/metrics`                 | -   | ✅  | -   |
-| Clusters       | `track_api.go`          | `GET /api/lidar/clusters`                       | ✅  | ✅  | -   |
-| Observations   | `track_api.go`          | `GET /api/lidar/observations`                   | ✅  | ✅  | -   |
-| Runs           | `run_track_api.go`      | `GET /api/lidar/runs`                           | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}`                      | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`      | `DELETE /api/lidar/runs/{id}`                   | ✅  | ✅  | -   |
-| Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}/tracks`               | ✅  | ✅  | ✅  |
-| Runs           | `run_lane_field_api.go` | `GET /api/lidar/runs/{id}/lane-field`           | ✅  | -   | ✅  |
-| Runs           | `run_track_api.go`      | `GET/DEL /api/lidar/runs/{id}/tracks/{tid}`     | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`      | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | -   | ✅  |
-| Runs           | `run_track_api.go`      | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`   | ✅  | -   | -   |
-| Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}/labelling-progress`   | ✅  | ✅  | ✅  |
-| Runs           | `run_frame_api.go`      | `GET /api/lidar/runs/{id}/vrlog-frame`          | ✅  | ✅  | -   |
-| Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}/statistics`           | ✅  | 🔶  | -   |
-| Runs           | `run_track_api.go`      | `POST /api/lidar/runs/{id}/reprocess`           | ✅  | -   | -   |
-| Runs           | `run_track_api.go`      | `POST /api/lidar/runs/{id}/evaluate`            | ✅  | -   | -   |
-| Runs           | `run_scene_api.go`      | `GET /api/lidar/runs/{id}/scene/{file}`         | ✅  | ✅  | -   |
-| Labels         | `lidar_labels.go`       | `GET/POST /api/lidar/labels`                    | ✅  | ✅  | ✅  |
-| Labels         | `lidar_labels.go`       | `GET/PUT/DEL /api/lidar/labels/{id}`            | ✅  | ✅  | ✅  |
-| Labels         | `lidar_labels.go`       | `GET /api/lidar/labels/export`                  | ✅  | ✅  | ✅  |
-| Scenes         | `scene_api.go`          | `GET/POST /api/lidar/clips`                     | ✅  | ✅  | -   |
-| Scenes         | `scene_api.go`          | `GET/PUT/DEL /api/lidar/clips/{id}`             | ✅  | ✅  | -   |
-| Scenes         | `scene_api.go`          | `POST /api/lidar/clips/{id}/replay`             | ✅  | -   | -   |
-| Scenes         | `scene_api.go`          | `GET/POST /api/lidar/clips/{id}/evaluations`    | ✅  | -   | -   |
-| Clip extracts  | `clip_extract_api.go`   | `GET/POST /api/lidar/clips/{id}/extract`        | ✅  | ✅  | -   |
-| Clip extracts  | `clip_extract_api.go`   | `PUT /api/lidar/clips/{id}/publishing`          | ✅  | ✅  | -   |
-| Clip extracts  | `clip_extract_api.go`   | `POST /api/lidar/clips/{id}/stage`              | ✅  | ✅  | -   |
-| Lane proposals | `lane_proposals_api.go` | `POST /api/lidar/clips/{id}/lane-proposals`     | ✅  | ✅  | -   |
-| Lane proposals | `lane_proposals_api.go` | `POST /api/lidar/clips/lane-proposals/rerun`    | ✅  | ✅  | -   |
-| Lane proposals | `lane_proposals_api.go` | `POST /api/lidar/runs/{id}/lane-proposals`      | ✅  | -   | -   |
-| Clip extracts  | `clip_extract_api.go`   | `GET /api/lidar/dataset/site-index`             | ✅  | -   | -   |
-| Missed regions | `run_track_api.go`      | `GET/POST /api/lidar/runs/{id}/missed-regions`  | ✅  | ✅  | -   |
-| Missed regions | `run_track_api.go`      | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | -   | -   |
-| Sweep history  | `routes.go`             | `GET /api/lidar/sweeps`                         | ✅  | ✅  | -   |
-| Sweep history  | `routes.go`             | `GET /api/lidar/sweeps/{id}`                    | ✅  | ✅  | -   |
-| Sweep history  | `routes.go`             | `PUT /api/lidar/sweeps/charts`                  | ✅  | ✅  | -   |
-| Destructive    | `track_api.go`          | `POST /api/lidar/tracks/clear`                  | ✅  | ✅  | -   |
-| Destructive    | `routes.go`             | `POST /api/lidar/runs/clear`                    | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`        | `GET /api/lidar/capture/roots`                  | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`        | `POST /api/lidar/capture/scan`                  | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`        | `GET /api/lidar/capture/sessions`               | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`        | `GET /api/lidar/capture/files`                  | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`        | `POST /api/lidar/capture/session/label`         | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`        | `POST /api/lidar/capture/motion-pass`           | ✅  | ✅  | -   |
-| Capture        | `capture_jobs.go`       | `POST /api/lidar/capture/motion-pass/missing`   | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`        | `GET /api/lidar/capture/periods`                | ✅  | ✅  | -   |
-| Capture        | `capture_period_api.go` | `GET /api/lidar/capture/periods/background`     | -   | ✅  | -   |
-| Capture        | `capture_period_api.go` | `POST /api/lidar/capture/periods/clip`          | ✅  | ✅  | -   |
-| Clip extracts  | `capture_period_api.go` | `GET /api/lidar/clips/{id}/background`          | -   | ✅  | -   |
-| Capture        | `capture_api.go`        | `GET /api/lidar/capture/jobs`                   | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`        | `POST /api/lidar/capture/jobs/cancel`           | ✅  | ✅  | -   |
-| Clip locations | `clip_location_api.go`  | `GET /api/lidar/clip-locations`                 | ✅  | ✅  | -   |
-| Segments       | `segments_api.go`       | `GET /api/lidar/segments/finders`               | -   | ✅  | -   |
-| Segments       | `segments_api.go`       | `GET /api/lidar/segments`                       | ✅  | ✅  | -   |
-| Segments       | `segments_api.go`       | `GET /api/lidar/segments/strip`                 | ✅  | -   | -   |
-| Segments       | `segments_api.go`       | `POST /api/lidar/segments/{id}/case`            | ✅  | ✅  | -   |
-| Segments       | `segment_clip_api.go`   | `POST /api/lidar/clips/{id}/clip`               | ✅  | ✅  | -   |
-| Annotations    | `segment_packs_api.go`  | `GET /api/lidar/annotations/packs`              | -   | ✅  | -   |
-| Sites          | `site_lanes_api.go`     | `PUT /api/lidar/sites/{l16}/lanes`              | ✅  | -   | ✅  |
-| Sites          | `site_lanes_api.go`     | `GET /api/lidar/sites/{l16}/lanes`              | ✅  | -   | -   |
-| Sites          | `site_lanes_api.go`     | `GET /api/lidar/sites/{l16}/lanes/attribute`    | ✅  | -   | -   |
+| Layer          | File                      | Endpoint                                             | DB  | Web | Mac |
+| -------------- | ------------------------- | ---------------------------------------------------- | --- | --- | --- |
+| Status         | `routes.go`               | `GET /health`                                        | -   | ✅  | -   |
+| Status         | `routes.go`               | `GET /api/lidar/status`                              | -   | ✅  | -   |
+| Status         | `routes.go`               | `POST /api/lidar/persist`                            | ✅  | ✅  | -   |
+| Snapshot       | `routes.go`               | `GET /api/lidar/snapshot`                            | ✅  | ✅  | -   |
+| Snapshot       | `routes.go`               | `GET /api/lidar/snapshots`                           | ✅  | ✅  | -   |
+| Snapshot       | `routes.go`               | `POST /api/lidar/snapshots/cleanup`                  | ✅  | ✅  | -   |
+| Export         | `routes.go`               | `GET /api/lidar/export_snapshot`                     | ✅  | ✅  | -   |
+| Export         | `routes.go`               | `GET /api/lidar/export_next_frame`                   | -   | ✅  | -   |
+| Export         | `routes.go`               | `GET /api/lidar/export_frame_sequence`               | -   | ✅  | -   |
+| Export         | `routes.go`               | `GET /api/lidar/export_foreground`                   | -   | ✅  | -   |
+| Traffic        | `routes.go`               | `GET /api/lidar/traffic`                             | -   | ✅  | -   |
+| Traffic        | `routes.go`               | `GET /api/lidar/acceptance`                          | -   | ✅  | -   |
+| Traffic        | `routes.go`               | `POST /api/lidar/acceptance/reset`                   | -   | ✅  | -   |
+| Tuning         | `routes.go`               | `GET/POST /api/lidar/params`                         | ✅  | ✅  | -   |
+| Sweep          | `routes.go`               | `POST /api/lidar/sweep/start`                        | ✅  | ✅  | -   |
+| Sweep          | `routes.go`               | `GET /api/lidar/sweep/status`                        | ✅  | ✅  | -   |
+| Sweep          | `routes.go`               | `POST /api/lidar/sweep/stop`                         | ✅  | ✅  | -   |
+| Sweep          | `routes.go`               | `GET /api/lidar/sweep/explain/`                      | -   | ✅  | -   |
+| Auto-tune      | `routes.go`               | `GET/POST /api/lidar/sweep/auto`                     | -   | ✅  | -   |
+| Auto-tune      | `routes.go`               | `POST /api/lidar/sweep/auto/stop`                    | -   | ✅  | -   |
+| Auto-tune      | `routes.go`               | `POST /api/lidar/sweep/auto/suspend`                 | -   | ✅  | -   |
+| Auto-tune      | `routes.go`               | `POST /api/lidar/sweep/auto/resume`                  | -   | ✅  | -   |
+| Auto-tune      | `routes.go`               | `GET /api/lidar/sweep/auto/suspended`                | -   | ✅  | -   |
+| HINT           | `routes.go`               | `POST /api/lidar/sweep/hint/continue`                | ✅  | ✅  | -   |
+| HINT           | `routes.go`               | `POST /api/lidar/sweep/hint/stop`                    | -   | ✅  | -   |
+| HINT           | `routes.go`               | `GET/POST /api/lidar/sweep/hint`                     | ✅  | ✅  | -   |
+| Background     | `routes.go`               | `GET /api/lidar/grid_status`                         | -   | ✅  | -   |
+| Background     | `routes.go`               | `GET /api/lidar/settling_eval`                       | -   | ✅  | -   |
+| Background     | `routes.go`               | `POST /api/lidar/grid_reset`                         | ✅  | ✅  | -   |
+| Background     | `routes.go`               | `GET /api/lidar/grid_heatmap`                        | -   | ✅  | -   |
+| Background     | `routes.go`               | `GET /api/lidar/background/grid`                     | ✅  | ✅  | -   |
+| Background     | `routes.go`               | `GET /api/lidar/background/regions`                  | -   | ✅  | -   |
+| Background     | `grid_chart.go`           | `GET /api/charts/grid` (SVG)                         | -   | ✅  | -   |
+| PCAP           | `routes.go`               | `GET /api/lidar/data_source`                         | -   | ✅  | -   |
+| PCAP           | `routes.go`               | `POST /api/lidar/pcap/start`                         | -   | ✅  | -   |
+| PCAP           | `routes.go`               | `POST /api/lidar/pcap/stop`                          | -   | ✅  | -   |
+| PCAP           | `routes.go`               | `POST /api/lidar/pcap/resume_live`                   | -   | ✅  | -   |
+| PCAP           | `routes.go`               | `POST /api/lidar/replay/full_frames`                 | -   | -   | ✅  |
+| PCAP           | `routes.go`               | `GET /api/lidar/pcap/files`                          | -   | ✅  | -   |
+| Playback       | `routes.go`               | `GET /api/lidar/playback/status`                     | -   | -   | 🔶  |
+| Playback       | `routes.go`               | `POST /api/lidar/playback/pause`                     | -   | -   | -   |
+| Playback       | `routes.go`               | `POST /api/lidar/playback/play`                      | -   | -   | -   |
+| Playback       | `routes.go`               | `POST /api/lidar/playback/seek`                      | -   | -   | -   |
+| Playback       | `routes.go`               | `POST /api/lidar/playback/rate`                      | -   | -   | -   |
+| Playback       | `routes.go`               | `POST /api/lidar/vrlog/load`                         | -   | -   | ✅  |
+| Playback       | `routes.go`               | `POST /api/lidar/vrlog/stop`                         | -   | -   | ✅  |
+| Charts         | `routes.go`               | `GET /api/lidar/chart/polar`                         | -   | ✅  | -   |
+| Charts         | `routes.go`               | `GET /api/lidar/chart/heatmap`                       | -   | ✅  | -   |
+| Charts         | `routes.go`               | `GET /api/lidar/chart/foreground`                    | -   | ✅  | -   |
+| Charts         | `routes.go`               | `GET /api/lidar/chart/clusters`                      | -   | ✅  | -   |
+| Charts         | `routes.go`               | `GET /api/lidar/chart/traffic`                       | -   | ✅  | -   |
+| Tracks         | `track_api.go`            | `GET /api/lidar/tracks`                              | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`            | `GET /api/lidar/tracks/active`                       | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`            | `GET /api/lidar/tracks/{id}`                         | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`            | `PUT /api/lidar/tracks/{id}`                         | ✅  | -   | -   |
+| Tracks         | `track_api.go`            | `GET /api/lidar/tracks/{id}/observations`            | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`            | `GET /api/lidar/tracks/history`                      | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`            | `GET /api/lidar/tracks/summary`                      | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`            | `GET /api/lidar/tracks/metrics`                      | -   | ✅  | -   |
+| Clusters       | `track_api.go`            | `GET /api/lidar/clusters`                            | ✅  | ✅  | -   |
+| Observations   | `track_api.go`            | `GET /api/lidar/observations`                        | ✅  | ✅  | -   |
+| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review`          | ✅  | -   | -   |
+| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review/evidence` | ✅  | -   | -   |
+| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review/geometry` | ✅  | -   | -   |
+| Following      | `following_review_api.go` | `GET /api/lidar/runs/{id}/following-review/audit`    | ✅  | -   | -   |
+| Following      | `following_review_api.go` | `POST /api/lidar/runs/{id}/following-review/audit`   | ✅  | -   | -   |
+| Runs           | `run_track_api.go`        | `GET /api/lidar/runs`                                | ✅  | ✅  | ✅  |
+| Runs           | `run_track_api.go`        | `GET /api/lidar/runs/{id}`                           | ✅  | ✅  | ✅  |
+| Runs           | `run_track_api.go`        | `DELETE /api/lidar/runs/{id}`                        | ✅  | ✅  | -   |
+| Runs           | `run_track_api.go`        | `GET /api/lidar/runs/{id}/tracks`                    | ✅  | ✅  | ✅  |
+| Runs           | `run_lane_field_api.go`   | `GET /api/lidar/runs/{id}/lane-field`                | ✅  | -   | ✅  |
+| Runs           | `run_track_api.go`        | `GET/DEL /api/lidar/runs/{id}/tracks/{tid}`          | ✅  | ✅  | ✅  |
+| Runs           | `run_track_api.go`        | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`        | ✅  | -   | ✅  |
+| Runs           | `run_track_api.go`        | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`        | ✅  | -   | -   |
+| Runs           | `run_track_api.go`        | `GET /api/lidar/runs/{id}/labelling-progress`        | ✅  | ✅  | ✅  |
+| Runs           | `run_frame_api.go`        | `GET /api/lidar/runs/{id}/vrlog-frame`               | ✅  | ✅  | -   |
+| Runs           | `run_track_api.go`        | `GET /api/lidar/runs/{id}/statistics`                | ✅  | 🔶  | -   |
+| Runs           | `run_track_api.go`        | `POST /api/lidar/runs/{id}/reprocess`                | ✅  | -   | -   |
+| Runs           | `run_track_api.go`        | `POST /api/lidar/runs/{id}/evaluate`                 | ✅  | -   | -   |
+| Runs           | `run_scene_api.go`        | `GET /api/lidar/runs/{id}/scene/{file}`              | ✅  | ✅  | -   |
+| Labels         | `lidar_labels.go`         | `GET/POST /api/lidar/labels`                         | ✅  | ✅  | ✅  |
+| Labels         | `lidar_labels.go`         | `GET/PUT/DEL /api/lidar/labels/{id}`                 | ✅  | ✅  | ✅  |
+| Labels         | `lidar_labels.go`         | `GET /api/lidar/labels/export`                       | ✅  | ✅  | ✅  |
+| Scenes         | `scene_api.go`            | `GET/POST /api/lidar/clips`                          | ✅  | ✅  | -   |
+| Scenes         | `scene_api.go`            | `GET/PUT/DEL /api/lidar/clips/{id}`                  | ✅  | ✅  | -   |
+| Scenes         | `scene_api.go`            | `POST /api/lidar/clips/{id}/replay`                  | ✅  | -   | -   |
+| Scenes         | `scene_api.go`            | `GET/POST /api/lidar/clips/{id}/evaluations`         | ✅  | -   | -   |
+| Clip extracts  | `clip_extract_api.go`     | `GET/POST /api/lidar/clips/{id}/extract`             | ✅  | ✅  | -   |
+| Clip extracts  | `clip_extract_api.go`     | `PUT /api/lidar/clips/{id}/publishing`               | ✅  | ✅  | -   |
+| Clip extracts  | `clip_extract_api.go`     | `POST /api/lidar/clips/{id}/stage`                   | ✅  | ✅  | -   |
+| Lane proposals | `lane_proposals_api.go`   | `POST /api/lidar/clips/{id}/lane-proposals`          | ✅  | ✅  | -   |
+| Lane proposals | `lane_proposals_api.go`   | `POST /api/lidar/clips/lane-proposals/rerun`         | ✅  | ✅  | -   |
+| Lane proposals | `lane_proposals_api.go`   | `POST /api/lidar/runs/{id}/lane-proposals`           | ✅  | -   | -   |
+| Clip extracts  | `clip_extract_api.go`     | `GET /api/lidar/dataset/site-index`                  | ✅  | -   | -   |
+| Missed regions | `run_track_api.go`        | `GET/POST /api/lidar/runs/{id}/missed-regions`       | ✅  | ✅  | -   |
+| Missed regions | `run_track_api.go`        | `DEL /api/lidar/runs/{id}/missed-regions/{rid}`      | ✅  | -   | -   |
+| Sweep history  | `routes.go`               | `GET /api/lidar/sweeps`                              | ✅  | ✅  | -   |
+| Sweep history  | `routes.go`               | `GET /api/lidar/sweeps/{id}`                         | ✅  | ✅  | -   |
+| Sweep history  | `routes.go`               | `PUT /api/lidar/sweeps/charts`                       | ✅  | ✅  | -   |
+| Destructive    | `track_api.go`            | `POST /api/lidar/tracks/clear`                       | ✅  | ✅  | -   |
+| Destructive    | `routes.go`               | `POST /api/lidar/runs/clear`                         | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`          | `GET /api/lidar/capture/roots`                       | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`          | `POST /api/lidar/capture/scan`                       | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`          | `GET /api/lidar/capture/sessions`                    | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`          | `GET /api/lidar/capture/files`                       | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`          | `POST /api/lidar/capture/session/label`              | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`          | `POST /api/lidar/capture/motion-pass`                | ✅  | ✅  | -   |
+| Capture        | `capture_jobs.go`         | `POST /api/lidar/capture/motion-pass/missing`        | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`          | `GET /api/lidar/capture/periods`                     | ✅  | ✅  | -   |
+| Capture        | `capture_period_api.go`   | `GET /api/lidar/capture/periods/background`          | -   | ✅  | -   |
+| Capture        | `capture_period_api.go`   | `POST /api/lidar/capture/periods/clip`               | ✅  | ✅  | -   |
+| Clip extracts  | `capture_period_api.go`   | `GET /api/lidar/clips/{id}/background`               | -   | ✅  | -   |
+| Capture        | `capture_api.go`          | `GET /api/lidar/capture/jobs`                        | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`          | `POST /api/lidar/capture/jobs/cancel`                | ✅  | ✅  | -   |
+| Clip locations | `clip_location_api.go`    | `GET /api/lidar/clip-locations`                      | ✅  | ✅  | -   |
+| Segments       | `segments_api.go`         | `GET /api/lidar/segments/finders`                    | -   | ✅  | -   |
+| Segments       | `segments_api.go`         | `GET /api/lidar/segments`                            | ✅  | ✅  | -   |
+| Segments       | `segments_api.go`         | `GET /api/lidar/segments/strip`                      | ✅  | -   | -   |
+| Segments       | `segments_api.go`         | `POST /api/lidar/segments/{id}/case`                 | ✅  | ✅  | -   |
+| Segments       | `segment_clip_api.go`     | `POST /api/lidar/clips/{id}/clip`                    | ✅  | ✅  | -   |
+| Annotations    | `segment_packs_api.go`    | `GET /api/lidar/annotations/packs`                   | -   | ✅  | -   |
+| Sites          | `site_lanes_api.go`       | `PUT /api/lidar/sites/{l16}/lanes`                   | ✅  | -   | ✅  |
+| Sites          | `site_lanes_api.go`       | `GET /api/lidar/sites/{l16}/lanes`                   | ✅  | -   | -   |
+| Sites          | `site_lanes_api.go`       | `GET /api/lidar/sites/{l16}/lanes/attribute`         | ✅  | -   | -   |
 
 **Playback row notes.** No web code calls any `/api/lidar/playback/*` or
 `/api/lidar/vrlog/*` endpoint; those rows previously carried Web ✅ marks that
@@ -223,67 +228,69 @@ via `RunBrowserState`.
 
 **Source:** [internal/db/schema.sql](../../internal/db/schema.sql). All current tables are inventoried; `?` records a consumer trace still to do.
 
-| Layer  | Table                            | Web | Mac | Notes                                                  |
-| ------ | -------------------------------- | --- | --- | ------------------------------------------------------ |
-| LiDAR  | `lidar_param_sets`               | ✅  | -   | Immutable requested/effective/legacy parameter assets  |
-| LiDAR  | `lidar_run_configs`              | ✅  | -   | Immutable executed config assets shown in run metadata |
-| LiDAR  | `lidar_runs`                     | ✅  | ✅  | Run browser + label UI                                 |
-| LiDAR  | `lidar_clusters`                 | ✅  | ✅  | Cluster display, gRPC                                  |
-| LiDAR  | `lidar_tracks`                   | ✅  | ✅  | Track display, gRPC                                    |
-| LiDAR  | `lidar_track_observations`       | ✅  | -   | Trajectory rendering                                   |
-| LiDAR  | `lidar_replay_annotations`       | ✅  | ✅  | Replay-case labels and Mac labelling                   |
-| LiDAR  | `lidar_clips`                    | ✅  | ✅  | Replay-case browser and Mac labelling                  |
-| LiDAR  | `lidar_clip_evaluations`         | ✅  | -   | Replay evaluation and compare UI                       |
-| LiDAR  | `lidar_clip_extracts`            | ✅  | -   | A clip's standalone extract and its capture_export job |
-| LiDAR  | `lidar_clip_lane_proposals`      | ✅  | -   | A clip's lane fields in Gerardus and proposal counts   |
-| LiDAR  | `lidar_lane_snapshots`           | -   | ✅  | Append-only lane snapshots; written by the painter     |
-| LiDAR  | `lidar_lane_snapshot_lanes`      | -   | ✅  | A snapshot's lanes with their limits, for attribution  |
-| LiDAR  | `lidar_data_uses`                | ✅  | -   | Append-only eligibility ledger; labelling workspace    |
-| LiDAR  | `lidar_workflow_items`           | ✅  | -   | Labelling workspace workflow state per item and layer  |
-| LiDAR  | `lidar_workflow_events`          | ✅  | -   | Append-only history of workflow items                  |
-| LiDAR  | `lidar_plan_bindings`            | ✅  | -   | The window each labelling plan is run on               |
-| LiDAR  | `lidar_plan_binding_events`      | -   | -   | Append-only history of plan bindings                   |
-| LiDAR  | `lidar_tuning_sweeps`            | ✅  | -   | Sweep history                                          |
-| LiDAR  | `lidar_bg_snapshot`              | ✅  | 🔶  | Grid visualisation (derived sent via gRPC)             |
-| LiDAR  | `lidar_bg_regions`               | ✅  | -   | Settling evaluation                                    |
-| LiDAR  | `lidar_run_missed_regions`       | ✅  | -   | Detection gap annotations                              |
-| LiDAR  | `lidar_run_tracks`               | ✅  | ✅  | Per-run track copies and Mac run browser               |
-| LiDAR  | `lidar_capture_files`            | ✅  | ?   | Captures page; Mac trace pending                       |
-| LiDAR  | `lidar_capture_jobs`             | ✅  | ?   | Capture and clip worker queue                          |
-| LiDAR  | `lidar_capture_motion_periods`   | ✅  | ?   | Captures page; Mac trace pending                       |
-| LiDAR  | `lidar_capture_roots`            | ✅  | ?   | Captures page; Mac trace pending                       |
-| LiDAR  | `lidar_capture_sessions`         | ✅  | ?   | Captures page; Mac trace pending                       |
-| LiDAR  | `lidar_exposure_windows`         | ?   | ?   | Exposure evidence windows                              |
-| LiDAR  | `lidar_interaction_events`       | ?   | ?   | Following interaction events                           |
-| LiDAR  | `lidar_interaction_instants`     | ?   | ?   | Interaction time samples                               |
-| LiDAR  | `lidar_migration_rejects`        | -   | -   | Rows a migration set aside, kept whole with the reason |
-| LiDAR  | `lidar_observations`             | ?   | ?   | Typed observation evidence                             |
-| LiDAR  | `lidar_clip_captures`            | ✅  | ?   | Ordered source files for replay cases                  |
-| LiDAR  | `lidar_scenes`                   | ✅  | ?   | Scene player; Mac trace pending                        |
-| LiDAR  | `lidar_segment_clip_jobs`        | ✅  | -   | Clip job, its segment, and the pack it made            |
-| LiDAR  | `lidar_segment_selections`       | ✅  | -   | Chosen window, its replay case and what chose it       |
-| LiDAR  | `lidar_sites`                    | ✅  | ?   | Clip locations; Mac trace pending                      |
-| LiDAR  | `lidar_track_estimate_revisions` | ?   | ?   | Smoother revision evidence                             |
-| LiDAR  | `lidar_track_estimates`          | ?   | ?   | Track state estimates                                  |
-| LiDAR  | `lidar_track_residuals`          | ?   | ?   | Observation residual evidence                          |
-| LiDAR  | `lidar_track_solid_bodies`       | ?   | ?   | Estimated solid bodies                                 |
-| Radar  | `radar_serial_config`            | ✅  | ?   | Serial configuration UI; Mac trace pending             |
-| Radar  | `radar_data`                     | ✅  | -   | Raw events + alt stats source                          |
-| Radar  | `radar_objects`                  | ✅  | -   | Primary report source                                  |
-| Radar  | `radar_data_transits`            | ✅  | -   | Alternative report source                              |
-| Radar  | `radar_transit_links`            | ✅  | -   | Transit chain building                                 |
-| Radar  | `radar_commands`                 | ✅  | -   | Debug history                                          |
-| Radar  | `radar_command_log`              | ✅  | -   | Debug output                                           |
-| Site   | `site`                           | ✅  | -   | Location, metadata                                     |
-| Site   | `site_config_periods`            | ✅  | -   | Mounting angle changes                                 |
-| Site   | `site_reports`                   | ✅  | -   | Report metadata + download                             |
-| System | `schema_migrations`              | -   | -   | Internal                                               |
+| Layer  | Table                            | Web | Mac | Notes                                                       |
+| ------ | -------------------------------- | --- | --- | ----------------------------------------------------------- |
+| LiDAR  | `lidar_param_sets`               | ✅  | -   | Immutable requested/effective/legacy parameter assets       |
+| LiDAR  | `lidar_run_configs`              | ✅  | -   | Immutable executed config assets shown in run metadata      |
+| LiDAR  | `lidar_following_audit_bindings` | -   | -   | Immutable binding per run and canonical evidence digest     |
+| LiDAR  | `lidar_following_audit_records`  | -   | -   | Append-only operator observations; version-isolated history |
+| LiDAR  | `lidar_runs`                     | ✅  | ✅  | Run browser + label UI                                      |
+| LiDAR  | `lidar_clusters`                 | ✅  | ✅  | Cluster display, gRPC                                       |
+| LiDAR  | `lidar_tracks`                   | ✅  | ✅  | Track display, gRPC                                         |
+| LiDAR  | `lidar_track_observations`       | ✅  | -   | Trajectory rendering                                        |
+| LiDAR  | `lidar_replay_annotations`       | ✅  | ✅  | Replay-case labels and Mac labelling                        |
+| LiDAR  | `lidar_clips`                    | ✅  | ✅  | Replay-case browser and Mac labelling                       |
+| LiDAR  | `lidar_clip_evaluations`         | ✅  | -   | Replay evaluation and compare UI                            |
+| LiDAR  | `lidar_clip_extracts`            | ✅  | -   | A clip's standalone extract and its capture_export job      |
+| LiDAR  | `lidar_clip_lane_proposals`      | ✅  | -   | A clip's lane fields in Gerardus and proposal counts        |
+| LiDAR  | `lidar_lane_snapshots`           | -   | ✅  | Append-only lane snapshots; written by the painter          |
+| LiDAR  | `lidar_lane_snapshot_lanes`      | -   | ✅  | A snapshot's lanes with their limits, for attribution       |
+| LiDAR  | `lidar_data_uses`                | ✅  | -   | Append-only eligibility ledger; labelling workspace         |
+| LiDAR  | `lidar_workflow_items`           | ✅  | -   | Labelling workspace workflow state per item and layer       |
+| LiDAR  | `lidar_workflow_events`          | ✅  | -   | Append-only history of workflow items                       |
+| LiDAR  | `lidar_plan_bindings`            | ✅  | -   | The window each labelling plan is run on                    |
+| LiDAR  | `lidar_plan_binding_events`      | -   | -   | Append-only history of plan bindings                        |
+| LiDAR  | `lidar_tuning_sweeps`            | ✅  | -   | Sweep history                                               |
+| LiDAR  | `lidar_bg_snapshot`              | ✅  | 🔶  | Grid visualisation (derived sent via gRPC)                  |
+| LiDAR  | `lidar_bg_regions`               | ✅  | -   | Settling evaluation                                         |
+| LiDAR  | `lidar_run_missed_regions`       | ✅  | -   | Detection gap annotations                                   |
+| LiDAR  | `lidar_run_tracks`               | ✅  | ✅  | Per-run track copies and Mac run browser                    |
+| LiDAR  | `lidar_capture_files`            | ✅  | ?   | Captures page; Mac trace pending                            |
+| LiDAR  | `lidar_capture_jobs`             | ✅  | ?   | Capture and clip worker queue                               |
+| LiDAR  | `lidar_capture_motion_periods`   | ✅  | ?   | Captures page; Mac trace pending                            |
+| LiDAR  | `lidar_capture_roots`            | ✅  | ?   | Captures page; Mac trace pending                            |
+| LiDAR  | `lidar_capture_sessions`         | ✅  | ?   | Captures page; Mac trace pending                            |
+| LiDAR  | `lidar_exposure_windows`         | ?   | ?   | Exposure evidence windows                                   |
+| LiDAR  | `lidar_interaction_events`       | ?   | ?   | Following interaction events                                |
+| LiDAR  | `lidar_interaction_instants`     | ?   | ?   | Interaction time samples                                    |
+| LiDAR  | `lidar_migration_rejects`        | -   | -   | Rows a migration set aside, kept whole with the reason      |
+| LiDAR  | `lidar_observations`             | ?   | ?   | Typed observation evidence                                  |
+| LiDAR  | `lidar_clip_captures`            | ✅  | ?   | Ordered source files for replay cases                       |
+| LiDAR  | `lidar_scenes`                   | ✅  | ?   | Scene player; Mac trace pending                             |
+| LiDAR  | `lidar_segment_clip_jobs`        | ✅  | -   | Clip job, its segment, and the pack it made                 |
+| LiDAR  | `lidar_segment_selections`       | ✅  | -   | Chosen window, its replay case and what chose it            |
+| LiDAR  | `lidar_sites`                    | ✅  | ?   | Clip locations; Mac trace pending                           |
+| LiDAR  | `lidar_track_estimate_revisions` | ?   | ?   | Smoother revision evidence                                  |
+| LiDAR  | `lidar_track_estimates`          | ?   | ?   | Track state estimates                                       |
+| LiDAR  | `lidar_track_residuals`          | ?   | ?   | Observation residual evidence                               |
+| LiDAR  | `lidar_track_solid_bodies`       | ?   | ?   | Estimated solid bodies                                      |
+| Radar  | `radar_serial_config`            | ✅  | ?   | Serial configuration UI; Mac trace pending                  |
+| Radar  | `radar_data`                     | ✅  | -   | Raw events + alt stats source                               |
+| Radar  | `radar_objects`                  | ✅  | -   | Primary report source                                       |
+| Radar  | `radar_data_transits`            | ✅  | -   | Alternative report source                                   |
+| Radar  | `radar_transit_links`            | ✅  | -   | Transit chain building                                      |
+| Radar  | `radar_commands`                 | ✅  | -   | Debug history                                               |
+| Radar  | `radar_command_log`              | ✅  | -   | Debug output                                                |
+| Site   | `site`                           | ✅  | -   | Location, metadata                                          |
+| Site   | `site_config_periods`            | ✅  | -   | Mounting angle changes                                      |
+| Site   | `site_reports`                   | ✅  | -   | Report metadata + download                                  |
+| System | `schema_migrations`              | -   | -   | Internal                                                    |
 
 ---
 
 ## 5. Database fields: all columns
 
-The current schema has 688 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
+The current schema has 695 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
 
 | Table                            | Column                              | Type          | DB  | Web | Mac |
 | -------------------------------- | ----------------------------------- | ------------- | --- | --- | --- |
@@ -299,6 +306,13 @@ The current schema has 688 fields, including generated fields. Newly added rows 
 | `lidar_run_configs`              | `build_version`                     | TEXT          | ✅  | ✅  | -   |
 | `lidar_run_configs`              | `build_git_sha`                     | TEXT          | ✅  | ✅  | -   |
 | `lidar_run_configs`              | `created_at`                        | INTEGER       | ✅  | -   | -   |
+| `lidar_following_audit_bindings` | `run_id`                            | TEXT PK       | ✅  | -   | -   |
+| `lidar_following_audit_bindings` | `evidence_digest`                   | TEXT PK       | ✅  | -   | -   |
+| `lidar_following_audit_bindings` | `binding_json`                      | TEXT JSON     | ✅  | -   | -   |
+| `lidar_following_audit_records`  | `run_id`                            | TEXT PK       | ✅  | -   | -   |
+| `lidar_following_audit_records`  | `evidence_digest`                   | TEXT PK       | ✅  | -   | -   |
+| `lidar_following_audit_records`  | `record_id`                         | TEXT PK       | ✅  | -   | -   |
+| `lidar_following_audit_records`  | `record_json`                       | TEXT JSON     | ✅  | -   | -   |
 | `lidar_runs`                     | `run_id`                            | TEXT PK       | ✅  | ✅  | -   |
 | `lidar_runs`                     | `created_at`                        | INTEGER       | ✅  | ✅  | -   |
 | `lidar_runs`                     | `source_type`                       | TEXT          | ✅  | ✅  | -   |
@@ -1312,9 +1326,9 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 119   | 76  | 95  | 14  |
+| HTTP endpoints (LiDAR)  | 124   | 81  | 95  | 14  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
-| DB tables               | 53    | -   | 40  | 8   |
+| DB tables               | 55    | -   | 40  | 8   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   |
 | cmd/ entry points       | 15    | -   | -   | -   |

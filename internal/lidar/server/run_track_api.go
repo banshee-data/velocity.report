@@ -50,6 +50,11 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle /api/lidar/runs/{run_id}/scene/... (the run's recording as a scene export)
+	if subPath == "following-review" || strings.HasPrefix(subPath, "following-review/") {
+		ws.handleFollowingReview(w, r, runID, strings.TrimPrefix(strings.TrimPrefix(subPath, "following-review"), "/"))
+		return
+	}
+
 	if subPath == "scene" || strings.HasPrefix(subPath, "scene/") {
 		ws.handleRunScene(w, r, runID, strings.TrimPrefix(strings.TrimPrefix(subPath, "scene"), "/"))
 		return
