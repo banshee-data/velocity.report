@@ -1,6 +1,7 @@
 package egotrack
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -39,9 +40,10 @@ func Stops(t *Trajectory, k []Kinematics, opt Options) []Stop {
 		}
 		start = -1
 	}
+	gap := opt.GapFactor * t.MedianInterval()
 	for i := range k {
 		still := k[i].Valid && k[i].Speed < opt.StopSpeedMS
-		if i > 0 && t.Samples[i].T-t.Samples[i-1].T > opt.GapFactor*t.MedianInterval() {
+		if i > 0 && t.Samples[i].T-t.Samples[i-1].T > gap {
 			flush(i - 1)
 		}
 		switch {
@@ -389,6 +391,13 @@ type Summary struct {
 // Analyse runs every step and assembles the summary.
 func Analyse(t *Trajectory, anchors []Anchor, opt Options) (Summary, []Kinematics, error) {
 	opt = opt.withDefaults()
+	if err := opt.Validate(); err != nil {
+		return Summary{}, nil, err
+	}
+	if len(t.Samples) < 2 {
+		return Summary{}, nil, errors.New("trajectory needs at least two samples")
+	}
+	gap := opt.GapFactor * t.MedianInterval()
 	k := Derive(t, opt)
 	sum := Summary{Options: opt, Frame: t.Frame, TimeScale: t.TimeScale, Samples: len(k), Segments: len(t.segments(opt.GapFactor))}
 	sum.DurationS = t.Samples[len(t.Samples)-1].T - t.Samples[0].T
@@ -408,7 +417,7 @@ func Analyse(t *Trajectory, anchors []Anchor, opt Options) (Summary, []Kinematic
 		}
 		if i > 0 && k[i-1].Valid {
 			dt := k[i].T - k[i-1].T
-			if dt <= opt.GapFactor*t.MedianInterval() {
+			if dt <= gap {
 				d := 0.5 * (k[i].Speed + k[i-1].Speed) * dt
 				sum.DistanceM += d
 				if k[i].Speed >= opt.StopSpeedMS {

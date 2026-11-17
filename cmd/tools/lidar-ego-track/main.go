@@ -44,6 +44,9 @@ func run(args []string, stdout io.Writer) error {
 	if *trajPath == "" || *outDir == "" {
 		return errors.New("trajectory and out-dir are required")
 	}
+	if err := o.Validate(); err != nil {
+		return err
+	}
 	f, err := os.Open(*trajPath)
 	if err != nil {
 		return err

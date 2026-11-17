@@ -55,3 +55,14 @@ func TestRunWritesSummaryAndKinematics(t *testing.T) {
 		t.Error("wrote into a non-empty output directory")
 	}
 }
+
+func TestRunRejectsDegreeBelowThreeBeforeReadingInput(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "out")
+	err := run([]string{"-trajectory", "does-not-exist.json", "-out-dir", out, "-degree", "2"}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "degree") {
+		t.Fatalf("want a degree error before the missing file is read, got %v", err)
+	}
+	if _, statErr := os.Stat(out); !os.IsNotExist(statErr) {
+		t.Error("output directory created for a refused run")
+	}
+}

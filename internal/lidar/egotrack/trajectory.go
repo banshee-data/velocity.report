@@ -137,6 +137,16 @@ func (t *Trajectory) segments(gapFactor float64) [][2]int {
 // pose provider's contract for invalid intervals.
 func (t *Trajectory) PoseAt(tq, maxGap float64) (p [3]float64, q [4]float64, err error) {
 	s := t.Samples
+	switch {
+	case len(s) == 0:
+		return p, q, errors.New("empty trajectory")
+	case math.IsNaN(tq):
+		return p, q, errors.New("query time is NaN")
+	case math.IsNaN(maxGap) || maxGap < 0:
+		// A NaN would make every gap comparison false and interpolate across
+		// any gap, losing the refusal this lookup exists to give.
+		return p, q, fmt.Errorf("max gap %v must be a non-negative number", maxGap)
+	}
 	if tq < s[0].T || tq > s[len(s)-1].T {
 		return p, q, fmt.Errorf("time %.6f outside trajectory [%.6f, %.6f]", tq, s[0].T, s[len(s)-1].T)
 	}
@@ -145,7 +155,9 @@ func (t *Trajectory) PoseAt(tq, maxGap float64) (p [3]float64, q [4]float64, err
 		return s[j].P, s[j].Q, nil
 	}
 	a, b := s[j-1], s[j]
-	if b.T-a.T > maxGap {
+	// The same microsecond of tolerance as the fit window: a gap equal to
+	// maxGap must not be refused because two timestamps' difference rounds up.
+	if b.T-a.T > maxGap+windowEps {
 		return p, q, fmt.Errorf("time %.6f falls in a %.3f s gap", tq, b.T-a.T)
 	}
 	u := (tq - a.T) / (b.T - a.T)

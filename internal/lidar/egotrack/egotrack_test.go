@@ -321,3 +321,149 @@ func TestRotationRate(t *testing.T) {
 		t.Errorf("10 Hz pitch peak %.2f Hz, want the 3 Hz alias of 7 Hz", s10.Jitter.PeakPitchHz)
 	}
 }
+
+func TestPoseAtRefusesUnusableInput(t *testing.T) {
+	tr := &Trajectory{Schema: SchemaV0, Frame: "local", TimeScale: "s", Samples: []Sample{
+		{T: 0, P: [3]float64{0, 0, 0}, Q: [4]float64{1, 0, 0, 0}},
+		{T: 0.1, P: [3]float64{1, 0, 0}, Q: [4]float64{1, 0, 0, 0}},
+		{T: 0.4, P: [3]float64{4, 0, 0}, Q: [4]float64{1, 0, 0, 0}},
+	}}
+	for name, c := range map[string]struct{ tq, gap float64 }{
+		"NaN time":     {math.NaN(), 1},
+		"NaN max gap":  {0.05, math.NaN()},
+		"negative gap": {0.05, -0.1},
+	} {
+		if _, _, err := tr.PoseAt(c.tq, c.gap); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	if _, _, err := (&Trajectory{}).PoseAt(0, 1); err == nil {
+		t.Error("empty trajectory: accepted")
+	}
+	// A gap exactly equal to maxGap is allowed; anything wider is refused.
+	if p, _, err := tr.PoseAt(0.25, 0.3); err != nil || math.Abs(p[0]-2.5) > 1e-9 {
+		t.Errorf("gap equal to maxGap: p=%v err=%v", p, err)
+	}
+	// 0.4 − 0.1 is 0.30000000000000004 in floating point; the lookup must
+	// still treat that gap as equal to 0.3 s, and refuse one 2 µs wider.
+	if _, _, err := tr.PoseAt(0.25, 0.3-2e-6); err == nil {
+		t.Error("gap 2 µs over maxGap: interpolated")
+	}
+}
+
+func TestAnalyseRejectsADegreeThatCannotGiveJerk(t *testing.T) {
+	tr := drive{heading: 0, noise: 0.001, rate: 10}.trajectory(1)
+	for _, d := range []int{1, 2} {
+		if _, _, err := Analyse(tr, nil, Options{Degree: d}); err == nil || !strings.Contains(err.Error(), "degree") {
+			t.Errorf("degree %d: %v", d, err)
+		}
+	}
+	if _, _, err := Analyse(tr, nil, Options{Degree: 4}); err != nil {
+		t.Errorf("degree 4 refused: %v", err)
+	}
+}
+
+// A car on a circle of radius R at speed v turns at v/R and accelerates
+// towards the centre at v²/R; with a left turn, lateral acceleration is
+// positive and longitudinal acceleration is zero.
+func TestYawRateAndLateralAccelerationOnACircle(t *testing.T) {
+	const v, R = 10.0, 50.0
+	omega := v / R
+	rng := rand.New(rand.NewSource(31))
+	tr := &Trajectory{Schema: SchemaV0, Frame: "local", TimeScale: "s"}
+	for i := 0; i < 600; i++ {
+		tt := float64(i) / 10
+		th := omega * tt
+		p := [3]float64{R*math.Sin(th) + 0.005*rng.NormFloat64(), R*(1-math.Cos(th)) + 0.005*rng.NormFloat64(), 0}
+		tr.Samples = append(tr.Samples, Sample{Frame: i, T: tt, P: p, Q: quat(th+0.0005*rng.NormFloat64(), 0, 0)})
+	}
+	k := Derive(tr, Options{DefaultSigmaPosM: 0.005, SigmaYawRad: 0.0005})
+	for _, i := range []int{100, 300, 500} {
+		g := k[i]
+		if !g.Valid || !g.HeadingValid {
+			t.Fatalf("sample %d invalid: %s", i, g.Reason)
+		}
+		if math.Abs(g.YawRate-omega) > 4*g.YawRateSigma+1e-4 {
+			t.Errorf("sample %d: yaw rate %.5f, want %.5f ±%.5f", i, g.YawRate, omega, 4*g.YawRateSigma)
+		}
+		// A local cubic over ±0.5 s on a circle biases the second derivative
+		// by about (ω h)²/6 of v²/R, under 0.2% here.
+		if want := v * v / R; math.Abs(g.AccelLat-want) > 4*g.AccelSigma+0.01*want {
+			t.Errorf("sample %d: lateral accel %.4f, want %.4f", i, g.AccelLat, want)
+		}
+		if math.Abs(g.AccelLong) > 4*g.AccelSigma+0.01 {
+			t.Errorf("sample %d: longitudinal accel %.4f on a constant-speed circle", i, g.AccelLong)
+		}
+		if math.Abs(g.Speed-v) > 4*g.SpeedSigma+0.01 {
+			t.Errorf("sample %d: speed %.4f, want %.1f", i, g.Speed, v)
+		}
+	}
+}
+
+// At constant velocity the true acceleration and jerk are zero, so the stated
+// σ of each must match the observed scatter of the estimates.
+func TestAccelerationAndJerkSigmaMatchScatter(t *testing.T) {
+	const noise = 0.01
+	var ea, ej []float64
+	var sa, sj float64
+	for seed := int64(0); seed < 30; seed++ {
+		rng := rand.New(rand.NewSource(1000 + seed))
+		tr := &Trajectory{Schema: SchemaV0, Frame: "local", TimeScale: "s"}
+		for i := 0; i < 200; i++ {
+			tt := float64(i) / 10
+			tr.Samples = append(tr.Samples, Sample{Frame: i, T: tt, P: [3]float64{10*tt + noise*rng.NormFloat64(), noise * rng.NormFloat64(), noise * rng.NormFloat64()}, Q: [4]float64{1, 0, 0, 0}})
+		}
+		k := Derive(tr, Options{DefaultSigmaPosM: noise})
+		for i := 20; i < 180; i += 11 {
+			ea, ej = append(ea, k[i].AccelLong), append(ej, k[i].JerkLong)
+			sa, sj = k[i].AccelSigma, k[i].JerkSigma
+		}
+	}
+	rms := func(v []float64) float64 {
+		s := 0.0
+		for _, x := range v {
+			s += x * x
+		}
+		return math.Sqrt(s / float64(len(v)))
+	}
+	if r := rms(ea) / sa; r < 0.75 || r > 1.3 {
+		t.Errorf("acceleration: empirical %.4f vs stated %.4f (ratio %.2f)", rms(ea), sa, r)
+	}
+	if r := rms(ej) / sj; r < 0.75 || r > 1.3 {
+		t.Errorf("jerk: empirical %.4f vs stated %.4f (ratio %.2f)", rms(ej), sj, r)
+	}
+}
+
+func TestRollUnwrapsForAnInvertedMount(t *testing.T) {
+	tr := &Trajectory{Schema: SchemaV0, Frame: "local", TimeScale: "s"}
+	for i := 0; i < 300; i++ {
+		tt := float64(i) / 10
+		// Roll oscillates about π, so atan2 jumps between +π and −π.
+		tr.Samples = append(tr.Samples, Sample{Frame: i, T: tt, P: [3]float64{5 * tt, 0, 0}, Q: quat(0, 0, math.Pi+0.01*math.Sin(2*math.Pi*0.7*tt))})
+	}
+	sum, _, err := Analyse(tr, nil, Options{DefaultSigmaPosM: 0.001})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum.Jitter.RMSRollDeg > 1 {
+		t.Errorf("roll residual %.2f° RMS: a 0.57° wobble about π reads as wraps", sum.Jitter.RMSRollDeg)
+	}
+}
+
+// On a regular 10 Hz trajectory every interior sample's ±0.5 s window holds
+// the same 11 samples, so its stated σ is identical; floating-point rounding
+// of the timestamps must not drop the outermost sample on one side.
+func TestFitWindowIsTheSameAtEveryInteriorSample(t *testing.T) {
+	tr := &Trajectory{Schema: SchemaV0, Frame: "local", TimeScale: "s"}
+	for i := 0; i < 400; i++ {
+		tt := float64(i) * 0.1
+		tr.Samples = append(tr.Samples, Sample{Frame: i, T: tt, P: [3]float64{12 * tt, 0, 0}, Q: [4]float64{1, 0, 0, 0}})
+	}
+	k := Derive(tr, Options{DefaultSigmaPosM: 0.01})
+	want := k[200].SpeedSigma
+	for i := 10; i < 390; i++ {
+		if math.Abs(k[i].SpeedSigma-want) > 1e-12 {
+			t.Fatalf("sample %d: σ %.12f differs from %.12f; its window changed size", i, k[i].SpeedSigma, want)
+		}
+	}
+}

@@ -41,6 +41,29 @@ type Options struct {
 	AnchorWindowS float64 `json:"anchor_window_s"`
 }
 
+// windowEps widens the fit window by a microsecond, so a sample exactly ±h
+// away is included whatever floating-point rounding does to the difference of
+// two timestamps. Without it the window, and with it σ, could change from one
+// sample to the next on a perfectly regular trajectory.
+const windowEps = 1e-6
+
+// Validate rejects options the estimator cannot honour. Jerk is the third
+// derivative, so the local polynomial must be at least cubic; a lower degree
+// would make jerk and its σ NaN and fail only when the summary is written.
+func (o Options) Validate() error {
+	o = o.withDefaults()
+	if o.Degree < 3 {
+		return fmt.Errorf("degree %d: jerk needs a local polynomial of degree 3 or more", o.Degree)
+	}
+	for name, v := range map[string]float64{"half_window_s": o.HalfWindowS, "default_sigma_pos_m": o.DefaultSigmaPosM,
+		"sigma_yaw_rad": o.SigmaYawRad, "gap_factor": o.GapFactor, "spectrum_segment_s": o.SpectrumSegmentS} {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return fmt.Errorf("%s must be finite", name)
+		}
+	}
+	return nil
+}
+
 func (o Options) withDefaults() Options {
 	if o.HalfWindowS <= 0 {
 		o.HalfWindowS = 0.5
@@ -236,7 +259,11 @@ func Derive(t *Trajectory, opt Options) []Kinematics {
 		out[i] = Kinematics{Frame: s[i].Frame, T: s[i].T}
 	}
 	for _, seg := range t.segments(opt.GapFactor) {
+		// Yaw and roll come from atan2 and can wrap at ±π; pitch comes from
+		// asin and cannot. An inverted mount would otherwise put 2π jumps
+		// into the roll residual and its spectrum.
 		unwrap(yaw[seg[0]:seg[1]])
+		unwrap(roll[seg[0]:seg[1]])
 		for i := seg[0]; i < seg[1]; i++ {
 			out[i] = deriveAt(s, yaw, pitch, roll, seg, i, opt)
 		}
@@ -259,10 +286,10 @@ func deriveAt(s []Sample, yaw, pitch, roll []float64, seg [2]int, i int, opt Opt
 	k := Kinematics{Frame: s[i].Frame, T: s[i].T}
 	h := opt.HalfWindowS
 	lo, hi := i, i
-	for lo > seg[0] && s[i].T-s[lo-1].T <= h {
+	for lo > seg[0] && s[i].T-s[lo-1].T <= h+windowEps {
 		lo--
 	}
-	for hi+1 < seg[1] && s[hi+1].T-s[i].T <= h {
+	for hi+1 < seg[1] && s[hi+1].T-s[i].T <= h+windowEps {
 		hi++
 	}
 	if lo == i || hi == i {
