@@ -1223,11 +1223,7 @@ struct SidePanelView: View {
                         TrackInspectorHeaderView(trackID: trackID)
                     }
 
-                    RecordingReviewContext()
-
-                    // Label panel
-                    LabelPanelView()
-                    FollowingEvidenceView()
+                    FollowingReviewInspector(review: appState.followingReview)
 
                     // History chart + detail cards (only when a track is selected)
                     if let trackID = appState.selectedTrackID {

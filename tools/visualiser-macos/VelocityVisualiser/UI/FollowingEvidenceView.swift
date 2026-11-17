@@ -3,8 +3,27 @@ import CryptoKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// File review only. The exported baseline's decisions and suppressions are
-/// displayed verbatim; it never paints a pairing onto an unverified recording.
+/// Keep the relationship review visible before detailed provenance and labels.
+/// Observe the session directly so entering managed review changes the layout.
+struct FollowingReviewInspector: View {
+    @ObservedObject var review: FollowingReviewSession
+    var body: some View {
+        if review.isManaged {
+            FollowingEvidenceView()
+            DisclosureGroup("Track labels and recording details") {
+                RecordingReviewContext()
+                LabelPanelView()
+            }
+        } else {
+            RecordingReviewContext()
+            LabelPanelView()
+            FollowingEvidenceView()
+        }
+    }
+}
+
+/// Exported decisions and suppressions stay unchanged. A pairing is never
+/// painted onto a recording without verified source and coordinate agreement.
 struct FollowingEvidenceView: View {
     @EnvironmentObject var appState: AppState
     var body: some View { FollowingReviewEntry(review: appState.followingReview) }
