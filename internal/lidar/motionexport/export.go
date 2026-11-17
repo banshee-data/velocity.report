@@ -311,8 +311,13 @@ func (e *Exporter) AddFrame(f *l2frames.LiDARFrame) error {
 	return nil
 }
 
-// blockStride keeps every AzimuthStride-th block of the rotation, in time
+// blockStride keeps every AzimuthStride-th block of the rotation in firing
 // order, so decimation removes whole azimuth columns rather than rings.
+// Blocks are first seen in firing order, as the frame builder appends parsed
+// points in packet and block order. Sorting by recorded time would not keep
+// it: the first point of each block is whichever channel returned first, so
+// blocks of one packet differ by channel firetime and shuffle (see
+// PointTimes).
 func (e *Exporter) blockStride(points []l2frames.Point) []bool {
 	keep := make([]bool, len(points))
 	if e.cfg.AzimuthStride == 1 {
@@ -321,28 +326,15 @@ func (e *Exporter) blockStride(points []l2frames.Point) []bool {
 		}
 		return keep
 	}
-	type first struct {
-		t time.Time
-		i int
-	}
-	seen := map[blockKey]int{}
-	var order []first
-	// Blocks of one packet share a recorded time, so the stable sort keeps
-	// their packet order.
-	for _, p := range points {
-		k := blockKey{p.PacketKey, p.UDPSequence, p.BlockID}
-		if _, ok := seen[k]; !ok {
-			seen[k] = len(order)
-			order = append(order, first{p.Timestamp, len(order)})
-		}
-	}
-	sort.SliceStable(order, func(a, b int) bool { return order[a].t.Before(order[b].t) })
-	rank := make([]int, len(order))
-	for r, o := range order {
-		rank[o.i] = r
-	}
+	rank := map[blockKey]int{}
 	for i, p := range points {
-		keep[i] = rank[seen[blockKey{p.PacketKey, p.UDPSequence, p.BlockID}]]%e.cfg.AzimuthStride == 0
+		k := blockKey{p.PacketKey, p.UDPSequence, p.BlockID}
+		r, ok := rank[k]
+		if !ok {
+			r = len(rank)
+			rank[k] = r
+		}
+		keep[i] = r%e.cfg.AzimuthStride == 0
 	}
 	return keep
 }
