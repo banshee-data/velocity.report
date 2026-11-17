@@ -7,11 +7,15 @@ import XCTest
 private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendable {
     static let lock = NSLock()
     nonisolated(unsafe) static var handler: ((URLRequest) throws -> (Int, Data, [String: String]))?
+    nonisolated(unsafe) static var evidenceRequests = 0
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         do {
-            let handler = Self.lock.withLock { Self.handler }
+            let handler = Self.lock.withLock {
+                if request.url?.lastPathComponent == "evidence" { Self.evidenceRequests += 1 }
+                return Self.handler
+            }
             let (status, data, headers) = try XCTUnwrap(handler)(request)
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: status, httpVersion: nil, headerFields: headers)!
@@ -67,7 +71,8 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
             """.utf8)
     }
     private func install(
-        failPost: Bool = false, corruptDigest: Bool = false, records: [FollowingAudit.Record] = []
+        failPost: Bool = false, corruptDigest: Bool = false, records: [FollowingAudit.Record] = [],
+        failEvidenceAt: Int64? = nil
     ) throws {
         let first = slice()
         let second = slice(2000)
@@ -79,6 +84,7 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         emptyAudit.records = records
         let auditBytes = try emptyAudit.encoded()
         FollowingReviewTestProtocol.lock.withLock {
+            FollowingReviewTestProtocol.evidenceRequests = 0
             FollowingReviewTestProtocol.handler = { request in
                 if request.httpMethod == "POST" {
                     if failPost {
@@ -110,6 +116,9 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
                 if path == "geometry" { return (200, geometry, [:]) }
                 let at = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
                     .queryItems?.first?.value
+                if let failEvidenceAt, at == String(failEvidenceAt) {
+                    return (503, Data(#"{"error":"evidence unavailable"}"#.utf8), [:])
+                }
                 let bytes = at == "2000" ? second : first
                 let digest =
                     "sha256:" + SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
@@ -143,6 +152,86 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         XCTAssertNil(review.document)
         XCTAssertNil(review.managedGeometry)
         XCTAssertFalse(review.loadingWindow)
+    }
+
+    func testFailedWindowDoesNotRetryOnCompletionOrAdvancingFramesUntilReload() async throws {
+        try install()
+        let review = FollowingReviewSession()
+        await review.openRecording(runID: "run", at: 1000, transport: transport)
+        try install(failEvidenceAt: 2000)
+        review.followPlayback(at: 2000, selectedTrackID: "f")
+        await review.windowTask?.value
+        XCTAssertNotNil(review.error)
+        XCTAssertEqual(review.failedManagedWindow, 2000..<3000)
+
+        // The view follows the clock again when loading ends; live frames
+        // continue advancing within the same refused window.
+        for at in [Int64(2000), 2001, 2999] {
+            review.followPlayback(at: at, selectedTrackID: "f")
+            await review.windowTask?.value
+        }
+        XCTAssertEqual(FollowingReviewTestProtocol.lock.withLock {
+            FollowingReviewTestProtocol.evidenceRequests
+        }, 1)
+        XCTAssertEqual(review.document?.reviewSlice?.sampleStartNanos, 1000)
+
+        try install()
+        await review.openRecording(runID: "run", at: 2000, transport: transport)
+        XCTAssertNil(review.failedManagedWindow)
+        XCTAssertNil(review.error)
+        XCTAssertEqual(review.selectedRow?.captureUnixNanos, 2000)
+    }
+
+    func testInitialWindowFailureAllowsAnotherWindowAndResetsOnRecordingChange() async throws {
+        try install(failEvidenceAt: 1000)
+        let review = FollowingReviewSession()
+        await review.openRecording(runID: "run", at: 1000, transport: transport)
+        XCTAssertEqual(review.failedManagedWindow, 1000..<2000)
+        review.followPlayback(at: 1001, selectedTrackID: "f")
+        await review.windowTask?.value
+        XCTAssertEqual(FollowingReviewTestProtocol.lock.withLock {
+            FollowingReviewTestProtocol.evidenceRequests
+        }, 1)
+
+        review.followPlayback(at: 2000, selectedTrackID: "f")
+        await review.windowTask?.value
+        XCTAssertNil(review.error)
+        XCTAssertNil(review.failedManagedWindow)
+        XCTAssertEqual(review.selectedRow?.captureUnixNanos, 2000)
+
+        review.followPlayback(at: 1000, selectedTrackID: "f")
+        await review.windowTask?.value
+        XCTAssertNotNil(review.failedManagedWindow)
+        review.recordingChanged(to: "another")
+        XCTAssertNil(review.failedManagedWindow)
+    }
+
+    func testAbsentMinuteRemembersTheGapRatherThanEachFailedTimestamp() async throws {
+        try install()
+        let review = FollowingReviewSession()
+        await review.openRecording(runID: "run", at: 1000, transport: transport)
+        let original = try metadata()
+        review.managedMetadata = FollowingReviewMetadata(
+            schema: original.schema, runId: original.runId,
+            evidenceSha256: original.evidenceSha256,
+            recordingHeaderSha256: original.recordingHeaderSha256,
+            sourceId: original.sourceId, calibrationId: original.calibrationId,
+            startNanos: 1000, endExclusiveNanos: 4000,
+            slices: [
+                original.slices[0],
+                .init(id: "2", startNanos: 3000, endExclusiveNanos: 4000, rows: 1),
+            ])
+        try install(failEvidenceAt: 2500)
+        review.followPlayback(at: 2500, selectedTrackID: "f")
+        await review.windowTask?.value
+        XCTAssertEqual(review.failedManagedWindow, 2000..<3000)
+        for at in [Int64(2000), 2600, 2999] {
+            review.followPlayback(at: at, selectedTrackID: "f")
+            await review.windowTask?.value
+        }
+        XCTAssertEqual(FollowingReviewTestProtocol.lock.withLock {
+            FollowingReviewTestProtocol.evidenceRequests
+        }, 1)
     }
 
     func testRecordingReviewDoesNotReplaceAnActiveFileImport() async {

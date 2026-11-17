@@ -1,0 +1,1 @@
+- Stopped automatic retry loops after failed following-review window loads, retaining explicit reload and independent navigation to other windows. Added regression coverage for failed loads and missing evidence windows; the [operator workflow](../../ui/visualiser/following-audit-workflow.md) retains the distinction between review availability and physical DRAC qualification.
