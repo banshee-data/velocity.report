@@ -1,0 +1,1 @@
+- Added [recording-bound following review](../../lidar/operations/following-managed-review.md): verified paired minute evidence and canonical fitted-path geometry now load by registered run, while bounded operator observations append durably and idempotently in SQLite without replacing canonical analysis or inferring physical validation.

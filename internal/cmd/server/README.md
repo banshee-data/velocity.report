@@ -9,6 +9,11 @@ review evidence from a read-only source snapshot. See the
 [evidence runbook](../../../docs/lidar/operations/following-evidence-export.md) for explicit
 source/site bindings, cohort eligibility and repeatability.
 
+Registered recordings expose paired evidence, fitted-path geometry and append-only operator
+audits under `/api/lidar/runs/{runID}/following-review`. See the
+[recording review contract](../../../docs/lidar/operations/following-managed-review.md) for
+receipt verification, immutable audit bindings and unavailable-evidence behaviour.
+
 ```bash
 # Build the unified binary
 make build-velocity

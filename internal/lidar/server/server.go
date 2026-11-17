@@ -13,6 +13,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
 	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
+	"github.com/banshee-data/velocity.report/internal/lidar/followingreview"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
@@ -37,19 +38,20 @@ func (e *switchError) Unwrap() error { return e.err }
 // It has no listener of its own: RegisterRoutes mounts the API on the main
 // server's mux, and Start runs the live UDP listener and capture jobs.
 type Server struct {
-	listenFallback    bool
-	stats             *PacketStats
-	onReady           func() // run by Start once it is running; see SetOnReady
-	forwardingEnabled bool
-	forwardAddr       string
-	forwardPort       int
-	parsingEnabled    bool
-	udpPort           int
-	db                *db.DB
-	sensorID          string
-	parser            network.Parser
-	frameBuilder      network.FrameBuilder
-	pcapSafeDir       string // Safe directory for PCAP file access
+	followingReviewCache followingreview.Cache
+	listenFallback       bool
+	stats                *PacketStats
+	onReady              func() // run by Start once it is running; see SetOnReady
+	forwardingEnabled    bool
+	forwardAddr          string
+	forwardPort          int
+	parsingEnabled       bool
+	udpPort              int
+	db                   *db.DB
+	sensorID             string
+	parser               network.Parser
+	frameBuilder         network.FrameBuilder
+	pcapSafeDir          string // Safe directory for PCAP file access
 	// datasetDir is the published survey dataset clone that staging writes
 	// into. Empty disables staging.
 	datasetDir string
