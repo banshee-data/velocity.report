@@ -183,8 +183,14 @@ struct FollowingReviewTransport {
         runID: String, evidence: FollowingEvidence, sha: String
     ) async throws -> FollowingAudit {
         let (bytes, _) = try await data(request(runID: runID, action: "audit"))
-        return try FollowingAudit.decode(
+        var audit = try FollowingAudit.decode(
             bytes, evidence: evidence, sha256: sha, validatePeriods: false)
+        // Persistence order is by UUID, not review time. Present the latest
+        // observations together and use the latest reviewer as the draft default.
+        audit.records.sort {
+            $0.savedAt == $1.savedAt ? $0.id.uuidString < $1.id.uuidString : $0.savedAt < $1.savedAt
+        }
+        return audit
     }
 
     func append(

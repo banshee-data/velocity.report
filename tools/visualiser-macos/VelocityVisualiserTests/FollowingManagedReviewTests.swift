@@ -66,14 +66,17 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
             {"schema":"following_review_geometry_v1","source_id":"source/v2/a","calibration_id":"calibration","canonical_evidence_sha256":"\(canonical)","coordinate_frame_id":"sensor","recording_coordinates":true,"paths":[{"follower_track_id":"f","path":{"id":"path","vertices":[{"x":0,"y":0,"arc_m":0},{"x":20,"y":0,"arc_m":20}]}}]}
             """.utf8)
     }
-    private func install(failPost: Bool = false, corruptDigest: Bool = false) throws {
+    private func install(
+        failPost: Bool = false, corruptDigest: Bool = false, records: [FollowingAudit.Record] = []
+    ) throws {
         let first = slice()
         let second = slice(2000)
         let geometry = geometryBytes()
         let metadata = metadataBytes()
         let canonical = self.canonical
         let doc = try FollowingEvidence.decode(first)
-        let emptyAudit = FollowingAudit(binding: .init(evidence: doc, sha256: canonical))
+        var emptyAudit = FollowingAudit(binding: .init(evidence: doc, sha256: canonical))
+        emptyAudit.records = records
         let auditBytes = try emptyAudit.encoded()
         FollowingReviewTestProtocol.lock.withLock {
             FollowingReviewTestProtocol.handler = { request in
@@ -245,6 +248,22 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
             geometry: nil, row: row, path: nil)
         XCTAssertNil(overlay.followerID)
         XCTAssertTrue(overlay.vertices.isEmpty)
+    }
+
+    func testSavedReviewsArePresentedChronologicallyRatherThanUUIDOrder() async throws {
+        let doc = try FollowingEvidence.decode(slice())
+        var older = FollowingAudit.Record(row: doc.rows[0], playback: .init(runID: "run"))
+        older.reviewer = "earlier operator"
+        older.notes = "Earlier observation"
+        older.savedAt = Date(timeIntervalSince1970: 100)
+        var newer = older
+        newer.id = UUID()
+        newer.reviewer = "latest operator"
+        newer.savedAt = Date(timeIntervalSince1970: 200)
+        try install(records: [newer, older])
+        let saved = try await transport.audit(runID: "run", evidence: doc, sha: canonical)
+        XCTAssertEqual(saved.records.map(\.id), [older.id, newer.id])
+        XCTAssertEqual(saved.records.last?.reviewer, "latest operator")
     }
 
     func testAuditFromAnotherMinuteAndFractionalUTCDateRemainReadable() throws {
