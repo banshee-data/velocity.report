@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
 
@@ -396,5 +397,41 @@ func TestLASHeaderBoundsContainTheStoredCoordinates(t *testing.T) {
 	}
 	if info.FirstPointXYZ[0] > info.Max[0] || info.FirstPointXYZ[0] < info.Min[0] {
 		t.Errorf("stored x %.6f outside header bounds", info.FirstPointXYZ[0])
+	}
+}
+
+func TestJoinsFromRecordsEveryGradedJoin(t *testing.T) {
+	t0 := time.Date(2026, 9, 2, 18, 30, 0, 0, time.UTC)
+	seg := func(path string, start, end time.Duration) capseq.Segment {
+		return capseq.Segment{Path: path, FirstPacket: t0.Add(start), LastPacket: t0.Add(end), PacketCount: 1000}
+	}
+	seq, err := capseq.Build([]capseq.Segment{
+		seg("/nas/a/s2_sf_2_00026.pcap", 0, 300*time.Second),
+		seg("/nas/a/s2_sf_2_00027.pcap", 300*time.Second+500*time.Microsecond, 600*time.Second),
+		seg("/nas/a/s2_sf_2_00028.pcap", 600*time.Second+400*time.Millisecond, 900*time.Second),
+	}, capseq.DefaultTolerances())
+	if err != nil {
+		t.Fatal(err)
+	}
+	joins, worst := JoinsFrom(seq)
+	if len(joins) != 2 {
+		t.Fatalf("joins %d, want 2", len(joins))
+	}
+	if joins[0].Before != "s2_sf_2_00026.pcap" || joins[0].After != "s2_sf_2_00027.pcap" {
+		t.Errorf("join paths must be base names: %+v", joins[0])
+	}
+	if math.Abs(joins[1].GapS-0.4) > 1e-9 {
+		t.Errorf("second gap %.6f s, want 0.4", joins[1].GapS)
+	}
+	for i, j := range joins {
+		if j.Grade != string(seq.Seams[i].Grade) {
+			t.Errorf("join %d grade %q, sequence says %q", i, j.Grade, seq.Seams[i].Grade)
+		}
+	}
+	if joins[0].Grade == joins[1].Grade {
+		t.Errorf("a 0.5 ms and a 400 ms join should grade differently: %+v", joins)
+	}
+	if worst != string(seq.Worst) {
+		t.Errorf("worst %q, sequence says %q", worst, seq.Worst)
 	}
 }

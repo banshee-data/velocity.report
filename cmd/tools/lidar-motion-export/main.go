@@ -151,6 +151,7 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+	man.Joins, man.JoinWorst = motionexport.JoinsFrom(sequence)
 	duration := o.durationS
 	if duration == 0 {
 		duration = -1 // capseq reads -1 as "to the end of the sequence"

@@ -13,6 +13,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
 
@@ -58,11 +59,16 @@ type Config struct {
 // Manifest describes an export. Fields set by the caller (captures, tuning,
 // sites, mount, build) are recorded verbatim.
 type Manifest struct {
-	Schema      string            `json:"schema"`
-	Note        string            `json:"note"`
-	Build       map[string]string `json:"build"`
-	Sensor      map[string]string `json:"sensor"`
-	Captures    []FileDigest      `json:"captures"`
+	Schema   string            `json:"schema"`
+	Note     string            `json:"note"`
+	Build    map[string]string `json:"build"`
+	Sensor   map[string]string `json:"sensor"`
+	Captures []FileDigest      `json:"captures"`
+	// Joins grades each join between consecutive captures, as replay grades
+	// it, so a reader can tell a clean sequence from one that only just
+	// passed without re-running the grading. JoinWorst is the weakest grade.
+	Joins       []Join            `json:"joins"`
+	JoinWorst   string            `json:"join_worst,omitempty"`
 	Tuning      *FileDigest       `json:"tuning,omitempty"`
 	Segment     Segment           `json:"segment"`
 	Mount       Mount             `json:"mount"`
@@ -78,6 +84,23 @@ type FileDigest struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
 	Bytes  int64  `json:"bytes"`
+}
+
+// Join is one graded join between consecutive capture files.
+type Join struct {
+	Before string  `json:"before"`
+	After  string  `json:"after"`
+	GapS   float64 `json:"gap_s"` // After's first packet minus Before's last; negative is an overlap
+	Grade  string  `json:"grade"`
+}
+
+// JoinsFrom records a capture sequence's graded joins by file base name.
+func JoinsFrom(seq *capseq.Sequence) ([]Join, string) {
+	joins := make([]Join, 0, len(seq.Seams))
+	for _, s := range seq.Seams {
+		joins = append(joins, Join{Before: filepath.Base(s.Before), After: filepath.Base(s.After), GapS: s.Gap.Seconds(), Grade: string(s.Grade)})
+	}
+	return joins, string(seq.Worst)
 }
 
 // Segment says what the export covers and which known places bound it.
