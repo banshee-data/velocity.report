@@ -7,14 +7,14 @@ uncertainty of each. This plan fixes the boundary, records what the first pull r
 implements, and lists the questions an independent mathematical review must settle before
 the hydra evaluation is read as evidence.
 
-- **Status:** Proposed. First-pass tools are in #1056. Oracle run A has answered the brief, and its two-phase work order is laid out in the phase plans below; no gate is adopted and nothing has run on hydra, where the captures are
+- **Status:** Proposed. First-pass tools are in #1056. Two independent oracle runs have answered the brief, and the [comparison](../research/lidar-route-slam-oracle-comparison.md) reconciles them into the two phase plans below; no gate is adopted and nothing has run on hydra, where the captures are
 - **Decisions:** D-36 (Gerardus owns registration; v0.6.0–v0.6.4 is the SLAM/mobile series), D-38 (priors are measured spatial data)
 - **Layers:** offline tooling over L1 decode and L2 rotations (`internal/lidar/motionexport`), offline platform kinematics (`internal/lidar/egotrack`); Gerardus odometry, prior factors and pose graph
 - **Target:** v0.6.0, the SLAM spike Gerardus runs as S0–S3; this plan narrows it to point-to-point drives
 - **Companion plans:** [lidar-route-capture-plan](lidar-route-capture-plan.md) (trajectory contract, rigs, later items), [lidar-motion-capture-architecture-plan](lidar-motion-capture-architecture-plan.md) (`PoseProvider`); Gerardus `docs/plans/MOBILE-SLAM-REPLAY.md` (S0–S3) and `docs/research/2026-10-24-registration-and-slam-maths.md` (§4 sizing)
 - **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
 - **Phase plans:** [phase 1: bridge and ego track](lidar-route-slam-phase1-bridge-ego-plan.md), [phase 2: priors and rotation rate](lidar-route-slam-phase2-priors-rate-plan.md)
-- **Review brief:** [lidar-route-slam-oracle-brief](../research/lidar-route-slam-oracle-brief.md), answered by [oracle run A](../research/lidar-route-slam-oracle-response-fable.md)
+- **Review brief:** [lidar-route-slam-oracle-brief](../research/lidar-route-slam-oracle-brief.md), answered by runs [A](../research/lidar-route-slam-oracle-response-fable.md) and [B](../research/lidar-route-slam-oracle-response-opus.md) and [compared](../research/lidar-route-slam-oracle-comparison.md)
 - **Rate audit:** [20 Hz pipeline readiness](../research/lidar-20hz-readiness.md)
 
 ## Motivation
@@ -95,21 +95,23 @@ along-street observability problem either, and the spike learns that early.
 
 ## Two phases
 
-Oracle run A's answer to the sequencing question reverses the order this plan first assumed. The
+Both oracle runs reverse the order this plan first assumed, and the comparison keeps run A's
+boundary. The
 ego track (b) comes first, because it does not need priors registration, while priors
 registration (a) needs everything the ego track needs. A position error that varies slowly along
 the route barely changes speed and does not change acceleration, jerk or vibration at all.
 
 | Phase                                            | Delivers                                                                                | Needs                                           | Ends in                                           |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------- |
-| [1](lidar-route-slam-phase1-bridge-ego-plan.md)  | Odometry bridged between the two end poses; the ego track with checks independent of it | Archive drives only                             | Hydra evaluation 1 and gate 1, on three drives    |
+| [1](lidar-route-slam-phase1-bridge-ego-plan.md)  | Odometry bridged between the two end poses; the ego track with checks independent of it | Archive drives only                             | Hydra evaluation 1 and gate 1, on four drives     |
 | [2](lidar-route-slam-phase2-priors-rate-plan.md) | Prior factors along the route with an alias guard; the 10-against-20 Hz answer          | Gate 1; a native 20 Hz capture for the rate arm | Hydra evaluation 2 and gate 2 (priors, then rate) |
 
-The phase plans hold the items, gates, risks and owner decisions. Run A found that the first-pass
-tools' checks are not yet independent of the trajectory they test (stops come from the
-trajectory's own speed, σ assumes independent noise, and nothing checks the anchor handover).
-Phase 1 fixes those before any evaluation result is read as evidence. The gates are one oracle's
-proposals: the owner chose a single run, so no cross-check or comparison exists.
+The phase plans hold the items, gates, risks and owner decisions. Both runs found that the
+first-pass tools' checks are not yet independent of the trajectory they test: stops come from
+the trajectory's own speed, and σ assumes independent noise. The owner's roof-mount answer adds
+a third problem: the tripod moves from ground to roof at each site, so the anchor has to be
+carried across that step. Phase 1 fixes all three before any evaluation result is read as
+evidence.
 
 The design and tables below record the plan as first written, before run A. Where they differ
 from the phase plans, the phase plans govern.
@@ -229,10 +231,10 @@ back to Git.
 - [x] Motion export with azimuth clock, LAS 1.4 and manifest (a1)
 - [x] Ego-track kinematics, stops, jitter, anchors and pose lookup (b1, b2)
 - [x] Oracle brief for the Gerardus implementation questions
-- [x] Oracle run A's response, and the two phase plans built from it
+- [x] Oracle runs A and B, their comparison, and the two phase plans reconciled from it
 
 ### Outstanding
 
-- [ ] Owner: pin or amend run A's gates and take the decisions listed in the phase plans (`S`)
+- [ ] Owner: pin or amend the reconciled gates and take the decisions listed in the phase plans (`S`)
 - [ ] [Phase 1](lidar-route-slam-phase1-bridge-ego-plan.md): items 1–9 and gate 1 (`L`)
 - [ ] [Phase 2](lidar-route-slam-phase2-priors-rate-plan.md): items 10–18 and gate 2 (`L`)

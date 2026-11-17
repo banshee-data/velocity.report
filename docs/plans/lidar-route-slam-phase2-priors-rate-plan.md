@@ -1,13 +1,14 @@
 # Route SLAM phase 2: priors along the route and the rotation-rate question (v0.6.0)
 
-Add prior factors from USGS 3DEP and DataSF to the phase 1 bridge, so the drive is registered
+Add prior factors from USGS 3DEP to the phase 1 bridge, so the drive is registered
 along its whole route, and settle with a native 20 Hz capture whether any platform should run the
 sensor at 20 Hz. Phase 2 starts only if phase 1's gate passes.
 
-- **Status:** Proposed. The items and gates are oracle run A's proposals
-  ([response](../research/lidar-route-slam-oracle-response-fable.md)); they come from one oracle,
-  with no cross-check run, and none is adopted until the owner pins it. Waits on gate 1 of
-  [phase 1](lidar-route-slam-phase1-bridge-ego-plan.md)
+- **Status:** Proposed. The items and gates are the
+  [reconciliation](../research/lidar-route-slam-oracle-comparison.md) of two independent oracle
+  runs ([A](../research/lidar-route-slam-oracle-response-fable.md),
+  [B](../research/lidar-route-slam-oracle-response-opus.md)); none is adopted until the owner
+  pins it. Waits on gate 1 of [phase 1](lidar-route-slam-phase1-bridge-ego-plan.md)
 - **Decisions:** D-36 (Gerardus owns registration; v0.6.0–v0.6.4 is the SLAM/mobile series), D-38
   (priors are measured spatial data)
 - **Layers:** Gerardus submaps, prior factors and pose graph; offline tooling over L1 and L2
@@ -62,21 +63,30 @@ walker, and what a 20 Hz rotation does to registration noise, only a native capt
 
 ## Design / approach
 
-**Priors.** Submaps are cut every 50 m, or at 30° of turn. Each is registered against the bundle
-with the existing gates. A factor keeps only the directions whose eigenvalue share is at least
-`1e-2`, and along-street information is counted from points at least 2 m up. Before a factor
-enters the graph it passes an alias guard: its innovation against the phase 1 prediction must be
-within `max(3σ, 0.5 m)`, capped at 1.85 m, and its cost must beat the alternatives at ±3.7 m and
-±7.6 m by a ratio of at least 1.25. The gates are then re-read at the solved pose, with a submap
+**Priors.** Submaps are cut every 50 m, or at 30° of turn, and are at most 150 m long. Each is
+registered against the bundle with the existing gates. A factor keeps a direction only if its
+scaled eigenvalue is at least `1e-2` of the largest, and still at least `1e-3` when recomputed
+from points more than 2 m up. Before a factor enters the graph it passes an alias guard. The
+along-street component is accepted directly only if the chain's predicted `σ_∥` is at most
+0.6 m. Otherwise ICP is re-run from the chain pose shifted by ±3.7 m and ±7.6 m, and the factor
+must win by a separation of at least 1.25. In both cases its innovation must be within
+`max(3σ, 0.5 m)`, capped at 1.85 m. DataSF footprints are reported beside the 3DEP fits, not used
+as factors, until their measured 1–1.4 m offsets from 3DEP are explained (run B). The gates are then re-read at the solved pose, with a submap
 of under 100 facade points reported as ungated. Leave-one-out residuals, each factor predicted
 by a graph solved without it, are the independent check.
 
 **Rate.** One configuration, fixed in seconds and metres, runs at both rates. Every rotation is
-registered on its own against the local map; pairs are not merged. Run A's expectation, to be
-tested and not assumed: a car gains little at 20 Hz once de-skew is centred, while a bike or a
-walker gains a fourfold cut in rotational residue (`α T² R`). Its provisional recommendation is
-car at 10 Hz, and bike and walking surveys at 20 Hz. Traffic measurement stays at 10 Hz until the
+registered on its own against the local map; pairs are not merged. Both oracle runs compute the
+same turn residue: 0.225 m at 30 m at 10 Hz, and 0.056 m at 20 Hz. Run A expects the second,
+centred de-skew pass to remove it at 10 Hz, so that a car gains little at 20 Hz. Run B does not,
+and recommends 20 Hz for SLAM on every moving platform. Both expect a bike or a walker to gain
+the fourfold cut in rotational residue (`α T² R`). Traffic measurement stays at 10 Hz until the
 audit's qualification passes.
+
+**When to capture at 20 Hz.** Capture only if the archive's priors pass (items 10–12) show the
+failure is in turns, not along the street. Concretely: 10 Hz turn submaps fail the gates after the
+second de-skew pass, while straight submaps pass. A higher rate cannot fix along-street
+observability, because the prior gates do not depend on rate on straight submaps.
 
 **The 20 Hz capture.** The first pair's route, driven three times on one day with one mount, at
 600, 1,200 and 600 rpm:
@@ -146,8 +156,9 @@ owner agrees.
 **Summary:** The 10–20–10 session described above, as three bundles with settings in provenance.
 The sensor's power draw and the mount's response at 1,200 rpm are measured before a long session.
 
-**Milestone:** after gate 1, on the owner's decision. Void if the tail motor speed or azimuth
-coverage is not as planned.
+**Milestone:** after gate 1 and the turn-submap test above, on the owner's decision. Void if the
+tail motor speed or azimuth coverage is not as planned. The operator records the tripod's height
+on the roof and the strap layout, and keeps a ground and a roof-parked interval at both ends.
 
 ### Item 17: voxel-hash map (Gerardus, conditional)
 
@@ -163,6 +174,20 @@ of summary tables only.
 
 **Milestone:** v0.6.0 for the archive part; the rate arms follow item 16.
 
+### Item 19: field-of-view-relative rotation completion
+
+**Summary:** Complete a rotation at `coverage ≥ FOV − 20°`, with the field of view taken from
+configuration or learned from the first wraps. Finalise a frame as incomplete after twice the
+tail-motor period. The builder already anticipates sector wraps (`azimuth_wrap_large_jump`) and
+then gates them on 340°, which a sector cannot reach.
+
+The runs differed on this. Run B called it a defect. Run A wanted it left alone because the
+builder is shared with the live path. The reconciliation makes it a separate change outside the
+spike, with recaptured performance baselines. The spike itself relies on the exporter's cap and
+sector refusal from phase 1, item 1.
+
+**Milestone:** unscheduled; P2.
+
 ## Gate 2
 
 **Priors.** Continue the series if all of these hold:
@@ -171,14 +196,23 @@ of summary tables only.
 - at least one accepted full-rank factor per 250 m over 80% of each route;
 - pooled leave-one-out residuals have a median of at most 0.15 m and 90% within 0.30 m, from at
   least 20 samples;
-- the held-out registered end is within 0.3 m and 0.3°;
+- the held-out registered end is within 0.3 m and 0.3°, and its Mahalanobis² is in
+  [0.115, 11.3];
 - no accepted factor is a lot period off.
 
 If along-street factors are too few, change course to feature anchors at intersections.
 
-**Rate.** Adopt 20 Hz for a platform only if N20 beats both D10 and N10 on that platform's
-binding measure by more than the spread between the two 10 Hz drives. Otherwise keep 10 Hz and
-record what 20 Hz did show.
+**Rate.** Adopt 20 Hz for a platform only if all of these hold:
+
+- N20 beats both D10 and N10 on that platform's binding measure by more than the spread between the
+  two 10 Hz drives;
+- the two 10 Hz drives agree with each other better than either agrees with N20;
+- the turn-submap pass rate at 20 Hz is at least the 10 Hz rate;
+- per-metre drift is within 1.25 times the 10 Hz value;
+- per-scan convergence is at least 99%;
+- the speed σ ratio is within 0.8–1.25.
+
+Otherwise keep 10 Hz and record what 20 Hz did show.
 
 ## Dependencies
 
@@ -190,23 +224,26 @@ record what 20 Hz did show.
 
 ## Risks
 
-| Risk                                                          | Likelihood | Impact | Mitigation                                                          |
-| ------------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------- |
-| Too few along-street factors on straight blocks               | High       | Medium | Expected; the gate counts them per 250 m and names the fallback     |
-| A lot-period alias enters the graph                           | Medium     | High   | Item 11's guard and item 12's leave-one-out residuals               |
-| The two 10 Hz drives differ more than the rates do            | Medium     | Medium | That is a result: the gate then keeps 10 Hz                         |
-| 1,200 rpm changes mount behaviour or power draw               | Low        | Medium | Measure both before a long session                                  |
-| The 20 Hz capture is sector-limited or dual return by mistake | Low        | High   | Item 1's export guard refuses it; settings are recorded and checked |
-| Gates were set by one oracle and never cross-checked          | High       | Medium | Owner pins them before evaluation 2                                 |
+| Risk                                                          | Likelihood | Impact | Mitigation                                                             |
+| ------------------------------------------------------------- | ---------- | ------ | ---------------------------------------------------------------------- |
+| Too few along-street factors on straight blocks               | High       | Medium | Expected; the gate counts them per 250 m and names the fallback        |
+| A lot-period alias enters the graph                           | Medium     | High   | Item 11's guard and item 12's leave-one-out residuals                  |
+| The two 10 Hz drives differ more than the rates do            | Medium     | Medium | That is a result: the gate then keeps 10 Hz                            |
+| 1,200 rpm changes mount behaviour or power draw               | Low        | Medium | Measure both before a long session                                     |
+| The 20 Hz capture is sector-limited or dual return by mistake | Low        | High   | Item 1's export guard refuses it; settings are recorded and checked    |
+| The roof mount's strap or leg modes alias into the 10 Hz band | Medium     | Medium | Item 13's per-sector ground-tilt spectrum reaches about 20 Hz at 10 Hz |
+| The reconciled gates hide a disagreement between the runs     | Low        | Medium | The comparison lists each run's value; the owner pins them             |
 
 ## Owner decisions
 
-- Capture a native 20 Hz session, and when? Run A's default: one 10–20–10 session on the
-  registered pair's route, after gate 1 passes.
-- Admit the columbus-north-point → embarcadero-bay → columbus-broadway chain (two registered ends
-  with a static site between) as a second test? Default: yes.
+- Capture a native 20 Hz session, and when? Default (both runs): one 10–20–10 session on the
+  registered pair's route. Make it after gate 1, and only if the turn-submap test calls for it.
+- Use the 14 continuous drives beyond phase 1's set for odometry and submap gates (run B)?
+  Default: yes, after gate 1. The columbus-north-point → embarcadero-bay → columbus-broadway chain
+  run A proposed is not usable: both legs cross a recorder restart.
 - Run KISS-ICP's Python release on hydra as an outside cross-check? Default: only if gate 1's
   residual is poor.
+- Make field-of-view-relative rotation completion (item 19) a separate change? Default: yes.
 
 ## Checklist
 
@@ -218,6 +255,7 @@ record what 20 Hz did show.
 - [ ] Item 15: trajectory v1 and `PoseProvider` reader (`S`)
 - [ ] Item 16: native 20 Hz capture (`M`)
 - [ ] Item 18: hydra evaluation 2 and its report (`M`)
+- [ ] Item 19: field-of-view-relative rotation completion, as a separate change (`S`)
 
 ### Deferred
 
