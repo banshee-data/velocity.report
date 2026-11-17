@@ -46,6 +46,10 @@ extension FollowingReviewSession {
     func openRecording(
         runID: String, at: Int64, transport: FollowingReviewTransport = FollowingReviewTransport()
     ) async {
+        guard !loading || isManaged else {
+            error = "Wait for the evidence import to finish before opening a recording review."
+            return
+        }
         guard !auditUnsaved, pendingSave == nil, managedDraft == nil else {
             error = "Save the outstanding review before opening another review."
             return

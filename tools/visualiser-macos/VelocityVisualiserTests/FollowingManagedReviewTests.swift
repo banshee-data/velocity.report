@@ -142,6 +142,16 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         XCTAssertFalse(review.loadingWindow)
     }
 
+    func testRecordingReviewDoesNotReplaceAnActiveFileImport() async {
+        let review = FollowingReviewSession()
+        XCTAssertTrue(review.beginImport())
+        await review.openRecording(runID: "run", at: 1000, transport: transport)
+        XCTAssertNil(review.managedRunID)
+        XCTAssertTrue(review.loading)
+        XCTAssertNotNil(review.error)
+        review.finishImport()
+    }
+
     func testTamperedEvidenceDoesNotEnterTheReview() async throws {
         try install(corruptDigest: true)
         let review = FollowingReviewSession()
