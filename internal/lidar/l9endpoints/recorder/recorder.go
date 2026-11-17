@@ -2,6 +2,7 @@
 package recorder
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -524,9 +525,10 @@ func writeIndexEntry(w io.Writer, entry IndexEntry) error {
 
 // Replayer reads FrameBundles from a log file.
 type Replayer struct {
-	basePath string
-	header   LogHeader
-	index    []IndexEntry
+	headerSHA256 string
+	basePath     string
+	header       LogHeader
+	index        []IndexEntry
 
 	frameEncoding FrameEncoding
 	frameDecoder  frameDecoderFunc
@@ -550,6 +552,14 @@ var ErrObservationContainer = errors.New("VRLOG observation container, not a Fra
 
 // NewReplayer opens a log for replay.
 func NewReplayer(basePath string) (*Replayer, error) {
+	resolved, err := filepath.EvalSymlinks(basePath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve recording: %w", err)
+	}
+	basePath, err = filepath.Abs(resolved)
+	if err != nil {
+		return nil, fmt.Errorf("resolve absolute recording: %w", err)
+	}
 	// Refuse an observation container by its root before looking for
 	// header.json. Its records are protobuf whose field numbers overlap
 	// FrameBundle's, so the payload probe below could accept one as a frame;
@@ -573,6 +583,7 @@ func NewReplayer(basePath string) (*Replayer, error) {
 	if err := json.Unmarshal(headerData, &r.header); err != nil {
 		return nil, fmt.Errorf("failed to parse header: %w", err)
 	}
+	r.headerSHA256 = fmt.Sprintf("sha256:%x", sha256.Sum256(headerData))
 
 	// Read index
 	indexPath := filepath.Join(basePath, "index.bin")
@@ -884,13 +895,16 @@ func (r *Replayer) ReadFrame() (*l9endpoints.FrameBundle, error) {
 
 	// Add playback info with current frame index (before incrementing)
 	frame.PlaybackInfo = &l9endpoints.PlaybackInfo{
-		LogStartNs:        r.header.StartNs,
-		LogEndNs:          r.header.EndNs,
-		PlaybackRate:      r.rate,
-		Paused:            r.paused,
-		CurrentFrameIndex: r.currentFrame,
-		TotalFrames:       uint64(len(r.index)),
-		Seekable:          true,
+		SourceMode:            "vrlog",
+		RecordingPath:         r.basePath,
+		RecordingHeaderSHA256: r.headerSHA256,
+		LogStartNs:            r.header.StartNs,
+		LogEndNs:              r.header.EndNs,
+		PlaybackRate:          r.rate,
+		Paused:                r.paused,
+		CurrentFrameIndex:     r.currentFrame,
+		TotalFrames:           uint64(len(r.index)),
+		Seekable:              true,
 	}
 
 	r.currentFrame++

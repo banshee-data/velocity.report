@@ -164,9 +164,16 @@ func frameBundleToStorageProto(frame *l9endpoints.FrameBundle) *pb.FrameBundle {
 			pbPoints := make([]*pb.TrackPoint, len(trail.Points))
 			for j, p := range trail.Points {
 				pbPoints[j] = &pb.TrackPoint{
-					X:           p.X,
-					Y:           p.Y,
-					TimestampNs: p.TimestampNanos,
+					X:                p.X,
+					Y:                p.Y,
+					TimestampNs:      p.TimestampNanos,
+					Z:                p.Z,
+					Support:          p.Support,
+					EstimateStage:    p.EstimateStage,
+					ReferenceAnchor:  p.ReferenceAnchor,
+					RevisionId:       p.RevisionID,
+					SourceId:         p.SourceID,
+					FrameTimestampNs: p.FrameTimestampNanos,
 				}
 			}
 			pbTrails[i] = &pb.TrackTrail{
@@ -184,14 +191,16 @@ func frameBundleToStorageProto(frame *l9endpoints.FrameBundle) *pb.FrameBundle {
 
 	if frame.PlaybackInfo != nil {
 		pbFrame.PlaybackInfo = &pb.PlaybackInfo{
-			LogStartNs:        frame.PlaybackInfo.LogStartNs,
-			LogEndNs:          frame.PlaybackInfo.LogEndNs,
-			PlaybackRate:      frame.PlaybackInfo.PlaybackRate,
-			Paused:            frame.PlaybackInfo.Paused,
-			CurrentFrameIndex: frame.PlaybackInfo.CurrentFrameIndex,
-			TotalFrames:       frame.PlaybackInfo.TotalFrames,
-			Seekable:          frame.PlaybackInfo.Seekable,
-			ReplayEpoch:       frame.PlaybackInfo.ReplayEpoch,
+			RecordingPath:         frame.PlaybackInfo.RecordingPath,
+			RecordingHeaderSha256: frame.PlaybackInfo.RecordingHeaderSHA256,
+			LogStartNs:            frame.PlaybackInfo.LogStartNs,
+			LogEndNs:              frame.PlaybackInfo.LogEndNs,
+			PlaybackRate:          frame.PlaybackInfo.PlaybackRate,
+			Paused:                frame.PlaybackInfo.Paused,
+			CurrentFrameIndex:     frame.PlaybackInfo.CurrentFrameIndex,
+			TotalFrames:           frame.PlaybackInfo.TotalFrames,
+			Seekable:              frame.PlaybackInfo.Seekable,
+			ReplayEpoch:           frame.PlaybackInfo.ReplayEpoch,
 		}
 	}
 
@@ -349,9 +358,16 @@ func protoToFrameBundle(pbFrame *pb.FrameBundle) *l9endpoints.FrameBundle {
 			points := make([]l9endpoints.TrackPoint, len(trail.Points))
 			for j, p := range trail.Points {
 				points[j] = l9endpoints.TrackPoint{
-					X:              p.X,
-					Y:              p.Y,
-					TimestampNanos: p.TimestampNs,
+					X:                   p.X,
+					Y:                   p.Y,
+					TimestampNanos:      p.TimestampNs,
+					Z:                   p.Z,
+					Support:             p.Support,
+					EstimateStage:       p.EstimateStage,
+					ReferenceAnchor:     p.ReferenceAnchor,
+					RevisionID:          p.RevisionId,
+					SourceID:            p.SourceId,
+					FrameTimestampNanos: p.FrameTimestampNs,
 				}
 			}
 			trails[i] = l9endpoints.TrackTrail{
@@ -369,14 +385,16 @@ func protoToFrameBundle(pbFrame *pb.FrameBundle) *l9endpoints.FrameBundle {
 
 	if pbFrame.PlaybackInfo != nil {
 		frame.PlaybackInfo = &l9endpoints.PlaybackInfo{
-			LogStartNs:        pbFrame.PlaybackInfo.LogStartNs,
-			LogEndNs:          pbFrame.PlaybackInfo.LogEndNs,
-			PlaybackRate:      pbFrame.PlaybackInfo.PlaybackRate,
-			Paused:            pbFrame.PlaybackInfo.Paused,
-			CurrentFrameIndex: pbFrame.PlaybackInfo.CurrentFrameIndex,
-			TotalFrames:       pbFrame.PlaybackInfo.TotalFrames,
-			Seekable:          pbFrame.PlaybackInfo.Seekable,
-			ReplayEpoch:       pbFrame.PlaybackInfo.ReplayEpoch,
+			RecordingPath:         pbFrame.PlaybackInfo.RecordingPath,
+			RecordingHeaderSHA256: pbFrame.PlaybackInfo.RecordingHeaderSha256,
+			LogStartNs:            pbFrame.PlaybackInfo.LogStartNs,
+			LogEndNs:              pbFrame.PlaybackInfo.LogEndNs,
+			PlaybackRate:          pbFrame.PlaybackInfo.PlaybackRate,
+			Paused:                pbFrame.PlaybackInfo.Paused,
+			CurrentFrameIndex:     pbFrame.PlaybackInfo.CurrentFrameIndex,
+			TotalFrames:           pbFrame.PlaybackInfo.TotalFrames,
+			Seekable:              pbFrame.PlaybackInfo.Seekable,
+			ReplayEpoch:           pbFrame.PlaybackInfo.ReplayEpoch,
 		}
 	}
 

@@ -1,6 +1,7 @@
 package recorder
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 
@@ -8,6 +9,28 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
 	"google.golang.org/protobuf/proto"
 )
+
+func TestRecordingCodecRetainsTrailProvenance(t *testing.T) {
+	point := l9endpoints.TrackPoint{X: 1, Y: 2, Z: -3, TimestampNanos: 1700000000123456789,
+		FrameTimestampNanos: 1700000000123000000, Support: "coasted", EstimateStage: "provisional",
+		ReferenceAnchor: "published_box_center", RevisionID: "revision", SourceID: "source/v2/test"}
+	playback := &l9endpoints.PlaybackInfo{RecordingPath: "/recording", RecordingHeaderSHA256: "sha256:header", Seekable: true}
+	frame := &l9endpoints.FrameBundle{Tracks: &l9endpoints.TrackSet{Trails: []l9endpoints.TrackTrail{{TrackID: "track", Points: []l9endpoints.TrackPoint{point}}}}, PlaybackInfo: playback}
+	b, err := serializeFrameProto(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := deserializeFrameProto(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.Tracks.Trails[0].Points[0], point) {
+		t.Fatalf("lost trail provenance: %+v", got.Tracks.Trails[0].Points[0])
+	}
+	if !reflect.DeepEqual(got.PlaybackInfo, playback) {
+		t.Fatalf("lost recording context: %+v", got.PlaybackInfo)
+	}
+}
 
 func TestSerializeDeserialize_FullFrame(t *testing.T) {
 	frame := &l9endpoints.FrameBundle{

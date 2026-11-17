@@ -1986,3 +1986,11 @@ func TestTrailMetadataSurvivesWireRoundTrip(t *testing.T) {
 		t.Fatalf("wire metadata lost: %+v", p)
 	}
 }
+
+func TestReplayIdentitySurvivesWireConversion(t *testing.T) {
+	frame := &FrameBundle{PlaybackInfo: &PlaybackInfo{RecordingPath: "/actual/recording", RecordingHeaderSHA256: "sha256:actual", SourceMode: "vrlog", ReplayEpoch: 3}}
+	got := frameBundleToProto(frame, &pb.StreamRequest{}).PlaybackInfo
+	if got.RecordingPath != "/actual/recording" || got.RecordingHeaderSha256 != "sha256:actual" || got.ReplayEpoch != 3 || got.SourceMode != pb.SourceMode_SOURCE_MODE_VRLOG {
+		t.Fatalf("lost playback identity: %+v", got)
+	}
+}

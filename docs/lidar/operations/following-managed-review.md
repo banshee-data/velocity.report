@@ -43,6 +43,15 @@ The audit binding always uses the canonical digest, so moving between minutes do
 or select another audit. Nanosecond values are exact Int64 values; do not route them through a
 floating-point timestamp conversion.
 
+Session metadata also returns `recording_path`, the resolved absolute path already checked
+against the registered run and completed receipt. Replay frames carry that reader's path and
+the SHA-256 of the exact header bytes it opened in `PlaybackInfo`. VV compares both with the
+verified session before using an older recording whose trail points have no source IDs.
+The reader stamps this context when decoding each frame, including after a seek; a later
+source switch cannot relabel a queued frame as belonging to a different recording. Embedded
+playback context from a previously recorded replay is replaced by the newly opened recording's
+identity. Original files are not modified, and missing trail source IDs remain missing.
+
 Geometry is a separate response: it does not rewrite a slice under its existing digest. The
 projection retains each canonical `LocalPath`, including its original vertices and knots, with
 follower, method, window and refusal conditions. Quadratic lists of unrelated actors are omitted.
@@ -88,6 +97,15 @@ The timeline and recording clock stay linked; unavailable samples do not borrow 
 Headway and experimental DRAC retain separate eligibility: a headway speed-floor exclusion does
 not hide a supported DRAC calculation.
 
+The 3D status explains whether frame identity and analysis agree. A matching recording path
+and header digest may establish the source through the completed preparation, but cannot
+override contradictory exact-frame trail sources. Wrong or incomplete recording identity,
+live frames claiming replay identity, stale timestamps, absent actors, or unmatched source,
+calibration and coordinate geometry withhold the gap. Older servers without recording context
+still require an explicit matching frame-source identity. Upgrading does not relax the
+coordinate guard or qualify physical bumper positions. This relies on the existing immutable
+preparation contract; a header digest is not a checksum of every recording chunk.
+
 Correct, Wrong and Uncertain open a period review. An unfinished draft retains its original
 recording, evidence version, notes and end-time text across playback or inspector changes.
 Submitting captures that context before saving; a failed save can be retried with the same
@@ -97,6 +115,9 @@ Managed and imported drafts retain the same playback context: registered source 
 paths, capture and recording bounds, and any coordinate-frame and source IDs from the exact
 displayed frame. Empty IDs, historical trail points and a stale frame do not supply a source
 match. This context records what was available for review; it does not qualify the measurement.
+`frameRecordingPath` and `frameRecordingHeaderSHA256` retain the replay reader's context
+separately from registered paths and trail source IDs. These optional, bounded fields preserve
+viewing evidence, including incomplete context, rather than asserting server-verified truth.
 
 ## Validation boundary
 

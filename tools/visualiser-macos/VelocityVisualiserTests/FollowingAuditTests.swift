@@ -16,6 +16,8 @@ final class FollowingAuditTests: XCTestCase {
         var frame = FrameBundle()
         frame.timestampNanos = instant
         frame.coordinateFrame = CoordinateFrameInfo(frameID: "sensor-frame")
+        frame.playbackInfo = PlaybackInfo(
+            recordingPath: "/opened/recording", recordingHeaderSHA256: digest)
         var point = TrackPoint()
         point.timestampNanos = instant
         point.sourceID = "source/v2/b"
@@ -37,10 +39,14 @@ final class FollowingAuditTests: XCTestCase {
         XCTAssertEqual(context.endNanos, instant + 100)
         XCTAssertEqual(context.coordinateFrameID, "sensor-frame")
         XCTAssertEqual(context.frameSourceIDs, ["source/v2/a", "source/v2/b"])
+        XCTAssertEqual(context.frameRecordingPath, "/opened/recording")
+        XCTAssertEqual(context.frameRecordingHeaderSHA256, digest)
 
         state.currentTimestamp = instant + 1
         XCTAssertTrue(state.currentFollowingAuditPlayback.frameSourceIDs.isEmpty)
         XCTAssertNil(state.currentFollowingAuditPlayback.coordinateFrameID)
+        XCTAssertNil(state.currentFollowingAuditPlayback.frameRecordingPath)
+        XCTAssertNil(state.currentFollowingAuditPlayback.frameRecordingHeaderSHA256)
         state.currentFrame = nil
         XCTAssertTrue(state.currentFollowingAuditPlayback.frameSourceIDs.isEmpty)
     }

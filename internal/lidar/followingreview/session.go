@@ -198,7 +198,7 @@ func (cache *Cache) Open(run *sqlite.Run) (*Session, error) {
 		return nil, fmt.Errorf("canonical source/version differs from receipt")
 	}
 	s := &Session{receipt: receipt, root: root, version: c.Version, paths: c.Paths}
-	s.Metadata = Metadata{Schema: "following_review_session_v1", RunID: run.RunID, EvidenceSHA256: c.SHA, HeaderSHA256: digest(hb), SourceID: id, CalibrationID: calibration, Start: header.StartNs, End: header.EndNs + 1, Binding: binding(c.Context, c.Version, c.SHA)}
+	s.Metadata = Metadata{Schema: "following_review_session_v1", RunID: run.RunID, EvidenceSHA256: c.SHA, HeaderSHA256: digest(hb), RecordingPath: vrlog, SourceID: id, CalibrationID: calibration, Start: header.StartNs, End: header.EndNs + 1, Binding: binding(c.Context, c.Version, c.SHA)}
 	last := header.StartNs
 	rows := 0
 	for i, file := range receipt.Slices {

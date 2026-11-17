@@ -350,6 +350,10 @@ Select a follower to see its chosen leader, competing candidates and projected f
 gap. Other following links retain their own gaps. A shared timeline supports exact-sample
 navigation and shows missing or excluded periods. Viewport overlays require matching frame,
 source and recording coordinates; unknown agreement withholds the overlay.
+For prepared recordings without trail source IDs, the replay reader's resolved recording path
+and exact header digest must match the server-verified review. VV shows the agreement status;
+conflicting sources or unmatched geometry still withhold the 3D gap. This verifies the recording
+association, not physical endpoint accuracy. See the [recording-bound review contract](../../docs/lidar/operations/following-managed-review.md).
 
 **Correct**, **Wrong** and **Uncertain** open a period review, with optional observed leader,
 endpoint/identity/speed observations and notes. Records save automatically and stay separate

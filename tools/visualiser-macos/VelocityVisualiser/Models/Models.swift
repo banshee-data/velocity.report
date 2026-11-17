@@ -392,6 +392,8 @@ enum SourceMode: String {
 }
 
 struct PlaybackInfo {
+    var recordingPath: String = ""
+    var recordingHeaderSHA256: String = ""
     /// True while the background grid is still settling, so an empty scene is
     /// warm-up rather than a dead sensor.
     var settling: Bool = false

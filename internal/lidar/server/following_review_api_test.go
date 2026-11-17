@@ -106,6 +106,8 @@ func auditBody(t *testing.T, m followingreview.Metadata, r followingreview.Recor
 func TestFollowingReviewRoutesAndAuditRoundTrip(t *testing.T) {
 	ws, _, raw := setupFollowingReview(t)
 	m, r := reviewAuditRequest(t, ws)
+	r.Playback.FrameRecordingPath = m.RecordingPath
+	r.Playback.FrameRecordingHeaderSHA256 = m.HeaderSHA256
 	w := callReview(ws, "GET", "/evidence?at_ns=1000", nil)
 	if w.Code != 200 || !bytes.Equal(w.Body.Bytes(), raw) || w.Header().Get("X-Evidence-SHA256") != followingreview.Digest(raw) || w.Header().Get("X-Canonical-Evidence-SHA256") != m.EvidenceSHA256 {
 		t.Fatal(w.Code, w.Body.String())
@@ -125,6 +127,10 @@ func TestFollowingReviewRoutesAndAuditRoundTrip(t *testing.T) {
 	var a followingreview.Audit
 	if e := json.Unmarshal(w.Body.Bytes(), &a); e != nil || w.Code != 200 || a.Schema != "following_audit_v1" || a.Binding != m.Binding || len(a.Records) != 1 {
 		t.Fatal(w.Code, e, a)
+	}
+	var retained followingreview.Record
+	if e := json.Unmarshal(a.Records[0], &retained); e != nil || retained.Playback.FrameRecordingPath != m.RecordingPath || retained.Playback.FrameRecordingHeaderSHA256 != m.HeaderSHA256 {
+		t.Fatalf("frame recording context lost: %+v, %v", retained.Playback, e)
 	}
 	r.Notes = "different immutable content"
 	if w = callReview(ws, "POST", "/audit", auditBody(t, m, r)); w.Code != 409 {

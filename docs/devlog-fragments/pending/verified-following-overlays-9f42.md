@@ -1,0 +1,1 @@
+- Bound VV's 3D following overlays to the replay reader's actual recording path and header digest, preserved trail provenance through the recording codec, and retained the frame identity in audits; kept conflicting sources, stale frames and unmatched geometry excluded under the [managed review contract](../../lidar/operations/following-managed-review.md).

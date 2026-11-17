@@ -165,6 +165,8 @@ struct FollowingRelationshipView: View {
                         "Follower \(row.followerSpeedMps.map { number($0) } ?? "—") · leader \(row.leaderSpeedMps.map { number($0) } ?? "—") m/s"
                     ).font(.caption).monospacedDigit()
                     Text(status(row)).font(.caption).foregroundStyle(.secondary)
+                    Text(appState.currentFollowingReviewOverlay.notice).font(.caption)
+                        .foregroundStyle(.secondary)
                     if review.selectedPath == nil {
                         Text("Path geometry unavailable for this sample; no spatial gap is drawn.")
                             .font(.caption).foregroundStyle(.orange)
