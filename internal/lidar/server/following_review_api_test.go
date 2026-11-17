@@ -52,7 +52,7 @@ func setupFollowingReview(t *testing.T) (*Server, string, []byte) {
 	}
 	c := fieldrun.EvidenceContext{SiteNamespace: "test", SiteID: "site", SourceID: id, BindingID: "binding", BuildGitSHA: "build", PolicyID: "policy", SourceManifest: &source}
 	v := l8behaviour.InteractionVersion{EstimateStage: l8behaviour.StageOnline, EstimatorID: "estimator", ObsModelID: "published_box/model", MethodID: "method", ParamHash: "params"}
-	h := recorder.LogHeader{StartNs: 1000, EndNs: 1100, TotalFrames: 2, SensorID: "sensor", BuildGitSHA: "build", ParamsHash: "params"}
+	h := recorder.LogHeader{StartNs: 1000, EndNs: 1100, TotalFrames: 2, SensorID: "sensor", SourceType: "pcap", BuildGitSHA: "build", ParamsHash: "params"}
 	hb := reviewJSON(t, filepath.Join(vr, "header.json"), h)
 	cal := l4bobserve.Calibration{SensorID: "sensor", FromFrame: "sensor", ToFrame: "sensor", Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
 	calID, e := l4bobserve.CalibrationID(cal)
@@ -66,7 +66,7 @@ func setupFollowingReview(t *testing.T) (*Server, string, []byte) {
 	slice := filepath.Join(root, "minute.json")
 	sb := reviewJSON(t, slice, map[string]any{"schema": "following_review_slice_v1", "context": c, "analysis_version": v, "rows": rows, "review_slice": map[string]any{"canonical_evidence_sha256": followingreview.Digest(cb), "recording_header_sha256": followingreview.Digest(hb), "recording_build_git_sha": "build", "calibration_id": calID, "sample_start_nanos": 1000, "sample_end_exclusive_nanos": 1101}})
 	reviewJSON(t, filepath.Join(root, "complete.json"), map[string]any{"schema": "following_review_preparation_v1", "context": c, "calibration": cal, "recording_header": h, "vrlog": vr, "evidence": canonical, "rows": 2, "purpose": "annotation_review", "slices": []any{map[string]any{"path": slice, "sha256": followingreview.Digest(sb), "sample_start_nanos": 1000, "sample_end_exclusive_nanos": 1101, "rows": 2}}})
-	run := &sqlite.Run{RunID: "review-run", SensorID: "sensor", Status: "completed", VRLogPath: vr, BuildGitSHA: "build"}
+	run := &sqlite.Run{RunID: "review-run", SensorID: "sensor", SourceType: "pcap", SourcePath: "/capture.pcap", Status: "completed", VRLogPath: vr, BuildGitSHA: "build"}
 	if e = sqlite.NewRunStore(db).InsertRun(run); e != nil {
 		t.Fatal(e)
 	}
