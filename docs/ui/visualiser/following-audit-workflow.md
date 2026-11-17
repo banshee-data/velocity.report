@@ -12,6 +12,9 @@ VV loads the paired recording and retrieves its verified evidence, fitted paths 
 annotations from the backend. Minute boundaries are automatic: normal review has no evidence
 or audit file chooser. Missing preparations show an unavailable reason rather than borrowing
 another recording's evidence. First verification can take longer on large preparations.
+An unavailable or failed evidence window is not retried on every playback update.
+Use **Reload review** to retry after restoring its evidence or server; moving to a
+different available window remains independent. Missing minutes stay missing.
 
 Select a follower in the viewport, track list or searchable chooser. The relationship map shows
 its selected leader, dashed alternatives, projected front-to-rear gap and other following links

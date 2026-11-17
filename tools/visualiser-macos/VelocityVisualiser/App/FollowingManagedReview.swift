@@ -24,6 +24,7 @@ extension FollowingReviewSession {
     func recordingChanged(to runID: String?) {
         guard let current = managedRunID, current != runID else { return }
         managedGeneration += 1
+        failedManagedWindow = nil
         windowTask?.cancel()
         managedRunID = nil
         managedMetadata = nil
@@ -55,6 +56,7 @@ extension FollowingReviewSession {
             return
         }
         managedGeneration += 1
+        failedManagedWindow = nil
         let generation = managedGeneration
         windowTask?.cancel()
         managedRunID = runID
@@ -90,7 +92,19 @@ extension FollowingReviewSession {
             let runID = managedRunID
         else { return }
         loadingWindow = true
-        defer { if managedGeneration == generation { loadingWindow = false } }
+        var loaded = false
+        defer {
+            if managedGeneration == generation {
+                if loaded {
+                    failedManagedWindow = nil
+                } else if !Task.isCancelled {
+                    // Publish the refusal before loading ends: the view follows
+                    // the latest playback time when this flag becomes false.
+                    failedManagedWindow = managedWindowRange(at: nanos, metadata: metadata)
+                }
+                loadingWindow = false
+            }
+        }
         async let geometry = transport.geometry(runID: runID, at: nanos, metadata: metadata)
         let doc = try await transport.evidence(runID: runID, at: nanos, metadata: metadata)
         async let savedAudit = transport.audit(
@@ -127,6 +141,7 @@ extension FollowingReviewSession {
         audit = saved
         times = Array(Set(doc.rows.map(\.captureUnixNanos))).sorted()
         if follower.isEmpty { follower = doc.rows.first?.followerTrackId ?? "" }
+        loaded = true
         error = nil
     }
 
@@ -144,7 +159,7 @@ extension FollowingReviewSession {
         {
             return
         }
-        guard !loadingWindow else { return }
+        guard !loadingWindow, failedManagedWindow?.contains(nanos) != true else { return }
         let generation = managedGeneration
         windowTask?.cancel()
         windowTask = Task {
@@ -154,6 +169,23 @@ extension FollowingReviewSession {
                 }
             }
         }
+    }
+
+    /// Empty minutes have no slice descriptor. Remember the complete gap as
+    /// well, so advancing frames cannot turn one refusal into a request loop.
+    private func managedWindowRange(
+        at nanos: Int64, metadata: FollowingReviewMetadata
+    ) -> Range<Int64> {
+        if let slice = metadata.slices.first(where: {
+            nanos >= $0.startNanos && nanos < $0.endExclusiveNanos
+        }) {
+            return slice.startNanos..<slice.endExclusiveNanos
+        }
+        let start = metadata.slices.filter { $0.endExclusiveNanos <= nanos }
+            .map(\.endExclusiveNanos).max() ?? metadata.startNanos
+        let end = metadata.slices.filter { $0.startNanos > nanos }
+            .map(\.startNanos).min() ?? metadata.endExclusiveNanos
+        return start..<end
     }
 
     func saveManagedRecord(_ record: FollowingAudit.Record) async {

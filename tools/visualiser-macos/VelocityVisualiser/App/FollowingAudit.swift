@@ -247,6 +247,7 @@ struct FollowingAudit: Codable, Equatable {
     @Published var managedDraft: FollowingReviewDraft?
     var managedTransport: FollowingReviewTransport?
     var managedGeneration = 0
+    var failedManagedWindow: Range<Int64>?
     var windowTask: Task<Void, Never>?
     var sampleIndices: [String: [Int64: Int]] = [:]
     var geometryIndex: [String: FollowingReviewGeometry.Path] = [:]
