@@ -252,6 +252,9 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         var record = FollowingAudit.Record(row: first.rows[0], playback: .init(runID: "run"))
         record.reviewer = "operator"
         record.notes = "Endpoints not visible"
+        record.proposedLeaderTrackID = "l"
+        record.leaderAndPath = .disputed
+        record.visibleEndpoints = .notVisible
         var audit = FollowingAudit(binding: .init(evidence: first, sha256: canonical))
         audit.records = [record]
         let data = try audit.encoded()
@@ -267,6 +270,13 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         let decoded = try FollowingAudit.decode(
             fromServer, evidence: second, sha256: canonical, validatePeriods: false)
         XCTAssertEqual(decoded.records[0].id, record.id)
+        XCTAssertEqual(decoded.records[0].reviewer, record.reviewer)
+        XCTAssertEqual(decoded.records[0].notes, record.notes)
+        XCTAssertEqual(decoded.records[0].proposedLeaderTrackID, "l")
+        XCTAssertEqual(decoded.records[0].leaderAndPath, .disputed)
+        XCTAssertEqual(decoded.records[0].visibleEndpoints, .notVisible)
+        XCTAssertEqual(decoded.records[0].startNanos, record.startNanos)
+        XCTAssertEqual(decoded.records[0].endExclusiveNanos, record.endExclusiveNanos)
         XCTAssertThrowsError(
             try FollowingAudit.decode(fromServer, evidence: second, sha256: canonical))
     }
