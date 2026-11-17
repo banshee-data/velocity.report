@@ -7,8 +7,9 @@ sensor at 20 Hz. Phase 2 starts only if phase 1's gate passes.
 - **Status:** Proposed. The items and gates are the
   [reconciliation](../research/lidar-route-slam-oracle-comparison.md) of two independent oracle
   runs ([A](../research/lidar-route-slam-oracle-response-fable.md),
-  [B](../research/lidar-route-slam-oracle-response-opus.md)); none is adopted until the owner
-  pins it. Waits on gate 1 of [phase 1](lidar-route-slam-phase1-bridge-ego-plan.md)
+  [B](../research/lidar-route-slam-oracle-response-opus.md)). The owner pinned the gates and
+  decisions at the reconciled defaults on 2026-11-17. Waits on gate 1 of
+  [phase 1](lidar-route-slam-phase1-bridge-ego-plan.md)
 - **Decisions:** D-36 (Gerardus owns registration; v0.6.0–v0.6.4 is the SLAM/mobile series), D-38
   (priors are measured spatial data)
 - **Layers:** Gerardus submaps, prior factors and pose graph; offline tooling over L1 and L2
@@ -236,14 +237,16 @@ Otherwise keep 10 Hz and record what 20 Hz did show.
 
 ## Owner decisions
 
-- Capture a native 20 Hz session, and when? Default (both runs): one 10–20–10 session on the
-  registered pair's route. Make it after gate 1, and only if the turn-submap test calls for it.
-- Use the 14 continuous drives beyond phase 1's set for odometry and submap gates (run B)?
-  Default: yes, after gate 1. The columbus-north-point → embarcadero-bay → columbus-broadway chain
-  run A proposed is not usable: both legs cross a recorder restart.
-- Run KISS-ICP's Python release on hydra as an outside cross-check? Default: only if gate 1's
-  residual is poor.
-- Make field-of-view-relative rotation completion (item 19) a separate change? Default: yes.
+All taken by the owner on 2026-11-17, at the reconciled defaults:
+
+- **20 Hz capture:** one 10–20–10 session on the registered pair's route, made after gate 1 and
+  only if the turn-submap test calls for it.
+- **Wider archive:** after gate 1, the 14 continuous drives beyond phase 1's set are used for
+  odometry and submap gates. The columbus-north-point → embarcadero-bay → columbus-broadway chain
+  is not used, because both legs cross a recorder restart.
+- **Cross-check:** KISS-ICP's Python release runs on hydra only if gate 1's residual is poor.
+- **Frame completion:** field-of-view-relative rotation completion (item 19) is a separate change,
+  outside the spike.
 
 ## Checklist
 

@@ -7,7 +7,7 @@ uncertainty of each. This plan fixes the boundary, records what the first pull r
 implements, and lists the questions an independent mathematical review must settle before
 the hydra evaluation is read as evidence.
 
-- **Status:** Proposed. First-pass tools are in #1056. Two independent oracle runs have answered the brief, and the [comparison](../research/lidar-route-slam-oracle-comparison.md) reconciles them into the two phase plans below; no gate is adopted and nothing has run on hydra, where the captures are
+- **Status:** Active. First-pass tools are in #1056. Two independent oracle runs answered the brief, and the [comparison](../research/lidar-route-slam-oracle-comparison.md) reconciles them into the two phase plans below. The owner pinned the gates and decisions on 2026-11-17. The [first exports](../lidar/operations/route-slam-first-exports-2026-11.md) ran on hydra, and a re-export under the tightened clock gate is pending
 - **Decisions:** D-36 (Gerardus owns registration; v0.6.0–v0.6.4 is the SLAM/mobile series), D-38 (priors are measured spatial data)
 - **Layers:** offline tooling over L1 decode and L2 rotations (`internal/lidar/motionexport`), offline platform kinematics (`internal/lidar/egotrack`); Gerardus odometry, prior factors and pose graph
 - **Target:** v0.6.0, the SLAM spike Gerardus runs as S0–S3; this plan narrows it to point-to-point drives
@@ -232,9 +232,10 @@ back to Git.
 - [x] Ego-track kinematics, stops, jitter, anchors and pose lookup (b1, b2)
 - [x] Oracle brief for the Gerardus implementation questions
 - [x] Oracle runs A and B, their comparison, and the two phase plans reconciled from it
+- [x] Gates and owner decisions pinned at the reconciled defaults (2026-11-17)
+- [x] First exports on hydra and their [report](../lidar/operations/route-slam-first-exports-2026-11.md)
 
 ### Outstanding
 
-- [ ] Owner: pin or amend the reconciled gates and take the decisions listed in the phase plans (`S`)
 - [ ] [Phase 1](lidar-route-slam-phase1-bridge-ego-plan.md): items 1–9 and gate 1 (`L`)
 - [ ] [Phase 2](lidar-route-slam-phase2-priors-rate-plan.md): items 10–18 and gate 2 (`L`)

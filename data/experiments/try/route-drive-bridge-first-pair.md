@@ -97,6 +97,10 @@ the checkout.
 
 ## Success criteria
 
+The owner pinned phase 1's gate 1 on 2026-11-17. It replaces criteria 2–4 below for the
+registration and ego-track arms. Both oracle runs showed those criteria could pass with a wrong
+trajectory. Criteria 1, 5 and 6 still apply.
+
 - [ ] At least 99% of exported rotations have `clock_ok`, and no rotation in motion is a period outlier without a packet gap to explain it
 - [ ] Held-out B residual (A-only solve) within 2% of the drive distance, and stated with the submap gate outcomes along the route
 - [ ] Every stop at least 5 s long shows displacement under 0.3 m on the A+B solve

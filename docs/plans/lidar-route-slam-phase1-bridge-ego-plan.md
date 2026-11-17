@@ -8,8 +8,9 @@ already exist and ends in one evaluation on hydra that decides whether phase 2 s
 - **Status:** Proposed. The items and gates are the
   [reconciliation](../research/lidar-route-slam-oracle-comparison.md) of two independent oracle
   runs ([A](../research/lidar-route-slam-oracle-response-fable.md),
-  [B](../research/lidar-route-slam-oracle-response-opus.md)); none is adopted until the owner
-  pins it. Nothing here is built beyond the first-pass tools in #1056
+  [B](../research/lidar-route-slam-oracle-response-opus.md)). The owner pinned the gates and
+  decisions at the reconciled defaults on 2026-11-17. Nothing here is built beyond the first-pass
+  tools in #1056
 - **Decisions:** D-36 (Gerardus owns registration; v0.6.0–v0.6.4 is the SLAM/mobile series), D-38
   (priors are measured spatial data)
 - **Layers:** offline tooling over L1 decode and L2 rotations (`internal/lidar/motionexport`),
@@ -307,20 +308,20 @@ outside KISS-ICP run agrees.
 
 ## Owner decisions
 
-Each with the reconciled default from the [comparison](../research/lidar-route-slam-oracle-comparison.md);
-none is taken yet, except the first.
+All taken by the owner on 2026-11-17, at the reconciled defaults from the
+[comparison](../research/lidar-route-slam-oracle-comparison.md):
 
 - How did the sensor ride between sites? **Answered by the owner:** on its tripod, ratchet-strapped
   to a car roof, wherever the capture is continuous.
-- Accept the phase boundary (ego track gated here, priors in phase 2)? Default: yes.
-- Reserve lombard-laguna → columbus-north-point as a never-tuned test, with the day-2 chain as the
-  second test? Default: yes.
-- Use manually placed ends only as alias detectors, never for held-out claims? Default: yes.
-- Pin the reconciled gates and defaults before evaluation 1? Default: pin.
-- Remove velocity from the trajectory contract, so only velocity.report differentiates?
-  Default: yes (both runs).
-- Report kinematics at the sensor and at a road-reference point? Default: both.
-- Record the tripod's height on the roof and the strap layout on future drives? Default: yes.
+- **Phase boundary:** the ego track is gated here, and priors are in phase 2.
+- **Test drives:** lombard-laguna → columbus-north-point is the never-tuned test, and the day-2
+  chain is the second test.
+- **Manual ends:** manually placed ends serve only as alias detectors, never for held-out claims.
+- **Gates:** the gates and defaults in this plan are pinned for evaluation 1.
+- **Trajectory contract:** velocity leaves it, so only velocity.report differentiates. The
+  [route plan's contract](lidar-route-capture-plan.md#trajectory-contract) is amended to match.
+- **Reference points:** kinematics are reported at the sensor and at a road-reference point.
+- **Field notes:** future drives record the tripod's height on the roof and the strap layout.
 
 ## Checklist
 
@@ -328,6 +329,7 @@ none is taken yet, except the first.
 
 - [x] First-pass export and ego-track tools (#1056)
 - [x] Oracle runs A and B and their comparison
+- [x] Gates and owner decisions pinned at the reconciled defaults (2026-11-17)
 
 ### Outstanding
 
