@@ -7,7 +7,7 @@ track and the held-out far-end anchor.
 - **Status:** Proposed
 - **Layers:** L1 decode, L2 rotations (export only); Gerardus odometry and registration; offline ego kinematics
 - **Related plan:** [lidar-route-slam-minimum-plan.md](../../../docs/plans/lidar-route-slam-minimum-plan.md)
-- **Review brief:** [lidar-route-slam-oracle-brief.md](../../../docs/plans/lidar-route-slam-oracle-brief.md)
+- **Review brief:** [lidar-route-slam-oracle-brief.md](../../../docs/research/lidar-route-slam-oracle-brief.md)
 
 ## Goal
 
@@ -63,7 +63,9 @@ the checkout.
      -out-dir $LOCAL/route-slam/lombard-laguna--columbus-north-point/export
    ```
 
-3. Read `frames.csv`: the share of rotations with `clock_ok`, the period over time (stops
+3. Check `rotation_hz` in `run.json`. It must be about 10 for this drive, and the site index
+   records no rate. If it reads 20, the archive is 20 Hz and the rate arms below swap roles.
+   Then read `frames.csv`: the share of rotations with `clock_ok`, the period over time (stops
    against motion), residual percentiles, packet gaps. Repeat with `-time-source packet_firetime`
    on a 60 s sub-window and compare the two time sources' frame-to-frame odometry residuals in
    Gerardus. That comparison is the evidence for the clock, not the clock's own residual.
@@ -79,7 +81,12 @@ the checkout.
      -out-dir $LOCAL/route-slam/lombard-laguna--columbus-north-point/ego-a-only
    ```
 
-7. Write the report under `docs/lidar/operations/`. Include summary tables only (timing,
+7. Rate arm (temporal ablation): repeat steps 2, 4 and 6 with `-keep-every-rotation 2` into a
+   separate `export-5hz` directory, so the drive reads as 5 Hz at 10 Hz angular density. Hold the
+   ego-track options fixed in seconds (the defaults) for both arms. Compare held-out B residuals,
+   stop displacement, speed σ and odometry convergence failures. This measures sensitivity to
+   inter-scan motion only; it is not a 5 Hz or 20 Hz sensor result.
+8. Write the report under `docs/lidar/operations/`. Include summary tables only (timing,
    per-submap gates, anchor residuals, stops, kinematic maxima and σ, the jitter peak), with the
    manifest digests and build SHA as provenance. No trajectory, coordinates along the route or
    per-frame rows.
@@ -91,6 +98,7 @@ the checkout.
 - [ ] Every stop at least 5 s long shows displacement under 0.3 m on the A+B solve
 - [ ] Ego-track distance within 1% of the solved path length; median speed σ under 0.1 m/s
 - [ ] The jitter spectrum is reported with its Nyquist limit and the fit's gain, and the report says what it cannot see
+- [ ] The 5 Hz ablation is reported beside the native arm with the same windows, and the report states which of its differences a native 20 Hz capture would still have to confirm
 
 ## Risks and controls
 

@@ -13,7 +13,8 @@ the hydra evaluation is read as evidence.
 - **Target:** v0.6.0, the SLAM spike Gerardus runs as S0–S3; this plan narrows it to point-to-point drives
 - **Companion plans:** [lidar-route-capture-plan](lidar-route-capture-plan.md) (trajectory contract, rigs, later items), [lidar-motion-capture-architecture-plan](lidar-motion-capture-architecture-plan.md) (`PoseProvider`); Gerardus `docs/plans/MOBILE-SLAM-REPLAY.md` (S0–S3) and `docs/research/2026-10-24-registration-and-slam-maths.md` (§4 sizing)
 - **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
-- **Review brief:** [lidar-route-slam-oracle-brief](lidar-route-slam-oracle-brief.md)
+- **Review brief:** [lidar-route-slam-oracle-brief](../research/lidar-route-slam-oracle-brief.md)
+- **Rate audit:** [20 Hz pipeline readiness](../research/lidar-20hz-readiness.md)
 
 ## Motivation
 
@@ -127,6 +128,40 @@ Loop closure (S2), IMU, world-frame foreground and map building (S4+) are not ne
 | b2  | File-backed pose lookup with gap refusal (`Trajectory.PoseAt`)                                                      | velocity.report | S    | this change |
 | b3  | A trajectory to read: a6 above                                                                                      | Gerardus        | —    | open        |
 | b4  | Independent checks on hydra: held-out anchor B, stop displacement, distance against the registered A–B route length | evaluation      | S    | open        |
+
+## Rotation rate: running SLAM at 10 Hz and 20 Hz
+
+The Pandar40P runs at 10 Hz (0.2° steps, about 72,000 points per rotation) or 20 Hz (0.4°, about
+36,000), with the same points per second. It has no 5 Hz mode. The
+[20 Hz readiness audit](../research/lidar-20hz-readiness.md) found no 5 Hz throttle in the
+pipeline; "5 Hz" in the docs is a historical effective observation rate and the scene exports'
+one-in-two stride. The proposals below are provisional until the oracle answers questions
+23–30 of the [brief](../research/lidar-route-slam-oracle-brief.md).
+
+- **One configuration for both rates, fixed in seconds and metres.** Keyframes and submaps by
+  distance and turn angle, the motion model and de-skew by point time, odometry-factor covariance
+  per metre or second, and ego-track windows and the spectrum segment in seconds. Nothing in the
+  SLAM path counts rotations. The tools in this change already do this: the exporter measures
+  `rotation_hz`, and the ego track's windows and spectrum segment are in seconds.
+- **At 10 Hz (the archive):** register every rotation against the local map. De-skew matters
+  most here, because a 100 ms sweep at 15 m/s spans 1.5 m. The first drive runs at native
+  10 Hz, and again with `-keep-every-rotation 2` as the 5 Hz temporal ablation, to measure how
+  odometry and the ego track degrade as inter-scan motion doubles at unchanged angular density.
+- **At 20 Hz (a future capture):** register each 50 ms rotation against the local map on its
+  own. Scan-to-map registration keeps the map dense while each scan is half as dense, de-skew
+  smear halves and the constant-velocity residue quarters. Prior factors come from submaps, so
+  they see the same points per second at either rate. The ego track gains a 0–10 Hz vibration
+  band (0–5 Hz at 10 Hz). Speed σ over a fixed window stays about the same (synthetic: within
+  0.8–1.25 with √2 noisier poses), so 20 Hz is not an automatic gain in acceleration or jerk.
+- **Comparisons:** native 20 Hz, the same drive decimated to 10 Hz, and native 10 Hz on the same
+  route. Decimation is temporal only: it does not reproduce the other rate's angular density, and
+  replaying a 10 Hz capture faster is not a 20 Hz experiment.
+- **Known 20 Hz gaps:**
+  - The repository's 20 Hz fixture is a 60–290° sector capture, which never completes a rotation
+    in the frame builder (it needs 340°), so it cannot exercise this path.
+  - A full-rotation 20 Hz capture is needed.
+  - The audit's 10 Hz hard-coding (`SpatialCoverage`, `MaxOcclusionFrames`) does not touch the
+    SLAM path, but it matters once route tracking reuses those metrics.
 
 ## Evaluation on hydra
 
