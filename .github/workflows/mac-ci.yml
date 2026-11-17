@@ -107,6 +107,7 @@ jobs:
           cd tools/visualiser-macos
           xcodebuild clean build \
             -scheme VelocityVisualiser \
+            -derivedDataPath DerivedData \
             -destination 'platform=macOS' \
             -configuration Debug \
             CODE_SIGN_IDENTITY="-" \
