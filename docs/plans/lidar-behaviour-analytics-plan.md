@@ -1749,6 +1749,11 @@ document, that is stated at the point of use.
   sensing, agrees with the interaction-type rule in Section 8 and the PET gates; its 6 s PET and
   1.15 s TTC values are secondary and do not enter Section 5.1. Open: Q1 (read Singh et al. 2024
   for Section 5.1) and Q2 (a quantity for the longitudinal TTC rule from Li et al. 2024).
+- [November 16, 2026 research briefing](../lidar/operations/brief/research-briefing-2026-11-16.md):
+  a camera conflict-extraction preprint (AgenticConflictLens) whose records match Sections 7.2, 7.6
+  and 8.12; its TTC is a centre-to-centre time to closest approach evaluated at the
+  minimum-separation instant, where it is zero by construction. Nothing adopted. Open: Q1 (one
+  sentence in Section 8.4 on why that form is not TTC).
 
 **Roadside LiDAR perception**
 
