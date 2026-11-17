@@ -382,3 +382,7 @@ records per-source reproducibility and exclusion accounting for Columbus at Broa
 The [three-source identity rerun](operations/following-identity-rerun-2026-11.md)
 verifies fresh per-case calibration and replay-window provenance through the baseline,
 with all-row audits, repeated exports and explicit portability limits.
+
+The [Broderick VV walkthrough](operations/broderick-vv-walkthrough-2026-11.md) records
+recording-bound retrieval, visual relationship checks, uncertain audit persistence and the
+attached-drive build diagnosis, without qualifying physical following measurements.

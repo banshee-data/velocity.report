@@ -500,9 +500,13 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
             paths: [.init(followerTrackId: "l", path: path, conditions: nil)])
         XCTAssertEqual(scene.gap.first, SIMD2(4, 0))
         XCTAssertEqual(scene.gap.last, SIMD2(10, 0))
+        XCTAssertEqual(scene.gapM, 6, "The highlighted gap belongs to the selected pair")
         XCTAssertEqual(scene.otherGaps.count, 1)
         XCTAssertEqual(scene.otherGaps[0].followerID, "l")
         XCTAssertEqual(scene.otherGaps[0].leaderID, "a")
         XCTAssertEqual(scene.otherGaps[0].gapM, 4)
+        XCTAssertNil(
+            FollowingRelationshipScene(row: doc.rows[0], path: nil).gapM,
+            "Do not label a spatial gap when its path cannot be drawn")
     }
 }

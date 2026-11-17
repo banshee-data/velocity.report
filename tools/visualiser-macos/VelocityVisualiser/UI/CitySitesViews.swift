@@ -497,6 +497,7 @@ struct SiteChoiceRow: Identifiable {
     let selection: String
     let rows: [SiteChoiceRow]
     var accessibilityTitle = "Choose site"
+    var searchPrompt = "Find a site"
     let choose: (String) -> Void
     @State private var presented = false
     @State private var search = ""
@@ -514,7 +515,7 @@ struct SiteChoiceRow: Identifiable {
         }.accessibilityLabel(accessibilityTitle).popover(isPresented: $presented) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    TextField("Find a site", text: $search).textFieldStyle(.roundedBorder)
+                    TextField(searchPrompt, text: $search).textFieldStyle(.roundedBorder)
                     Button("Close") { presented = false }
                 }
                 ScrollView {

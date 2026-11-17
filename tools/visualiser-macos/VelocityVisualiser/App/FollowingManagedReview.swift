@@ -181,10 +181,12 @@ extension FollowingReviewSession {
         }) {
             return slice.startNanos..<slice.endExclusiveNanos
         }
-        let start = metadata.slices.filter { $0.endExclusiveNanos <= nanos }
-            .map(\.endExclusiveNanos).max() ?? metadata.startNanos
-        let end = metadata.slices.filter { $0.startNanos > nanos }
-            .map(\.startNanos).min() ?? metadata.endExclusiveNanos
+        let start =
+            metadata.slices.filter { $0.endExclusiveNanos <= nanos }.map(\.endExclusiveNanos).max()
+            ?? metadata.startNanos
+        let end =
+            metadata.slices.filter { $0.startNanos > nanos }.map(\.startNanos).min()
+            ?? metadata.endExclusiveNanos
         return start..<end
     }
 

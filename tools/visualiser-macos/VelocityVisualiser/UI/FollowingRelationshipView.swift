@@ -17,6 +17,7 @@ struct FollowingRelationshipScene {
     }
     var path: [SIMD2<Double>] = []
     var gap: [SIMD2<Double>] = []
+    var gapM: Double?
     var follower: SIMD2<Double>?
     var actors: [Actor] = []
     var otherGaps: [OtherGap] = []
@@ -46,6 +47,7 @@ struct FollowingRelationshipScene {
                 [first]
                 + path.vertices.filter { $0.arcM > from && $0.arcM < to }.map { SIMD2($0.x, $0.y) }
                 + [last]
+            gapM = row.point?.gap?.valueM
         }
         let visible = Set(actors.map(\.id)).union([row.followerTrackId])
         for other in contextRows
@@ -119,7 +121,7 @@ struct FollowingRelationshipView: View {
                     SiteChoicePopover(
                         title: "Follower · \(short(review.follower))", selection: review.follower,
                         rows: followers.map { SiteChoiceRow(id: $0, title: short($0)) },
-                        accessibilityTitle: "Choose follower"
+                        accessibilityTitle: "Choose follower", searchPrompt: "Find a follower"
                     ) { id in
                         review.follower = id
                         appState.selectTrack(id)
@@ -336,6 +338,7 @@ private struct FollowingRelationshipMap: View {
     let scene: FollowingRelationshipScene
     let followerID: String
     let choose: (String) -> Void
+    @State private var showCandidateLabels = false
 
     var body: some View {
         Canvas { context, size in
@@ -349,7 +352,8 @@ private struct FollowingRelationshipMap: View {
                 context.stroke(
                     line(edge.points.map(project)), with: .color(.secondary.opacity(0.45)),
                     lineWidth: 2)
-                if let mid = edge.points.dropFirst(edge.points.count / 2).first {
+                if showCandidateLabels, let mid = edge.points.dropFirst(edge.points.count / 2).first
+                {
                     context.draw(
                         Text(
                             "\(String(edge.followerID.suffix(4))) → \(String(edge.leaderID.suffix(4))) · \(String(format: "%.2g", edge.gapM)) m"
@@ -368,27 +372,45 @@ private struct FollowingRelationshipMap: View {
                 context.fill(
                     Path(ellipseIn: CGRect(x: p.x - 5, y: p.y - 5, width: 10, height: 10)),
                     with: .color(actor.leader ? .purple : .secondary))
-                context.draw(
-                    Text(String(actor.id.suffix(6))).font(.caption),
-                    at: CGPoint(x: p.x, y: p.y - 14))
+                if showCandidateLabels && !actor.leader {
+                    context.draw(
+                        Text(String(actor.id.suffix(6))).font(.caption2).foregroundStyle(
+                            .secondary), at: CGPoint(x: p.x, y: p.y - 14))
+                }
             }
             if !scene.gap.isEmpty {
                 context.stroke(line(scene.gap.map(project)), with: .color(.cyan), lineWidth: 4)
+                if let gapM = scene.gapM, let first = scene.gap.first, let last = scene.gap.last {
+                    let p = project((first + last) / 2)
+                    context.draw(
+                        Text(String(format: "%.3g m", gapM)).font(.caption.bold()).foregroundStyle(
+                            .cyan), at: CGPoint(x: p.x - 12, y: p.y), anchor: .trailing)
+                }
+            }
+            // Draw the reviewed pair last. Context labels must never obscure
+            // which measurement belongs to this follower and chosen leader.
+            for actor in scene.actors where actor.leader {
+                let p = project(actor.position)
+                context.fill(
+                    Path(ellipseIn: CGRect(x: p.x - 6, y: p.y - 6, width: 12, height: 12)),
+                    with: .color(.purple))
+                context.draw(
+                    Text("Leader \(String(actor.id.suffix(8)))").font(.caption.bold())
+                        .foregroundStyle(.purple), at: CGPoint(x: p.x + 12, y: p.y),
+                    anchor: .leading)
             }
             if let follower = scene.follower {
                 let p = project(follower)
                 context.fill(
                     Path(ellipseIn: CGRect(x: p.x - 6, y: p.y - 6, width: 12, height: 12)),
                     with: .color(.cyan))
-                context.draw(Text("Follower").font(.caption), at: CGPoint(x: p.x, y: p.y + 17))
+                context.draw(
+                    Text("Follower \(String(followerID.suffix(8)))").font(.caption.bold())
+                        .foregroundStyle(.cyan), at: CGPoint(x: p.x + 12, y: p.y), anchor: .leading)
             }
         }.frame(height: 200).background(.quaternary.opacity(0.3)).clipShape(
             RoundedRectangle(cornerRadius: 6)
-        ).overlay(alignment: .bottomLeading) {
-            Text("Projected path · dashed = alternatives").font(.caption2).foregroundStyle(
-                .secondary
-            ).padding(5)
-        }.accessibilityLabel(
+        ).accessibilityLabel(
             "Follower, selected leader, projected gap and competing track hypotheses"
         ).overlay {
             GeometryReader { geo in
@@ -402,6 +424,12 @@ private struct FollowingRelationshipMap: View {
                     }
                 }
             }
+        }.overlay(alignment: .bottomLeading) {
+            HStack {
+                Toggle("Candidate labels", isOn: $showCandidateLabels).toggleStyle(.checkbox)
+                Spacer()
+                Text("Dashed = alternatives").foregroundStyle(.secondary)
+            }.font(.caption2).padding(5)
         }
     }
     private func line(_ points: [CGPoint]) -> Path {

@@ -24,6 +24,10 @@ and permitted use must be resolved before diagnostic review.
 
 ## Outcome and boundary
 
+The [Broderick VV software walkthrough](../lidar/operations/broderick-vv-walkthrough-2026-11.md)
+records the one-action review and timeline checks, the isolated uncertain audit, and the
+attached-drive build diagnosis. It does not close the operator or physical qualification gates.
+
 On Sunday, select an explicit site, source and analysis version, reproduce its logs and
 accounting, and inspect three or four named periods. Every value must explain its inputs,
 support, uncertainty and eligibility. A difficult case with correctly recorded ambiguity is

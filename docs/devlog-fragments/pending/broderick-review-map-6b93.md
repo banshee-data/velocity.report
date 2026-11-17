@@ -1,0 +1,1 @@
+- Clarified the selected follower, leader and projected gap in VV's relationship map, kept competing labels optional, and corrected the follower search prompt after the [Broderick software walkthrough](../../lidar/operations/broderick-vv-walkthrough-2026-11.md); recorded attached-drive build findings and explicitly uncertain review evidence without claiming physical validation.
