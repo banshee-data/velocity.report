@@ -96,6 +96,16 @@ regenerating it, relabelling track histories, adopting tuning changes or promoti
 accuracy. Matching the reader's recording to its reviewed analysis is distinct from proving
 that inferred endpoints represent real bumpers.
 
+Local verification at `dcd2bf739b99bc750f10f7d1054cd0f3860e73cc` passed the full following-review,
+recorder and endpoint Go suites, the focused API regressions, and 26 native review, evidence
+and audit tests. The fresh Make-built server and native test products stayed on the attached
+volume. At capture `1788367178027002330`, a bounded stream check found both selected actors
+and matched the actual reader path and header digest against the verified session. The original
+header's digest was `sha256:2f5885d0edacf4fff160a04d0c18f0bdb0c21e9fc79cb75fa6aea6becb28dbf0`;
+the frame still had no trail source IDs. Geometry retained the expected source, calibration,
+canonical digest and recording-coordinate placement. These API and software checks do not
+establish that the 3D overlay was seen in VV; that visual check was still pending Mac unlock.
+
 ## Attached-drive diagnosis
 
 The physical evidence volume was Journaled HFS+ on a USB rotating disk. Both direct HFS+
