@@ -29,6 +29,12 @@ odometry and a world-anchored foreground engine; stops run through a keyframe st
 outputs are speeds along road segments either side of intersections. That case is specified in
 [lidar-route-capture-plan.md](../../plans/lidar-route-capture-plan.md).
 
+The v0.6.0 spike narrows it to the archive's car drives between registered sites, in
+[two phases](../../plans/lidar-route-slam-minimum-plan.md#two-phases). The
+[first exports](route-slam-first-exports-2026-11.md) of three of those drives found and fixed a
+seam defect in the export's azimuth clock. After the fix the median clock residual was 176–188 µs,
+and a re-export under the tightened gate is pending.
+
 The [portable timing design](../architecture/portable-capture-timing.md) specifies a costed
 GNSS PPS/MCU/IMU prototype, measured fallbacks, and acquisition-time quality gates. Current point
 timestamps and replay precedence need work before deskew; an IMU does not make correction exact.

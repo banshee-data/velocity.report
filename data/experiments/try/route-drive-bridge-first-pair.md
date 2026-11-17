@@ -120,7 +120,17 @@ the checkout.
 
 ## Result
 
-Fill after running.
+Partial: steps 1–3 only, on this drive and two development drives. See the
+[first exports report](../../../docs/lidar/operations/route-slam-first-exports-2026-11.md).
+
+- **Seam defect.** A defect in the azimuth clock timed 0.7% of points one to three rotations
+  early. After the fix (`7cfe581`), every rotation passed the clock fit, with a median residual
+  of 176–188 µs.
+- **Criterion 1 fails strictly.** One rotation of this drive (frame 93) is 5.9% off the median
+  period with no packet gap.
+- **Re-export needed.** The clock gate was tightened afterwards (`866b9d4`), so the drives need
+  re-exporting before criterion 1 is read.
+- **Criteria 2–6 untested.** They need a trajectory.
 
 ## Next action
 

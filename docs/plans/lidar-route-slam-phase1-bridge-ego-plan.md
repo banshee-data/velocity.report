@@ -65,8 +65,9 @@ independent before any number is read as evidence.
   - a fit is refused above 10% rejected blocks or above 500 µs kept-block RMS;
   - residuals now cover kept blocks only.
 
-  Neither oracle run caught the defect, though both read `clock.go`. The authored evaluation
-  report, with the drives named and their tables, is still to be written.
+  Neither oracle run caught the defect, though both read `clock.go`. The
+  [first exports report](../lidar/operations/route-slam-first-exports-2026-11.md) names the
+  drives and records the figures against the spec's criteria.
 
 - **Gerardus:** robust point-to-plane ICP and the static gates (`src/register.rs`), a small pose
   graph (`src/graph.rs`). No odometry, de-skew, import or bridge solve.
