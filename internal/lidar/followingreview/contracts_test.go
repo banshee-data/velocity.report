@@ -15,6 +15,8 @@ func TestPlaybackFieldBoundsAndEmptyLeader(t *testing.T) {
 	f := newFixture(t)
 	base := Record{ID: uuid.NewString(), Reviewer: "reviewer", SavedAt: time.Now().UTC(), FollowerTrackID: "follower", StartNanos: 1000, EndExclusiveNanos: 1100, IdentityContinuity: "unknown", LeaderAndPath: "unknown", VisibleEndpoints: "unknown", SpeedEvidence: "unknown", Conclusion: "insufficientEvidence", Notes: "uncertain"}
 	mutations := map[string]func(*Record){
+		"frame recording path":  func(r *Record) { r.Playback.FrameRecordingPath = strings.Repeat("x", 4097) },
+		"frame header digest":   func(r *Record) { r.Playback.FrameRecordingHeaderSHA256 = strings.Repeat("x", 72) },
 		"empty proposed leader": func(r *Record) { s := ""; r.ProposedLeaderTrackID = &s },
 		"source path":           func(r *Record) { r.Playback.SourcePath = strings.Repeat("x", 4097) },
 		"recording path":        func(r *Record) { r.Playback.RecordingPath = strings.Repeat("x", 4097) },

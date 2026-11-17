@@ -422,14 +422,16 @@ type StatePrediction struct {
 
 // PlaybackInfo contains playback metadata for replay mode.
 type PlaybackInfo struct {
-	LogStartNs        int64
-	LogEndNs          int64
-	PlaybackRate      float32
-	Paused            bool
-	CurrentFrameIndex uint64 // 0-based index in log
-	TotalFrames       uint64
-	Seekable          bool   // true when seek/step is supported (e.g. .vrlog replay)
-	ReplayEpoch       uint64 // monotonically increasing; bumped on each new replay load
+	RecordingPath         string
+	RecordingHeaderSHA256 string
+	LogStartNs            int64
+	LogEndNs              int64
+	PlaybackRate          float32
+	Paused                bool
+	CurrentFrameIndex     uint64 // 0-based index in log
+	TotalFrames           uint64
+	Seekable              bool   // true when seek/step is supported (e.g. .vrlog replay)
+	ReplayEpoch           uint64 // monotonically increasing; bumped on each new replay load
 
 	// SourceMode names what is driving the pipeline, as the canonical token
 	// ("live", "pcap", "pcap_analysis", "vrlog"). Empty means unknown, which

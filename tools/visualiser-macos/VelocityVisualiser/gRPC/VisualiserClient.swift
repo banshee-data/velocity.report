@@ -762,6 +762,8 @@ final class LockedState<Value>: @unchecked Sendable {
         // Playback info
         if proto.hasPlaybackInfo {
             frame.playbackInfo = PlaybackInfo(
+                recordingPath: proto.playbackInfo.recordingPath,
+                recordingHeaderSHA256: proto.playbackInfo.recordingHeaderSha256,
                 settling: proto.playbackInfo.settling,
                 settlingElapsedSeconds: proto.playbackInfo.settlingElapsedSeconds,
                 sensorSilent: proto.playbackInfo.sensorSilent,

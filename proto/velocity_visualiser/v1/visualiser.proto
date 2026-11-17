@@ -431,6 +431,12 @@ message PlaybackInfo {
   // keep flowing while a sensor is silent — they are simply empty — so a client
   // cannot tell a quiet scene from a stopped sensor by frame arrival alone.
   bool sensor_silent = 15;
+
+  // Identity of the recording actually opened by the replay reader. The digest
+  // covers the exact header bytes, and the path is absolute with symlinks
+  // resolved. These are playback context, never inferred trail source IDs.
+  string recording_path = 16;
+  string recording_header_sha256 = 17;
 }
 
 message FrameBundle {

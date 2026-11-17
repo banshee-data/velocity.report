@@ -13,6 +13,7 @@ struct FollowingReviewMetadata: Decodable, Sendable {
     let runId: String
     let evidenceSha256: String
     let recordingHeaderSha256: String
+    let recordingPath: String?
     let sourceId: String
     let calibrationId: String
     let startNanos: Int64

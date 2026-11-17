@@ -876,6 +876,7 @@ func TestPublisher_VRLogReplay_PlaybackInfoPreserved(t *testing.T) {
 			FrameID:        uint64(i),
 			TimestampNanos: startNs + int64(i)*100_000_000,
 			PlaybackInfo: &PlaybackInfo{
+				RecordingPath: "/recording", RecordingHeaderSHA256: "sha256:reader",
 				LogStartNs:        startNs,
 				LogEndNs:          endNs,
 				PlaybackRate:      1.0,
@@ -913,6 +914,9 @@ func TestPublisher_VRLogReplay_PlaybackInfoPreserved(t *testing.T) {
 		pi := frame.PlaybackInfo
 		if pi == nil {
 			t.Fatalf("frame %d PlaybackInfo is nil", i)
+		}
+		if pi.RecordingPath != "/recording" || pi.RecordingHeaderSHA256 != "sha256:reader" {
+			t.Fatalf("replay changed reader identity: %+v", pi)
 		}
 		if pi.LogStartNs != startNs {
 			t.Errorf("frame %d LogStartNs = %d, want %d", i, pi.LogStartNs, startNs)

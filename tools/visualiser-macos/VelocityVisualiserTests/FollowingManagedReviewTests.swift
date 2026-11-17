@@ -30,6 +30,20 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
 @MainActor final class FollowingManagedReviewTests: XCTestCase {
     private let canonical = "sha256:" + String(repeating: "a", count: 64)
     private let header = "sha256:" + String(repeating: "b", count: 64)
+
+    func testWireReplayIdentityIsDecodedWithoutInventingTrailSources() {
+        let client = VisualiserClient(address: "localhost:50051")
+        var wire = Velocity_Visualiser_V1_FrameBundle()
+        wire.timestampNs = 1000
+        wire.playbackInfo.recordingPath = "/recording"
+        wire.playbackInfo.recordingHeaderSha256 = header
+        wire.playbackInfo.sourceMode = .vrlog
+        let frame = client.decodeFrameBundle(wire)
+        XCTAssertEqual(frame.playbackInfo?.recordingPath, "/recording")
+        XCTAssertEqual(frame.playbackInfo?.recordingHeaderSHA256, header)
+        XCTAssertEqual(frame.playbackInfo?.sourceMode, .vrlog)
+        XCTAssertNil(frame.tracks)
+    }
     private var transport: FollowingReviewTransport {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [FollowingReviewTestProtocol.self]
@@ -170,9 +184,10 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
             review.followPlayback(at: at, selectedTrackID: "f")
             await review.windowTask?.value
         }
-        XCTAssertEqual(FollowingReviewTestProtocol.lock.withLock {
-            FollowingReviewTestProtocol.evidenceRequests
-        }, 1)
+        XCTAssertEqual(
+            FollowingReviewTestProtocol.lock.withLock {
+                FollowingReviewTestProtocol.evidenceRequests
+            }, 1)
         XCTAssertEqual(review.document?.reviewSlice?.sampleStartNanos, 1000)
 
         try install()
@@ -189,9 +204,10 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         XCTAssertEqual(review.failedManagedWindow, 1000..<2000)
         review.followPlayback(at: 1001, selectedTrackID: "f")
         await review.windowTask?.value
-        XCTAssertEqual(FollowingReviewTestProtocol.lock.withLock {
-            FollowingReviewTestProtocol.evidenceRequests
-        }, 1)
+        XCTAssertEqual(
+            FollowingReviewTestProtocol.lock.withLock {
+                FollowingReviewTestProtocol.evidenceRequests
+            }, 1)
 
         review.followPlayback(at: 2000, selectedTrackID: "f")
         await review.windowTask?.value
@@ -212,11 +228,10 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         await review.openRecording(runID: "run", at: 1000, transport: transport)
         let original = try metadata()
         review.managedMetadata = FollowingReviewMetadata(
-            schema: original.schema, runId: original.runId,
-            evidenceSha256: original.evidenceSha256,
+            schema: original.schema, runId: original.runId, evidenceSha256: original.evidenceSha256,
             recordingHeaderSha256: original.recordingHeaderSha256,
-            sourceId: original.sourceId, calibrationId: original.calibrationId,
-            startNanos: 1000, endExclusiveNanos: 4000,
+            recordingPath: original.recordingPath, sourceId: original.sourceId,
+            calibrationId: original.calibrationId, startNanos: 1000, endExclusiveNanos: 4000,
             slices: [
                 original.slices[0],
                 .init(id: "2", startNanos: 3000, endExclusiveNanos: 4000, rows: 1),
@@ -229,9 +244,10 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
             review.followPlayback(at: at, selectedTrackID: "f")
             await review.windowTask?.value
         }
-        XCTAssertEqual(FollowingReviewTestProtocol.lock.withLock {
-            FollowingReviewTestProtocol.evidenceRequests
-        }, 1)
+        XCTAssertEqual(
+            FollowingReviewTestProtocol.lock.withLock {
+                FollowingReviewTestProtocol.evidenceRequests
+            }, 1)
     }
 
     func testRecordingReviewDoesNotReplaceAnActiveFileImport() async {
@@ -426,6 +442,13 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         XCTAssertEqual(good.vertices.count, 14)
         XCTAssertEqual(good.vertices[0], 4)
         XCTAssertEqual(good.vertices[7], 10)
+        frame.playbackInfo = PlaybackInfo(sourceMode: .live)
+        XCTAssertTrue(
+            FollowingReviewOverlay.make(
+                frame: frame, runID: "run", metadata: try metadata(), managedRunID: "run",
+                geometry: geometry, row: row, path: path
+            ).vertices.isEmpty)
+        frame.playbackInfo = nil
         frame.timestampNanos = 1001
         XCTAssertNil(
             FollowingReviewOverlay.make(
@@ -437,6 +460,83 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         XCTAssertNil(
             FollowingReviewOverlay.make(
                 frame: frame, runID: "run", metadata: try metadata(), managedRunID: "run",
+                geometry: geometry, row: row, path: path
+            ).followerID)
+
+        var boundMetadata = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: metadataBytes()) as? [String: Any])
+        boundMetadata["recording_path"] = "/recording"
+        let recordingMetadata = try FollowingReviewTransport.decode(
+            FollowingReviewMetadata.self,
+            from: JSONSerialization.data(withJSONObject: boundMetadata))
+        // A new-server binding cannot fall back to trail IDs when its frame
+        // recording identity is absent, even if those IDs match the source.
+        frame.tracks?.trails = [TrackTrail(trackID: "f", points: [provenance])]
+        XCTAssertTrue(
+            FollowingReviewOverlay.make(
+                frame: frame, runID: "run", metadata: recordingMetadata, managedRunID: "run",
+                geometry: geometry, row: row, path: path
+            ).vertices.isEmpty)
+        frame.tracks?.trails = []
+        frame.playbackInfo = PlaybackInfo(
+            recordingPath: "/recording", recordingHeaderSHA256: header, sourceMode: .vrlog)
+        func overlay(
+            _ value: FrameBundle, geometry valueGeometry: FollowingReviewGeometry? = nil
+        ) throws -> FollowingReviewOverlay {
+            FollowingReviewOverlay.make(
+                frame: value, runID: "run", metadata: recordingMetadata, managedRunID: "run",
+                geometry: valueGeometry ?? geometry, row: row, path: path)
+        }
+        let verified = try overlay(frame)
+        XCTAssertEqual(verified.leaderID, "l")
+        XCTAssertEqual(verified.vertices.count, 14)
+        XCTAssertEqual(verified.notice, "3D gap: recording and analysis match.")
+        let mutations: [(String, (inout FrameBundle) -> Void)] = [
+            (
+                "another recording with identical header",
+                { $0.playbackInfo?.recordingPath = "/other" }
+            ),
+            (
+                "changed header",
+                {
+                    $0.playbackInfo?.recordingHeaderSHA256 =
+                        "sha256:" + String(repeating: "c", count: 64)
+                }
+            ), ("missing header", { $0.playbackInfo?.recordingHeaderSHA256 = "" }),
+            ("missing path", { $0.playbackInfo?.recordingPath = "" }),
+            ("live frame", { $0.playbackInfo?.sourceMode = .live }),
+            ("stale sample", { $0.timestampNanos += 1 }),
+            (
+                "conflicting source",
+                { value in
+                    var conflicting = provenance
+                    conflicting.sourceID = "source/v2/other"
+                    value.tracks?.trails = [TrackTrail(trackID: "f", points: [conflicting])]
+                }
+            ),
+        ]
+        for (name, mutate) in mutations {
+            var invalid = frame
+            mutate(&invalid)
+            XCTAssertNil(try overlay(invalid).followerID, name)
+            XCTAssertTrue(try overlay(invalid).vertices.isEmpty, name)
+        }
+        let unplaced = FollowingReviewGeometry(
+            schema: geometry.schema, sourceId: geometry.sourceId,
+            calibrationId: geometry.calibrationId,
+            canonicalEvidenceSha256: geometry.canonicalEvidenceSha256,
+            coordinateFrameId: geometry.coordinateFrameId, recordingCoordinates: false,
+            paths: geometry.paths)
+        XCTAssertTrue(try overlay(frame, geometry: unplaced).vertices.isEmpty)
+        var oldMetadata = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: metadataBytes()) as? [String: Any])
+        oldMetadata.removeValue(forKey: "recording_path")
+        let legacy = try FollowingReviewTransport.decode(
+            FollowingReviewMetadata.self, from: JSONSerialization.data(withJSONObject: oldMetadata))
+        XCTAssertNil(legacy.recordingPath)
+        XCTAssertNil(
+            FollowingReviewOverlay.make(
+                frame: frame, runID: "run", metadata: legacy, managedRunID: "run",
                 geometry: geometry, row: row, path: path
             ).followerID)
     }

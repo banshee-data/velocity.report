@@ -82,6 +82,17 @@ func TestSessionExactEvidenceGeometryAndCache(t *testing.T) {
 	if s.Metadata.Schema != "following_review_session_v1" || s.Metadata.Binding.EvidenceSHA256 != s.Metadata.EvidenceSHA256 || s.Metadata.Start != 1000 || s.Metadata.End != 1101 {
 		t.Fatal(s.Metadata)
 	}
+	resolved, err := filepath.EvalSymlinks(f.run.VRLogPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hb, err := os.ReadFile(filepath.Join(resolved, "header.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Metadata.RecordingPath != resolved || s.Metadata.HeaderSHA256 != Digest(hb) {
+		t.Fatalf("metadata is not bound to opened recording: %+v", s.Metadata)
+	}
 	b, rows, e := s.Evidence(1100)
 	if e != nil || string(b) != string(f.bytes) || len(rows) != 2 || Digest(b) != f.receipt.Slices[0].SHA256 {
 		t.Fatal(e)

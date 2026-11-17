@@ -2,8 +2,10 @@
 package recorder
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,6 +15,66 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
+
+func TestReplayIdentityComesFromOpenedRecording(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "recording")
+	rec, err := NewRecorder(dir, "sensor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := testFrameBundle(1, 1000)
+	frame.PlaybackInfo = &l9endpoints.PlaybackInfo{RecordingPath: "/spoofed", RecordingHeaderSHA256: "spoofed"}
+	if err := rec.Record(frame); err != nil {
+		t.Fatal(err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatal(err)
+	}
+	headerPath := filepath.Join(dir, "header.json")
+	header, err := os.ReadFile(headerPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(root, "alias")
+	if err := os.Symlink(dir, alias); err != nil {
+		t.Fatal(err)
+	}
+	r, err := NewReplayer(alias)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	for i := 0; i < 2; i++ {
+		if err := r.Seek(0); err != nil {
+			t.Fatal(err)
+		}
+		got, err := r.ReadFrame()
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantPath, err := filepath.EvalSymlinks(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.PlaybackInfo.SourceMode != "vrlog" || got.PlaybackInfo.RecordingPath != wantPath || got.PlaybackInfo.RecordingHeaderSHA256 != fmt.Sprintf("sha256:%x", sha256.Sum256(header)) {
+			t.Fatalf("incorrect replay identity: %+v", got.PlaybackInfo)
+		}
+		if got.Tracks != nil {
+			for _, trail := range got.Tracks.Trails {
+				for _, p := range trail.Points {
+					if p.SourceID != "" {
+						t.Fatal("invented a trail source")
+					}
+				}
+			}
+		}
+	}
+	after, err := os.ReadFile(headerPath)
+	if err != nil || string(after) != string(header) {
+		t.Fatal("replay changed the original header")
+	}
+}
 
 // testFrameBundle creates a FrameBundle for testing.
 func testFrameBundle(frameID uint64, timestampNanos int64) *l9endpoints.FrameBundle {

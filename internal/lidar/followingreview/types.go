@@ -37,14 +37,16 @@ func binding(c fieldrun.EvidenceContext, v l8behaviour.InteractionVersion, hash 
 }
 
 type Playback struct {
-	RunID             string   `json:"runID,omitempty"`
-	SourcePath        string   `json:"sourcePath,omitempty"`
-	RecordingPath     string   `json:"recordingPath,omitempty"`
-	CaptureNanos      int64    `json:"captureNanos"`
-	StartNanos        int64    `json:"startNanos"`
-	EndNanos          int64    `json:"endNanos"`
-	CoordinateFrameID string   `json:"coordinateFrameID,omitempty"`
-	FrameSourceIDs    []string `json:"frameSourceIDs"`
+	RunID                      string   `json:"runID,omitempty"`
+	SourcePath                 string   `json:"sourcePath,omitempty"`
+	RecordingPath              string   `json:"recordingPath,omitempty"`
+	CaptureNanos               int64    `json:"captureNanos"`
+	StartNanos                 int64    `json:"startNanos"`
+	EndNanos                   int64    `json:"endNanos"`
+	CoordinateFrameID          string   `json:"coordinateFrameID,omitempty"`
+	FrameSourceIDs             []string `json:"frameSourceIDs"`
+	FrameRecordingPath         string   `json:"frameRecordingPath,omitempty"`
+	FrameRecordingHeaderSHA256 string   `json:"frameRecordingHeaderSHA256,omitempty"`
 }
 
 type Record struct {
@@ -82,6 +84,7 @@ type Metadata struct {
 	RunID          string  `json:"run_id"`
 	EvidenceSHA256 string  `json:"evidence_sha256"`
 	HeaderSHA256   string  `json:"recording_header_sha256"`
+	RecordingPath  string  `json:"recording_path"`
 	SourceID       string  `json:"source_id"`
 	CalibrationID  string  `json:"calibration_id"`
 	Start          int64   `json:"start_nanos"`
@@ -196,6 +199,9 @@ func ValidateRecord(r Record, rows []fieldrun.EvidenceRow, runID string, start, 
 		if len(id) > 512 {
 			return fmt.Errorf("playback source identity exceeds review limit")
 		}
+	}
+	if len(r.Playback.FrameRecordingPath) > 4096 || len(r.Playback.FrameRecordingHeaderSHA256) > 71 {
+		return fmt.Errorf("frame recording context exceeds review limit")
 	}
 	return nil
 }

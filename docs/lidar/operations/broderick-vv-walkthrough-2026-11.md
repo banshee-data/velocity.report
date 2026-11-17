@@ -74,6 +74,47 @@ The follow-up keeps context markers and hypotheses visible, hides their text lab
 and draws the selected follower, leader and gap labels last. Candidate labels remain available
 through an explicit control. The follower search also uses a follower-specific prompt.
 
+## Source-agreement follow-up
+
+The missing 3D source agreement was traced through the producer and storage paths. The L5
+history adapter did not attach a capture-manifest source ID, and the protobuf recording codec
+copied only trail X/Y/acquisition time in both directions. It therefore discarded richer
+trail metadata even when supplied. The existing overlay guard required an exact-frame trail
+source, so the displayed recording could not establish agreement through those points.
+
+The follow-up preserves all existing trail fields through the codec without filling missing
+IDs. Replay instead adds the resolved path and exact header digest of the recording actually
+opened by the reader, replacing any playback identity embedded in recorded frames. The review
+session supplies the same resolved path after its receipt, source manifest, calibration,
+canonical evidence and header checks. VV requires both path and digest to match, refuses
+conflicting trail identities, and retains the original actor, exact timestamp and coordinate
+guards. A different path is refused even when the header bytes match.
+
+The [managed review contract](following-managed-review.md) defines this additional association
+check and the bounded audit context. It operates on the original prepared recording, without
+regenerating it, relabelling track histories, adopting tuning changes or promoting physical
+accuracy. Matching the reader's recording to its reviewed analysis is distinct from proving
+that inferred endpoints represent real bumpers.
+
+Local verification at `dcd2bf739b99bc750f10f7d1054cd0f3860e73cc` passed the full following-review,
+recorder and endpoint Go suites, the focused API regressions, and 26 native review, evidence
+and audit tests. The fresh Make-built server and native test products stayed on the attached
+volume. At capture `1788367178027002330`, a bounded stream check found both selected actors
+and matched the actual reader path and header digest against the verified session. The original
+header's digest was `sha256:2f5885d0edacf4fff160a04d0c18f0bdb0c21e9fc79cb75fa6aea6becb28dbf0`;
+the frame still had no trail source IDs. Geometry retained the expected source, calibration,
+canonical digest and recording-coordinate placement.
+
+After unlocking the Mac, the same native build opened Broderick through its Following action
+without file selection. A saved-review link selected the exact pair and capture. The main 3D
+viewport displayed the cyan projected gap line between the selected follower and leader, while
+the relationship view showed 19.4 m, 1.69 s and “3D gap: recording and analysis match.” An
+Uncertain software-test review, `84522b80-59c8-4f1c-815b-c0912351dc13`, retained that exact frame's
+recording path, header digest and capture time through the backend audit API. Its four physical
+observations remained unknown and its conclusion was insufficient evidence. Both earlier audit
+records were unchanged. The screenshot and raw checks remain on attached storage; this confirms
+software association and persistence, not physical endpoint accuracy.
+
 ## Attached-drive diagnosis
 
 The physical evidence volume was Journaled HFS+ on a USB rotating disk. Both direct HFS+

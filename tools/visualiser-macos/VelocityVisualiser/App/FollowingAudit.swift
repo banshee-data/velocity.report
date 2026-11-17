@@ -16,7 +16,13 @@ extension AppState {
             runID: currentRunID, sourcePath: run?.sourcePath, recordingPath: run?.vrlogPath,
             captureNanos: currentTimestamp, startNanos: logStartTimestamp,
             endNanos: logEndTimestamp, coordinateFrameID: frame?.coordinateFrame?.frameID,
-            frameSourceIDs: sources.sorted())
+            frameSourceIDs: sources.sorted(),
+            frameRecordingPath: (frame?.playbackInfo?.recordingPath).flatMap {
+                $0.isEmpty ? nil : $0
+            },
+            frameRecordingHeaderSHA256: (frame?.playbackInfo?.recordingHeaderSHA256).flatMap {
+                $0.isEmpty ? nil : $0
+            })
     }
 }
 
@@ -85,6 +91,8 @@ struct FollowingAudit: Codable, Equatable {
         var endNanos: Int64 = 0
         var coordinateFrameID: String?
         var frameSourceIDs: [String] = []
+        var frameRecordingPath: String?
+        var frameRecordingHeaderSHA256: String?
         // This is viewing context, never an automatic source/version match.
     }
 
