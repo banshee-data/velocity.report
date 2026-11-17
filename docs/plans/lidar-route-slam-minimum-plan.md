@@ -7,13 +7,14 @@ uncertainty of each. This plan fixes the boundary, records what the first pull r
 implements, and lists the questions an independent mathematical review must settle before
 the hydra evaluation is read as evidence.
 
-- **Status:** Proposed. First-pass implementation in this change; evaluation pending on hydra, where the captures are
+- **Status:** Proposed. First-pass tools are in #1056. Oracle run A has answered the brief, and its two-phase work order is laid out in the phase plans below; no gate is adopted and nothing has run on hydra, where the captures are
 - **Decisions:** D-36 (Gerardus owns registration; v0.6.0–v0.6.4 is the SLAM/mobile series), D-38 (priors are measured spatial data)
 - **Layers:** offline tooling over L1 decode and L2 rotations (`internal/lidar/motionexport`), offline platform kinematics (`internal/lidar/egotrack`); Gerardus odometry, prior factors and pose graph
 - **Target:** v0.6.0, the SLAM spike Gerardus runs as S0–S3; this plan narrows it to point-to-point drives
 - **Companion plans:** [lidar-route-capture-plan](lidar-route-capture-plan.md) (trajectory contract, rigs, later items), [lidar-motion-capture-architecture-plan](lidar-motion-capture-architecture-plan.md) (`PoseProvider`); Gerardus `docs/plans/MOBILE-SLAM-REPLAY.md` (S0–S3) and `docs/research/2026-10-24-registration-and-slam-maths.md` (§4 sizing)
 - **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
-- **Review brief:** [lidar-route-slam-oracle-brief](../research/lidar-route-slam-oracle-brief.md)
+- **Phase plans:** [phase 1: bridge and ego track](lidar-route-slam-phase1-bridge-ego-plan.md), [phase 2: priors and rotation rate](lidar-route-slam-phase2-priors-rate-plan.md)
+- **Review brief:** [lidar-route-slam-oracle-brief](../research/lidar-route-slam-oracle-brief.md), answered by [oracle run A](../research/lidar-route-slam-oracle-response-fable.md)
 - **Rate audit:** [20 Hz pipeline readiness](../research/lidar-20hz-readiness.md)
 
 ## Motivation
@@ -39,10 +40,12 @@ along-street observability problem either, and the spike learns that early.
   Eighteen are `MANUALLY_PLACED`, and most of those carry no covariance. Five have a narrow
   export-check margin (1st-mission, hyde-ofarrell, pierce-haight, marina-broderick,
   embarcadero-bay).
-- **Drives.** `tools/s2-archive/site-index.json` gives 20 same-day consecutive pairs, 5–34 min
-  apart (one of 82 min). One pair has both ends `REGISTERED`:
+- **Drives.** `tools/s2-archive/site-index.json` gives 21 same-day consecutive pairs: 20 of
+  5–34 min and one of 82 min. One pair has both ends `REGISTERED`:
   lombard-laguna → columbus-north-point, 16.3 min, inside one rotation series
-  (`s2_sf_2_…_00026` to `_00030`). Seven more have one registered end.
+  (`s2_sf_2_…_00026` to `_00030`). Eight more have one registered end (seven without the 82 min
+  pair). Several gaps are exactly 5 or 10 min, so the site bounds follow the capture files'
+  rotation, not the moment the car moved.
 - **Point time.** The recorded point time is the PCAP arrival time plus the channel firetime
   (`parse/extract.go`, `blockToPoints`), and block index contributes nothing
   ([timing audit](../lidar/architecture/portable-capture-timing.md#what-the-repository-does-today)).
@@ -65,9 +68,10 @@ along-street observability problem either, and the spike learns that early.
 ### Choices made, and why
 
 - **Time is session seconds, not GPS time.** The LAS time field holds seconds since the
-  manifest's `epoch_utc`, and the global-encoding GPS bit is clear. The replay clock is PCAP
-  arrival time, and calling it GPS time would assert an epoch nothing has validated.
-  Gerardus de-skew needs only relative time.
+  manifest's `epoch_utc`. The replay clock is PCAP arrival time, and calling it GPS time would
+  assert an epoch nothing has validated. LAS 1.4 has no flag for an arbitrary epoch (a clear
+  time-type bit reads as GPS week time), so `run.json` is the only authority and a reader must
+  refuse the files without it. Gerardus de-skew needs only relative time.
 - **The rotor is the clock.** The Gerardus maths note (§4.1) recommends `τ = azimuth / 360°`
   over the block index. A per-rotation line removes arrival jitter and the block sawtooth
   together. It does not touch the L1 decode path, so the perf gate is unaffected. What remains
@@ -88,6 +92,27 @@ along-street observability problem either, and the spike learns that early.
   the route plan's [trajectory contract](lidar-route-capture-plan.md#trajectory-contract) the
   ego track needs. It is replaced by Gerardus's proto once that exists, and the reader refuses
   any other schema.
+
+## Two phases
+
+Oracle run A's answer to the sequencing question reverses the order this plan first assumed. The
+ego track (b) comes first, because it does not need priors registration, while priors
+registration (a) needs everything the ego track needs. A position error that varies slowly along
+the route barely changes speed and does not change acceleration, jerk or vibration at all.
+
+| Phase                                            | Delivers                                                                                | Needs                                           | Ends in                                           |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------- |
+| [1](lidar-route-slam-phase1-bridge-ego-plan.md)  | Odometry bridged between the two end poses; the ego track with checks independent of it | Archive drives only                             | Hydra evaluation 1 and gate 1, on three drives    |
+| [2](lidar-route-slam-phase2-priors-rate-plan.md) | Prior factors along the route with an alias guard; the 10-against-20 Hz answer          | Gate 1; a native 20 Hz capture for the rate arm | Hydra evaluation 2 and gate 2 (priors, then rate) |
+
+The phase plans hold the items, gates, risks and owner decisions. Run A found that the first-pass
+tools' checks are not yet independent of the trajectory they test (stops come from the
+trajectory's own speed, σ assumes independent noise, and nothing checks the anchor handover).
+Phase 1 fixes those before any evaluation result is read as evidence. The gates are one oracle's
+proposals: the owner chose a single run, so no cross-check or comparison exists.
+
+The design and tables below record the plan as first written, before run A. Where they differ
+from the phase plans, the phase plans govern.
 
 ## Design: the two-anchor bridge
 
@@ -135,8 +160,11 @@ The Pandar40P runs at 10 Hz (0.2° steps, about 72,000 points per rotation) or 2
 36,000), with the same points per second. It has no 5 Hz mode. The
 [20 Hz readiness audit](../research/lidar-20hz-readiness.md) found no 5 Hz throttle in the
 pipeline; "5 Hz" in the docs is a historical effective observation rate and the scene exports'
-one-in-two stride. The proposals below are provisional until the oracle answers questions
-23–30 of the [brief](../research/lidar-route-slam-oracle-brief.md).
+one-in-two stride. Run A agreed with the proposals below (one configuration in seconds and
+metres, every rotation registered on its own) and added a platform view, which
+[phase 2](lidar-route-slam-phase2-priors-rate-plan.md) carries: little gain for a car at 20 Hz
+once de-skew is centred, and a fourfold cut in rotational residue for a bike or a walker. All
+of it is untested until a native 20 Hz capture exists.
 
 - **One configuration for both rates, fixed in seconds and metres.** Keyframes and submaps by
   distance and turn angle, the motion model and de-skew by point time, odometry-factor covariance
@@ -165,7 +193,9 @@ one-in-two stride. The proposals below are provisional until the oracle answers 
 
 ## Evaluation on hydra
 
-The run is specified in [route-drive-bridge-first-pair](../../data/experiments/try/route-drive-bridge-first-pair.md).
+The first export is specified in [route-drive-bridge-first-pair](../../data/experiments/try/route-drive-bridge-first-pair.md);
+it is the opening step of phase 1's evaluation 1, which adds two development drives and holds
+this drive back as the untuned test.
 Its outputs (LAS, trajectory, kinematics) are raw evidence and operator location history.
 They stay on hydra's local volume, and only the authored report with its summary tables comes
 back to Git.
@@ -199,9 +229,10 @@ back to Git.
 - [x] Motion export with azimuth clock, LAS 1.4 and manifest (a1)
 - [x] Ego-track kinematics, stops, jitter, anchors and pose lookup (b1, b2)
 - [x] Oracle brief for the Gerardus implementation questions
+- [x] Oracle run A's response, and the two phase plans built from it
 
 ### Outstanding
 
-- [ ] Hydra: export the first pair and read `frames.csv` timing (`S`)
-- [ ] Gerardus: a2–a6 (`M`)
-- [ ] Hydra: ego track and held-out anchor B on the first pair, authored report (`S`)
+- [ ] Owner: pin or amend run A's gates and take the decisions listed in the phase plans (`S`)
+- [ ] [Phase 1](lidar-route-slam-phase1-bridge-ego-plan.md): items 1–9 and gate 1 (`L`)
+- [ ] [Phase 2](lidar-route-slam-phase2-priors-rate-plan.md): items 10–18 and gate 2 (`L`)

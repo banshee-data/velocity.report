@@ -4,7 +4,11 @@ Export the car drive from lombard-laguna to columbus-north-point (2 September 20
 its point times are usable for de-skew, and once Gerardus returns a trajectory, measure the ego
 track and the held-out far-end anchor.
 
-- **Status:** Proposed
+- **Status:** Proposed. Oracle run A reviewed this spec and proposes changes that
+  [phase 1's plan](../../../docs/plans/lidar-route-slam-phase1-bridge-ego-plan.md) carries: hold
+  this drive back as an untuned test, develop on two other drives first, and replace the stop and
+  σ criteria below, which a wrong trajectory could pass. Until the owner pins those gates, only
+  steps 1–3 (the export and its timing) should be run from this spec
 - **Layers:** L1 decode, L2 rotations (export only); Gerardus odometry and registration; offline ego kinematics
 - **Related plan:** [lidar-route-slam-minimum-plan.md](../../../docs/plans/lidar-route-slam-minimum-plan.md)
 - **Review brief:** [lidar-route-slam-oracle-brief.md](../../../docs/research/lidar-route-slam-oracle-brief.md)

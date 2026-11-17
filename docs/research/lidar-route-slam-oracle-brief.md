@@ -6,8 +6,10 @@ acceleration, jerk, yaw rate and vibration, with their uncertainty. Say how each
 the Pandar40P turns at 10 Hz and at 20 Hz. The answers set the Gerardus implementation order and
 fix the gates the hydra evaluation is read against before its results exist.
 
-- **Status:** Prepared, not yet run. Runs and their responses are recorded under
-  [Execution record](#execution-record); no answer has changed a gate or a default.
+- **Status:** Answered once, by oracle run A (Euler persona on Fable), in the
+  [run A response](lidar-route-slam-oracle-response-fable.md). The owner chose a single run, so
+  no cross-check or comparison exists. Its recommendations are laid out in the phase plans and
+  are not adopted: no answer has changed a gate or a default.
 - **Scope:** Offline odometry, prior factors and a two-anchor solve over drives between registered
   static sites; ego kinematics from the resulting trajectory; rotation rate (10 Hz, 20 Hz and the
   5 Hz temporal ablation of the 10 Hz archive).
@@ -345,15 +347,15 @@ response to `docs/research/lidar-route-slam-oracle-response-<oracle>.md` with St
 Open questions sections. Then compare them question by question in
 `docs/research/lidar-route-slam-oracle-comparison.md` before the plan adopts anything.
 
-| Run | Oracle                      | Brief at commit | Started | Response | Notes   |
-| --- | --------------------------- | --------------- | ------- | -------- | ------- |
-| A   | Euler persona, Fable        | —               | —       | —        | not run |
-| B   | Euler persona, second model | —               | —       | —        | not run |
+| Run | Oracle                      | Brief at commit                | Started    | Response                                              | Notes                                                                                                              |
+| --- | --------------------------- | ------------------------------ | ---------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| A   | Euler persona, Fable        | `ab84a68` (Gerardus `e04587c`) | 2026-11-17 | [response](lidar-route-slam-oracle-response-fable.md) | Read-only: nothing executed. Corrects E1, E2, E3, E5, E8, E14, E15 and the LAS time flag; see its Evidence section |
+| B   | Euler persona, second model | —                              | —          | —                                                     | not run: the owner chose a single run                                                                              |
 
 ## Open questions
 
 - Is the archive 10 Hz throughout? The first export's `rotation_hz` answers it per drive.
 - Will a native 20 Hz drive be captured, and on which route? Question 28 asks for its design;
   the owner decides whether and when.
-- Which second model serves as the cross-check oracle, and is a third run wanted when A and B
-  disagree on a gate?
+- Is a second oracle run wanted before the owner pins run A's gates? Only run A exists, and
+  its response asks that a differing number be settled by derivation, not by vote.

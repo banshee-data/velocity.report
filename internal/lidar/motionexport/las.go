@@ -139,8 +139,10 @@ func (w *LASWriter) header() []byte {
 	h := make([]byte, lasHeaderSize+vlrHeaderSize+3*extraDescSize)
 	copy(h[0:], "LASF")
 	// File source id 0; global encoding bit 4 (WKT CRS) as point format 6
-	// requires. Bit 0 is clear and the time field is NOT GPS time: it is
-	// seconds since the manifest's epoch on the export's stated clock.
+	// requires. The time field is NOT GPS time: it is seconds since the
+	// manifest's epoch on the export's stated clock. LAS 1.4 has no flag for
+	// that (a clear bit 0 reads as GPS week time), so run.json is the only
+	// authority and a reader must not use these files without it.
 	le.PutUint16(h[6:], 1<<4)
 	h[24], h[25] = 1, 4
 	putString(h[26:58], "velocity.report motion export")

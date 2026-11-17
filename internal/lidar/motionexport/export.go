@@ -203,7 +203,7 @@ func NewExporter(cfg Config, man Manifest) (*Exporter, error) {
 	}
 	fmt.Fprintln(csv, "frame,rotation,start_s,points,complete,packet_gaps,clock_ok,period_s,rms_resid_us,max_resid_us,blocks,rejected")
 	man.Schema = ManifestSchema
-	man.Note = "provisional: Gerardus plans run.json as a proto message; point time is NOT GPS time"
+	man.Note = "provisional: Gerardus plans run.json as a proto message; point time is NOT GPS time, whatever the LAS header's time-type bit says: read it by time.convention here"
 	man.Time.Source = cfg.TimeSource
 	man.Time.Convention = map[string]string{
 		TimeAzimuthClock: "seconds since epoch_utc; each rotation's block time is a least-squares line in unwrapped block azimuth fitted to the recorded block times (PCAP arrival time + channel firetime during replay), plus the point's channel offset within its block",
