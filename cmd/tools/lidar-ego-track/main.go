@@ -36,7 +36,7 @@ func run(args []string, stdout io.Writer) error {
 	fs.Float64Var(&o.SigmaYawRad, "sigma-yaw-rad", 0, "per-sample yaw noise (default 0.002)")
 	fs.Float64Var(&o.StopSpeedMS, "stop-speed-ms", 0, "stop threshold (default 0.3)")
 	fs.Float64Var(&o.StopMinS, "stop-min-s", 0, "minimum stop length (default 2)")
-	fs.IntVar(&o.SpectrumSegment, "spectrum-segment", 0, "Welch segment length in samples (default 64)")
+	fs.Float64Var(&o.SpectrumSegmentS, "spectrum-segment-s", 0, "Welch segment length in seconds (default 6.4)")
 	fs.Float64Var(&o.AnchorWindowS, "anchor-window-s", 0, "seconds averaged at each end for anchors (default 5)")
 	if err := fs.Parse(args); err != nil {
 		return err

@@ -285,3 +285,39 @@ func TestReadValidates(t *testing.T) {
 		}
 	}
 }
+
+// TestRotationRate runs the same drive at 10 and 20 Hz. A 20 Hz rotation
+// carries half the points, so its poses are given √2 the noise; the per-second
+// sample count doubles, so speed σ over the same ±0.5 s window should come out
+// about the same. A 7 Hz mount vibration is inside the 20 Hz band (Nyquist
+// 10 Hz) but aliases to 3 Hz at 10 Hz (Nyquist 5 Hz): the 10 Hz spectrum must
+// not be read as measuring it.
+func TestRotationRate(t *testing.T) {
+	base := drive{heading: 0.3, pitchAmp: 0.2 * math.Pi / 180, pitchHz: 7}
+	run := func(rate, noise float64) (Summary, []Kinematics) {
+		d := base
+		d.rate, d.noise = rate, noise
+		sum, k, err := Analyse(d.trajectory(11), nil, Options{DefaultSigmaPosM: noise})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sum, k
+	}
+	s10, _ := run(10, 0.01)
+	s20, _ := run(20, 0.01*math.Sqrt2)
+	if r := s20.MedianSpeedSigma / s10.MedianSpeedSigma; r < 0.8 || r > 1.25 {
+		t.Errorf("speed sigma 20 Hz / 10 Hz = %.2f, want about 1", r)
+	}
+	if math.Abs(s20.Jitter.NyquistHz-10) > 1e-6 || math.Abs(s10.Jitter.NyquistHz-5) > 1e-6 {
+		t.Errorf("nyquist %v / %v", s20.Jitter.NyquistHz, s10.Jitter.NyquistHz)
+	}
+	if s20.Jitter.SegmentSamples != 2*s10.Jitter.SegmentSamples {
+		t.Errorf("segment samples %d at 20 Hz, %d at 10 Hz: the segment must be fixed in seconds", s20.Jitter.SegmentSamples, s10.Jitter.SegmentSamples)
+	}
+	if math.Abs(s20.Jitter.PeakPitchHz-7) > 0.2 {
+		t.Errorf("20 Hz pitch peak %.2f Hz, want 7", s20.Jitter.PeakPitchHz)
+	}
+	if math.Abs(s10.Jitter.PeakPitchHz-3) > 0.2 {
+		t.Errorf("10 Hz pitch peak %.2f Hz, want the 3 Hz alias of 7 Hz", s10.Jitter.PeakPitchHz)
+	}
+}

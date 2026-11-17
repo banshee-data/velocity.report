@@ -65,6 +65,8 @@ type Spectrum struct {
 	SampleRateHz float64   `json:"sample_rate_hz"`
 	NyquistHz    float64   `json:"nyquist_hz"`
 	Segments     int       `json:"segments"`
+	// SegmentSamples is the Welch segment length used at this pose rate.
+	SegmentSamples int `json:"segment_samples"`
 	FreqHz       []float64 `json:"freq_hz"`
 	PSDZ         []float64 `json:"psd_z_m2_per_hz"`
 	PSDPitch     []float64 `json:"psd_pitch_rad2_per_hz"`
@@ -143,9 +145,12 @@ func peakAmplitude(f, p, gain []float64, peakHz float64) float64 {
 // stretch long enough for one Welch segment.
 func Jitter(t *Trajectory, k []Kinematics, opt Options) Spectrum {
 	opt = opt.withDefaults()
-	n := opt.SpectrumSegment
 	dt := t.MedianInterval()
-	sp := Spectrum{SampleRateHz: 1 / dt, NyquistHz: 0.5 / dt}
+	n := int(math.Round(opt.SpectrumSegmentS / dt))
+	if n < 16 {
+		n = 16
+	}
+	sp := Spectrum{SampleRateHz: 1 / dt, NyquistHz: 0.5 / dt, SegmentSamples: n}
 	win := make([]float64, n)
 	u := 0.0
 	for i := range win {

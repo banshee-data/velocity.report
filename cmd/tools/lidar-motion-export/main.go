@@ -71,7 +71,7 @@ type options struct {
 	startSite, endSite            string
 	platform, height, roll, pitch string
 	mountNotes, sensorID          string
-	udpPort, stride               int
+	udpPort, stride, keepEvery    int
 	startS, durationS             float64
 	splitS, maxRange              float64
 	includeIncomplete             bool
@@ -94,7 +94,8 @@ func parseFlags(args []string) (options, error) {
 	fs.StringVar(&o.mountNotes, "mount-notes", "", "free-text mount record")
 	fs.StringVar(&o.sensorID, "sensor-id", "hesai-pandar40p", "sensor id")
 	fs.IntVar(&o.udpPort, "udp-port", 2369, "LiDAR UDP port in the capture")
-	fs.IntVar(&o.stride, "azimuth-stride", 1, "keep every n-th firing block")
+	fs.IntVar(&o.stride, "azimuth-stride", 1, "keep every n-th firing block (0.2° each at 10 Hz, 0.4° at 20 Hz)")
+	fs.IntVar(&o.keepEvery, "keep-every-rotation", 1, "export one rotation in n: the temporal-only rate ablation (10 Hz at 2 reads as 5 Hz)")
 	fs.Float64Var(&o.startS, "start-seconds", 0, "replay window start, seconds into the sequence")
 	fs.Float64Var(&o.durationS, "duration-seconds", 0, "replay window length; 0 replays to the end")
 	fs.Float64Var(&o.splitS, "split-seconds", 60, "capture seconds per LAS file")
@@ -164,7 +165,7 @@ func run(args []string) error {
 	}
 
 	ex, err := motionexport.NewExporter(motionexport.Config{OutDir: o.outDir, From: from, To: to, TimeSource: o.timeSource,
-		SplitSeconds: o.splitS, AzimuthStride: o.stride, MaxRangeM: o.maxRange, IncludeIncomplete: o.includeIncomplete,
+		SplitSeconds: o.splitS, AzimuthStride: o.stride, KeepEveryRotation: o.keepEvery, MaxRangeM: o.maxRange, IncludeIncomplete: o.includeIncomplete,
 		Software: "velocity " + version.Version}, man)
 	if err != nil {
 		return err
@@ -197,8 +198,8 @@ func run(args []string) error {
 	case cerr != nil:
 		return cerr
 	}
-	fmt.Printf("exported rotations=%d files=%d median_period=%.6fs median_clock_resid=%.1fus p95=%.1fus fit_failed=%d period_outliers=%d\n",
-		out.Frames.Exported, len(out.Files), out.Time.MedianPeriodS, out.Time.MedianResidUS, out.Time.P95ResidUS, out.Time.ClockFitFailed, out.Time.PeriodOutliers)
+	fmt.Printf("exported rotations=%d decimated=%d files=%d rotation_hz=%.3f median_period=%.6fs median_clock_resid=%.1fus p95=%.1fus fit_failed=%d period_outliers=%d\n",
+		out.Frames.Exported, out.Frames.Decimated, len(out.Files), out.Time.RotationHz, out.Time.MedianPeriodS, out.Time.MedianResidUS, out.Time.P95ResidUS, out.Time.ClockFitFailed, out.Time.PeriodOutliers)
 	return nil
 }
 

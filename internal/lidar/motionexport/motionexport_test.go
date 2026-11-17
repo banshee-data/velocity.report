@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,15 +21,23 @@ const blockSep = 55.56e-6 // Pandar40P single-return block separation, seconds
 // of its first block plus jitter) plus the channel firetime, with no
 // per-block offset. It also returns each point's true firing time.
 func rotation(t0 time.Time, startAz float64, jitter float64, channels int, rng *rand.Rand, seq0 uint32) ([]l2frames.Point, []float64) {
+	return rotationAt(t0, startAz, 0.2, jitter, channels, rng, seq0)
+}
+
+// rotationAt builds one rotation at the azimuth step of the given rate: 0.2°
+// per block at 10 Hz (1800 blocks), 0.4° at 20 Hz (900 blocks). The block
+// separation is the same at both rates; the rotor turns twice as fast.
+func rotationAt(t0 time.Time, startAz, azStep float64, jitter float64, channels int, rng *rand.Rand, seq0 uint32) ([]l2frames.Point, []float64) {
 	var pts []l2frames.Point
 	var truth []float64
 	fire := []float64{-1e-6, -3e-6, -5e-6, -7e-6}
-	for pk := 0; pk < 180; pk++ {
+	packets := int(math.Round(360 / azStep / 10))
+	for pk := 0; pk < packets; pk++ {
 		pktTrue := float64(pk) * 10 * blockSep
 		arrival := pktTrue + jitter*(rng.Float64()*2-1)
 		for b := 0; b < 10; b++ {
 			blockTrue := pktTrue + float64(b)*blockSep
-			az := math.Mod(startAz+float64(pk*10+b)*0.2, 360)
+			az := math.Mod(startAz+float64(pk*10+b)*azStep, 360)
 			for c := 0; c < channels; c++ {
 				rec := arrival + fire[c%4]
 				el := float64(c) - 2
@@ -210,5 +219,48 @@ func TestExporterDecimatesByAzimuthAndRange(t *testing.T) {
 	// Ranges are 10-13 m: 3 of 4 channels pass 12.5 m; every third block.
 	if got, want := man.Files[0].Points, uint64(600*3); got != want {
 		t.Errorf("points %d, want %d", got, want)
+	}
+}
+
+func TestAzimuthClockAt20Hz(t *testing.T) {
+	rng := rand.New(rand.NewSource(9))
+	t0 := time.Date(2026, 9, 2, 18, 33, 0, 0, time.UTC)
+	pts, truth := rotationAt(t0, 120, 0.4, 300e-6, 4, rng, 0)
+	clock, fit := PointTimes(pts, t0, true)
+	if !fit.OK || math.Abs(fit.PeriodS-0.05) > 1e-4 {
+		t.Fatalf("20 Hz fit %+v", fit)
+	}
+	if rms, _ := centredRMS(clock, truth); rms > 25e-6 {
+		t.Errorf("20 Hz clock error %.1f µs RMS with half the blocks per rotation", rms*1e6)
+	}
+}
+
+func TestExporterKeepsOneRotationInN(t *testing.T) {
+	t0 := time.Unix(1_700_000_000, 0)
+	rng := rand.New(rand.NewSource(5))
+	dir := t.TempDir()
+	e, err := NewExporter(Config{OutDir: dir, KeepEveryRotation: 2}, Manifest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		if err := e.AddFrame(frame(t0, i, rng)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	man, err := e.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if man.Frames.Exported != 3 || man.Frames.Decimated != 2 || man.Selection.KeepEveryRotation != 2 {
+		t.Errorf("frames %+v selection %+v", man.Frames, man.Selection)
+	}
+	// The measured rate is the source's: each kept rotation is still 100 ms.
+	if math.Abs(man.Time.RotationHz-10) > 0.01 {
+		t.Errorf("rotation_hz %.3f, want the source's 10", man.Time.RotationHz)
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "frames.csv"))
+	if !strings.Contains(string(b), "\n2,4,") {
+		t.Errorf("third exported frame should be source rotation 4:\n%s", b)
 	}
 }

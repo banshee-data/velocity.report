@@ -42,6 +42,11 @@ type Config struct {
 	AzimuthStride int
 	// MaxRangeM drops returns beyond it; zero keeps every range.
 	MaxRangeM float64
+	// KeepEveryRotation exports one rotation in n (1 keeps all). It is the
+	// temporal-only rate ablation: a 10 Hz drive at 2 reads as 5 Hz with 10 Hz
+	// angular density, and a 20 Hz drive at 2 as 10 Hz with 20 Hz density. It
+	// does not reproduce a sensor running at the lower rate.
+	KeepEveryRotation int
 	// IncludeIncomplete exports rotations the frame builder marked incomplete.
 	IncludeIncomplete bool
 	// MaxFlaggedPeriodDeviation flags a rotation whose period differs from
@@ -95,9 +100,11 @@ type Mount struct {
 
 // TimeInfo states the point-time convention and its measured quality.
 type TimeInfo struct {
-	EpochUTC   string `json:"epoch_utc"`
-	Source     string `json:"source"`
-	Convention string `json:"convention"`
+	EpochUTC string `json:"epoch_utc"`
+	// RotationHz is the source's measured rotation rate, 1 / MedianPeriodS.
+	RotationHz float64 `json:"rotation_hz"`
+	Source     string  `json:"source"`
+	Convention string  `json:"convention"`
 	// MedianPeriodS and the residual percentiles are over exported rotations.
 	MedianPeriodS   float64 `json:"median_period_s"`
 	MedianResidUS   float64 `json:"median_resid_us"`
@@ -110,6 +117,7 @@ type TimeInfo struct {
 // Selection records the decimation applied.
 type Selection struct {
 	AzimuthStride     int     `json:"azimuth_stride"`
+	KeepEveryRotation int     `json:"keep_every_rotation"`
 	MaxRangeM         float64 `json:"max_range_m,omitempty"`
 	IncludeIncomplete bool    `json:"include_incomplete"`
 	SplitSeconds      float64 `json:"split_seconds"`
@@ -130,6 +138,7 @@ type FrameStats struct {
 	Seen       int `json:"seen"`
 	Exported   int `json:"exported"`
 	Incomplete int `json:"skipped_incomplete"`
+	Decimated  int `json:"skipped_decimation"`
 	OutOfRange int `json:"outside_window"`
 	PacketGaps int `json:"packet_gaps"`
 }
@@ -137,6 +146,7 @@ type FrameStats struct {
 // FrameRecord is one rotation's line in frames.csv.
 type FrameRecord struct {
 	Frame      uint32
+	Rotation   int // index among complete rotations in the window, before decimation
 	StartS     float64
 	Points     int
 	Complete   bool
@@ -146,15 +156,16 @@ type FrameRecord struct {
 
 // Exporter receives rotations in capture order and writes the files.
 type Exporter struct {
-	cfg     Config
-	man     Manifest
-	w       *LASWriter
-	file    PointFile
-	fileT0  time.Time
-	frame   uint32
-	records []FrameRecord
-	csv     *os.File
-	err     error
+	cfg      Config
+	man      Manifest
+	w        *LASWriter
+	file     PointFile
+	fileT0   time.Time
+	frame    uint32
+	rotation int
+	records  []FrameRecord
+	csv      *os.File
+	err      error
 }
 
 // NewExporter prepares OutDir, which must not exist or must be empty.
@@ -170,6 +181,9 @@ func NewExporter(cfg Config, man Manifest) (*Exporter, error) {
 	}
 	if cfg.AzimuthStride <= 0 {
 		cfg.AzimuthStride = 1
+	}
+	if cfg.KeepEveryRotation <= 0 {
+		cfg.KeepEveryRotation = 1
 	}
 	if cfg.MaxFlaggedPeriodDeviation <= 0 {
 		cfg.MaxFlaggedPeriodDeviation = 0.02
@@ -187,7 +201,7 @@ func NewExporter(cfg Config, man Manifest) (*Exporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprintln(csv, "frame,start_s,points,complete,packet_gaps,clock_ok,period_s,rms_resid_us,max_resid_us,blocks,rejected")
+	fmt.Fprintln(csv, "frame,rotation,start_s,points,complete,packet_gaps,clock_ok,period_s,rms_resid_us,max_resid_us,blocks,rejected")
 	man.Schema = ManifestSchema
 	man.Note = "provisional: Gerardus plans run.json as a proto message; point time is NOT GPS time"
 	man.Time.Source = cfg.TimeSource
@@ -200,7 +214,7 @@ func NewExporter(cfg Config, man Manifest) (*Exporter, error) {
 		"axes":  "x = r cos(el) sin(az), y = r cos(el) cos(az), z = r sin(el); l2frames.SphericalToCartesian",
 		"units": "metres; LAS grid 0.0005 m",
 	}
-	man.Selection = Selection{AzimuthStride: cfg.AzimuthStride, MaxRangeM: cfg.MaxRangeM, IncludeIncomplete: cfg.IncludeIncomplete, SplitSeconds: cfg.SplitSeconds}
+	man.Selection = Selection{AzimuthStride: cfg.AzimuthStride, KeepEveryRotation: cfg.KeepEveryRotation, MaxRangeM: cfg.MaxRangeM, IncludeIncomplete: cfg.IncludeIncomplete, SplitSeconds: cfg.SplitSeconds}
 	if man.Segment.Kind == "" {
 		man.Segment.Kind = "motion"
 	}
@@ -227,6 +241,12 @@ func (e *Exporter) AddFrame(f *l2frames.LiDARFrame) error {
 	e.man.Frames.PacketGaps += f.PacketGaps
 	if !f.SpinComplete && !e.cfg.IncludeIncomplete {
 		e.man.Frames.Incomplete++
+		return nil
+	}
+	rotation := e.rotation
+	e.rotation++
+	if rotation%e.cfg.KeepEveryRotation != 0 {
+		e.man.Frames.Decimated++
 		return nil
 	}
 	if e.cfg.Epoch.IsZero() {
@@ -260,9 +280,9 @@ func (e *Exporter) AddFrame(f *l2frames.LiDARFrame) error {
 	}
 	e.file.LastFrame = e.frame
 	e.file.Points = e.w.Count()
-	rec := FrameRecord{Frame: e.frame, StartS: start.Sub(e.cfg.Epoch).Seconds(), Points: n, Complete: f.SpinComplete, PacketGaps: f.PacketGaps, Clock: fit}
+	rec := FrameRecord{Frame: e.frame, Rotation: rotation, StartS: start.Sub(e.cfg.Epoch).Seconds(), Points: n, Complete: f.SpinComplete, PacketGaps: f.PacketGaps, Clock: fit}
 	e.records = append(e.records, rec)
-	fmt.Fprintf(e.csv, "%d,%.6f,%d,%t,%d,%t,%.6f,%.1f,%.1f,%d,%d\n", rec.Frame, rec.StartS, rec.Points, rec.Complete, rec.PacketGaps, fit.OK, fit.PeriodS, fit.RMSResidUS, fit.MaxResidUS, fit.Blocks, fit.Rejected)
+	fmt.Fprintf(e.csv, "%d,%d,%.6f,%d,%t,%d,%t,%.6f,%.1f,%.1f,%d,%d\n", rec.Frame, rec.Rotation, rec.StartS, rec.Points, rec.Complete, rec.PacketGaps, fit.OK, fit.PeriodS, fit.RMSResidUS, fit.MaxResidUS, fit.Blocks, fit.Rejected)
 	e.man.Frames.Exported++
 	e.frame++
 	return nil
@@ -385,6 +405,7 @@ func (e *Exporter) summariseTime() {
 	med := append([]float64(nil), periods...)
 	sort.Float64s(med)
 	t.MedianPeriodS = med[len(med)/2]
+	t.RotationHz = 1 / t.MedianPeriodS
 	for _, p := range periods {
 		dev := math.Abs(p-t.MedianPeriodS) / t.MedianPeriodS
 		t.MaxPeriodDevPct = math.Max(t.MaxPeriodDevPct, 100*dev)

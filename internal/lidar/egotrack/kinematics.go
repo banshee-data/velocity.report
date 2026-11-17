@@ -32,8 +32,10 @@ type Options struct {
 	// least StopMinS. Defaults 0.3 m/s and 2 s.
 	StopSpeedMS float64 `json:"stop_speed_ms"`
 	StopMinS    float64 `json:"stop_min_s"`
-	// SpectrumSegment is the Welch segment length in samples. Default 64.
-	SpectrumSegment int `json:"spectrum_segment"`
+	// SpectrumSegmentS is the Welch segment length in seconds, so frequency
+	// resolution (1/SpectrumSegmentS) does not change with the rotation
+	// rate: 64 samples at 10 Hz, 128 at 20 Hz. Default 6.4 s.
+	SpectrumSegmentS float64 `json:"spectrum_segment_s"`
 	// AnchorWindowS is how much of each end is averaged for an anchor check.
 	// Default 5 s.
 	AnchorWindowS float64 `json:"anchor_window_s"`
@@ -64,8 +66,8 @@ func (o Options) withDefaults() Options {
 	if o.StopMinS <= 0 {
 		o.StopMinS = 2
 	}
-	if o.SpectrumSegment <= 0 {
-		o.SpectrumSegment = 64
+	if o.SpectrumSegmentS <= 0 {
+		o.SpectrumSegmentS = 6.4
 	}
 	if o.AnchorWindowS <= 0 {
 		o.AnchorWindowS = 5
