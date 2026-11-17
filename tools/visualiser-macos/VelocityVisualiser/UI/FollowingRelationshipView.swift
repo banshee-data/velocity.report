@@ -320,13 +320,7 @@ struct FollowingRelationshipView: View {
     private func beginReview(_ row: FollowingEvidence.Row, observation: FollowingAudit.Observation)
     {
         var record = FollowingAudit.Record(
-            row: row,
-            playback: .init(
-                runID: appState.currentRunID,
-                recordingPath: appState.runBrowserState.runs.first {
-                    $0.runId == appState.currentRunID
-                }?.vrlogPath, captureNanos: appState.currentTimestamp,
-                startNanos: appState.logStartTimestamp, endNanos: appState.logEndTimestamp))
+            row: row, playback: appState.currentFollowingAuditPlayback)
         record.leaderAndPath = observation
         record.reviewer = review.audit?.records.last?.reviewer ?? ""
         if observation == .consistent { record.proposedLeaderTrackID = row.decision.leaderTrackId }

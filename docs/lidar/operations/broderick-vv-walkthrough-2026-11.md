@@ -61,6 +61,13 @@ saved record with the same period and notes. Its exact interval was
 `1788367178027002330` to `1788367178127036330` ns, exclusive at the end. The audit retained the
 canonical evidence digest, source identity, producer and original recording path.
 
+Code review then found that managed drafts omitted frame-source IDs and coordinate-frame
+context that the manual-import flow retained. The first audit's empty source list therefore
+does not establish that the recording itself lacks those IDs. Both flows now capture context
+through one method, accepting only the displayed frame and trail points at the exact capture
+time. Historical, empty and stale-frame identities cannot supply a match. This fixes evidence
+retention; it does not turn the context into automatic physical or source agreement.
+
 The relationship map exposed a readability defect: labels for unrelated candidates overlapped
 the selected pair, and a context pair's distance was more prominent than the selected gap.
 The follow-up keeps context markers and hypotheses visible, hides their text labels by default,

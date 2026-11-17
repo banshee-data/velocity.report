@@ -1,6 +1,25 @@
 import Combine
 import Foundation
 
+extension AppState {
+    /// Capture the same playback evidence for managed and imported reviews.
+    /// A stale frame or historical trail point cannot establish a source match.
+    var currentFollowingAuditPlayback: FollowingAudit.Playback {
+        let run = runBrowserState.runs.first { $0.runId == currentRunID }
+        let frame = currentFrame.flatMap { $0.timestampNanos == currentTimestamp ? $0 : nil }
+        let sources = Set(
+            frame?.tracks?.trails.flatMap {
+                $0.points.filter { $0.captureTimestampNanos == currentTimestamp }.map(\.sourceID)
+                    .filter { !$0.isEmpty }
+            } ?? [])
+        return .init(
+            runID: currentRunID, sourcePath: run?.sourcePath, recordingPath: run?.vrlogPath,
+            captureNanos: currentTimestamp, startNanos: logStartTimestamp,
+            endNanos: logEndTimestamp, coordinateFrameID: frame?.coordinateFrame?.frameID,
+            frameSourceIDs: sources.sorted())
+    }
+}
+
 /// Local operator observations bound to immutable offline evidence. These records
 /// do not change pairing, DRAC applicability, actor IDs or physical qualification.
 struct FollowingAudit: Codable, Equatable {

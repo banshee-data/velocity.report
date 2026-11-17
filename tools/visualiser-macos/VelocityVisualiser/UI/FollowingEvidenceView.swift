@@ -297,21 +297,7 @@ private struct FollowingEvidenceContent: View {
     }
 
     private func startAudit(_ row: FollowingEvidence.Row) {
-        let run = appState.runBrowserState.runs.first { $0.runId == appState.currentRunID }
-        let sources = Set(
-            appState.currentFrame?.tracks?.trails.flatMap {
-                $0.points.filter { $0.captureTimestampNanos == appState.currentTimestamp }.map(
-                    \.sourceID
-                ).filter { !$0.isEmpty }
-            } ?? [])
-        draft = FollowingAudit.Record(
-            row: row,
-            playback: .init(
-                runID: appState.currentRunID, sourcePath: run?.sourcePath,
-                recordingPath: run?.vrlogPath, captureNanos: appState.currentTimestamp,
-                startNanos: appState.logStartTimestamp, endNanos: appState.logEndTimestamp,
-                coordinateFrameID: appState.currentFrame?.coordinateFrame?.frameID,
-                frameSourceIDs: sources.sorted()))
+        draft = FollowingAudit.Record(row: row, playback: appState.currentFollowingAuditPlayback)
     }
 
     private func confirmReplacingUnsavedAudit() -> Bool {
