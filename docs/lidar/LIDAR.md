@@ -18,6 +18,10 @@ The [empty-frame lifecycle validation](operations/empty-frame-lifecycle-cloud-va
 
 ## Quick links
 
+The [motion-capture operations runbook](operations/motion-capture-following-operations.md)
+tracks existing capture coverage, scalable following/DRAC processing, operator review,
+and the separate physical-qualification gates.
+
 The [weekend following and DRAC evidence plan](../plans/lidar-weekend-following-drac-plan.md)
 connects the [oracle questions](../research/lidar-weekend-facets-headway-drac-oracle-brief.md)
 and [response](../research/lidar-weekend-facets-headway-drac-oracle-response.md) to the v0.5.2
