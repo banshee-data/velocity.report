@@ -101,10 +101,32 @@ export function renderFollowingStats(host, following) {
   host.append(key);
 }
 
-export function sceneTrackLabel(track, mph) {
+export function sceneTrackLabel(track, mph, review = false) {
   const vehicle = ["car", "bus", "truck"].includes(track?.c);
   const speed =
     vehicle && Number.isFinite(mph) && mph >= 1 ? `${Math.round(mph)} mph` : "";
+  if (review) {
+    const f = track?.following;
+    if (followingLabel(track) || dracOnlyLabel(track)) {
+      const gap = followingLabel(track)
+        ? `${f.net_time_gap_s.toFixed(2)} s`
+        : "time gap unavailable";
+      const drac =
+        Number.isFinite(f.experimental_drac_mps2) &&
+        f.experimental_drac_mps2 >= 0
+          ? `DRAC ${f.experimental_drac_mps2.toFixed(2)} m/s²`
+          : "DRAC unavailable";
+      const minimum = gapBand(f.track_minimum_time_gap_s)
+        ? `min ${f.track_minimum_time_gap_s.toFixed(2)} s`
+        : "";
+      return [
+        `${track.id} → ${f.leader_id}`,
+        `${f.gap_m.toFixed(1)} m · ${gap}`,
+        [drac, minimum].filter(Boolean).join(" · "),
+      ].join("\n");
+    }
+    return speed ? `${track.id} · ${speed}` : "";
+  }
   return [speed, followingLabel(track) || dracOnlyLabel(track)]
     .filter(Boolean)
     .join(" · ");

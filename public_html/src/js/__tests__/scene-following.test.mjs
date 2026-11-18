@@ -67,6 +67,30 @@ const following = {
   net_time_gap_s: 1.234,
 };
 
+test("review labels name the pair and separate distance, time and DRAC", () => {
+  const track = { id: "t1", c: "car", following };
+  assert.equal(
+    sceneTrackLabel(track, 10, true),
+    "t1 → t2\n12.3 m · 1.23 s\nDRAC unavailable",
+  );
+  assert.equal(
+    sceneTrackLabel({ id: "t2", c: "car" }, 10, true),
+    "t2 · 10 mph",
+  );
+  assert.equal(sceneTrackLabel({ id: "t3", c: "dynamic" }, 0, true), "");
+  track.following = {
+    ...following,
+    bucket: "following_excluded",
+    net_time_gap_s: null,
+    drac_status: "supported",
+    experimental_drac_mps2: 0.03,
+  };
+  assert.match(
+    sceneTrackLabel(track, 0, true),
+    /time gap unavailable\nDRAC 0.03/,
+  );
+});
+
 test("supported DRAC survives an unavailable low-speed headway without inventing zero", () => {
   const track = {
     following: {

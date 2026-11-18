@@ -184,6 +184,14 @@ func TestFitLifecycleUsesOneBodyAndRetainsAbstentions(t *testing.T) {
 	if proposed == 0 || proposed != len(result.Import.Objects[0].Keyframes) {
 		t.Fatal(proposed)
 	}
+	doc := result.Import.Document()
+	doc.Objects[0].Keyframes = append(doc.Objects[0].Keyframes, PhysicalKeyframe{SampleID: 0})
+	if err := result.Import.MergeInto(doc, true); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Objects[0].Keyframes) != proposed {
+		t.Fatal("headless lifecycle import retained old poses at abstained frames")
+	}
 	for _, k := range result.Import.Objects[0].Keyframes {
 		if k.SampleID == 0 || k.Review.Status != StatusProposed || k.Review.Provenance.Operation != "lifecycle_refinement" || !strings.Contains(k.Review.UncertaintyAssumptions, life.InformationUntil) {
 			t.Fatal(k)

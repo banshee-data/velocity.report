@@ -426,6 +426,9 @@ func FitPhysicalObject(p *Pack, s *Sidecar, req FitRequest, opts FitOptions) (*F
 		PackDigest: p.Manifest.PackDigest, DatasetID: p.Manifest.DatasetID, Source: src,
 		Objects: []PhysicalObject{{ObjectID: req.ObjectID, Body: &body, Keyframes: keyframes}},
 	}
+	if req.Lifecycle {
+		res.Import.ReplaceKeyframes = []string{req.ObjectID}
+	}
 	return res, nil
 }
 

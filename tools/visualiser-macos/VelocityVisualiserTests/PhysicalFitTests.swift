@@ -69,6 +69,29 @@ struct PhysicalFitTests {
         #expect(fit.inspectionSample(for: PhysicalFaceCoverage(name: "Front", samples: [])) == nil)
         #expect(fit.inspectionSample(for: PhysicalFaceCoverage(name: "Front", samples: [-1])) == -1)
     }
+    @Test func extentInspectionIgnoresUnsupportedMaximumBoxes() throws {
+        var fit = try fitResult()
+        var supported = try #require(fit.frames.first)
+        supported.sampleID = 3
+        supported.axis = "resolved"
+        supported.skipped = nil
+        supported.usedFor = ["length", "width"]
+        supported.lengthSpanM = 4
+        supported.widthSpanM = 2
+        var unsupported = supported
+        unsupported.sampleID = 4
+        unsupported.lengthSpanM = 40
+        unsupported.widthSpanM = 20
+        unsupported.usedFor = ["pose"]
+        fit.frames = [unsupported, supported]
+        #expect(fit.extentSample(width: false) == 3)
+        #expect(fit.extentSample(width: true) == 3)
+        fit.frames[1].axis = "axial"
+        #expect(fit.extentSample(width: false) == nil)
+        fit.frames[1].axis = "resolved"
+        fit.frames[1].skipped = "occluded"
+        #expect(fit.extentSample(width: true) == nil)
+    }
     @Test func bodyCoverageDoesNotCountUnresolvedOrSkippedFrames() throws {
         var fit = try fitResult()
         var frame = try #require(fit.frames.first)

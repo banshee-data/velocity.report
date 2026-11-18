@@ -32,6 +32,36 @@ func writeImport(t *testing.T, imp *PhysicalReferenceImport) string {
 	return path
 }
 
+func TestPhysicalImportPoseReplacementRequiresExplicitPermissionAndBody(t *testing.T) {
+	p := physPack(t)
+	for _, tc := range []struct {
+		ids     []string
+		replace bool
+		noBody  bool
+	}{
+		{ids: []string{"car"}},
+		{ids: []string{""}, replace: true},
+		{ids: []string{"missing"}, replace: true},
+		{ids: []string{"car", "car"}, replace: true},
+		{ids: []string{"car"}, replace: true, noBody: true},
+	} {
+		imp := importOf(p)
+		id := imp.Objects[0].ObjectID
+		for i := range tc.ids {
+			if tc.ids[i] == "car" {
+				tc.ids[i] = id
+			}
+		}
+		imp.ReplaceKeyframes = tc.ids
+		if tc.noBody {
+			imp.Objects[0].Body = nil
+		}
+		if err := imp.MergeInto(validPhysical(p), tc.replace); err == nil || !strings.Contains(err.Error(), "replace_keyframes") {
+			t.Fatalf("unsafe pose replacement accepted: %+v: %v", tc, err)
+		}
+	}
+}
+
 // Completion evidence for P0: an independent import passes the same
 // validation, and what it imports round-trips.
 func TestPhysicalImportRoundTrip(t *testing.T) {

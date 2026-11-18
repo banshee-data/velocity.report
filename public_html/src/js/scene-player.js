@@ -1024,7 +1024,7 @@ export async function mountScenePlayer({
     const placed = [];
     for (const [id, el] of labels) {
       const v = visuals.get(id);
-      if (!v || !v.edges.visible) {
+      if (!v || !v.edges.visible || !el.textContent) {
         el.style.display = "none";
         continue;
       }
@@ -1062,18 +1062,24 @@ export async function mountScenePlayer({
     placed.sort((a, b) => a.depth - b.depth);
     const taken = [];
     for (const p of placed) {
+      p.el.style.display = "block";
+      const width = p.el.offsetWidth || 46;
+      const height = p.el.offsetHeight || LABEL_ROW_PX;
       let y = p.y;
       let guard = 0;
       while (
         guard++ < 12 &&
         taken.some(
-          (t) => Math.abs(t.y - y) < LABEL_ROW_PX && Math.abs(t.x - p.x) < 46,
+          (t) =>
+            y > t.y - t.height - 3 &&
+            y - height < t.y + 3 &&
+            Math.abs(t.x - p.x) < (t.width + width) / 2 + 4,
         )
       ) {
-        y -= LABEL_ROW_PX;
+        y -= height + 4;
       }
-      taken.push({ x: p.x, y });
-      p.el.style.display = "block";
+      taken.push({ x: p.x, y, width, height });
+      p.el.style.display = y - height < 0 ? "none" : "block";
       p.el.style.left = `${p.x}px`;
       p.el.style.top = `${y}px`;
     }
@@ -1136,7 +1142,7 @@ export async function mountScenePlayer({
         // The track's peak so far, not this instant's, which may already have
         // passed by the time the box is on screen.
         const mph = (t.mspd ?? t.spd ?? 0) * MPS_TO_MPH;
-        const text = sceneTrackLabel(t, mph);
+        const text = sceneTrackLabel(t, mph, followingReview);
         if (text || labels.has(t.id)) {
           const label = labelFor(t.id);
           label.textContent = text;
