@@ -57,6 +57,7 @@ private struct FollowingReviewWorkspace: View {
                     .textSelection(.enabled)
             }
             if let navigationError { Text(navigationError).foregroundStyle(.orange) }
+            if pendingSelection != nil { ProgressView("Pausing recording…").controlSize(.small) }
             if review.isManaged {
                 HSplitView {
                     caseList.frame(minWidth: 260, idealWidth: 300, maxWidth: 380)
@@ -116,14 +117,6 @@ private struct FollowingReviewWorkspace: View {
                         && appState.currentTimestamp >= $0.startNanos
                         && appState.currentTimestamp < $0.endExclusiveNanos
                 })?.id
-        }.onChange(of: appState.playbackControlsBusy) { _, busy in
-            guard !busy, let record = pendingSelection else { return }
-            pendingSelection = nil
-            if appState.isPaused && bound {
-                show(record)
-            } else {
-                navigationError = "Could not pause this recording. Pause it before choosing a case."
-            }
         }.onChange(of: review.managedRunID) { _, _ in
             selectedID = nil
             pendingSelection = nil
@@ -201,10 +194,15 @@ private struct FollowingReviewWorkspace: View {
         navigationError = nil
         if !appState.isPaused {
             pendingSelection = record
-            appState.togglePlayPause()
-            if !appState.playbackControlsBusy {
+            Task {
+                let paused = await appState.pauseForFollowingReview()
+                guard pendingSelection?.id == record.id else { return }
                 pendingSelection = nil
-                navigationError = "Playback is unavailable. Reconnect the recording and try again."
+                if paused && bound {
+                    show(record)
+                } else {
+                    navigationError = "Could not pause this recording. Reconnect and try again."
+                }
             }
         } else {
             show(record)

@@ -172,7 +172,16 @@ struct FollowingRelationshipView: View {
                             .font(.caption).foregroundStyle(.orange)
                     }
                     HStack { Button("Review this period…") { beginReview(row) } }.disabled(
-                        review.savingRecord || review.loadingWindow || review.pendingSave != nil)
+                        review.savingRecord || review.loadingWindow || review.pendingSave != nil
+                            || appState.playbackControlsBusy || !appState.isPaused
+                            || appState.currentFrame?.timestampNanos != row.captureUnixNanos)
+                    if !appState.isPaused {
+                        Text("Pause playback to label an exact sample.").font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if appState.currentFrame?.timestampNanos != row.captureUnixNanos {
+                        Text("Waiting for this replay frame…").font(.caption).foregroundStyle(
+                            .secondary)
+                    }
                     if review.savingRecord { ProgressView("Saving review…").controlSize(.small) }
 
                 } else if !review.loading {

@@ -38,7 +38,8 @@ that list; saving or editing a draft blocks case changes. Three visible checks k
 choice, endpoint support and both projected speeds separate. Full notes and provenance stay
 under disclosures.
 
-**Review this period…** opens a label dialog. When viewing an exact sample inside the selected
+**Review this period…** opens a label dialog when playback is paused on the exact displayed
+sample; an in-flight seek cannot supply its viewing context. When viewing a sample inside the selected
 case for the same follower and recording, it retains the case's exclusive end. Starting later
 does not backdate the review. Old observations, reviewer, proposed leader and viewing context
 are never adopted: the new record starts unknown and uses the current displayed frame.

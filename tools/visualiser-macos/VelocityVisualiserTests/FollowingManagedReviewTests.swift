@@ -119,6 +119,36 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
         XCTAssertTrue(app.showLabelPanel)
     }
 
+    func testCasePauseAwaitsEvenAnImmediateAcknowledgement() async {
+        let app = AppState()
+        let client = FakePlaybackRPCClient()
+        app.playbackCommandClientOverride = client
+        app.isConnected = true
+        app.setPlaybackModeForTesting(.replaySeekable)
+        app.isPaused = false
+        let paused = await app.pauseForFollowingReview()
+        XCTAssertTrue(paused)
+        XCTAssertTrue(app.isPaused)
+        XCTAssertFalse(app.playbackControlsBusy)
+        XCTAssertEqual(client.pauseCallCount, 1)
+        XCTAssertEqual(client.seekTimestampCalls, [])
+    }
+
+    func testCasePauseFailureDoesNotPermitASeekOrLeaveBusyState() async {
+        let app = AppState()
+        let client = FakePlaybackRPCClient()
+        client.pauseError = FakePlaybackRPCClient.ForcedError.testFailure
+        app.playbackCommandClientOverride = client
+        app.isConnected = true
+        app.setPlaybackModeForTesting(.replaySeekable)
+        app.isPaused = false
+        let paused = await app.pauseForFollowingReview()
+        XCTAssertFalse(paused)
+        XCTAssertFalse(app.isPaused)
+        XCTAssertFalse(app.playbackControlsBusy)
+        XCTAssertEqual(client.seekTimestampCalls, [])
+    }
+
     private func slice(_ at: Int64 = 1000) -> Data {
         let start = at < 2000 ? 1000 : 2000
         let endpoint =
