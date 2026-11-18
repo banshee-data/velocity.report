@@ -86,9 +86,7 @@ struct FollowingRelationshipView: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var review: FollowingReviewSession
     var period: FollowingAudit.Record? = nil
-    var showsSavedRecords = true
     @State private var sliderSeconds: Double = 0
-    @State private var recordLimit = 20
 
     private var bound: Bool {
         review.managedRunID == appState.currentRunID
@@ -206,16 +204,6 @@ struct FollowingRelationshipView: View {
                         if !editing { seek(metadata.startNanos + Int64(sliderSeconds * 1e9)) }
                     }
                 ).accessibilityLabel("Seek recording review time")
-                if showsSavedRecords {
-                    DisclosureGroup("Review records (\(review.audit?.records.count ?? 0))") {
-                        ForEach((review.audit?.records ?? []).suffix(recordLimit)) { record in
-                            savedRecord(record, metadata: metadata)
-                        }
-                        if (review.audit?.records.count ?? 0) > recordLimit {
-                            Button("Show 20 earlier records") { recordLimit += 20 }
-                        }
-                    }
-                }
                 DisclosureGroup("Evidence details") {
                     Text(
                         "Source \(metadata.sourceId)\nCalibration \(metadata.calibrationId)\nAnalysis \(metadata.evidenceSha256)"
@@ -251,32 +239,6 @@ struct FollowingRelationshipView: View {
                     at: appState.currentTimestamp, selectedTrackID: appState.selectedTrackID)
             }
             appState.refreshFollowingOverlay()
-        }
-    }
-
-    private func savedRecord(
-        _ record: FollowingAudit.Record, metadata: FollowingReviewMetadata
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button("\(short(record.followerTrackID)) · \(record.conclusion.title)") {
-                review.follower = record.followerTrackID
-                appState.selectTrack(record.followerTrackID, showInspector: false)
-                seek(record.startNanos)
-            }.buttonStyle(.link).font(.caption)
-            DisclosureGroup("Review observations") {
-                Text("Reviewer: \(record.reviewer)")
-                Text(
-                    String(
-                        format: "Period: %.3f–%.3f seconds",
-                        Double(record.startNanos - metadata.startNanos) / 1e9,
-                        Double(record.endExclusiveNanos - metadata.startNanos) / 1e9))
-                Text("Identity: \(record.identityContinuity.title)")
-                Text("Leader / path: \(record.leaderAndPath.title)")
-                if let leader = record.proposedLeaderTrackID { Text("Observed leader: \(leader)") }
-                Text("Endpoints: \(record.visibleEndpoints.title)")
-                Text("Speeds: \(record.speedEvidence.title)")
-                Text(record.notes).textSelection(.enabled)
-            }.font(.caption)
         }
     }
 

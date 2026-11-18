@@ -72,8 +72,18 @@ private struct FollowingReviewWorkspace: View {
                             }
                             checklist
                             if let period {
-                                DisclosureGroup("Case notes") {
-                                    Text(period.notes).font(.caption).textSelection(.enabled)
+                                DisclosureGroup("Case notes and observations") {
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text("Reviewer: \(period.reviewer)")
+                                        Text("Identity: \(period.identityContinuity.title)")
+                                        Text("Leader / path: \(period.leaderAndPath.title)")
+                                        if let leader = period.proposedLeaderTrackID {
+                                            Text("Observed leader: \(leader.suffix(8))")
+                                        }
+                                        Text("Endpoints: \(period.visibleEndpoints.title)")
+                                        Text("Speeds: \(period.speedEvidence.title)")
+                                        Text(period.notes).textSelection(.enabled)
+                                    }.font(.caption)
                                 }
                             }
                             if let pending = review.pendingSave {
@@ -81,8 +91,7 @@ private struct FollowingReviewWorkspace: View {
                                     Task { await review.retryPendingSave() }
                                 }.disabled(review.savingRecord)
                             }
-                            FollowingRelationshipView(
-                                review: review, period: period, showsSavedRecords: false)
+                            FollowingRelationshipView(review: review, period: period)
                         }.padding(.horizontal, 14)
                     }.frame(minWidth: 500)
                 }
