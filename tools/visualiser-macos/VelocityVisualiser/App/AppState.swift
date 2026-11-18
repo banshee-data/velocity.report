@@ -530,6 +530,7 @@ private let logger = DevLogger(category: "AppState")
         if currentRunID != runID { await openRun(runID) }
         guard currentRunID == runID else { return }
         openTrackReview()
+        showSidePanel = false
         await followingReview.openRecording(runID: runID, at: currentTimestamp)
         refreshFollowingOverlay()
     }
@@ -1408,6 +1409,30 @@ private let logger = DevLogger(category: "AppState")
         grpcClient?.restartStream()
     }
 
+    /// Await the pause acknowledgement before a case seek. SwiftUI can
+    /// coalesce a fast busy→idle transition, so view observation is not a
+    /// reliable command-completion mechanism.
+    func pauseForFollowingReview() async -> Bool {
+        guard !playbackControlsBusy,
+            let client = guardPlaybackCommand(kind: .togglePlayPause, requiresSeekable: true)
+        else { return false }
+        if isPaused { return true }
+        guard beginPlaybackCommand(.togglePlayPause) else { return false }
+        let generation = playbackStateGeneration
+        defer {
+            if generation == playbackStateGeneration { finishPlaybackCommand(.togglePlayPause) }
+        }
+        do {
+            let ack = try await client.pause()
+            guard generation == playbackStateGeneration else { return false }
+            applyPlaybackAck(ack)
+            return ack.paused
+        } catch {
+            logger.error("Could not pause for following review: \(error.localizedDescription)")
+            return false
+        }
+    }
+
     func togglePlayPause() {
         logger.debug(
             "togglePlayPause() called — mode=\(self.displayPlaybackMode.rawValue) paused=\(self.isPaused) finished=\(self.replayFinished) busy=\(self.playbackControlsBusy) frame=\(self.currentFrameIndex)/\(self.totalFrames)"
@@ -1807,11 +1832,11 @@ private let logger = DevLogger(category: "AppState")
 
     // MARK: - Labelling
 
-    func selectTrack(_ trackID: String?) {
+    func selectTrack(_ trackID: String?, showInspector: Bool = true) {
         selectedTrackID = trackID
         selectedTrackData = trackID.flatMap { allSeenTracks[$0] }
         renderer?.selectedTrackID = trackID
-        if trackID != nil {
+        if trackID != nil && showInspector {
             showLabelPanel = true
             showSidePanel = true
         }

@@ -1298,6 +1298,63 @@ func TestStreamFromPublisher_BasicFlow(t *testing.T) {
 	}
 }
 
+func TestStreamFromPublisher_PausedVRLogUpdatesReachEveryViewer(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+	if err := pub.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer pub.Stop()
+	server := NewServer(pub)
+	server.SetVRLogMode(true)
+	server.playbackMu.Lock()
+	server.paused = true
+	server.playbackMu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	var wg sync.WaitGroup
+	defer func() { cancel(); wg.Wait() }()
+	var received [2]chan *pb.FrameBundle
+	for i := range received {
+		received[i] = make(chan *pb.FrameBundle, 2)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = server.streamFromPublisher(ctx, &pb.StreamRequest{SensorId: "test-sensor"}, &mockSyntheticStream{
+				ctx:  ctx,
+				send: func(frame *pb.FrameBundle) error { received[i] <- frame; return nil },
+			})
+		}()
+	}
+	tick := time.NewTicker(time.Millisecond)
+	defer tick.Stop()
+	for pub.clientCount.Load() != 2 {
+		select {
+		case <-ctx.Done():
+			t.Fatal("viewers did not subscribe")
+		case <-tick.C:
+		}
+	}
+	for _, id := range []uint64{42, 43} {
+		frame := &FrameBundle{FrameID: id, TimestampNanos: int64(id), SensorID: "test-sensor",
+			PlaybackInfo: &PlaybackInfo{SourceMode: "vrlog", Paused: true, RecordingPath: "/prepared"}}
+		pub.broadcastFrame(frame)
+		for i, ch := range received {
+			select {
+			case got := <-ch:
+				if got.FrameId != id || got.PlaybackInfo == nil || !got.PlaybackInfo.Paused || got.PlaybackInfo.RecordingPath != "/prepared" {
+					t.Fatalf("viewer %d: incorrect paused update: %v", i, got)
+				}
+			case <-ctx.Done():
+				t.Fatalf("viewer %d lost paused update %d", i, id)
+			}
+		}
+		if frame.PlaybackInfo.ReplayEpoch != 0 {
+			t.Fatal("stream decorated shared reader metadata")
+		}
+	}
+}
+
 func TestStreamFromPublisher_VRLogReplayCoalescesBufferedFrames(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.ListenAddr = "localhost:0"

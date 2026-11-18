@@ -119,6 +119,28 @@ struct FollowingAudit: Codable, Equatable {
             endExclusiveNanos = end.overflow ? startNanos : end.partialValue
             self.playback = playback
         }
+
+        var caseTitle: String {
+            let line = notes.split(separator: "\n").first.map(String.init) ?? ""
+            let sentence = line.components(separatedBy: ". ").first ?? line
+            return sentence.isEmpty ? "Saved review" : String(sentence.prefix(96))
+        }
+
+        /// A saved nomination supplies scope, never the new reviewer's labels
+        /// or old viewing context. Starting later does not backdate a review.
+        static func reviewing(
+            row: FollowingEvidence.Row, playback: Playback, period: Record?
+        ) -> Record {
+            var record = Record(row: row, playback: playback)
+            if let period, let runID = playback.runID, !runID.isEmpty,
+                period.playback.runID == runID, period.followerTrackID == row.followerTrackId,
+                row.captureUnixNanos >= period.startNanos,
+                row.captureUnixNanos < period.endExclusiveNanos
+            {
+                record.endExclusiveNanos = period.endExclusiveNanos
+            }
+            return record
+        }
     }
 
     var schema = "following_audit_v1"

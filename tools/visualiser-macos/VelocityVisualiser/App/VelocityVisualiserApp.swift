@@ -59,6 +59,10 @@ private let appLogger = DevLogger(category: "App")
         Window("Annotation", id: "annotation") { AnnotationWindow().environmentObject(appState) }
             .defaultSize(width: 1560, height: 940).restorationBehavior(.disabled)
 
+        Window("Follower review", id: "following-review") {
+            FollowingReviewWindow().environmentObject(appState)
+        }.defaultSize(width: 1080, height: 880).restorationBehavior(.disabled)
+
         // Settings (⌘,) ▸ Servers: velocity.report and Gerardus, where each
         // is, whether it answers and what it is, and the street painter's
         // author. The main window's status indicator opens it.

@@ -31,6 +31,7 @@ struct FollowingEvidenceView: View {
 
 private struct FollowingReviewEntry: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var review: FollowingReviewSession
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -40,11 +41,14 @@ private struct FollowingReviewEntry: View {
                 }.disabled(review.savingRecord)
             }
             if review.isManaged {
-                FollowingRelationshipView(review: review)
+                Button("Open follower review") { openWindow(id: "following-review") }
+                Text("Review saved periods, leader choices, gaps and speeds in their own window.")
+                    .font(.caption).foregroundStyle(.secondary)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     Button("Review this recording") {
                         if let id = appState.currentRunID {
+                            openWindow(id: "following-review")
                             Task { await appState.openFollowingReview(id) }
                         }
                     }.disabled(appState.currentRunID == nil)
@@ -57,7 +61,17 @@ private struct FollowingReviewEntry: View {
                     }
                 }
             }
-        }.sheet(
+        }
+    }
+}
+
+/// A single presentation owner prevents the inspector and review window from
+/// competing for the same draft. The session retains drafts across window close.
+struct FollowingManagedDraftSheet: ViewModifier {
+    @ObservedObject var review: FollowingReviewSession
+
+    func body(content: Content) -> some View {
+        content.sheet(
             item: Binding(
                 get: { review.managedDraft },
                 set: { value in if let value { review.managedDraft = value } })

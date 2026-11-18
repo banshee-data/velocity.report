@@ -17,7 +17,7 @@ struct FollowingAuditEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Following / experimental DRAC audit").font(.headline)
+            Text("Review follower period").font(.headline)
             Text("Follower \(record.followerTrackID.suffix(8)) · \(startLabel)").textSelection(
                 .enabled)
             Form {
@@ -55,7 +55,7 @@ struct FollowingAuditEditor: View {
             TextEditor(text: $record.notes).frame(minHeight: 120).border(.secondary.opacity(0.3))
                 .accessibilityLabel("Audit observations and uncertainty")
             Text(
-                "Playback at \(record.playback.captureNanos) ns. Source/version agreement is unverified. Describe the recording and evidence you checked; this audit does not automatically seek, join tracks or qualify DRAC."
+                "This review retains the displayed frame's context. Record what the scans establish; matching a recording does not verify physical identity, endpoints or speeds."
             ).font(.caption).foregroundStyle(.orange)
             if let error { Text(error).foregroundStyle(.red) }
             HStack {

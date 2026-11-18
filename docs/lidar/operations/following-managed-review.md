@@ -109,7 +109,7 @@ Once the session supplies a recording binding, missing frame recording context c
 back to trail IDs, even when they match. The older-server source-only path is labelled as
 having no recording identity.
 
-Correct, Wrong and Uncertain open a period review. An unfinished draft retains its original
+The Follower review window's Review this period action opens the label dialog. An unfinished draft retains its original
 recording, evidence version, notes and end-time text across playback or inspector changes.
 Submitting captures that context before saving; a failed save can be retried with the same
 record identity. Quitting with a draft or pending save asks before discarding it.

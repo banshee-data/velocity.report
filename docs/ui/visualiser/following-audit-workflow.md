@@ -8,6 +8,8 @@
 ## Recording review
 
 Choose **Following** on a recording in **Runs**, or **Review this recording** in Inspector.
+This opens the separate **Follower review** window, leaving the main 3D recording available.
+Inspector's **Open follower review** button and the Window menu bring it back.
 VV loads the paired recording and retrieves its verified evidence, fitted paths and saved
 annotations from the backend. Minute boundaries are automatic: normal review has no evidence
 or audit file chooser. Missing preparations show an unavailable reason rather than borrowing
@@ -28,7 +30,20 @@ requires verified recording coordinates; otherwise only the source-bound review 
 The display height is the follower's plane, not a measured bumper surface or surveyed road plane.
 These checks establish software provenance, not physical geometry, identity or DRAC accuracy.
 
-**Correct**, **Wrong** and **Uncertain** open a period review. Record an optional observed leader
+The saved-period list shows each period's time, follower and first note sentence. Notes beginning
+with `NOMINATION ` form the working list when present; **Include other saved reviews** exposes
+the rest. This is a presentation convention, not a completed-label status. Selecting a case
+pauses playback before seeking its exact start. **Previous case** and **Next case** move through
+that list; saving or editing a draft blocks case changes. Three visible checks keep leader
+choice, endpoint support and both projected speeds separate. Full notes and provenance stay
+under disclosures.
+
+**Review this period…** opens a label dialog when playback is paused on the exact displayed
+sample; an in-flight seek cannot supply its viewing context. When viewing a sample inside the selected
+case for the same follower and recording, it retains the case's exclusive end. Starting later
+does not backdate the review. Old observations, reviewer, proposed leader and viewing context
+are never adopted: the new record starts unknown and uses the current displayed frame.
+Record an optional observed leader
 from that sample's candidates, reviewer, period end and notes, keeping endpoint, identity and speed
 observations independent. Period ends are entered as seconds into the recording and retained as
 exact Int64 capture nanoseconds. A relationship choice alone does not qualify the other fields.

@@ -115,6 +115,26 @@ observations remained unknown and its conclusion was insufficient evidence. Both
 records were unchanged. The screenshot and raw checks remain on attached storage; this confirms
 software association and persistence, not physical endpoint accuracy.
 
+## Additional manual-review nominations
+
+Four further periods were selected from the same prepared recording's second minute. These
+are development review cases, not new perception runs or human labels. Values below are the
+frozen analyser's estimates at each nominated start, not physical measurements of error.
+All times are seconds into the recording; ends are exclusive. They complement the earlier
+supported-following, ambiguous-leader, class-exclusion and speed-floor examples in minute zero.
+
+| Case | Period (s)            | Follower → analyser leader | Initial estimate and question                                                                                                                                               |
+| ---- | --------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E    | 92.699963–94.000411   | `a0df8682` → `05b25caf`    | 23.05 m; 9.79/6.12 m/s; experimental DRAC 0.291 m/s². Check immediate predecessor, inferred endpoints and sustained closing through the turn.                               |
+| F    | 106.099941–109.200350 | `01d9bef4` → `a335f1f6`    | 10.72 m; 8.46/8.88 m/s. Non-closing: a gap and following relationship do not establish positive DRAC.                                                                       |
+| G    | 105.100290–106.700260 | `a21d9cd8` → `7e767b13`    | 25.64 m; closing 0.059 m/s; experimental DRAC 0.0000682 m/s². Check relative-speed uncertainty and sign changes rather than interpreting tiny arithmetic as precise risk.   |
+| H    | 95.499806–97.599852   | `83e9598c` → unresolved    | Record-gap interval with no supported gap or pair speeds. Inspect identity and lost returns before/after it; do not interpolate the missing period into following exposure. |
+
+The E and G starts use exact subsequent exported samples, rather than the initial rows of
+their supported groups. Period selection preserves capture nanoseconds; no nearest-time join,
+actor stitching or threshold tuning is implied. Manual labels must separately record identity,
+leader/common-path evidence, endpoint visibility and evidence for both projected speeds.
+
 ## Attached-drive diagnosis
 
 The physical evidence volume was Journaled HFS+ on a USB rotating disk. Both direct HFS+
