@@ -12,6 +12,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
+	"google.golang.org/protobuf/proto"
 )
 
 func facetPoseAPIFixture(t *testing.T) (*Server, *annotation.Pack, annotation.FacetPoseRequest) {
@@ -108,5 +109,122 @@ func TestFacetPoseAPIIsBoundedReadOnlyAndUsesSourceEvidence(t *testing.T) {
 		if out.Code != tc.code {
 			t.Fatal(tc.name, out.Code, out.Body.String())
 		}
+	}
+}
+
+func jointFacetPoseAPIFixture(t *testing.T) (*Server, *annotation.Pack, annotation.FacetJointPoseRequest) {
+	t.Helper()
+	ws, p, legacy := facetPoseAPIFixture(t)
+	state, err := annotation.LoadFeatures(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := proto.Clone(state.Document.Features[0]).(*pb.FeatureCandidate)
+	second.FeatureId = "front-tip"
+	second.Anchor.XM = 2.25
+	four := uint32(4)
+	second.Anchor.SourcePointIndex = &four
+	for _, o := range second.Observations {
+		o.PointIndices = []uint32{4, 5}
+		o.Sphere.XM += 4.5
+	}
+	state.Document.Features = append(state.Document.Features, second)
+	state, err = annotation.SaveFeatures(p, &pb.FeatureEdit{Document: state.Document, BaseDigest: state.Digest, MembershipDigest: state.MembershipDigest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := annotation.FacetJointPoseRequest{SchemaVersion: 2, Pack: legacy.Pack, PackDigest: legacy.PackDigest, FeatureRevision: state.Document.Revision, FeatureDigest: state.Digest, MembershipRevision: legacy.MembershipRevision, MembershipDigest: legacy.MembershipDigest, SampleID: legacy.SampleID, TimestampNs: legacy.TimestampNs, Author: legacy.Author, Prior: legacy.Prior, Matches: []annotation.FacetJointPoseMatch{{FeatureID: "tip", PointIndex: legacy.PointIndex, ReturnBoundM: .05, Confirmed: true, IdentityNote: "same rear tip"}, {FeatureID: "front-tip", PointIndex: &four, ReturnBoundM: .05, Confirmed: true, IdentityNote: "same front tip"}}}
+	return ws, p, req
+}
+
+func TestFacetPoseAPIVersionDispatchPreservesJointEvidenceAndLegacyContract(t *testing.T) {
+	ws, p, req := jointFacetPoseAPIFixture(t)
+	call := func(b []byte) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		ws.handleFacetPoseProposal(w, httptest.NewRequest(http.MethodPost, "/api/lidar/annotations/features/pose-proposal", bytes.NewReader(b)))
+		return w
+	}
+	before := map[string][]byte{}
+	for _, f := range []string{labelSetManifest(t, p.Dir), filepath.Join(p.Dir, "feature-proposals.pb"), filepath.Join(p.Dir, "physical-references.json")} {
+		before[f], _ = os.ReadFile(f)
+	}
+	payload, _ := json.Marshal(req)
+	response := call(payload)
+	if response.Code != 200 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	var result annotation.FacetJointPoseProposal
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || result.Schema != "velocity.report/facet-joint-pose-proposal" || result.SchemaVersion != 1 || result.Confidence.DataRank != 3 || result.Confidence.State != "supported" || len(result.Contributors) != 2 || result.Request.Matches[0].PointIndex == nil || *result.Request.Matches[0].PointIndex != 0 {
+		t.Fatal(err, result)
+	}
+	for f, b := range before {
+		after, _ := os.ReadFile(f)
+		if !bytes.Equal(b, after) {
+			t.Fatal("joint endpoint wrote", f)
+		}
+	}
+	// The v1 endpoint still produces precisely its own result schema.
+	legacy := annotation.FacetPoseRequest{SchemaVersion: 1, Pack: req.Pack, PackDigest: req.PackDigest, FeatureID: req.Matches[0].FeatureID, FeatureRevision: req.FeatureRevision, FeatureDigest: req.FeatureDigest, MembershipRevision: req.MembershipRevision, MembershipDigest: req.MembershipDigest, SampleID: req.SampleID, TimestampNs: req.TimestampNs, PointIndex: req.Matches[0].PointIndex, ReturnBoundM: .05, Confirmed: true, IdentityNote: "same tip", Author: req.Author, Prior: req.Prior}
+	legacyBytes, _ := json.Marshal(legacy)
+	response = call(legacyBytes)
+	var single annotation.FacetPoseProposal
+	if err := json.Unmarshal(response.Body.Bytes(), &single); err != nil || response.Code != 200 || single.SchemaVersion != 2 || single.Schema != "velocity.report/facet-pose-proposal" {
+		t.Fatal(err, response.Code, response.Body.String())
+	}
+	cases := []struct {
+		name string
+		body []byte
+		code int
+	}{
+		{"unsupported", []byte(`{"schema_version":3}`), 400},
+		{"missing version", []byte(`{"matches":[]}`), 400},
+		{"string version", []byte(`{"schema_version":"2"}`), 400},
+		{"array", []byte(`[]`), 400},
+		{"null", []byte(`null`), 400},
+		{"legacy fields in joint", bytes.Replace(payload, []byte(`"matches":`), []byte(`"feature_id":"tip","matches":`), 1), 400},
+		{"joint fields in legacy", bytes.Replace(legacyBytes, []byte(`"feature_id":`), []byte(`"matches":[],"feature_id":`), 1), 400},
+		{"unknown joint match", bytes.Replace(payload, []byte(`"return_bound_m":`), []byte(`"invented":1,"return_bound_m":`), 1), 400},
+	}
+	for _, tc := range cases {
+		if out := call(tc.body); out.Code != tc.code {
+			t.Fatal(tc.name, out.Code, out.Body.String())
+		}
+	}
+	for _, tc := range []struct {
+		name   string
+		mutate func(*annotation.FacetJointPoseRequest)
+		code   int
+	}{
+		{"pack", func(r *annotation.FacetJointPoseRequest) { r.Pack = "../escape" }, 400},
+		{"feature hash", func(r *annotation.FacetJointPoseRequest) { r.FeatureDigest = "stale" }, 409},
+		{"membership", func(r *annotation.FacetJointPoseRequest) { r.MembershipRevision++ }, 409},
+		{"unsupported count", func(r *annotation.FacetJointPoseRequest) { r.Matches = r.Matches[:1] }, 422},
+		{"missing confirmation", func(r *annotation.FacetJointPoseRequest) { r.Matches[0].Confirmed = false }, 422},
+	} {
+		r := req
+		r.Matches = append([]annotation.FacetJointPoseMatch(nil), req.Matches...)
+		tc.mutate(&r)
+		b, _ := json.Marshal(r)
+		if out := call(b); out.Code != tc.code {
+			t.Fatal(tc.name, out.Code, out.Body.String())
+		}
+	}
+}
+
+func TestJointFacetPoseVersionDecoderPreservesLargeNanosecondsAndIndexZero(t *testing.T) {
+	payload := []byte(`{"schema_version":2,"sample_id":0,"timestamp_ns":9007199254740993,"matches":[{"feature_id":"a","point_index":0},{"feature_id":"b","point_index":1}]}`)
+	var req annotation.FacetJointPoseRequest
+	if err := decodeFacetPoseVersion(payload, &req); err != nil {
+		t.Fatal(err)
+	}
+	if req.SchemaVersion != 2 || req.TimestampNs != 9007199254740993 || req.Matches[0].PointIndex == nil || *req.Matches[0].PointIndex != 0 {
+		t.Fatal("joint decoder changed identity", req)
+	}
+	again, err := json.Marshal(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(again, []byte(`"timestamp_ns":9007199254740993`)) || !bytes.Contains(again, []byte(`"point_index":0`)) {
+		t.Fatal("joint JSON lost exact identity", string(again))
 	}
 }

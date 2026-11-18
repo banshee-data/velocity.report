@@ -98,8 +98,7 @@ struct FeatureSelectionTests {
         var o = FeatureObservation()
         o.pointIndices = (0..<6).map(UInt32.init)
         o.method = "manual_lasso"
-        o.sphere = FeatureSphere(
-            centre: facet.reduce(.zero, +) / Float(facet.count), radius: 0.35)
+        o.sphere = FeatureSphere(centre: facet.reduce(.zero, +) / Float(facet.count), radius: 0.35)
         let sphere = try FeatureSelection.propose(
             source: o, sourcePoints: source, sourceDomain: domain, targetPoints: target,
             targetDomain: domain, seconds: 0.1)
@@ -134,8 +133,7 @@ struct FeatureSelectionTests {
             FeatureSelection.lassoEnvelope(centre: .zero, members: [.zero])?.radiusM
                 == FeatureSelection.minimumRadiusM)
         #expect(FeatureSelection.lassoEnvelope(centre: .zero, members: []) == nil)
-        #expect(
-            FeatureSelection.lassoEnvelope(centre: .zero, members: [SIMD3(.nan, 0, 0)]) == nil)
+        #expect(FeatureSelection.lassoEnvelope(centre: .zero, members: [SIMD3(.nan, 0, 0)]) == nil)
     }
 
     @Test func sparseOrCompetingLocalFitsDoNotBecomeAcceptedObservations() {
@@ -1016,5 +1014,162 @@ struct FeatureSharedWireTests {
         reopened.seed(featureSeed(pack), objectID: "car")
         #expect(reopened.draft?.origin == "assisted_proposal")
         #expect(reopened.draft?.note.contains("feature revision 7") == true)
+    }
+}
+
+@MainActor struct JointFeatureSelectionTests {
+    @Test func matchesSurviveFacetSelectionButNotAChangedSavedRevision() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { removePack(pack.directory) }
+        let proposal = try FacetJointFixture.proposal()
+        service.state.document.features = FacetJointFixture.features(proposal)
+        service.state.document.revision = proposal.request.featureRevision
+        service.state.digest = proposal.request.featureDigest
+        service.state.membershipDigest = proposal.request.membershipDigest
+        let authoring = FeatureAuthoring(pack: pack, client: client)
+        await authoring.load()
+        let context = FacetJointContext(
+            objectID: proposal.objectID, sampleID: proposal.request.sampleID,
+            timestampNs: proposal.request.timestampNs,
+            featureRevision: proposal.request.featureRevision,
+            featureDigest: proposal.request.featureDigest,
+            membershipRevision: proposal.request.membershipRevision,
+            membershipDigest: proposal.request.membershipDigest)
+        let first = proposal.request.matches[0]
+        let second = proposal.request.matches[1]
+        authoring.choose(first.featureID)
+        #expect(authoring.stageJointMatch(first, context: context))
+        authoring.choose(second.featureID)
+        #expect(authoring.jointMatches == [first])
+        #expect(authoring.stageJointMatch(second, context: context))
+        #expect(authoring.jointMatches == [first, second])
+        #expect(authoring.stageJointMatch(first, context: context))
+        #expect(
+            authoring.jointMatches.count == 2, "replacing a match must not duplicate its evidence")
+        var unconfirmed = first
+        unconfirmed.confirmed = false
+        #expect(!authoring.stageJointMatch(unconfirmed, context: context))
+        service.state.document.revision += 1
+        service.state.digest = "sha256:revised-feature-evidence"
+        await authoring.load()
+        #expect(authoring.jointMatches.isEmpty && authoring.jointContext == nil)
+        #expect(authoring.jointPoseProposal == nil && service.posts == 0)
+    }
+
+    @Test func basketRefusesUncertainSupportAndCanBeClearedWithoutWriting() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { removePack(pack.directory) }
+        let proposal = try FacetJointFixture.proposal()
+        var features = FacetJointFixture.features(proposal)
+        features[0].observations[0].uncertainIndices = [proposal.request.matches[0].pointIndex]
+        service.state.document.features = features
+        service.state.document.revision = proposal.request.featureRevision
+        service.state.digest = proposal.request.featureDigest
+        service.state.membershipDigest = proposal.request.membershipDigest
+        let authoring = FeatureAuthoring(pack: pack, client: client)
+        await authoring.load()
+        let context = FacetJointContext(
+            objectID: proposal.objectID, sampleID: proposal.request.sampleID,
+            timestampNs: proposal.request.timestampNs,
+            featureRevision: proposal.request.featureRevision,
+            featureDigest: proposal.request.featureDigest,
+            membershipRevision: proposal.request.membershipRevision,
+            membershipDigest: proposal.request.membershipDigest)
+        #expect(!authoring.stageJointMatch(proposal.request.matches[0], context: context))
+        #expect(authoring.stageJointMatch(proposal.request.matches[1], context: context))
+        authoring.clearJointSelection()
+        #expect(
+            authoring.jointMatches.isEmpty && authoring.jointContext == nil && service.posts == 0)
+    }
+}
+
+@MainActor struct OfflineJointFacetPoseControllerTests {
+    @Test func changedSelectionCannotReceiveDelayedJointResultsOrWriteReferences() async throws {
+        let (pack, _, service) = try featureSetup()
+        defer { removePack(pack.directory) }
+        var result = try FacetJointFixture.proposal()
+        result.request.pack = PhysicalReferenceAPIClient.handle(for: pack.directory)
+        result.request.packDigest = pack.manifest.packDigest
+        result.request.sampleID = 0
+        result.request.timestampNs = pack.samples[0].timestampNs
+        for i in result.contributors.indices { result.contributors[i].sourceSample = 1 }
+        service.state.document.features = FacetJointFixture.features(result)
+        service.state.document.revision = result.request.featureRevision
+        service.state.digest = result.request.featureDigest
+        service.state.membershipDigest = result.request.membershipDigest
+        let saved = service.state.document
+        var wire = try #require(
+            JSONSerialization.jsonObject(
+                with: FacetPoseFixture.bytes("facet-joint-pose-compact.json")) as? [String: Any])
+        wire["request"] = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(result.request))
+        wire["contributors"] = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(result.contributors))
+        let bytes = try JSONSerialization.data(withJSONObject: wire)
+        let (transport, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        register { request in
+            if request.url?.path.hasSuffix("/pose-proposal") == true {
+                Thread.sleep(forTimeInterval: 0.03)
+                return (
+                    HTTPURLResponse(
+                        url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                    bytes
+                )
+            }
+            return try service.handle(request)
+        }
+        let authoring = FeatureAuthoring(
+            pack: pack, client: FeatureAPIClient(baseURL: baseURL, session: transport))
+        await authoring.load()
+        let context = FacetJointContext(
+            objectID: result.objectID, sampleID: result.request.sampleID,
+            timestampNs: result.request.timestampNs,
+            featureRevision: result.request.featureRevision,
+            featureDigest: result.request.featureDigest,
+            membershipRevision: result.request.membershipRevision,
+            membershipDigest: result.request.membershipDigest)
+        for match in result.request.matches {
+            #expect(authoring.stageJointMatch(match, context: context))
+        }
+        #expect(await authoring.proposeJointPose(result.request))
+        #expect(authoring.jointPoseProposal?.request == result.request)
+        #expect(!authoring.isDirty && service.posts == 0 && service.state.document == saved)
+        authoring.clearPoseProposal()
+        let request = result.request
+        let delayed = Task { await authoring.proposeJointPose(request) }
+        for _ in 0..<100 where !authoring.poseProposalBusy { await Task.yield() }
+        #expect(authoring.poseProposalBusy)
+        authoring.removeJointMatch(featureID: request.matches[0].featureID)
+        #expect(!(await delayed.value))
+        #expect(
+            authoring.jointPoseProposal == nil && service.posts == 0
+                && service.state.document == saved)
+    }
+}
+
+extension JointFeatureSelectionTests {
+    @Test func differentPhysicalPinsAreExplainedBeforeJointSolving() async throws {
+        let (pack, client, service) = try featureSetup()
+        defer { removePack(pack.directory) }
+        let proposal = try FacetJointFixture.proposal()
+        var features = FacetJointFixture.features(proposal)
+        features[1].anchor.physicalRevision += 1
+        service.state.document.features = features
+        service.state.document.revision = proposal.request.featureRevision
+        service.state.digest = proposal.request.featureDigest
+        service.state.membershipDigest = proposal.request.membershipDigest
+        let authoring = FeatureAuthoring(pack: pack, client: client)
+        await authoring.load()
+        let context = FacetJointContext(
+            objectID: proposal.objectID, sampleID: proposal.request.sampleID,
+            timestampNs: proposal.request.timestampNs,
+            featureRevision: proposal.request.featureRevision,
+            featureDigest: proposal.request.featureDigest,
+            membershipRevision: proposal.request.membershipRevision,
+            membershipDigest: proposal.request.membershipDigest)
+        #expect(authoring.stageJointMatch(proposal.request.matches[0], context: context))
+        #expect(!authoring.stageJointMatch(proposal.request.matches[1], context: context))
+        #expect(authoring.jointMatches.count == 1 && service.posts == 0)
+        #expect(authoring.message?.contains("different body registrations") == true)
     }
 }

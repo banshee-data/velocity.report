@@ -138,15 +138,8 @@ struct FacetPoseProposal: Decodable, Equatable {
     }
 
     var footprint: [SIMD2<Double>]? {
-        guard let box else { return nil }
-        let c = cos(box.yawRad)
-        let s = sin(box.yawRad)
-        return [SIMD2(-1.0, -1.0), SIMD2(1.0, -1.0), SIMD2(1.0, 1.0), SIMD2(-1.0, 1.0)].map {
-            corner in
-            let x = corner.x * box.lengthM / 2
-            let y = corner.y * box.widthM / 2
-            return SIMD2(box.centreXM + c * x - s * y, box.centreYM + s * x + c * y)
-        }
+        FacetPoseDrawing(centre: centre, matchedIndices: matchedIndices, box: box, label: "")
+            .footprint
     }
 
     /// Version 2 reports a segment's measured yaw; version 1 always echoed the
@@ -239,6 +232,12 @@ struct FacetPoseProposal: Decodable, Equatable {
 
 extension FeatureAPIClient {
     func poseProposal(_ request: FacetPoseRequest) async throws -> FacetPoseProposal {
+        try await sendPoseProposal(request, as: FacetPoseProposal.self)
+    }
+
+    func sendPoseProposal<Request: Encodable, Response: Decodable>(
+        _ request: Request, as responseType: Response.Type
+    ) async throws -> Response {
         var urlRequest = URLRequest(
             url: baseURL.appendingPathComponent("api/lidar/annotations/features/pose-proposal"))
         urlRequest.httpMethod = "POST"
@@ -250,6 +249,6 @@ extension FeatureAPIClient {
             throw FeatureError.message(
                 body?["error"] ?? "The offline proposal service refused this request")
         }
-        return try JSONDecoder().decode(FacetPoseProposal.self, from: data)
+        return try JSONDecoder().decode(responseType, from: data)
     }
 }

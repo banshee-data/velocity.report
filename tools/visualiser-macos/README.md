@@ -120,6 +120,12 @@ body boundary-support panel counts resolved frames constraining each horizontal 
 prefers a frame with a fitted pose. Finish and save edits before moving between frames. Unseen
 faces and partial height remain unknown, and the fit's bounds remain proposals for review.
 
+The existing **Offline pose from matched facet** section also accepts a basket of two to four
+confirmed saved point/edge matches at one frame. Reuse the return pickers, add each match, then
+choose **Propose joint body pose**. The same overlay reports supported/partial position and yaw,
+with prior-only directions explicit. These are geometric support states, not calibrated match
+probabilities; the operation saves no reference and does not update the online tracker.
+
 The full workflow is in
 [point-annotation-tool.md](../../docs/lidar/operations/point-annotation-tool.md).
 

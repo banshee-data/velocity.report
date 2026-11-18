@@ -1203,9 +1203,43 @@ Bounds propagate conservatively and do not shrink below the declared prior posit
 Uncertain points are excluded. Straightness is tested in plan view, so a flat side whose ring
 sags in height still registers. Sparse edges, edges not straight in plan view, broad or
 contradictory directions, missing/occluded support, stale membership/revisions and hard-bound
-prior conflicts refuse the proposal. No correspondence search or joint yaw fit is performed. Viewing the result persists
+prior conflicts refuse the proposal. The single-facet operation performs no correspondence search
+or joint yaw fit. Viewing the result persists
 assistance for later authoring without rewriting saved masks, facets or Physical references.
 This experiment cannot update a live tracker or spend its future reanchor budget.
+
+### Joint pose from confirmed saved facets
+
+The first multi-anchor increment extends the same **Offline pose from matched facet** section.
+It uses the existing saved registrations and return pickers, with one explicit prior for all
+matches. It remains a read-only assisted proposal, separate from Physical references and the
+online tracker.
+
+For each participating facet at the same frame, pick its definite matched spot or straight-edge
+direction returns, state its return bound, describe the physical correspondence and confirm it.
+Choose **Add or replace this match**, select the next saved facet, and repeat. The basket holds
+two to four distinct facets. Choosing another facet preserves the basket; moving to another
+frame or loading a changed saved feature revision clears it. Nothing is saved by adding or
+removing a basket entry.
+
+Choose **Propose joint body pose** to combine the confirmed evidence. The existing overlay
+highlights the contributing returns and draws the predicted body footprint. The panel reports
+geometric support for position and yaw, data-only rank, conservative bounds and unresolved
+directions. Complementary landmarks or nonparallel edge constraints can support XY/yaw;
+parallel edges retain tangential position from the prior. Duplicate, overlapping, stale,
+contradictory or uncertainty-degenerate evidence cannot create a fully supported lock.
+
+These states are evidence-support diagnostics, not calibrated match probabilities. No percentage
+or high-confidence badge is supplied. Hidden endpoints remain predictions from the pinned
+source body. Surface/plane registration, automatic matching, lifecycle backward refinement and
+field qualification remain later work under the
+[existing multi-anchor scope](../../plans/lidar-facet-registration-experiment-plan.md#31-multi-anchor-refinement-extend-the-existing-vv-workflow).
+The increment does not convert a patch into a persistent point or add an Accept-to-reference path.
+
+The current endpoint retains strict legacy request version 1 and result version 2. Joint
+requests use version 2 and the distinct `velocity.report/facet-joint-pose-proposal` result kind,
+version 1. Mixed request fields and unsupported versions are refused. Existing saved feature
+protobuf documents remain unchanged; this increment needs no second annotation store.
 
 ## Raw intensity
 

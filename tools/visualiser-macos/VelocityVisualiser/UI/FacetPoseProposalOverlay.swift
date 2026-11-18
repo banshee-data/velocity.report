@@ -8,9 +8,9 @@ struct FacetPoseProposalOverlay: View {
     var top: Bool
 
     var body: some View {
-        let result = session.currentFacetPoseProposal
+        let result = session.currentFacetPoseDrawing
         let points = session.currentPoints
-        Canvas { context, _ in
+        Canvas { context, size in
             guard let result else { return }
             for index in result.matchedIndices {
                 guard let point = points.point(at: Int(index)), basis.shows(point) else { continue }
@@ -24,6 +24,20 @@ struct FacetPoseProposalOverlay: View {
             let centre = viewport.screenPoint(
                 from: basis.project(SIMD3(Float(result.centre.xM), Float(result.centre.yM), 0)))
             guard centre.x.isFinite, centre.y.isFinite else { return }
+            let boundEdge = viewport.screenPoint(
+                from: basis.project(
+                    SIMD3(
+                        Float(result.centre.xM + result.centre.boundM), Float(result.centre.yM), 0))
+            )
+            let radius = hypot(boundEdge.x - centre.x, boundEdge.y - centre.y)
+            if radius.isFinite, radius > 0, radius <= max(size.width, size.height) * 4 {
+                context.stroke(
+                    Path(
+                        ellipseIn: CGRect(
+                            x: centre.x - radius, y: centre.y - radius, width: radius * 2,
+                            height: radius * 2)), with: .color(.orange.opacity(0.45)),
+                    style: StrokeStyle(lineWidth: 1, dash: [2, 4]))
+            }
             if let vertices = result.footprint {
                 let screen = vertices.map {
                     viewport.screenPoint(from: basis.project(SIMD3(Float($0.x), Float($0.y), 0)))
@@ -39,11 +53,8 @@ struct FacetPoseProposalOverlay: View {
             context.stroke(
                 Path(ellipseIn: CGRect(x: centre.x - 5, y: centre.y - 5, width: 10, height: 10)),
                 with: .color(.orange), lineWidth: 2)
-            let label =
-                result.constraint == FacetPoseProposal.normalPositionAndYaw
-                ? "body pose proposal · measured yaw" : "body pose proposal · prior yaw"
             context.draw(
-                Text(label).font(.system(size: 10)).foregroundColor(.orange),
+                Text(result.label).font(.system(size: 10)).foregroundColor(.orange),
                 at: CGPoint(x: centre.x, y: centre.y - 16))
         }.allowsHitTesting(false)
     }
