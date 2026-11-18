@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -348,9 +350,67 @@ func TestJointFacetPoseSharedFixtures(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Equal(bytes.TrimSpace(fixture), encoded) {
-			t.Fatalf("%s differs from Go solver", path)
+		var want FacetJointPoseProposal
+		if err := json.Unmarshal(fixture, &want); err != nil {
+			t.Fatal(err)
 		}
+		if diff := jointFixtureDiff(&want, got); diff != "" {
+			t.Fatalf("%s differs from Go solver (-fixture +solver):\n%s", path, diff)
+		}
+	}
+}
+
+func jointFixtureDiff(want, got *FacetJointPoseProposal) string {
+	// Requests, including exact timestamps, indices and declared priors, are
+	// copied evidence. Only derived floating-point results may differ by CPU
+	// roundoff; byte-identical trigonometric output is not a wire guarantee.
+	if diff := cmp.Diff(want.Request, got.Request); diff != "" {
+		return diff
+	}
+	if diff := cmp.Diff(want.Body, got.Body); diff != "" {
+		return diff
+	}
+	return cmp.Diff(want, got, cmpopts.EquateApprox(1e-12, 1e-12))
+}
+
+func TestJointFacetFixtureComparisonPreservesEvidence(t *testing.T) {
+	req, in, points := compactSolverCase(t)
+	want, err := solveJointFacetPose(req, in, points)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		edit func(*FacetJointPoseProposal)
+		same bool
+	}{
+		{"roundoff", func(p *FacetJointPoseProposal) { p.Yaw.Rad = math.Nextafter(p.Yaw.Rad, math.Inf(1)) }, true},
+		{"meaningful geometry", func(p *FacetJointPoseProposal) { p.Centre.XM += .001 }, false},
+		{"timestamp", func(p *FacetJointPoseProposal) { p.Request.TimestampNs++ }, false},
+		{"index zero", func(p *FacetJointPoseProposal) { *p.Request.Matches[0].PointIndex = 1 }, false},
+		{"declared prior", func(p *FacetJointPoseProposal) {
+			*p.Request.Prior.YawRad = math.Nextafter(*p.Request.Prior.YawRad, math.Inf(1))
+		}, false},
+		{"rank", func(p *FacetJointPoseProposal) { p.Confidence.DataRank-- }, false},
+		{"source body", func(p *FacetJointPoseProposal) {
+			*p.Body.Width.LowerM = math.Nextafter(*p.Body.Width.LowerM, math.Inf(1))
+		}, false},
+		{"source digest", func(p *FacetJointPoseProposal) { p.Contributors[0].SourcePhysicalDigest = "other" }, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			encoded, err := json.Marshal(want)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got FacetJointPoseProposal
+			if err := json.Unmarshal(encoded, &got); err != nil {
+				t.Fatal(err)
+			}
+			tc.edit(&got)
+			if equal := jointFixtureDiff(want, &got) == ""; equal != tc.same {
+				t.Fatalf("fixture equality = %v, want %v", equal, tc.same)
+			}
+		})
 	}
 }
 
