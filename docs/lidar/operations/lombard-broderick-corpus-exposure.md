@@ -65,6 +65,29 @@ rule tuning, nor do they establish physical accuracy. Absence of documented tuni
 proof that all numerical validation claims remain independent. This record is a bounded account
 of the cited work, not a complete historical access audit or a replacement for runtime use ledgers.
 
+## Further nominations in #1067
+
+As checked on November 18, 2026, [#1067](https://github.com/banshee-data/velocity.report/pull/1067)
+was open at `4ec3777bcab85f574a93821d24c4d76f8565bcd4`. Its
+[committed nomination report](https://github.com/banshee-data/velocity.report/blob/4ec3777bcab85f574a93821d24c4d76f8565bcd4/docs/lidar/operations/broderick-vv-walkthrough-2026-11.md#additional-manual-review-nominations)
+records selection of four further periods from the same frozen Broderick preparation:
+E, closing following (92.699963–94.000411 s); F, non-closing control
+(106.099941–109.200350 s); G, near-equal-speed sensitivity (105.100290–106.700260 s);
+and H, record-gap negative (95.499806–97.599852 s). Ends are exclusive.
+
+Selection and inspection of the analyser's numerical estimates have occurred; these are not
+merely proposed future accesses. They extend the recorded software-development/QA exposure.
+The report calls them development review cases, which describes their use, not a change to
+the site's validation assignment. The PR also reports replay screening that exposed a
+paused-seek delivery defect and motivated a software fix.
+
+The separate review window, navigation and dialog are implemented in that PR, but its description
+still lists the end-to-end new-window/four-example walkthrough as in progress. Do not infer
+completed manual review from nominations, committed UI code or passing automated CI.
+No completed physical labels, new perception runs or adopted threshold tuning are established
+by this evidence. The frozen estimates are not physical error measurements. The numerical
+independence assessment below remains outstanding.
+
 ## Claim limits and next decision
 
 1. **UI/workflow independence:** do not call this an untouched end-to-end or UI holdout.
