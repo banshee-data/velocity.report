@@ -104,6 +104,40 @@ struct PhysicalFitResult: Codable, Equatable {
 
     var object: PhysicalObject? { fitted.objects.first { $0.objectID == objectID } }
     func frame(sampleID: Int) -> PhysicalFitFrame? { frames.first { $0.sampleID == sampleID } }
+
+    func inspectionSample(for face: PhysicalFaceCoverage) -> Int? {
+        face.samples.first { object?.keyframe(sampleID: $0) != nil } ?? face.samples.first
+    }
+
+    /// Counts support rather than painting an unseen side as completed body.
+    /// Names such as front/left require a resolved axis; an axial fit alone
+    /// cannot decide which end is the front. This is not surface-area coverage.
+    var faceCoverage: [PhysicalFaceCoverage] {
+        let usable = frames.filter {
+            $0.skipped == nil && $0.returns > 0 && $0.axis == "resolved" && $0.yawRad.isFinite
+                && $0.yawBoundRad.isFinite && $0.yawBoundRad >= 0 && $0.yawBoundRad < .pi / 2
+        }
+        let faces: [(String, KeyPath<PhysicalFitFrame, PhysicalFitFace>)] = [
+            ("Front", \.front), ("Rear", \.rear), ("Left", \.left), ("Right", \.right),
+        ]
+        return faces.map { name, key in
+            PhysicalFaceCoverage(
+                name: name,
+                samples: Array(
+                    Set(
+                        usable.filter {
+                            let face = $0[keyPath: key]
+                            return face.seen && face.atM.isFinite && face.boundM.isFinite
+                                && face.boundM >= 0
+                        }.map(\.sampleID))
+                ).sorted())
+        }
+    }
+}
+
+struct PhysicalFaceCoverage: Equatable {
+    var name: String
+    var samples: [Int]
 }
 
 /// What a fit replaces in the draft.

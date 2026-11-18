@@ -1,5 +1,13 @@
 # Physical references by fitting to reviewed points
 
+The fit section now shows front/rear/left/right boundary-support counts across resolved, usable frames.
+**Inspect** opens a supporting sample, respecting unsaved edits. Use the orthographic views to
+review its returns, fit again after saved membership corrections, and check the dimension and
+endpoint bounds before comparing following distances. These counts are frame support, not a
+surface-area percentage: a visible side can constrain an end without showing the end surface.
+Unseen surfaces and partial height remain unknown. Existing `fit:mask_v1`
+records are retained; new proposals use `fit:mask_v2` bounds as described below.
+
 Once an object's points are reviewed, fit its physical box to them instead of asking the
 operator to type it. The operator keeps the judgements only a person can make: which returns
 belong to the object, and whether an end the returns reach is the vehicle's real end or the edge
@@ -105,13 +113,16 @@ Over every reviewed frame of the object with at least 20 returns:
 - **Length** from the frames that see both ends, using the better-bounded half of them. A frame
   sees at most the whole body, so every span is a lower bound on the length and their median
   understates it: on kirk0's truck 1 the spans of well-bounded close frames run from 10.37 to
-  10.69 m. The value is the 90th percentile of the spans, and the half-width the median of those
-  frames' bounds. Fewer than three such frames make it a lower bound from the longest span seen.
+  10.69 m. The value is the 90th percentile of the spans. Method `fit:mask_v2` encloses every
+  contributing span and its stated bound, rounded outwards to millimetres; it assumes no
+  independent errors and does not shrink uncertainty with sample count. This replaces the
+  earlier median-bound interval, which could omit contributing views. Fewer than three such
+  frames make it a lower bound from the longest span seen.
 - **Width** from the frames that see an end face square-on, within 30° of end-on, measured across
   that end face's own returns so a heading error tilts only a thin slice; or across a roof seen
   from above, below the sensor and within 20 m, when its returns span at least 1 m. The same
   estimator applies.
-- **Supporting frames** are the most tightly bounded frames at or above the median span, and the
+- **Supporting frames** include every frame contributing to the selected size estimate. The
   fit places a pose at each, because an observed dimension is checked along a pose's heading. A
   cited frame that cannot take a pose is dropped; with none left, a full span is stated as
   inferred and a lower bound withdrawn.
@@ -133,7 +144,7 @@ With the size known:
   and the fit says why.
 - **Ends.** Seen ends are observed. An end that is not seen is inferred from the body length
   when the length is full, and unknown otherwise.
-- **Review fields.** Proposed, independent, method `fit:mask_v1`, the generated assumptions,
+- **Review fields.** Proposed, independent, method `fit:mask_v2`, the generated assumptions,
   and the membership revision the fit read.
 
 ## Independence

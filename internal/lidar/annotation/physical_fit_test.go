@@ -205,6 +205,23 @@ func TestFitRecoversAPassingCarWithinItsBounds(t *testing.T) {
 	}
 }
 
+func TestFitDimensionBoundsEncloseAllContributingViews(t *testing.T) {
+	opts := DefaultFitOptions()
+	frames := []sizeMeasure{{&fitSample{id: 1}, 4.0012, 0.0501}, {&fitSample{id: 2}, 4.2, 0.06}, {&fitSample{id: 3}, 4.4, 0.07}}
+	d, poses := fitDimension("length", frames, frames, opts)
+	if len(poses) != 3 || len(d.Support.Frames) != 3 || d.Span != SpanFull {
+		t.Fatal(d, poses)
+	}
+	for _, f := range frames {
+		if *d.LowerM > f.span-f.boundM || *d.UpperM < f.span+f.boundM {
+			t.Fatalf("frame %d interval outside proposed body: %+v", f.f.id, d)
+		}
+	}
+	if FitMethod != "fit:mask_v2" {
+		t.Fatal("new bound semantics need a distinct method")
+	}
+}
+
 // A fitted record is an ordinary independent proposal: never reviewed by the
 // fit, never carrying an algorithm (which an independent record may not), and
 // always stating its assumptions, so the pane's free-text field is filled.

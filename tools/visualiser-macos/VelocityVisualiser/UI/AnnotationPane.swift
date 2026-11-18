@@ -53,6 +53,7 @@ struct AnnotationPane: View {
     @State private var newObjectClass = "car"
     @State private var newObjectSubtype = ""
     @State private var showDiscardPrompt = false
+    @State private var showChecks = false
 
     @State private var applyResult: String?
     @State private var showReviewAllPrompt = false
@@ -268,17 +269,7 @@ struct AnnotationPane: View {
     private var checksSection: some View {
         let warnings = session.labelWarnings
         let shown = 40
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Checks").font(.headline)
-                Spacer()
-                if session.labelChecksRunning {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Text(warnings.isEmpty ? "nothing to look at" : "\(warnings.count) to look at")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
+        return DisclosureGroup(isExpanded: $showChecks) {
             ForEach(warnings.prefix(shown)) { warning in
                 VStack(alignment: .leading, spacing: 1) {
                     Text(LabelChecks.title(warning.rule)).font(.caption.bold())
@@ -292,6 +283,17 @@ struct AnnotationPane: View {
                 Text(
                     "and \(warnings.count - shown) more: velocity lidar labels check --pack <this pack>"
                 ).font(.caption2).foregroundStyle(.secondary)
+            }
+        } label: {
+            HStack {
+                Text("Checks").font(.headline)
+                Spacer()
+                if session.labelChecksRunning {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Text(warnings.isEmpty ? "nothing to look at" : "\(warnings.count) to look at")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
         }
     }

@@ -106,12 +106,19 @@ Detailed setup and CI secret names are in the
 2. Generate a pack from a run, or open one already on disk
 3. Propose objects, grade them, fix by hand, and review
 
-The editing-mode menu separates **Object Points**, **Feature Candidates**, **Physical** and
-**Compare**. Feature Candidates selects a sphere within a saved object's returns, saves a shared
+The editing-mode menu separates **Object Points**, **Facets**, **Physical** and
+**Compare**. Facets selects a sphere within a saved object's returns, saves a shared
 protobuf proposal through the local Go service, and previews one adjacent frame at a time using
-bounded translation. Every frame needs an operator decision; rotation matching and body anchors
-remain unfinished. Feature saves do not modify object masks or physical review. The raw intensity
+bounded translation. Compact body anchors, straight-edge normal constraints and offline pose
+proposals retain their individual support and review. Every frame needs an operator decision;
+these proposals do not update the online tracker. Feature saves do not modify object masks or
+physical review. The raw intensity
 palette has a separate measured-zero swatch, a 1–255 gradient and an unavailable style.
+
+In **Physical**, **Fit object** proposes dimensions and poses from reviewed returns. The
+body boundary-support panel counts resolved frames constraining each horizontal boundary; **Inspect**
+prefers a frame with a fitted pose. Finish and save edits before moving between frames. Unseen
+faces and partial height remain unknown, and the fit's bounds remain proposals for review.
 
 The full workflow is in
 [point-annotation-tool.md](../../docs/lidar/operations/point-annotation-tool.md).
