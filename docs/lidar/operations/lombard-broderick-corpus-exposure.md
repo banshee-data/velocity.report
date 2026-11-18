@@ -36,12 +36,29 @@ Its first-segment capture remains separately listed under the same site. This is
 - The walkthrough informed changes to selected-pair label prominence, optional context labels,
   the follower search prompt and retention of managed-review playback provenance. This is
   observed software-development/QA exposure, not merely untouched batch processing.
-- As checked against main `866b9292bf919b765ebae0151e3a33b24d009886` on November 17, 2026,
-  [#1065](https://github.com/banshee-data/velocity.report/pull/1065) remained open at
-  `dcd2bf739b99bc750f10f7d1054cd0f3860e73cc`. Its description reports further use of prepared
-  Broderick evidence to address withheld 3D overlays, recording-path/header agreement and
-  codec provenance preservation. Native acceptance was still in progress, not a completed
-  validation result in this record. The original recording was not regenerated or relabelled.
+- The subsequent [source-agreement follow-up](https://github.com/banshee-data/velocity.report/blob/e17854898638ad6288404a1395a7183ebd296d11/docs/lidar/operations/broderick-vv-walkthrough-2026-11.md#source-agreement-follow-up)
+  completed the native Broderick walkthrough at implementation commit
+  `dcd2bf739b99bc750f10f7d1054cd0f3860e73cc`.
+  [#1065](https://github.com/banshee-data/velocity.report/pull/1065) merged on November 17,
+  2026 as `e17854898638ad6288404a1395a7183ebd296d11`; this supersedes the earlier
+  in-progress status recorded here. The Following action loaded the recording and evidence
+  without file selection. A saved-review link selected capture `1788367178027002330` and
+  the intended pair; the main 3D viewport displayed the cyan projected gap line. The
+  relationship view showed 19.4 m, 1.69 s and “3D gap: recording and analysis match.”
+- A bounded stream check matched the frame recording path/header digest to the verified
+  session. Geometry matched source, calibration, canonical evidence and recording coordinates.
+  Trail source IDs remained empty: recording association did not invent missing source IDs,
+  and the header digest is not a checksum of every recording chunk.
+- The new **Uncertain** software-test audit, `84522b80-59c8-4f1c-815b-c0912351dc13`,
+  retained the exact frame recording path, header digest and capture time through the backend
+  API. All four physical observations remained unknown and its conclusion was insufficient
+  evidence. Both earlier audits were unchanged. The original recording was not regenerated
+  or relabelled; raw checks and screenshots remained on attached storage in the isolated
+  walkthrough workspace. This establishes software association and persistence, not real
+  bumper or endpoint accuracy.
+- The merged report records passing following-review, recorder and endpoint Go suites,
+  focused API regressions and 26 targeted native review/evidence/audit tests. These checks
+  support the software changes, not an independent physical reference assessment.
 
 These reports do not establish DRAC estimator, threshold, calibration or numerical eligibility
 rule tuning, nor do they establish physical accuracy. Absence of documented tuning is not a
