@@ -1,0 +1,1 @@
+- Recorded the [four-site following reduction and body-proposal checks](../../lidar/operations/following-corpus-four-sites-2026-11.md): repeat-identical headless distributions, web results and 44,758 verified scene frames, with missing estimates, class disagreements, uncertain body bounds and physical qualification limits preserved.
