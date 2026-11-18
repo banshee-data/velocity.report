@@ -1,10 +1,11 @@
 # Physical references by fitting to reviewed points
 
-The fit section now shows front/rear/left/right support counts across resolved, usable frames.
+The fit section now shows front/rear/left/right boundary-support counts across resolved, usable frames.
 **Inspect** opens a supporting sample, respecting unsaved edits. Use the orthographic views to
 review its returns, fit again after saved membership corrections, and check the dimension and
 endpoint bounds before comparing following distances. These counts are frame support, not a
-surface-area percentage. Unseen surfaces and partial height remain unknown. Existing `fit:mask_v1`
+surface-area percentage: a visible side can constrain an end without showing the end surface.
+Unseen surfaces and partial height remain unknown. Existing `fit:mask_v1`
 records are retained; new proposals use `fit:mask_v2` bounds as described below.
 
 Once an object's points are reviewed, fit its physical box to them instead of asking the

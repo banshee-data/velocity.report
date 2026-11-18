@@ -116,7 +116,7 @@ physical review. The raw intensity
 palette has a separate measured-zero swatch, a 1–255 gradient and an unavailable style.
 
 In **Physical**, **Fit object** proposes dimensions and poses from reviewed returns. The
-body/facet coverage panel counts resolved frames supporting each horizontal face; **Inspect**
+body boundary-support panel counts resolved frames constraining each horizontal boundary; **Inspect**
 prefers a frame with a fitted pose. Finish and save edits before moving between frames. Unseen
 faces and partial height remain unknown, and the fit's bounds remain proposals for review.
 

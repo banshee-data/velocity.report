@@ -88,7 +88,7 @@ struct PhysicalFitSection: View {
 
     private func coverage(_ fit: PhysicalFitResult) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Body / facet coverage · proposal").font(.caption.bold())
+            Text("Body boundary support · proposal").font(.caption.bold())
             if session.navigationGuard() != nil {
                 Text("Finish and save edits to inspect another frame.").font(.caption2)
                     .foregroundStyle(.secondary)
@@ -116,7 +116,7 @@ struct PhysicalFitSection: View {
                 }
             }
             Text(
-                "Counts show resolved frames supporting each horizontal face, not a percentage of the shell. Grey faces and unbounded height remain unknown. Check the endpoints in the views before using a distance."
+                "Counts show resolved frames constraining each boundary, not observed shell area. A side can locate an end without showing its surface. Grey boundaries and unbounded height remain unknown. Check the endpoints before using a distance."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
         }.padding(.vertical, 5)
