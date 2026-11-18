@@ -245,7 +245,9 @@ struct FeatureAPIClient {
 }
 
 @MainActor final class FeatureAuthoring: ObservableObject {
-    @Published private(set) var state: FeatureState?
+    @Published private(set) var state: FeatureState? {
+        didSet { if state?.digest != oldValue?.digest { clearJointSelection() } }
+    }
     @Published var draft: FeatureObservation?
     @Published var activeID = ""
     @Published var name = "Feature"
@@ -255,6 +257,9 @@ struct FeatureAPIClient {
     @Published var selectionTool: FeatureSelectionTool = .sphere
     @Published var bodyPreview: FacetBodyPreview?
     @Published private(set) var poseProposal: FacetPoseProposal?
+    @Published private(set) var jointPoseProposal: FacetJointPoseProposal?
+    @Published private(set) var jointMatches: [FacetJointMatch] = []
+    @Published private(set) var jointContext: FacetJointContext?
     @Published private(set) var poseProposalBusy = false
     private var poseProposalGeneration = 0
     @Published var registrationPoint: UInt32?
@@ -339,6 +344,12 @@ struct FeatureAPIClient {
 
     func choose(_ id: String) {
         guard draft == nil, !busy else { return }
+        if let jointContext,
+            state?.document.features.first(where: { $0.featureID == id })?.objectID
+                != jointContext.objectID
+        {
+            clearJointSelection()
+        }
         activeID = id
         bodyPreview = nil
         clearPoseProposal()
@@ -402,6 +413,113 @@ struct FeatureAPIClient {
     func clearPoseProposal() {
         poseProposalGeneration += 1
         poseProposal = nil
+        jointPoseProposal = nil
+    }
+
+    func clearJointSelection() {
+        jointMatches = []
+        jointContext = nil
+        clearPoseProposal()
+    }
+
+    @discardableResult func stageJointMatch(
+        _ match: FacetJointMatch, context: FacetJointContext
+    ) -> Bool {
+        guard !busy, !isDirty, !poseProposalBusy, !readOnly, context.featureDigest == state?.digest,
+            context.featureRevision == state?.document.revision,
+            context.membershipDigest == state?.membershipDigest,
+            let feature = state?.document.features.first(where: { $0.featureID == match.featureID }
+            ), !feature.inactive, feature.objectID == context.objectID, feature.hasAnchor,
+            match.confirmed, match.returnBoundM.isFinite, match.returnBoundM > 0,
+            !match.identityNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            let observation = feature.observations.first(where: {
+                Int($0.sampleID) == context.sampleID
+            }), observation.decision == .acceptedProposal,
+            observation.timestampNs == context.timestampNs,
+            observation.membershipRevision == UInt64(exactly: context.membershipRevision),
+            observation.membershipDigest == context.membershipDigest,
+            Int(feature.anchor.sourceSample) != context.sampleID,
+            observation.pointIndices.contains(match.pointIndex),
+            !observation.uncertainIndices.contains(match.pointIndex)
+        else {
+            message =
+                "Match not added. Reload saved evidence and confirm definite returns in the current frame."
+            return false
+        }
+        if feature.anchor.hasLine {
+            guard let end = match.endIndex, end != match.pointIndex,
+                observation.pointIndices.contains(end), !observation.uncertainIndices.contains(end)
+            else { return false }
+        } else if match.endIndex != nil {
+            return false
+        }
+        if jointContext != context { clearJointSelection() }
+        for selected in jointMatches where selected.featureID != match.featureID {
+            guard
+                let previous = state?.document.features.first(where: {
+                    $0.featureID == selected.featureID
+                })
+            else { return false }
+            let a = previous.anchor
+            let b = feature.anchor
+            guard a.bodyID == b.bodyID, a.physicalRevision == b.physicalRevision,
+                a.physicalDigest == b.physicalDigest, a.partFrameID == b.partFrameID,
+                a.partFrameRevision == b.partFrameRevision
+            else {
+                message =
+                    "These facets use different body registrations. Use matches pinned to the same body revision and part frame."
+                return false
+            }
+        }
+        guard
+            jointMatches.count < 4
+                || jointMatches.contains(where: { $0.featureID == match.featureID })
+        else { return false }
+        clearPoseProposal()
+        jointContext = context
+        jointMatches.removeAll { $0.featureID == match.featureID }
+        jointMatches.append(match)
+        message = "Confirmed match added to this frame's joint proposal. No annotation was saved."
+        return true
+    }
+
+    func removeJointMatch(featureID: String) {
+        jointMatches.removeAll { $0.featureID == featureID }
+        clearPoseProposal()
+        if jointMatches.isEmpty { jointContext = nil }
+    }
+
+    func proposeJointPose(_ request: FacetJointPoseRequest) async -> Bool {
+        guard !poseProposalBusy, !busy, !isDirty, !readOnly, let state, let context = jointContext,
+            context.featureDigest == state.digest,
+            context.featureRevision == state.document.revision,
+            context.membershipDigest == state.membershipDigest,
+            (2...4).contains(jointMatches.count), request.matches == jointMatches,
+            request.featureDigest == state.digest,
+            request.featureRevision == state.document.revision,
+            request.sampleID == context.sampleID, request.timestampNs == context.timestampNs,
+            request.membershipDigest == context.membershipDigest,
+            request.membershipRevision == context.membershipRevision
+        else { return false }
+        clearPoseProposal()
+        bodyPreview = nil
+        let asked = poseProposalGeneration
+        poseProposalBusy = true
+        defer { poseProposalBusy = false }
+        do {
+            let result = try await client.jointPoseProposal(request)
+            try result.validate(request: request, features: state.document.features)
+            guard asked == poseProposalGeneration, jointContext == context,
+                self.state?.digest == state.digest, jointMatches == request.matches
+            else { return false }
+            jointPoseProposal = result
+            message =
+                "Read-only joint pose proposal. Support states are not calibrated confidence probabilities."
+            return true
+        } catch {
+            if asked == poseProposalGeneration { message = error.localizedDescription }
+            return false
+        }
     }
 
     func recordPoseProposalExposure(objectID: String, sampleID: Int, source: String) {

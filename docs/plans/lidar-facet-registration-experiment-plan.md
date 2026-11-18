@@ -4,7 +4,7 @@ Test whether persistent fragments of a vehicle's surface improve physical tracki
 measurements enough to justify their cost. Start with a bounded offline comparison alongside
 0.5.2. A useful negative result is an acceptable exit.
 
-- **Status:** Joint registration experiment proposed; existing VV facet authoring and single-facet offline pose proposals are implemented, without demonstrated multi-anchor tracking benefit
+- **Status:** Confirmed point/edge joint proposals in implementation; automatic matching, plane registration, lifecycle refinement and demonstrated tracking benefit remain open
 - **Target:** Decision experiment alongside v0.5.3 when independently staffed; conditional integration in v0.5.7; catalogue and mesh follow-ons at v1.x+
 - **Layers:** L3 visibility, L4 geometric evidence, L5 estimation, L6 identification, L8 following evaluation
 - **Canonical:** [Visibility-aware tracking maths](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
@@ -84,6 +84,15 @@ This is the implementation scope agreed on November 18, 2026. Extend this experi
 second labeller, annotation store, viewer, weekend plan or tracking system. The first delivery
 is a read-only offline refinement using reviewed memberships and the existing one-to-four active
 facet policy. Automatic correspondence and online adoption remain later, separately gated work.
+
+The first implementation increment covers confirmed point/straight-edge matches through the
+existing pose-proposal endpoint and VV panel: a two-to-four-match basket, strict versioned joint
+requests, same-source-body pins, conservative pose bounds, common-constraint feasibility and
+geometric support states. It retains the legacy single-facet path and shared overlay. This is
+the bounded starting slice of M1–M4, not completion of every work package. Plane registration,
+automatic matching, persistent calibrated confidence, backward lifecycle refinement and the
+matched accuracy/cost campaign remain open. Until M6 passes, a supported geometric constraint
+is not a high-confidence physical match or a measured following-accuracy improvement.
 
 The [four-site review](../lidar/operations/following-corpus-four-sites-2026-11.md) found broad
 body intervals and a width disagreement. Those are development diagnostics, not a justification

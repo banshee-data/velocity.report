@@ -1,0 +1,160 @@
+{
+  "schema": "velocity.report/facet-joint-pose-proposal",
+  "schema_version": 1,
+  "status": "read_only_assisted_proposal",
+  "request": {
+    "schema_version": 2,
+    "pack": "kirk0/packs/fixture",
+    "pack_digest": "sha256:pack",
+    "feature_revision": 1,
+    "feature_digest": "sha256:features",
+    "membership_revision": 1,
+    "membership_digest": "sha256:membership",
+    "sample_id": 1,
+    "timestamp_ns": 9007199254740993,
+    "author": "operator",
+    "prior": {
+      "x_m": 12.1,
+      "y_m": 2.95,
+      "yaw_rad": 0.75,
+      "position_bound_m": 0.5,
+      "yaw_bound_rad": 0.1,
+      "source": "declared prior"
+    },
+    "matches": [
+      {
+        "feature_id": "a",
+        "point_index": 0,
+        "end_index": 2,
+        "return_bound_m": 0.02,
+        "correspondence_confirmed": true,
+        "identity_note": "same physical edge"
+      },
+      {
+        "feature_id": "b",
+        "point_index": 3,
+        "end_index": 5,
+        "return_bound_m": 0.02,
+        "correspondence_confirmed": true,
+        "identity_note": "same physical edge"
+      }
+    ]
+  },
+  "object_id": "car",
+  "body": {
+    "body_id": "body",
+    "axis_convention": "x_front_y_left_z_up",
+    "length": {
+      "status": "inferred",
+      "span": "full",
+      "lower_m": 4,
+      "upper_m": 5,
+      "support": {}
+    },
+    "width": {
+      "status": "inferred",
+      "span": "full",
+      "lower_m": 1.7,
+      "upper_m": 1.9,
+      "support": {}
+    },
+    "height": {
+      "status": "unknown",
+      "support": {}
+    },
+    "review": {
+      "status": "reviewed",
+      "origin": "independent",
+      "method": "manual_box",
+      "uncertainty_assumptions": "hard bounds read off the outline in the top and elevation views",
+      "provenance": {
+        "author": "op",
+        "created_utc": "",
+        "revision": 0
+      }
+    }
+  },
+  "centre": {
+    "x_m": 12.099637496953005,
+    "y_m": 2.9492877687388783,
+    "bound_m": 1.036462962805433
+  },
+  "yaw": {
+    "rad": 0.6999999425354726,
+    "bound_rad": 0.07333372778149325,
+    "axis": "resolved",
+    "status": "observed"
+  },
+  "constraint": "normal_position_and_yaw",
+  "unresolved": [
+    "height_not_measured",
+    "tangent_from_prior_not_measured"
+  ],
+  "matched_indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "contributors": [
+    {
+      "feature_id": "a",
+      "source_physical_revision": 1,
+      "source_physical_digest": "sha256:physical",
+      "source_sample": 0,
+      "source_origin": "reference_seeded_proposal",
+      "target_origin": "human_proposal",
+      "matched_indices": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "feature_id": "b",
+      "source_physical_revision": 1,
+      "source_physical_digest": "sha256:physical",
+      "source_sample": 0,
+      "source_origin": "reference_seeded_proposal",
+      "target_origin": "human_proposal",
+      "matched_indices": [
+        3,
+        4,
+        5
+      ]
+    }
+  ],
+  "confidence": {
+    "state": "partial",
+    "position": "partial",
+    "yaw": "supported",
+    "data_rank": 2,
+    "reasons": [
+      "Support states are not calibrated match probabilities",
+      "Parallel or uncertainty-overlapping normals leave tangent position at the prior"
+    ]
+  },
+  "normal": [
+    0.4535961726383863,
+    0.8912073339957471
+  ],
+  "normal_bound_m": 0.536462962805433,
+  "tangent_bound_m": 0.5,
+  "box": {
+    "centre_x_m": 12.099637496953005,
+    "centre_y_m": 2.9492877687388783,
+    "yaw_rad": 0.6999999425354726,
+    "length_m": 4.5,
+    "width_m": 1.7999999999999998
+  },
+  "front_prediction": [
+    13.820532501637347,
+    4.398777466133268
+  ],
+  "rear_prediction": [
+    10.378742492268662,
+    1.4997980713444892
+  ]
+}
