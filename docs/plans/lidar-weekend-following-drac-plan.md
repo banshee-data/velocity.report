@@ -32,6 +32,11 @@ batch reduction, a web Runs action, minimum time-gap histograms and exact-sample
 These retain the frozen estimator's limitations; facet/body measurement and physical qualification
 remain separate work.
 
+The [multi-anchor refinement scope](lidar-facet-registration-experiment-plan.md#31-multi-anchor-refinement-extend-the-existing-vv-workflow)
+extends the current VV facet and body tools for offline joint constraints, honest planar fallback
+and component confidence. It reuses this plan's evidence and evaluation gates rather than adding
+another weekend plan or treating a refined shell as a qualified following measurement.
+
 The [four-site corpus report](../lidar/operations/following-corpus-four-sites-2026-11.md) records
 the completed headless reduction, web checks and distance scene exports: 297 of 8,377 software
 tracks have a usable minimum; 8,080 do not. Repeat output matched byte for byte. The body-proposal
