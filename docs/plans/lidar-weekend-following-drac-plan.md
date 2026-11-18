@@ -27,6 +27,11 @@ extends the bounded weekend work into an inventory-led batch and review sequence
 
 ## Outcome and boundary
 
+The [corpus analysis workflow](../lidar/operations/following-corpus-analysis.md) adds headless
+batch reduction, a web Runs action, minimum time-gap histograms and exact-sample scene distances.
+These retain the frozen estimator's limitations; facet/body measurement and physical qualification
+remain separate work.
+
 The [Broderick VV software walkthrough](../lidar/operations/broderick-vv-walkthrough-2026-11.md)
 records the one-action review and timeline checks, the isolated uncertain audit, and the
 attached-drive build diagnosis. It does not close the operator or physical qualification gates.

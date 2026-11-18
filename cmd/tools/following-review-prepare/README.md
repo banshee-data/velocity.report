@@ -1,5 +1,9 @@
 # Following review preparation
 
+After preparation, use the [corpus analysis workflow](../../../docs/lidar/operations/following-corpus-analysis.md)
+to compute minimum time-gap histograms headlessly or from the web Runs page, and export scenes
+with following distances. This does not require selecting files in a client.
+
 `make build-following-review` builds a stamped operator tool under `EXPERIMENT_TOOLS_DIR`.
 It creates a new paired foreground recording, observation database, canonical following export
 and one-minute native review files. It preserves all existing recordings and refuses an output

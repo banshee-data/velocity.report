@@ -1,4 +1,5 @@
 import { sceneFade, sceneRangeOpacity } from "./scene-fade.js";
+import { sceneTrackLabel } from "./scene-following.js";
 // Three.js player for velocity.report scene exports.
 //
 // Renders tracked road users as oriented boxes with client-side trails, and
@@ -1098,18 +1099,15 @@ export async function mountScenePlayer({
       v.setTrailVisible(state.trailsVisible);
       v.setTrailSegments(trailsByTrack?.get(t.id) ?? []);
 
-      // Only vehicles are labelled. A number over every pedestrian would bury
-      // the scene, and speed is the thing a street asks about cars.
-      if (
-        ui.labelLayer &&
-        (t.c === "car" || t.c === "bus" || t.c === "truck")
-      ) {
+      // Speed labels remain vehicle-only. Exact following estimates are
+      // visible even when the recording's per-frame class differs; displaying
+      // that evidence never changes the recorded class.
+      if (ui.labelLayer) {
         // The track's peak so far, not this instant's, which may already have
         // passed by the time the box is on screen.
         const mph = (t.mspd ?? t.spd ?? 0) * MPS_TO_MPH;
-        if (mph >= 1) {
-          labelFor(t.id).textContent = `${Math.round(mph)} mph`;
-        }
+        const text = sceneTrackLabel(t, mph);
+        if (text || labels.has(t.id)) labelFor(t.id).textContent = text;
       }
     }
     for (const [id, v] of visuals) {

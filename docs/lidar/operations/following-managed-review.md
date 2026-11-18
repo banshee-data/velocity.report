@@ -1,5 +1,8 @@
 # Recording-bound following review
 
+For headless batches, web analysis and distance-bearing scene exports, see the
+[corpus analysis workflow](following-corpus-analysis.md).
+
 The recording's Review action opens its paired following evidence and durable operator audit.
 The server resolves the completed preparation from the registered run's recording path. A client
 does not choose evidence files, submit filesystem paths or replace audit documents. Original

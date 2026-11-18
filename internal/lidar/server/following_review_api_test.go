@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"os"
@@ -78,6 +79,41 @@ func callReview(ws *Server, method, action string, body []byte) *httptest.Respon
 	w := httptest.NewRecorder()
 	ws.handleRunTrackAPI(w, r)
 	return w
+}
+
+func TestFollowingAnalysisAPI(t *testing.T) {
+	ws, _, _ := setupFollowingReview(t)
+	if w := callReview(ws, "GET", "/analysis", nil); w.Code != 405 {
+		t.Fatal(w.Code)
+	}
+	ws.followingAnalysisMu.Lock()
+	if w := callReview(ws, "POST", "/analysis", nil); w.Code != 409 {
+		t.Fatal(w.Code)
+	}
+	ws.followingAnalysisMu.Unlock()
+	w := callReview(ws, "POST", "/analysis", nil)
+	if w.Code != 200 {
+		t.Fatalf("%d: %s", w.Code, w.Body.String())
+	}
+	var a followingreview.Analysis
+	if err := json.Unmarshal(w.Body.Bytes(), &a); err != nil {
+		t.Fatal(err)
+	}
+	if a.Tracks != 1 || a.WithoutTimeGap != 1 || a.Rows != 2 || len(a.Histogram) != 5 {
+		t.Fatal(a)
+	}
+}
+
+func TestFollowingAnalysisAPICancellation(t *testing.T) {
+	ws, _, _ := setupFollowingReview(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r := httptest.NewRequest("POST", "/api/lidar/runs/review-run/following-review/analysis", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, r)
+	if w.Code != 409 || !strings.Contains(w.Body.String(), "canceled") {
+		t.Fatalf("%d: %s", w.Code, w.Body.String())
+	}
 }
 
 func reviewAuditRequest(t *testing.T, ws *Server) (followingreview.Metadata, followingreview.Record) {

@@ -37,6 +37,10 @@ const MaxChunkFrames = 1500
 
 // Options configures one export.
 type Options struct {
+	// FollowingAt is a source-bound, exact-timestamp projection. The caller
+	// verifies the paired recording; missing samples are never interpolated.
+	FollowingAt func(int64) (map[string]FollowingJSON, error)
+	Following   *FollowingProvenance
 	// VRLOGPath is the recorded VRLOG directory to read.
 	VRLOGPath string
 	// OutDir is the export directory to write.
@@ -149,6 +153,14 @@ func round3(v float32) float64 {
 // VRLOG frame is one sensor rotation rather than one tick of a fixed interval.
 func Export(opts Options) (*Result, error) {
 	opts.applyDefaults()
+	if (opts.FollowingAt == nil) != (opts.Following == nil) {
+		return nil, fmt.Errorf("following samples and their provenance must be supplied together")
+	}
+	if p := opts.Following; p != nil {
+		if opts.SmoothedTrail || p.EvidenceSHA256 == "" || p.CalibrationID == "" || p.AnalysisBuild == "" || p.MethodID == "" || p.Status != "provisional_estimates" {
+			return nil, fmt.Errorf("following export needs bound provisional evidence and its original online trail")
+		}
+	}
 
 	rep, err := recorder.NewReplayer(opts.VRLOGPath)
 	if err != nil {
@@ -277,6 +289,47 @@ func Export(opts Options) (*Result, error) {
 			continue
 		}
 		frame, _ := projectFrame(fb, opts, keys, trail)
+		if opts.FollowingAt != nil {
+			values, err := opts.FollowingAt(fb.TimestampNanos)
+			if err != nil {
+				return nil, fmt.Errorf("following evidence: %w", err)
+			}
+			present := map[string]bool{}
+			for _, t := range frame.Tracks {
+				present[t.ID] = true
+			}
+			sourceKeys := map[string]string{}
+			if fb.Tracks != nil {
+				for _, t := range fb.Tracks.Tracks {
+					if t.State != l9endpoints.TrackStateDeleted {
+						sourceKeys[t.TrackID] = trackID(t.TrackID, opts, keys)
+					}
+				}
+			}
+			for source, value := range values {
+				id := sourceKeys[source]
+				if !present[id] {
+					continue
+				}
+				if value.Leader != "" {
+					value.Leader = sourceKeys[value.Leader]
+					if !present[value.Leader] {
+						value.Leader = ""
+						value.GapM = nil
+						value.TimeGapS = nil
+						value.DRAC = nil
+						value.Bucket = "leader_not_in_frame"
+					}
+				}
+				for i := range frame.Tracks {
+					if frame.Tracks[i].ID == id {
+						v := value
+						frame.Tracks[i].Following = &v
+						break
+					}
+				}
+			}
+		}
 
 		// Hold each frame back by one so the opening frame can be judged
 		// against its successor rather than becoming the baseline on trust.
@@ -343,6 +396,7 @@ func Export(opts Options) (*Result, error) {
 	}
 
 	hdr := Header{
+		Following:     opts.Following,
 		Version:       FormatVersion,
 		Export:        opts.Kind,
 		Site:          opts.Site,

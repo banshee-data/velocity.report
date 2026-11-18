@@ -17,13 +17,20 @@ import (
 // run identity. No client can supply a path, replace evidence or overwrite audit.
 func (ws *Server) handleFollowingReview(w http.ResponseWriter, r *http.Request, runID, action string) {
 	w.Header().Set("Cache-Control", "no-store")
-	if action != "" && action != "evidence" && action != "geometry" && action != "audit" {
+	if action != "" && action != "evidence" && action != "geometry" && action != "audit" && action != "analysis" {
 		ws.writeJSONError(w, 404, "unknown following review endpoint")
 		return
 	}
-	if r.Method != http.MethodGet && (r.Method != http.MethodPost || action != "audit") {
-		ws.writeJSONError(w, 405, "review accepts GET, or POST to append an audit record")
+	if (action == "analysis" && r.Method != http.MethodPost) || (r.Method != http.MethodGet && (r.Method != http.MethodPost || (action != "audit" && action != "analysis"))) {
+		ws.writeJSONError(w, 405, "review accepts GET, POST audit, or POST analysis")
 		return
+	}
+	if action == "analysis" {
+		if !ws.followingAnalysisMu.TryLock() {
+			ws.writeJSONError(w, 409, "another following analysis is running; retry after it completes")
+			return
+		}
+		defer ws.followingAnalysisMu.Unlock()
 	}
 	if ws.db == nil {
 		ws.writeJSONError(w, 503, "review database is unavailable")
@@ -48,6 +55,15 @@ func (ws *Server) handleFollowingReview(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	w.Header().Set("X-Canonical-Evidence-SHA256", session.Metadata.EvidenceSHA256)
+	if action == "analysis" {
+		analysis, err := session.Analyse(r.Context(), nil)
+		if err != nil {
+			ws.writeJSONError(w, 409, "following analysis refused: "+err.Error())
+			return
+		}
+		ws.writeJSON(w, 200, analysis)
+		return
+	}
 	if action == "" {
 		ws.writeJSON(w, 200, session.Metadata)
 		return
