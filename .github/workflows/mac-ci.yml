@@ -114,13 +114,18 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Test recording review contracts
+      - name: Test recording and facet review contracts
         run: >-
           make test-mac
           MAC_XCODE_FLAGS='CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO'
           MAC_TEST_OPTIONS='-only-testing:VelocityVisualiserTests/FollowingManagedReviewTests
           -only-testing:VelocityVisualiserTests/FollowingAuditTests
-          -only-testing:VelocityVisualiserTests/FollowingEvidenceTests'
+          -only-testing:VelocityVisualiserTests/FollowingEvidenceTests
+          -only-testing:VelocityVisualiserTests/FacetPoseProposalTests
+          -only-testing:VelocityVisualiserTests/OfflineFacetPoseControllerTests
+          -only-testing:VelocityVisualiserTests/FacetJointPoseProposalTests
+          -only-testing:VelocityVisualiserTests/JointFeatureSelectionTests
+          -only-testing:VelocityVisualiserTests/OfflineJointFacetPoseControllerTests'
 
   # Versioned DMG artefact — runs on tagged releases and manual dispatch.
   dmg:
