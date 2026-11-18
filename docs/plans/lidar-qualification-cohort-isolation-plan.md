@@ -26,6 +26,16 @@ Add a versioned machine-readable manifest with canonical site ID, S2 L10/L13, ca
 
 **Not gated:** ordinary LiDAR capture, production processing and eventual public survey publication. Existing published speed estimates remain available and are not reference labels. Delay release of detailed qualification feedback until the frozen run has been scored and signed off.
 
+## Recorded exposure does not change assignment
+
+The [Lombard–Broderick exposure record](../lidar/operations/lombard-broderick-corpus-exposure.md)
+records software QA and resulting UI/provenance development against a validation site.
+The manifest retains its validation assignment; that label is not a declaration that the
+site remains unseen. It cannot independently validate the UI/workflow decisions it informed.
+Numerical estimator validation needs a claim-specific isolation and impact assessment before
+use; neither physical qualification nor estimator tuning is established by this walkthrough.
+Any reclassification is a separate, explicit site-wide decision, not a metadata correction.
+
 ## Delivery steps
 
 1. Audit all tuning/evaluation loader and dashboard ingestion paths; identify bypasses.

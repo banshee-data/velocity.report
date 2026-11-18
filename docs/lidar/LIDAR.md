@@ -386,3 +386,7 @@ with all-row audits, repeated exports and explicit portability limits.
 The [Broderick VV walkthrough](operations/broderick-vv-walkthrough-2026-11.md) records
 recording-bound retrieval, visual relationship checks, uncertain audit persistence and the
 attached-drive build diagnosis, without qualifying physical following measurements.
+
+The [Lombard–Broderick corpus exposure record](operations/lombard-broderick-corpus-exposure.md)
+separates its retained validation assignment from observed software-development/QA exposure
+and the resulting limits on independent validation claims.
