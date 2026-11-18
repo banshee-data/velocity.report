@@ -740,7 +740,7 @@ extension FollowingManagedReviewTests {
 
     func testEpisodeUsesCaptureTimesAtTenAndTwentyHz() throws {
         let origin: Int64 = 1_800_000_000_000_000_001
-        for interval: Int64 in [100_000_000, 50_000_000] {
+        for interval in [Int64(100_000_000), 50_000_000] {
             let rows = try (0..<3).map { try episodeRow(origin + Int64($0) * interval, interval: interval) }
             let series = FollowingEpisodeSeries(rows: rows.reversed(), follower: "f")
             XCTAssertEqual(series.segments.count, 1)
@@ -750,6 +750,29 @@ extension FollowingManagedReviewTests {
             XCTAssertNil(series.nearest(toSeconds: .nan, origin: origin))
             XCTAssertTrue(FollowingEpisodeSeries(rows: rows, follower: "other").samples.isEmpty)
         }
+    }
+
+    func testEpisodeSelectionPassesExactNanosToPlaybackRPC() async throws {
+        let origin: Int64 = 1_800_000_000_000_000_001
+        let target = origin + 50_000_003
+        let series = FollowingEpisodeSeries(
+            rows: try [episodeRow(origin), episodeRow(target)], follower: "f")
+        let selected = try XCTUnwrap(series.nearest(toSeconds: 0.05, origin: origin))
+        let app = AppState()
+        let client = FakePlaybackRPCClient()
+        app.isConnected = true
+        app.isPaused = true
+        app.playbackCommandClientOverride = client
+        app.setPlaybackModeForTesting(.replaySeekable)
+        app.logStartTimestamp = origin
+        app.logEndTimestamp = origin + 1_000_000_000
+        app.seekToTimestamp(selected.timestamp)
+        let deadline = ContinuousClock.now + .seconds(2)
+        while client.seekTimestampCalls.isEmpty && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(client.seekTimestampCalls, [target])
+        XCTAssertTrue(client.seekFrameCalls.isEmpty)
     }
 
     func testEpisodeBreaksOnLeaderChangeMissingTimeAndUnsupportedRows() throws {
