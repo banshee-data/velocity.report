@@ -13,7 +13,7 @@ import (
 
 func minimumRow(id string, at int64, seconds float64) fieldrun.EvidenceRow {
 	gap := seconds * 10
-	provenance := l8behaviour.Provenance{Version: l8behaviour.VersionProvenance{EstimateStage: l8behaviour.StageOnline, EstimatorID: "estimator", ObsModelID: "model", MethodID: "method", ParamHash: "params"}, Input: l8behaviour.InputProvenance{TrackIDs: []string{id, "leader"}, FirstUnixNanos: at, LastUnixNanos: at, ObservedFrames: 1}}
+	provenance := l8behaviour.Provenance{Version: l8behaviour.VersionProvenance{EstimateStage: l8behaviour.StageOnline, EstimatorID: "estimator", ObsModelID: "model", MethodID: "method", ParamHash: "params"}, Input: l8behaviour.InputProvenance{ContributingTrackIDs: []string{id, "leader"}, FirstUnixNanos: at, LastUnixNanos: at, ObservedFrames: 2}}
 	spatial, err := l8behaviour.NewSuppressedMeasurement(l8behaviour.MetricFollowingSpatialGap, l8behaviour.ReasonEstimateNotFinal, provenance)
 	if err != nil {
 		panic(err)
@@ -24,7 +24,7 @@ func minimumRow(id string, at int64, seconds float64) fieldrun.EvidenceRow {
 	}
 	return fieldrun.EvidenceRow{FollowerTrackID: id, CaptureUnixNanos: at, IntervalNanos: 1, Bucket: "following_eligible",
 		Decision: l8behaviour.PairingDecision{FollowerTrackID: id, CaptureUnixNanos: at, LeaderTrackID: "leader", Candidates: []l8behaviour.LeaderCandidate{{TrackID: "leader", Disposition: l8behaviour.DispositionLeader}}},
-		Point:    &l8behaviour.FollowingPoint{FollowerTrackID: id, LeaderTrackID: "leader", CaptureUnixNanos: at, Gap: &l8behaviour.GapEstimate{ValueM: gap}, TimeGap: &l8behaviour.TimeGapEstimate{ValueS: &seconds}, SpatialGap: spatial, NetTimeGap: timeGap, SupportedOpportunity: true}}
+		Point:    &l8behaviour.FollowingPoint{FollowerTrackID: id, LeaderTrackID: "leader", CaptureUnixNanos: at, Gap: &l8behaviour.GapEstimate{ValueM: gap, LeaderSource: l8behaviour.EndpointTemporallyInferred, FollowerSource: l8behaviour.EndpointTemporallyInferred}, TimeGap: &l8behaviour.TimeGapEstimate{ValueS: &seconds}, SpatialGap: spatial, NetTimeGap: timeGap, SupportedOpportunity: true}}
 }
 
 func analysisFixture(t *testing.T, rows []fieldrun.EvidenceRow) *Session {

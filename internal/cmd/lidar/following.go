@@ -20,6 +20,10 @@ import (
 // Packet replay remains the preparer's responsibility: this command never
 // silently selects a source, new parameters, or a different estimator version.
 func FollowingMain(args []string) int {
+	return followingMain(args, analyseCorpus)
+}
+
+func followingMain(args []string, run func(string, []string, string, bool) error) int {
 	fs := flag.NewFlagSet("velocity lidar following", flag.ContinueOnError)
 	dbPath := fs.String("db", "", "Registered-run database (read only)")
 	runs := fs.String("runs", "", "Explicit comma-separated recording run IDs")
@@ -35,7 +39,7 @@ func FollowingMain(args []string) int {
 		fmt.Fprintln(os.Stderr, "--db, --runs and --output are required")
 		return 2
 	}
-	if err := analyseCorpus(*dbPath, strings.Split(*runs, ","), *out, *scenes); err != nil {
+	if err := run(*dbPath, strings.Split(*runs, ","), *out, *scenes); err != nil {
 		fmt.Fprintln(os.Stderr, "following analysis:", err)
 		return 1
 	}
@@ -43,6 +47,10 @@ func FollowingMain(args []string) int {
 }
 
 func analyseCorpus(dbPath string, ids []string, out string, scenes bool) error {
+	return analyseCorpusWrite(dbPath, ids, out, scenes, os.WriteFile)
+}
+
+func analyseCorpusWrite(dbPath string, ids []string, out string, scenes bool, write func(string, []byte, os.FileMode) error) error {
 	seen := map[string]bool{}
 	for _, id := range ids {
 		if strings.TrimSpace(id) != id || id == "" || seen[id] {
@@ -54,10 +62,13 @@ func analyseCorpus(dbPath string, ids []string, out string, scenes bool) error {
 		return err
 	}
 	db, err := sqlite.OpenReadOnly(dbPath)
+	if err == nil {
+		defer db.Close()
+		err = db.Ping()
+	}
 	if err != nil {
 		return err
 	}
-	defer db.Close()
 	var cache followingreview.Cache
 	analyses := make([]followingreview.Analysis, 0, len(ids))
 	for _, id := range ids {
@@ -91,5 +102,5 @@ func analyseCorpus(dbPath string, ids []string, out string, scenes bool) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(out, "complete.json"), append(b, '\n'), 0644)
+	return write(filepath.Join(out, "complete.json"), append(b, '\n'), 0644)
 }
