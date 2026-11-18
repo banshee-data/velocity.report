@@ -46,7 +46,7 @@ struct FollowingEpisodeChart: View {
                     Text("Seconds from loaded window start. Click a sample to seek; pause playback first.")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
-            }.onChange(of: appState.selectedTrackID) { _, id in
+            }.onChange(of: appState.selectedTrackID, initial: true) { _, id in
                 guard sourceMatches else { return }
                 review.followPlayback(at: appState.currentTimestamp, selectedTrackID: id)
                 appState.refreshFollowingOverlay()
