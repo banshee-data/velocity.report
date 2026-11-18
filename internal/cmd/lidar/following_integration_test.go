@@ -3,6 +3,7 @@
 package lidar
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
@@ -171,7 +172,9 @@ func TestFollowingCorpusRefusesInvalidSampleOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	var doc map[string]any
-	if err = json.Unmarshal(b, &doc); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.UseNumber()
+	if err = decoder.Decode(&doc); err != nil {
 		t.Fatal(err)
 	}
 	rows := doc["rows"].([]any)
@@ -183,13 +186,15 @@ func TestFollowingCorpusRefusesInvalidSampleOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	var r map[string]any
-	if err = json.Unmarshal(rb, &r); err != nil {
+	decoder = json.NewDecoder(bytes.NewReader(rb))
+	decoder.UseNumber()
+	if err = decoder.Decode(&r); err != nil {
 		t.Fatal(err)
 	}
 	r["slices"].([]any)[0].(map[string]any)["sha256"] = followingreview.Digest(b)
 	followingJSON(t, receipt, r)
-	if err = analyseCorpus(db, []string{run.RunID}, filepath.Join(t.TempDir(), "unordered"), false); err == nil {
-		t.Fatal("unordered samples accepted")
+	if err = analyseCorpus(db, []string{run.RunID}, filepath.Join(t.TempDir(), "unordered"), false); err == nil || !strings.Contains(err.Error(), "unordered") {
+		t.Fatal("expected sample-order refusal, got", err)
 	}
 }
 

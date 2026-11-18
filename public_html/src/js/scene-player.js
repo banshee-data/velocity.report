@@ -1,5 +1,5 @@
 import { sceneFade, sceneRangeOpacity } from "./scene-fade.js";
-import { followingLabel } from "./scene-following.js";
+import { sceneVehicleLabel } from "./scene-following.js";
 // Three.js player for velocity.report scene exports.
 //
 // Renders tracked road users as oriented boxes with client-side trails, and
@@ -1108,11 +1108,11 @@ export async function mountScenePlayer({
         // The track's peak so far, not this instant's, which may already have
         // passed by the time the box is on screen.
         const mph = (t.mspd ?? t.spd ?? 0) * MPS_TO_MPH;
-        if (mph >= 1) {
-          const following = followingLabel(t);
-          labelFor(t.id).textContent =
-            `${Math.round(mph)} mph${following ? ` · ${following}` : ""}`;
-        }
+        const text = sceneVehicleLabel(t, mph);
+        if (text || labels.has(t.id)) labelFor(t.id).textContent = text;
+      } else {
+        const previous = labels.get(t.id);
+        if (previous) previous.textContent = "";
       }
     }
     for (const [id, v] of visuals) {

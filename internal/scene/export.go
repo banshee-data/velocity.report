@@ -153,6 +153,14 @@ func round3(v float32) float64 {
 // VRLOG frame is one sensor rotation rather than one tick of a fixed interval.
 func Export(opts Options) (*Result, error) {
 	opts.applyDefaults()
+	if (opts.FollowingAt == nil) != (opts.Following == nil) {
+		return nil, fmt.Errorf("following samples and their provenance must be supplied together")
+	}
+	if p := opts.Following; p != nil {
+		if opts.SmoothedTrail || p.EvidenceSHA256 == "" || p.CalibrationID == "" || p.AnalysisBuild == "" || p.MethodID == "" || p.Status != "provisional_estimates" {
+			return nil, fmt.Errorf("following export needs bound provisional evidence and its original online trail")
+		}
+	}
 
 	rep, err := recorder.NewReplayer(opts.VRLOGPath)
 	if err != nil {

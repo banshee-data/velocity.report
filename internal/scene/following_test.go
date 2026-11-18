@@ -7,11 +7,15 @@ import (
 	"testing"
 )
 
+func followingProvenanceFixture() *FollowingProvenance {
+	return &FollowingProvenance{EvidenceSHA256: "sha256:fixture", CalibrationID: "calibration/v1/fixture", AnalysisBuild: "fixture-build", MethodID: "fixture-method", Status: "provisional_estimates"}
+}
+
 func TestFollowingExportExactSamplesAndLocalLeaderKeys(t *testing.T) {
 	vr := writeVRLOG(t, evenTimestamps(3))
 	out := filepath.Join(t.TempDir(), "scene")
 	gap, timeGap := 12.3, 1.2
-	_, err := Export(Options{VRLOGPath: vr, OutDir: out, Following: &FollowingProvenance{EvidenceSHA256: "sha256:fixture", Status: "provisional_estimates"}, FollowingAt: func(at int64) (map[string]FollowingJSON, error) {
+	_, err := Export(Options{VRLOGPath: vr, OutDir: out, Following: followingProvenanceFixture(), FollowingAt: func(at int64) (map[string]FollowingJSON, error) {
 		if at != baseNs {
 			return nil, nil
 		}
@@ -45,8 +49,17 @@ func TestFollowingExportExactSamplesAndLocalLeaderKeys(t *testing.T) {
 
 func TestFollowingExportFailsClosedOnEvidenceError(t *testing.T) {
 	failure := errors.New("source mismatch")
-	_, err := Export(Options{VRLOGPath: writeVRLOG(t, evenTimestamps(2)), OutDir: filepath.Join(t.TempDir(), "scene"), FollowingAt: func(int64) (map[string]FollowingJSON, error) { return nil, failure }})
+	_, err := Export(Options{VRLOGPath: writeVRLOG(t, evenTimestamps(2)), OutDir: filepath.Join(t.TempDir(), "scene"), Following: followingProvenanceFixture(), FollowingAt: func(int64) (map[string]FollowingJSON, error) { return nil, failure }})
 	if !errors.Is(err, failure) {
 		t.Fatal(err)
+	}
+}
+
+func TestFollowingExportRefusesUnboundAndMixedTrailInputs(t *testing.T) {
+	provider := func(int64) (map[string]FollowingJSON, error) { return nil, nil }
+	for _, opts := range []Options{{FollowingAt: provider}, {Following: followingProvenanceFixture()}, {Following: followingProvenanceFixture(), FollowingAt: provider, SmoothedTrail: true}, {Following: &FollowingProvenance{}, FollowingAt: provider}} {
+		if _, err := Export(opts); err == nil || !strings.Contains(err.Error(), "following") {
+			t.Fatal("unbound following or mixed trail accepted")
+		}
 	}
 }

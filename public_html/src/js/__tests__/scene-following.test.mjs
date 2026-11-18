@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { followingLabel } from "../scene-following.js";
+import { followingLabel, sceneVehicleLabel } from "../scene-following.js";
 
 const following = {
   bucket: "following_eligible",
@@ -25,4 +25,17 @@ test("scene omits absent, excluded and malformed relationships", () => {
   ]) {
     assert.equal(followingLabel({ following: value }), "");
   }
+});
+
+test("a stopped or excluded next frame replaces the previous relationship label", () => {
+  assert.match(sceneVehicleLabel({ following }, 10), /estimated gap/);
+  assert.equal(
+    sceneVehicleLabel(
+      { following: { ...following, bucket: "record_gap" } },
+      10,
+    ),
+    "10 mph",
+  );
+  assert.equal(sceneVehicleLabel({}, 0), "");
+  assert.equal(sceneVehicleLabel({}, Infinity), "");
 });
