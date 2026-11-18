@@ -3,7 +3,9 @@
 package lidar
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/followingreview"
@@ -63,5 +65,8 @@ func exportFollowingScene(s *followingreview.Session, out string) error {
 	if err != nil {
 		return fmt.Errorf("following scene: %w", err)
 	}
-	return nil
+	manifest := scene.Manifest{Version: scene.FormatVersion, Site: scene.ManifestSite{ID: s.Metadata.Binding.SiteID, Title: s.Metadata.Binding.SiteID}, Parts: []scene.ManifestPart{{URL: "scene", StartSeconds: 0}}}
+	// This closed manifest contains strings and literal finite numbers only.
+	b, _ := json.MarshalIndent(manifest, "", "  ")
+	return os.WriteFile(filepath.Join(out, "manifest.json"), append(b, '\n'), 0644)
 }

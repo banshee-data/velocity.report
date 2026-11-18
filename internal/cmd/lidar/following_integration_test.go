@@ -124,6 +124,9 @@ func TestFollowingCorpusPublishesPairedSceneAndNoPartialSuccess(t *testing.T) {
 	if _, err = os.Stat(filepath.Join(out, "recording-000", "scene", "header.json")); err != nil {
 		t.Fatal(err)
 	}
+	if _, err = os.Stat(filepath.Join(out, "recording-000", "manifest.json")); err != nil {
+		t.Fatal("standalone scene manifest:", err)
+	}
 	index := filepath.Join(run.VRLogPath, "index.bin")
 	if err = os.Rename(index, index+".saved"); err != nil {
 		t.Fatal(err)

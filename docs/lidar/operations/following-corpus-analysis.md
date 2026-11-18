@@ -50,7 +50,8 @@ does not qualify endpoints, speed, common path or physical identity.
 
 ## Scene distance export
 
-`--scenes` writes a full-resolution tracks scene under each `recording-NNN/scene`. Exact samples
+`--scenes` writes a full-resolution tracks scene under each `recording-NNN/scene` with a
+standalone `recording-NNN/manifest.json` for the shared scene reader. Exact samples
 carry `following`: leader, bucket and eligible projected `gap_m`, `net_time_gap_s` and supported
 `experimental_drac_mps2`. Missing samples are never interpolated. Ineligible samples retain their
 bucket without values. An absent recorded leader removes measurements and produces
