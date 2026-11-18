@@ -1299,7 +1299,9 @@ func TestStreamFromPublisher_BasicFlow(t *testing.T) {
 }
 
 func TestStreamFromPublisher_PausedVRLogUpdatesReachEveryViewer(t *testing.T) {
-	pub := NewPublisher(DefaultConfig())
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
 	if err := pub.Start(); err != nil {
 		t.Fatal(err)
 	}
