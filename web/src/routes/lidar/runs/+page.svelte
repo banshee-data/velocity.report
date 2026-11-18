@@ -29,6 +29,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import FollowingAnalysis from '#lib/components/FollowingAnalysis.svelte';
 	import { Button } from 'svelte-ux';
 
 	let runs: Run[] = [];
@@ -603,6 +604,7 @@
 					</div>
 
 					<!-- Source -->
+					<FollowingAnalysis runID={selectedRun.run_id} />
 					{#if selectedRun.source_path}
 						<div>
 							<div class="text-surface-content/70 mb-1 block text-sm font-medium">Source</div>

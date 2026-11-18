@@ -1,0 +1,2 @@
+- Added [headless and web following analysis](../../lidar/operations/following-corpus-analysis.md), reducing verified paired recordings to one provisional minimum net time gap per follower track, with explicit exclusions and five fixed bins; no physical qualification or new tracking parameters were claimed.
+- Added exact-sample following distances and time gaps to optional scene exports, binding calibration and evidence provenance while retaining per-export actor identifiers and refusing to interpolate missing relationships.

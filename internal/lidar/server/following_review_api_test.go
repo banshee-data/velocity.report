@@ -80,6 +80,29 @@ func callReview(ws *Server, method, action string, body []byte) *httptest.Respon
 	return w
 }
 
+func TestFollowingAnalysisAPI(t *testing.T) {
+	ws, _, _ := setupFollowingReview(t)
+	if w := callReview(ws, "GET", "/analysis", nil); w.Code != 405 {
+		t.Fatal(w.Code)
+	}
+	ws.followingAnalysisMu.Lock()
+	if w := callReview(ws, "POST", "/analysis", nil); w.Code != 409 {
+		t.Fatal(w.Code)
+	}
+	ws.followingAnalysisMu.Unlock()
+	w := callReview(ws, "POST", "/analysis", nil)
+	if w.Code != 200 {
+		t.Fatalf("%d: %s", w.Code, w.Body.String())
+	}
+	var a followingreview.Analysis
+	if err := json.Unmarshal(w.Body.Bytes(), &a); err != nil {
+		t.Fatal(err)
+	}
+	if a.Tracks != 1 || a.WithoutTimeGap != 1 || a.Rows != 2 || len(a.Histogram) != 5 {
+		t.Fatal(a)
+	}
+}
+
 func reviewAuditRequest(t *testing.T, ws *Server) (followingreview.Metadata, followingreview.Record) {
 	t.Helper()
 	w := callReview(ws, "GET", "", nil)

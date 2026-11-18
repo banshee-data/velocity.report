@@ -39,6 +39,7 @@ func (e *switchError) Unwrap() error { return e.err }
 // server's mux, and Start runs the live UDP listener and capture jobs.
 type Server struct {
 	followingReviewCache followingreview.Cache
+	followingAnalysisMu  sync.Mutex
 	listenFallback       bool
 	stats                *PacketStats
 	onReady              func() // run by Start once it is running; see SetOnReady

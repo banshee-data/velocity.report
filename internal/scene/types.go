@@ -91,6 +91,25 @@ type Header struct {
 	// TrailSmoothing accounts for a smoothed trail: what the smoother
 	// released, by stage, and how many track frames it reached.
 	TrailSmoothing *TrailSmoothingSummary `json:"trail_smoothing,omitempty"`
+	Following      *FollowingProvenance   `json:"following,omitempty"`
+}
+
+// FollowingProvenance binds optional estimated distances to their exact paired
+// recording and analysis. These values are review evidence, not physical truth.
+type FollowingProvenance struct {
+	EvidenceSHA256 string `json:"evidence_sha256"`
+	CalibrationID  string `json:"calibration_id"`
+	AnalysisBuild  string `json:"analysis_build_git_sha"`
+	MethodID       string `json:"method_id"`
+	Status         string `json:"status"`
+}
+
+type FollowingJSON struct {
+	Leader   string   `json:"leader_id,omitempty"`
+	Bucket   string   `json:"bucket"`
+	GapM     *float64 `json:"gap_m,omitempty"`
+	TimeGapS *float64 `json:"net_time_gap_s,omitempty"`
+	DRAC     *float64 `json:"experimental_drac_mps2,omitempty"`
 }
 
 // CoordinateFrame is the spatial reference, minus any georeferencing origin.
@@ -178,9 +197,10 @@ type Frame struct {
 // internal quality metrics are dropped. X, Y, VX and VY are the estimate
 // Header.TrailEstimator names.
 type TrackJSON struct {
-	ID string  `json:"id"`
-	X  float64 `json:"x"`
-	Y  float64 `json:"y"`
+	Following *FollowingJSON `json:"following,omitempty"`
+	ID        string         `json:"id"`
+	X         float64        `json:"x"`
+	Y         float64        `json:"y"`
 	// Z is the base of the box, not its centre: the box spans Z to Z+Height.
 	Z     float64 `json:"z"`
 	VX    float64 `json:"vx"`

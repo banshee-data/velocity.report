@@ -19,6 +19,13 @@ declare module '$scene/scene-reader.js' {
 	}
 
 	export interface SceneTrack {
+		following?: {
+			leader_id?: string;
+			bucket: string;
+			gap_m?: number;
+			net_time_gap_s?: number;
+			experimental_drac_mps2?: number;
+		};
 		/** Missing support/stage/revision remain unknown for legacy scenes. */
 		support?: string;
 		estimate_stage?: string;

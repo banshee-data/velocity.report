@@ -33,6 +33,7 @@ Commands:
                   body dimensions, keyframe poses and following gaps with
                   bounds, evidence status and their own review
   segments        Rank candidate annotation windows from an evidence DB or run
+  following       Analyse paired following evidence across explicit recording IDs
   annotation-clip Replay one capture window and cut its annotation pack
   annotation-split
                   Freeze a reviewed, object-disjoint split over annotation
@@ -70,6 +71,8 @@ func Main(args []string) int {
 		return AnnotationReferenceMain(args[1:])
 	case "segments":
 		return SegmentsMain(args[1:])
+	case "following":
+		return FollowingMain(args[1:])
 	case "annotation-clip":
 		return AnnotationClipMain(args[1:])
 	case "annotation-split":
