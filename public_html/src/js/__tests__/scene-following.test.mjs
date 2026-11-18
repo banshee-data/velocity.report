@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { followingLabel, sceneVehicleLabel } from "../scene-following.js";
+import { followingLabel, sceneTrackLabel } from "../scene-following.js";
 
 const following = {
   bucket: "following_eligible",
@@ -28,14 +28,21 @@ test("scene omits absent, excluded and malformed relationships", () => {
 });
 
 test("a stopped or excluded next frame replaces the previous relationship label", () => {
-  assert.match(sceneVehicleLabel({ following }, 10), /estimated gap/);
+  assert.match(sceneTrackLabel({ c: "car", following }, 10), /estimated gap/);
   assert.equal(
-    sceneVehicleLabel(
-      { following: { ...following, bucket: "record_gap" } },
+    sceneTrackLabel(
+      { c: "car", following: { ...following, bucket: "record_gap" } },
       10,
     ),
     "10 mph",
   );
-  assert.equal(sceneVehicleLabel({}, 0), "");
-  assert.equal(sceneVehicleLabel({}, Infinity), "");
+  assert.equal(sceneTrackLabel({}, 0), "");
+  assert.equal(sceneTrackLabel({ c: "car" }, Infinity), "");
+});
+
+test("recorded dynamic classes do not hide exact following estimates or become vehicles", () => {
+  const track = { c: "dynamic", following };
+  assert.equal(sceneTrackLabel(track, 10), "estimated gap 12.3 m · 1.23 s");
+  assert.equal(track.c, "dynamic");
+  assert.equal(sceneTrackLabel({ c: "pedestrian" }, 10), "");
 });

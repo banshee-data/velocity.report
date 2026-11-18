@@ -13,8 +13,9 @@ export function followingLabel(track) {
   return `estimated gap ${value.gap_m.toFixed(1)} m · ${value.net_time_gap_s.toFixed(2)} s`;
 }
 
-export function sceneVehicleLabel(track, mph) {
+export function sceneTrackLabel(track, mph) {
+  const vehicle = ["car", "bus", "truck"].includes(track?.c);
   const speed =
-    Number.isFinite(mph) && mph >= 1 ? `${Math.round(mph)} mph` : "";
+    vehicle && Number.isFinite(mph) && mph >= 1 ? `${Math.round(mph)} mph` : "";
   return [speed, followingLabel(track)].filter(Boolean).join(" · ");
 }

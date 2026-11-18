@@ -59,7 +59,9 @@ bucket without values. An absent recorded leader removes measurements and produc
 
 Both actors use the scene's local keys; raw track IDs are not published. Header provenance
 retains canonical digest, calibration, analysis producer and method, with provisional status.
-Scene labels display usable estimated distance and time gap together. These remain local review
+Scene labels display usable estimated distance and time gap together, including when the
+recording's per-frame class differs from the analysis inputs. Recorded classes are unchanged;
+inspect disagreements rather than treating eligibility as physical classification. These remain local review
 artefacts until the [publication checklist](../../geometry-priors-data-purpose.md#publication-checklist)
 passes.
 
