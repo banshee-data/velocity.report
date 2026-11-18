@@ -51,6 +51,74 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
             baseURL: URL(string: "http://review.test")!, session: URLSession(configuration: config))
     }
 
+    func testPeriodReviewKeepsScopeButNotPreviousLabelsOrViewingContext() throws {
+        let row = try XCTUnwrap(FollowingEvidence.decode(slice()).rows.first)
+        var old = FollowingAudit.Record(row: row, playback: .init(runID: "run", captureNanos: 999))
+        old.endExclusiveNanos = 2500
+        old.reviewer = "previous reviewer"
+        old.identityContinuity = .consistent
+        old.leaderAndPath = .consistent
+        old.visibleEndpoints = .consistent
+        old.speedEvidence = .consistent
+        old.conclusion = .consistent
+        old.proposedLeaderTrackID = "l"
+        old.notes = "Earlier observations"
+        let playback = FollowingAudit.Playback(runID: "run", captureNanos: 1000)
+        let draft = FollowingAudit.Record.reviewing(row: row, playback: playback, period: old)
+        XCTAssertEqual(draft.startNanos, 1000)
+        XCTAssertEqual(draft.endExclusiveNanos, 2500)
+        XCTAssertEqual(draft.playback, playback)
+        XCTAssertNotEqual(draft.id, old.id)
+        XCTAssertEqual(draft.reviewer, "")
+        XCTAssertEqual(draft.notes, "")
+        XCTAssertNil(draft.proposedLeaderTrackID)
+        XCTAssertEqual(draft.identityContinuity, .unknown)
+        XCTAssertEqual(draft.leaderAndPath, .unknown)
+        XCTAssertEqual(draft.visibleEndpoints, .unknown)
+        XCTAssertEqual(draft.speedEvidence, .unknown)
+        XCTAssertEqual(draft.conclusion, .insufficientEvidence)
+    }
+
+    func testPeriodReviewRefusesDifferentActorRunAndExclusiveEnd() throws {
+        let row = try XCTUnwrap(FollowingEvidence.decode(slice()).rows.first)
+        let playback = FollowingAudit.Playback(runID: "run", captureNanos: 1000)
+        var period = FollowingAudit.Record(row: row, playback: playback)
+        period.endExclusiveNanos = 2500
+        period.followerTrackID = "other"
+        XCTAssertEqual(FollowingAudit.Record.reviewing(row: row, playback: playback, period: period).endExclusiveNanos, 2000)
+        period.followerTrackID = row.followerTrackId
+        period.playback.runID = "other-run"
+        XCTAssertEqual(FollowingAudit.Record.reviewing(row: row, playback: playback, period: period).endExclusiveNanos, 2000)
+        period.playback = playback
+        period.startNanos = 999
+        period.endExclusiveNanos = row.captureUnixNanos
+        XCTAssertEqual(FollowingAudit.Record.reviewing(row: row, playback: playback, period: period).endExclusiveNanos, 2000)
+    }
+
+    func testPeriodReviewStartingInsideScopeDoesNotBackdate() throws {
+        let row = try XCTUnwrap(FollowingEvidence.decode(slice(2000)).rows.first)
+        let playback = FollowingAudit.Playback(runID: "run", captureNanos: 2000)
+        var period = FollowingAudit.Record(row: row, playback: playback)
+        period.startNanos = 1000
+        period.endExclusiveNanos = 3000
+        let record = FollowingAudit.Record.reviewing(row: row, playback: playback, period: period)
+        XCTAssertEqual(record.startNanos, 2000)
+        XCTAssertEqual(record.endExclusiveNanos, 3000)
+    }
+
+    func testFollowerWindowSelectionDoesNotReopenTrackInspector() {
+        let app = AppState()
+        app.showSidePanel = false
+        app.showLabelPanel = false
+        app.selectTrack("f", showInspector: false)
+        XCTAssertEqual(app.selectedTrackID, "f")
+        XCTAssertFalse(app.showSidePanel)
+        XCTAssertFalse(app.showLabelPanel)
+        app.selectTrack("l")
+        XCTAssertTrue(app.showSidePanel)
+        XCTAssertTrue(app.showLabelPanel)
+    }
+
     private func slice(_ at: Int64 = 1000) -> Data {
         let start = at < 2000 ? 1000 : 2000
         let endpoint =

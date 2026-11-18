@@ -60,6 +60,7 @@ private enum RunBrowserLayout {
     @StateObject private var runBrowserState: RunBrowserState
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
     /// The rows whose folded repeats are shown, by the lead run's ID.
     @State private var expandedFolds: Set<String> = []
     @State private var query = ""
@@ -198,6 +199,7 @@ private enum RunBrowserLayout {
                     }
                     guard appState.currentRunID == run.runId else { return }
                     dismiss()
+                    openWindow(id: "following-review")
                     await appState.openFollowingReview(run.runId)
                 }
             }

@@ -343,6 +343,8 @@ server in Settings → Servers.
 ### Following evidence review
 
 Choose **Following** on a recording in **Runs**, or **Review this recording** in Inspector.
+The separate **Follower review** window has saved-period cards, Previous/Next case controls
+and a short leader/gap/speed checklist. Selecting a case pauses and seeks the shared 3D recording.
 VV retrieves its verified following evidence, fitted paths and saved annotations from the backend.
 Minute boundaries are automatic; normal review has no evidence or audit file chooser.
 
@@ -355,7 +357,7 @@ and exact header digest must match the server-verified review. VV shows the agre
 conflicting sources or unmatched geometry still withhold the 3D gap. This verifies the recording
 association, not physical endpoint accuracy. See the [recording-bound review contract](../../docs/lidar/operations/following-managed-review.md).
 
-**Correct**, **Wrong** and **Uncertain** open a period review, with optional observed leader,
+**Review this period…** opens a label dialog with the selected case's end prefilled, optional observed leader,
 endpoint/identity/speed observations and notes. Records save automatically and stay separate
 from the analyser's decisions. Failed saves retain the same record for retry. Detailed provenance
 and legacy file compatibility remain behind disclosure controls.

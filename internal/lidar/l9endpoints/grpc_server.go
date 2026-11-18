@@ -47,7 +47,6 @@ type Server struct {
 	playbackRate float32
 	replayMode   bool // True when replaying a PCAP or log (not live sensor)
 	vrlogMode    bool // True when replaying a VRLOG (seekable replay)
-	seekPending  bool // True after a seek; allows one frame through even while paused
 	playbackMu   sync.RWMutex
 
 	// PCAP progress tracking (updated by WebServer progress callback)
@@ -479,32 +478,16 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				clientID, totalFramesSent+framesSent, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
-			// Respect pause state — drop frames silently while paused,
-			// UNLESS a seek is pending (deliver the seeked frame).
-			// M7: Release the retained reference since we won't process this frame.
 			s.playbackMu.RLock()
-			paused := s.paused
-			seekPending := s.seekPending
+			vrlogMode := s.vrlogMode
 			s.playbackMu.RUnlock()
-			if paused && !seekPending {
-				if frame.PointCloud != nil {
-					frame.PointCloud.Release()
-				}
-				continue
-			}
-			// Clear seek pending after delivering the seeked frame
-			if seekPending {
-				s.playbackMu.Lock()
-				s.seekPending = false
-				s.playbackMu.Unlock()
-			}
 
 			// When replaying (VRLOG) or in cooldown skip mode, coalesce to
 			// the newest buffered frame so the client catches up quickly and
 			// the channel stays drained. In normal live mode, preserve smooth
 			// delivery when the client can keep up.
 			skipped := 0
-			if s.vrlogMode || cooldown.inSkipMode() {
+			if vrlogMode || cooldown.inSkipMode() {
 				if len(frameCh) > 0 {
 					frame, skipped = coalesceBufferedFrames(frameCh, frame)
 				}
@@ -514,6 +497,31 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				lidar.Tracef("[gRPC] Client %s: skipped %d frames to catch up (skip_mode=%v)",
 					clientID, skipped, cooldown.inSkipMode())
 			}
+
+			// The VRLOG reader marks pause/seek/rate updates itself. A shared
+			// one-shot seek flag both raced the publisher and let the first
+			// subscriber consume delivery for every other viewer. Accept only
+			// reader-marked paused updates; ordinary queued frames stay paused.
+			s.playbackMu.RLock()
+			paused := s.paused
+			pausedUpdate := s.vrlogMode && frame.PlaybackInfo != nil &&
+				frame.PlaybackInfo.SourceMode == "vrlog" && frame.PlaybackInfo.Paused
+			s.playbackMu.RUnlock()
+			if paused && !pausedUpdate {
+				if frame.PointCloud != nil {
+					frame.PointCloud.Release()
+				}
+				continue
+			}
+
+			// Published frames are shared across subscribers. Decorations must
+			// not mutate another viewer's playback state or the reader's proof.
+			view := *frame
+			if frame.PlaybackInfo != nil {
+				playback := *frame.PlaybackInfo
+				view.PlaybackInfo = &playback
+			}
+			frame = &view
 
 			// Track frame ID gaps for detecting frames dropped before they reached
 			// this stream (for example, in the publisher when the client queue is full).
@@ -767,10 +775,8 @@ func (s *Server) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.PlaybackSta
 			return nil, status.Errorf(codes.Internal, "seek failed: %v", err)
 		}
 
-		// Mark seek pending so the frame is delivered even while paused
-		s.playbackMu.Lock()
-		s.seekPending = true
-		s.playbackMu.Unlock()
+		// The publisher emits the reader-marked paused update to every
+		// subscriber; delivery does not depend on this RPC returning first.
 
 		return &pb.PlaybackStatus{
 			Paused:         paused,

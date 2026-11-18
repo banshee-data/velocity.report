@@ -530,6 +530,7 @@ private let logger = DevLogger(category: "AppState")
         if currentRunID != runID { await openRun(runID) }
         guard currentRunID == runID else { return }
         openTrackReview()
+        showSidePanel = false
         await followingReview.openRecording(runID: runID, at: currentTimestamp)
         refreshFollowingOverlay()
     }
@@ -1807,11 +1808,11 @@ private let logger = DevLogger(category: "AppState")
 
     // MARK: - Labelling
 
-    func selectTrack(_ trackID: String?) {
+    func selectTrack(_ trackID: String?, showInspector: Bool = true) {
         selectedTrackID = trackID
         selectedTrackData = trackID.flatMap { allSeenTracks[$0] }
         renderer?.selectedTrackID = trackID
-        if trackID != nil {
+        if trackID != nil && showInspector {
             showLabelPanel = true
             showSidePanel = true
         }

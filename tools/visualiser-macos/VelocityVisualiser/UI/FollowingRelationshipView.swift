@@ -85,6 +85,8 @@ func followingDRACValue(_ row: FollowingEvidence.Row) -> Double? {
 struct FollowingRelationshipView: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var review: FollowingReviewSession
+    var period: FollowingAudit.Record? = nil
+    var showsSavedRecords = true
     @State private var sliderSeconds: Double = 0
     @State private var recordLimit = 20
 
@@ -124,7 +126,7 @@ struct FollowingRelationshipView: View {
                         accessibilityTitle: "Choose follower", searchPrompt: "Find a follower"
                     ) { id in
                         review.follower = id
-                        appState.selectTrack(id)
+                        appState.selectTrack(id, showInspector: false)
                         appState.refreshFollowingOverlay()
                     }
 
@@ -145,7 +147,7 @@ struct FollowingRelationshipView: View {
                             paths: review.managedGeometry?.paths.filter {
                                 review.geometryIndex[$0.followerTrackId] != nil
                             } ?? []), followerID: row.followerTrackId
-                    ) { id in appState.selectTrack(id) }
+                    ) { id in appState.selectTrack(id, showInspector: false) }
                     HStack(alignment: .top) {
                         metric(
                             "Estimated path gap", row.point?.gap.map { "\(number($0.valueM)) m" })
@@ -171,11 +173,7 @@ struct FollowingRelationshipView: View {
                         Text("Path geometry unavailable for this sample; no spatial gap is drawn.")
                             .font(.caption).foregroundStyle(.orange)
                     }
-                    HStack {
-                        Button("Correct") { beginReview(row, observation: .consistent) }
-                        Button("Wrong") { beginReview(row, observation: .disputed) }
-                        Button("Uncertain") { beginReview(row, observation: .unknown) }
-                    }.disabled(
+                    HStack { Button("Review this period…") { beginReview(row) } }.disabled(
                         review.savingRecord || review.loadingWindow || review.pendingSave != nil)
                     if review.savingRecord { ProgressView("Saving review…").controlSize(.small) }
 
@@ -208,12 +206,14 @@ struct FollowingRelationshipView: View {
                         if !editing { seek(metadata.startNanos + Int64(sliderSeconds * 1e9)) }
                     }
                 ).accessibilityLabel("Seek recording review time")
-                DisclosureGroup("Review records (\(review.audit?.records.count ?? 0))") {
-                    ForEach((review.audit?.records ?? []).suffix(recordLimit)) { record in
-                        savedRecord(record, metadata: metadata)
-                    }
-                    if (review.audit?.records.count ?? 0) > recordLimit {
-                        Button("Show 20 earlier records") { recordLimit += 20 }
+                if showsSavedRecords {
+                    DisclosureGroup("Review records (\(review.audit?.records.count ?? 0))") {
+                        ForEach((review.audit?.records ?? []).suffix(recordLimit)) { record in
+                            savedRecord(record, metadata: metadata)
+                        }
+                        if (review.audit?.records.count ?? 0) > recordLimit {
+                            Button("Show 20 earlier records") { recordLimit += 20 }
+                        }
                     }
                 }
                 DisclosureGroup("Evidence details") {
@@ -260,7 +260,7 @@ struct FollowingRelationshipView: View {
         VStack(alignment: .leading, spacing: 4) {
             Button("\(short(record.followerTrackID)) · \(record.conclusion.title)") {
                 review.follower = record.followerTrackID
-                appState.selectTrack(record.followerTrackID)
+                appState.selectTrack(record.followerTrackID, showInspector: false)
                 seek(record.startNanos)
             }.buttonStyle(.link).font(.caption)
             DisclosureGroup("Review observations") {
@@ -319,14 +319,10 @@ struct FollowingRelationshipView: View {
             if target >= metadata.startNanos, target < metadata.endExclusiveNanos { seek(target) }
         }
     }
-    private func beginReview(_ row: FollowingEvidence.Row, observation: FollowingAudit.Observation)
-    {
-        var record = FollowingAudit.Record(
-            row: row, playback: appState.currentFollowingAuditPlayback)
-        record.leaderAndPath = observation
-        record.reviewer = review.audit?.records.last?.reviewer ?? ""
-        if observation == .consistent { record.proposedLeaderTrackID = row.decision.leaderTrackId }
-        review.startDraft(record)
+    private func beginReview(_ row: FollowingEvidence.Row) {
+        review.startDraft(
+            FollowingAudit.Record.reviewing(
+                row: row, playback: appState.currentFollowingAuditPlayback, period: period))
     }
 }
 
