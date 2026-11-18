@@ -788,6 +788,7 @@ extension FollowingManagedReviewTests {
         let series = FollowingEpisodeSeries(rows: rows, follower: "f")
         XCTAssertEqual(series.segments.map(\.count), [2, 1, 1, 1, 1])
         XCTAssertEqual(series.samples.count, 8)
+        XCTAssertEqual(series.leaderSwitches, [200_000_000])
         XCTAssertFalse(series.samples[4].supported)
         XCTAssertEqual(series.samples[4].gapM, 10) // Unsupported raw evidence stays visible.
         XCTAssertNil(series.samples[6].gapM)

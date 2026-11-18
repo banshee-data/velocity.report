@@ -41,7 +41,7 @@ struct FollowingEpisodeChart: View {
                     }
                     Toggle("Display trend (±0.2 s mean)", isOn: $showTrend)
                         .toggleStyle(.checkbox).font(.caption)
-                    Text("Raw estimates, not physical truth. Orange = unsupported; grey ticks = no gap. Lines stop at missing time or leader switches.")
+                    Text("Raw estimates, not physical truth. Orange = unsupported; grey ticks = no gap. Dashed rules = leader switches. Lines stop at missing time.")
                         .font(.caption2).foregroundStyle(.secondary)
                     Text("Seconds from loaded window start. Click a sample to seek; pause playback first.")
                         .font(.caption2).foregroundStyle(.secondary)
@@ -92,6 +92,13 @@ struct FollowingEpisodeChart: View {
                     }
                     context.stroke(line, with: .color(.purple), lineWidth: 2)
                 }
+            }
+            for timestamp in series.leaderSwitches {
+                var rule = Path()
+                rule.move(to: CGPoint(x: x(timestamp), y: 0))
+                rule.addLine(to: CGPoint(x: x(timestamp), y: height))
+                context.stroke(rule, with: .color(.purple.opacity(0.5)),
+                    style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
             }
             for sample in series.samples {
                 let px = x(sample.timestamp)

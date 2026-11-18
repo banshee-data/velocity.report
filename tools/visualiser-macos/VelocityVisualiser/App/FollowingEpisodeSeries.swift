@@ -15,6 +15,12 @@ struct FollowingEpisodeSeries {
     let samples: [Sample]
     let segments: [[Sample]]
 
+    var leaderSwitches: [Int64] {
+        zip(samples, samples.dropFirst()).compactMap { previous, current in
+            previous.leaderID != current.leaderID ? current.timestamp : nil
+        }
+    }
+
     init(rows: [FollowingEvidence.Row], follower: String) {
         samples = rows.filter { $0.followerTrackId == follower }.sorted {
             $0.captureUnixNanos < $1.captureUnixNanos
