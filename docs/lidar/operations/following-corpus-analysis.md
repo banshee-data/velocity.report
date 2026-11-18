@@ -3,6 +3,10 @@
 - **Status:** Provisional evidence analysis; physical qualification remains open
 - **Related:** [Managed review](following-managed-review.md), [weekend plan](../../plans/lidar-weekend-following-drac-plan.md), [review preparation](../../../cmd/tools/following-review-prepare/README.md)
 
+The [four-site run report](following-corpus-four-sites-2026-11.md) records the completed batch,
+per-site counts, verified exports, UI checks and limitations. Its repeated reduction reproduces
+the frozen estimates; it does not rerun or qualify their physical measurements.
+
 The Runs page offers **Analyse following** for a selected recording. The backend resolves its
 registered paired preparation and verifies source, calibration, header, canonical identity and
 every evidence minute before computing the distribution. The browser supplies no paths.

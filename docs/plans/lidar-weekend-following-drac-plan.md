@@ -32,6 +32,13 @@ batch reduction, a web Runs action, minimum time-gap histograms and exact-sample
 These retain the frozen estimator's limitations; facet/body measurement and physical qualification
 remain separate work.
 
+The [four-site corpus report](../lidar/operations/following-corpus-four-sites-2026-11.md) records
+the completed headless reduction, web checks and distance scene exports: 297 of 8,377 software
+tracks have a usable minimum; 8,080 do not. Repeat output matched byte for byte. The body-proposal
+review exposed broad intervals and a width disagreement, so full-shell physical acceptance and
+promotion into following measurements remain open. No validation-cohort recording was added to
+the development batch.
+
 The [Broderick VV software walkthrough](../lidar/operations/broderick-vv-walkthrough-2026-11.md)
 records the one-action review and timeline checks, the isolated uncertain audit, and the
 attached-drive build diagnosis. It does not close the operator or physical qualification gates.
