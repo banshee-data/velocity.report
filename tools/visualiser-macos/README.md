@@ -355,6 +355,16 @@ server in Settings → Servers.
 
 ### Following evidence review
 
+The native Following inspector and follower-review window include a per-frame projected-gap
+chart for the selected follower within the loaded evidence window. Capture timestamps drive
+both axes and exact-sample seeks, so 10 Hz and 20 Hz data need no resampling. Cyan raw points
+are joined only within contiguous, observed, same-leader spans. Unsupported raw estimates
+are orange; missing values are grey ticks. Missing time and leader switches break lines.
+Pause replay and click the chart to seek an exact exported sample; the existing source-bound
+3D overlay supplies its endpoints only after the matching frame arrives. The optional purple
+±0.2-second centred mean is display-only: it preserves raw samples and never changes gap,
+headway, DRAC, evidence, or audit values. This is not a physical-accuracy validation.
+
 Choose **Following** on a recording in **Runs**, or **Review this recording** in Inspector.
 The separate **Follower review** window has saved-period cards, Previous/Next case controls
 and a short leader/gap/speed checklist. Selecting a case pauses and seeks the shared 3D recording.

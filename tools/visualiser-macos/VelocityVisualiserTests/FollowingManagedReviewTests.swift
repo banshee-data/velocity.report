@@ -708,3 +708,101 @@ private final class FollowingReviewTestProtocol: URLProtocol, @unchecked Sendabl
             "Do not label a spatial gap when its path cannot be drawn")
     }
 }
+
+extension FollowingManagedReviewTests {
+    private func episodeRow(
+        _ time: Int64, interval: Int64 = 100_000_000, leader: String = "l",
+        gap: Double? = 10, support: String = "observed", reasons: [String] = [],
+        bucket: String = "following_eligible"
+    ) throws -> FollowingEvidence.Row {
+        func endpoint(_ id: String) -> [String: Any] {
+            ["track_id": id, "arc_m": 1, "sigma_m": 0.1, "source": "obb",
+             "support": support, "extent_converged": true]
+        }
+        var point: [String: Any] = [
+            "follower_track_id": "f", "leader_track_id": leader, "capture_unix_nanos": time,
+            "follower": ["leading": endpoint("f"), "trailing": endpoint("f")],
+            "leader": ["leading": endpoint(leader), "trailing": endpoint(leader)],
+            "supported_opportunity": false, "reasons": reasons,
+        ]
+        if let gap { point["gap"] = ["value_m": gap, "sigma_m": 0.1] }
+        let row: [String: Any] = [
+            "follower_track_id": "f", "capture_unix_nanos": time, "interval_nanos": interval,
+            "bucket": bucket, "point": point,
+            "decision": ["follower_track_id": "f", "capture_unix_nanos": time,
+                         "leader_track_id": leader],
+            "experimental_drac": ["status": "unsupported"],
+        ]
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(FollowingEvidence.Row.self, from: JSONSerialization.data(withJSONObject: row))
+    }
+
+    func testEpisodeUsesCaptureTimesAtTenAndTwentyHz() throws {
+        let origin: Int64 = 1_800_000_000_000_000_001
+        for interval: Int64 in [100_000_000, 50_000_000] {
+            let rows = try (0..<3).map { try episodeRow(origin + Int64($0) * interval, interval: interval) }
+            let series = FollowingEpisodeSeries(rows: rows.reversed(), follower: "f")
+            XCTAssertEqual(series.segments.count, 1)
+            XCTAssertEqual(series.samples.map(\.timestamp), rows.map(\.captureUnixNanos))
+            XCTAssertEqual(series.seconds(origin + interval, from: origin), Double(interval) / 1e9)
+            XCTAssertEqual(series.nearest(toSeconds: Double(interval) / 1e9, origin: origin)?.timestamp, origin + interval)
+            XCTAssertNil(series.nearest(toSeconds: .nan, origin: origin))
+            XCTAssertTrue(FollowingEpisodeSeries(rows: rows, follower: "other").samples.isEmpty)
+        }
+    }
+
+    func testEpisodeBreaksOnLeaderChangeMissingTimeAndUnsupportedRows() throws {
+        let rows = try [
+            episodeRow(0), episodeRow(100_000_000),
+            episodeRow(200_000_000, leader: "new"),
+            episodeRow(400_000_000, leader: "new"),
+            episodeRow(500_000_000, leader: "new", support: "coasted"),
+            episodeRow(600_000_000, leader: "new"),
+            episodeRow(700_000_000, leader: "new", gap: nil),
+            episodeRow(800_000_000, leader: "new"),
+        ]
+        let series = FollowingEpisodeSeries(rows: rows, follower: "f")
+        XCTAssertEqual(series.segments.map(\.count), [2, 1, 1, 1, 1])
+        XCTAssertEqual(series.samples.count, 8)
+        XCTAssertFalse(series.samples[4].supported)
+        XCTAssertEqual(series.samples[4].gapM, 10) // Unsupported raw evidence stays visible.
+        XCTAssertNil(series.samples[6].gapM)
+    }
+
+    func testEpisodeGapDoesNotUseHeadwayEligibilityOrSmoothAcrossBreaks() throws {
+        let rows = try [
+            episodeRow(0, gap: 10, reasons: ["below_speed_floor", "estimate_not_final"]),
+            episodeRow(100_000_000, gap: 20),
+            episodeRow(200_000_000, leader: "new", gap: 100),
+            episodeRow(300_000_000, leader: "new", gap: 200, reasons: ["no_common_path"]),
+            episodeRow(400_000_000, leader: "new", gap: -1),
+        ]
+        let series = FollowingEpisodeSeries(rows: rows, follower: "f")
+        XCTAssertTrue(series.samples[0].supported)
+        XCTAssertEqual(series.segments.map(\.count), [2, 1])
+        XCTAssertEqual(series.smoothed(series.segments[0]), [15, 15])
+        XCTAssertEqual(series.smoothed(series.segments[1]), [100])
+        XCTAssertEqual(series.samples[0].gapM, 10) // Smoothing never replaces source values.
+        XCTAssertFalse(series.samples[3].supported)
+        XCTAssertFalse(series.samples[4].supported)
+    }
+
+    func testEpisodeRecordGapDoesNotBridgeItsExportedLongInterval() throws {
+        let rows = try [episodeRow(0),
+                        episodeRow(100_000_000, interval: 4_900_000_000, bucket: "record_gap"),
+                        episodeRow(5_000_000_000)]
+        let series = FollowingEpisodeSeries(rows: rows, follower: "f")
+        XCTAssertEqual(series.segments.map(\.count), [1, 1])
+        XCTAssertFalse(series.samples[1].supported)
+    }
+
+    func testEpisodeMeanUsesTimeRadiusNotFrameCount() throws {
+        let rows = try [episodeRow(0, interval: 50_000_000, gap: 0.1),
+                        episodeRow(50_000_000, interval: 200_000_000, gap: 10),
+                        episodeRow(250_000_000, gap: 20)]
+        let series = FollowingEpisodeSeries(rows: rows, follower: "f")
+        XCTAssertEqual(series.smoothed(series.segments[0])[0], 5.05, accuracy: 0.00001)
+        XCTAssertEqual(series.smoothed(series.segments[0])[2], 15)
+    }
+}

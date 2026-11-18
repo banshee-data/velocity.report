@@ -41,6 +41,7 @@ private struct FollowingReviewEntry: View {
                 }.disabled(review.savingRecord)
             }
             if review.isManaged {
+                FollowingEpisodeChart(review: review)
                 Button("Open follower review") { openWindow(id: "following-review") }
                 Text("Review saved periods, leader choices, gaps and speeds in their own window.")
                     .font(.caption).foregroundStyle(.secondary)

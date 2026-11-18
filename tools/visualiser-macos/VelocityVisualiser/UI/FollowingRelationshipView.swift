@@ -189,6 +189,7 @@ struct FollowingRelationshipView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if review.loadingWindow { ProgressView("Loading this period…").controlSize(.small) }
+                FollowingEpisodeChart(review: review)
                 FollowingRelationshipTimeline(review: review) { at in seek(at) }
                 HStack {
                     Button {
