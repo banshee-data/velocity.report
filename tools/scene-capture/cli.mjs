@@ -12,6 +12,27 @@ function parseArgs(argv) {
 }
 
 async function main() {
+  if (process.argv[2] === "following-review") {
+    const [corpus, output, list, contextRoot] = process.argv.slice(3);
+    if (!corpus || !output || !list)
+      throw Error(
+        "Usage: node cli.mjs following-review CORPUS NEW_OUTPUT site-one,site-two,site-three",
+      );
+    const { packageFollowingReview } = await import("./following-review.mjs");
+    console.log(
+      JSON.stringify(
+        await packageFollowingReview({
+          corpus,
+          output,
+          sites: list.split(","),
+          contextRoot,
+        }),
+        null,
+        2,
+      ),
+    );
+    return;
+  }
   const { recipePath, overwrite } = parseArgs(process.argv);
   if (!recipePath) {
     console.error("Usage: node cli.mjs <recipe.json> [--overwrite]");

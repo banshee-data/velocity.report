@@ -28,10 +28,44 @@ private func fitResult() throws -> PhysicalFitResult {
 }
 
 struct PhysicalFitTests {
+    @Test func lifecycleRequestIsExplicitAndLegacyRequestsRemainCompatible() throws {
+        var request = PhysicalReferenceAPIClient.FitRequest(
+            pack: "pack", packDigest: "sha256:p", membershipDigest: "sha256:m", objectID: "car",
+            samples: [], author: "op", session: "s")
+        var json = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+        #expect(json["lifecycle"] == nil)
+        request.lifecycle = true
+        json = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+        #expect(json["lifecycle"] as? Bool == true)
+    }
+    @Test func lifecycleReplacesAllDraftPosesButRequiresExplicitMetadata() throws {
+        var fit = try fitResult()
+        var objects: [PhysicalObject] = []
+        #expect(PhysicalDraft.applyFit(fit, scope: .lifecycle, to: &objects) == 0)
+        #expect(objects.isEmpty)
+        let body = try #require(fit.object?.body)
+        fit.lifecycle = PhysicalLifecycle(
+            schema: "physical_lifecycle_refinement_v1", bodyID: body.bodyID, packDigest: "fixture",
+            informationUntil: "9007199254740993", extentSamples: [], frames: [])
+        objects = [
+            PhysicalObject(
+                objectID: fit.objectID,
+                keyframes: [PhysicalKeyframe(keyframeID: "old", sampleID: 999, timestampNs: 1)])
+        ]
+        #expect(
+            PhysicalDraft.applyFit(fit, scope: .lifecycle, to: &objects)
+                == fit.object?.keyframes.count)
+        #expect(objects[0].keyframes.allSatisfy { $0.sampleID != 999 })
+        #expect(objects[0].body == body)
+    }
     @Test func coverageInspectionPrefersAFrameWithAFittedPose() throws {
         let fit = try fitResult()
         let posed = try #require(fit.object?.keyframes.first?.sampleID)
-        #expect(fit.inspectionSample(for: PhysicalFaceCoverage(name: "Front", samples: [-1, posed])) == posed)
+        #expect(
+            fit.inspectionSample(for: PhysicalFaceCoverage(name: "Front", samples: [-1, posed]))
+                == posed)
         #expect(fit.inspectionSample(for: PhysicalFaceCoverage(name: "Front", samples: [])) == nil)
         #expect(fit.inspectionSample(for: PhysicalFaceCoverage(name: "Front", samples: [-1])) == -1)
     }

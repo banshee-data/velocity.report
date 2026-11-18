@@ -90,9 +90,16 @@ existing pose-proposal endpoint and VV panel: a two-to-four-match basket, strict
 requests, same-source-body pins, conservative pose bounds, common-constraint feasibility and
 geometric support states. It retains the legacy single-facet path and shared overlay. This is
 the bounded starting slice of M1–M4, not completion of every work package. Plane registration,
-automatic matching, persistent calibrated confidence, backward lifecycle refinement and the
+automatic matching, persistent calibrated confidence, facet-correspondence lifecycle refinement and the
 matched accuracy/cost campaign remain open. Until M6 passes, a supported geometric constraint
 is not a high-confidence physical match or a measured following-accuracy improvement.
+
+The next M5 increment extends the existing reviewed-point fit with an explicit lifecycle scope.
+It uses one proposed body across reviewed samples, records the full information horizon and
+abstentions, and retains inferred hidden endpoints. This is the body-memory fallback; confirmed
+facet correspondences are not automatically propagated or fused. Persistent match confirmations
+and comparison against independent endpoint/heading references remain opportunities for the next
+increment. Neither a stable shell nor successful replay establishes improved physical accuracy.
 
 The [four-site review](../lidar/operations/following-corpus-four-sites-2026-11.md) found broad
 body intervals and a width disagreement. Those are development diagnostics, not a justification

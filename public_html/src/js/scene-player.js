@@ -1,5 +1,11 @@
 import { sceneFade, sceneRangeOpacity } from "./scene-fade.js";
-import { sceneTrackLabel } from "./scene-following.js";
+import {
+  sceneTrackLabel,
+  followingLabel,
+  gapBand,
+  followingRelationships,
+  renderFollowingStats,
+} from "./scene-following.js";
 // Three.js player for velocity.report scene exports.
 //
 // Renders tracked road users as oriented boxes with client-side trails, and
@@ -633,6 +639,16 @@ export async function mountScenePlayer({
   teardown.onDispose(() => renderer.dispose());
 
   const scene = new THREE.Scene();
+  const followingGroup = new THREE.Group();
+  scene.add(followingGroup);
+  function clearFollowing() {
+    for (const item of [...followingGroup.children]) {
+      item.geometry.dispose();
+      item.material.dispose();
+      followingGroup.remove(item);
+    }
+  }
+  teardown.onDispose(clearFollowing);
   // Materials fade by sensor range (150–170 m), independent of camera depth.
 
   const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 2000);
@@ -835,6 +851,9 @@ export async function mountScenePlayer({
   const session =
     injectedSession ?? (await new SceneSession(manifestURL).open());
   const generatorVersions = sceneGeneratorVersions(session.parts);
+  const followingReview = Boolean(session.parts[0]?.header?.following?.summary);
+  renderFollowingStats(ui.followingStats, session.parts[0]?.header?.following);
+  if (ui.timelineKey) ui.timelineKey.hidden = followingReview;
   if (ui.generatorVersions && generatorVersions.length) {
     const generatorVersion = generatorVersions.join(", ");
     for (const node of ui.generatorVersions) {
@@ -969,6 +988,7 @@ export async function mountScenePlayer({
   const pointCloud = new PointCloudVisual(scene);
   let currentPart = -1;
   let strip = null;
+  teardown.onDispose(() => strip?.dispose());
 
   function render() {
     updateCompass(ui.compass, sceneCamera.currentVantage(), northAzimuthDeg);
@@ -1061,6 +1081,7 @@ export async function mountScenePlayer({
 
   /** Drops every box, trail and label. Used at a part change and at a wrap. */
   function resetVisuals() {
+    clearFollowing();
     for (const v of visuals.values()) v.dispose(scene);
     visuals.clear();
     for (const el of labels.values()) el.remove();
@@ -1092,7 +1113,16 @@ export async function mountScenePlayer({
         visuals.set(t.id, v);
       }
       // Re-applied every frame: a track's class can change under it.
-      v.setColour(colourFor(t.c));
+      const band = followingLabel(t)
+        ? gapBand(t.following?.track_minimum_time_gap_s)
+        : null;
+      v.setColour(
+        band
+          ? Number.parseInt(band.colour.slice(1), 16)
+          : followingReview
+            ? 0x6b7c88
+            : colourFor(t.c),
+      );
       v.update(t);
       v.setOpacity(1);
       v.setVisible(state.boxesVisible);
@@ -1107,7 +1137,14 @@ export async function mountScenePlayer({
         // passed by the time the box is on screen.
         const mph = (t.mspd ?? t.spd ?? 0) * MPS_TO_MPH;
         const text = sceneTrackLabel(t, mph);
-        if (text || labels.has(t.id)) labelFor(t.id).textContent = text;
+        if (text || labels.has(t.id)) {
+          const label = labelFor(t.id);
+          label.textContent = text;
+          label.style.color = band?.colour ?? "";
+          label.title = t.following
+            ? `Follower ${t.id} → leader ${t.following.leader_id ?? "unavailable"}; DRAC: ${t.following.drac_status ?? "unavailable"}; follower ${t.following.follower_speed_mps ?? "?"} m/s, leader ${t.following.leader_speed_mps ?? "?"} m/s`
+            : "";
+        }
       }
     }
     for (const [id, v] of visuals) {
@@ -1118,6 +1155,29 @@ export async function mountScenePlayer({
         labels.delete(id);
       }
     }
+    clearFollowing();
+    if (state.boxesVisible)
+      for (const pair of followingRelationships(frame)) {
+        if (!seen.has(pair.follower.id) || !seen.has(pair.leader.id)) continue;
+        const z = Math.min(pair.follower.z ?? 0, pair.leader.z ?? 0) + 0.12;
+        const geometry = new THREE.BufferGeometry().setFromPoints(
+          pair.path.map(
+            (p) =>
+              new THREE.Vector3(toSceneX(p[0]), toSceneY(z), toSceneZ(p[1])),
+          ),
+        );
+        followingGroup.add(
+          new THREE.Line(
+            geometry,
+            new THREE.LineBasicMaterial({
+              color: pair.colour,
+              depthTest: false,
+              transparent: true,
+              opacity: 0.9,
+            }),
+          ),
+        );
+      }
     pointCloud.update(pointFrame?.p, pointOpacity);
     render();
     return seen.size;
@@ -1653,6 +1713,7 @@ export async function mountScenePlayer({
           canvas: ui.timelineCanvas,
           summary,
           duration: session.duration,
+          mode: followingReview ? "following" : "traffic",
           onSeek: (seconds) => {
             // A jump is not continuous motion, so the trails leading up to the
             // old position describe nothing about the new one.

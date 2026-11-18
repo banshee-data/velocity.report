@@ -86,7 +86,7 @@ func analyseCorpusWrite(dbPath string, ids []string, out string, scenes bool, wr
 		}
 		analyses = append(analyses, a)
 		if scenes {
-			if err := exportFollowingScene(session, filepath.Join(out, fmt.Sprintf("recording-%03d", len(analyses)-1))); err != nil {
+			if err := exportFollowingScene(session, filepath.Join(out, fmt.Sprintf("recording-%03d", len(analyses)-1)), a); err != nil {
 				return err
 			}
 		}

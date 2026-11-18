@@ -334,6 +334,7 @@ func referenceFit(args []string, stdout, stderr io.Writer) int {
 	replace := fs.Bool("replace", false, "Check the file as import --replace would: the object's stored body and any keyframe at a fitted sample are replaced")
 	out := fs.String("out", "", "Import file to write; an existing file is not overwritten (required)")
 	diagnostics := fs.String("diagnostics", "", "Optional file for every frame's diagnostics as JSON; an existing file is not overwritten")
+	lifecycle := fs.Bool("lifecycle", false, "Refine every reviewed frame using one persistent body; non-causal proposals, with abstentions and information horizon")
 	if code, ok := parseReferenceFlags(fs, args); !ok {
 		return code
 	}
@@ -357,7 +358,7 @@ func referenceFit(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	res, err := annotation.FitPhysicalObject(pack, sidecar, annotation.FitRequest{
-		ObjectID: *object, Samples: samples, Author: *author, Session: *session,
+		ObjectID: *object, Samples: samples, Author: *author, Session: *session, Lifecycle: *lifecycle,
 	}, annotation.DefaultFitOptions())
 	if err != nil {
 		fmt.Fprintf(stderr, "annotation-reference: %v\n", err)

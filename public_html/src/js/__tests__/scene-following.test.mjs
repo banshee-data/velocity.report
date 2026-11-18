@@ -1,6 +1,64 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { followingLabel, sceneTrackLabel } from "../scene-following.js";
+import {
+  followingLabel,
+  sceneTrackLabel,
+  gapBand,
+  followingRelationships,
+} from "../scene-following.js";
+
+test("minimum colours have lower-inclusive boundaries and unknown stays unknown", () => {
+  for (const [value, label] of [
+    [0, "<0.5 s"],
+    [0.5, "0.5–1 s"],
+    [1, "1–1.5 s"],
+    [1.5, "1.5–2 s"],
+    [2, "2+ s"],
+  ])
+    assert.equal(gapBand(value)?.label, label);
+  for (const v of [null, undefined, NaN, Infinity, -1])
+    assert.equal(gapBand(v), null);
+});
+
+test("only present, exact eligible pairs draw their projected measurement", () => {
+  const f = {
+    id: "f",
+    following: {
+      bucket: "following_eligible",
+      leader_id: "l",
+      gap_m: 10,
+      net_time_gap_s: 1,
+      track_minimum_time_gap_s: 0.5,
+      projected_gap_xy: [
+        [0, 0],
+        [10, 0],
+      ],
+      experimental_drac_mps2: 0.2,
+    },
+  };
+  assert.equal(followingRelationships({ tr: [f] }).length, 0);
+  const rows = followingRelationships({ tr: [f, { id: "l" }] });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].colour, gapBand(0.5).colour);
+  assert.match(followingLabel(f), /DRAC 0.20 m\/s²/);
+  assert.match(followingLabel(f), /track min 0.50 s/);
+  for (const patch of [
+    { bucket: "record_gap" },
+    {
+      projected_gap_xy: [
+        [NaN, 0],
+        [1, 0],
+      ],
+    },
+    { projected_gap_xy: [[0, 0]] },
+  ])
+    assert.equal(
+      followingRelationships({
+        tr: [{ ...f, following: { ...f.following, ...patch } }, { id: "l" }],
+      }).length,
+      0,
+    );
+});
 
 const following = {
   bucket: "following_eligible",
@@ -8,6 +66,23 @@ const following = {
   gap_m: 12.34,
   net_time_gap_s: 1.234,
 };
+
+test("supported DRAC survives an unavailable low-speed headway without inventing zero", () => {
+  const track = {
+    following: {
+      ...following,
+      bucket: "following_excluded",
+      net_time_gap_s: null,
+      drac_status: "supported",
+      experimental_drac_mps2: 0.03,
+    },
+  };
+  assert.match(sceneTrackLabel(track, 0), /DRAC 0.03/);
+  assert.match(sceneTrackLabel(track, 0), /net time gap unavailable/);
+  track.following.drac_status = "non_closing";
+  track.following.experimental_drac_mps2 = null;
+  assert.equal(sceneTrackLabel(track, 0), "");
+});
 
 test("scene shows estimated distance and net time gap together", () => {
   assert.equal(followingLabel({ following }), "estimated gap 12.3 m · 1.23 s");

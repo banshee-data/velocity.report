@@ -23,6 +23,18 @@ import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
  * user. `fill` is the opacity of a polygon's face, `line` of its edges.
  */
 export const VECTOR_STYLE = {
+  street_use: {
+    label: "saved inferred travel lanes",
+    colour: 0x4ce4ea,
+    line: 0.75,
+    lift: 0.08,
+  },
+  lane_proposals: {
+    label: "proposed travel lanes",
+    colour: 0xb69aff,
+    line: 0.65,
+    lift: 0.1,
+  },
   trees: { label: "trees", colour: 0x245238, fill: 0.16, line: 0.45 },
   city_streets: { label: "street centrelines", colour: 0x56656e, line: 0.4 },
   footprints: { label: "building footprints", colour: 0x7b8790, line: 0.35 },

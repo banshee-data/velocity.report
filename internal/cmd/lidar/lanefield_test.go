@@ -5,17 +5,55 @@ package lidar
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	coredb "github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/gerardus"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/lanefieldrun"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
+
+func TestLaneFieldCLIReusesHeadlessRecordingWithoutASecondReplay(t *testing.T) {
+	_, run, _ := followingCorpusFixture(t)
+	path := filepath.Join(run.VRLogPath, "header.json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var h recorder.LogHeader
+	if err = json.Unmarshal(b, &h); err != nil {
+		t.Fatal(err)
+	}
+	h.BuildGitSHA, h.TuningHash, h.PCAPPath = "fixture-producer", "fixture-tuning", "capture.pcap"
+	followingJSON(t, path, h)
+	out := filepath.Join(t.TempDir(), "fields")
+	if code := laneFieldMainWithOpen([]string{"--recording", run.VRLogPath, "--run", "headless", "--out", out}, func(string) (*sqlite.SQLDB, error) {
+		t.Fatal("opened database for a standalone recording")
+		return nil, nil
+	}); code != 0 {
+		t.Fatal(code)
+	}
+	for _, part := range l8analytics.LaneFieldParts {
+		b, err := os.ReadFile(filepath.Join(out, "headless.lane-field."+string(part)+".json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var f l8analytics.LaneField
+		if err = json.Unmarshal(b, &f); err != nil {
+			t.Fatal(err)
+		}
+		if f.Header.TuningFingerprint != "fixture-tuning" || !strings.Contains(f.Header.PipelineBuild, "fixture-producer") || !strings.HasPrefix(f.Header.CaptureRef, "capture.pcap@") {
+			t.Fatal(f.Header)
+		}
+	}
+}
 
 // laneFieldDB writes a database holding one synthetic run of five cars.
 func laneFieldDB(t *testing.T) string {

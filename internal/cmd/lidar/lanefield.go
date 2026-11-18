@@ -4,6 +4,7 @@ package lidar
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/gerardus"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/lanefieldrun"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -22,6 +24,7 @@ const laneFieldUsage = `velocity lidar lane-field — write a run's lane field f
 
 Usage:
   velocity lidar lane-field --db FILE --run RUN_ID --out DIR [--part PART] [--vrlog-dir DIR]
+  velocity lidar lane-field --recording VRLOG --run LOCAL_ID --out DIR [--upload --l16 TOKEN --gerardus URL]
   velocity lidar lane-field --db FILE --run RUN_ID --upload --l16 TOKEN [--record-id RECORD] [--gerardus URL] [--out DIR]
 
 Writes the run's lane field (docs/plans/lidar-lane-proposals-from-tracks-plan.md
@@ -36,6 +39,11 @@ GET /api/lidar/runs/{run_id}/lane-field?part=<part> serves. Upload each with:
 
 The site token and the accepted registration record are left empty in the
 file, since a run does not know them.
+
+With --recording instead of --db, reuse a completed headless VRLOG through the
+same confirmed-track reader as the lane job. Its header must name the stamped
+producer, tuning, sensor and capture. No database run is invented and tracking
+is not replayed a second time. --run names the local output files.
 
 With --upload the parts go straight to Gerardus over gRPC (UploadLaneField),
 placed by --record-id or, without it, by the accepted record of the run's
@@ -70,6 +78,7 @@ func laneFieldMainWith(args []string, open func(string) (*sqlite.SQLDB, error), 
 		fs.PrintDefaults()
 	}
 	dbPath := fs.String("db", "", "Database holding the run (read only)")
+	recordingPath := fs.String("recording", "", "Standalone headless VRLOG, instead of --db; reuse its confirmed tracks and stamped producer")
 	runID := fs.String("run", "", "Analysis run ID")
 	outDir := fs.String("out", "", "Directory to write the field files into")
 	partFlag := fs.String("part", "", "Write only this part: all, first_half or second_half (default all three)")
@@ -84,8 +93,8 @@ func laneFieldMainWith(args []string, open func(string) (*sqlite.SQLDB, error), 
 		}
 		return 2
 	}
-	if *dbPath == "" || *runID == "" || (*outDir == "" && !*upload) || fs.NArg() > 0 {
-		fmt.Fprintln(os.Stderr, "lane-field: --db, --run and --out (or --upload) are required")
+	if (*dbPath == "") == (*recordingPath == "") || *runID == "" || (*outDir == "" && !*upload) || fs.NArg() > 0 {
+		fmt.Fprintln(os.Stderr, "lane-field: exactly one of --db or --recording, --run and --out (or --upload) are required")
 		return 2
 	}
 	if *upload && *l16 == "" {
@@ -106,13 +115,44 @@ func laneFieldMainWith(args []string, open func(string) (*sqlite.SQLDB, error), 
 		parts = []l8analytics.LaneFieldPart{p}
 	}
 
-	db, err := open(*dbPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "lane-field: open %s: %v\n", *dbPath, err)
-		return 1
+	var store *sqlite.RunStore
+	var recorded *lanefieldrun.Recording
+	var meta l8analytics.LaneFieldMeta
+	var captureName string
+	var err error
+	if *recordingPath != "" {
+		var r lanefieldrun.Recording
+		r, err = lanefieldrun.FromHeadlessVRLOG(*recordingPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "lane-field:", err)
+			return 1
+		}
+		b, e := os.ReadFile(filepath.Join(*recordingPath, "header.json"))
+		if e != nil {
+			fmt.Fprintln(os.Stderr, e)
+			return 1
+		}
+		var h recorder.LogHeader
+		if e = json.Unmarshal(b, &h); e != nil {
+			fmt.Fprintln(os.Stderr, e)
+			return 1
+		}
+		if h.BuildGitSHA == "" || h.BuildGitSHA == "unknown" || h.TuningHash == "" || h.SensorID == "" || h.PCAPPath == "" {
+			fmt.Fprintln(os.Stderr, "lane-field: headless recording needs stamped producer, sensor, tuning and capture identity")
+			return 1
+		}
+		recorded = &r
+		captureName = filepath.Base(h.PCAPPath)
+		meta = l8analytics.LaneFieldMeta{SensorID: h.SensorID, CaptureRef: captureName + "@" + time.Unix(0, r.WindowStartNs).UTC().Format(time.RFC3339Nano), WindowStartNs: r.WindowStartNs, WindowEndNs: r.WindowEndNs, PipelineBuild: h.BuildVersion + "+" + h.BuildGitSHA, TuningFingerprint: h.TuningHash}
+	} else {
+		db, e := open(*dbPath)
+		if e != nil {
+			fmt.Fprintf(os.Stderr, "lane-field: open %s: %v\n", *dbPath, e)
+			return 1
+		}
+		defer db.Close()
+		store = sqlite.NewRunStore(db)
 	}
-	defer db.Close()
-	store := sqlite.NewRunStore(db)
 	if *outDir != "" {
 		if err := os.MkdirAll(*outDir, 0o755); err != nil {
 			fmt.Fprintf(os.Stderr, "lane-field: %v\n", err)
@@ -123,10 +163,14 @@ func laneFieldMainWith(args []string, open func(string) (*sqlite.SQLDB, error), 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	if *upload {
-		run, err := store.GetRun(*runID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "lane-field: run %s: %v\n", *runID, err)
-			return 1
+		if store != nil {
+			run, e := store.GetRun(*runID)
+			if e != nil {
+				fmt.Fprintf(os.Stderr, "lane-field: run %s: %v\n", *runID, e)
+				return 1
+			}
+			meta = sqlite.LaneFieldMeta(run)
+			captureName = filepath.Base(run.SourcePath)
 		}
 		address := gerardus.Address(*gerardusURL)
 		if up, err = dial(address); err != nil {
@@ -140,7 +184,7 @@ func laneFieldMainWith(args []string, open func(string) (*sqlite.SQLDB, error), 
 				fmt.Fprintf(os.Stderr, "lane-field: %v\n", err)
 				return 1
 			}
-			reg := gerardus.AcceptedRecord(records, run.SensorID, []string{filepath.Base(run.SourcePath)})
+			reg := gerardus.AcceptedRecord(records, meta.SensorID, []string{captureName})
 			if !reg.Placed() {
 				fmt.Fprintf(os.Stderr, "lane-field: no record places run %s at %s (%s): %s; name one with --record-id\n", *runID, *l16, reg.State, reg.Reason)
 				return 1
@@ -160,7 +204,13 @@ func laneFieldMainWith(args []string, open func(string) (*sqlite.SQLDB, error), 
 		return path, nil
 	}
 	for _, p := range parts {
-		field, source, err := lanefieldrun.Build(store, *runID, p, resolve)
+		var field l8analytics.LaneField
+		source := lanefieldrun.SourceVRLOG
+		if recorded != nil {
+			field, err = l8analytics.BuildLaneField(recorded.Tracks, meta, p, l8analytics.DefaultLaneFieldOptions())
+		} else {
+			field, source, err = lanefieldrun.Build(store, *runID, p, resolve)
+		}
 		if errors.Is(err, sqlite.ErrNotFound) {
 			fmt.Fprintf(os.Stderr, "lane-field: run %s not found\n", *runID)
 			return 1

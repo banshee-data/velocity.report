@@ -81,6 +81,36 @@ function setup({ duration = 600, width = 600 } = {}) {
   return { canvas, strip, seeks };
 }
 
+test("following mode preserves missing DRAC and supports exact seek", () => {
+  const canvas = fakeCanvas(),
+    seeks = [];
+  const strip = createTimelineStrip({
+    canvas,
+    mode: "following",
+    duration: 10,
+    onSeek: (s) => seeks.push(s),
+    summary: {
+      bucket_seconds: 5,
+      buckets: [
+        { maximum_experimental_drac_mps2: 0, minimum_time_gap_s: 0.1 },
+        {},
+      ],
+    },
+  });
+  assert.equal(
+    canvas.paint.fills.filter((f) => f.colour === "#ffae62").length,
+    1,
+  );
+  assert.equal(
+    canvas.paint.fills.filter((f) => f.colour === "#34404b").length,
+    1,
+  );
+  canvas.fire("pointerdown", { clientX: 300 });
+  assert.deepEqual(seeks, [5]);
+  assert.equal(strip.bucketAt(7).maximum_experimental_drac_mps2, undefined);
+  strip.dispose();
+});
+
 describe("timeline strip", () => {
   test("vehicles and speed rise above the line while walking and cycling fall below", () => {
     const canvas = fakeCanvas({ width: 100 });

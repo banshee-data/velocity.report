@@ -21,6 +21,22 @@ import (
 	"github.com/banshee-data/velocity.report/internal/report/headway/fieldrun"
 )
 
+func TestFollowingProjectedGapFollowsCurvedPathWithoutExtrapolation(t *testing.T) {
+	p := &l8behaviour.LocalPath{Vertices: []l8behaviour.PathVertex{{X: 0, Y: 0, ArcM: 0}, {X: 3, Y: 0, ArcM: 3}, {X: 3, Y: 4, ArcM: 7}}}
+	got := projectedGapPath(p, 1, 5)
+	if len(got) != 3 || got[0] != [2]float64{1, 0} || got[1] != [2]float64{3, 0} || got[2] != [2]float64{3, 2} {
+		t.Fatal(got)
+	}
+	for _, bounds := range [][2]float64{{-1, 3}, {1, 8}, {3, 3}, {4, 2}} {
+		if projectedGapPath(p, bounds[0], bounds[1]) != nil {
+			t.Fatal(bounds)
+		}
+	}
+	if projectedGapPath(nil, 1, 2) != nil {
+		t.Fatal("missing path")
+	}
+}
+
 func followingJSON(t *testing.T, path string, value any) []byte {
 	t.Helper()
 	b, err := json.Marshal(value)
@@ -157,7 +173,7 @@ func TestFollowingCorpusPublishesPairedSceneAndNoPartialSuccess(t *testing.T) {
 	if err = os.WriteFile(slice, []byte("changed"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err = exportFollowingScene(s, filepath.Join(t.TempDir(), "changed-scene")); err == nil {
+	if err = exportFollowingScene(s, filepath.Join(t.TempDir(), "changed-scene"), followingreview.Analysis{}); err == nil {
 		t.Fatal("changed evidence accepted")
 	}
 	if err = analyseCorpus(db, []string{run.RunID}, filepath.Join(t.TempDir(), "changed-corpus"), false); err == nil {

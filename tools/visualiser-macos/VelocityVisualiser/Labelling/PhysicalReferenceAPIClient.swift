@@ -132,6 +132,7 @@ struct PhysicalReferenceAPIClient {
         var samples: [Int]
         var author: String
         var session: String
+        var lifecycle = false
 
         enum CodingKeys: String, CodingKey {
             case pack
@@ -141,6 +142,19 @@ struct PhysicalReferenceAPIClient {
             case samples
             case author
             case session
+            case lifecycle
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(pack, forKey: .pack)
+            try c.encode(packDigest, forKey: .packDigest)
+            try c.encode(membershipDigest, forKey: .membershipDigest)
+            try c.encode(objectID, forKey: .objectID)
+            try c.encode(samples, forKey: .samples)
+            try c.encode(author, forKey: .author)
+            try c.encode(session, forKey: .session)
+            if lifecycle { try c.encode(true, forKey: .lifecycle) }
         }
     }
 

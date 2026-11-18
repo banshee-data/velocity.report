@@ -318,6 +318,10 @@ func Export(opts Options) (*Result, error) {
 						value.GapM = nil
 						value.TimeGapS = nil
 						value.DRAC = nil
+						value.GapPath = nil
+						value.MinimumTimeGapS = nil
+						value.DRACStatus = "leader_not_in_frame"
+						value.LeaderSpeed = nil
 						value.Bucket = "leader_not_in_frame"
 					}
 				}

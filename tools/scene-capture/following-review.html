@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Following review</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #0b1119;
+        color: #e0e8ef;
+        font: 15px system-ui;
+      }
+      header {
+        padding: 1.2rem 2rem;
+        border-bottom: 1px solid #33404d;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0.3rem 0;
+      }
+      h2 {
+        font-size: 1.15rem;
+      }
+      h3 {
+        font-size: 1rem;
+      }
+      nav {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+      }
+      button,
+      select {
+        font: inherit;
+        color: inherit;
+        background: #192633;
+        border: 1px solid #506276;
+        border-radius: 5px;
+        padding: 0.45rem 0.7rem;
+        cursor: pointer;
+      }
+      button[aria-pressed="true"] {
+        border-color: #75d9ce;
+        color: #75d9ce;
+      }
+      button:disabled {
+        opacity: 0.45;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 1.5rem;
+        padding: 1.5rem 2rem;
+      }
+      .stage {
+        position: relative;
+        aspect-ratio: 16/10;
+        background: #05080d;
+        border: 1px solid #33404d;
+        border-radius: 7px;
+        overflow: hidden;
+      }
+      #scene-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #labels {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      #labels > * {
+        position: absolute;
+        font: 11px system-ui;
+        white-space: nowrap;
+        transform: translate(-50%, -100%);
+        background: #090e16cc;
+        padding: 2px 4px;
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin: 0.7rem 0;
+      }
+      #timeline {
+        display: block;
+        width: 100%;
+        height: 100px;
+        border: 1px solid #33404d;
+        border-radius: 4px;
+        cursor: crosshair;
+      }
+      p {
+        line-height: 1.5;
+        color: #b1c1d0;
+      }
+      aside {
+        border: 1px solid #33404d;
+        border-radius: 7px;
+        padding: 1rem;
+        align-self: start;
+      }
+      #lane-status {
+        color: #75d9ce;
+      }
+      #error {
+        color: #fa6673;
+      }
+      footer {
+        padding: 0 2rem 2rem;
+        color: #b1c1d0;
+        font-size: 0.85rem;
+      }
+      @media (max-width: 960px) {
+        main {
+          grid-template-columns: 1fr;
+          padding: 1rem;
+        }
+        header {
+          padding: 1rem;
+        }
+        .stage {
+          aspect-ratio: 4/3;
+        }
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p>Velocity Visualiser · recorded evidence review</p>
+      <h1>Following distance &amp; experimental DRAC</h1>
+      <nav id="sites" aria-label="Development sites"></nav>
+    </header>
+    <main>
+      <section>
+        <h2 id="site-title"></h2>
+        <p id="lane-status"></p>
+        <p id="error" role="alert"></p>
+        <div class="stage">
+          <canvas
+            id="scene-canvas"
+            tabindex="0"
+            aria-label="Recorded 3D scene; drag to orbit, scroll to zoom"
+          ></canvas>
+          <div id="labels"></div>
+        </div>
+        <div class="controls">
+          <button id="play">Play</button><span id="clock">00:00</span
+          ><span>/</span><span id="duration"></span
+          ><label
+            >Speed
+            <select id="rate">
+              <option>1</option>
+              <option>2</option>
+              <option>4</option>
+              <option>8</option></select
+            >×</label
+          >
+        </div>
+        <canvas
+          id="timeline"
+          tabindex="0"
+          role="slider"
+          aria-label="Experimental DRAC and minimum net time gap timeline; click to seek or use arrow keys"
+        ></canvas>
+        <p>
+          Click or drag the timeline to review a period. Drag the scene to
+          orbit. Hover a vehicle label for local follower/leader IDs, speeds and
+          DRAC availability.
+        </p>
+      </section>
+      <aside id="metrics" aria-label="Site recording metrics"></aside>
+    </main>
+    <footer>
+      These are frozen online estimates, not physically validated safety
+      measurements. Colours indicate minimum estimated net time gap over a
+      software track’s full recording, not crash probability. Lifecycle
+      proposals are reviewed separately and do not replace these original
+      estimates. No unavailable DRAC value is shown as zero.
+    </footer>
+    <script type="module">
+      import { mountScenePlayer } from "./js/scene-player.js";
+      const $ = (id) => document.getElementById(id),
+        catalog = await fetch("./bundle.json").then((r) => r.json());
+      let player;
+      async function choose(site) {
+        const buttons = [...$("sites").querySelectorAll("button")];
+        buttons.forEach((b) => {
+          b.disabled = true;
+          b.setAttribute("aria-pressed", String(b.dataset.site === site.id));
+        });
+        player?.dispose();
+        $("metrics").replaceChildren();
+        $("labels").replaceChildren();
+        $("error").textContent = "";
+        $("site-title").textContent = site.title;
+        $("lane-status").textContent =
+          site.lanes || site.proposedLanes
+            ? `${site.lanes} saved inferred lanes (cyan) · ${site.proposedLanes} proposed lanes (violet, not approved)`
+            : "Saved lanes unavailable for this site. Gap lines show the inferred following path, not lane boundaries.";
+        try {
+          player = await mountScenePlayer({
+            canvas: $("scene-canvas"),
+            manifestURL: `./sites/${site.id}/manifest.json`,
+            capture: true,
+            ui: {
+              labelLayer: $("labels"),
+              followingStats: $("metrics"),
+              timelineCanvas: $("timeline"),
+              timelineURL: `./sites/${site.id}/scene/timeline.json`,
+              vectorsURL: `./sites/${site.id}/vectors/vectors.geojson.gz`,
+              backgroundURL: `./sites/${site.id}/background/background.json.gz`,
+              vantagesURL: `./sites/${site.id}/vantages.json`,
+              playToggle: $("play"),
+              clock: $("clock"),
+              duration: $("duration"),
+              rate: $("rate"),
+            },
+          });
+          window.__followingReview = player;
+        } catch (e) {
+          $("error").textContent = e.message;
+        }
+        buttons.forEach((b) => (b.disabled = false));
+      }
+      for (const site of catalog.sites) {
+        const b = document.createElement("button");
+        b.textContent = site.title;
+        b.dataset.site = site.id;
+        b.onclick = () => choose(site);
+        $("sites").append(b);
+      }
+      await choose(catalog.sites[0]);
+    </script>
+  </body>
+</html>

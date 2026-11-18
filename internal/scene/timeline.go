@@ -58,6 +58,7 @@ type bucketTally struct {
 	vehicle, person, cycle, other int
 	frames                        int
 	maxSpeed                      float64
+	minimumTimeGap, maximumDRAC   *float64
 }
 
 func newTimelineAccumulator(bucketSeconds float64) *timelineAccumulator {
@@ -125,6 +126,16 @@ func (a *timelineAccumulator) observe(f Frame) {
 	}
 	b.frames++
 	for _, t := range f.Tracks {
+		if v := t.Following; v != nil {
+			if v.Bucket == "following_eligible" && v.TimeGapS != nil && *v.TimeGapS >= 0 && !math.IsInf(*v.TimeGapS, 0) && (b.minimumTimeGap == nil || *v.TimeGapS < *b.minimumTimeGap) {
+				x := *v.TimeGapS
+				b.minimumTimeGap = &x
+			}
+			if v.DRACStatus == "supported" && v.DRAC != nil && *v.DRAC >= 0 && !math.IsInf(*v.DRAC, 0) && (b.maximumDRAC == nil || *v.DRAC > *b.maximumDRAC) {
+				x := *v.DRAC
+				b.maximumDRAC = &x
+			}
+		}
 		switch modeOf(t.Class) {
 		case "vehicle":
 			b.vehicle++
@@ -244,6 +255,7 @@ func (a *timelineAccumulator) summary() TimelineSummary {
 			entry.Other = round2f(float64(b.other) / f)
 			entry.MaxSpeed = round2f(b.maxSpeed)
 			entry.Frames = b.frames
+			entry.MinimumTimeGapS, entry.MaxDRAC = b.minimumTimeGap, b.maximumDRAC
 		}
 		total := entry.Vehicle + entry.Person + entry.Cycle + entry.Other
 		if total > out.MaxTotal {

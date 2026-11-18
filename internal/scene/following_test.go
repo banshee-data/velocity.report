@@ -50,6 +50,23 @@ func TestFollowingExportExactSamplesAndLocalLeaderKeys(t *testing.T) {
 	}
 }
 
+func TestFollowingTimelineKeepsMissingDistinctFromZero(t *testing.T) {
+	a := newTimelineAccumulator(5)
+	zero, gap, peak := 0.0, 1.2, 2.5
+	a.observe(Frame{TimeUs: 0, Tracks: []TrackJSON{{ID: "f", Following: &FollowingJSON{Bucket: "following_eligible", TimeGapS: &gap, DRAC: &zero, DRACStatus: "supported"}}}})
+	a.observe(Frame{TimeUs: 1_000_000, Tracks: []TrackJSON{{ID: "f", Following: &FollowingJSON{Bucket: "following_eligible", TimeGapS: &gap, DRAC: &peak, DRACStatus: "supported"}}}})
+	a.observe(Frame{TimeUs: 5_000_000, Tracks: []TrackJSON{{ID: "f", Following: &FollowingJSON{Bucket: "record_gap", TimeGapS: &zero, DRAC: &peak}}}})
+	s := a.summary()
+	if len(s.Buckets) != 2 || s.Buckets[0].MaxDRAC == nil || *s.Buckets[0].MaxDRAC != peak || s.Buckets[0].MinimumTimeGapS == nil || *s.Buckets[0].MinimumTimeGapS != gap || s.Buckets[1].MaxDRAC != nil || s.Buckets[1].MinimumTimeGapS != nil {
+		t.Fatal(s)
+	}
+	a.observe(Frame{TimeUs: 10_000_000, Tracks: []TrackJSON{{ID: "f", Following: &FollowingJSON{Bucket: "following_excluded", DRAC: &peak, DRACStatus: "supported"}}}})
+	last := a.summary().Buckets[2]
+	if last.MaxDRAC == nil || *last.MaxDRAC != peak || last.MinimumTimeGapS != nil {
+		t.Fatal("DRAC acquired a headway speed floor", last)
+	}
+}
+
 func TestFollowingExportFailsClosedOnEvidenceError(t *testing.T) {
 	failure := errors.New("source mismatch")
 	_, err := Export(Options{VRLOGPath: writeVRLOG(t, evenTimestamps(2)), OutDir: filepath.Join(t.TempDir(), "scene"), Following: followingProvenanceFixture(), FollowingAt: func(int64) (map[string]FollowingJSON, error) { return nil, failure }})
