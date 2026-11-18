@@ -89,6 +89,10 @@ struct PhysicalFitSection: View {
     private func coverage(_ fit: PhysicalFitResult) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Body / facet coverage · proposal").font(.caption.bold())
+            if session.navigationGuard() != nil {
+                Text("Finish and save edits to inspect another frame.").font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
             HStack(alignment: .top, spacing: 8) {
                 ForEach(fit.faceCoverage, id: \.name) { face in
                     VStack(spacing: 3) {
@@ -100,7 +104,7 @@ struct PhysicalFitSection: View {
                         Text(face.samples.isEmpty ? "Unseen" : "\(face.samples.count) frames").font(
                             .caption2
                         ).monospacedDigit()
-                        if let first = face.samples.first,
+                        if let first = fit.inspectionSample(for: face),
                             let index = session.samples.firstIndex(where: { $0.sampleID == first })
                         {
                             Button("Inspect") { _ = session.step(to: index) }.disabled(

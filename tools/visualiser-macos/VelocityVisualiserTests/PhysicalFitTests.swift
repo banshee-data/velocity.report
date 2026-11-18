@@ -28,6 +28,13 @@ private func fitResult() throws -> PhysicalFitResult {
 }
 
 struct PhysicalFitTests {
+    @Test func coverageInspectionPrefersAFrameWithAFittedPose() throws {
+        let fit = try fitResult()
+        let posed = try #require(fit.object?.keyframes.first?.sampleID)
+        #expect(fit.inspectionSample(for: PhysicalFaceCoverage(name: "Front", samples: [-1, posed])) == posed)
+        #expect(fit.inspectionSample(for: PhysicalFaceCoverage(name: "Front", samples: [])) == nil)
+        #expect(fit.inspectionSample(for: PhysicalFaceCoverage(name: "Front", samples: [-1])) == -1)
+    }
     @Test func bodyCoverageDoesNotCountUnresolvedOrSkippedFrames() throws {
         var fit = try fitResult()
         var frame = try #require(fit.frames.first)
