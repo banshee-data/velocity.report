@@ -1,0 +1,2 @@
+- Strengthened physical body-fit proposals with intervals enclosing every contributing view's stated bound and distinct `fit:mask_v2` provenance; added a regression for disagreeing spans and retained partial height and unseen surfaces as unknown.
+- Added visual front/rear/left/right support counts and direct frame inspection to VV's physical-fit review, counting only resolved, usable frames rather than presenting inferred shell area as observed coverage.

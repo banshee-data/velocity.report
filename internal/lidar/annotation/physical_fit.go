@@ -32,7 +32,7 @@ import (
 // heading bound sweeps. Each frame's diagnostics report every term.
 
 // FitMethod is the review method a fitted record carries.
-const FitMethod = "fit:mask_v1"
+const FitMethod = "fit:mask_v2"
 
 // FitOptions are the fit's thresholds. DefaultFitOptions are the documented
 // ones; tests may narrow them.
@@ -85,9 +85,6 @@ type FitOptions struct {
 	// MinSizeFrames is how many frames must measure a dimension end to end for
 	// it to be stated as a full span; fewer give a lower bound.
 	MinSizeFrames int
-	// SizePoses is how many of the frames that measured a dimension get a
-	// pose, so the dimension can be checked along its heading.
-	SizePoses int
 }
 
 // DefaultFitOptions are the thresholds the plan documents.
@@ -99,7 +96,7 @@ func DefaultFitOptions() FitOptions {
 		MinSideSpanM: 2, MaxGeometryCourseRad: 15 * math.Pi / 180,
 		OcclusionRad: math.Pi / 180, OccluderMarginM: 0.3, EndRegionM: 0.3, DetachedGapM: 0.5,
 		SideOnDeg: 45, EndOnDeg: 30, RoofBelowSensorM: 0.3, RoofRangeM: 20,
-		MinSizeFrames: 3, SizePoses: 3,
+		MinSizeFrames: 3,
 	}
 }
 
@@ -773,10 +770,11 @@ type sizeMeasure struct {
 // end, using the better-bounded half of them. A frame sees at most the whole
 // body, so each span is a lower bound on the dimension and the median
 // understates it: the value is the 90th percentile of the spans, and its
-// half-width the median of those frames' bounds. Fewer than MinSizeFrames give
+// bounds enclose every contributing span and its stated bound, without assuming
+// independent errors or reducing uncertainty by sample count. Fewer than MinSizeFrames give
 // a lower bound instead: the longest span among the fallback frames. The
-// frames cited are the most tightly bounded of those at or above the median
-// span, and get poses.
+// contributing frames are all cited and get poses, so the proposal can be
+// inspected at every frame that supplied its dimensions.
 func fitDimension(name string, full, fallback []sizeMeasure, opts FitOptions) (DimensionBound, []int) {
 	if len(full) >= opts.MinSizeFrames {
 		sort.SliceStable(full, func(i, j int) bool { return full[i].boundM < full[j].boundM })
@@ -785,25 +783,20 @@ func fitDimension(name string, full, fallback []sizeMeasure, opts FitOptions) (D
 		} else {
 			full = full[:opts.MinSizeFrames]
 		}
-		spans, bounds := make([]float64, len(full)), make([]float64, len(full))
+		spans := make([]float64, len(full))
+		lower, upper := math.Inf(1), math.Inf(-1)
+		cite := make([]int, len(full))
 		for i, m := range full {
-			spans[i], bounds[i] = m.span, m.boundM
+			spans[i] = m.span
+			lower = math.Min(lower, m.span-m.boundM)
+			upper = math.Max(upper, m.span+m.boundM)
+			cite[i] = m.f.id
 			m.f.used = append(m.f.used, name)
 		}
-		value, mid, hw := quantile(spans, 0.9), quantile(spans, 0.5), quantile(bounds, 0.5)
-		var long []*fitSample
-		for _, m := range full { // sorted by bound, tightest first
-			if m.span >= mid && len(long) < opts.SizePoses {
-				long = append(long, m.f)
-			}
-		}
-		cite := make([]int, len(long))
-		for i, f := range long {
-			cite[i] = f.id
-		}
+		value := quantile(spans, 0.9)
 		sort.Ints(cite)
 		return DimensionBound{Status: EvidenceObserved, Span: SpanFull,
-			LowerM: fp64(round3(math.Max(0, value-hw))), UpperM: fp64(round3(value + hw)), ValueM: fp64(round3(value)),
+			LowerM: fp64(math.Floor(math.Max(0, lower)*1000) / 1000), UpperM: fp64(math.Ceil(upper*1000) / 1000), ValueM: fp64(round3(value)),
 			Support: EvidenceSupport{Frames: cite}}, cite
 	}
 	best := fallback[0]
@@ -1000,7 +993,7 @@ func bodyAssumptions(b BodyGeometry, opts FitOptions) string {
 		if d.d.Span == SpanFull {
 			v, hw, _ := d.d.Best()
 			parts = append(parts, fmt.Sprintf("%s %.2f ± %.2f m: the 90th percentile of the spans of the frames that measure it end to end "+
-				"(each span is a lower bound, as a frame sees at most the whole body), its half-width the median bound of the longer half", d.name, v, hw))
+				"(each span is a lower bound, as a frame sees at most the whole body); the interval encloses every contributing span and its stated bound, rounded outwards, without assuming independent frames", d.name, v, hw))
 		} else {
 			parts = append(parts, fmt.Sprintf("%s at least %.2f m: fewer than %d frames measure it end to end", d.name, *d.d.LowerM, opts.MinSizeFrames))
 		}

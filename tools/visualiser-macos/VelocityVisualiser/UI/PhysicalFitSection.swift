@@ -69,6 +69,7 @@ struct PhysicalFitSection: View {
     private func fitted(_ fit: PhysicalFitResult) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             if let body = fit.object?.body { Text(sizeLine(body)).font(.caption.monospacedDigit()) }
+            coverage(fit)
             ForEach(fit.notes ?? [], id: \.self) { note in
                 Text(note).font(.caption2).foregroundStyle(.orange).fixedSize(
                     horizontal: false, vertical: true)
@@ -83,6 +84,38 @@ struct PhysicalFitSection: View {
             }
         }.padding(6).background(
             Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func coverage(_ fit: PhysicalFitResult) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Body / facet coverage · proposal").font(.caption.bold())
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(fit.faceCoverage, id: \.name) { face in
+                    VStack(spacing: 3) {
+                        RoundedRectangle(cornerRadius: 3).fill(
+                            face.samples.isEmpty
+                                ? Color.secondary.opacity(0.2) : Color.cyan.opacity(0.65)
+                        ).frame(height: 8)
+                        Text(face.name).font(.caption.bold())
+                        Text(face.samples.isEmpty ? "Unseen" : "\(face.samples.count) frames").font(
+                            .caption2
+                        ).monospacedDigit()
+                        if let first = face.samples.first,
+                            let index = session.samples.firstIndex(where: { $0.sampleID == first })
+                        {
+                            Button("Inspect") { _ = session.step(to: index) }.disabled(
+                                session.navigationGuard() != nil
+                            ).font(.caption2).help(
+                                "Inspect first supported \(face.name.lowercased()) face")
+                        }
+                    }.frame(maxWidth: .infinity)
+                }
+            }
+            Text(
+                "Counts show resolved frames supporting each horizontal face, not a percentage of the shell. Grey faces and unbounded height remain unknown. Check the endpoints in the views before using a distance."
+            ).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+        }.padding(.vertical, 5)
     }
 
     private func sizeLine(_ body: PhysicalBody) -> String {

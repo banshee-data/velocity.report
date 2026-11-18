@@ -28,6 +28,22 @@ private func fitResult() throws -> PhysicalFitResult {
 }
 
 struct PhysicalFitTests {
+    @Test func bodyCoverageDoesNotCountUnresolvedOrSkippedFrames() throws {
+        var fit = try fitResult()
+        var frame = try #require(fit.frames.first)
+        frame.axis = "resolved"
+        frame.skipped = nil
+        frame.front.seen = true
+        frame.rear.seen = false
+        frame.left.seen = false
+        frame.right.seen = false
+        fit.frames = [frame, frame]
+        #expect(fit.faceCoverage.first?.samples == [frame.sampleID])
+        #expect(fit.faceCoverage.dropFirst().allSatisfy { $0.samples.isEmpty })
+        fit.frames[0].axis = "axial"
+        fit.frames[1].skipped = "occluded"
+        #expect(fit.faceCoverage.allSatisfy { $0.samples.isEmpty })
+    }
     @Test func goFitDecodesWithItsDiagnostics() throws {
         let fit = try fitResult()
         #expect(fit.objectID == "car")
