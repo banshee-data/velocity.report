@@ -98,6 +98,10 @@ func analyseCorpusWrite(dbPath string, ids []string, out string, scenes bool, wr
 		Build      string                     `json:"analysis_tool_git_sha"`
 		Recordings []followingreview.Analysis `json:"recordings"`
 	}{"following_corpus_v1", version.GitSHA, analyses}
+	return writeFollowingCorpusJSON(out, result, write)
+}
+
+func writeFollowingCorpusJSON(out string, result any, write func(string, []byte, os.FileMode) error) error {
 	b, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return err

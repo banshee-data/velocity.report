@@ -19,13 +19,16 @@ func TestFollowingExportExactSamplesAndLocalLeaderKeys(t *testing.T) {
 		if at != baseNs {
 			return nil, nil
 		}
-		return map[string]FollowingJSON{"source-track-0": {Leader: "source-track-1", Bucket: "following_eligible", GapM: &gap, TimeGapS: &timeGap}, "source-track-2": {Leader: "missing", Bucket: "following_eligible", GapM: &gap}}, nil
+		return map[string]FollowingJSON{"source-track-0": {Leader: "source-track-1", Bucket: "following_eligible", GapM: &gap, TimeGapS: &timeGap}, "source-track-2": {Leader: "missing", Bucket: "following_eligible", GapM: &gap}, "absent-follower": {Bucket: "no_leader"}}, nil
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	frames := readFrames(t, out)
 	for i, f := range frames {
+		if len(f.Tracks) != 3 {
+			t.Fatal("following evidence invented a recorded actor")
+		}
 		for j, tr := range f.Tracks {
 			if strings.Contains(tr.ID, "source-track") {
 				t.Fatal("raw identifier leaked")

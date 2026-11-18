@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"os"
@@ -100,6 +101,18 @@ func TestFollowingAnalysisAPI(t *testing.T) {
 	}
 	if a.Tracks != 1 || a.WithoutTimeGap != 1 || a.Rows != 2 || len(a.Histogram) != 5 {
 		t.Fatal(a)
+	}
+}
+
+func TestFollowingAnalysisAPICancellation(t *testing.T) {
+	ws, _, _ := setupFollowingReview(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r := httptest.NewRequest("POST", "/api/lidar/runs/review-run/following-review/analysis", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, r)
+	if w.Code != 409 || !strings.Contains(w.Body.String(), "canceled") {
+		t.Fatalf("%d: %s", w.Code, w.Body.String())
 	}
 }
 

@@ -3,6 +3,7 @@
 package lidar
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,5 +28,18 @@ func TestFollowingCorpusRefusesDuplicateIDsAndExistingOutputs(t *testing.T) {
 	}
 	if code := FollowingMain([]string{"--help"}); code != 0 {
 		t.Fatal(code)
+	}
+}
+
+func TestFollowingNamespaceAndCompletionEncoding(t *testing.T) {
+	if code := Main([]string{"following", "--help"}); code != 0 {
+		t.Fatal(code)
+	}
+	out := t.TempDir()
+	if err := writeFollowingCorpusJSON(out, map[string]float64{"invalid": math.NaN()}, os.WriteFile); err == nil {
+		t.Fatal("unsupported completion JSON accepted")
+	}
+	if _, err := os.Stat(filepath.Join(out, "complete.json")); !os.IsNotExist(err) {
+		t.Fatal("invalid success marker published")
 	}
 }
