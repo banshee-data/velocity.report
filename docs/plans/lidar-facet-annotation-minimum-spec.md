@@ -33,6 +33,11 @@ now retain exact proposal revisions and assisted-origin counts; they are not sco
 The [resource notes](lidar-facet-authoring-resource-notes.md) describe the implemented cache,
 index payload and reproducible scalar fit timing. They do not qualify the runtime tracker.
 
+The [multi-anchor extension scope](lidar-facet-registration-experiment-plan.md#31-multi-anchor-refinement-extend-the-existing-vv-workflow)
+reuses these saved facets, body registrations, pose proposals and VV panels. It scopes joint
+constraints, planar fallback and component confidence as extensions of the existing contracts,
+without a second authoring tool or storage format. It does not reopen every parked follow-on.
+
 An edge, a side patch, a corner or a wing mirror can be useful. Their visible returns change as
 the sensor scans and the vehicle moves. The persistent thing is the feature on the object,
 not a return index or the centroid of whichever points happened to strike it.

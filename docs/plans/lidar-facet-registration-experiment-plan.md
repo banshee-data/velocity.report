@@ -4,7 +4,7 @@ Test whether persistent fragments of a vehicle's surface improve physical tracki
 measurements enough to justify their cost. Start with a bounded offline comparison alongside
 0.5.2. A useful negative result is an acceptable exit.
 
-- **Status:** Proposed experiment, revised after the mathematical review; no implementation or measured benefit
+- **Status:** Joint registration experiment proposed; existing VV facet authoring and single-facet offline pose proposals are implemented, without demonstrated multi-anchor tracking benefit
 - **Target:** Decision experiment alongside v0.5.3 when independently staffed; conditional integration in v0.5.7; catalogue and mesh follow-ons at v1.x+
 - **Layers:** L3 visibility, L4 geometric evidence, L5 estimation, L6 identification, L8 following evaluation
 - **Canonical:** [Visibility-aware tracking maths](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
@@ -73,8 +73,107 @@ any of these measurements.
 The [minimum facet annotation specification](lidar-facet-annotation-minimum-spec.md) defines the
 operator increment for F0/F1: one to four active features, canonical point subsets per frame,
 separate review and body registration, and a ledger limiting discrete reanchors to three after
-birth. Ordinary compatible measurements remain continuous. This is proposed tooling and an
-experimental policy, not a delivered extractor or a measured tracking benefit.
+birth. Ordinary compatible measurements remain continuous. Existing authoring and single-facet
+pose proposals are implemented; automatic extraction, multi-anchor fusion and runtime adoption
+remain proposed work, not measured tracking benefits.
+
+### 3.1 Multi-anchor refinement: extend the existing VV workflow
+
+This is the implementation scope agreed on November 18, 2026. Extend this experiment and the
+[minimum annotation specification](lidar-facet-annotation-minimum-spec.md); do not commission a
+second labeller, annotation store, viewer, weekend plan or tracking system. The first delivery
+is a read-only offline refinement using reviewed memberships and the existing one-to-four active
+facet policy. Automatic correspondence and online adoption remain later, separately gated work.
+
+The [four-site review](../lidar/operations/following-corpus-four-sites-2026-11.md) found broad
+body intervals and a width disagreement. Those are development diagnostics, not a justification
+for fitting to those three bodies or accepting their proposals as evaluation truth.
+
+#### Existing tools and ownership
+
+| Work package                        | Reuse and extend                                                                                                                                                                           | Required outcome and acceptance check                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1: evidence contract               | [Recording feature schema](../../proto/velocity_recording/v1/features.proto), existing feature writer, label-set memberships and physical-reference revisions                              | Keep saved facet IDs, exact sample-local subsets, missing/occluded/rejected decisions, retirement and body-relative registrations. Every joint constraint names its source revisions, coordinate domain, uncertainty and assisted origin. A changed membership, body or registration invalidates the dependent result rather than silently relinking it.                                     |
+| M2: joint pose solver               | [Existing Go facet pose proposal](../../internal/lidar/annotation/facet_pose_proposal.go) and [current HTTP handler](../../internal/lidar/server/facet_pose_api.go)                        | Extend the current single-facet proposal path to combine compatible anchors with one declared prior. Preserve the existing compact-point and straight-edge cases as regressions. Complementary evidence can constrain XY/yaw; duplicate or coplanar support cannot invent an extra direction. Single-plane fallback retains tangential ambiguity.                                            |
+| M3: VV authoring and inspection     | [Feature authoring pane](../../tools/visualiser-macos/VelocityVisualiser/UI/FeatureAuthoringPane.swift), existing return pickers, body registration, facet frame navigation and retirement | Select participating saved facets in the same Facets mode. Highlight their actual contributing returns and rejected support in the existing orthographic/3D views. A single selected facet behaves as it does today; conflicting registrations are explained before solving. No new point-selection workflow.                                                                                |
+| M4: result and confidence display   | [Current pose proposal pane](../../tools/visualiser-macos/VelocityVisualiser/UI/FacetPoseProposalPane.swift), its existing overlay and proposal models                                     | Extend the current offline proposal overlay with participating anchors, per-component bounds, fallback state and rejection reasons. Keep it visually separate from independently reviewed references. Show supported, partial, predicted or rejected states; a green full-pose lock requires support for every displayed measured component.                                                 |
+| M5: lifecycle body refinement       | [Physical fit section](../../tools/visualiser-macos/VelocityVisualiser/UI/PhysicalFitSection.swift), existing physical session and versioned trajectory/evidence contracts                 | Retain trustworthy extent-supporting frames, their bounds and a persistent body revision. Fit earlier/later poses against observed support; identify endpoints inferred from later evidence. Original online values remain accessible, and revised results retain their information horizon. Do not add an alternative physical-reference save path or turn a proposal into reference truth. |
+| M6: comparison and following impact | Existing Compare mode, physical-reference scoring, A/B/C/D experiment arms and headless following analysis                                                                                 | Compare simpler body/plane memory against joint anchors on identical episodes and information horizons. Score endpoints, yaw, speed, gap, wrong associations, abstention and interval calibration. Report missing opportunity and computational cost. A visually steadier shell or lower residual alone cannot pass.                                                                         |
+
+#### Schema adaptation, without a parallel store
+
+The current feature protobuf already retains membership pins, feature observations, metric body
+anchors and horizontal line constraints. The current pose request names one feature; its result
+already distinguishes measured constraints, unresolved directions, prior-only components and
+predicted endpoints. Extend these contracts rather than inventing another feature identity or
+copying subsets into a second database. Keep local point ordinals local: never synthesise a
+retained point ID or a persistent material point from the current patch centroid.
+
+Define the versioned joint request/result as part of M1. It must carry multiple contributing
+feature/registration revisions, source physical-body pins, one prior and its provenance,
+observability, uncertainty, rejected matches, support and temporal evidence. Add plane
+registration only with an explicit normal, offset, angular/offset bounds and unresolved tangent
+directions; a plane must not masquerade as a point anchor. Preserve the road-conditioned XY/yaw
+scope. Height, roll, pitch and articulation remain unknown or suppressed unless separately
+supported. A claim of surface registration requires its missing extraction/registration work;
+the presence of the patch enum does not establish that capability.
+
+Use additive protobuf fields with permanent field numbers where compatible, regenerate Go/Swift
+together and keep old documents readable. The JSON pose endpoint currently rejects unknown
+fields: explicitly version and dispatch its request/result so a joint request cannot be silently
+read as a legacy single-anchor request. Old clients must either receive supported legacy data or
+a clear unsupported-version response. Extend existing provenance and revision tests to cover
+cross-language round trips, optional index zero, exact timestamps, stale pins and unsupported
+versions. Schema support is not permission to accept or adopt a physical reference.
+
+#### Matching, observability and confidence rules
+
+Use confirmed saved correspondence first. Automatic matching is a later stage of M2 after the
+geometry tests pass. Neither stage assumes the same beam or point index identifies the same
+physical material across scans. Respect per-return timing/deskew prerequisites and compare
+common visible support. Keep the body/map frozen during each update and do not count current
+returns twice or correlated anchors as independent measurements.
+
+Assess data-only observable directions at the declared noise level separately from the prior.
+Several anchors on one side do not repair its null direction; near-parallel noisy normals must
+not create a false full-rank lock. When support is insufficient, retain only the measured normal
+constraint, keep a direction prior-dominated or abstain. Preserve alternative heading/identity
+hypotheses when ambiguity remains. A motion prior cannot be recycled as new geometric evidence.
+
+Use robust residuals, overlap and physical-motion gates, outlier rejection and leave-one-anchor-out
+checks. Record when a result is dominated by one anchor. If conflicting anchors cannot be
+resolved, reject the joint result rather than averaging into an attractive but unsupported pose.
+Bound stored history and provide rollback/invalidation when a bad association contaminated it.
+
+Confidence is a structured account of identity, position, yaw, dimensions, each endpoint and
+the final pair measurement, not one uncalibrated percentage. Persist geometric rank/weak
+directions, support spread, independent constraints, residual/overlap, ambiguity, temporal
+confirmation and prior contribution so the UI status is reproducible. Keep operator review and
+solver confidence distinct. Numerical match probabilities or a high-confidence badge require
+calibration against independent reference episodes; low residual, many coplanar points, temporal
+smoothness or a wider interval cannot alone earn that badge. Pair confidence also depends on
+both vehicles, common path, leader choice and speed, with shared errors retained.
+
+#### Delivery order and boundaries
+
+1. Complete M1 and freeze the controlled E1 fixtures: corner/line/plane, duplicate anchors,
+   near-parallel normals, sparse support, occlusion edges, wrong-vehicle matches and stale revisions.
+   Reuse existing single-facet solver and Go/Swift fixture tests instead of another test harness.
+2. Deliver M2 with confirmed saved matches, then M3/M4 in the existing VV panels. Inspect a dense,
+   a single-plane and an ambiguous case. A sparse or degenerate case must show partial support
+   or rejection with honest bounds, never a fabricated point or a full-lock badge.
+3. Deliver M5 as a separate refined output. A later supporting frame may improve an earlier
+   shell only in the explicitly non-causal result; it cannot improve the claimed online score.
+   Keep unseen shell geometry inferred/unknown and preserve the original trajectory.
+4. Execute M6 under E1/E2's existing cohort, baseline, error-budget and adoption gates. Use the
+   checked-in experiment parameter sets and existing runner; store raw outputs on the attached
+   volume and author the findings in Git. Do not add another campaign or silently tune on the
+   decision set. Fund automatic correspondence or online integration only after the relevant gate.
+
+Plane/body memory and multi-anchor constraints must compete under the same evidence and prior.
+Prefer the simpler existing path if anchors do not provide a measurable benefit. The first
+delivery does not include a vehicle catalogue, completed mesh, general 6-DoF/articulated tracker,
+new runtime reanchor policy, automatic physical-reference acceptance or replacement VV app.
 
 Start with a planning allowance of 60 independent vehicle passages and 20 following encounters
 across at least three captures. The passages should include cars, vans, and rigid trucks. The
