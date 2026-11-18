@@ -65,10 +65,11 @@ rule tuning, nor do they establish physical accuracy. Absence of documented tuni
 proof that all numerical validation claims remain independent. This record is a bounded account
 of the cited work, not a complete historical access audit or a replacement for runtime use ledgers.
 
-## Further nominations in #1067
+## Further nominations and completed walkthrough in #1067
 
-As checked on November 18, 2026, [#1067](https://github.com/banshee-data/velocity.report/pull/1067)
-was open at `4ec3777bcab85f574a93821d24c4d76f8565bcd4`. Its
+[#1067](https://github.com/banshee-data/velocity.report/pull/1067) merged on November 18, 2026
+as `4eb2546cfb4b1b5d0c5ec87b760aa75334b768b7`, from implementation head
+`4ec3777bcab85f574a93821d24c4d76f8565bcd4`. Its
 [committed nomination report](https://github.com/banshee-data/velocity.report/blob/4ec3777bcab85f574a93821d24c4d76f8565bcd4/docs/lidar/operations/broderick-vv-walkthrough-2026-11.md#additional-manual-review-nominations)
 records selection of four further periods from the same frozen Broderick preparation:
 E, closing following (92.699963–94.000411 s); F, non-closing control
@@ -81,12 +82,27 @@ The report calls them development review cases, which describes their use, not a
 the site's validation assignment. The PR also reports replay screening that exposed a
 paused-seek delivery defect and motivated a software fix.
 
-The separate review window, navigation and dialog are implemented in that PR, but its description
-still lists the end-to-end new-window/four-example walkthrough as in progress. Do not infer
-completed manual review from nominations, committed UI code or passing automated CI.
-No completed physical labels, new perception runs or adopted threshold tuning are established
-by this evidence. The frozen estimates are not physical error measurements. The numerical
-independence assessment below remains outstanding.
+The merged PR's final validation summary supersedes the earlier in-progress status here.
+It reports a completed native walkthrough loading all four additional cases, checking software
+source agreement and displayed gaps/speeds/exclusions, exercising automatic pause/seek and
+exact-frame labelling guards, and saving a new review with the selected exclusive end.
+A backend reread found 12 records, with all 11 earlier records unchanged. Eight nominations
+remained visible by default. The new software-test record retained unknown physical observations
+and an insufficient-evidence conclusion; the summary does not provide its audit UUID.
+
+These completion details are attributed to the [final PR summary](https://github.com/banshee-data/velocity.report/pull/1067),
+not the committed nomination table, which still describes review candidates. The summary also
+reports three targeted Go replay regressions passing under the race detector, 32 targeted native
+tests, and fresh attached-drive builds. Native build head was `4ec3777`; server build
+`fd0d770` had identical Go/proto/config sources according to that summary. Raw evidence remained
+on attached storage and the primary service was untouched. This reconciliation did not rerun
+the native walkthrough or independently inspect its raw evidence.
+
+The completed software walkthrough adds actual review-workflow exposure, not physical labels.
+No new perception runs or adopted threshold tuning are established by this evidence.
+The frozen estimates are not physical error measurements, and software source agreement is
+not proof of physical identity, bumper-gap accuracy, speed accuracy or DRAC validity.
+The numerical independence assessment below remains outstanding.
 
 ## Claim limits and next decision
 
