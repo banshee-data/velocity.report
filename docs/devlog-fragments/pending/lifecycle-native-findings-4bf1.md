@@ -1,0 +1,1 @@
+- Recorded the [native lifecycle review findings](../../lidar/operations/lifecycle-following-three-sites-2026-11.md#native-proposal-inspection): a saved unreviewed shell, weak heading in the widest supporting view, unchanged original gap evidence, recovery after a lost save reply, and the tested Undo fix. Kept full-capture site metrics and lane publication explicitly pending.
