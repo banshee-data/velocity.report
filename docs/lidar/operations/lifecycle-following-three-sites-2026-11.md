@@ -145,6 +145,47 @@ native session now invalidates those diagnostics on draft changes and restoratio
 while retaining support inspection for a saved proposal. This corrects the presentation
 of evidence; it does not improve the estimator's physical accuracy.
 
+### Native proposal inspection
+
+The existing `labels publish-view` workflow created `lifecycle-review-20261118` from
+the frozen `body-fit-qa` view and membership revision 2233. The strict physical importer
+then revised only the copied following records to proposed, unknown gaps and endpoints,
+with an explicit body-only review method. The original numerical observations remain
+in `body-fit-qa` revision 78. Saved revision 80 of the new view contains the first
+truck's 218 lifecycle poses, all proposed. No physical body or pose was marked reviewed.
+All 35 frozen original-view files remained byte-identical after this inspection.
+
+The native support-frame actions selected the following cases. Return counts describe
+reviewed membership, not the vehicle's surface coverage.
+
+| Sample | Selection              | Reviewed returns |       Heading bound | Endpoint account in the proposal                         |
+| -----: | ---------------------- | ---------------: | ------------------: | -------------------------------------------------------- |
+|    106 | First labelled frame   |                1 |         Unavailable | Abstained; no pose supplied                              |
+|    466 | Longest supported view |           16,895 | ±0.5° from geometry | Front and rear recorded as observed; proposal unreviewed |
+|    390 | Widest supported view  |            1,716 |   ±9.2° from course | Front observed, rear inferred from the persistent body   |
+
+At sample 466 the side view exposed the long body and the endpoint evidence was tighter
+than at sample 390. The latter's support inspection correctly disclosed an inferred rear
+and a much weaker heading bound. The persistent width interval remained 0.871–2.916 m;
+the inspection does not justify narrowing it. The boundary panel counted 195 front,
+146 rear, 17 left and 295 right supporting frames. Those unequal counts identify a weak
+side for further review; they are neither percentages of shell area nor calibrated
+confidence scores.
+
+The next refinement should rank candidate support frames by heading and endpoint
+uncertainty as well as admitted span. A large supported span can still have weak pose
+constraints. Reuse the existing facet picker to establish current body-relative anchors
+on well-observed frames, compare their joint constraints with the planar fallback, and
+keep the opposite boundary inferred where it is hidden. Do not repair a weak match by
+declaring an unseen endpoint observed. Re-evaluate following gaps only after this body
+review, using the original gap references as an unchanged comparison baseline.
+
+The proposal save took 145.383 seconds on the service and the native request timed out
+before receiving its answer. The application correctly treated the write's outcome as
+unknown. Reading revision 80 and reloading the saved document reconciled the view without
+a duplicate save. This demonstrates recovery from a lost reply; it does not establish
+acceptable storage latency.
+
 ### Full-capture following and lanes
 
 Full-capture numerical findings, saved proposal identities and browser inspection are
@@ -181,13 +222,32 @@ The attached rotating disk's intermittent synchronisation delays remain relevant
 see the [earlier storage diagnosis](broderick-vv-walkthrough-2026-11.md#attached-drive-diagnosis).
 A broad local annotation test run reached the default ten-minute timeout in
 `os.Stat` while creating a temporary directory for an existing facet test. It did not
-report an assertion failure. CI passed the Go and native suites at revision
-`8889dccc5`; affected local tests are queued behind bulk replay/export work with a
-longer timeout. These observations do not establish filesystem health or a code
-performance regression.
+report an assertion failure. The later targeted Go lifecycle, import and following tests
+passed on merged main `c17907c3f129e7fc83189b341a99629bdb508eec`. The native build
+on LiDAR completed its test products, but its outer 55-minute guard expired during test
+startup. Running those verified products on the separately approved WD_BLACK build
+volume passed all 13 selected fit tests. These observations do not establish filesystem
+health or a controlled performance comparison.
 
-Bulk replays, lane-field publication, corpus export and native/Go build checks are
-serialised. Ashbury's in-progress preparation is preserved in its original workspace.
+An optional concurrent passive checkpoint of Columbus's observation database added
+disk contention and was cancelled without claiming a completed checkpoint. Its journal
+was retained. The preparer's own final checkpoint remains required, and the queued
+export stage also requires SQLite `quick_check` to return `ok` after EOF before using
+that database. That integrity check is pending with the full replay; a running job is
+not a completed or integrity-verified export.
+
+The follow-up native build at `3f1cae6a33a57f7d4338c3b5b49fafa7153f6655` completed
+through Make on WD_BLACK and passed all 28 tests in the physical-fit and physical-session
+suites. A native regression check then refined the frozen truck to 218 poses and undid
+it: the interface restored Saved, 135 poses and width 2.449 m, and removed the newer fit's
+diagnostics and inspection links. Nothing was saved to the original view. The fix merged
+as [PR #1078](https://github.com/banshee-data/velocity.report/pull/1078), with 13 successful
+CI checks and one intentional skip. Recordings, runtime evidence and screenshots remain
+on LiDAR; the user-approved WD_BLACK exception covers build products and caches.
+
+Bulk replays, lane-field publication and corpus export are serialised. Native and targeted
+Go checks use the separate build workspace. Ashbury's completed preparation is preserved
+in its original workspace; Columbus and Embarcadero remain in the full-capture queue.
 A second, 128 GiB sparse APFS workspace on the same physical LiDAR volume accommodates
 the larger captures' temporary database/WAL footprint. Only remaining output locations
 change; source files, source hashes, tuning parameters, calibration and replay windows
