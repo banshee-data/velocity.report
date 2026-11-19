@@ -1,0 +1,1 @@
+- Added native per-frame projected-gap diagnostics to the Following inspector and review window, with capture-timestamp seeks, raw unsupported points, same-leader continuity breaks, and an optional display-only time-window mean. The chart reuses existing source-bound evidence and 3D endpoints; it does not change analysis or establish physical accuracy.
