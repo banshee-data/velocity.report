@@ -3,6 +3,7 @@ package followingreview
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"testing"
 )
 
@@ -33,5 +34,8 @@ func TestCanonicalReadBatchingPreservesExactDigest(t *testing.T) {
 	t.Logf("%d bytes, %d source reads, largest request %d", len(data), reader.calls, reader.largest)
 	if reader.calls > 16 {
 		t.Fatal("canonical verification issues excessive small reads")
+	}
+	if _, err := readCanonical(io.MultiReader(bytes.NewReader(data), interruptedReviewReader{})); err == nil {
+		t.Fatal("buffering hid a source error after a complete JSON document")
 	}
 }
