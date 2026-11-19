@@ -22,6 +22,7 @@ type Analysis struct {
 	Buckets        map[string]int `json:"row_buckets"`
 	Histogram      []MinimumBin   `json:"histogram"`
 	Minima         []TrackMinimum `json:"minima"`
+	ReviewScope    *ReviewScope   `json:"review_scope,omitempty"`
 }
 
 type MinimumBin struct {
@@ -41,9 +42,23 @@ type TrackMinimum struct {
 // changes parameters, copies human labels, or treats record gaps as exposure.
 // visit optionally receives exact original samples for a scene sidecar.
 func (s *Session) Analyse(ctx context.Context, visit func([]fieldrun.EvidenceRow) error) (Analysis, error) {
+	return s.AnalyseScoped(ctx, nil, visit)
+}
+
+// AnalyseScoped keeps full row/track accounting, while minima and histogram
+// members require support within the declared stationary review periods.
+func (s *Session) AnalyseScoped(ctx context.Context, scope *ReviewScope, visit func([]fieldrun.EvidenceRow) error) (Analysis, error) {
+	filter, err := s.ReviewFilter(scope)
+	if err != nil {
+		return Analysis{}, err
+	}
 	a := Analysis{Schema: "following_analysis_v1", Metadata: s.Metadata,
 		Population: "one minimum eligible positive-duration estimated net time gap per follower track per recording; provisional, not physical vehicles",
 		Buckets:    map[string]int{}, Histogram: []MinimumBin{{Label: "<0.5"}, {Label: "0.5–1"}, {Label: "1–1.5"}, {Label: "1.5–2"}, {Label: "2+"}}, Minima: []TrackMinimum{}}
+	a.ReviewScope = scope
+	if scope != nil {
+		a.Population = "one minimum eligible estimated net time gap per follower track within catalogued stationary periods, with both paths supported inside one period; denominator all software tracks in the recording, provisional, not physical vehicles"
+	}
 	tracks := map[string]bool{}
 	minima := map[string]TrackMinimum{}
 	last := map[string]int64{}
@@ -62,13 +77,21 @@ func (s *Session) Analyse(ctx context.Context, visit func([]fieldrun.EvidenceRow
 			last[row.FollowerTrackID] = row.CaptureUnixNanos
 			tracks[row.FollowerTrackID] = true
 			a.Rows++
-			a.Buckets[row.Bucket]++
-			if row.Bucket != "following_eligible" || row.IntervalNanos <= 0 || row.Point == nil || row.Point.TimeGap == nil || row.Point.TimeGap.ValueS == nil || row.Point.Gap == nil || row.Decision.LeaderTrackID == "" {
-				continue
+			eligible := row.Bucket == "following_eligible" && row.IntervalNanos > 0 && row.Point != nil && row.Point.TimeGap != nil && row.Point.TimeGap.ValueS != nil && row.Point.Gap != nil && row.Decision.LeaderTrackID != ""
+			var timeGap, gap float64
+			if eligible {
+				timeGap, gap = *row.Point.TimeGap.ValueS, row.Point.Gap.ValueM
+				if math.IsNaN(timeGap) || math.IsInf(timeGap, 0) || timeGap < 0 || math.IsNaN(gap) || math.IsInf(gap, 0) || gap <= 0 {
+					return Analysis{}, fmt.Errorf("invalid eligible following measurement")
+				}
 			}
-			timeGap, gap := *row.Point.TimeGap.ValueS, row.Point.Gap.ValueM
-			if math.IsNaN(timeGap) || math.IsInf(timeGap, 0) || timeGap < 0 || math.IsNaN(gap) || math.IsInf(gap, 0) || gap <= 0 {
-				return Analysis{}, fmt.Errorf("invalid eligible following measurement")
+			bucket := row.Bucket
+			if reason := filter(row); reason != "" {
+				bucket = reason
+			}
+			a.Buckets[bucket]++
+			if bucket != "following_eligible" || !eligible {
+				continue
 			}
 			if old, ok := minima[row.FollowerTrackID]; !ok || timeGap < old.TimeGapS {
 				minima[row.FollowerTrackID] = TrackMinimum{row.FollowerTrackID, row.Decision.LeaderTrackID, fmt.Sprint(row.CaptureUnixNanos), timeGap, gap}

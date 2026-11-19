@@ -1,6 +1,6 @@
 # Lifecycle body proposals and three-site following review
 
-- **Status:** initial implementation merged; full-capture runs and interactive review in progress
+- **Status:** full-capture replays complete; publication, numerical comparison and browser review in progress
 - **Scope:** development evidence and proposed geometry; no physical qualification
 
 ## Question and method
@@ -75,15 +75,17 @@ gap**, in bins below 0.5, 0.5–1, 1–1.5, 1.5–2 and at least 2 seconds. The 
 counts tracks without an eligible estimate. These are not counts of physical vehicles
 unless identity continuity has independently been established.
 
-Colours use the minimum over the track's full recorded passage and therefore use later
+Colours use the minimum over eligible review coverage and therefore use later
 evidence when shown at earlier frames. The timeline separately shows instantaneous
 eligible time-gap minima and supported experimental DRAC maxima. Unavailable DRAC is
 not zero, and a headway speed-floor exclusion does not erase independently supported
 DRAC. Leader measurements require both actors at the exact exported sample and verified
 coordinate agreement; projected paths follow the existing local-path geometry.
-The whole-recording minimum remains available at opening or excluded frames without
+Within review coverage, the track minimum remains available at opening or excluded frames without
 supplying an instantaneous leader, gap or DRAC value. A coloured box is not evidence
-that a following relationship is measurable at that particular instant.
+that a following relationship is measurable at that particular instant. Outside catalogued
+stationary periods, the full timeline remains seekable but context, relationship measures
+and colours are suppressed. Shaded gaps identify these periods explicitly.
 
 Lifecycle shell proposals are reviewed separately. They do not replace the online
 shells used for these DRAC exports, so a more complete proposal is not evidence of an
@@ -188,9 +190,65 @@ acceptable storage latency.
 
 ### Full-capture following and lanes
 
-Full-capture numerical findings, saved proposal identities and browser inspection are
-pending. The earlier [four-site report](following-corpus-four-sites-2026-11.md) remains
-the record for the previous outputs and must not be presented as this rerun.
+All three preparations reached EOF successfully. The first 70 seconds condition the
+background and tracker; the scored recording then continues through EOF. The table
+counts recorded frames and serialised following-evidence rows, including exclusions.
+Neither column counts independently identified physical vehicles.
+
+| Site               | Recorded duration (s) | Recorded frames | Evidence rows |
+| ------------------ | --------------------: | --------------: | ------------: |
+| Ashbury–Downey     |             1,157.260 |          11,574 |        31,000 |
+| Columbus–Broadway  |             1,962.725 |          19,629 |       459,139 |
+| Embarcadero–Bryant |             1,292.246 |          12,924 |       213,147 |
+| Total              |             4,412.231 |          44,127 |       703,286 |
+
+An independent check reproduced each `source/v2` identity from its ordered capture paths,
+hashes, clip, extractor and requested window, and each `calibration/v1` identity from
+the observation transform's IEEE-754 values. All agreed with their completed receipts
+and replay manifests. The manifests' `calibration_sha256` field hashes the parser
+configuration; `observation_calibration_id` identifies the separately supplied observation
+transform. These are different records and their digests must not be interchanged.
+
+Capture replay used `130020360a560b4e965d4451497e7efaba64add3`. The numerical comparison
+uses that baseline reducer and reviewed main `c17907c3f129e7fc83189b341a99629bdb508eec`.
+The subsequent stationary-scope implementation supplies the review scenes and player. The
+baseline does not export a second copy of the same large scenes. Producer, reducer and
+viewer identities remain separate; nothing is relabelled as having been captured by a
+later UI build.
+
+Lane publication initially reread complete VRLOGs after local field extraction. The
+resumed job instead sent the cached canonical field JSON through Gerardus's existing
+`UploadLaneField` API, preserving the same header and 4,000-cell chunking contract.
+Ashbury's whole-field verification returned the exact existing field ID
+`sha256:de5cb37a59d802bc8bbdda5c1ddd3e30a4148794351b10af4a9ecf289b622c73`
+and `already_stored=true`, establishing equivalence to the normal uploader for that case.
+All recording and field originals were retained.
+
+The job also calls `ListLaneProposals` and requires the new whole-field ID to appear in
+the derivation's `field_ids`. This verifies that stored fields actually contributed to
+the proposals. Ashbury's model includes two whole fields, one of them this run's;
+Columbus's includes this run's single whole field. Site aggregation is not evidence that
+capture windows are independent. Existing adoption links remain as stored; this job
+does not approve, reject or adopt a lane.
+
+All nine whole-run and half-run fields were uploaded successfully. Verified proposal
+counts are five for Ashbury, 23 for Columbus and ten for Embarcadero. These are derived
+lane proposals, not reviewed physical lanes. The fields use complete recordings; their
+derivation does not itself establish that every contributing period was stationary.
+
+The static-context preflight passed the settled-background placement checks for all
+three accepted records. It also found that the Columbus and Embarcadero recordings span
+gaps between catalogued stationary periods. Extending one placement across those gaps
+would overstate the evidence. The existing reducer and player therefore gain an explicit
+catalogue-bound review scope: retain every frame and raw row, but admit measurement
+intervals only within stationary coverage, and require both actors' complete local-path
+support to lie in the same period. Do not trim a fitted path into a different fit.
+Track counts retain the whole-recording denominator, including missing estimates.
+The default unscoped analysis remains available for the frozen numerical comparison.
+
+Full-capture following histograms and browser inspection are pending. The earlier
+[four-site report](following-corpus-four-sites-2026-11.md)
+remains the record for the previous outputs and must not be presented as this rerun.
 
 The next accuracy opportunities use the same tools: retain confirmed facet matchsets
 through the existing feature writer, compare the joint-facet pose proposals with this
@@ -231,10 +289,12 @@ health or a controlled performance comparison.
 
 An optional concurrent passive checkpoint of Columbus's observation database added
 disk contention and was cancelled without claiming a completed checkpoint. Its journal
-was retained. The preparer's own final checkpoint remains required, and the queued
-export stage also requires SQLite `quick_check` to return `ok` after EOF before using
-that database. That integrity check is pending with the full replay; a running job is
-not a completed or integrity-verified export.
+was retained. The preparer's own final checkpoint completed before its EOF receipt.
+The independent SQLite `quick_check` is still running against the observation database;
+a stack sample found it waiting in database reads. The following exporter reads the
+separately verified recording and paired evidence, not that observation database. A
+separate metadata registry allows export to proceed while the integrity check continues.
+This does not establish observation-database integrity: that remains an explicit pending gate.
 
 The follow-up native build at `3f1cae6a33a57f7d4338c3b5b49fafa7153f6655` completed
 through Make on WD_BLACK and passed all 28 tests in the physical-fit and physical-session
@@ -247,7 +307,7 @@ on LiDAR; the user-approved WD_BLACK exception covers build products and caches.
 
 Bulk replays, lane-field publication and corpus export are serialised. Native and targeted
 Go checks use the separate build workspace. Ashbury's completed preparation is preserved
-in its original workspace; Columbus and Embarcadero remain in the full-capture queue.
+in its original workspace; Columbus and Embarcadero completed in the bulk workspace.
 A second, 128 GiB sparse APFS workspace on the same physical LiDAR volume accommodates
 the larger captures' temporary database/WAL footprint. Only remaining output locations
 change; source files, source hashes, tuning parameters, calibration and replay windows

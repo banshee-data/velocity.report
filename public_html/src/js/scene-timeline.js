@@ -58,6 +58,7 @@ export function createTimelineStrip({
   duration,
   onSeek,
   mode = "traffic",
+  reviewPeriods,
 }) {
   const lifecycle = new AbortController();
   const options = { signal: lifecycle.signal };
@@ -192,6 +193,29 @@ export function createTimelineStrip({
       ctx.moveTo(0, mid + 0.5);
       ctx.lineTo(w, mid + 0.5);
       ctx.stroke();
+    }
+
+    if (mode === "following" && Array.isArray(reviewPeriods)) {
+      let coveredUntil = 0;
+      ctx.fillStyle = "#4b3e4a";
+      for (const p of reviewPeriods) {
+        const first = Math.max(0, Math.min(span, p.start));
+        if (first > coveredUntil)
+          ctx.fillRect(
+            (coveredUntil / span) * w,
+            0,
+            ((first - coveredUntil) / span) * w,
+            h,
+          );
+        coveredUntil = Math.max(coveredUntil, Math.min(span, p.end));
+      }
+      if (coveredUntil < span)
+        ctx.fillRect(
+          (coveredUntil / span) * w,
+          0,
+          ((span - coveredUntil) / span) * w,
+          h,
+        );
     }
 
     const px = (playhead / span) * w;

@@ -20,15 +20,16 @@ import (
 // Packet replay remains the preparer's responsibility: this command never
 // silently selects a source, new parameters, or a different estimator version.
 func FollowingMain(args []string) int {
-	return followingMain(args, analyseCorpus)
+	return followingMain(args, analyseCorpusWithContext)
 }
 
-func followingMain(args []string, run func(string, []string, string, bool) error) int {
+func followingMain(args []string, run func(string, []string, string, bool, string) error) int {
 	fs := flag.NewFlagSet("velocity lidar following", flag.ContinueOnError)
 	dbPath := fs.String("db", "", "Registered-run database (read only)")
 	runs := fs.String("runs", "", "Explicit comma-separated recording run IDs")
 	out := fs.String("output", "", "New local output directory (must not exist)")
 	scenes := fs.Bool("scenes", false, "Also export each paired scene with exact-sample following distances")
+	catalog := fs.String("context-catalog", "", "Site catalogue whose static_parts restrict review metrics and scene measurements; original evidence is unchanged")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
@@ -39,7 +40,7 @@ func followingMain(args []string, run func(string, []string, string, bool) error
 		fmt.Fprintln(os.Stderr, "--db, --runs and --output are required")
 		return 2
 	}
-	if err := run(*dbPath, strings.Split(*runs, ","), *out, *scenes); err != nil {
+	if err := run(*dbPath, strings.Split(*runs, ","), *out, *scenes, *catalog); err != nil {
 		fmt.Fprintln(os.Stderr, "following analysis:", err)
 		return 1
 	}
@@ -50,7 +51,23 @@ func analyseCorpus(dbPath string, ids []string, out string, scenes bool) error {
 	return analyseCorpusWrite(dbPath, ids, out, scenes, os.WriteFile)
 }
 
+func analyseCorpusWithContext(dbPath string, ids []string, out string, scenes bool, catalog string) error {
+	return analyseCorpusScopedWrite(dbPath, ids, out, scenes, catalog, os.WriteFile)
+}
+
 func analyseCorpusWrite(dbPath string, ids []string, out string, scenes bool, write func(string, []byte, os.FileMode) error) error {
+	return analyseCorpusScopedWrite(dbPath, ids, out, scenes, "", write)
+}
+
+func analyseCorpusScopedWrite(dbPath string, ids []string, out string, scenes bool, catalog string, write func(string, []byte, os.FileMode) error) error {
+	var catalogData []byte
+	if catalog != "" {
+		var err error
+		catalogData, err = os.ReadFile(catalog)
+		if err != nil {
+			return err
+		}
+	}
 	seen := map[string]bool{}
 	for _, id := range ids {
 		if strings.TrimSpace(id) != id || id == "" || seen[id] {
@@ -80,7 +97,14 @@ func analyseCorpusWrite(dbPath string, ids []string, out string, scenes bool, wr
 		if err != nil {
 			return fmt.Errorf("%s: %w", id, err)
 		}
-		a, err := session.Analyse(context.Background(), nil)
+		var scope *followingreview.ReviewScope
+		if catalog != "" {
+			scope, err = followingreview.StaticReviewScope(catalogData, session.Metadata.Binding.SiteID, session.Metadata.Start, session.Metadata.End)
+			if err != nil {
+				return fmt.Errorf("%s review context: %w", id, err)
+			}
+		}
+		a, err := session.AnalyseScoped(context.Background(), scope, nil)
 		if err != nil {
 			return fmt.Errorf("%s: %w", id, err)
 		}

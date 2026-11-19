@@ -23,6 +23,24 @@ velocity lidar following --db /absolute/local/review.db \
   --runs run-one,run-two --output /absolute/local/new-analysis --scenes
 ```
 
+For a full recording that spans gaps between catalogued stationary periods, bind the
+review to the existing checked-in site catalogue:
+
+```sh
+velocity lidar following --db /absolute/local/review.db \
+  --runs run-one,run-two --output /absolute/local/new-static-review --scenes \
+  --context-catalog tools/s2-archive/site-index.json
+```
+
+This preserves every recorded frame and all raw row/track accounting. A minimum or
+supported DRAC sample requires its positive-duration interval and both actors' complete
+canonical path support inside one catalogued stationary period. Gaps remain excluded;
+paths are not trimmed into a new fit. The exported `review_scope` records the catalogue
+digest, policy version and clipped intervals. Excluded rows retain explicit scope reasons,
+and tracks without an eligible minimum remain in the denominator. The original evidence
+and the default recording-wide analysis, including the Runs action, are unchanged.
+Catalogue coverage is review context, not a surveyed pose or physical qualification.
+
 The output directory must not exist. `complete.json` appears only after every requested
 recording and optional scene succeeds. A failure leaves diagnostic output without a completion
 marker. The registered database is read-only. No VV, browser, listener or interactive input is
@@ -75,6 +93,12 @@ checked placement. The packager verifies the archive deployment window and senso
 copying context. Saved inferred lanes are cyan; unapproved lane proposals are violet. Missing
 lanes are reported rather than substituted with a vehicle path. Serve the resulting directory
 over local HTTP; its player, dependencies and scene data are self-contained.
+
+A recording can span several catalogue periods only when its exported `review_scope` matches
+the exact catalogue digest and intersections. The bundled viewer shades the gaps and hides
+static context, following values and gap colours there. Its histogram uses only admitted
+samples; the missing-estimate denominator still covers all recording tracks. Use the bundled
+viewer for this temporal suppression. Older viewers may ignore the optional scope metadata.
 
 After a full headless replay, `velocity lidar lane-field --recording VRLOG --run LOCAL_ID --out
 NEW_FIELDS --upload --l16 TOKEN --gerardus http://arrow-worker:50061` reuses the lane job's existing

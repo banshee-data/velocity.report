@@ -81,6 +81,31 @@ function setup({ duration = 600, width = 600 } = {}) {
   return { canvas, strip, seeks };
 }
 
+test("following timeline shades gaps between stationary review periods", () => {
+  const canvas = fakeCanvas({ width: 100 });
+  const strip = createTimelineStrip({
+    canvas,
+    summary: { buckets: [] },
+    duration: 10,
+    mode: "following",
+    reviewPeriods: [
+      { start: 1, end: 3 },
+      { start: 6, end: 9 },
+    ],
+    onSeek: () => {},
+  });
+  const gaps = canvas.paint.fills.filter((f) => f.colour === "#4b3e4a");
+  assert.deepEqual(
+    gaps.map((f) => [f.x, f.width]),
+    [
+      [0, 10],
+      [30, 30],
+      [90, 10],
+    ],
+  );
+  strip.dispose();
+});
+
 test("following mode preserves missing DRAC and supports exact seek", () => {
   const canvas = fakeCanvas(),
     seeks = [];

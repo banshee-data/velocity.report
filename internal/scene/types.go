@@ -10,6 +10,8 @@
 // vrlog-analyse or the replayer.
 package scene
 
+import "github.com/banshee-data/velocity.report/internal/lidar/followingreview"
+
 // FormatVersion is the scene export schema version. Bump when the on-disk
 // layout changes in a way an existing player cannot read.
 const FormatVersion = 1
@@ -97,12 +99,13 @@ type Header struct {
 // FollowingProvenance binds optional estimated distances to their exact paired
 // recording and analysis. These values are review evidence, not physical truth.
 type FollowingProvenance struct {
-	EvidenceSHA256 string            `json:"evidence_sha256"`
-	CalibrationID  string            `json:"calibration_id"`
-	AnalysisBuild  string            `json:"analysis_build_git_sha"`
-	MethodID       string            `json:"method_id"`
-	Status         string            `json:"status"`
-	Summary        *FollowingSummary `json:"summary,omitempty"`
+	EvidenceSHA256 string                       `json:"evidence_sha256"`
+	CalibrationID  string                       `json:"calibration_id"`
+	AnalysisBuild  string                       `json:"analysis_build_git_sha"`
+	MethodID       string                       `json:"method_id"`
+	Status         string                       `json:"status"`
+	Summary        *FollowingSummary            `json:"summary,omitempty"`
+	ReviewScope    *followingreview.ReviewScope `json:"review_scope,omitempty"`
 }
 
 type FollowingSummary struct {

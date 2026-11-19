@@ -96,7 +96,8 @@ is not a high-confidence physical match or a measured following-accuracy improve
 
 The next M5 increment extends the existing reviewed-point fit with an explicit lifecycle scope.
 The [three-site review record](../lidar/operations/lifecycle-following-three-sites-2026-11.md)
-records its implementation boundary, pending capture evidence and follow-up opportunities.
+records its implementation boundary, completed full-capture preparations, stationary-period
+review gates and follow-up opportunities.
 It uses one proposed body across reviewed samples, records the full information horizon and
 abstentions, and retains inferred hidden endpoints. This is the body-memory fallback; confirmed
 facet correspondences are not automatically propagated or fused. Persistent match confirmations
