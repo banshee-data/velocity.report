@@ -4,6 +4,7 @@ package lidar
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/report/headway/fieldrun"
+	"github.com/banshee-data/velocity.report/internal/scene"
 )
 
 func TestFollowingProjectedGapFollowsCurvedPathWithoutExtrapolation(t *testing.T) {
@@ -143,6 +145,41 @@ func TestFollowingCorpusPublishesPairedSceneAndNoPartialSuccess(t *testing.T) {
 	}
 	if _, err = os.Stat(filepath.Join(out, "recording-000", "manifest.json")); err != nil {
 		t.Fatal("standalone scene manifest:", err)
+	}
+	chunks, err := filepath.Glob(filepath.Join(out, "recording-000", "scene", "frames", "*.ndjson.gz"))
+	if err != nil || len(chunks) == 0 {
+		t.Fatal("missing scene frames", err)
+	}
+	minimumFrames := 0
+	for _, path := range chunks {
+		file, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gz, err := gzip.NewReader(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoder := json.NewDecoder(gz)
+		for decoder.More() {
+			var frame scene.Frame
+			if err := decoder.Decode(&frame); err != nil {
+				t.Fatal(err)
+			}
+			for _, track := range frame.Tracks {
+				if value := track.Following; value != nil && value.MinimumTimeGapS != nil {
+					minimumFrames++
+					if *value.MinimumTimeGapS != 1 || frame.TimeUs != 100_000 && (value.GapM != nil || value.TimeGapS != nil || value.DRAC != nil) {
+						t.Fatal("whole-track metadata changed instantaneous evidence", frame)
+					}
+				}
+			}
+		}
+		_ = gz.Close()
+		_ = file.Close()
+	}
+	if minimumFrames != 3 {
+		t.Fatal("minimum did not cover the opening and excluded frames", minimumFrames)
 	}
 	index := filepath.Join(run.VRLogPath, "index.bin")
 	if err = os.Rename(index, index+".saved"); err != nil {

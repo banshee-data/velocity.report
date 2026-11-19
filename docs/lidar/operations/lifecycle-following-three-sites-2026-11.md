@@ -33,11 +33,11 @@ Lane derivation saves proposals; it does not approve or adopt them.
 
 ## Frozen sources and placement
 
-| Site               | Capture SHA-256                                                    | Accepted registration used for placement |
-| ------------------ | ------------------------------------------------------------------ | ---------------------------------------- |
-| Ashbury–Downey     | `2eec35d381fa4c4ba5a6bf1218982c76e53749287d53691115261f14d8aefbed` | `gms:01M637XHPEK6ANSKE5PZKWQG6B`         |
-| Columbus–Broadway  | `aa69875be4dd45094d79c371ca25e434b3a4d8bec0966c116931720cc1653b66` | `gms:01M5GKWEZRV8YEVPSRTA1YGE6Y`         |
-| Embarcadero–Bryant | `03e10c86b718f068c8733559b1020b56a4e7ae1ec0361529f4fb19e75090fdf3` | `gms:01M684AR57ZPDAHJKC6ZTABDS8`         |
+| Site               | Capture date (San Francisco) | Capture SHA-256                                                    | Accepted registration used for placement |
+| ------------------ | ---------------------------- | ------------------------------------------------------------------ | ---------------------------------------- |
+| Ashbury–Downey     | 2026-09-01                   | `2eec35d381fa4c4ba5a6bf1218982c76e53749287d53691115261f14d8aefbed` | `gms:01M637XHPEK6ANSKE5PZKWQG6B`         |
+| Columbus–Broadway  | 2026-09-02                   | `aa69875be4dd45094d79c371ca25e434b3a4d8bec0966c116931720cc1653b66` | `gms:01M5GKWEZRV8YEVPSRTA1YGE6Y`         |
+| Embarcadero–Bryant | 2026-09-03                   | `03e10c86b718f068c8733559b1020b56a4e7ae1ec0361529f4fb19e75090fdf3` | `gms:01M684AR57ZPDAHJKC6ZTABDS8`         |
 
 All three use the explicit sensor-to-sensor identity calibration
 `calibration/v1/30226f66f62ba71b24694c07b3793ab761657aa67d43b929c4cb33ad6d099e28`.
@@ -45,6 +45,7 @@ This records the replay coordinate contract; it is not a surveyed site pose.
 Lane placement uses the separately accepted Gerardus record and must pass the existing
 settled-background placement check before vectors enter the browser bundle. A source
 window or placement mismatch refuses the context rather than substituting a nearby pose.
+Lane overlays provide review context; unapproved lanes do not become leader-choice evidence.
 
 Required captures, databases, recordings, runtime logs and browser bundles remain on
 the directly attached LiDAR disk. The isolated review registry preserves the source-use
@@ -80,6 +81,9 @@ eligible time-gap minima and supported experimental DRAC maxima. Unavailable DRA
 not zero, and a headway speed-floor exclusion does not erase independently supported
 DRAC. Leader measurements require both actors at the exact exported sample and verified
 coordinate agreement; projected paths follow the existing local-path geometry.
+The whole-recording minimum remains available at opening or excluded frames without
+supplying an instantaneous leader, gap or DRAC value. A coloured box is not evidence
+that a following relationship is measurable at that particular instant.
 
 Lifecycle shell proposals are reviewed separately. They do not replace the online
 shells used for these DRAC exports, so a more complete proposal is not evidence of an
@@ -147,3 +151,27 @@ saved body-relative anchor. The next operator pass should use the existing facet
 picker and saved proposal overlay to review their current memberships and body-relative
 anchors, then exercise the joint proposal tools. Automatically rebinding those pins
 would discard the very evidence check needed for a trustworthy match.
+
+The existing native Facets view was inspected at sample 295. It showed both saved
+features, offered navigation to their supported frames and warned that the selected
+support belonged to an older object mask. Registration remained disabled. No facet
+support or physical review was saved during that inspection. The existing workflow
+already exposes the required gate; a second labeller is unnecessary.
+
+## Execution limits
+
+The attached rotating disk's intermittent synchronisation delays remain relevant;
+see the [earlier storage diagnosis](broderick-vv-walkthrough-2026-11.md#attached-drive-diagnosis).
+A broad local annotation test run reached the default ten-minute timeout in
+`os.Stat` while creating a temporary directory for an existing facet test. It did not
+report an assertion failure. CI passed the Go and native suites at revision
+`8889dccc5`; affected local tests are queued behind bulk replay/export work with a
+longer timeout. These observations do not establish filesystem health or a code
+performance regression.
+
+Bulk replays, lane-field publication, corpus export and native/Go build checks are
+serialised. Ashbury's in-progress preparation is preserved in its original workspace.
+A second, 128 GiB sparse APFS workspace on the same physical LiDAR volume accommodates
+the larger captures' temporary database/WAL footprint. Only remaining output locations
+change; source files, source hashes, tuning parameters, calibration and replay windows
+remain frozen. The original output plan is retained beside the updated run plan.

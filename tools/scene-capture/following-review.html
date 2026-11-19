@@ -146,6 +146,7 @@
     <main>
       <section>
         <h2 id="site-title"></h2>
+        <p id="recording-window"></p>
         <p id="lane-status"></p>
         <p id="error" role="alert"></p>
         <div class="stage">
@@ -206,6 +207,12 @@
         $("labels").replaceChildren();
         $("error").textContent = "";
         $("site-title").textContent = site.title;
+        $("recording-window").textContent =
+          `Recording: ${new Intl.DateTimeFormat("en-US", {
+            dateStyle: "medium",
+            timeStyle: "long",
+            timeZone: "America/Los_Angeles",
+          }).format(new Date(site.recordedAt))}`;
         $("lane-status").textContent =
           site.lanes || site.proposedLanes
             ? `${site.lanes} saved inferred lanes (cyan) · ${site.proposedLanes} proposed lanes (violet, not approved)`

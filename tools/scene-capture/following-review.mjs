@@ -170,6 +170,9 @@ export async function packageFollowingReview({
     }
     catalog.sites.push({
       id,
+      recordedAt: new Date(
+        Number(BigInt(inputHeader.start_ns) / 1_000_000n),
+      ).toISOString(),
       title: id
         .split("-")
         .map((s) => s[0].toUpperCase() + s.slice(1))

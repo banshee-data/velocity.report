@@ -93,11 +93,11 @@ export function renderFollowingStats(host, following) {
     host.append(row);
   }
   const note = doc.createElement("p");
-  note.textContent = `${s.tracks - s.without_time_gap} tracks with estimates; ${s.without_time_gap} without, of ${s.tracks} software tracks. One minimum per track over the whole recording, including later evidence. Fragmentation can count a vehicle more than once. Provisional estimates, not physical validation.`;
+  note.textContent = `${s.tracks - s.without_time_gap} with estimates · ${s.without_time_gap} unavailable · ${s.tracks} software tracks. One minimum per track over the whole recording, including later evidence. Identity breaks can count a vehicle twice. Provisional, unvalidated estimates.`;
   host.append(note);
   const key = doc.createElement("p");
   key.textContent =
-    "Timeline: orange bars = maximum supported experimental DRAC (m/s²) per time bucket; coloured band = minimum instantaneous net time gap. Box/label colours = whole-track minimum time gap. Grey = unavailable. Cyan = saved inferred lanes; violet = unapproved lane proposals. Gap lines are projected measurements, not lane boundaries.";
+    "Timeline: orange = peak experimental DRAC (m/s²); band = instantaneous net time gap. Boxes = whole-track minimum. Grey = unavailable. Cyan lines = saved inferred lanes; violet = proposals. Gap lines measure the projected following path.";
   host.append(key);
 }
 
@@ -107,6 +107,9 @@ export function sceneTrackLabel(track, mph, review = false) {
     vehicle && Number.isFinite(mph) && mph >= 1 ? `${Math.round(mph)} mph` : "";
   if (review) {
     const f = track?.following;
+    const minimum = gapBand(f?.track_minimum_time_gap_s)
+      ? `min ${f.track_minimum_time_gap_s.toFixed(2)} s`
+      : "";
     if (followingLabel(track) || dracOnlyLabel(track)) {
       const gap = followingLabel(track)
         ? `${f.net_time_gap_s.toFixed(2)} s`
@@ -116,16 +119,15 @@ export function sceneTrackLabel(track, mph, review = false) {
         f.experimental_drac_mps2 >= 0
           ? `DRAC ${f.experimental_drac_mps2.toFixed(2)} m/s²`
           : "DRAC unavailable";
-      const minimum = gapBand(f.track_minimum_time_gap_s)
-        ? `min ${f.track_minimum_time_gap_s.toFixed(2)} s`
-        : "";
       return [
         `${track.id} → ${f.leader_id}`,
         `${f.gap_m.toFixed(1)} m · ${gap}`,
         [drac, minimum].filter(Boolean).join(" · "),
       ].join("\n");
     }
-    return speed ? `${track.id} · ${speed}` : "";
+    return [speed ? `${track.id} · ${speed}` : minimum ? track.id : "", minimum]
+      .filter(Boolean)
+      .join("\n");
   }
   return [speed, followingLabel(track) || dracOnlyLabel(track)]
     .filter(Boolean)

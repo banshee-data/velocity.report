@@ -71,10 +71,6 @@ func exportFollowingScene(s *followingreview.Session, out string, analysis follo
 					if r.Point.TimeGap != nil {
 						v.TimeGapS = r.Point.TimeGap.ValueS
 					}
-					if m, ok := minima[r.FollowerTrackID]; ok {
-						value := m
-						v.MinimumTimeGapS = &value
-					}
 				}
 				// DRAC admission is independent of headway's speed floor.
 				if r.IntervalNanos > 0 && r.Point != nil {
@@ -98,7 +94,7 @@ func exportFollowingScene(s *followingreview.Session, out string, analysis follo
 		return samples[at], nil
 	}
 	_, err := scene.Export(scene.Options{VRLOGPath: s.Metadata.RecordingPath, OutDir: filepath.Join(out, "scene"), Kind: scene.KindTracks, Stride: 1, Site: s.Metadata.Binding.SiteID, Title: s.Metadata.Binding.SiteID,
-		FollowingAt: provider, Following: &scene.FollowingProvenance{EvidenceSHA256: s.Metadata.EvidenceSHA256, CalibrationID: s.Metadata.CalibrationID, AnalysisBuild: s.Metadata.Binding.AnalysisBuildGitSHA, MethodID: s.Metadata.Binding.MethodID, Status: "provisional_estimates", Summary: summary}})
+		FollowingAt: provider, MinimumTimeGapByTrack: minima, Following: &scene.FollowingProvenance{EvidenceSHA256: s.Metadata.EvidenceSHA256, CalibrationID: s.Metadata.CalibrationID, AnalysisBuild: s.Metadata.Binding.AnalysisBuildGitSHA, MethodID: s.Metadata.Binding.MethodID, Status: "provisional_estimates", Summary: summary}})
 	if err != nil {
 		return fmt.Errorf("following scene: %w", err)
 	}

@@ -91,6 +91,20 @@ test("review labels name the pair and separate distance, time and DRAC", () => {
   );
 });
 
+test("an offline minimum remains visible without inventing a current pair", () => {
+  const track = {
+    id: "t1",
+    c: "dynamic",
+    following: {
+      bucket: "no_exact_following_sample",
+      track_minimum_time_gap_s: 0.6,
+    },
+  };
+  assert.equal(sceneTrackLabel(track, 0, true), "t1\nmin 0.60 s");
+  assert.equal(followingLabel(track), "");
+  assert.equal(followingRelationships({ tr: [track] }).length, 0);
+});
+
 test("supported DRAC survives an unavailable low-speed headway without inventing zero", () => {
   const track = {
     following: {

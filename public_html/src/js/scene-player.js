@@ -1119,9 +1119,10 @@ export async function mountScenePlayer({
         visuals.set(t.id, v);
       }
       // Re-applied every frame: a track's class can change under it.
-      const band = followingLabel(t)
-        ? gapBand(t.following?.track_minimum_time_gap_s)
-        : null;
+      const band =
+        followingReview || followingLabel(t)
+          ? gapBand(t.following?.track_minimum_time_gap_s)
+          : null;
       v.setColour(
         band
           ? Number.parseInt(band.colour.slice(1), 16)
@@ -1148,7 +1149,7 @@ export async function mountScenePlayer({
           label.textContent = text;
           label.style.color = band?.colour ?? "";
           label.title = t.following
-            ? `Follower ${t.id} → leader ${t.following.leader_id ?? "unavailable"}; DRAC: ${t.following.drac_status ?? "unavailable"}; follower ${t.following.follower_speed_mps ?? "?"} m/s, leader ${t.following.leader_speed_mps ?? "?"} m/s`
+            ? `Follower ${t.id} → leader ${t.following.leader_id || "unavailable"}; DRAC: ${t.following.drac_status ?? "unavailable"}; follower ${t.following.follower_speed_mps ?? "?"} m/s, leader ${t.following.leader_speed_mps ?? "?"} m/s; whole-track minimum net time gap ${t.following.track_minimum_time_gap_s ?? "unavailable"} s (includes later evidence)`
             : "";
         }
       }

@@ -41,6 +41,9 @@ type Options struct {
 	// verifies the paired recording; missing samples are never interpolated.
 	FollowingAt func(int64) (map[string]FollowingJSON, error)
 	Following   *FollowingProvenance
+	// MinimumTimeGapByTrack is non-causal whole-recording metadata, keyed by
+	// source track. It never supplies an instantaneous gap or leader decision.
+	MinimumTimeGapByTrack map[string]float64
 	// VRLOGPath is the recorded VRLOG directory to read.
 	VRLOGPath string
 	// OutDir is the export directory to write.
@@ -155,6 +158,14 @@ func Export(opts Options) (*Result, error) {
 	opts.applyDefaults()
 	if (opts.FollowingAt == nil) != (opts.Following == nil) {
 		return nil, fmt.Errorf("following samples and their provenance must be supplied together")
+	}
+	if len(opts.MinimumTimeGapByTrack) > 0 && opts.Following == nil {
+		return nil, fmt.Errorf("following track minima need bound provisional evidence")
+	}
+	for id, minimum := range opts.MinimumTimeGapByTrack {
+		if id == "" || math.IsNaN(minimum) || math.IsInf(minimum, 0) || minimum < 0 {
+			return nil, fmt.Errorf("following track minimum must be finite, non-negative and name its source track")
+		}
 	}
 	if p := opts.Following; p != nil {
 		if opts.SmoothedTrail || p.EvidenceSHA256 == "" || p.CalibrationID == "" || p.AnalysisBuild == "" || p.MethodID == "" || p.Status != "provisional_estimates" {
@@ -306,10 +317,17 @@ func Export(opts Options) (*Result, error) {
 					}
 				}
 			}
-			for source, value := range values {
-				id := sourceKeys[source]
-				if !present[id] {
+			for source, id := range sourceKeys {
+				value, exact := values[source]
+				minimum, hasMinimum := opts.MinimumTimeGapByTrack[source]
+				if !present[id] || (!exact && !hasMinimum) {
 					continue
+				}
+				if !exact {
+					value.Bucket = "no_exact_following_sample"
+				}
+				if hasMinimum {
+					value.MinimumTimeGapS = &minimum
 				}
 				if value.Leader != "" {
 					value.Leader = sourceKeys[value.Leader]
@@ -319,7 +337,6 @@ func Export(opts Options) (*Result, error) {
 						value.TimeGapS = nil
 						value.DRAC = nil
 						value.GapPath = nil
-						value.MinimumTimeGapS = nil
 						value.DRACStatus = "leader_not_in_frame"
 						value.LeaderSpeed = nil
 						value.Bucket = "leader_not_in_frame"

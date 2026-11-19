@@ -110,9 +110,13 @@ struct PhysicalFitResult: Codable, Equatable {
     /// Only frames actually admitted as full dimension support are candidates.
     /// This is inspection, not a rule to freeze an arbitrary maximum box.
     func extentSample(width: Bool) -> Int? {
-        frames.filter {
-            $0.skipped == nil && $0.axis == "resolved"
-                && ($0.usedFor ?? []).contains(width ? "width" : "length")
+        guard let object, let body = object.body else { return nil }
+        let dimension = width ? body.width : body.length
+        guard dimension.status == .observed, dimension.span == .full else { return nil }
+        let support = Set(dimension.support.frameList)
+        return frames.filter {
+            $0.skipped == nil && $0.axis == "resolved" && support.contains($0.sampleID)
+                && object.keyframe(sampleID: $0.sampleID) != nil
         }.max { a, b in
             let x = width ? a.widthSpanM : a.lengthSpanM
             let y = width ? b.widthSpanM : b.lengthSpanM

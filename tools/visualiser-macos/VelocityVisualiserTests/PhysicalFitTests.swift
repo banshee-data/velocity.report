@@ -71,6 +71,19 @@ struct PhysicalFitTests {
     }
     @Test func extentInspectionIgnoresUnsupportedMaximumBoxes() throws {
         var fit = try fitResult()
+        var object = try #require(fit.object)
+        var body = try #require(object.body)
+        body.length.status = .observed
+        body.length.span = .full
+        body.length.support = PhysicalSupport(frames: [3])
+        body.width.status = .observed
+        body.width.span = .full
+        body.width.support = PhysicalSupport(frames: [3])
+        var pose = try #require(object.keyframes.first)
+        pose.sampleID = 3
+        object.body = body
+        object.keyframes = [pose]
+        fit.fitted.objects = [object]
         var supported = try #require(fit.frames.first)
         supported.sampleID = 3
         supported.axis = "resolved"
@@ -82,14 +95,27 @@ struct PhysicalFitTests {
         unsupported.sampleID = 4
         unsupported.lengthSpanM = 40
         unsupported.widthSpanM = 20
-        unsupported.usedFor = ["pose"]
+        // Candidate diagnostics can survive the final support/pose trimming.
+        unsupported.usedFor = ["length", "width"]
         fit.frames = [unsupported, supported]
         #expect(fit.extentSample(width: false) == 3)
+        #expect(fit.extentSample(width: true) == 3)
+        var otherPose = pose
+        otherPose.sampleID = 4
+        fit.fitted.objects[0].keyframes.append(otherPose)
+        #expect(fit.extentSample(width: true) == 3)
+        fit.fitted.objects[0].body?.width.support = PhysicalSupport(frames: [3, 4])
+        fit.fitted.objects[0].keyframes = [pose]
         #expect(fit.extentSample(width: true) == 3)
         fit.frames[1].axis = "axial"
         #expect(fit.extentSample(width: false) == nil)
         fit.frames[1].axis = "resolved"
         fit.frames[1].skipped = "occluded"
+        #expect(fit.extentSample(width: true) == nil)
+        fit.frames[1].skipped = nil
+        fit.fitted.objects[0].body?.length.status = .inferred
+        #expect(fit.extentSample(width: false) == nil)
+        fit.fitted.objects[0].keyframes = []
         #expect(fit.extentSample(width: true) == nil)
     }
     @Test func bodyCoverageDoesNotCountUnresolvedOrSkippedFrames() throws {
