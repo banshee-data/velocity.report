@@ -114,13 +114,14 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Test recording and facet review contracts
+      - name: Test recording, body and facet review contracts
         run: >-
           make test-mac
           MAC_XCODE_FLAGS='CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO'
           MAC_TEST_OPTIONS='-only-testing:VelocityVisualiserTests/FollowingManagedReviewTests
           -only-testing:VelocityVisualiserTests/FollowingAuditTests
           -only-testing:VelocityVisualiserTests/FollowingEvidenceTests
+          -only-testing:VelocityVisualiserTests/PhysicalFitTests
           -only-testing:VelocityVisualiserTests/FacetPoseProposalTests
           -only-testing:VelocityVisualiserTests/OfflineFacetPoseControllerTests
           -only-testing:VelocityVisualiserTests/FacetJointPoseProposalTests

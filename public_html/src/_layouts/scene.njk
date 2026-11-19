@@ -149,7 +149,8 @@ layout: survey.njk
   .scene-label {
     position: absolute; transform: translate(-50%, -100%);
     font-size: 0.68rem; font-weight: 600; letter-spacing: 0.01em;
-    padding: 0.1rem 0.32rem; border-radius: 2px; white-space: nowrap;
+    padding: 0.1rem 0.32rem; border-radius: 2px; white-space: pre;
+    pointer-events: auto; cursor: help;
     background: rgba(11, 16, 19, 0.78); color: #ffd7d4;
     border: 1px solid rgba(242, 80, 75, 0.55);
   }
@@ -515,7 +516,7 @@ layout: survey.njk
     </label>
   </div>
 
-  <div class="scene-timeline__key">
+  <div class="scene-timeline__key" id="scene-timeline-key">
     <span class="scene-timeline__axis">Above</span>
     <span><i style="background:var(--scene-vehicle)"></i>Motor vehicles</span>
     <span><i class="scene-timeline__line" style="background:#f2a65a"></i>Max speed · 5 min</span>
@@ -525,6 +526,7 @@ layout: survey.njk
   </div>
 
   <p id="scene-stats" class="scene-transport__stats"></p>
+  <section id="scene-following-metrics" hidden aria-label="Following metrics for the recorded site"></section>
 
       <p class="sv-note sv-evidence-note"><span class="sv-amber" aria-hidden="true">◐</span> Research preview: the tracker still splits some tracks and produces unstable trails.</p>
       <p class="sv-note">The grey surroundings are what the sensor measured from one parked position at the recording time. They are measured spatial data, not a survey, plan or specification: a feature with no points was not observed, which does not mean it is absent. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">What the data is for</a></p>
@@ -625,6 +627,8 @@ layout: survey.njk
       labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),
+      timelineKey: document.getElementById("scene-timeline-key"),
+      followingStats: document.getElementById("scene-following-metrics"),
       lidarToggle: hasClip ? document.getElementById("scene-lidar") : null,
       boxesToggle: document.getElementById("scene-boxes"),
       trailsToggle: document.getElementById("scene-trails"),

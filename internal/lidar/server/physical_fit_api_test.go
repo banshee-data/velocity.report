@@ -92,6 +92,11 @@ func TestPhysicalFitAPIFitsAndTheDraftSaves(t *testing.T) {
 	c := physicalClient{t: t, base: srv.URL}
 
 	state := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
+	lifecycle := fitBody(state, "car-1")
+	lifecycle["lifecycle"] = true
+	if status, _ := c.do(http.MethodPost, "/api/lidar/annotations/physical/fit", lifecycle); status != http.StatusUnprocessableEntity {
+		t.Fatalf("stationary unresolved lifecycle fit: %d", status)
+	}
 	status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/fit", fitBody(state, "car-1", 4))
 	if status != http.StatusOK {
 		t.Fatalf("fit: %d %v", status, out)

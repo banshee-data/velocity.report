@@ -92,6 +92,7 @@ struct PhysicalFitResult: Codable, Equatable {
     var fitted: PhysicalFitImport
     var frames: [PhysicalFitFrame]
     var notes: [String]?
+    var lifecycle: PhysicalLifecycle? = nil
 
     enum CodingKeys: String, CodingKey {
         case objectID = "object_id"
@@ -100,10 +101,28 @@ struct PhysicalFitResult: Codable, Equatable {
         case fitted = "import"
         case frames
         case notes
+        case lifecycle
     }
 
     var object: PhysicalObject? { fitted.objects.first { $0.objectID == objectID } }
     func frame(sampleID: Int) -> PhysicalFitFrame? { frames.first { $0.sampleID == sampleID } }
+
+    /// Only frames actually admitted as full dimension support are candidates.
+    /// This is inspection, not a rule to freeze an arbitrary maximum box.
+    func extentSample(width: Bool) -> Int? {
+        guard let object, let body = object.body else { return nil }
+        let dimension = width ? body.width : body.length
+        guard dimension.status == .observed, dimension.span == .full else { return nil }
+        let support = Set(dimension.support.frameList)
+        return frames.filter {
+            $0.skipped == nil && $0.axis == "resolved" && support.contains($0.sampleID)
+                && object.keyframe(sampleID: $0.sampleID) != nil
+        }.max { a, b in
+            let x = width ? a.widthSpanM : a.lengthSpanM
+            let y = width ? b.widthSpanM : b.lengthSpanM
+            return x == y ? a.sampleID > b.sampleID : x < y
+        }?.sampleID
+    }
 
     func inspectionSample(for face: PhysicalFaceCoverage) -> Int? {
         face.samples.first { object?.keyframe(sampleID: $0) != nil } ?? face.samples.first
@@ -135,6 +154,37 @@ struct PhysicalFitResult: Codable, Equatable {
     }
 }
 
+struct PhysicalLifecycle: Codable, Equatable {
+    var schema: String
+    var bodyID: String
+    var packDigest: String
+    var informationUntil: String
+    var extentSamples: [Int]
+    var frames: [Frame]
+    struct Frame: Codable, Equatable {
+        var sampleID: Int
+        var status: String
+        var reason: String?
+        var usesFuture: Bool
+        var front: String
+        var rear: String
+        enum CodingKeys: String, CodingKey {
+            case sampleID = "sample_id"
+            case status, reason
+            case usesFuture = "uses_future_evidence"
+            case front, rear
+        }
+    }
+    enum CodingKeys: String, CodingKey {
+        case schema
+        case bodyID = "body_id"
+        case packDigest = "pack_digest"
+        case informationUntil = "information_until_unix_nanos"
+        case extentSamples = "extent_samples"
+        case frames
+    }
+}
+
 struct PhysicalFaceCoverage: Equatable {
     var name: String
     var samples: [Int]
@@ -144,6 +194,7 @@ struct PhysicalFaceCoverage: Equatable {
 enum PhysicalFitScope: Equatable {
     /// The size and every fitted pose.
     case object
+    case lifecycle
     /// The pose at one frame, and the size only if the draft has none.
     case pose(sampleID: Int)
 }
@@ -186,10 +237,18 @@ extension PhysicalDraft {
         _ fit: PhysicalFitResult, scope: PhysicalFitScope, to objects: inout [PhysicalObject]
     ) -> Int {
         guard let fitted = fit.object else { return 0 }
+        if scope == .lifecycle {
+            guard fit.lifecycle?.schema == "physical_lifecycle_refinement_v1",
+                fit.lifecycle?.bodyID == fitted.body?.bodyID
+            else { return 0 }
+        }
         let i = index(of: fit.objectID, in: &objects)
         var poses = fitted.keyframes
         switch scope {
         case .object: objects[i].body = fitted.body
+        case .lifecycle:
+            objects[i].body = fitted.body
+            objects[i].keyframes = []
         case .pose(let sampleID):
             poses = poses.filter { $0.sampleID == sampleID }
             if objects[i].body == nil { objects[i].body = fitted.body }

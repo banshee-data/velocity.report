@@ -107,6 +107,9 @@ type FitRequest struct {
 	Samples  []int
 	Author   string
 	Session  string
+	// Lifecycle places the same body at every reviewed frame where its pose
+	// can be bounded. This is an explicitly non-causal offline proposal.
+	Lifecycle bool
 }
 
 // FitBoundTerm is one named contribution to a bound, in metres.
@@ -166,6 +169,26 @@ type FitResult struct {
 	Import             *PhysicalReferenceImport `json:"import"`
 	Frames             []FitFrame               `json:"frames"`
 	Notes              []string                 `json:"notes,omitempty"`
+	Lifecycle          *FitLifecycle            `json:"lifecycle,omitempty"`
+}
+
+type FitLifecycle struct {
+	Schema           string              `json:"schema"`
+	BodyID           string              `json:"body_id"`
+	PackDigest       string              `json:"pack_digest"`
+	InformationUntil string              `json:"information_until_unix_nanos"`
+	ExtentSamples    []int               `json:"extent_samples"`
+	Frames           []FitLifecycleFrame `json:"frames"`
+}
+
+type FitLifecycleFrame struct {
+	SampleID   int            `json:"sample_id"`
+	Capture    string         `json:"capture_unix_nanos"`
+	Status     string         `json:"status"`
+	Reason     string         `json:"reason,omitempty"`
+	UsesFuture bool           `json:"uses_future_evidence"`
+	Front      EvidenceStatus `json:"front"`
+	Rear       EvidenceStatus `json:"rear"`
 }
 
 // fitSample is one frame of the object, with everything the fit derives.
@@ -252,6 +275,9 @@ func FitPhysicalObject(p *Pack, s *Sidecar, req FitRequest, opts FitOptions) (*F
 	res := &FitResult{ObjectID: req.ObjectID, MembershipRevision: s.Revision, MembershipDigest: s.Digest()}
 	ids := make([]int, 0, len(masks))
 	for id := range masks {
+		if id < 0 || id >= len(p.Samples) {
+			return nil, fmt.Errorf("reviewed sample %d is outside pack", id)
+		}
 		ids = append(ids, id)
 	}
 	sort.Ints(ids)
@@ -281,15 +307,46 @@ func FitPhysicalObject(p *Pack, s *Sidecar, req FitRequest, opts FitOptions) (*F
 		f.faces(opts)
 	}
 
-	body, lengthFrames, widthFrames, notes := fitBody(frames, opts)
+	bodyFrames := frames
+	if req.Lifecycle {
+		bodyFrames = nil
+		for _, f := range frames {
+			if f.axis == AxisResolved && f.detached[0]+f.detached[1] == 0 {
+				bodyFrames = append(bodyFrames, f)
+			}
+		}
+		if len(bodyFrames) == 0 {
+			return nil, fmt.Errorf("no resolved, uncontaminated frames support a lifecycle body")
+		}
+	}
+	body, lengthFrames, widthFrames, notes := fitBody(bodyFrames, opts)
 	res.Notes = append(res.Notes, notes...)
 	created := time.Now().UTC().Format(time.RFC3339Nano)
 	body.BodyID = newPhysicalID("body")
 	body.Review = fitReview(req, created, bodyAssumptions(body, opts))
+	if req.Lifecycle {
+		res.Lifecycle = &FitLifecycle{Schema: "physical_lifecycle_refinement_v1", BodyID: body.BodyID,
+			PackDigest: p.Manifest.PackDigest, ExtentSamples: sortedUnique(append(append(append([]int(nil), lengthFrames...), widthFrames...), body.Height.Support.Frames...)), Frames: []FitLifecycleFrame{}}
+		var until int64
+		for _, id := range ids {
+			if at := p.Samples[id].TimestampNs; at > until {
+				until = at
+			}
+		}
+		res.Lifecycle.InformationUntil = fmt.Sprint(until)
+		note := fmt.Sprintf("Non-causal lifecycle proposal; information through capture ns %d, including frame selection. Original online estimates are unchanged.", until)
+		body.Review.UncertaintyAssumptions += " " + note
+		body.Review.Provenance.Operation = "lifecycle_refinement"
+		res.Notes = append(res.Notes, note)
+	}
 
 	posed, withPose := map[int]bool{}, map[int]bool{}
 	var poseIDs []int
-	for _, group := range [][]int{lengthFrames, widthFrames, req.Samples} {
+	groups := [][]int{lengthFrames, widthFrames, req.Samples}
+	if req.Lifecycle {
+		groups = append(groups, ids)
+	}
+	for _, group := range groups {
 		for _, id := range group {
 			if !posed[id] {
 				posed[id] = true
@@ -305,18 +362,46 @@ func FitPhysicalObject(p *Pack, s *Sidecar, req FitRequest, opts FitOptions) (*F
 	var keyframes []PhysicalKeyframe
 	for _, id := range poseIDs {
 		f := byID[id]
+		var row FitLifecycleFrame
+		if req.Lifecycle {
+			row = FitLifecycleFrame{SampleID: id, Capture: fmt.Sprint(p.Samples[id].TimestampNs), Status: "abstained", Front: EvidenceUnknown, Rear: EvidenceUnknown,
+				UsesFuture: fmt.Sprint(p.Samples[id].TimestampNs) != res.Lifecycle.InformationUntil}
+		}
 		if f == nil {
-			res.Notes = append(res.Notes, fmt.Sprintf("sample %d: fewer than %d returns, no pose", id, opts.MinReturns))
+			if req.Lifecycle {
+				row.Reason = "insufficient reviewed returns"
+				res.Lifecycle.Frames = append(res.Lifecycle.Frames, row)
+			}
+			if !req.Lifecycle {
+				res.Notes = append(res.Notes, fmt.Sprintf("sample %d: fewer than %d returns, no pose", id, opts.MinReturns))
+			}
+			continue
+		}
+		if req.Lifecycle && (f.axis != AxisResolved || f.detached[0]+f.detached[1] > 0) {
+			row.Reason = "unresolved heading or detached support: inspect membership and identity"
+			res.Lifecycle.Frames = append(res.Lifecycle.Frames, row)
 			continue
 		}
 		k, why := fitPose(p, f, body, lengthFrames, opts)
 		if k == nil {
-			res.Notes = append(res.Notes, fmt.Sprintf("sample %d: no pose: %s", id, why))
+			if req.Lifecycle {
+				row.Reason = why
+				res.Lifecycle.Frames = append(res.Lifecycle.Frames, row)
+			}
+			if !req.Lifecycle {
+				res.Notes = append(res.Notes, fmt.Sprintf("sample %d: no pose: %s", id, why))
+			}
 			continue
 		}
 		withPose[id] = true
 		k.KeyframeID = newPhysicalID("keyframe")
 		k.Review = fitReview(req, created, k.Review.UncertaintyAssumptions)
+		if req.Lifecycle {
+			k.Review.Provenance.Operation = "lifecycle_refinement"
+			k.Review.UncertaintyAssumptions += " Non-causal lifecycle proposal; information through capture ns " + res.Lifecycle.InformationUntil + ". Hidden endpoints remain inferred; not an online estimate."
+			row.Status, row.Front, row.Rear = "proposed", k.Front.Status, k.Rear.Status
+			res.Lifecycle.Frames = append(res.Lifecycle.Frames, row)
+		}
 		keyframes = append(keyframes, *k)
 		f.used = append(f.used, "pose")
 	}
@@ -340,6 +425,9 @@ func FitPhysicalObject(p *Pack, s *Sidecar, req FitRequest, opts FitOptions) (*F
 		Schema: PhysicalImportSchema, SchemaVersion: PhysicalImportSchemaVersion,
 		PackDigest: p.Manifest.PackDigest, DatasetID: p.Manifest.DatasetID, Source: src,
 		Objects: []PhysicalObject{{ObjectID: req.ObjectID, Body: &body, Keyframes: keyframes}},
+	}
+	if req.Lifecycle {
+		res.Import.ReplaceKeyframes = []string{req.ObjectID}
 	}
 	return res, nil
 }

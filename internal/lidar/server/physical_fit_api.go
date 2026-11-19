@@ -22,6 +22,7 @@ type physicalFitRequest struct {
 	Samples            []int  `json:"samples"`
 	Author             string `json:"author"`
 	Session            string `json:"session"`
+	Lifecycle          bool   `json:"lifecycle"`
 }
 
 // handlePhysicalFit fits and returns proposals. It stores nothing: the client
@@ -61,7 +62,7 @@ func (ws *Server) handlePhysicalFit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := annotation.FitPhysicalObject(pack, sidecar, annotation.FitRequest{
-		ObjectID: req.ObjectID, Samples: req.Samples, Author: req.Author, Session: req.Session,
+		ObjectID: req.ObjectID, Samples: req.Samples, Author: req.Author, Session: req.Session, Lifecycle: req.Lifecycle,
 	}, annotation.DefaultFitOptions())
 	if err != nil {
 		if errors.Is(err, annotation.ErrMembershipChanged) {

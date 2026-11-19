@@ -161,6 +161,32 @@ class FeaturesTest(unittest.TestCase):
             },
         )
 
+    def test_proposed_lanes_keep_grade_and_field_provenance_without_adoption(self):
+        line = {
+            "type": "LineString",
+            "coordinates": [self.site(1, -2, -2), self.site(30, -2, -2)],
+        }
+        proposal = feature(
+            "lane_proposals",
+            line,
+            kind="travel_lane",
+            confidence="medium",
+            field_ids="sha256:field",
+            author="private name",
+        )
+        adopted = feature(
+            "lane_proposals", line, kind="travel_lane", adopted_by="saved-lane"
+        )
+        rejected = feature(
+            "lane_proposals", line, kind="travel_lane", review="rejected"
+        )
+        [out] = self.features({"features": [proposal, adopted, rejected]})
+        self.assertEqual(out["properties"]["confidence"], "medium")
+        self.assertEqual(out["properties"]["field_ids"], "sha256:field")
+        self.assertEqual(out["properties"]["evidence_status"], "inferred")
+        self.assertNotIn("author", out["properties"])
+        self.assertNotIn("adopted_by", out["properties"])
+
     def test_travel_lanes_keep_their_direction_and_limit_only(self):
         line = {
             "type": "LineString",

@@ -434,17 +434,40 @@ import Foundation
         let request = PhysicalReferenceAPIClient.FitRequest(
             pack: packHandle, packDigest: packDigest, membershipDigest: membershipDigest(),
             objectID: objectID, samples: samples, author: author(), session: sessionID)
+        var fitRequest = request
+        fitRequest.lifecycle = scope == .lifecycle
         generation &+= 1
+        let asked = generation
         busy = true
+        defer { if asked == generation { busy = false } }
         let result: PhysicalFitResult
-        do { result = try await client.fit(request) } catch let error as PhysicalReferenceAPIError {
-            busy = false
+        do { result = try await client.fit(fitRequest) } catch let error
+            as PhysicalReferenceAPIError
+        {
+            guard asked == generation else { return false }
             report(error)
             return false
         } catch {
-            busy = false
+            guard asked == generation else { return false }
             report(.transport(error.localizedDescription))
             return false
+        }
+        guard asked == generation, request.membershipDigest == membershipDigest(),
+            result.objectID == objectID
+        else { return false }
+        if scope == .lifecycle {
+            guard let lifecycle = result.lifecycle,
+                lifecycle.schema == "physical_lifecycle_refinement_v1",
+                lifecycle.packDigest == packDigest, lifecycle.bodyID == result.object?.body?.bodyID,
+                result.membershipDigest == request.membershipDigest,
+                Int64(lifecycle.informationUntil) != nil
+            else {
+                report(
+                    .transport(
+                        "The service returned an incompatible lifecycle proposal. No draft was changed."
+                    ))
+                return false
+            }
         }
         busy = false
         var placed = 0
@@ -472,7 +495,7 @@ import Foundation
         let sizes = [size("length", body?.length), size("width", body?.width)].compactMap { $0 }
         let poses = placed == 1 ? "1 pose" : "\(placed) poses"
         let what =
-            scope == .object
+            scope == .object || scope == .lifecycle
             ? "Fitted \(sizes.joined(separator: ", ")); placed \(poses)"
             : "Fitted the pose at this frame"
         return what + ". Check each in the views, save, then review."

@@ -22,6 +22,9 @@ The [motion-capture operations runbook](operations/motion-capture-following-oper
 tracks existing capture coverage, scalable following/DRAC processing, operator review,
 and the separate physical-qualification gates.
 
+The [lifecycle and three-site review record](operations/lifecycle-following-three-sites-2026-11.md)
+tracks persistent body proposals, full-capture following exports and proposed lane context.
+
 The [weekend following and DRAC evidence plan](../plans/lidar-weekend-following-drac-plan.md)
 connects the [oracle questions](../research/lidar-weekend-facets-headway-drac-oracle-brief.md)
 and [response](../research/lidar-weekend-facets-headway-drac-oracle-response.md) to the v0.5.2

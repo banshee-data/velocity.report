@@ -4,6 +4,7 @@ package lidar
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"os"
@@ -19,7 +20,24 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/report/headway/fieldrun"
+	"github.com/banshee-data/velocity.report/internal/scene"
 )
+
+func TestFollowingProjectedGapFollowsCurvedPathWithoutExtrapolation(t *testing.T) {
+	p := &l8behaviour.LocalPath{Vertices: []l8behaviour.PathVertex{{X: 0, Y: 0, ArcM: 0}, {X: 3, Y: 0, ArcM: 3}, {X: 3, Y: 4, ArcM: 7}}}
+	got := projectedGapPath(p, 1, 5)
+	if len(got) != 3 || got[0] != [2]float64{1, 0} || got[1] != [2]float64{3, 0} || got[2] != [2]float64{3, 2} {
+		t.Fatal(got)
+	}
+	for _, bounds := range [][2]float64{{-1, 3}, {1, 8}, {3, 3}, {4, 2}} {
+		if projectedGapPath(p, bounds[0], bounds[1]) != nil {
+			t.Fatal(bounds)
+		}
+	}
+	if projectedGapPath(nil, 1, 2) != nil {
+		t.Fatal("missing path")
+	}
+}
 
 func followingJSON(t *testing.T, path string, value any) []byte {
 	t.Helper()
@@ -128,6 +146,41 @@ func TestFollowingCorpusPublishesPairedSceneAndNoPartialSuccess(t *testing.T) {
 	if _, err = os.Stat(filepath.Join(out, "recording-000", "manifest.json")); err != nil {
 		t.Fatal("standalone scene manifest:", err)
 	}
+	chunks, err := filepath.Glob(filepath.Join(out, "recording-000", "scene", "frames", "*.ndjson.gz"))
+	if err != nil || len(chunks) == 0 {
+		t.Fatal("missing scene frames", err)
+	}
+	minimumFrames := 0
+	for _, path := range chunks {
+		file, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gz, err := gzip.NewReader(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoder := json.NewDecoder(gz)
+		for decoder.More() {
+			var frame scene.Frame
+			if err := decoder.Decode(&frame); err != nil {
+				t.Fatal(err)
+			}
+			for _, track := range frame.Tracks {
+				if value := track.Following; value != nil && value.MinimumTimeGapS != nil {
+					minimumFrames++
+					if *value.MinimumTimeGapS != 1 || frame.TimeUs != 100_000 && (value.GapM != nil || value.TimeGapS != nil || value.DRAC != nil) {
+						t.Fatal("whole-track metadata changed instantaneous evidence", frame)
+					}
+				}
+			}
+		}
+		_ = gz.Close()
+		_ = file.Close()
+	}
+	if minimumFrames != 3 {
+		t.Fatal("minimum did not cover the opening and excluded frames", minimumFrames)
+	}
 	index := filepath.Join(run.VRLogPath, "index.bin")
 	if err = os.Rename(index, index+".saved"); err != nil {
 		t.Fatal(err)
@@ -157,7 +210,7 @@ func TestFollowingCorpusPublishesPairedSceneAndNoPartialSuccess(t *testing.T) {
 	if err = os.WriteFile(slice, []byte("changed"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err = exportFollowingScene(s, filepath.Join(t.TempDir(), "changed-scene")); err == nil {
+	if err = exportFollowingScene(s, filepath.Join(t.TempDir(), "changed-scene"), followingreview.Analysis{}); err == nil {
 		t.Fatal("changed evidence accepted")
 	}
 	if err = analyseCorpus(db, []string{run.RunID}, filepath.Join(t.TempDir(), "changed-corpus"), false); err == nil {

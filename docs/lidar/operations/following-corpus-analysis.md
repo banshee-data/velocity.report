@@ -54,6 +54,34 @@ does not qualify endpoints, speed, common path or physical identity.
 
 ## Scene distance export
 
+The shared player also draws the projected path from the follower's leading extreme to the
+leader's trailing extreme. It is an arc-length projection, not a centre-to-centre ruler or a
+lane boundary. Exact eligible samples retain both analysis speeds, DRAC availability and the
+whole-track minimum net time gap. Gap-time colours use the five histogram bins above; the
+track minimum can depend on later frames and is labelled accordingly. Missing values stay
+unavailable. The recording's site histogram includes tracks without a usable minimum.
+
+Following exports use the existing timeline strip to show maximum supported experimental DRAC
+and minimum instantaneous time gap per bucket. Seeking never interpolates a missing sample.
+Package three explicit development sites through the existing scene tool:
+
+```sh
+node tools/scene-capture/cli.mjs following-review /absolute/corpus /absolute/new-web-export \
+  ashbury-downey,columbus-broadway,embarcadero-bryant /absolute/local-context
+```
+
+The optional context root holds `SITE/assets/` from the existing vector exporter, including its
+checked placement. The packager verifies the archive deployment window and sensor frame before
+copying context. Saved inferred lanes are cyan; unapproved lane proposals are violet. Missing
+lanes are reported rather than substituted with a vehicle path. Serve the resulting directory
+over local HTTP; its player, dependencies and scene data are self-contained.
+
+After a full headless replay, `velocity lidar lane-field --recording VRLOG --run LOCAL_ID --out
+NEW_FIELDS --upload --l16 TOKEN --gerardus http://arrow-worker:50061` reuses the lane job's existing
+confirmed-track reader. It needs no invented database run and no second tracking replay. Only
+the existing privacy-thresholded aggregate fields are uploaded. Retrieve `lane_proposals` through
+the existing Gerardus/vector workflow to retain proposals without approving them.
+
 `--scenes` writes a full-resolution tracks scene under each `recording-NNN/scene` with a
 standalone `recording-NNN/manifest.json` for the shared scene reader. Exact samples
 carry `following`: leader, bucket and eligible projected `gap_m`, `net_time_gap_s` and supported

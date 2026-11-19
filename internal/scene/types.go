@@ -97,19 +97,37 @@ type Header struct {
 // FollowingProvenance binds optional estimated distances to their exact paired
 // recording and analysis. These values are review evidence, not physical truth.
 type FollowingProvenance struct {
-	EvidenceSHA256 string `json:"evidence_sha256"`
-	CalibrationID  string `json:"calibration_id"`
-	AnalysisBuild  string `json:"analysis_build_git_sha"`
-	MethodID       string `json:"method_id"`
-	Status         string `json:"status"`
+	EvidenceSHA256 string            `json:"evidence_sha256"`
+	CalibrationID  string            `json:"calibration_id"`
+	AnalysisBuild  string            `json:"analysis_build_git_sha"`
+	MethodID       string            `json:"method_id"`
+	Status         string            `json:"status"`
+	Summary        *FollowingSummary `json:"summary,omitempty"`
+}
+
+type FollowingSummary struct {
+	Population     string         `json:"population"`
+	Tracks         int            `json:"tracks"`
+	WithoutTimeGap int            `json:"without_time_gap"`
+	Histogram      []FollowingBin `json:"histogram"`
+}
+
+type FollowingBin struct {
+	Label string `json:"label"`
+	Count int    `json:"count"`
 }
 
 type FollowingJSON struct {
-	Leader   string   `json:"leader_id,omitempty"`
-	Bucket   string   `json:"bucket"`
-	GapM     *float64 `json:"gap_m,omitempty"`
-	TimeGapS *float64 `json:"net_time_gap_s,omitempty"`
-	DRAC     *float64 `json:"experimental_drac_mps2,omitempty"`
+	Leader          string       `json:"leader_id,omitempty"`
+	Bucket          string       `json:"bucket"`
+	GapM            *float64     `json:"gap_m,omitempty"`
+	TimeGapS        *float64     `json:"net_time_gap_s,omitempty"`
+	DRAC            *float64     `json:"experimental_drac_mps2,omitempty"`
+	DRACStatus      string       `json:"drac_status,omitempty"`
+	FollowerSpeed   *float64     `json:"follower_speed_mps,omitempty"`
+	LeaderSpeed     *float64     `json:"leader_speed_mps,omitempty"`
+	MinimumTimeGapS *float64     `json:"track_minimum_time_gap_s,omitempty"`
+	GapPath         [][2]float64 `json:"projected_gap_xy,omitempty"`
 }
 
 // CoordinateFrame is the spatial reference, minus any georeferencing origin.
@@ -364,11 +382,13 @@ type VehicleSpeedBucket struct {
 // split because a street busy with people reads very differently from one busy
 // with cars, and a single "objects" number hides that.
 type TimelineBucket struct {
-	StartSec float64 `json:"t"`
-	Vehicle  float64 `json:"veh"`
-	Person   float64 `json:"ped"`
-	Cycle    float64 `json:"cyc"`
-	Other    float64 `json:"oth"`
-	MaxSpeed float64 `json:"spd"`
-	Frames   int     `json:"n"`
+	StartSec        float64  `json:"t"`
+	Vehicle         float64  `json:"veh"`
+	Person          float64  `json:"ped"`
+	Cycle           float64  `json:"cyc"`
+	Other           float64  `json:"oth"`
+	MaxSpeed        float64  `json:"spd"`
+	Frames          int      `json:"n"`
+	MinimumTimeGapS *float64 `json:"minimum_time_gap_s,omitempty"`
+	MaxDRAC         *float64 `json:"maximum_experimental_drac_mps2,omitempty"`
 }

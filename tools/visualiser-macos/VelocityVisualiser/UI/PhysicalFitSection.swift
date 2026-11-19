@@ -41,6 +41,13 @@ struct PhysicalFitSection: View {
                     "Fits the pose at this frame. The size is kept if the draft has one.")
             }.controlSize(.small).disabled(
                 blocker != nil || !physical.canEdit || physical.needsReload)
+            Button("Refine lifecycle") {
+                Task { await physical.fit(objectID: objectID, scope: .lifecycle) }
+            }.controlSize(.small).disabled(
+                blocker != nil || !physical.canEdit || physical.needsReload
+            ).help(
+                "Uses one body across reviewed frames. Non-causal proposals replace the object's draft poses; unsupported frames abstain. Original online tracks are unchanged."
+            )
             if let fit = physical.lastFit, fit.objectID == objectID { fitted(fit) }
         }
     }
@@ -70,6 +77,26 @@ struct PhysicalFitSection: View {
         VStack(alignment: .leading, spacing: 3) {
             if let body = fit.object?.body { Text(sizeLine(body)).font(.caption.monospacedDigit()) }
             coverage(fit)
+            if let lifecycle = fit.lifecycle {
+                HStack {
+                    extentButton("Inspect longest view", width: false, fit: fit)
+                    extentButton("Inspect widest view", width: true, fit: fit)
+                }.font(.caption2)
+                Text(
+                    "Offline lifecycle · \(lifecycle.frames.filter { $0.status == "proposed" }.count) poses · \(lifecycle.frames.filter { $0.status == "abstained" }.count) abstentions"
+                ).font(.caption.bold())
+                Text(
+                    "Uses later evidence; hidden ends remain inferred. Original online estimates are unchanged."
+                ).font(.caption2).foregroundStyle(.orange)
+                if let id = session.currentSample?.sampleID,
+                    let row = lifecycle.frames.first(where: { $0.sampleID == id })
+                {
+                    Text(
+                        row.reason
+                            ?? "Front: \(row.front) · rear: \(row.rear)\(row.usesFuture ? " · later evidence" : "")"
+                    ).font(.caption2)
+                }
+            }
             ForEach(fit.notes ?? [], id: \.self) { note in
                 Text(note).font(.caption2).foregroundStyle(.orange).fixedSize(
                     horizontal: false, vertical: true)
@@ -84,6 +111,16 @@ struct PhysicalFitSection: View {
             }
         }.padding(6).background(
             Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    @ViewBuilder private func extentButton(
+        _ title: String, width: Bool, fit: PhysicalFitResult
+    ) -> some View {
+        if let sample = fit.extentSample(width: width),
+            let index = session.samples.firstIndex(where: { $0.sampleID == sample })
+        {
+            Button(title) { _ = session.step(to: index) }.disabled(session.navigationGuard() != nil)
+        }
     }
 
     private func coverage(_ fit: PhysicalFitResult) -> some View {

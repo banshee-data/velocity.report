@@ -32,6 +32,10 @@ type PhysicalReferenceImport struct {
 	Source        PhysicalSource       `json:"source"`
 	Objects       []PhysicalObject     `json:"objects"`
 	Following     []FollowingReference `json:"following,omitempty"`
+	// ReplaceKeyframes explicitly replaces these objects' complete pose sets.
+	// It requires replace permission and a replacement body in this import.
+	// Strict readers without this capability reject the unknown field.
+	ReplaceKeyframes []string `json:"replace_keyframes,omitempty"`
 }
 
 // LoadPhysicalImport reads and parses an import file, bounded like a sidecar.
@@ -100,6 +104,17 @@ func (imp *PhysicalReferenceImport) MergeInto(doc *PhysicalReferenceSet, replace
 	if imp.Source != doc.Source {
 		return fmt.Errorf("import source %+v differs from the document's %+v", imp.Source, doc.Source)
 	}
+	replacePoses := map[string]bool{}
+	for _, id := range imp.ReplaceKeyframes {
+		if !replace || id == "" || replacePoses[id] {
+			return fmt.Errorf("replace_keyframes needs replace permission and distinct non-empty object IDs")
+		}
+		i := indexOfObject(imp.Objects, id)
+		if i < 0 || imp.Objects[i].Body == nil {
+			return fmt.Errorf("replace_keyframes object %q needs a replacement body in the import", id)
+		}
+		replacePoses[id] = true
+	}
 	var conflicts []string
 	for _, in := range clonePhysicalObjects(imp.Objects) {
 		i := indexOfObject(doc.Objects, in.ObjectID)
@@ -108,6 +123,9 @@ func (imp *PhysicalReferenceImport) MergeInto(doc *PhysicalReferenceSet, replace
 			continue
 		}
 		have := &doc.Objects[i]
+		if replacePoses[in.ObjectID] {
+			have.Keyframes = nil
+		}
 		if in.Body != nil {
 			if have.Body != nil && !replace {
 				conflicts = append(conflicts, fmt.Sprintf("object %s already has body %s", in.ObjectID, have.Body.BodyID))

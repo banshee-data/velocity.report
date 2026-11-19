@@ -153,6 +153,63 @@ func fitCar(t *testing.T, p *Pack, s *Sidecar, samples ...int) *FitResult {
 	return res
 }
 
+func TestFitLifecycleUsesOneBodyAndRetainsAbstentions(t *testing.T) {
+	p, s := fitScenePack(t, passingCar(), "")
+	for i := range s.Masks {
+		if s.Masks[i].ObjectID == "car" && s.Masks[i].SampleID == 0 {
+			s.Masks[i].PointIndices = s.Masks[i].PointIndices[:1]
+		}
+	}
+	before, _ := json.Marshal(s)
+	result, err := FitPhysicalObject(p, s, FitRequest{ObjectID: "car", Author: "op", Lifecycle: true}, DefaultFitOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	life := result.Lifecycle
+	if life == nil || life.Schema != "physical_lifecycle_refinement_v1" || life.BodyID != result.Import.Objects[0].Body.BodyID || life.PackDigest != p.Manifest.PackDigest || len(life.Frames) != 31 || len(life.ExtentSamples) == 0 {
+		t.Fatal(life)
+	}
+	if life.InformationUntil != "4000000000" || !life.Frames[0].UsesFuture || life.Frames[30].UsesFuture {
+		t.Fatal(life)
+	}
+	if life.Frames[0].Status != "abstained" || life.Frames[0].Reason == "" || life.Frames[0].Front != EvidenceUnknown {
+		t.Fatal(life.Frames[0])
+	}
+	proposed := 0
+	for _, row := range life.Frames {
+		if row.Status == "proposed" {
+			proposed++
+		}
+	}
+	if proposed == 0 || proposed != len(result.Import.Objects[0].Keyframes) {
+		t.Fatal(proposed)
+	}
+	doc := result.Import.Document()
+	doc.Objects[0].Keyframes = append(doc.Objects[0].Keyframes, PhysicalKeyframe{SampleID: 0})
+	if err := result.Import.MergeInto(doc, true); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Objects[0].Keyframes) != proposed {
+		t.Fatal("headless lifecycle import retained old poses at abstained frames")
+	}
+	for _, k := range result.Import.Objects[0].Keyframes {
+		if k.SampleID == 0 || k.Review.Status != StatusProposed || k.Review.Provenance.Operation != "lifecycle_refinement" || !strings.Contains(k.Review.UncertaintyAssumptions, life.InformationUntil) {
+			t.Fatal(k)
+		}
+	}
+	after, _ := json.Marshal(s)
+	if !bytes.Equal(before, after) {
+		t.Fatal("refinement changed original membership")
+	}
+}
+
+func TestFitLifecycleRejectsUnresolvedBodyEvidence(t *testing.T) {
+	p, s := fitScenePack(t, [][]fitBox{{{cx: 10, cy: 6, l: 4.5, w: 1.8}}}, "")
+	if _, err := FitPhysicalObject(p, s, FitRequest{ObjectID: "car", Author: "op", Lifecycle: true}, DefaultFitOptions()); err == nil || !strings.Contains(err.Error(), "no resolved") {
+		t.Fatal(err)
+	}
+}
+
 // The fit recovers a box it can see from every side within the bounds it
 // states, and the import it writes passes every check an import makes.
 func TestFitRecoversAPassingCarWithinItsBounds(t *testing.T) {

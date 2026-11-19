@@ -559,6 +559,16 @@ It is a source sketch, not another independent reference. Discard removes that s
    apart from the body usually mean a mask holding something else), and what this frame shows of
    each face: seen or not, why, and its bound with the terms it adds up. See
    [Fitting to reviewed points](#fitting-to-reviewed-points) for what a fitted box means.
+   **Refine lifecycle** extends this same fit across every reviewed frame, using one persistent
+   body. Resolved, uncontaminated frames support its dimensions; sparse, detached or ambiguous
+   frames abstain. Its diagnostics name the extent-supporting frames, every target and the
+   latest capture time used. Earlier poses are explicitly non-causal; hidden ends stay inferred.
+   The action replaces this object's draft poses, including removal at abstained frames, in one
+   undo step. It does not change the original online track or accept a physical reference.
+   The same headless workflow is `velocity lidar annotation-reference fit --lifecycle`, with
+   `--diagnostics` retaining the lifecycle support and abstentions beside the normal import file.
+   Lifecycle imports name `replace_keyframes` and require `--replace`: the complete pose set is
+   replaced, so an old pose cannot survive at a frame where the new fit abstained.
 3. **1 · Object size · all frames** holds one length, width and height for the whole episode.
    Each dimension is **Full**, **At least** or **Unknown**; there is no evidence picker. A fitted
    dimension says how it is known beneath it. Set by hand, a full value is inferred from the
@@ -722,6 +732,9 @@ pins writes version 4. Existing version-2 and version-3 bundles remain readable.
 An independent reference measured elsewhere comes in through an import file,
 `velocity.report/physical-reference-import` version 1. It holds `pack_digest`, `dataset_id`,
 `source`, `objects` and `following` exactly as the record does, without the fields the store sets.
+The optional `replace_keyframes` array names objects whose complete pose sets must be replaced.
+Each needs a replacement body in the import and explicit `--replace` permission. Older strict
+readers reject this field rather than silently retaining poses that a lifecycle fit rejected.
 It is merged into the current references, and the merged document passes every check a save
 makes, including the stored origin ledger and the links, before it is saved as a new revision. It
 is never checked on its own, since it may add a keyframe to a body already stored:

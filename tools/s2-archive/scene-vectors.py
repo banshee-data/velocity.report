@@ -109,6 +109,7 @@ LAYERS = {
     # lane snapshot copies, with each lane's limit as signed. Only travel lanes
     # are kept; parking spaces, driveways and surfaces stay in Gerardus.
     "street_use": ("inferred", ("operator",)),
+    "lane_proposals": ("inferred", ("lane_field",)),
 }
 # What a travel lane keeps: its type and width, its direction of travel by
 # bound and name, and its limit as signed with its source and effective
@@ -424,7 +425,14 @@ def scene_features(collection, apply, radius_m=RADIUS_M, include_registration=Fa
             continue
         if layer == "observed" and props.get("kind") not in OBSERVED_KINDS:
             continue
-        if layer == "street_use" and props.get("kind") != "travel_lane":
+        if (
+            layer in ("street_use", "lane_proposals")
+            and props.get("kind") != "travel_lane"
+        ):
+            continue
+        if layer == "lane_proposals" and (
+            props.get("adopted_by") or props.get("review") == "rejected"
+        ):
             continue
         geometry = feature.get("geometry") or {}
         if geometry.get("type") not in (
@@ -454,8 +462,13 @@ def scene_features(collection, apply, radius_m=RADIUS_M, include_registration=Fa
             v = number(props.get(key))
             if v is not None:
                 out[key] = round(v, 2)
-        if layer == "street_use":
-            for key in LANE_PROPERTIES:
+        if layer in ("street_use", "lane_proposals"):
+            keys = LANE_PROPERTIES + (
+                ("confidence", "spread_m", "windows_agree_m", "field_ids")
+                if layer == "lane_proposals"
+                else ()
+            )
+            for key in keys:
                 if props.get(key) not in (None, ""):
                     out[key] = str(props[key])
         kept.append(
@@ -661,6 +674,16 @@ def build_collection(site, title, assets, base=None, scan_id=None, radius_m=RADI
         {s for f in features for s in f["properties"]["source_ids"]}
         | (set(ground["source_ids"]) if ground else set())
     )
+    if "lane_field" in used:
+        sources.setdefault(
+            "lane_field",
+            {
+                "id": "lane_field",
+                "name": "Privacy-thresholded lane fields from velocity.report",
+                "terms": "Local review evidence; redistribution permission not asserted",
+                "url": "https://github.com/banshee-data/velocity.report",
+            },
+        )
     summary = record.get("summary", {})
     placement = {
         "method": "the inverse of Gerardus's accepted pose for the site's scan:"
