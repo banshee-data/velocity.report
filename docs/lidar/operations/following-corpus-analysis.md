@@ -47,6 +47,12 @@ marker. The registered database is read-only. No VV, browser, listener or intera
 required. The corpus is explicit: no glob silently adds validation material. Repeated windows
 are not additional independent exposure.
 
+Canonical evidence is verified as a stream, using a bounded 1 MiB source buffer rather
+than issuing the JSON parser's small reads directly to storage. Every byte is still
+hashed and trailing or malformed input is refused; the separate geometry-cache bound
+is unchanged. A 525,314-byte regression fixture reduced source reads from 139 to two
+with the same digest. This checks read batching, not attached-drive throughput.
+
 This command reduces already computed following evidence; it does not rerun tracking or change
 parameters. For fresh following decisions from packets, first run the stamped
 [review preparer](../../../cmd/tools/following-review-prepare/README.md) with an explicit capture,

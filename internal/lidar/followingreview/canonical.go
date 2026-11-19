@@ -1,6 +1,7 @@
 package followingreview
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -40,7 +41,9 @@ func readCanonical(r io.Reader) (canonical, error) {
 func readCanonicalLimit(r io.Reader, limit int) (canonical, error) {
 	var c canonical
 	h := sha256.New()
-	d := json.NewDecoder(io.TeeReader(r, h))
+	// Streaming token reads are only a few KiB. Batch source I/O without
+	// retaining the large ignored row arrays or changing the hashed bytes.
+	d := json.NewDecoder(io.TeeReader(bufio.NewReaderSize(r, 1<<20), h))
 	d.UseNumber()
 	seen := map[string]bool{}
 	err := object(d, func(key string) error {
