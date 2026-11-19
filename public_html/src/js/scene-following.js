@@ -1,3 +1,58 @@
+// Missing legacy scope preserves existing scenes. A present but unsupported
+// scope fails closed rather than assigning a pose to an unreviewed period.
+export function followingScopePeriods(header) {
+  const scope = header?.following?.review_scope;
+  if (!scope) return null;
+  try {
+    if (
+      scope.schema !== "following_static_review_v1" ||
+      scope.site !== header.site ||
+      !/^sha256:[0-9a-f]{64}$/.test(scope.catalog_sha256) ||
+      !Array.isArray(scope.periods) ||
+      !scope.periods.length
+    )
+      return [];
+    let previous;
+    return scope.periods.map((p) => {
+      if (
+        typeof p.start_ns !== "string" ||
+        typeof p.end_ns !== "string" ||
+        !/^-?\d+$/.test(p.start_ns) ||
+        !/^-?\d+$/.test(p.end_ns)
+      )
+        throw Error("Invalid review timestamp");
+      const start = BigInt(p.start_ns),
+        end = BigInt(p.end_ns);
+      if (start >= end || (previous !== undefined && start <= previous))
+        throw Error("Invalid review coverage");
+      previous = end;
+      return { start, end };
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function followingScopeAt(header, offsetUs) {
+  const periods = followingScopePeriods(header);
+  if (periods === null) return { scoped: false, available: true };
+  if (
+    !periods.length ||
+    !Number.isFinite(offsetUs) ||
+    Math.abs(offsetUs) > Number.MAX_SAFE_INTEGER
+  )
+    return { scoped: true, available: false };
+  try {
+    const at = BigInt(header.start_ns) + BigInt(Math.floor(offsetUs)) * 1000n;
+    return {
+      scoped: true,
+      available: periods.some((p) => at >= p.start && at < p.end),
+    };
+  } catch {
+    return { scoped: true, available: false };
+  }
+}
+
 // Only exact, eligible estimates belong in a scene's relationship label.
 export function followingLabel(track) {
   const value = track?.following;
@@ -93,11 +148,14 @@ export function renderFollowingStats(host, following) {
     host.append(row);
   }
   const note = doc.createElement("p");
-  note.textContent = `${s.tracks - s.without_time_gap} with estimates · ${s.without_time_gap} unavailable · ${s.tracks} software tracks. One minimum per track over the whole recording, including later evidence. Identity breaks can count a vehicle twice. Provisional, unvalidated estimates.`;
+  const population = following.review_scope
+    ? "Minima use catalogued stationary periods and complete path support within one period; denominator includes all software tracks in the recording."
+    : "One minimum per track over the whole recording.";
+  note.textContent = `${s.tracks - s.without_time_gap} with estimates · ${s.without_time_gap} unavailable · ${s.tracks} software tracks. ${population} Includes later evidence. Identity breaks can count a vehicle twice. Provisional, unvalidated estimates.`;
   host.append(note);
   const key = doc.createElement("p");
   key.textContent =
-    "Timeline: orange = peak experimental DRAC (m/s²); band = instantaneous net time gap. Boxes = whole-track minimum. Grey = unavailable. Cyan lines = saved inferred lanes; violet = proposals. Gap lines measure the projected following path.";
+    "Timeline: orange = peak experimental DRAC (m/s²); band = instantaneous net time gap. Boxes = minimum within eligible review coverage. Grey = unavailable; shaded timeline gaps = outside catalogued stationary periods. Cyan lines = saved inferred lanes; violet = proposals. Gap lines measure the projected following path.";
   host.append(key);
 }
 

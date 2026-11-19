@@ -252,16 +252,16 @@ func TestFollowingCorpusRefusesInvalidSampleOrder(t *testing.T) {
 }
 
 func TestFollowingCLIParsingAndRunnerErrors(t *testing.T) {
-	args := []string{"--db", "db", "--runs", "one,two", "--output", "out", "--scenes"}
-	if code := followingMain(args, func(db string, ids []string, out string, scenes bool) error {
-		if db != "db" || len(ids) != 2 || out != "out" || !scenes {
+	args := []string{"--db", "db", "--runs", "one,two", "--output", "out", "--scenes", "--context-catalog", "catalog.json"}
+	if code := followingMain(args, func(db string, ids []string, out string, scenes bool, catalog string) error {
+		if db != "db" || len(ids) != 2 || out != "out" || !scenes || catalog != "catalog.json" {
 			t.Fatal(db, ids, out, scenes)
 		}
 		return nil
 	}); code != 0 {
 		t.Fatal(code)
 	}
-	if code := followingMain(args, func(string, []string, string, bool) error { return errors.New("refused") }); code != 1 {
+	if code := followingMain(args, func(string, []string, string, bool, string) error { return errors.New("refused") }); code != 1 {
 		t.Fatal(code)
 	}
 	if code := FollowingMain([]string{"--unknown"}); code != 2 {
@@ -269,5 +269,70 @@ func TestFollowingCLIParsingAndRunnerErrors(t *testing.T) {
 	}
 	if err := analyseCorpus(filepath.Join(t.TempDir(), "missing.db"), []string{"one"}, filepath.Join(t.TempDir(), "out"), false); err == nil {
 		t.Fatal("missing database accepted")
+	}
+}
+
+func TestFollowingScopedScenePreservesFramesAndExcludesUnreviewableMeasurements(t *testing.T) {
+	db, run, _ := followingCorpusFixture(t)
+	root := t.TempDir()
+	catalog := filepath.Join(root, "site-index.json")
+	followingJSON(t, catalog, []any{map[string]any{"id": "site", "static_parts": []any{map[string]string{"start": "1970-01-01T00:00:01.15Z", "end": "1970-01-01T00:00:02Z"}}}})
+	out := filepath.Join(root, "review")
+	if err := analyseCorpusWithContext(db, []string{run.RunID}, out, true, catalog); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(out, "complete.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Recordings []followingreview.Analysis `json:"recordings"`
+	}
+	if err := json.Unmarshal(b, &result); err != nil || len(result.Recordings) != 1 {
+		t.Fatal(err, string(b))
+	}
+	a := result.Recordings[0]
+	if a.ReviewScope == nil || a.Rows != 2 || a.Tracks != 1 || a.WithoutTimeGap != 1 || len(a.Minima) != 0 || a.Buckets["outside_catalogued_static_period"] != 1 {
+		t.Fatal(a)
+	}
+	b, err = os.ReadFile(filepath.Join(out, "recording-000/scene/header.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var h scene.Header
+	if err := json.Unmarshal(b, &h); err != nil || h.FrameCount != 3 || h.Following.ReviewScope == nil || h.Following.Summary.WithoutTimeGap != 1 {
+		t.Fatal(err, string(b))
+	}
+	files, _ := filepath.Glob(filepath.Join(out, "recording-000/scene/frames/*.ndjson.gz"))
+	for _, path := range files {
+		f, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gz, err := gzip.NewReader(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		d := json.NewDecoder(gz)
+		for d.More() {
+			var frame scene.Frame
+			if err := d.Decode(&frame); err != nil {
+				t.Fatal(err)
+			}
+			for _, track := range frame.Tracks {
+				if v := track.Following; v != nil && (v.GapM != nil || v.TimeGapS != nil || v.DRAC != nil || v.MinimumTimeGapS != nil) {
+					t.Fatal("excluded measurement leaked", frame)
+				}
+			}
+		}
+		_ = gz.Close()
+		_ = f.Close()
+	}
+	if err := analyseCorpusWithContext(db, []string{run.RunID}, filepath.Join(root, "missing"), false, filepath.Join(root, "absent.json")); err == nil {
+		t.Fatal("missing catalogue accepted")
+	}
+	followingJSON(t, catalog, []any{map[string]any{"id": "other"}})
+	if err := analyseCorpusWithContext(db, []string{run.RunID}, filepath.Join(root, "wrong"), false, catalog); err == nil {
+		t.Fatal("wrong site accepted")
 	}
 }

@@ -5,6 +5,8 @@ import {
   gapBand,
   followingRelationships,
   renderFollowingStats,
+  followingScopeAt,
+  followingScopePeriods,
 } from "./scene-following.js";
 // Three.js player for velocity.report scene exports.
 //
@@ -987,6 +989,7 @@ export async function mountScenePlayer({
   const visuals = new Map();
   const pointCloud = new PointCloudVisual(scene);
   let currentPart = -1;
+  let contextAvailable = true;
   let strip = null;
   teardown.onDispose(() => strip?.dispose());
 
@@ -1109,9 +1112,39 @@ export async function mountScenePlayer({
       currentPart = partIndex;
     }
 
+    const coverage = followingScopeAt(
+      session.parts[partIndex]?.header,
+      frame.t,
+    );
+    contextAvailable = coverage.available;
+    if (backgroundCloud)
+      backgroundCloud.visible = state.backgroundVisible && contextAvailable;
+    if (vectorGroup)
+      vectorGroup.visible = state.vectorsVisible && contextAvailable;
+    if (ui.followingScopeStatus) {
+      const text = coverage.scoped
+        ? contextAvailable
+          ? "Catalogued stationary review period · estimates remain provisional"
+          : "Excluded review period · stationary context, lane overlays and following measurements unavailable"
+        : "";
+      if (ui.followingScopeStatus.textContent !== text)
+        ui.followingScopeStatus.textContent = text;
+    }
+    const reviewFrame = contextAvailable
+      ? frame
+      : {
+          ...frame,
+          tr: (frame.tr ?? []).map((t) => ({
+            ...t,
+            following: undefined,
+            spd: undefined,
+            mspd: undefined,
+          })),
+        };
+
     const seen = new Set();
-    for (const t of frame.tr ?? []) {
-      if (buildingMask.hides(t)) continue;
+    for (const t of reviewFrame.tr ?? []) {
+      if (contextAvailable && buildingMask.hides(t)) continue;
       seen.add(t.id);
       let v = visuals.get(t.id);
       if (!v) {
@@ -1143,14 +1176,18 @@ export async function mountScenePlayer({
         // The track's peak so far, not this instant's, which may already have
         // passed by the time the box is on screen.
         const mph = (t.mspd ?? t.spd ?? 0) * MPS_TO_MPH;
-        const text = sceneTrackLabel(t, mph, followingReview);
+        const text = contextAvailable
+          ? sceneTrackLabel(t, mph, followingReview)
+          : `${t.id} · excluded review period`;
         if (text || labels.has(t.id)) {
           const label = labelFor(t.id);
           label.textContent = text;
           label.style.color = band?.colour ?? "";
-          label.title = t.following
-            ? `Follower ${t.id} → leader ${t.following.leader_id || "unavailable"}; DRAC: ${t.following.drac_status ?? "unavailable"}; follower ${t.following.follower_speed_mps ?? "?"} m/s, leader ${t.following.leader_speed_mps ?? "?"} m/s; whole-track minimum net time gap ${t.following.track_minimum_time_gap_s ?? "unavailable"} s (includes later evidence)`
-            : "";
+          label.title = !contextAvailable
+            ? "Outside catalogued stationary review coverage"
+            : t.following
+              ? `Follower ${t.id} → leader ${t.following.leader_id || "unavailable"}; DRAC: ${t.following.drac_status ?? "unavailable"}; follower ${t.following.follower_speed_mps ?? "?"} m/s, leader ${t.following.leader_speed_mps ?? "?"} m/s; ${coverage.scoped ? "minimum within review coverage" : "whole-track minimum"} net time gap ${t.following.track_minimum_time_gap_s ?? "unavailable"} s (includes later evidence)`
+              : "";
         }
       }
     }
@@ -1164,7 +1201,7 @@ export async function mountScenePlayer({
     }
     clearFollowing();
     if (state.boxesVisible)
-      for (const pair of followingRelationships(frame)) {
+      for (const pair of followingRelationships(reviewFrame)) {
         if (!seen.has(pair.follower.id) || !seen.has(pair.leader.id)) continue;
         const z = Math.min(pair.follower.z ?? 0, pair.leader.z ?? 0) + 0.12;
         const geometry = new THREE.BufferGeometry().setFromPoints(
@@ -1524,7 +1561,8 @@ export async function mountScenePlayer({
   if (ui.backgroundToggle) {
     on(ui.backgroundToggle, "change", () => {
       state.backgroundVisible = ui.backgroundToggle.checked;
-      if (backgroundCloud) backgroundCloud.visible = state.backgroundVisible;
+      if (backgroundCloud)
+        backgroundCloud.visible = state.backgroundVisible && contextAvailable;
       render();
     });
   }
@@ -1538,7 +1576,8 @@ export async function mountScenePlayer({
   if (ui.vectorsToggle) {
     on(ui.vectorsToggle, "change", () => {
       state.vectorsVisible = ui.vectorsToggle.checked;
-      if (vectorGroup) vectorGroup.visible = state.vectorsVisible;
+      if (vectorGroup)
+        vectorGroup.visible = state.vectorsVisible && contextAvailable;
       render();
     });
   }
@@ -1721,6 +1760,15 @@ export async function mountScenePlayer({
           summary,
           duration: session.duration,
           mode: followingReview ? "following" : "traffic",
+          reviewPeriods: followingScopePeriods(session.parts[0]?.header)?.map(
+            (p) => ({
+              start:
+                Number(p.start - BigInt(session.parts[0].header.start_ns)) /
+                1e9,
+              end:
+                Number(p.end - BigInt(session.parts[0].header.start_ns)) / 1e9,
+            }),
+          ),
           onSeek: (seconds) => {
             // A jump is not continuous motion, so the trails leading up to the
             // old position describe nothing about the new one.

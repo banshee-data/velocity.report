@@ -17,6 +17,10 @@ import (
 // exportFollowingScene keeps the normal scene exporter and its per-export
 // actor keys. Canonical/raw track IDs are never published in these frames.
 func exportFollowingScene(s *followingreview.Session, out string, analysis followingreview.Analysis) error {
+	filter, err := s.ReviewFilter(analysis.ReviewScope)
+	if err != nil {
+		return err
+	}
 	minima := map[string]float64{}
 	for _, m := range analysis.Minima {
 		minima[m.Follower] = m.TimeGapS
@@ -58,6 +62,13 @@ func exportFollowingScene(s *followingreview.Session, out string, analysis follo
 				}
 			}
 			for _, r := range rows {
+				if reason := filter(r); reason != "" {
+					if samples[r.CaptureUnixNanos] == nil {
+						samples[r.CaptureUnixNanos] = map[string]scene.FollowingJSON{}
+					}
+					samples[r.CaptureUnixNanos][r.FollowerTrackID] = scene.FollowingJSON{Bucket: reason, DRACStatus: "outside_static_review"}
+					continue
+				}
 				v := scene.FollowingJSON{Leader: r.Decision.LeaderTrackID, Bucket: r.Bucket}
 				v.FollowerSpeed, v.LeaderSpeed, v.DRACStatus = r.FollowerSpeedMPS, r.LeaderSpeedMPS, r.DRAC.Status
 				if r.DRAC.Calculation != nil {
@@ -93,8 +104,8 @@ func exportFollowingScene(s *followingreview.Session, out string, analysis follo
 		}
 		return samples[at], nil
 	}
-	_, err := scene.Export(scene.Options{VRLOGPath: s.Metadata.RecordingPath, OutDir: filepath.Join(out, "scene"), Kind: scene.KindTracks, Stride: 1, Site: s.Metadata.Binding.SiteID, Title: s.Metadata.Binding.SiteID,
-		FollowingAt: provider, MinimumTimeGapByTrack: minima, Following: &scene.FollowingProvenance{EvidenceSHA256: s.Metadata.EvidenceSHA256, CalibrationID: s.Metadata.CalibrationID, AnalysisBuild: s.Metadata.Binding.AnalysisBuildGitSHA, MethodID: s.Metadata.Binding.MethodID, Status: "provisional_estimates", Summary: summary}})
+	_, err = scene.Export(scene.Options{VRLOGPath: s.Metadata.RecordingPath, OutDir: filepath.Join(out, "scene"), Kind: scene.KindTracks, Stride: 1, Site: s.Metadata.Binding.SiteID, Title: s.Metadata.Binding.SiteID,
+		FollowingAt: provider, MinimumTimeGapByTrack: minima, Following: &scene.FollowingProvenance{EvidenceSHA256: s.Metadata.EvidenceSHA256, CalibrationID: s.Metadata.CalibrationID, AnalysisBuild: s.Metadata.Binding.AnalysisBuildGitSHA, MethodID: s.Metadata.Binding.MethodID, Status: "provisional_estimates", Summary: summary, ReviewScope: analysis.ReviewScope}})
 	if err != nil {
 		return fmt.Errorf("following scene: %w", err)
 	}

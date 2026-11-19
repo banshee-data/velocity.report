@@ -5,7 +5,67 @@ import {
   sceneTrackLabel,
   gapBand,
   followingRelationships,
+  followingScopeAt,
+  followingScopePeriods,
 } from "../scene-following.js";
+
+test("stationary review periods retain nanosecond identity and exclude gaps", () => {
+  const start = 1788290803020345330n;
+  const header = {
+    site: "site",
+    start_ns: String(start),
+    following: {
+      review_scope: {
+        schema: "following_static_review_v1",
+        site: "site",
+        catalog_sha256: "sha256:" + "a".repeat(64),
+        periods: [
+          { start_ns: String(start), end_ns: String(start + 2_000_000n) },
+          {
+            start_ns: String(start + 4_000_000n),
+            end_ns: String(start + 6_000_000n),
+          },
+        ],
+      },
+    },
+  };
+  assert.deepEqual(followingScopeAt(header, 0), {
+    scoped: true,
+    available: true,
+  });
+  assert.equal(followingScopeAt(header, 1999.9).available, true);
+  assert.equal(followingScopeAt(header, 2000).available, false);
+  assert.equal(followingScopeAt(header, 4000).available, true);
+  assert.equal(followingScopeAt(header, 6000).available, false);
+  assert.equal(followingScopeAt(header, NaN).available, false);
+  assert.equal(
+    followingScopeAt(header, Number.MAX_SAFE_INTEGER + 1).available,
+    false,
+  );
+  assert.deepEqual(followingScopeAt({}, NaN), {
+    scoped: false,
+    available: true,
+  });
+  assert.equal(followingScopePeriods({}), null);
+  for (const change of [
+    (s) => (s.schema = "future"),
+    (s) => (s.site = "other"),
+    (s) => (s.catalog_sha256 = "unknown"),
+    (s) => (s.periods = []),
+    (s) => (s.periods[0].start_ns = Number(start)),
+    (s) => (s.periods[0].start_ns = "invalid"),
+    (s) => (s.periods[0].end_ns = s.periods[0].start_ns),
+    (s) => (s.periods[1].start_ns = s.periods[0].end_ns),
+    (s) => s.periods.reverse(),
+  ]) {
+    const bad = structuredClone(header);
+    change(bad.following.review_scope);
+    assert.equal(followingScopeAt(bad, 0).available, false);
+  }
+  const badStart = structuredClone(header);
+  badStart.start_ns = "invalid";
+  assert.equal(followingScopeAt(badStart, 0).available, false);
+});
 
 test("minimum colours have lower-inclusive boundaries and unknown stays unknown", () => {
   for (const [value, label] of [

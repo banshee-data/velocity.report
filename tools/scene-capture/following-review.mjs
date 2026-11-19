@@ -11,9 +11,21 @@ import {
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 
-export function contextMatches(header, published, entry, vectors) {
+function timestampNs(value) {
+  const match = /^(.*T\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?(Z|[+-]\d\d:\d\d)$/.exec(
+    value,
+  );
+  if (!match) throw Error("Invalid catalogue timestamp");
+  return (
+    BigInt(Date.parse(match[1] + match[3])) * 1_000_000n +
+    BigInt((match[2] ?? "").padEnd(9, "0"))
+  );
+}
+
+export function contextMatches(header, published, entry, vectors, catalogSHA) {
   if (
     header.site !== entry.id ||
     header.sensor_id !== published.sensor_id ||
@@ -29,6 +41,44 @@ export function contextMatches(header, published, entry, vectors) {
     end = start + BigInt(Math.round(header.duration_sec * 1e9));
   // The archive catalogue binds sensor placement to this capture interval.
   // Millisecond Date parsing needs a 2 ms rounding allowance, not a new pose.
+  const scope = header.following?.review_scope;
+  if (scope) {
+    if (
+      scope.schema !== "following_static_review_v1" ||
+      scope.site !== entry.id ||
+      !catalogSHA ||
+      scope.catalog_sha256 !== catalogSHA
+    )
+      return false;
+    try {
+      const periods = (entry.static_parts ?? [])
+        .map((p) => ({ start: timestampNs(p.start), end: timestampNs(p.end) }))
+        .map((p) => ({
+          start: p.start > start ? p.start : start,
+          end: p.end < end + 1n ? p.end : end + 1n,
+        }))
+        .filter((p) => p.start < p.end)
+        .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+      const merged = [];
+      for (const p of periods) {
+        const previous = merged.at(-1);
+        if (previous && p.start <= previous.end)
+          previous.end = p.end > previous.end ? p.end : previous.end;
+        else merged.push(p);
+      }
+      return (
+        merged.length > 0 &&
+        scope.periods?.length === merged.length &&
+        merged.every(
+          (p, i) =>
+            BigInt(scope.periods[i].start_ns) === p.start &&
+            BigInt(scope.periods[i].end_ns) === p.end,
+        )
+      );
+    } catch {
+      return false;
+    }
+  }
   return (
     entry.static_parts?.some(
       (p) =>
@@ -73,9 +123,12 @@ export async function packageFollowingReview({
     analysis_git_sha: complete.analysis_tool_git_sha,
     sites: [],
   };
-  const archive = JSON.parse(
-    await readFile(path.join(repo, "tools/s2-archive/site-index.json"), "utf8"),
+  const archiveBytes = await readFile(
+    path.join(repo, "tools/s2-archive/site-index.json"),
   );
+  const archive = JSON.parse(archiveBytes.toString("utf8"));
+  const catalogSHA =
+    "sha256:" + createHash("sha256").update(archiveBytes).digest("hex");
   await mkdir(path.join(output, "js"));
   for (const name of await readdir(path.join(repo, "public_html/src/js")))
     if (name.endsWith(".js"))
@@ -141,7 +194,10 @@ export async function packageFollowingReview({
         await readFile(path.join(context, "part-000/header.json"), "utf8"),
       );
       const entry = archive.find((s) => s.id === id);
-      if (!entry || !contextMatches(header, published, entry, vectors))
+      if (
+        !entry ||
+        !contextMatches(header, published, entry, vectors, catalogSHA)
+      )
         throw Error(
           `Static context does not match the recorded deployment for ${id}`,
         );

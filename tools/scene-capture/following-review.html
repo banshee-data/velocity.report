@@ -182,14 +182,18 @@
           DRAC availability.
         </p>
       </section>
-      <aside id="metrics" aria-label="Site recording metrics"></aside>
+      <aside aria-label="Site recording metrics">
+        <p id="scope-status" role="status"></p>
+        <div id="metrics"></div>
+      </aside>
     </main>
     <footer>
       These are frozen online estimates, not physically validated safety
-      measurements. Colours indicate minimum estimated net time gap over a
-      software track’s full recording, not crash probability. Lifecycle
-      proposals are reviewed separately and do not replace these original
-      estimates. No unavailable DRAC value is shown as zero.
+      measurements. Colours indicate each software track’s minimum eligible
+      estimated net time gap within review coverage, including later evidence.
+      They do not estimate crash probability. Lifecycle proposals are reviewed
+      separately and do not replace these original estimates. No unavailable
+      DRAC value is shown as zero.
     </footer>
     <script type="module">
       import { mountScenePlayer } from "./js/scene-player.js";
@@ -225,6 +229,7 @@
             ui: {
               labelLayer: $("labels"),
               followingStats: $("metrics"),
+              followingScopeStatus: $("scope-status"),
               timelineCanvas: $("timeline"),
               timelineURL: `./sites/${site.id}/scene/timeline.json`,
               vectorsURL: `./sites/${site.id}/vectors/vectors.geojson.gz`,
