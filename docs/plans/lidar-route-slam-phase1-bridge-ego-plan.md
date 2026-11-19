@@ -341,7 +341,8 @@ All taken by the owner on 2026-11-17, at the reconciled defaults from the
 
 - [ ] Item 1: export trust (`S`)
 - [ ] Item 2: pose-free stillness (`M`)
-- [ ] Items 3–7: Gerardus import, odometry, handover and bridge solve (`M`)
+- [ ] Items 3–7: Gerardus import, odometry, handover and bridge solve (`M`); first pass in
+      banshee-data/gerardus#90, synthetic tests only, with an independent review's fixes
 - [ ] Item 8: ego-track independence (`M`)
 - [ ] Item 9: hydra evaluation 1 and its report (`S`)
 
