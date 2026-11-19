@@ -56,7 +56,8 @@ the checkout.
 
 1. Build and check the stamp: `make build-lidar-motion-export build-lidar-ego-track`.
 2. Export at full density, or with `-azimuth-stride 4` if disk is short (about 23 GB against
-   6 GB):
+   6 GB). Go no coarser: the stride-32 re-export (#1062) was for clock statistics and is too
+   sparse for odometry or facades.
 
    ```bash
    /tmp/lidar-motion-export \
@@ -73,19 +74,57 @@ the checkout.
    against motion), residual percentiles, packet gaps. Repeat with `-time-source packet_firetime`
    on a 60 s sub-window and compare the two time sources' frame-to-frame odometry residuals in
    Gerardus. That comparison is the evidence for the clock, not the clock's own residual.
-4. Gerardus: import the LAS files and `run.json`, then run odometry, submaps and prior factors
-   against the bundle for both sites' cells. Solve A-only and A+B. Write each trajectory in
-   `velocity.report/ego-trajectory/v0`, frame EPSG:7131.
-5. Write `anchors.json` with both sites' accepted poses in EPSG:7131: A `at: start`, B `at: end`,
-   `held_out: true` for the A-only trajectory.
-6. Ego track, for each solve:
+4. Gerardus: verify the export, and build `anchors.json` from both sites' accepted records.
+   The positions are the site index's. `--start-at` finds the L16 cell as `register --at`
+   does.
 
    ```bash
-   /tmp/lidar-ego-track -trajectory $LOCAL/.../traj-a-only.json -anchors $LOCAL/.../anchors.json \
-     -out-dir $LOCAL/route-slam/lombard-laguna--columbus-north-point/ego-a-only
+   gerardus --data-dir "$GERARDUS_DATA" slam import --export $LOCAL/route-slam/lombard-laguna--columbus-north-point/export
    ```
 
-7. Rate arm (temporal ablation): repeat steps 2, 4 and 6 with `-keep-every-rotation 2` into a
+   ```bash
+   gerardus --data-dir "$GERARDUS_DATA" slam anchors --start-at 37.8004,-122.4313 --start-record gms:01M65JQPJ01KGD7PQ8P8FHDPNM --end-at 37.8059,-122.4181 --end-record gms:01M678THXY2V5KK866E61J4353 --out $LOCAL/route-slam/lombard-laguna--columbus-north-point/anchors.json
+   ```
+
+5. Read the two roof-parked intervals from `frames.csv` and the field notes, in session
+   seconds. These are the tripod strapped to the stationary car: after the lift at
+   lombard-laguna, and before it at columbus-north-point. They stay hand-picked until phase 1
+   item 2's labels land. Then run odometry, the handovers and the bridge. Odometry runs from
+   the start of the first interval to the end of the second.
+
+   ```bash
+   gerardus --data-dir "$GERARDUS_DATA" slam run --export $LOCAL/route-slam/lombard-laguna--columbus-north-point/export --anchors $LOCAL/route-slam/lombard-laguna--columbus-north-point/anchors.json --start-parked <from,to> --end-parked <from,to> --out $LOCAL/route-slam/lombard-laguna--columbus-north-point/bridge
+   ```
+
+   Read `bridge.json` against gate 1:
+   - `handovers.*.passed`, `closure_m` and `closure_deg`;
+   - for the A-only and B-only arms, `held_out`: `mahalanobis2`, `along_street_m`, `yaw_deg`
+     and `over_kill_share`;
+   - `pass2.registered_share`, `turns` and `reverse`;
+   - `calibration`, whose scales are known to read low, so they are not the σ check.
+
+   The solved poses are in the start site's ENU frame (`site/<l16>`), not EPSG:7131.
+
+6. Ego track on the odometry, which is the file to differentiate; the solved pose sets step
+   at keyframes:
+
+   ```bash
+   /tmp/lidar-ego-track -trajectory $LOCAL/route-slam/lombard-laguna--columbus-north-point/bridge/odometry.json -out-dir $LOCAL/route-slam/lombard-laguna--columbus-north-point/ego
+   ```
+
+   The held-out end check is Gerardus's, in `bridge.json`. Gerardus's `anchors.json` is not
+   the ego track's anchors file, and the odometry is in its own local frame, so pass no
+   `-anchors` here.
+
+   Optionally, the facade probe (phase 2 item 10a): submaps rebuilt from the raw points and
+   registered to 3DEP along the route, from the bridge's poses. It reports and changes
+   nothing. Add `--factors` (items 10–12) only after gate 1 passes.
+
+   ```bash
+   gerardus --data-dir "$GERARDUS_DATA" slam submaps --export $LOCAL/route-slam/lombard-laguna--columbus-north-point/export --run $LOCAL/route-slam/lombard-laguna--columbus-north-point/bridge --out $LOCAL/route-slam/lombard-laguna--columbus-north-point/priors
+   ```
+
+7. Rate arm (temporal ablation): repeat steps 2, 5 and 6 with `-keep-every-rotation 2` into a
    separate `export-5hz` directory, so the drive reads as 5 Hz at 10 Hz angular density. Hold the
    ego-track options fixed in seconds (the defaults) for both arms. Compare held-out B residuals,
    stop displacement, speed σ and odometry convergence failures. This measures sensitivity to
