@@ -1,0 +1,1 @@
+- Cleared Physical mode's fit diagnostics and support-frame links when undo, redo, geometry edits, reload or revision restoration changed the shell they described; saving a proposal retained the links for inspection. Added regression checks for draft and gesture changes, and corrected the point-review guide's outdated description of the existing physical editor.

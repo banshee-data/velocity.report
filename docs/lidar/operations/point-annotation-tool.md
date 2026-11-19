@@ -27,17 +27,16 @@ Open a pack, correct which returns belong to each object, separate chains that j
 cars, and join fragments of the same car across frames. Review the object and its masks. These
 actions establish membership, class, and identity independently of the tracker's account.
 
-The current window has no physical-box editor: it cannot record an independent expected body
-centre, yaw, full dimensions, or bumper endpoints. Its rectangle selects points; it does not
-declare a car's physical box. Optional pose fields on a mask do not supply that interface,
-and the present reference scorer uses a visible-mask position rather than a physical centre.
+Use the window's Physical mode to author body dimensions, keyframe positions, orientation and
+bumper evidence through the [physical reference workflow](#physical-references). Point selection
+and physical geometry remain separate judgements: a rectangle selecting returns does not declare
+a vehicle's full body. Fitted and lifecycle-refined shells are proposals until reviewed. Their
+support-frame inspection links remain available after saving the proposal, but are cleared when
+geometry is edited, undone, discarded or reloaded so they cannot describe a different shell.
 
-Physical geometry review is the
-[0.5.2.0 reference workflow](../../plans/lidar-physical-reference-review-plan.md). Its storage and
-independent import exist ([Physical references](#physical-references) below); the macOS editor for
-placing a box at a keyframe does not yet. Until references are authored or imported and reviewed,
-completing this point-review flow cannot close the physical box or bumper-gap accuracy gates. An
-unseen bumper remains unknown unless independent evidence supports it.
+The [reference workflow plan](../../plans/lidar-physical-reference-review-plan.md) records the wider
+accuracy gates. Completing membership review alone cannot close physical box or bumper-gap
+accuracy gates. An unseen bumper remains unknown unless independent evidence supports it.
 
 ## Words
 

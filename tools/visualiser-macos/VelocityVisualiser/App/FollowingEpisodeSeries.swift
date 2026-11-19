@@ -30,16 +30,16 @@ struct FollowingEpisodeSeries {
             // Provisional estimates and headway's speed floor do not by themselves
             // invalidate gap arithmetic. All other suppressions break the trend.
             let allowed = Set(["estimate_not_final", "below_speed_floor", ""])
-            let supported = row.bucket != "record_gap" && gap?.isFinite == true && (gap ?? 0) > 0
+            let supported =
+                row.bucket != "record_gap" && gap?.isFinite == true && (gap ?? 0) > 0
                 && row.decision.leaderTrackId?.isEmpty == false
                 && row.point?.follower?.leading.support == "observed"
                 && row.point?.leader?.trailing.support == "observed"
                 && reasons.allSatisfy { allowed.contains($0) }
             return Sample(
                 timestamp: row.captureUnixNanos, intervalNanos: row.intervalNanos,
-                leaderID: row.decision.leaderTrackId,
-                gapM: gap?.isFinite == true ? gap : nil, supported: supported,
-                reason: ([row.bucket] + reasons).joined(separator: " · "))
+                leaderID: row.decision.leaderTrackId, gapM: gap?.isFinite == true ? gap : nil,
+                supported: supported, reason: ([row.bucket] + reasons).joined(separator: " · "))
         }
         var result: [[Sample]] = []
         var previous: Sample?
@@ -47,9 +47,9 @@ struct FollowingEpisodeSeries {
             defer { previous = sample }
             guard sample.supported else { continue }
             let end = previous?.timestamp.addingReportingOverflow(previous?.intervalNanos ?? 0)
-            if let previous, previous.supported, previous.intervalNanos > 0,
-                end?.overflow == false, end?.partialValue == sample.timestamp,
-                previous.leaderID == sample.leaderID, !result.isEmpty
+            if let previous, previous.supported, previous.intervalNanos > 0, end?.overflow == false,
+                end?.partialValue == sample.timestamp, previous.leaderID == sample.leaderID,
+                !result.isEmpty
             {
                 result[result.count - 1].append(sample)
             } else {
