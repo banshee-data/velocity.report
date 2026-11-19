@@ -46,7 +46,8 @@ import Foundation
     /// of the editable sketch. Source bytes are named in tracker_source.
     @Published var seedGhost: PhysicalTrackerSeed?
 
-    /// The last fit, shown beside the draft it filled until another replaces it.
+    /// The fit supporting the current draft. Geometry edits or history changes
+    /// invalidate it; saving the same proposal retains its inspection links.
     @Published private(set) var lastFit: PhysicalFitResult?
 
     /// Retained revisions, newest first, once asked for.
@@ -151,6 +152,7 @@ import Foundation
             let loaded = try await client.load(handle: packHandle, packDigest: packDigest)
             guard asked == generation else { return }
             accept(loaded, draft: keep)
+            if keep == nil { invalidateFit() }
             needsReload = false
             clearError()
             lastNote =
@@ -225,6 +227,7 @@ import Foundation
         PhysicalDraft.fillManualAssumptions(&next)
         PhysicalDraft.canonicalise(&next)
         guard next != draft else { return }
+        invalidateFit()
         undoStack.append(draft)
         if undoStack.count > Self.undoLimit { undoStack.removeFirst() }
         redoStack = []
@@ -251,6 +254,7 @@ import Foundation
         change(&next)
         PhysicalDraft.applyExposure(before: start, after: &next, exposure: exposure)
         PhysicalDraft.canonicalise(&next)
+        if next != draft { invalidateFit() }
         draft = next
     }
 
@@ -328,6 +332,7 @@ import Foundation
 
     func undo() {
         guard canEdit, let previous = undoStack.popLast() else { return }
+        invalidateFit()
         redoStack.append(draft)
         draft = previous
         applyOutstandingExposure()
@@ -338,6 +343,7 @@ import Foundation
 
     func redo() {
         guard canEdit, let next = redoStack.popLast() else { return }
+        invalidateFit()
         undoStack.append(draft)
         draft = next
         applyOutstandingExposure()
@@ -364,6 +370,7 @@ import Foundation
     /// touched: nothing was written.
     func discard() {
         guard let state else { return }
+        invalidateFit()
         seedGhost = nil
         generation &+= 1
         validationTask?.cancel()
@@ -371,6 +378,12 @@ import Foundation
         undoStack = []
         redoStack = []
         validation = nil
+        lastNote = nil
+    }
+
+    private func invalidateFit() {
+        guard lastFit != nil else { return }
+        lastFit = nil
         lastNote = nil
     }
 
@@ -645,6 +658,7 @@ import Foundation
                     baseDigest: state.digest, membershipDigest: membershipDigest(),
                     revision: revision, author: author(), session: sessionID))
             accept(restored, draft: nil)
+            invalidateFit()
             clearError()
             lastNote = "Restored revision \(revision) as revision \(restored.revision)."
             await loadHistory()

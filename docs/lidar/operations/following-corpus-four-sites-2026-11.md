@@ -60,7 +60,7 @@ histogram as vehicle behaviour.
 
 The reduction/export binary was built through Make as `v0.5.1-pre52`, producer
 `c4f769eab844fc5bd5718acc2ca013447f37f10e`, built `2026-11-18T06:45:01Z`.
-The later serializer extraction and regression tests leave the numerical reduction unchanged;
+The later serialiser extraction and regression tests leave the numerical reduction unchanged;
 the shared player's class-independent distance label was checked from its later source.
 The scene header separately retains the original estimator producer, calibration and canonical
 evidence identity. The reduction producer must not be substituted for the estimator producer.

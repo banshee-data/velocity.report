@@ -272,6 +272,31 @@ struct PhysicalFitTests {
         #expect(physical.lastNote?.hasPrefix("Fitted length") == true)
         physical.undo()
         #expect(physical.object("car") == nil)
+        #expect(physical.lastFit == nil)
+        #expect(physical.lastNote == nil)
+        physical.redo()
+        #expect(physical.object("car")?.body != nil)
+        #expect(physical.lastFit == nil, "Redo must not revive an unbound fit diagnostic")
+        fake.override["/api/lidar/annotations/physical/fit"] = (200, try fitFixture())
+        #expect(await physical.fit(objectID: "car", scope: .object))
+        physical.edit { _ in }
+        #expect(physical.lastFit != nil, "A no-op edit does not invalidate supporting evidence")
+        physical.edit { $0.removeAll() }
+        #expect(physical.lastFit == nil)
+        fake.override["/api/lidar/annotations/physical/fit"] = (200, try fitFixture())
+        #expect(await physical.fit(objectID: "car", scope: .object))
+        physical.beginGesture()
+        physical.updateGesture { $0.removeAll() }
+        #expect(physical.lastFit == nil, "Stale fit links disappear during the drag")
+        physical.endGesture()
+        fake.override["/api/lidar/annotations/physical/fit"] = (200, try fitFixture())
+        #expect(await physical.fit(objectID: "car", scope: .object))
+        physical.discard()
+        #expect(physical.lastFit == nil)
+        fake.override["/api/lidar/annotations/physical/fit"] = (200, try fitFixture())
+        #expect(await physical.fit(objectID: "car", scope: .object))
+        await physical.load()
+        #expect(physical.lastFit == nil)
         // A refusal leaves the draft alone and says why.
         fake.override["/api/lidar/annotations/physical/fit"] = (
             422,
@@ -282,5 +307,12 @@ struct PhysicalFitTests {
         #expect(!(await physical.fit(objectID: "car", scope: .object)))
         #expect(physical.lastError?.contains("still proposed") == true)
         #expect(physical.object("car") == nil)
+        fake.override["/api/lidar/annotations/physical/fit"] = (200, try fitFixture())
+        #expect(await physical.fit(objectID: "car", scope: .object))
+        #expect(await physical.save())
+        #expect(!physical.isDirty)
+        #expect(physical.lastFit != nil, "Saving retains the proposal's support-frame links")
+        #expect(await physical.restore(revision: 1))
+        #expect(physical.lastFit == nil)
     }
 }

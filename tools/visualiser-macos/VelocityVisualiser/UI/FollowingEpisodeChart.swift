@@ -36,15 +36,18 @@ struct FollowingEpisodeChart: View {
                         Text(
                             "\(String(format: "%.3f", series.seconds(selected.timestamp, from: slice.sampleStartNanos))) s · leader \(selected.leaderID.map { String($0.suffix(8)) } ?? "unresolved") · \(selected.gapM.map { String(format: "%.3f m", $0) } ?? "gap unavailable")"
                         ).font(.caption).monospacedDigit()
-                        Text(selected.reason.replacingOccurrences(of: "_", with: " "))
-                            .font(.caption2).foregroundStyle(.secondary)
+                        Text(selected.reason.replacingOccurrences(of: "_", with: " ")).font(
+                            .caption2
+                        ).foregroundStyle(.secondary)
                     }
-                    Toggle("Display trend (±0.2 s mean)", isOn: $showTrend)
-                        .toggleStyle(.checkbox).font(.caption)
-                    Text("Raw estimates, not physical truth. Orange = unsupported; grey ticks = no gap. Dashed rules = leader switches. Lines stop at missing time.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    Text("Seconds from loaded window start. Click a sample to seek; pause playback first.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                    Toggle("Display trend (±0.2 s mean)", isOn: $showTrend).toggleStyle(.checkbox)
+                        .font(.caption)
+                    Text(
+                        "Raw estimates, not physical truth. Orange = unsupported; grey ticks = no gap. Dashed rules = leader switches. Lines stop at missing time."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                    Text(
+                        "Seconds from loaded window start. Click a sample to seek; pause playback first."
+                    ).font(.caption2).foregroundStyle(.secondary)
                 }
             }.onChange(of: appState.selectedTrackID, initial: true) { _, id in
                 guard sourceMatches else { return }
@@ -73,7 +76,8 @@ struct FollowingEpisodeChart: View {
                 grid.move(to: CGPoint(x: left, y: py))
                 grid.addLine(to: CGPoint(x: left + width, y: py))
                 context.stroke(grid, with: .color(.secondary.opacity(0.2)))
-                context.draw(Text(String(format: "%.1f m", value)).font(.caption2),
+                context.draw(
+                    Text(String(format: "%.1f m", value)).font(.caption2),
                     at: CGPoint(x: left - 4, y: py), anchor: .trailing)
             }
             for segment in series.segments {
@@ -97,16 +101,20 @@ struct FollowingEpisodeChart: View {
                 var rule = Path()
                 rule.move(to: CGPoint(x: x(timestamp), y: 0))
                 rule.addLine(to: CGPoint(x: x(timestamp), y: height))
-                context.stroke(rule, with: .color(.purple.opacity(0.5)),
+                context.stroke(
+                    rule, with: .color(.purple.opacity(0.5)),
                     style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
             }
             for sample in series.samples {
                 let px = x(sample.timestamp)
                 if let value = sample.gapM {
-                    context.fill(Path(ellipseIn: CGRect(x: px - 2, y: y(value) - 2, width: 4, height: 4)),
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: px - 2, y: y(value) - 2, width: 4, height: 4)),
                         with: .color(sample.supported ? .cyan : .orange))
                 } else {
-                    context.fill(Path(CGRect(x: px, y: height - 5, width: 2, height: 5)), with: .color(.gray))
+                    context.fill(
+                        Path(CGRect(x: px, y: height - 5, width: 2, height: 5)), with: .color(.gray)
+                    )
                 }
             }
             if let timestamp = Int64(review.timestamp), timestamp >= origin, timestamp < end {
@@ -115,22 +123,29 @@ struct FollowingEpisodeChart: View {
                 cursor.addLine(to: CGPoint(x: x(timestamp), y: height))
                 context.stroke(cursor, with: .color(.primary.opacity(0.7)))
             }
-            context.draw(Text("0 s").font(.caption2), at: CGPoint(x: left, y: size.height - 8), anchor: .leading)
-            context.draw(Text(String(format: "%.2f s", duration)).font(.caption2),
+            context.draw(
+                Text("0 s").font(.caption2), at: CGPoint(x: left, y: size.height - 8),
+                anchor: .leading)
+            context.draw(
+                Text(String(format: "%.2f s", duration)).font(.caption2),
                 at: CGPoint(x: left + width, y: size.height - 8), anchor: .trailing)
         }.frame(height: 160).overlay {
             GeometryReader { geometry in
                 Color.clear.contentShape(Rectangle()).onTapGesture { location in
                     guard canSeek else { return }
-                    let fraction = min(1, max(0, (location.x - 44) / max(1, geometry.size.width - 52)))
+                    let fraction = min(
+                        1, max(0, (location.x - 44) / max(1, geometry.size.width - 52)))
                     if let sample = series.nearest(toSeconds: fraction * duration, origin: origin) {
                         appState.selectTrack(review.follower, showInspector: false)
                         appState.seekToTimestamp(sample.timestamp)
-                        review.followPlayback(at: sample.timestamp, selectedTrackID: review.follower)
+                        review.followPlayback(
+                            at: sample.timestamp, selectedTrackID: review.follower)
                         appState.refreshFollowingOverlay()
                     }
                 }
             }
-        }.accessibilityLabel("Per-frame projected bumper gap in metres. Raw cyan points, unsupported orange points, optional purple display trend.")
+        }.accessibilityLabel(
+            "Per-frame projected bumper gap in metres. Raw cyan points, unsupported orange points, optional purple display trend."
+        )
     }
 }

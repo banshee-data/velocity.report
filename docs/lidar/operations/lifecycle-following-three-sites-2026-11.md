@@ -1,6 +1,6 @@
 # Lifecycle body proposals and three-site following review
 
-- **Status:** implementation under review; full-capture runs in progress
+- **Status:** initial implementation merged; full-capture runs and interactive review in progress
 - **Scope:** development evidence and proposed geometry; no physical qualification
 
 ## Question and method
@@ -127,6 +127,23 @@ Review also found that an ordinary additive headless import could retain old pos
 at abstained frames. Lifecycle imports now explicitly request complete pose-set
 replacement through the existing importer, require replacement permission and a body,
 and fail on older strict readers rather than silently changing meaning.
+
+Native review on merged main `c17907c3f129e7fc83189b341a99629bdb508eec` reproduced
+the first truck's 218-pose proposal and its abstention at sample 106, where only one
+reviewed return was available. The service refused to save that replacement in the
+existing review view: a retained following annotation still called the truck's rear
+observed at sample 491, but the refinement abstained there. This is a useful integrity
+gate, not evidence that either shell is physically correct. A replacement cannot keep
+an old endpoint observation attached to a pose it has removed. Body-only exploration
+uses a separate published review view; the frozen baseline and its gap measurements
+remain unchanged. Following measurements must be re-evaluated against any replacement
+shell before comparison.
+
+The same pass found that Undo restored the previous 135-pose shell and width 2.449 m
+while leaving the 218-pose fit's support counts and inspection links visible. The
+native session now invalidates those diagnostics on draft changes and restoration,
+while retaining support inspection for a saved proposal. This corrects the presentation
+of evidence; it does not improve the estimator's physical accuracy.
 
 ### Full-capture following and lanes
 
