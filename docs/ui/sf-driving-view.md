@@ -21,7 +21,7 @@ street-name signs stand at intersections.
 | Trees | DataSF Street Tree List (`tkzw-k3nq`, PDDL-1.0) inside the street right of way; 3DEP canopy tops elsewhere | A listed tree takes height and crown from the lidar canopy over it, or a size from its trunk diameter. No trunk stands on the carriageway |
 | Roads | DataSF streets (`3psu-pn9h`), Curbs and Islands (`emxt-b6yg`, 2016), Right of Way (`h8n7-e4ns`), all PDDL-1.0 | Asphalt between the kerbs, from each centreline's distance to the first kerb on either side; kerbs raised 15 cm; dashed centrelines on two-way streets |
 | Ground | 3DEP class-2 ground via Gerardus's city view tiles | An 8 m grid |
-| Signposts | DataSF street nodes and names | One sign per intersection, at the nearest kerb corner |
+| Signposts | DataSF streets and street nodes | One sign wherever two or more named streets meet, at the nearest kerb corner; DataSF's placeholder names ("Unnamed 186") are left off |
 
 The geometry is measured spatial data in the sense of
 [geometry priors: data purpose](../geometry-priors-data-purpose.md): context for traffic data at a
@@ -36,6 +36,11 @@ the buildings, trees, roads and signs whose point falls inside its cell, so noth
 All tiles share one planar frame, so they meet without seams. Inside a tile, positions are integer
 decimetres from the tile origin.
 
+The November 2026 build has 176,866 buildings (2,932 lots redrawn from the lidar because it stands well
+above their 2010 height, and 1,296 structures with no City outline), 343,046 trees, 15,671 street lines
+and 7,523 signposts. The tiles total 30 MB; the median tile is 0.2 MB and the largest 0.42 MB, so a view
+of about nine tiles fetches 2 to 3 MB.
+
 The page loads the tiles within about 900 m of the car's tile edge, nearest first, three at a time,
 and drops tiles more than 1.6 km past their edge.
 
@@ -46,6 +51,8 @@ and drops tiles more than 1.6 km past their edge.
 - The canopy test reads the lidar at a coarser density than the per-site studies and flags somewhat
   more roof faces than they did.
 - Tall post-2010 towers are flat tiers, not their curved forms.
-- There is no collision with buildings or kerbs; the car follows the ground grid.
+- There is no collision with buildings or kerbs; the car follows the ground grid and pitches with it.
+- The tiles are gzipped JSON for ease of reading. A binary encoding of the same geometry measured about a
+  third of the size in the asset study, and would be the next step if load time matters.
 - The tiles are baked outside this repository from Gerardus's caches; the manifest records the inputs
   and the build.

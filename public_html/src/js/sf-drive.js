@@ -580,8 +580,13 @@ export async function startDrive({ canvas, base, hud }) {
     if (grounded) car = carStep(car, input, dt);
     const z = groundAtWorld(tiles, car.x, car.y);
     if (z !== null) carZ = z;
-    carMesh.position.set(...V(car.x, car.y, carZ));
-    carMesh.rotation.set(0, car.heading, 0);
+    // Pitch the car with the ground under its axles, so it does not sink into steep hills.
+    const ax = Math.cos(car.heading) * 1.5;
+    const ay = Math.sin(car.heading) * 1.5;
+    const zf = groundAtWorld(tiles, car.x + ax, car.y + ay) ?? carZ;
+    const zr = groundAtWorld(tiles, car.x - ax, car.y - ay) ?? carZ;
+    carMesh.position.set(...V(car.x, car.y, Math.max(carZ, (zf + zr) / 2)));
+    carMesh.rotation.set(0, car.heading, Math.atan2(zf - zr, 3), "YZX");
 
     const hx = Math.cos(car.heading);
     const hy = Math.sin(car.heading);
@@ -594,13 +599,15 @@ export async function startDrive({ canvas, base, hud }) {
     const look = new THREE.Vector3(
       ...V(car.x + hx * 14, car.y + hy * 14, carZ + 1.4),
     );
-    if (!camInit) {
+    // Snap rather than glide after a jump, before the ground loads, or when far behind (a slow frame rate
+    // on a hill would otherwise leave the camera under the slope); the glide rate does not depend on frame rate.
+    if (!camInit || !grounded || camPos.distanceTo(target) > 40) {
       camPos.copy(target);
       camLook.copy(look);
       camInit = true;
     } else {
-      camPos.lerp(target, 0.12);
-      camLook.lerp(look, 0.2);
+      camPos.lerp(target, 1 - Math.pow(0.88, dt * 60));
+      camLook.lerp(look, 1 - Math.pow(0.8, dt * 60));
     }
     camera.position.copy(camPos);
     camera.lookAt(camLook);
@@ -646,7 +653,9 @@ export async function startDrive({ canvas, base, hud }) {
       hudAt = now;
       const street = streetAt(tiles, car.x, car.y, car.heading);
       const next = nextCrossing(tiles, car.x, car.y, car.heading, street);
-      hud.street.textContent = street || "Off street";
+      hud.street.textContent = street
+        ? street.replace(/^Unnamed \d+$/, "Unnamed street")
+        : "Off street";
       hud.next.textContent = next
         ? `${next.names.join(" · ")} in ${Math.round(next.distance / 10) * 10} m`
         : "";
