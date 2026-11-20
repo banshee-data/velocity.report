@@ -431,6 +431,8 @@ export async function startDrive({ canvas, base, hud }) {
     ) || places[0];
   let car = { x: start.x, y: start.y, heading: start.heading, v: 0 };
   let carZ = 0;
+  // The car waits until the ground under it has loaded, so it never starts in empty space.
+  let grounded = false;
   const loaded = new Map(); // token -> {tile, grp}
   const loading = new Set();
   const byToken = new Map(manifest.tiles.map((t) => [t.t, t]));
@@ -515,6 +517,8 @@ export async function startDrive({ canvas, base, hud }) {
   };
   const reset = (p = start) => {
     car = { x: p.x, y: p.y, heading: p.heading, v: 0 };
+    grounded = false;
+    camInit = false;
   };
   hud.mirrorBtn.addEventListener("click", toggleMirror);
   hud.viewBtn.addEventListener("click", toggleView);
@@ -562,8 +566,18 @@ export async function startDrive({ canvas, base, hud }) {
         (k.has("left") ? 1 : 0) - (k.has("right") ? 1 : 0) + state.touch.steer,
       brake: k.has("brake") || state.touch.brake,
     };
-    car = carStep(car, input, dt);
     const tiles = [...loaded.values()].map((e) => e.tile);
+    if (!grounded) {
+      const z0 = groundAtWorld(tiles, car.x, car.y);
+      const settled =
+        loaded.size > 0 &&
+        !loading.size &&
+        tilesAround(manifest.tiles, car.x, car.y).want.every((t) =>
+          loaded.has(t),
+        );
+      if (z0 !== null || settled) grounded = true;
+    }
+    if (grounded) car = carStep(car, input, dt);
     const z = groundAtWorld(tiles, car.x, car.y);
     if (z !== null) carZ = z;
     carMesh.position.set(...V(car.x, car.y, carZ));
@@ -641,7 +655,7 @@ export async function startDrive({ canvas, base, hud }) {
       hud.compass.textContent = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][
         Math.round(deg / 45) % 8
       ];
-      if (!loaded.size) hud.street.textContent = "Loading the city around you…";
+      if (!grounded) hud.street.textContent = "Loading the city around you…";
     }
   }
   stream();
