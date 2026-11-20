@@ -110,7 +110,7 @@ func TestAnnotationReferenceRouting(t *testing.T) {
 	if code, _, stderr := runReference("export"); code != 2 || !strings.Contains(stderr, "unknown annotation-reference command") {
 		t.Errorf("unknown command exited %d: %s", code, stderr)
 	}
-	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}, {"draft-following", "-h"}, {"fit", "-h"}, {"repin", "-h"}} {
+	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}, {"draft-following", "-h"}, {"compare-following", "-h"}, {"fit", "-h"}, {"repin", "-h"}} {
 		if code, _, _ := runReference(args...); code != 0 {
 			t.Errorf("%v exited %d", args, code)
 		}
@@ -124,6 +124,77 @@ func TestAnnotationReferenceRouting(t *testing.T) {
 		if code, _, _ := runReference(args...); code != 2 {
 			t.Errorf("%v exited %d, want 2", args, code)
 		}
+	}
+}
+
+func TestAnnotationReferenceCompareFollowing(t *testing.T) {
+	p := followingPack(t)
+	doc, err := annotation.LoadPhysicalReferences(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imp, _, err := annotation.DraftFollowing(doc, annotation.FollowingDraft{FollowerObjectID: "a", LeaderObjectID: "b",
+		Decision: annotation.FollowingLeader, Interval: annotation.FrameInterval{FirstSample: 0, LastSample: 1}, Reviewed: true, Author: "op"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = annotation.ImportPhysicalReferences(p, imp, annotation.Provenance{Author: "op"}, false); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(filepath.Join(p.Dir, "physical-references.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "comparison.json")
+	args := []string{"compare-following", "--pack", p.Dir, "--candidate-pack", p.Dir, "--out", out}
+	if code, stdout, stderr := runReference(args...); code != 0 || !strings.Contains(stdout, "proposal comparison only") {
+		t.Fatalf("%d %s%s", code, stdout, stderr)
+	}
+	b, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report annotation.FollowingShellComparison
+	if err = json.Unmarshal(b, &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Rows) != 2 || report.Rows[0].DeltaM == nil || *report.Rows[0].DeltaM != 0 || report.MembershipDigest == "" {
+		t.Fatalf("report %+v", report)
+	}
+	if code, _, _ := runReference(args...); code != 1 {
+		t.Fatal("overwrote existing diagnostic")
+	}
+	after, _ := os.ReadFile(filepath.Join(p.Dir, "physical-references.json"))
+	if !bytes.Equal(before, after) {
+		t.Fatal("comparison changed references")
+	}
+	for _, test := range []struct {
+		args []string
+		code int
+	}{
+		{[]string{"compare-following"}, 2},
+		{[]string{"compare-following", "--nope"}, 2},
+		{[]string{"compare-following", "--pack", "missing", "--candidate-pack", p.Dir, "--out", out}, 1},
+		{[]string{"compare-following", "--pack", p.Dir, "--candidate-pack", "missing", "--out", out}, 1},
+	} {
+		if code, _, stderr := runReference(test.args...); code != test.code {
+			t.Fatalf("%v: %d %s", test.args, code, stderr)
+		}
+	}
+	// Structurally valid geometry cannot restore a review of different returns.
+	doc, err = annotation.LoadPhysicalReferences(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc.Objects[0].Keyframes[0].Review.ReviewedAgainst = &annotation.MembershipPin{
+		Revision: 1, Digest: "sha256:" + strings.Repeat("a", 64), Masks: "sha256:" + strings.Repeat("b", 64)}
+	doc.MinReader = annotation.MaskPinReaderLevel
+	if err = annotation.SavePhysicalReferences(p, doc); err != nil {
+		t.Fatal(err)
+	}
+	args[len(args)-1] = filepath.Join(t.TempDir(), "drift.json")
+	if code, _, stderr := runReference(args...); code != 1 || !strings.Contains(stderr, "review membership drift") {
+		t.Fatalf("stale review accepted: %d %s", code, stderr)
 	}
 }
 

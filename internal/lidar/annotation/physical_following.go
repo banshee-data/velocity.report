@@ -166,6 +166,12 @@ func draftGap(follower, leader PhysicalObject, d FollowingDraft, sample int) (Fo
 	if lg.Rear == nil {
 		return FollowingGap{}, fmt.Sprintf("leader %q's keyframe %q places no rear: %s", d.LeaderObjectID, lk.KeyframeID, lg.RearUnavailable)
 	}
+	return gapFromGeometry(fk, lk, fg, lg)
+}
+
+// gapFromGeometry shares the same axis and worst-case bound propagation between
+// truth drafting and explicitly labelled proposal diagnostics.
+func gapFromGeometry(fk, lk PhysicalKeyframe, fg, lg PhysicalGeometry) (FollowingGap, string) {
 	// A placed front implies a scorable, resolved yaw: it is the axis the gap
 	// is measured along, as the scorer measures it.
 	ux, uy := math.Cos(fg.Yaw.Rad), math.Sin(fg.Yaw.Rad)
@@ -185,7 +191,7 @@ func draftGap(follower, leader PhysicalObject, d FollowingDraft, sample int) (Fo
 		status = lk.Rear.Status
 	}
 	return FollowingGap{
-		SampleID: sample, TimestampNs: fk.TimestampNs, Status: status,
+		SampleID: fk.SampleID, TimestampNs: fk.TimestampNs, Status: status,
 		LowerM: &lower, UpperM: &upper, ValueM: &value,
 		FollowerFront: EndpointEvidence{Status: fk.Front.Status, Support: cloneSupport(fk.Front.Support)},
 		LeaderRear:    EndpointEvidence{Status: lk.Rear.Status, Support: cloneSupport(lk.Rear.Support)},

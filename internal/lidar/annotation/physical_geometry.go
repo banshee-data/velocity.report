@@ -112,6 +112,17 @@ type PhysicalGeometry struct {
 
 // Geometry derives what one of the object's keyframes establishes.
 func (o PhysicalObject) Geometry(k PhysicalKeyframe) PhysicalGeometry {
+	return o.geometry(k, false)
+}
+
+// ProposalGeometry derives bounded draft geometry for inspection only, matching
+// VV's preview gate. It never marks a body or pose as truth and does not change
+// the stored review. Unknown, prior-only and partial dimensions remain unavailable.
+func (o PhysicalObject) ProposalGeometry(k PhysicalKeyframe) PhysicalGeometry {
+	return o.geometry(k, true)
+}
+
+func (o PhysicalObject) geometry(k PhysicalKeyframe, proposal bool) PhysicalGeometry {
 	g := PhysicalGeometry{
 		ObjectID: o.ObjectID, KeyframeID: k.KeyframeID, SampleID: k.SampleID, TimestampNs: k.TimestampNs,
 		ReviewStatus: k.Review.Status, Origin: k.Review.Origin, Truth: k.Review.ScoredAsTruth(),
@@ -131,6 +142,14 @@ func (o PhysicalObject) Geometry(k PhysicalKeyframe) PhysicalGeometry {
 		g.Yaw = &AngleBound{Rad: *k.Yaw.YawRad, BoundRad: *k.Yaw.BoundRad, Axis: k.Yaw.Axis, Status: k.Yaw.Status}
 	}
 	g.body(o.Body)
+	if proposal {
+		g.Truth, g.BodyTruth = false, false
+		if o.Body != nil && o.Body.Review.Status != StatusRejected {
+			g.Length, g.LengthUnavailable = linearBound(o.Body.Length)
+			g.Width, g.WidthUnavailable = linearBound(o.Body.Width)
+			g.Height, g.HeightUnavailable = linearBound(o.Body.Height)
+		}
+	}
 	g.centre(k.Anchor)
 	g.Front, g.FrontUnavailable = g.endpoint(k.Front, 1, AnchorFrontFace)
 	g.Rear, g.RearUnavailable = g.endpoint(k.Rear, -1, AnchorRearFace)

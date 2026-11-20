@@ -1,0 +1,1 @@
+- Added a read-only shell comparison to the existing annotation-reference workflow, retaining the fixed following cohort and unavailable endpoints while sharing the reference gap and bound calculation; proposed geometry remained separate from reviewed truth.

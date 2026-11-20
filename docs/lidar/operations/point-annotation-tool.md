@@ -568,6 +568,16 @@ It is a source sketch, not another independent reference. Discard removes that s
    `--diagnostics` retaining the lifecycle support and abstentions beside the normal import file.
    Lifecycle imports name `replace_keyframes` and require `--replace`: the complete pose set is
    replaced, so an old pose cannot survive at a frame where the new fit abstained.
+   For a read-only gap comparison, keep the baseline view unchanged and import the
+   proposals into a separate view of the same pack and membership. Run
+   `velocity lidar annotation-reference compare-following --pack BASELINE_VIEW --candidate-pack PROPOSAL_VIEW --out DIAGNOSTIC_JSON`.
+   The diagnostic holds the baseline's reviewed leader decisions and interval samples
+   fixed, retains missing poses/endpoints, and reports candidate minus frozen gap values
+   only where both exist. Both versions use their own follower axis; a change can include
+   heading as well as endpoint displacement. Candidate geometry uses the same bounded
+   preview semantics as VV, without reviewing the body or pose. This is a proposal
+   comparison, not an acceptance score, an online-tracker rerun or evidence of improved
+   physical accuracy. Do not use the result to update online DRAC or ground truth.
 3. **1 · Object size · all frames** holds one length, width and height for the whole episode.
    Each dimension is **Full**, **At least** or **Unknown**; there is no evidence picker. A fitted
    dimension says how it is known beneath it. Set by hand, a full value is inferred from the
