@@ -92,3 +92,7 @@ centres and orientation. It should include matching visible-end cases, contamina
 required end, ambiguous direction, and clipped or occluded faces. Compare endpoint and yaw
 agreement, coverage and bound width on the fixed sample cohort. Longitudinal agreement on this
 shared-return passage alone provides no basis to change online DRAC geometry.
+
+The [manual bumper and heading review](following-fresh-bumper-review-2026-11.md) checked
+the same visibility rule on three fresh development passages and compared both fits with
+independently authored endpoints and headings.
