@@ -105,6 +105,11 @@ probe retained wide endpoint bounds and used a previously examined passage. M6 s
 this limited face proposal on unseen episodes, including cases with contamination at the
 required face or insufficient evidence to name it.
 
+The [manual bumper and heading review](../lidar/operations/following-fresh-bumper-review-2026-11.md)
+adds six independently authored keyframes spanning three previously unmeasured Kirk0
+passages. It compares the ordinary and lifecycle fits on those same instants and checks
+whether any missing lifecycle pose qualifies for the visible-end proposal.
+
 The body-memory part of M5 extends the existing reviewed-point fit with an explicit lifecycle scope.
 The [three-site review record](../lidar/operations/lifecycle-following-three-sites-2026-11.md)
 records its implementation boundary, three reproduced lifecycle fits, completed full-capture

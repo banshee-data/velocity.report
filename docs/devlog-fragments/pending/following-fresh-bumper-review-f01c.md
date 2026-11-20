@@ -1,0 +1,1 @@
+- Placed and reviewed six independent bumper and heading labels in VelocityVisualiser and [compared the ordinary and lifecycle body fits](../../lidar/operations/following-fresh-bumper-review-2026-11.md) on three fresh Kirk0 passages, preserving the case where the follower front could not be measured.
