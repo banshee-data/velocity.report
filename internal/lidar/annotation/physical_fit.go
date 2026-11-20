@@ -397,6 +397,7 @@ func FitPhysicalObject(p *Pack, s *Sidecar, req FitRequest, opts FitOptions) (*F
 		k.KeyframeID = newPhysicalID("keyframe")
 		k.Review = fitReview(req, created, k.Review.UncertaintyAssumptions)
 		if req.Lifecycle {
+			boundLifecycleBumpers(k, body, f)
 			k.Review.Provenance.Operation = "lifecycle_refinement"
 			k.Review.UncertaintyAssumptions += " Non-causal lifecycle proposal; information through capture ns " + res.Lifecycle.InformationUntil + ". Hidden endpoints remain inferred; not an online estimate."
 			row.Status, row.Front, row.Rear = "proposed", k.Front.Status, k.Rear.Status
@@ -1055,6 +1056,29 @@ func fitPose(p *Pack, f *fitSample, body BodyGeometry, lengthFrames []int, opts 
 	k.Front, k.Rear = endEvidence(frontSeen), endEvidence(rearSeen)
 	k.Review.UncertaintyAssumptions = poseAssumptions(f, anchor, alongB, acrossB, alongTerms)
 	return k, ""
+}
+
+// A persistent shell can extend beyond the local span, including when the
+// local fit saw both ends. The fitted endpoint must reach the same evidence
+// threshold as an imported observation.
+func boundLifecycleBumpers(k *PhysicalKeyframe, body BodyGeometry, f *fitSample) {
+	for _, end := range []struct {
+		name     string
+		sign     float64
+		face     AnchorKind
+		evidence *EndpointEvidence
+	}{{"front", 1, AnchorFrontFace, &k.Front}, {"rear", -1, AnchorRearFace, &k.Rear}} {
+		if end.evidence.Status != EvidenceObserved || checkObservedBumper(&body, *k, end.name, end.sign, end.face, f.pts, f.member) == nil {
+			continue
+		}
+		*end.evidence = EndpointEvidence{Status: EvidenceUnknown}
+		if body.Length.Span == SpanFull {
+			*end.evidence = EndpointEvidence{Status: EvidenceInferred, Support: EvidenceSupport{
+				Frames: sortedUnique(append(append([]int(nil), body.Length.Support.Frames...), f.id)),
+			}}
+		}
+		k.Review.UncertaintyAssumptions += fmt.Sprintf(" The %s of the persistent shell extends beyond this frame's supporting returns and is %s.", end.name, end.evidence.Status)
+	}
 }
 
 func fitReview(req FitRequest, created, assumptions string) PhysicalReview {

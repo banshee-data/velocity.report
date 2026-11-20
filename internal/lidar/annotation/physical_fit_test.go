@@ -210,6 +210,31 @@ func TestFitLifecycleRejectsUnresolvedBodyEvidence(t *testing.T) {
 	}
 }
 
+func TestLifecycleFitUsesOnlySupportedObservedBumpers(t *testing.T) {
+	scenes := passingCar()
+	const partial = 14
+	// Present a short, oblique span whose heading is less certain than the
+	// surrounding full views the persistent length fit will use.
+	scenes[partial][0].l = 2.2
+	scenes[partial][0].yaw = -13 * math.Pi / 180
+	p, s := fitScenePack(t, scenes, "")
+	res, err := FitPhysicalObject(p, s, FitRequest{ObjectID: "car", Author: "op", Lifecycle: true}, DefaultFitOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PreparePhysicalImport(p, res.Import, true); err != nil {
+		t.Fatalf("lifecycle import: %v", err)
+	}
+	keyframe, ok := keyframeAt(res.Import.Objects[0], partial)
+	if !ok || keyframe.Front.Status != EvidenceInferred || keyframe.Rear.Status != EvidenceInferred {
+		t.Fatalf("partial-span pose must infer both persistent endpoints: %+v", keyframe)
+	}
+	row := res.Lifecycle.Frames[partial]
+	if row.Status != "proposed" || row.Front != keyframe.Front.Status || row.Rear != keyframe.Rear.Status {
+		t.Fatalf("lifecycle diagnostic disagrees with the proposed endpoints: %+v", row)
+	}
+}
+
 // The fit recovers a box it can see from every side within the bounds it
 // states, and the import it writes passes every check an import makes.
 func TestFitRecoversAPassingCarWithinItsBounds(t *testing.T) {
