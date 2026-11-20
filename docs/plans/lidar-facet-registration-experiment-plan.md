@@ -94,6 +94,11 @@ automatic matching, persistent calibrated confidence, facet-correspondence lifec
 matched accuracy/cost campaign remain open. Until M6 passes, a supported geometric constraint
 is not a high-confidence physical match or a measured following-accuracy improvement.
 
+The [facet and shell gap review](../lidar/operations/facet-shell-gap-review-2026-11.md)
+records two manually confirmed body anchors and conservative joint constraints. The
+read-only comparison holds leader intervals fixed; broad anchor bounds and correlated
+reference evidence do not establish an accuracy improvement.
+
 The body-memory part of M5 extends the existing reviewed-point fit with an explicit lifecycle scope.
 The [three-site review record](../lidar/operations/lifecycle-following-three-sites-2026-11.md)
 records its implementation boundary, three reproduced lifecycle fits, completed full-capture

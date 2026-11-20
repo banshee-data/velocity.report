@@ -1337,3 +1337,9 @@ held labels was carried into a label set journal, one line per revision, as the
   numerically. Length and width have separate handles; a side-face position anchor requires a
   numeric width edit because its centre offset is coupled to width.
 - Compare opens a saved report; it does not start an evaluation.
+
+The [November facet and shell review](facet-shell-gap-review-2026-11.md) records a
+worked example using saved corners, bounded endpoint inspection and the frozen
+following comparison. Offline single and joint pose requests allow up to five minutes
+for source validation on attached storage. A timeout does not save a proposal; retries
+are manual and the endpoint remains read-only.
