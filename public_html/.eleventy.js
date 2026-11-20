@@ -164,6 +164,9 @@ module.exports = async function (eleventyConfig) {
   // The city site index (tools/s2-hilbert/generate-scene-map.mjs), read by the
   // city views; static data, copied verbatim.
   eleventyConfig.addPassthroughCopy({ "src/city/sites.json": "city/sites.json" });
+  // The driving view's city tiles (/sf/): one gzipped JSON per S2 level-13 cell
+  // plus their manifest, baked from Gerardus's city layers; copied verbatim.
+  eleventyConfig.addPassthroughCopy({ "src/sf/tiles": "sf/tiles" });
   eleventyConfig.addPassthroughCopy({ "src/design": "design" });
 
   // Homepage uses a pure CSS file (not processed by Tailwind) — pass it through
