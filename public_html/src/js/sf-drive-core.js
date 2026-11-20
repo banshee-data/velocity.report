@@ -154,7 +154,11 @@ export function signNameIds(s) {
   return ids;
 }
 
-/** The next signposted intersection ahead within `ahead` metres: its street names other than `current`. */
+/**
+ * The next signposted intersection ahead within `ahead` metres: its street names other than `current`.
+ * With a current street, only signs on that street count, so a nearby road's junction is not
+ * reported as the next crossing.
+ */
 export function nextCrossing(loaded, x, y, heading, current, ahead = 140) {
   const hx = Math.cos(heading);
   const hy = Math.sin(heading);
@@ -171,9 +175,9 @@ export function nextCrossing(loaded, x, y, heading, current, ahead = 140) {
       const across = Math.abs(-dx * hy + dy * hx);
       if (across > 22) continue;
       if (along < bestD) {
-        const names = signNameIds(s)
-          .map((k) => tile.n[k])
-          .filter((n) => n && n !== current);
+        const all = signNameIds(s).map((k) => tile.n[k]);
+        if (current && !all.includes(current)) continue;
+        const names = all.filter((n) => n && n !== current);
         if (names.length) {
           bestD = along;
           best = { names, distance: along };

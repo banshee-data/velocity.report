@@ -64,12 +64,15 @@ test("carStep never exceeds its speed limits", () => {
 const tile = {
   o: [0, 0],
   half: 600,
-  n: ["Mission St", "Beale St"],
+  n: ["Mission St", "Beale St", "I-80 W On Ramp", "Fremont St"],
   r: [
     [0, 4, 0, [-1000, 0, 1000, 0], []],
     [1, 4, 0, [500, -1000, 500, 1000], []],
   ],
-  s: [[500, 0, 0, 0, 1, 90]],
+  s: [
+    [500, 0, 0, 0, 1, 90],
+    [300, 100, 2, 0, 3, 90],
+  ],
 };
 
 test("streetAt prefers the street aligned with the heading", () => {
@@ -88,4 +91,15 @@ test("nextCrossing names the cross street ahead, not the current one", () => {
 test("signNameIds reads the name ids between blade angles", () => {
   assert.deepEqual(signNameIds([10, 20, 3, 45, 7, 135]), [3, 7]);
   assert.deepEqual(signNameIds([10, 20]), []);
+});
+
+test("nextCrossing ignores a nearby junction that is not on the current street", () => {
+  // The I-80 / Fremont sign at x = 30 m sits in the corridor ahead but not on Mission St.
+  const next = nextCrossing([tile], 0, 0, 0, "Mission St");
+  assert.deepEqual(next.names, ["Beale St"]);
+  // Off any street, the nearest sign ahead still counts.
+  assert.deepEqual(nextCrossing([tile], 0, 0, 0, null).names, [
+    "I-80 W On Ramp",
+    "Fremont St",
+  ]);
 });
