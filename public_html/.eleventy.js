@@ -163,10 +163,32 @@ module.exports = async function (eleventyConfig) {
   }
   // The city site index (tools/s2-hilbert/generate-scene-map.mjs), read by the
   // city views; static data, copied verbatim.
-  eleventyConfig.addPassthroughCopy({ "src/city/sites.json": "city/sites.json" });
+  eleventyConfig.addPassthroughCopy({
+    "src/city/sites.json": "city/sites.json",
+  });
   // The driving view's city tiles (/sf/): one gzipped JSON per S2 level-13 cell
   // plus their manifest, baked from Gerardus's city layers; copied verbatim.
   eleventyConfig.addPassthroughCopy({ "src/sf/tiles": "sf/tiles" });
+  eleventyConfig.addPassthroughCopy({
+    "src/sf/quest-route.json": "sf/quest-route.json",
+  });
+  // Exact on-disk asset size for the game's HUD, including its engine and renderer.
+  const sfManifest = JSON.parse(
+    fs.readFileSync("src/sf/tiles/manifest.json", "utf8"),
+  );
+  eleventyConfig.addGlobalData(
+    "sfGameBytes",
+    sfManifest.tiles.reduce((sum, t) => sum + t.bytes, 0) +
+      [
+        "src/sf/tiles/manifest.json",
+        "src/sf/quest-route.json",
+        "src/js/sf-drive.js",
+        "src/js/sf-drive-core.js",
+        "src/js/sf-drive-surface.js",
+        "node_modules/three/build/three.module.js",
+        "node_modules/three/build/three.core.js",
+      ].reduce((sum, path) => sum + fs.statSync(path).size, 0),
+  );
   eleventyConfig.addPassthroughCopy({ "src/design": "design" });
 
   // Homepage uses a pure CSS file (not processed by Tailwind) — pass it through

@@ -125,6 +125,16 @@ this presentation filter leaves the survey's aggregate statistics unchanged. Its
 coverage is limited by the available footprints and their accepted registration.
 See the [scene export guide](../tools/s2-archive/README.md#street-geometry-from-gerardus).
 
+## San Francisco driving game
+
+`/sf/` streams the existing S2 L13 city tiles and runs an emoji collection time trial.
+The engine includes hill-aware driving, building/trunk collision recovery, a minimap
+with loaded tiles and asset sizes, and personal best times saved on the device.
+The fixed route has one distinct emoji at an intersection in each of 137 eligible tiles;
+20 tiles without signposted intersections remain visible on the map.
+See [driving controls, route generation and rendering](../docs/ui/sf-driving-view.md).
+Run `make test-public-html` from the repository root for engine and route regression checks.
+
 ## Deployment
 
 The site automatically deploys to GitHub Pages when changes are pushed to the `gh-pages` branch.
