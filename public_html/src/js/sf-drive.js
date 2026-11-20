@@ -27,6 +27,8 @@ import {
 
 import { terrainTriangles, tileRegion } from "./sf-drive-surface.js";
 import { createDownloadSizeTracker } from "./sf-download-size.js";
+import { bindDrivingPad } from "./sf-touch-controls.js";
+import { districtTrials, seekerDirection } from "./sf-district-trials.js";
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -536,6 +538,13 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     assets: downloadAssets,
     tileBase: new URL(base, location.href),
   });
+  let districts = [];
+  try {
+    districts = districtTrials(route, manifest);
+  } catch (e) {
+    console.warn("District trials unavailable", e);
+  }
+  let activeDistrict = null;
   const C = {
     sky: col("--sky"),
     land: col("--land"),
@@ -584,6 +593,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   );
   let trial = createTrial(route.targets);
   let selectedStart = start;
+  let cityStart = start;
   let checkpoint = null;
   let crash = null;
   let crashUntil = 0;
@@ -591,7 +601,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   let messageUntil = 0;
   const failures = new Map();
   const recordKey = () =>
-    `sf-trial-v1:${route.manifestSha256}:${selectedStart.id}`;
+    `sf-trial-v1:${route.manifestSha256}:${selectedStart.id}${activeDistrict ? `:district:${activeDistrict.recordScope}` : ""}`;
   const recordsByStart = new Map();
   function records() {
     if (!recordsByStart.has(recordKey())) {
@@ -749,8 +759,10 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   );
   // A key released in another window never sends its keyup here: drop held
   // inputs when the page loses focus so the car does not drive on by itself.
+  let drivingPad;
   const releaseInputs = () => {
     state.keys.clear();
+    drivingPad?.clear();
     state.touch = { throttle: 0, steer: 0, brake: false };
   };
   window.addEventListener("blur", releaseInputs);
@@ -827,12 +839,12 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   }
   function newTrial(p = selectedStart) {
     selectedStart = p;
-    trial = createTrial(route.targets);
+    trial = createTrial(activeDistrict?.targets || route.targets);
     checkpoint = null;
     crashUntil = 0;
     reset(p);
     announce(
-      "Collect an emoji in every marked tile. Drive to start the clock.",
+      `Collect every marked emoji${activeDistrict ? ` in ${activeDistrict.name}` : ""}. Drive to start the clock.`,
       4,
     );
   }
@@ -864,26 +876,44 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   hud.places.addEventListener("change", () => {
     const p = places.find((q) => q.id === hud.places.value);
     if (p) {
+      cityStart = p;
       newTrial(p);
       history.replaceState(null, "", `?at=${p.id}`);
     }
     hud.places.blur();
   });
-  for (const b of hud.touchButtons) {
-    const act = b.dataset.act;
-    const on = (v) => (e) => {
-      e.preventDefault();
-      if (act === "brake") state.touch.brake = v;
-      if (act === "up") state.touch.throttle = v ? 1 : 0;
-      if (act === "down") state.touch.throttle = v ? -1 : 0;
-      if (act === "left") state.touch.steer = v ? 1 : 0;
-      if (act === "right") state.touch.steer = v ? -1 : 0;
-    };
-    b.addEventListener("pointerdown", on(true));
-    b.addEventListener("pointerup", on(false));
-    b.addEventListener("pointerleave", on(false));
-    b.addEventListener("pointercancel", on(false));
+  hud.trialArea.replaceChildren(
+    new Option("Whole city", "city"),
+    ...districts.map((d) => new Option(d.name, d.id)),
+  );
+  if (!districts.length) {
+    const unavailable = new Option(
+      "District runs unavailable for this map",
+      "unavailable",
+    );
+    unavailable.disabled = true;
+    hud.trialArea.add(unavailable);
   }
+  hud.trialArea.addEventListener("change", () => {
+    activeDistrict =
+      districts.find((d) => d.id === hud.trialArea.value) || null;
+    hud.places.disabled = !!activeDistrict;
+    hud.places.replaceChildren(
+      ...(activeDistrict ? [activeDistrict.start] : places).map(
+        (p) => new Option(p.name, p.id),
+      ),
+    );
+    const p = activeDistrict?.start || cityStart;
+    hud.places.value = p.id;
+    hud.trialTitle.textContent = activeDistrict
+      ? `${activeDistrict.name} emoji rally`
+      : "San Francisco emoji rally";
+    newTrial(p);
+    hud.trialArea.blur();
+  });
+  drivingPad = bindDrivingPad(hud.touchButtons, (input) => {
+    state.touch = input;
+  });
 
   let last = performance.now();
   let hudAt = 0;
@@ -937,25 +967,25 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       ctx.save();
       ctx.translate(c, c);
       ctx.rotate(angle);
-      ctx.strokeStyle = "#c79226";
-      ctx.fillStyle = "#c79226";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = seekerColours.accent;
+      ctx.fillStyle = seekerColours.accent;
+      ctx.lineWidth = 5;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(0, -w * 0.25);
+      ctx.lineTo(0, -w * 0.28);
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(0, -w * 0.3);
-      ctx.lineTo(-5, -w * 0.2);
-      ctx.lineTo(5, -w * 0.2);
+      ctx.moveTo(0, -w * 0.34);
+      ctx.lineTo(-w * 0.1, -w * 0.19);
+      ctx.lineTo(w * 0.1, -w * 0.19);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
       ctx.beginPath();
-      ctx.arc(c, c, w * 0.14, 0, Math.PI * 2);
+      ctx.arc(c, c, w * 0.16, 0, Math.PI * 2);
       ctx.fillStyle = seekerColours.bg;
       ctx.fill();
-      ctx.font = `${w * 0.22}px system-ui`;
+      ctx.font = `${w * 0.26}px system-ui`;
       ctx.fillText(seeker.target.emoji, c, c);
     }
     // Your heading is always up; the compass ring and target turn around it.
@@ -974,6 +1004,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     hud.seekerDistance.textContent = seeker.target
       ? `${seeker.target.emoji} ${Math.round(seeker.distance)} m`
       : "All collected!";
+    hud.seekerTurn.textContent = seekerDirection(seeker.relative);
     hud.seekerHeading.textContent = `${seeker.cardinal} · ${String(Math.round(seeker.heading) % 360).padStart(3, "0")}°`;
     cv.setAttribute(
       "aria-label",
@@ -992,7 +1023,9 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    const polygons = [...regions.values()].flat();
+    const polygons = activeDistrict
+      ? [...activeDistrict.polygons.flat(2), [car.x, car.y]]
+      : [...regions.values()].flat();
     const minX = Math.min(...polygons.map((p) => p[0])),
       maxX = Math.max(...polygons.map((p) => p[0]));
     const minY = Math.min(...polygons.map((p) => p[1])),
@@ -1004,6 +1037,8 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     ];
     ctx.lineWidth = 0.6;
     for (const row of manifest.tiles) {
+      ctx.globalAlpha =
+        activeDistrict && !activeDistrict.overlapTiles.has(row.t) ? 0.25 : 1;
       ctx.beginPath();
       regions
         .get(row.t)
@@ -1021,6 +1056,23 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       ctx.strokeStyle = css("--muted");
       ctx.fill();
       ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    if (activeDistrict) {
+      for (const polygon of activeDistrict.polygons) {
+        ctx.beginPath();
+        for (const ring of polygon) {
+          ring.forEach(([x, y], i) =>
+            i ? ctx.lineTo(...point(x, y)) : ctx.moveTo(...point(x, y)),
+          );
+          ctx.closePath();
+        }
+        ctx.fillStyle = "#f59e0b22";
+        ctx.fill("evenodd");
+        ctx.strokeStyle = "#d38b00";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
     }
     const remaining = trial.targets.filter((t) => !trial.collected.has(t.t));
     const nearest = questSeeker(trial, manifest.tiles, car).target;
@@ -1227,7 +1279,9 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     drawSeeker();
     for (const [t, e] of loaded)
       if (e.marker) {
-        e.marker.visible = !trial.collected.has(t);
+        e.marker.visible =
+          trial.targets.some((target) => target.t === t) &&
+          !trial.collected.has(t);
         e.marker.userData.sprite.position.y =
           e.marker.userData.baseZ + Math.sin(now / 450) * 0.4;
       }

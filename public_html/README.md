@@ -134,6 +134,9 @@ with loaded tiles and compressed network download sizes, and personal best times
 The fixed route has one distinct emoji at an intersection in each of 137 eligible tiles;
 20 tiles without signposted intersections remain visible on the map.
 See [driving controls, route generation and rendering](../docs/ui/sf-driving-view.md).
+The touch pad captures held multi-touch input without selection or control gestures. The
+district-trial UI accepts optional boundary and pickup metadata; real district runs await
+the [separate Gerardus data implementation](../docs/plans/ui-sf-district-trials-plan.md).
 Run `make test-public-html` from the repository root for engine and route regression checks.
 
 ## Deployment

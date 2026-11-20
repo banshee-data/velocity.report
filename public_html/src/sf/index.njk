@@ -40,7 +40,8 @@ eleventyExcludeFromCollections: true
   .where .speed { color: var(--ink); font-weight: 600; }
   .tools { right: max(12px, env(safe-area-inset-right, 0px)); top: max(12px, env(safe-area-inset-top, 0px)); display: grid; gap: 8px; max-width: 260px; }
   .tools label { font-size: 12px; color: var(--muted); }
-  .tools select { width: 100%; font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); }
+  .tools select { width: 100%; font: inherit; font-size: 16px; padding: 6px; border-radius: 6px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); }
+  .tools button { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   .tools .row { display: flex; gap: 6px; }
   .tools button, .pad button { font: 600 13px/1 inherit; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); cursor: pointer; }
   .tools button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -52,10 +53,11 @@ eleventyExcludeFromCollections: true
   .quest .detail, .map .detail { color: var(--muted); font-size: 11px; }
   .quest .status { font-size: 12px; min-height: 2.8em; }
   .seeker { display: flex; align-items: center; gap: 10px; border-block: 1px solid var(--rule); padding: 5px 0; }
-  #seekerCompass { width: 88px; height: 88px; display: block; flex: none; }
+  #seekerCompass { width: 120px; height: 120px; display: block; flex: none; }
   .seeker-copy { display: grid; gap: 3px; min-width: 0; }
   .seeker-copy strong { font-size: 12px; }
-  #seekerDistance { font-weight: 700; font-variant-numeric: tabular-nums; }
+  #seekerDistance { font-size: 20px; font-weight: 750; font-variant-numeric: tabular-nums; }
+  #seekerTurn { color: var(--accent); font-weight: 750; font-size: 14px; }
   #seekerHeading { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   button:disabled { opacity: 0.5; cursor: default; }
   .map { right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); width: 260px; }
@@ -68,24 +70,37 @@ eleventyExcludeFromCollections: true
   .help p { margin: 0 0 4px; }
   .help a { color: var(--accent); }
   .pad { position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: none; grid-template-columns: repeat(3, 56px); gap: 6px; }
-  .pad button { height: 56px; font-size: 18px; }
+  .pad, .pad button { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .pad button { height: 56px; font-size: 24px; -webkit-tap-highlight-color: transparent; }
+  .pad button.held { background: var(--accent); color: #fff; border-color: var(--accent); transform: translateY(2px); }
   kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
   @media (pointer: coarse) { .pad { display: grid; } .help, #mirrorBtn { display: none; } .map { bottom: 210px; } }
   @media (max-width: 760px) {
     .where { min-width: 0; max-width: calc(100vw - 172px); } .where .street { font-size: 15px; }
     .where .meta { gap: 6px; font-size: 11px; }
-    .tools { width: 120px; } .tools .row { flex-wrap: nowrap; }
+    .tools { width: 120px; gap: 4px; } .tools .row { flex-wrap: nowrap; }
     .tools button { padding: 7px 5px; font-size: 10px; flex: 1; white-space: nowrap; }
     #mirrorBtn { display: none; }
     .quest { top: 142px; width: 160px; font-size: 12px; padding: 8px; }
     .quest .timer { font-size: 23px; }
-    .seeker { gap: 6px; } #seekerCompass { width: 72px; height: 72px; }
+    .seeker { gap: 6px; display: grid; justify-items: center; text-align: center; } #seekerCompass { width: 112px; height: 112px; }
     .seeker-copy strong, #seekerHeading { font-size: 10px; }
-    .map { width: 140px; top: 220px; bottom: auto; padding: 8px; }
+    .map { width: 140px; top: 236px; bottom: auto; padding: 8px; }
     #minimap { height: 170px; } .map .legend { gap: 5px; flex-wrap: wrap; }
     .help { display: none; } .mirror { display: none; }
   }
-  @media (max-height: 520px) { .quest { top: 108px; gap: 3px; } .quest .detail, #records, .help, .map .detail { display: none; } .map { top: auto; bottom: 12px; right: 215px; width: 160px; } #minimap { height: 110px; } #seekerCompass { width: 52px; height: 52px; } .seeker { padding: 2px 0; } .quest .status { min-height: 0; } }
+  @media (max-width: 760px) and (max-height: 740px) { .quest .detail, .quest .target, .map .detail { display: none; } .seeker { display: flex; text-align: left; } #seekerCompass { width: 88px; height: 88px; } #seekerDistance { font-size: 16px; } #seekerTurn { font-size: 11px; } #minimap { height: 120px; } }
+  @media (max-height: 520px) {
+    .quest { top: 108px; gap: 3px; }
+    .quest .detail, .quest .target, #records, .help, .map .detail { display: none; }
+    .map { top: auto; bottom: 12px; right: 215px; width: 160px; }
+    #minimap { height: 110px; } #seekerCompass { width: 80px; height: 80px; }
+    .seeker { padding: 2px 0; } .quest .status { min-height: 0; }
+    .tools { width: 180px; gap: 3px; padding: 8px; }
+    .tools label { font-size: 10px; line-height: 1; }
+    .tools select { font-size: 16px; padding: 3px; height: 30px; }
+    .tools button { font-size: 10px; padding: 6px; }
+  }
 </style>
 </head>
 <body>
@@ -97,6 +112,8 @@ eleventyExcludeFromCollections: true
   <div class="meta"><span class="speed" id="speed">0 mph</span><span id="compass">N</span><span id="tiles">0 tiles</span></div>
 </div>
 <div class="panel tools">
+  <label for="trialArea">Time trial</label>
+  <select id="trialArea" aria-label="Time trial area"></select>
   <label for="places">Start from</label>
   <select id="places"></select>
   <div class="row">
@@ -109,13 +126,14 @@ eleventyExcludeFromCollections: true
   </div>
 </div>
 <div class="panel quest" aria-label="Emoji time trial">
-  <div class="title">San Francisco emoji rally</div>
+  <div class="title" id="trialTitle">San Francisco emoji rally</div>
   <div class="timer" id="timer" role="timer" aria-label="Elapsed trial time">0:00.00</div>
   <div id="progress">Loading the quest…</div>
   <progress id="progressBar" value="0" max="1" aria-label="Emojis collected"></progress>
   <div class="seeker" aria-label="Emoji compass seeker">
     <canvas id="seekerCompass" width="96" height="96" role="img" aria-label="Compass and direction to the emoji on this tile"></canvas>
     <div class="seeker-copy">
+      <strong id="seekerTurn">Follow the arrow</strong>
       <strong id="seekerScope">This tile</strong>
       <span id="seekerDistance"></span>
       <span id="seekerHeading"></span>
@@ -140,7 +158,7 @@ eleventyExcludeFromCollections: true
 </div>
 <div class="pad" aria-label="Driving controls">
   <span></span><button type="button" data-act="up" aria-label="Accelerate">▲</button><span></span>
-  <button type="button" data-act="left" aria-label="Steer left">◀</button><button type="button" data-act="brake" aria-label="Brake">■</button><button type="button" data-act="right" aria-label="Steer right">▶</button>
+  <button type="button" data-act="left" aria-label="Steer left">←</button><button type="button" data-act="brake" aria-label="Brake">■</button><button type="button" data-act="right" aria-label="Steer right">→</button>
   <span></span><button type="button" data-act="down" aria-label="Reverse">▼</button><span></span>
 </div>
 <script type="module">
@@ -156,6 +174,7 @@ eleventyExcludeFromCollections: true
       restartBtn: $("restartBtn"), respawnBtn: $("respawnBtn"), minimap: $("minimap"),
       timer: $("timer"), progress: $("progress"), progressBar: $("progressBar"), target: $("target"),
       seekerCompass: $("seekerCompass"), seekerScope: $("seekerScope"), seekerDistance: $("seekerDistance"), seekerHeading: $("seekerHeading"),
+      seekerTurn: $("seekerTurn"), trialArea: $("trialArea"), trialTitle: $("trialTitle"),
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
       touchButtons: document.querySelectorAll(".pad button"),
     },
