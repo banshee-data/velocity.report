@@ -37,6 +37,8 @@ def test_each_agent_store_is_found():
         "From https://chat.openai.com/share/abc": "chatgpt",
         "Gem: https://gemini.google.com/app/abc": "gemini",
         "Copilot said https://github.com/copilot/c/abc": "copilot-chat",
+        "Handover: https://chatgpt.com/space/page_268b6582": "chatgpt",
+        "Exploration: https://claude.ai/design/p/98edced9": "claude-design",
     }
     for text, rule in cases.items():
         assert rules(text) == [rule], text
@@ -69,3 +71,31 @@ def test_repository_is_clean():
         [sys.executable, str(SCRIPT)], cwd=ROOT, capture_output=True, text=True
     )
     assert result.returncode == 0, result.stdout
+
+
+def test_nested_fences_keep_their_block():
+    # A four-backtick block holding a three-backtick example: the example is code.
+    nested = "\n".join(
+        (
+            "````markdown",
+            "```",
+            "https://claude.ai/artifact/AbC123",
+            "```",
+            "````",
+            "After the block: https://claude.ai/artifact/XyZ789",
+        )
+    )
+    assert check.scan_text(nested) == [(6, "claude-artifact", "claude.ai/artifact/")]
+
+
+def test_other_fence_character_does_not_close_the_block():
+    # A ~~~ line inside a backtick block is content, so the block still ends at its own fence.
+    mixed = "\n".join(
+        (
+            "```",
+            "~~~",
+            "```",
+            "Prose again: https://chatgpt.com/share/abc",
+        )
+    )
+    assert rules(mixed) == ["chatgpt"]

@@ -29,8 +29,9 @@ IGNORE_MARKER = "agent-doc-link: ignore"
 # (identifier, pattern) for hosts where an agent keeps documents or conversations.
 PATTERNS: tuple[tuple[str, str], ...] = (
     ("claude-artifact", r"claude\.ai/(?:code/)?artifacts?/"),
+    ("claude-design", r"claude\.ai/design/"),
     ("claude-chat", r"claude\.ai/(?:chat|share|project)/"),
-    ("chatgpt", r"(?:chatgpt\.com|chat\.openai\.com)/(?:c|g|share|canvas)/"),
+    ("chatgpt", r"(?:chatgpt\.com|chat\.openai\.com)/(?:c|g|share|canvas|space)/"),
     ("gemini", r"gemini\.google\.com/(?:app|share|gem)/"),
     ("copilot-chat", r"(?:copilot\.microsoft\.com|github\.com/copilot/c)/"),
 )
@@ -39,15 +40,32 @@ COMPILED = tuple(
 )
 
 
+# A fence opens with three or more backticks or tildes, indented at most three
+# spaces; only a run of the same character at least as long, with nothing after
+# it, closes it (CommonMark). Fence examples nested inside a longer fence stay
+# inside it.
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+
+
 def scan_text(text: str) -> list[tuple[int, str, str]]:
     """Return (line number, rule, matched text) for each finding in *text*."""
     findings: list[tuple[int, str, str]] = []
-    fenced = False
+    opener = ""  # the open fence's delimiter run, or "" outside a fence
     for lineno, line in enumerate(text.splitlines(), start=1):
-        if line.lstrip().startswith(("```", "~~~")):
-            fenced = not fenced
+        fence = FENCE.match(line)
+        if opener:
+            if (
+                fence
+                and fence.group(1)[0] == opener[0]
+                and len(fence.group(1)) >= len(opener)
+                and not fence.group(2).strip()
+            ):
+                opener = ""
             continue
-        if fenced or IGNORE_MARKER in line:
+        if fence and not (fence.group(1)[0] == "`" and "`" in fence.group(2)):
+            opener = fence.group(1)
+            continue
+        if IGNORE_MARKER in line:
             continue
         for name, pattern in COMPILED:
             for match in pattern.finditer(line):
