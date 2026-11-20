@@ -1,6 +1,6 @@
 # San Francisco driving view (`/sf/`)
 
-- **Status:** first release, November 2026.
+- **Status:** driving engine and emoji time trials.
 - **Page:** [`public_html/src/sf/index.njk`](../../public_html/src/sf/index.njk); logic in
   [`sf-drive.js`](../../public_html/src/js/sf-drive.js) and
   [`sf-drive-core.js`](../../public_html/src/js/sf-drive-core.js) (tested in
@@ -14,6 +14,57 @@ The page drives a car anywhere in San Francisco over measured geometry, so a rea
 survey sites with the city around them. A chase camera sits behind the car and a mirror shows the road
 behind. A readout names the street under the car and the next signposted cross street ahead, and
 street-name signs stand at intersections.
+
+## Driving and time trials
+
+Steering travels gradually and returns to centre. A bicycle model runs at 120 Hz, with
+speed-dependent steering, a lateral tyre-grip limit, rolling resistance, aerodynamic drag,
+and gravity along the measured hill slope. Down/S brakes before engaging reverse; space
+brakes and holds the car on a hill. Off-road ground reduces grip and adds resistance.
+The wheels steer and spin, and the body pitches with the terrain.
+
+Building roof-face outlines (including courtyard holes) and tree trunks have collision
+checks in 32 m spatial buckets. An oriented rectangle covers the car body and bumpers;
+short physics steps prevent it jumping through a trunk. A crash stops the car and returns
+it to its last reached clear intersection, or the nearest clear loaded intersection if
+that checkpoint has streamed out. R / Reset car uses the same recovery. Inputs are
+released on recovery and on lost focus. Kerbs and tree crowns do not cause a crash.
+The car waits at a missing ground surface or an unloaded tile boundary.
+
+Collect a different emoji at one intersection in each of the 137 tiles with signposted
+intersections, in any order. The other 20 of the 157 tiles have no signposted intersection;
+they remain on the map and are excluded from the completion requirement. Emoji beacons
+appear in the world, and the north-up minimap shows every tile, loaded/loading tiles,
+collected tiles, the car, and a line to the nearest remaining emoji.
+
+The car holds its brake before the first driving input, which starts the clock. It measures real elapsed time, including crashes,
+recovery, loading and background time. Collected emojis survive respawns and tile unloading.
+Completing the fixed target set stops the clock and saves the five fastest personal times
+on this device, separately for each starting place and map manifest. New trial or choosing
+a different starting place resets the entire run; Reset car keeps the clock running.
+There is no shared leaderboard. When browser storage is unavailable, records last for the session.
+
+`public_html/src/sf/quest-route.json` is a small gameplay index alongside the unchanged
+city tiles. Rebuild it from the repository root with
+`node tools/sf-drive/build-quest-route.mjs`. It pairs opposite-corner street signs,
+projects their midpoint onto a named carriageway (including roads owned by a neighboring
+tile), and chooses a grounded intersection clear of buildings and trunks. Its manifest
+hash scopes saved records. The engine tests check complete tile coverage and unique emoji.
+
+The map readout reports compressed tile bytes currently resident, the full tile download,
+and total on-disk game assets (tiles, manifest, quest index, engine modules and three.js).
+It does not estimate JavaScript heap or GPU memory. The full tile set is not downloaded
+to start a run.
+
+## Road rendering
+
+Road and path colours and dashed markings are painted from the existing centreline and
+kerb-width data onto the terrain's own triangles. This gives each road point one surface;
+an independently interpolated asphalt mesh can no longer intersect the hill underneath.
+Adjacent overlapping ground grids are clipped at their nearest-origin boundaries, and
+height queries use the same triangle planes. Texture resolution is 2048 pixels per tile
+on desktop and 1024 on touch devices. Buildings, trees, signs, kerbs and source tile files
+retain their existing geometry.
 
 ## What it shows
 
@@ -55,7 +106,8 @@ and drops tiles more than 1.6 km past their edge.
 - The canopy test reads the lidar at a coarser density than the per-site studies and flags somewhat
   more roof faces than they did.
 - Tall post-2010 towers are flat tiers, not their curved forms.
-- There is no collision with buildings or kerbs; the car follows the ground grid and pitches with it.
+- Collision uses the available building outlines and trunks; it does not model kerb impacts,
+  tyre suspension, vehicle damage or traffic. Ground and roof heights retain the source limits.
 - The tiles are gzipped JSON for ease of reading. A binary encoding of the same geometry measured about a
   third of the size in the asset study, and would be the next step if load time matters.
 - Tree crowns are drawn as spheres from low on the trunk, so a blade can sit inside a street tree's

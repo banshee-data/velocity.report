@@ -31,7 +31,7 @@ eleventyExcludeFromCollections: true
   }
   html, body { height: 100%; margin: 0; }
   body { background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
-  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #drive { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   .panel { position: fixed; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; }
   .where { left: max(12px, env(safe-area-inset-left, 0px)); top: max(12px, env(safe-area-inset-top, 0px)); min-width: 210px; max-width: 42vw; display: grid; gap: 4px; }
   .where .street { font-weight: 700; font-size: 18px; }
@@ -44,16 +44,39 @@ eleventyExcludeFromCollections: true
   .tools .row { display: flex; gap: 6px; }
   .tools button, .pad button { font: 600 13px/1 inherit; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); cursor: pointer; }
   .tools button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .quest { left: max(12px, env(safe-area-inset-left, 0px)); top: 128px; width: 240px; display: grid; gap: 6px; }
+  .quest .title, .map .title { font-weight: 700; }
+  .quest .timer { font: 700 28px/1.2 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .quest progress { width: 100%; height: 7px; accent-color: var(--accent); }
+  .quest .target { font-weight: 600; }
+  .quest .detail, .map .detail { color: var(--muted); font-size: 11px; }
+  .quest .status { font-size: 12px; min-height: 2.8em; }
+  .map { right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); width: 260px; }
+  #minimap { display: block; width: 100%; height: 235px; }
+  .map .legend { display: flex; gap: 10px; font-size: 11px; }
+  .map .loaded { color: #0f9383; } .map .collected { color: #b38120; }
   button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .mirror { position: fixed; border: 3px solid #111; border-radius: 10px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
-  .help { left: max(12px, env(safe-area-inset-left, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); max-width: min(560px, 60vw); font-size: 12px; color: var(--muted); }
+  .help { left: max(12px, env(safe-area-inset-left, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); max-width: min(560px, calc(100vw - 340px)); font-size: 12px; color: var(--muted); }
   .help p { margin: 0 0 4px; }
   .help a { color: var(--accent); }
   .pad { position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: none; grid-template-columns: repeat(3, 56px); gap: 6px; }
   .pad button { height: 56px; font-size: 18px; }
   kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
-  @media (pointer: coarse) { .pad { display: grid; } .help { display: none; } }
-  @media (max-width: 640px) { .where { max-width: 60vw; } .tools { max-width: 40vw; } }
+  @media (pointer: coarse) { .pad { display: grid; } .help, #mirrorBtn { display: none; } .map { bottom: 210px; } }
+  @media (max-width: 760px) {
+    .where { min-width: 0; max-width: calc(100vw - 172px); } .where .street { font-size: 15px; }
+    .where .meta { gap: 6px; font-size: 11px; }
+    .tools { width: 120px; } .tools .row { flex-wrap: nowrap; }
+    .tools button { padding: 7px 5px; font-size: 10px; flex: 1; white-space: nowrap; }
+    #mirrorBtn { display: none; }
+    .quest { top: 142px; width: 160px; font-size: 12px; padding: 8px; }
+    .quest .timer { font-size: 23px; }
+    .map { width: 140px; top: 220px; bottom: auto; padding: 8px; }
+    #minimap { height: 170px; } .map .legend { gap: 5px; flex-wrap: wrap; }
+    .help { display: none; } .mirror { display: none; }
+  }
+  @media (max-height: 520px) { .quest { top: 108px; } .quest .detail, #records, .help, .map .detail { display: none; } .map { top: auto; bottom: 12px; right: 215px; width: 160px; } #minimap { height: 110px; } }
 </style>
 </head>
 <body>
@@ -71,9 +94,31 @@ eleventyExcludeFromCollections: true
     <button type="button" id="mirrorBtn" aria-pressed="true">Mirror</button>
     <button type="button" id="viewBtn" aria-pressed="false">High view</button>
   </div>
+  <div class="row">
+    <button type="button" id="restartBtn">New trial</button>
+    <button type="button" id="respawnBtn">Reset car</button>
+  </div>
+</div>
+<div class="panel quest" aria-label="Emoji time trial">
+  <div class="title">San Francisco emoji rally</div>
+  <div class="timer" id="timer" role="timer" aria-label="Elapsed trial time">0:00.00</div>
+  <div id="progress">Loading the quest…</div>
+  <progress id="progressBar" value="0" max="1" aria-label="Emojis collected"></progress>
+  <div class="target" id="target"></div>
+  <div class="status" id="status" role="status">Drive to start the clock.</div>
+  <div class="detail" id="best">Personal best —</div>
+  <div class="detail" id="records"></div>
+</div>
+<div class="panel map" aria-label="City minimap and assets">
+  <div class="title">City coverage</div>
+  <canvas id="minimap" role="img" aria-label="North-up minimap: loaded tiles in teal, collected tiles in gold, your car in white, and a line to the nearest emoji."></canvas>
+  <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span><span>● Quest</span></div>
+  <div class="detail" id="assets"></div>
+  <div class="detail" id="gameSize"></div>
+  <div class="detail" id="coverage"></div>
 </div>
 <div class="panel help">
-  <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror, <kbd>V</kbd> view, <kbd>R</kbd> back to the start.</p>
+  <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror, <kbd>V</kbd> view, <kbd>R</kbd> return to an intersection. Collect every marked emoji to finish. Crashes keep the clock running. New trial or a new start resets the run.</p>
   <p>Measured geometry as context, not a survey or a plan: building outlines and 2010 heights from DataSF (PDDL), roofs fitted to USGS 3DEP lidar flown April 2023 (public domain), street trees from DataSF's Street Tree List with lidar canopy, streets, kerbs (2016) and street names from DataSF. Buildings 3DEP sees that the City's 2010 outlines lack are shaded violet. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">About this data</a>.</p>
 </div>
 <div class="pad" aria-label="Driving controls">
@@ -87,9 +132,13 @@ eleventyExcludeFromCollections: true
   startDrive({
     canvas: $("drive"),
     base: "{{ '/sf/tiles/' | url }}",
+    assetBytes: {{ sfGameBytes }},
     hud: {
       street: $("street"), next: $("next"), speed: $("speed"), compass: $("compass"), tiles: $("tiles"),
       places: $("places"), mirrorBtn: $("mirrorBtn"), viewBtn: $("viewBtn"), mirrorFrame: $("mirrorFrame"),
+      restartBtn: $("restartBtn"), respawnBtn: $("respawnBtn"), minimap: $("minimap"),
+      timer: $("timer"), progress: $("progress"), progressBar: $("progressBar"), target: $("target"),
+      status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
       touchButtons: document.querySelectorAll(".pad button"),
     },
   }).catch((e) => {

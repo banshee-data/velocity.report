@@ -4,12 +4,23 @@
 // signposts. The chase camera sits behind the car; a mirror shows the road behind.
 import * as THREE from "../vendor/three/three.module.js";
 import {
+  advanceTrial,
+  buildCollisionIndex,
+  collisionAt,
+  createTrial,
+  formatBytes,
+  formatTime,
+  groundAt,
+  intersectionsForTile,
+  nearestRoad,
   carStep,
   groundAtWorld,
   nextCrossing,
   streetAt,
   tilesAround,
 } from "./sf-drive-core.js";
+
+import { terrainTriangles, tileRegion } from "./sf-drive-surface.js";
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -36,31 +47,12 @@ async function fetchJsonGz(url) {
 const V = (x, y, z) => [x, z, -y];
 
 function groundFn(tile) {
-  return (lx, ly) => {
-    const g = tile.g;
-    const n = g.n;
-    const fx = Math.min(Math.max((lx - g.x0) / g.s, 0), n - 1.001);
-    const fy = Math.min(Math.max((ly - g.y0) / g.s, 0), n - 1.001);
-    const i = Math.floor(fx);
-    const j = Math.floor(fy);
-    const tx = fx - i;
-    const ty = fy - j;
-    const zs = [
-      g.z[j * n + i],
-      g.z[j * n + i + 1],
-      g.z[(j + 1) * n + i],
-      g.z[(j + 1) * n + i + 1],
-    ];
-    const ws = [(1 - tx) * (1 - ty), tx * (1 - ty), (1 - tx) * ty, tx * ty];
-    let s = 0;
-    let w = 0;
-    for (let k = 0; k < 4; k++) {
-      if (zs[k] === -32768) continue;
-      s += (zs[k] / 10) * ws[k];
-      w += ws[k];
-    }
-    return w > 0 ? s / w : tile.zfill;
-  };
+  return (lx, ly) =>
+    groundAt(
+      tile.g,
+      Math.max(tile.g.x0, Math.min(tile.g.x0 + (tile.g.n - 1) * tile.g.s, lx)),
+      Math.max(tile.g.y0, Math.min(tile.g.y0 + (tile.g.n - 1) * tile.g.s, ly)),
+    ) ?? tile.zfill;
 }
 
 function mesh(positions, colour, opts = {}) {
@@ -80,40 +72,117 @@ function mesh(positions, colour, opts = {}) {
   return new THREE.Mesh(g, m);
 }
 
-function buildTile(tile, C) {
+function roadShapes(tile) {
+  return tile.r.map((r) => {
+    const p = r[3],
+      w = r[4],
+      left = [],
+      right = [],
+      centre = [];
+    for (let i = 0; i < p.length; i += 2) {
+      const a = Math.max(0, i - 2),
+        b = Math.min(p.length - 2, i + 2);
+      const dx = p[b] - p[a],
+        dy = p[b + 1] - p[a + 1],
+        len = Math.hypot(dx, dy) || 1;
+      const x = tile.o[0] + p[i] / 10,
+        y = tile.o[1] + p[i + 1] / 10;
+      const wl = w.length ? w[i] / 10 : 1.2,
+        wr = w.length ? w[i + 1] / 10 : 1.2;
+      left.push([x - (dy / len) * wl, y + (dx / len) * wl]);
+      right.push([x + (dy / len) * wr, y - (dx / len) * wr]);
+      centre.push([x, y]);
+    }
+    return {
+      polygon: [...left, ...right.reverse()],
+      centre,
+      road: !!w.length,
+      dashed: !!w.length && r[2] === 0,
+    };
+  });
+}
+
+function paintTerrain(entry, entries, C) {
+  const texture = entry.grp.userData.terrain.material.map;
+  const cv = texture.image,
+    ctx = cv.getContext("2d"),
+    { g, o } = entry.tile;
+  ctx.resetTransform();
+  ctx.fillStyle = `#${C.land.getHexString()}`;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  const scale = cv.width / ((g.n - 1) * g.s);
+  ctx.setTransform(
+    scale,
+    0,
+    0,
+    -scale,
+    -(o[0] + g.x0) * scale,
+    (o[1] + g.y0 + (g.n - 1) * g.s) * scale,
+  );
+  const shapes = [];
+  for (const e of entries) {
+    if (
+      Math.hypot(e.tile.o[0] - o[0], e.tile.o[1] - o[1]) >
+      entry.tile.half + e.tile.half + 100
+    )
+      continue;
+    shapes.push(...e.roads);
+  }
+  const path = (points) => {
+    ctx.beginPath();
+    points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  };
+  // Paths first, then carriageways, then markings. All colours share one depth surface.
+  for (const road of [false, true])
+    for (const shape of shapes) {
+      if (shape.road !== road) continue;
+      path(shape.polygon);
+      ctx.closePath();
+      ctx.fillStyle = `#${(road ? C.asphalt : C.path).getHexString()}`;
+      ctx.fill();
+    }
+  ctx.strokeStyle = `#${C.dash.getHexString()}`;
+  ctx.lineWidth = 0.28;
+  ctx.setLineDash([3, 3]);
+  for (const shape of shapes)
+    if (shape.dashed) {
+      path(shape.centre);
+      ctx.stroke();
+    }
+  ctx.setLineDash([]);
+  texture.needsUpdate = true;
+}
+
+function buildTile(tile, C, region) {
   const ox = tile.o[0];
   const oy = tile.o[1];
   const gz = groundFn(tile);
   const grp = new THREE.Group();
   // ground
   const g = tile.g;
-  const n = g.n;
   const vals = g.z.filter((v) => v !== -32768);
   tile.zfill = vals.length
     ? vals.reduce((a, b) => a + b, 0) / vals.length / 10
     : 0;
-  const gp = new Float32Array(n * n * 3);
-  for (let j = 0; j < n; j++) {
-    for (let i = 0; i < n; i++) {
-      const lx = g.x0 + i * g.s;
-      const ly = g.y0 + j * g.s;
-      const z = g.z[j * n + i] === -32768 ? tile.zfill : g.z[j * n + i] / 10;
-      gp.set(V(ox + lx, oy + ly, z), (j * n + i) * 3);
-    }
-  }
-  const idx = [];
-  for (let j = 0; j < n - 1; j++) {
-    for (let i = 0; i < n - 1; i++) {
-      const a = j * n + i;
-      if ([a, a + 1, a + n, a + n + 1].some((k) => g.z[k] === -32768)) continue;
-      idx.push(a, a + 1, a + n, a + 1, a + n + 1, a + n);
-    }
-  }
+  const surface = terrainTriangles(tile, region);
   const gg = new THREE.BufferGeometry();
-  gg.setAttribute("position", new THREE.BufferAttribute(gp, 3));
-  gg.setIndex(idx);
+  gg.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(surface.positions, 3),
+  );
+  gg.setAttribute("uv", new THREE.Float32BufferAttribute(surface.uv, 2));
   gg.computeVertexNormals();
-  grp.add(new THREE.Mesh(gg, new THREE.MeshLambertMaterial({ color: C.land })));
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = matchMedia("(pointer: coarse)").matches ? 1024 : 2048;
+  const texture = new THREE.CanvasTexture(cv);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  const terrain = new THREE.Mesh(
+    gg,
+    new THREE.MeshLambertMaterial({ map: texture }),
+  );
+  grp.userData.terrain = terrain;
+  grp.add(terrain);
 
   // buildings: each roof face a prism from the building base to its plane
   const P = [];
@@ -173,75 +242,8 @@ function buildTile(tile, C) {
   }
   if (P.length) grp.add(mesh(P, null, { colours: CL }));
 
-  // roads: asphalt between the kerbs, dashed centrelines on two-way streets, paths
-  const A = [];
-  const D = [];
-  const W = [];
-  for (const r of tile.r) {
-    const p = r[3];
-    const w = r[4];
-    const m = p.length / 2;
-    if (m < 2) continue;
-    const pt = (i) => [ox + p[2 * i] / 10, oy + p[2 * i + 1] / 10];
-    const L = [];
-    const R = [];
-    for (let i = 0; i < m; i++) {
-      const a = pt(Math.max(0, i - 1));
-      const c = pt(Math.min(m - 1, i + 1));
-      let tx = c[0] - a[0];
-      let ty = c[1] - a[1];
-      const tl = Math.hypot(tx, ty) || 1;
-      tx /= tl;
-      ty /= tl;
-      const [x, y] = pt(i);
-      const wl = w.length ? w[2 * i] / 10 : 1.2;
-      const wr = w.length ? w[2 * i + 1] / 10 : 1.2;
-      const lx = x - ty * wl;
-      const ly = y + tx * wl;
-      const rx = x + ty * wr;
-      const ry = y - tx * wr;
-      L.push(V(lx, ly, gz(lx - ox, ly - oy) + 0.06));
-      R.push(V(rx, ry, gz(rx - ox, ry - oy) + 0.06));
-    }
-    const target = w.length ? A : W;
-    for (let i = 0; i + 1 < m; i++)
-      target.push(
-        ...L[i],
-        ...R[i],
-        ...L[i + 1],
-        ...R[i],
-        ...R[i + 1],
-        ...L[i + 1],
-      );
-    if (w.length && r[2] === 0) {
-      let acc = 0;
-      for (let i = 0; i + 1 < m; i++) {
-        const [x0, y0] = pt(i);
-        const [x1, y1] = pt(i + 1);
-        const len = Math.hypot(x1 - x0, y1 - y0);
-        if (len > 1e-6 && Math.floor(acc / 3) % 2 === 0) {
-          const nx = (-(y1 - y0) / len) * 0.075;
-          const ny = ((x1 - x0) / len) * 0.075;
-          const z0 = gz(x0 - ox, y0 - oy) + 0.09;
-          const z1 = gz(x1 - ox, y1 - oy) + 0.09;
-          D.push(
-            ...V(x0 + nx, y0 + ny, z0),
-            ...V(x0 - nx, y0 - ny, z0),
-            ...V(x1 + nx, y1 + ny, z1),
-          );
-          D.push(
-            ...V(x0 - nx, y0 - ny, z0),
-            ...V(x1 - nx, y1 - ny, z1),
-            ...V(x1 + nx, y1 + ny, z1),
-          );
-        }
-        acc += len;
-      }
-    }
-  }
-  if (A.length) grp.add(mesh(A, C.asphalt, { offset: 2 }));
-  if (W.length) grp.add(mesh(W, C.path, { offset: 2 }));
-  if (D.length) grp.add(mesh(D, C.dash, { offset: 3 }));
+  // Roads are painted onto the terrain's own triangles (see paintTerrain).
+  // A second, independently interpolated road mesh cuts into hills and flickers.
 
   // kerbs: 0.3 m wide, raised 15 cm
   const K = [];
@@ -484,11 +486,28 @@ function makeCar(C) {
   );
   cab.position.set(-0.3, 1.45, 0);
   car.add(body, cab);
+  const wheels = [];
+  const tyreGeometry = new THREE.CylinderGeometry(0.36, 0.36, 0.22, 12);
+  tyreGeometry.rotateX(Math.PI / 2);
+  const tyreMaterial = new THREE.MeshLambertMaterial({ color: 0x20262a });
+  for (const x of [-1.35, 1.35])
+    for (const z of [-0.91, 0.91]) {
+      const pivot = new THREE.Group();
+      pivot.position.set(x, 0.36, z);
+      const tyre = new THREE.Mesh(tyreGeometry, tyreMaterial);
+      pivot.add(tyre);
+      car.add(pivot);
+      wheels.push({ pivot, tyre, front: x > 0 });
+    }
+  car.userData.wheels = wheels;
   return car;
 }
 
-export async function startDrive({ canvas, base, hud }) {
-  const manifest = await fetchJsonGz(`${base}manifest.json`);
+export async function startDrive({ canvas, base, hud, assetBytes }) {
+  const [manifest, route] = await Promise.all([
+    fetchJsonGz(`${base}manifest.json`),
+    fetchJsonGz(`${base}../quest-route.json`),
+  ]);
   const C = {
     sky: col("--sky"),
     land: col("--land"),
@@ -532,6 +551,80 @@ export async function startDrive({ canvas, base, hud }) {
   const loaded = new Map(); // token -> {tile, grp}
   const loading = new Set();
   const byToken = new Map(manifest.tiles.map((t) => [t.t, t]));
+  const regions = new Map(
+    manifest.tiles.map((t) => [t.t, tileRegion(t, manifest.tiles)]),
+  );
+  let trial = createTrial(route.targets);
+  let selectedStart = start;
+  let checkpoint = null;
+  let crashUntil = 0;
+  let accumulator = 0;
+  let messageUntil = 0;
+  const failures = new Map();
+  const totalBytes = manifest.tiles.reduce((sum, t) => sum + t.bytes, 0);
+  const recordKey = () =>
+    `sf-trial-v1:${route.manifestSha256}:${selectedStart.id}`;
+  const recordsByStart = new Map();
+  function records() {
+    if (!recordsByStart.has(recordKey())) {
+      let saved = [];
+      try {
+        saved = JSON.parse(localStorage.getItem(recordKey()) || "[]");
+      } catch {
+        /* Storage can be disabled. */
+      }
+      recordsByStart.set(
+        recordKey(),
+        Array.isArray(saved)
+          ? saved
+              .filter((r) => r && Number.isFinite(r.seconds) && r.seconds > 0)
+              .slice(0, 5)
+          : [],
+      );
+    }
+    return recordsByStart.get(recordKey());
+  }
+  function announce(text, seconds = 3) {
+    hud.status.textContent = text;
+    messageUntil = performance.now() + seconds * 1000;
+  }
+  function refreshTerrain() {
+    const entries = [...loaded.values()];
+    for (const e of entries) paintTerrain(e, entries, C);
+  }
+  function markerFor(target) {
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = 128;
+    const ctx = cv.getContext("2d");
+    ctx.font = "84px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(target.emoji, 64, 68);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: tex, depthTest: true }),
+    );
+    sprite.scale.set(6, 6, 1);
+    const z =
+      groundAtWorld(
+        [...loaded.values()].map((e) => e.tile),
+        target.x,
+        target.y,
+      ) || 0;
+    sprite.position.set(...V(target.x, target.y, z + 6));
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(4.5, 0.18, 6, 40),
+      new THREE.MeshBasicMaterial({ color: 0xffc857 }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(...V(target.x, target.y, z + 0.3));
+    const group = new THREE.Group();
+    group.add(sprite, ring);
+    group.userData.sprite = sprite;
+    group.userData.baseZ = z + 6;
+    return group;
+  }
   const state = {
     mirror: true,
     view: "chase",
@@ -541,6 +634,7 @@ export async function startDrive({ canvas, base, hud }) {
 
   function stream() {
     const { want, drop } = tilesAround(manifest.tiles, car.x, car.y);
+    let changed = false;
     for (const t of drop) {
       const e = loaded.get(t);
       if (!e) continue;
@@ -553,21 +647,42 @@ export async function startDrive({ canvas, base, hud }) {
         }
       });
       loaded.delete(t);
+      changed = true;
     }
+    if (changed) refreshTerrain();
     for (const t of want) {
       if (loaded.has(t) || loading.has(t) || loading.size >= 3) continue;
+      if ((failures.get(t) || 0) > performance.now()) continue;
       loading.add(t);
       fetchJsonGz(`${base}${t}.json.gz`)
         .then((tile) => {
           tile.half = byToken.get(t).half;
-          const grp = buildTile(tile, C);
+          const grp = buildTile(tile, C, regions.get(t));
           scene.add(grp);
-          loaded.set(t, { tile, grp });
+          const entry = {
+            tile,
+            grp,
+            roads: roadShapes(tile),
+            collisions: buildCollisionIndex(tile),
+            intersections: intersectionsForTile(tile),
+          };
+          loaded.set(t, entry);
+          const target = route.targets.find((q) => q.t === t);
+          if (target) {
+            entry.marker = markerFor(target);
+            grp.add(entry.marker);
+          }
+          refreshTerrain();
+          failures.delete(t);
         })
-        .catch((e) => console.warn("tile", t, e))
+        .catch((e) => {
+          failures.set(t, performance.now() + 5000);
+          announce("A city tile could not load. Retrying…");
+          console.warn("tile", t, e);
+        })
         .finally(() => loading.delete(t));
     }
-    hud.tiles.textContent = `${loaded.size} tiles`;
+    hud.tiles.textContent = `${loaded.size} / ${manifest.tiles.length} tiles`;
   }
 
   function resize() {
@@ -596,9 +711,9 @@ export async function startDrive({ canvas, base, hud }) {
       state.keys.add(keyMap[e.code]);
       e.preventDefault();
     }
-    if (e.code === "KeyM") toggleMirror();
-    if (e.code === "KeyV") toggleView();
-    if (e.code === "KeyR") reset();
+    if (!e.repeat && e.code === "KeyM") toggleMirror();
+    if (!e.repeat && e.code === "KeyV") toggleView();
+    if (!e.repeat && e.code === "KeyR") respawn();
   });
   window.addEventListener(
     "keyup",
@@ -623,11 +738,64 @@ export async function startDrive({ canvas, base, hud }) {
     state.view = state.view === "chase" ? "high" : "chase";
     hud.viewBtn.setAttribute("aria-pressed", String(state.view === "high"));
   };
-  const reset = (p = start) => {
+  const reset = (p = selectedStart) => {
     car = { x: p.x, y: p.y, heading: p.heading, v: 0 };
     grounded = false;
     camInit = false;
+    accumulator = 0;
+    releaseInputs();
   };
+  function safeIntersections() {
+    const entries = [...loaded.values()],
+      tiles = entries.map((e) => e.tile),
+      indexes = entries.map((e) => e.collisions);
+    return [
+      ...entries.flatMap((e) => e.intersections),
+      ...route.targets.filter((t) => loaded.has(t.t)),
+    ].filter((p) => {
+      const z = groundAtWorld(tiles, p.x, p.y, true);
+      return z !== null && !collisionAt(indexes, p, z);
+    });
+  }
+  function respawn(kind = null) {
+    const safe = safeIntersections();
+    const point =
+      (checkpoint &&
+        safe.find(
+          (p) => Math.hypot(p.x - checkpoint.x, p.y - checkpoint.y) < 1,
+        )) ||
+      safe.sort(
+        (a, b) =>
+          Math.hypot(a.x - car.x, a.y - car.y) -
+          Math.hypot(b.x - car.x, b.y - car.y),
+      )[0];
+    if (!point) {
+      announce("Waiting for a clear intersection to load…");
+      return;
+    }
+    let heading = point.heading;
+    if (Math.cos(car.heading - heading) < 0) heading += Math.PI;
+    reset({ ...point, heading });
+    checkpoint = { ...point, heading };
+    crashUntil = performance.now() + 750;
+    if (kind && trial.status === "running") trial.crashes++;
+    announce(
+      kind
+        ? `Hit a ${kind} · back at the intersection`
+        : "Back at the intersection · clock continues",
+    );
+  }
+  function newTrial(p = selectedStart) {
+    selectedStart = p;
+    trial = createTrial(route.targets);
+    checkpoint = null;
+    crashUntil = 0;
+    reset(p);
+    announce(
+      "Collect an emoji in every marked tile. Drive to start the clock.",
+      4,
+    );
+  }
   // A clicked control would otherwise keep focus and swallow the driving keys
   // (the keydown handler ignores keys aimed at buttons and selects).
   const releaseFocus = (e) => {
@@ -641,6 +809,14 @@ export async function startDrive({ canvas, base, hud }) {
     toggleView();
     releaseFocus(e);
   });
+  hud.restartBtn.addEventListener("click", (e) => {
+    newTrial();
+    releaseFocus(e);
+  });
+  hud.respawnBtn.addEventListener("click", (e) => {
+    respawn();
+    releaseFocus(e);
+  });
   hud.places.innerHTML = places
     .map((p) => `<option value="${p.id}">${p.name}</option>`)
     .join("");
@@ -648,7 +824,7 @@ export async function startDrive({ canvas, base, hud }) {
   hud.places.addEventListener("change", () => {
     const p = places.find((q) => q.id === hud.places.value);
     if (p) {
-      reset(p);
+      newTrial(p);
       history.replaceState(null, "", `?at=${p.id}`);
     }
     hud.places.blur();
@@ -666,6 +842,7 @@ export async function startDrive({ canvas, base, hud }) {
     b.addEventListener("pointerdown", on(true));
     b.addEventListener("pointerup", on(false));
     b.addEventListener("pointerleave", on(false));
+    b.addEventListener("pointercancel", on(false));
   }
 
   let last = performance.now();
@@ -674,9 +851,127 @@ export async function startDrive({ canvas, base, hud }) {
   const camPos = new THREE.Vector3();
   const camLook = new THREE.Vector3();
   let camInit = false;
+  let roadAt = 0,
+    road = null;
+  function drawMinimap() {
+    const cv = hud.minimap,
+      ctx = cv.getContext("2d");
+    const w = cv.clientWidth,
+      h = cv.clientHeight,
+      dpr = Math.min(2, devicePixelRatio || 1);
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(w * dpr);
+      cv.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const polygons = [...regions.values()].flat();
+    const minX = Math.min(...polygons.map((p) => p[0])),
+      maxX = Math.max(...polygons.map((p) => p[0]));
+    const minY = Math.min(...polygons.map((p) => p[1])),
+      maxY = Math.max(...polygons.map((p) => p[1]));
+    const scale = Math.min((w - 24) / (maxX - minX), (h - 24) / (maxY - minY));
+    const point = (x, y) => [
+      (x - (minX + maxX) / 2) * scale + w / 2,
+      h / 2 - (y - (minY + maxY) / 2) * scale,
+    ];
+    ctx.lineWidth = 0.6;
+    for (const row of manifest.tiles) {
+      ctx.beginPath();
+      regions
+        .get(row.t)
+        .forEach(([x, y], i) =>
+          i ? ctx.lineTo(...point(x, y)) : ctx.moveTo(...point(x, y)),
+        );
+      ctx.closePath();
+      ctx.fillStyle = trial.collected.has(row.t)
+        ? "#c79226"
+        : loaded.has(row.t)
+          ? "#0f9383"
+          : loading.has(row.t)
+            ? "#73c7d1"
+            : "#8c99a544";
+      ctx.strokeStyle = css("--muted");
+      ctx.fill();
+      ctx.stroke();
+    }
+    const remaining = trial.targets.filter((t) => !trial.collected.has(t.t));
+    const nearest = remaining.sort(
+      (a, b) =>
+        Math.hypot(a.x - car.x, a.y - car.y) -
+        Math.hypot(b.x - car.x, b.y - car.y),
+    )[0];
+    for (const t of remaining) {
+      ctx.beginPath();
+      ctx.arc(...point(t.x, t.y), 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = css("--ink");
+      ctx.fill();
+    }
+    if (nearest) {
+      const p = point(nearest.x, nearest.y);
+      ctx.beginPath();
+      ctx.moveTo(...point(car.x, car.y));
+      ctx.lineTo(...p);
+      ctx.strokeStyle = "#f2b84a";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.font = "18px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(nearest.emoji, p[0], p[1] - 4);
+    }
+    const [cx, cy] = point(car.x, car.y);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-car.heading);
+    ctx.beginPath();
+    ctx.moveTo(7, 0);
+    ctx.lineTo(-5, -4);
+    ctx.lineTo(-3, 0);
+    ctx.lineTo(-5, 4);
+    ctx.closePath();
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#17202a";
+    ctx.lineWidth = 1.5;
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = css("--ink");
+    ctx.font = "600 11px system-ui";
+    ctx.textAlign = "right";
+    ctx.fillText("N ↑", w - 6, 14);
+    const resident = [...loaded.keys()].reduce(
+      (sum, t) => sum + byToken.get(t).bytes,
+      0,
+    );
+    hud.assets.textContent = `${formatBytes(resident)} loaded · ${formatBytes(totalBytes)} city tiles`;
+    hud.gameSize.textContent = `${formatBytes(assetBytes)} total game assets`;
+    hud.coverage.textContent = `${manifest.tiles.length} L13 tiles · ${route.skipped.length} without a playable intersection`;
+    hud.progress.textContent = `${trial.collected.size} / ${trial.targets.length} emojis`;
+    hud.progressBar.max = trial.targets.length;
+    hud.progressBar.value = trial.collected.size;
+    hud.target.textContent = nearest
+      ? `${nearest.emoji} ${nearest.names.join(" & ")} · ${Math.round(Math.hypot(nearest.x - car.x, nearest.y - car.y))} m`
+      : "All intersection emojis collected!";
+    hud.target.title = nearest ? `Tile ${nearest.t}` : "";
+    const best = records();
+    hud.best.textContent = best.length
+      ? `Personal best ${formatTime(best[0].seconds)} · ${selectedStart.name}`
+      : "Personal best — · saved on this device";
+    hud.records.textContent = best
+      .map((r, i) => `${i + 1}. ${formatTime(r.seconds)}`)
+      .join("   ");
+    if (performance.now() > messageUntil)
+      hud.status.textContent =
+        trial.status === "ready"
+          ? "Drive to start · collect the marked emojis in any order"
+          : trial.status === "finished"
+            ? `Finished! ${trial.crashes} crashes · try to beat your time`
+            : `${trial.crashes} crashes · R returns to your last intersection`;
+  }
   function frame(now) {
     requestAnimationFrame(frame);
-    const dt = Math.min(0.05, (now - last) / 1000);
+    const wallDt = Math.max(0, (now - last) / 1000);
+    const dt = Math.min(0.05, wallDt);
     last = now;
     const k = state.keys;
     const input = {
@@ -687,17 +982,128 @@ export async function startDrive({ canvas, base, hud }) {
       brake: k.has("brake") || state.touch.brake,
     };
     const tiles = [...loaded.values()].map((e) => e.tile);
+    const indexes = [...loaded.values()].map((e) => e.collisions);
     if (!grounded) {
-      const z0 = groundAtWorld(tiles, car.x, car.y);
+      const z0 = groundAtWorld(tiles, car.x, car.y, true);
       const settled =
         loaded.size > 0 &&
         !loading.size &&
         tilesAround(manifest.tiles, car.x, car.y).want.every((t) =>
           loaded.has(t),
         );
-      if (z0 !== null || settled) grounded = true;
+      if (z0 !== null && settled) {
+        grounded = true;
+        if (!checkpoint) {
+          const nearest = safeIntersections().sort(
+            (a, b) =>
+              Math.hypot(a.x - car.x, a.y - car.y) -
+              Math.hypot(b.x - car.x, b.y - car.y),
+          )[0];
+          if (
+            nearest &&
+            Math.hypot(nearest.x - car.x, nearest.y - car.y) < 200
+          ) {
+            const heading =
+              nearest.heading +
+              (Math.cos(car.heading - nearest.heading) < 0 ? Math.PI : 0);
+            car = { ...nearest, heading, v: 0, steering: 0 };
+            checkpoint = { ...car };
+            camInit = false;
+          }
+        }
+      }
     }
-    if (grounded) car = carStep(car, input, dt);
+    if (now - roadAt > 150) {
+      road = nearestRoad(tiles, car.x, car.y);
+      roadAt = now;
+    }
+    let blocked = false;
+    if (grounded && now >= crashUntil) {
+      accumulator += dt;
+      while (accumulator >= 1 / 120) {
+        accumulator -= 1 / 120;
+        const ax = Math.cos(car.heading) * 1.35,
+          ay = Math.sin(car.heading) * 1.35;
+        const zf = groundAtWorld(tiles, car.x + ax, car.y + ay),
+          zr = groundAtWorld(tiles, car.x - ax, car.y - ay);
+        const controls =
+          trial.status === "ready" && input.throttle === 0
+            ? { ...input, brake: true }
+            : input;
+        const candidate = carStep(car, controls, 1 / 120, {
+          slope: zf !== null && zr !== null ? (zf - zr) / 2.7 : 0,
+          offroad: !road || road.distance > road.width,
+        });
+        const owner = manifest.tiles.reduce((a, b) =>
+          Math.hypot(a.x - candidate.x, a.y - candidate.y) <
+          Math.hypot(b.x - candidate.x, b.y - candidate.y)
+            ? a
+            : b,
+        );
+        const z = groundAtWorld(tiles, candidate.x, candidate.y, true);
+        if (!loaded.has(owner.t) || z === null) {
+          car = { ...car, v: 0 };
+          blocked = true;
+          accumulator = 0;
+          announce(
+            z === null && loaded.has(owner.t)
+              ? "No drivable ground · R returns to an intersection"
+              : "Waiting for the road ahead to load…",
+            1,
+          );
+          break;
+        }
+        const hit = collisionAt(indexes, candidate, z);
+        if (hit) {
+          respawn(hit);
+          break;
+        }
+        car = candidate;
+      }
+      // Remember reached, clear intersections; a crash never erases quest progress.
+      if (!blocked && now >= crashUntil)
+        for (const e of loaded.values())
+          for (const p of e.intersections) {
+            if (Math.hypot(car.x - p.x, car.y - p.y) < 12) {
+              const z = groundAtWorld(tiles, p.x, p.y, true);
+              if (z !== null && !collisionAt(indexes, p, z)) checkpoint = p;
+            }
+          }
+    }
+    const before = trial.status;
+    const found = advanceTrial(
+      trial,
+      wallDt,
+      car,
+      grounded && now >= crashUntil && input.throttle !== 0,
+      grounded && !blocked && now >= crashUntil,
+    );
+    for (const t of found)
+      announce(
+        `${t.emoji} Collected! ${trial.collected.size} / ${trial.targets.length}`,
+      );
+    if (before !== "finished" && trial.status === "finished") {
+      const best = records();
+      best.push({ seconds: trial.elapsed, crashes: trial.crashes });
+      best.sort((a, b) => a.seconds - b.seconds);
+      best.splice(5);
+      try {
+        localStorage.setItem(recordKey(), JSON.stringify(best));
+      } catch {
+        /* Session records still work. */
+      }
+      announce(
+        `All ${trial.targets.length} emojis! Finished in ${formatTime(trial.elapsed)}`,
+        8,
+      );
+    }
+    hud.timer.textContent = formatTime(trial.elapsed);
+    for (const [t, e] of loaded)
+      if (e.marker) {
+        e.marker.visible = !trial.collected.has(t);
+        e.marker.userData.sprite.position.y =
+          e.marker.userData.baseZ + Math.sin(now / 450) * 0.4;
+      }
     const z = groundAtWorld(tiles, car.x, car.y);
     if (z !== null) carZ = z;
     // Pitch the car with the ground under its axles, so it does not sink into steep hills.
@@ -707,6 +1113,10 @@ export async function startDrive({ canvas, base, hud }) {
     const zr = groundAtWorld(tiles, car.x - ax, car.y - ay) ?? carZ;
     carMesh.position.set(...V(car.x, car.y, Math.max(carZ, (zf + zr) / 2)));
     carMesh.rotation.set(0, car.heading, Math.atan2(zf - zr, 3), "YZX");
+    for (const wheel of carMesh.userData.wheels) {
+      wheel.pivot.rotation.y = wheel.front ? car.steering || 0 : 0;
+      wheel.tyre.rotation.z -= (car.v * dt) / 0.36;
+    }
 
     const hx = Math.cos(car.heading);
     const hy = Math.sin(car.heading);
@@ -738,7 +1148,12 @@ export async function startDrive({ canvas, base, hud }) {
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, W / pr, H / pr);
     renderer.render(scene, camera);
-    if (state.mirror) {
+    const showMirror =
+      state.mirror &&
+      canvas.clientWidth > 760 &&
+      !matchMedia("(pointer: coarse)").matches;
+    hud.mirrorFrame.hidden = !showMirror;
+    if (showMirror) {
       // the mirror: from the cabin roof, looking back over the boot
       mirrorCam.position.set(
         ...V(car.x - hx * 0.4, car.y - hy * 0.4, carZ + 1.9),
@@ -785,6 +1200,7 @@ export async function startDrive({ canvas, base, hud }) {
         Math.round(deg / 45) % 8
       ];
       if (!grounded) hud.street.textContent = "Loading the city around you…";
+      drawMinimap();
     }
   }
   stream();
