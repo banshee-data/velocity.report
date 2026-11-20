@@ -1106,6 +1106,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_check_quarter_blocks.py \
 	scripts/test_check_no_results.py \
 	scripts/test_check_geometry_wording.py \
+	scripts/test_check_agent_doc_links.py \
 	scripts/test_check_british_spelling.py \
 	scripts/test_check_bibliography_budget.py \
 	scripts/test_check_backlog_format.py \
@@ -2185,6 +2186,9 @@ check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail
 check-backlog-format: ## [gated] Validate D-37 priority/workstream format and D-32 release caps
 	@python3 scripts/check-backlog-format.py
 
+check-agent-doc-links: ## [gated] Reject Markdown links to agent-native document storage (documents live in the repo)
+	@python3 scripts/check-agent-doc-links.py
+
 check-geometry-wording: ## [gated] Reject wording that describes measured geometry as models, plans or reconstructions (D-38)
 	@python3 scripts/check-geometry-wording.py
 
@@ -2197,7 +2201,7 @@ check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSO
 update-release-json: ## Update release.json + os-list-velocity.json from GitHub Releases. ARGS='--ci --channel prerelease --validate'
 	@python3 scripts/update-release-json.py $(ARGS)
 
-lint-docs: check-devlog check-mermaid check-quarter-blocks check-release-hashes check-docs-format check-backlog-format check-geometry-wording check-doc-structure check-citation-coverage ## Check Markdown formatting, document structure, citations, metadata, spelling, and release hashes
+lint-docs: check-devlog check-mermaid check-quarter-blocks check-release-hashes check-docs-format check-backlog-format check-geometry-wording check-agent-doc-links check-doc-structure check-citation-coverage ## Check Markdown formatting, document structure, citations, metadata, spelling, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 

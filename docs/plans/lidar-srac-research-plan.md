@@ -18,8 +18,8 @@ The release deliverable is a reproducible, review-only L8 workflow, not producti
 emission. Reuse the existing following candidate ledger; retain the separate following/DRAC
 weekend programme and its acceptance tasks.
 
-The [reviewed Euler brief](https://chatgpt.com/space/page_268b6582d67c8191b557bd0077276bfa)
-and [GPT-6 Astra response](https://chatgpt.com/space/page_4afc326f4d0481918424d551a0ea69d8)
+The [reviewed Euler brief](https://chatgpt.com/space/page_268b6582d67c8191b557bd0077276bfa) <!-- agent-doc-link: ignore (owner-held source, not yet moved into the repository) -->
+and [GPT-6 Astra response](https://chatgpt.com/space/page_4afc326f4d0481918424d551a0ea69d8) <!-- agent-doc-link: ignore (owner-held source, not yet moved into the repository) -->
 supply the research handover. Their conclusions remain proposals except for this release
 allocation. Implementation and physical qualification remain pending.
 

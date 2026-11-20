@@ -51,6 +51,22 @@ mixed into an output directory, move and edit the report into `docs/` before rem
 from Git. For a branch that has already committed raw results, remove them from the proposed
 commits as well as its final tree before publishing the PR. Do not rewrite shared main history.
 
+## Keep documents in the repository
+
+Write every document as Markdown in this repository: reports, records, briefs, design notes,
+plans, reviews, findings, and notes meant to outlive the conversation. Commit it on a branch and
+review it in a pull request like code. Do not create documents in agent-native storage (Claude
+artifacts or Claude Docs, ChatGPT or Gemini canvases, Copilot pages, shared chats, or documents
+made through a Notion or Google Docs connector), even when a tool's own guidance says to create
+its document first: those stores are private to one account, unversioned and invisible to the
+next agent. Short answers asked in chat stay in chat. An interactive preview may be shown while
+working, but its source and any write-up are committed. When someone explicitly asks for a copy
+in agent storage, make it after the repository file and have it name the file as canonical.
+
+Committed Markdown must not link to agent-native storage for its content;
+`make check-agent-doc-links` enforces this in CI. To write or move a document, follow the
+[repo-docs skill](.claude/skills/repo-docs/SKILL.md).
+
 ## Run experiments from checked-in parameter sets
 
 Run each experiment arm from a tuning config file in `config/experiments/`, not from flags or
@@ -350,6 +366,7 @@ The following repository workflow skills are available as Claude Code slash comm
 | decision-review-voice     | `/decision-review-voice <packet>`     | Lightweight discussion; save confirmed choices as ready for integration                    |
 | decision-review-integrate | `/decision-review-integrate <packet>` | High-capability review, downstream updates, PR, and focused return questions               |
 | free-space                | `/free-space [--min-mb N]`            | Find disk space to free; keep required evidence on lidar and archive optional copies       |
+| repo-docs                 | `/repo-docs [topic or link]`          | Write or move a document as repository Markdown, never in agent-native storage             |
 
 Skill definitions: [.claude/skills/\*/SKILL.md](.claude/skills/).
 

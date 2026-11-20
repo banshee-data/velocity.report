@@ -55,8 +55,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Check backlog, document structure, and citation coverage
-        run: make check-backlog-format check-doc-structure check-citation-coverage
+      - name: Check backlog, document structure, citation coverage, and agent document links
+        run: make check-backlog-format check-doc-structure check-citation-coverage check-agent-doc-links
 
   md-links:
     name: "🔗 Dead links and stale paths"

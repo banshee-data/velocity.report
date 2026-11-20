@@ -1,7 +1,7 @@
 # Original PCL discussion: reconciliation and one additional question
 
 - **Status:** OQ-11 answered; OQ-13 added for merged-detection partitioning
-- **Source:** [Compare PCL Features, owner-supplied shared discussion](https://chatgpt.com/share/6adff4d9-bf44-83e8-a2d9-9993e4c9c469)
+- **Source:** [Compare PCL Features, owner-supplied shared discussion](https://chatgpt.com/share/6adff4d9-bf44-83e8-a2d9-9993e4c9c469) <!-- agent-doc-link: ignore (cited source; its content is reconciled below) -->
 - **Local baseline:** velocity.report `1762c9e13072657ee685b20f401592d63e20ec9b`, OQ-10 checkpoint
 - **PCL Git SHA:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
 - **Related:** [review](pcl-algorithm-review.md), [handover](pcl-astera-handover.md), [candidate plan](../../plans/lidar-pcl-algorithm-candidates-plan.md)
