@@ -599,6 +599,16 @@ export async function startDrive({ canvas, base, hud }) {
     "keyup",
     (e) => keyMap[e.code] && state.keys.delete(keyMap[e.code]),
   );
+  // A key released in another window never sends its keyup here: drop held
+  // inputs when the page loses focus so the car does not drive on by itself.
+  const releaseInputs = () => {
+    state.keys.clear();
+    state.touch = { throttle: 0, steer: 0, brake: false };
+  };
+  window.addEventListener("blur", releaseInputs);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) releaseInputs();
+  });
   const toggleMirror = () => {
     state.mirror = !state.mirror;
     hud.mirrorFrame.hidden = !state.mirror;
@@ -613,8 +623,19 @@ export async function startDrive({ canvas, base, hud }) {
     grounded = false;
     camInit = false;
   };
-  hud.mirrorBtn.addEventListener("click", toggleMirror);
-  hud.viewBtn.addEventListener("click", toggleView);
+  // A clicked control would otherwise keep focus and swallow the driving keys
+  // (the keydown handler ignores keys aimed at buttons and selects).
+  const releaseFocus = (e) => {
+    if (e.detail !== 0) e.currentTarget.blur(); // pointer clicks only; keyboard users keep their place
+  };
+  hud.mirrorBtn.addEventListener("click", (e) => {
+    toggleMirror();
+    releaseFocus(e);
+  });
+  hud.viewBtn.addEventListener("click", (e) => {
+    toggleView();
+    releaseFocus(e);
+  });
   hud.places.innerHTML = places
     .map((p) => `<option value="${p.id}">${p.name}</option>`)
     .join("");
@@ -625,6 +646,7 @@ export async function startDrive({ canvas, base, hud }) {
       reset(p);
       history.replaceState(null, "", `?at=${p.id}`);
     }
+    hud.places.blur();
   });
   for (const b of hud.touchButtons) {
     const act = b.dataset.act;
