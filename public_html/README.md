@@ -128,8 +128,9 @@ See the [scene export guide](../tools/s2-archive/README.md#street-geometry-from-
 ## San Francisco driving game
 
 `/sf/` streams the existing S2 L13 city tiles and runs an emoji collection time trial.
-The engine includes hill-aware driving, building/trunk collision recovery, a minimap
-with loaded tiles and asset sizes, and personal best times saved on the device.
+The engine includes hill-aware driving, a two-second crash spin before building/trunk
+collision recovery, brake lamps, an emoji compass seeker for the current tile, a minimap
+with loaded tiles and compressed network download sizes, and personal best times saved on the device.
 The fixed route has one distinct emoji at an intersection in each of 137 eligible tiles;
 20 tiles without signposted intersections remain visible on the map.
 See [driving controls, route generation and rendering](../docs/ui/sf-driving-view.md).

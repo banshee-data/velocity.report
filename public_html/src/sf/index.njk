@@ -51,6 +51,13 @@ eleventyExcludeFromCollections: true
   .quest .target { font-weight: 600; }
   .quest .detail, .map .detail { color: var(--muted); font-size: 11px; }
   .quest .status { font-size: 12px; min-height: 2.8em; }
+  .seeker { display: flex; align-items: center; gap: 10px; border-block: 1px solid var(--rule); padding: 5px 0; }
+  #seekerCompass { width: 88px; height: 88px; display: block; flex: none; }
+  .seeker-copy { display: grid; gap: 3px; min-width: 0; }
+  .seeker-copy strong { font-size: 12px; }
+  #seekerDistance { font-weight: 700; font-variant-numeric: tabular-nums; }
+  #seekerHeading { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  button:disabled { opacity: 0.5; cursor: default; }
   .map { right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); width: 260px; }
   #minimap { display: block; width: 100%; height: 235px; }
   .map .legend { display: flex; gap: 10px; font-size: 11px; }
@@ -72,11 +79,13 @@ eleventyExcludeFromCollections: true
     #mirrorBtn { display: none; }
     .quest { top: 142px; width: 160px; font-size: 12px; padding: 8px; }
     .quest .timer { font-size: 23px; }
+    .seeker { gap: 6px; } #seekerCompass { width: 72px; height: 72px; }
+    .seeker-copy strong, #seekerHeading { font-size: 10px; }
     .map { width: 140px; top: 220px; bottom: auto; padding: 8px; }
     #minimap { height: 170px; } .map .legend { gap: 5px; flex-wrap: wrap; }
     .help { display: none; } .mirror { display: none; }
   }
-  @media (max-height: 520px) { .quest { top: 108px; } .quest .detail, #records, .help, .map .detail { display: none; } .map { top: auto; bottom: 12px; right: 215px; width: 160px; } #minimap { height: 110px; } }
+  @media (max-height: 520px) { .quest { top: 108px; gap: 3px; } .quest .detail, #records, .help, .map .detail { display: none; } .map { top: auto; bottom: 12px; right: 215px; width: 160px; } #minimap { height: 110px; } #seekerCompass { width: 52px; height: 52px; } .seeker { padding: 2px 0; } .quest .status { min-height: 0; } }
 </style>
 </head>
 <body>
@@ -104,6 +113,14 @@ eleventyExcludeFromCollections: true
   <div class="timer" id="timer" role="timer" aria-label="Elapsed trial time">0:00.00</div>
   <div id="progress">Loading the quest…</div>
   <progress id="progressBar" value="0" max="1" aria-label="Emojis collected"></progress>
+  <div class="seeker" aria-label="Emoji compass seeker">
+    <canvas id="seekerCompass" width="96" height="96" role="img" aria-label="Compass and direction to the emoji on this tile"></canvas>
+    <div class="seeker-copy">
+      <strong id="seekerScope">This tile</strong>
+      <span id="seekerDistance"></span>
+      <span id="seekerHeading"></span>
+    </div>
+  </div>
   <div class="target" id="target"></div>
   <div class="status" id="status" role="status">Drive to start the clock.</div>
   <div class="detail" id="best">Personal best —</div>
@@ -111,14 +128,14 @@ eleventyExcludeFromCollections: true
 </div>
 <div class="panel map" aria-label="City minimap and assets">
   <div class="title">City coverage</div>
-  <canvas id="minimap" role="img" aria-label="North-up minimap: loaded tiles in teal, collected tiles in gold, your car in white, and a line to the nearest emoji."></canvas>
+  <canvas id="minimap" role="img" aria-label="North-up minimap: loaded tiles in teal, collected tiles in gold, your car in white, and a line to the emoji on this tile or the next target."></canvas>
   <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span><span>● Quest</span></div>
   <div class="detail" id="assets"></div>
   <div class="detail" id="gameSize"></div>
   <div class="detail" id="coverage"></div>
 </div>
 <div class="panel help">
-  <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror, <kbd>V</kbd> view, <kbd>R</kbd> return to an intersection. Collect every marked emoji to finish. Crashes keep the clock running. New trial or a new start resets the run.</p>
+  <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror, <kbd>V</kbd> view, <kbd>R</kbd> return to an intersection. Follow the compass arrow to this tile's emoji. A crash spins the car for 2 seconds, then resets it; the clock keeps running. New trial or a new start resets the run.</p>
   <p>Measured geometry as context, not a survey or a plan: building outlines and 2010 heights from DataSF (PDDL), roofs fitted to USGS 3DEP lidar flown April 2023 (public domain), street trees from DataSF's Street Tree List with lidar canopy, streets, kerbs (2016) and street names from DataSF. Buildings 3DEP sees that the City's 2010 outlines lack are shaded violet. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">About this data</a>.</p>
 </div>
 <div class="pad" aria-label="Driving controls">
@@ -132,12 +149,13 @@ eleventyExcludeFromCollections: true
   startDrive({
     canvas: $("drive"),
     base: "{{ '/sf/tiles/' | url }}",
-    assetBytes: {{ sfGameBytes }},
+    downloadAssets: {{ sfDownloadAssets | safe }},
     hud: {
       street: $("street"), next: $("next"), speed: $("speed"), compass: $("compass"), tiles: $("tiles"),
       places: $("places"), mirrorBtn: $("mirrorBtn"), viewBtn: $("viewBtn"), mirrorFrame: $("mirrorFrame"),
       restartBtn: $("restartBtn"), respawnBtn: $("respawnBtn"), minimap: $("minimap"),
       timer: $("timer"), progress: $("progress"), progressBar: $("progressBar"), target: $("target"),
+      seekerCompass: $("seekerCompass"), seekerScope: $("seekerScope"), seekerDistance: $("seekerDistance"), seekerHeading: $("seekerHeading"),
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
       touchButtons: document.querySelectorAll(".pad button"),
     },

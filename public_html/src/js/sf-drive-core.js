@@ -134,6 +134,88 @@ export function carStep(car, input, dt, surface = {}) {
   };
 }
 
+export const CRASH_SECONDS = 2;
+
+/** A crash is visual feedback; physics and pickups stay paused until recovery. */
+export function beginCrash(car, kind, now) {
+  return {
+    x: car.x,
+    y: car.y,
+    heading: car.heading,
+    kind,
+    started: now,
+    direction: car.steering < 0 ? -1 : 1,
+  };
+}
+
+export function crashPose(crash, now) {
+  const elapsed = Math.max(0, now - crash.started);
+  const t = Math.min(1, elapsed / CRASH_SECONDS);
+  return {
+    heading: crash.heading + crash.direction * Math.PI * 4 * (1 - (1 - t) ** 2),
+    roll: Math.sin(t * Math.PI * 4) * 0.16 * (1 - t),
+    lift: Math.sin(t * Math.PI) * 0.15,
+    remaining: Math.max(0, CRASH_SECONDS - elapsed),
+    done: elapsed >= CRASH_SECONDS,
+  };
+}
+
+/** Space, reversing against motion, and a held brake illuminate the rear lamps. */
+export function brakeLightsOn(car, input, held = false) {
+  return held || !!input.brake || (input.throttle || 0) * car.v < -0.05;
+}
+
+/** The same nearest-origin ownership used by the clipped terrain and minimap. */
+export function tileAt(tiles, x, y) {
+  let nearest = null,
+    distance = Infinity;
+  for (const tile of tiles) {
+    const d = Math.hypot(tile.x - x, tile.y - y);
+    if (d < distance) {
+      nearest = tile;
+      distance = d;
+    }
+  }
+  return nearest;
+}
+
+/** Prefer this tile's emoji even when another tile's target is nearer. */
+export function questSeeker(trial, tiles, car) {
+  const tile = tileAt(tiles, car.x, car.y);
+  const local = trial.targets.find((t) => t.t === tile?.t) || null;
+  const localCollected = !!local && trial.collected.has(local.t);
+  let target = local && !localCollected ? local : null;
+  if (!target)
+    for (const candidate of trial.targets) {
+      if (trial.collected.has(candidate.t)) continue;
+      if (
+        !target ||
+        Math.hypot(candidate.x - car.x, candidate.y - car.y) <
+          Math.hypot(target.x - car.x, target.y - car.y)
+      )
+        target = candidate;
+    }
+  const degrees = (angle) =>
+    (((90 - (angle * 180) / Math.PI) % 360) + 360) % 360;
+  const heading = degrees(car.heading);
+  const bearing = target
+    ? degrees(Math.atan2(target.y - car.y, target.x - car.x))
+    : null;
+  return {
+    target,
+    local,
+    localCollected,
+    onTile: !!target && target.t === tile?.t,
+    distance: target ? Math.hypot(target.x - car.x, target.y - car.y) : null,
+    heading,
+    cardinal: ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][
+      Math.round(heading / 45) % 8
+    ],
+    bearing,
+    relative: target ? ((bearing - heading + 540) % 360) - 180 : null,
+  };
+}
+
 /*
  * Intersection centres come from the paired street signs on opposite corners.
  * Project their midpoint onto a named carriageway so respawns / pickups are on asphalt.
