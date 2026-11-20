@@ -1,0 +1,146 @@
+{
+ "generated_by": "tools/sf-size-audit/audit.mjs",
+ "node": "v20.19.2",
+ "codecs": "gzip level 9; Brotli quality 11 (lgwin 22 unless named)",
+ "tiles_manifest_built": "2026-11-20T18:26Z",
+ "shipped": {
+  "tile_files_bytes": 30169632,
+  "manifest_tiles_bytes": 30169632,
+  "manifest_json_bytes": 12465,
+  "tiles": 157,
+  "raw_json_bytes": 104531312
+ },
+ "compression": {
+  "per_tile_gzip9": 30169632,
+  "per_tile_brotli11_lgwin22": 22014251,
+  "per_tile_brotli11_lgwin24": 22014251,
+  "bundle_gzip9": 30189966,
+  "bundle_brotli11_lgwin24": 21572373
+ },
+ "layers": {
+  "g": {
+   "name": "ground grid",
+   "raw_json_bytes": 26084457,
+   "standalone_per_tile_gzip9": 4830777,
+   "ablation_per_tile_gzip9": 4873043
+  },
+  "b": {
+   "name": "buildings",
+   "raw_json_bytes": 59549030,
+   "standalone_per_tile_gzip9": 19035884,
+   "ablation_per_tile_gzip9": 19047936
+  },
+  "tr": {
+   "name": "trees",
+   "raw_json_bytes": 5793348,
+   "standalone_per_tile_gzip9": 1999763,
+   "ablation_per_tile_gzip9": 1994571
+  },
+  "r": {
+   "name": "roads (centrelines, class, one-way, widths)",
+   "raw_json_bytes": 11149553,
+   "standalone_per_tile_gzip9": 3407129,
+   "ablation_per_tile_gzip9": 3403883
+  },
+  "k": {
+   "name": "kerbs",
+   "raw_json_bytes": 1515134,
+   "standalone_per_tile_gzip9": 655628,
+   "ablation_per_tile_gzip9": 648054
+  },
+  "s": {
+   "name": "signposts",
+   "raw_json_bytes": 363406,
+   "standalone_per_tile_gzip9": 126209,
+   "ablation_per_tile_gzip9": 124544
+  },
+  "n": {
+   "name": "street-name table",
+   "raw_json_bytes": 63409,
+   "standalone_per_tile_gzip9": 36113,
+   "ablation_per_tile_gzip9": 52165
+  }
+ },
+ "counts": {
+  "buildings": 176866,
+  "buildings_3dep": 1296,
+  "faces": 581152,
+  "ring_vertices": 3781835,
+  "unique_vertices_per_building_sum": 3431828,
+  "trees": 343046,
+  "roads": 15671,
+  "road_vertices": 657659,
+  "roads_with_widths": 15494,
+  "kerb_lines": 10669,
+  "kerb_vertices": 141129,
+  "signposts": 15046,
+  "names_listed": 4629,
+  "ground_nodes": 5787648,
+  "ground_missing": 1174472,
+  "ground_nodes_nearest_other_tile": 2886519,
+  "names_unique": 2438,
+  "tree_positions_repeated": 10207,
+  "ground_grid_step_m": 8,
+  "ground_area_km2_gridded": 370.409472
+ },
+ "compact": {
+  "buildings_unwelded": {
+   "raw_bytes": 14298607,
+   "brotli11_lgwin24": 9808445,
+   "gzip9": 10448507
+  },
+  "buildings_welded_vertex_table": {
+   "raw_bytes": 16926325,
+   "brotli11_lgwin24": 9854526,
+   "gzip9": 10580393
+  },
+  "trees_shipped_precision": {
+   "raw_bytes": 1733479,
+   "brotli11_lgwin24": 991136,
+   "gzip9": 1079488
+  },
+  "trees_budget_precision_0p5m": {
+   "raw_bytes": 1423391,
+   "brotli11_lgwin24": 807222,
+   "gzip9": 871149
+  },
+  "roads_centrelines_names_class": {
+   "raw_bytes": 1419283,
+   "brotli11_lgwin24": 304982,
+   "gzip9": 345286
+  },
+  "roads_with_widths": {
+   "raw_bytes": 2744585,
+   "brotli11_lgwin24": 518834,
+   "gzip9": 592432
+  },
+  "kerbs": {
+   "raw_bytes": 379327,
+   "brotli11_lgwin24": 297211,
+   "gzip9": 311782
+  },
+  "signposts": {
+   "raw_bytes": 165237,
+   "brotli11_lgwin24": 75687,
+   "gzip9": 90788
+  },
+  "street_names": {
+   "raw_bytes": 28723,
+   "brotli11_lgwin24": 9864,
+   "gzip9": 11431
+  },
+  "ground_as_shipped": {
+   "raw_bytes": 5816003,
+   "brotli11_lgwin24": 2251467,
+   "gzip9": 2637864
+  },
+  "ground_each_place_once": {
+   "raw_bytes": 2918271,
+   "brotli11_lgwin24": 1081922,
+   "gzip9": 1215139
+  },
+  "whole_budget_layers_one_stream": 11273284,
+  "whole_all_layers_shipped_precision_one_stream": 13995474,
+  "whole_all_layers_ground_once_one_stream": 12826928
+ }
+}
