@@ -5,14 +5,19 @@
 import * as THREE from "../vendor/three/three.module.js";
 import {
   advanceTrial,
+  beginCrash,
+  brakeLightsOn,
   buildCollisionIndex,
   collisionAt,
   createTrial,
+  crashPose,
   formatBytes,
   formatTime,
   groundAt,
   intersectionsForTile,
   nearestRoad,
+  questSeeker,
+  tileAt,
   carStep,
   groundAtWorld,
   nextCrossing,
@@ -21,6 +26,7 @@ import {
 } from "./sf-drive-core.js";
 
 import { terrainTriangles, tileRegion } from "./sf-drive-surface.js";
+import { createDownloadSizeTracker } from "./sf-download-size.js";
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -486,6 +492,23 @@ function makeCar(C) {
   );
   cab.position.set(-0.3, 1.45, 0);
   car.add(body, cab);
+  // Rear lamps face the chase camera; a high centre lamp sits on the cabin.
+  const brakeMaterial = new THREE.MeshBasicMaterial({ color: 0x661018 });
+  for (const z of [-0.62, 0.62]) {
+    const lamp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.07, 0.24, 0.48),
+      brakeMaterial,
+    );
+    lamp.position.set(-2.23, 0.83, z);
+    car.add(lamp);
+  }
+  const centreLamp = new THREE.Mesh(
+    new THREE.BoxGeometry(0.04, 0.1, 0.56),
+    brakeMaterial,
+  );
+  centreLamp.position.set(-1.42, 1.6, 0);
+  car.add(centreLamp);
+  car.userData.brakeMaterial = brakeMaterial;
   const wheels = [];
   const tyreGeometry = new THREE.CylinderGeometry(0.36, 0.36, 0.22, 12);
   tyreGeometry.rotateX(Math.PI / 2);
@@ -503,11 +526,16 @@ function makeCar(C) {
   return car;
 }
 
-export async function startDrive({ canvas, base, hud, assetBytes }) {
+export async function startDrive({ canvas, base, hud, downloadAssets }) {
   const [manifest, route] = await Promise.all([
     fetchJsonGz(`${base}manifest.json`),
     fetchJsonGz(`${base}../quest-route.json`),
   ]);
+  const downloads = createDownloadSizeTracker({
+    tiles: manifest.tiles,
+    assets: downloadAssets,
+    tileBase: new URL(base, location.href),
+  });
   const C = {
     sky: col("--sky"),
     land: col("--land"),
@@ -557,11 +585,11 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
   let trial = createTrial(route.targets);
   let selectedStart = start;
   let checkpoint = null;
+  let crash = null;
   let crashUntil = 0;
   let accumulator = 0;
   let messageUntil = 0;
   const failures = new Map();
-  const totalBytes = manifest.tiles.reduce((sum, t) => sum + t.bytes, 0);
   const recordKey = () =>
     `sf-trial-v1:${route.manifestSha256}:${selectedStart.id}`;
   const recordsByStart = new Map();
@@ -743,6 +771,7 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
     grounded = false;
     camInit = false;
     accumulator = 0;
+    crash = null;
     releaseInputs();
   };
   function safeIntersections() {
@@ -757,7 +786,9 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
       return z !== null && !collisionAt(indexes, p, z);
     });
   }
-  function respawn(kind = null) {
+  function respawn(afterCrash = false) {
+    if (crash && !afterCrash) return;
+    const kind = crash?.kind;
     const safe = safeIntersections();
     const point =
       (checkpoint &&
@@ -770,6 +801,7 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
           Math.hypot(b.x - car.x, b.y - car.y),
       )[0];
     if (!point) {
+      crashUntil = performance.now() + 500;
       announce("Waiting for a clear intersection to load…");
       return;
     }
@@ -777,13 +809,21 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
     if (Math.cos(car.heading - heading) < 0) heading += Math.PI;
     reset({ ...point, heading });
     checkpoint = { ...point, heading };
-    crashUntil = performance.now() + 750;
-    if (kind && trial.status === "running") trial.crashes++;
+    crashUntil = performance.now() + (afterCrash ? 0 : 750);
     announce(
       kind
         ? `Hit a ${kind} · back at the intersection`
         : "Back at the intersection · clock continues",
     );
+  }
+  function startCrash(kind, now) {
+    if (crash) return;
+    crash = beginCrash(car, kind, now / 1000);
+    car = { ...car, v: 0, steering: 0 };
+    accumulator = 0;
+    releaseInputs();
+    if (trial.status === "running") trial.crashes++;
+    announce(`Hit a ${kind} · spinning before reset`, 2);
   }
   function newTrial(p = selectedStart) {
     selectedStart = p;
@@ -853,6 +893,93 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
   let camInit = false;
   let roadAt = 0,
     road = null;
+  const seekerColours = {
+    ink: css("--ink"),
+    muted: css("--muted"),
+    accent: css("--accent"),
+    bg: css("--bg"),
+  };
+  function drawSeeker() {
+    const seeker = questSeeker(trial, manifest.tiles, car);
+    const cv = hud.seekerCompass,
+      ctx = cv.getContext("2d");
+    const w = cv.clientWidth,
+      dpr = Math.min(2, devicePixelRatio || 1),
+      c = w / 2;
+    if (cv.width !== Math.round(w * dpr))
+      cv.width = cv.height = Math.round(w * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, w);
+    ctx.beginPath();
+    ctx.arc(c, c, w * 0.46, 0, Math.PI * 2);
+    ctx.strokeStyle = seekerColours.muted;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.font = `600 ${w * 0.12}px system-ui`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const [name, bearing] of [
+      ["N", 0],
+      ["E", 90],
+      ["S", 180],
+      ["W", 270],
+    ]) {
+      const angle = ((bearing - seeker.heading) * Math.PI) / 180;
+      ctx.fillStyle = name === "N" ? seekerColours.accent : seekerColours.muted;
+      ctx.fillText(
+        name,
+        c + Math.sin(angle) * w * 0.39,
+        c - Math.cos(angle) * w * 0.39,
+      );
+    }
+    if (seeker.target) {
+      const angle = (seeker.relative * Math.PI) / 180;
+      ctx.save();
+      ctx.translate(c, c);
+      ctx.rotate(angle);
+      ctx.strokeStyle = "#c79226";
+      ctx.fillStyle = "#c79226";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -w * 0.25);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, -w * 0.3);
+      ctx.lineTo(-5, -w * 0.2);
+      ctx.lineTo(5, -w * 0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      ctx.beginPath();
+      ctx.arc(c, c, w * 0.14, 0, Math.PI * 2);
+      ctx.fillStyle = seekerColours.bg;
+      ctx.fill();
+      ctx.font = `${w * 0.22}px system-ui`;
+      ctx.fillText(seeker.target.emoji, c, c);
+    }
+    // Your heading is always up; the compass ring and target turn around it.
+    if (!seeker.target) {
+      ctx.fillStyle = seekerColours.accent;
+      ctx.font = `600 ${w * 0.3}px system-ui`;
+      ctx.fillText("✓", c, c);
+    }
+    hud.seekerScope.textContent = !seeker.target
+      ? "Rally complete"
+      : seeker.onTile
+        ? "This tile"
+        : seeker.localCollected
+          ? `${seeker.local.emoji} ✓ · next tile`
+          : "Next tile";
+    hud.seekerDistance.textContent = seeker.target
+      ? `${seeker.target.emoji} ${Math.round(seeker.distance)} m`
+      : "All collected!";
+    hud.seekerHeading.textContent = `${seeker.cardinal} · ${String(Math.round(seeker.heading) % 360).padStart(3, "0")}°`;
+    cv.setAttribute(
+      "aria-label",
+      `Heading ${seeker.cardinal}, ${Math.round(seeker.heading) % 360} degrees. ${seeker.target ? `${seeker.target.emoji}, ${seeker.onTile ? "this tile" : "next tile"}, ${Math.round(seeker.distance)} metres away, bearing ${Math.round(seeker.bearing) % 360} degrees.` : "All emojis collected."}`,
+    );
+  }
   function drawMinimap() {
     const cv = hud.minimap,
       ctx = cv.getContext("2d");
@@ -896,11 +1023,7 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
       ctx.stroke();
     }
     const remaining = trial.targets.filter((t) => !trial.collected.has(t.t));
-    const nearest = remaining.sort(
-      (a, b) =>
-        Math.hypot(a.x - car.x, a.y - car.y) -
-        Math.hypot(b.x - car.x, b.y - car.y),
-    )[0];
+    const nearest = questSeeker(trial, manifest.tiles, car).target;
     for (const t of remaining) {
       ctx.beginPath();
       ctx.arc(...point(t.x, t.y), 1.5, 0, Math.PI * 2);
@@ -939,12 +1062,15 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
     ctx.font = "600 11px system-ui";
     ctx.textAlign = "right";
     ctx.fillText("N ↑", w - 6, 14);
-    const resident = [...loaded.keys()].reduce(
-      (sum, t) => sum + byToken.get(t).bytes,
-      0,
-    );
-    hud.assets.textContent = `${formatBytes(resident)} loaded · ${formatBytes(totalBytes)} city tiles`;
-    hud.gameSize.textContent = `${formatBytes(assetBytes)} total game assets`;
+    downloads.observe(performance.getEntriesByType("resource"));
+    const size = downloads.sizes(loaded.keys());
+    hud.assets.textContent = `${formatBytes(size.resident)} loaded · ${formatBytes(size.tiles)} city tiles`;
+    hud.assets.title =
+      "Compressed response-body sizes of the loaded tiles and complete city tile set.";
+    hud.gameSize.textContent = `${size.estimated ? "≈ " : ""}${formatBytes(size.total)} asset download`;
+    hud.gameSize.title = size.estimated
+      ? "Compressed network payload: gzip estimates where browser response sizes are unavailable. Excludes HTTP headers."
+      : "Network payload using encoded response-body sizes, including compressed responses. Excludes HTTP headers; cached assets count at their download size.";
     hud.coverage.textContent = `${manifest.tiles.length} L13 tiles · ${route.skipped.length} without a playable intersection`;
     hud.progress.textContent = `${trial.collected.size} / ${trial.targets.length} emojis`;
     hud.progressBar.max = trial.targets.length;
@@ -960,7 +1086,9 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
     hud.records.textContent = best
       .map((r, i) => `${i + 1}. ${formatTime(r.seconds)}`)
       .join("   ");
-    if (performance.now() > messageUntil)
+    if (crash)
+      hud.status.textContent = `Hit a ${crash.kind} · reset in ${crashPose(crash, performance.now() / 1000).remaining.toFixed(1)} s`;
+    else if (performance.now() > messageUntil)
       hud.status.textContent =
         trial.status === "ready"
           ? "Drive to start · collect the marked emojis in any order"
@@ -973,6 +1101,9 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
     const wallDt = Math.max(0, (now - last) / 1000);
     const dt = Math.min(0.05, wallDt);
     last = now;
+    if (crash && crashPose(crash, now / 1000).done && now >= crashUntil)
+      respawn(true);
+    hud.respawnBtn.disabled = !!crash;
     const k = state.keys;
     const input = {
       throttle:
@@ -1018,7 +1149,7 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
       roadAt = now;
     }
     let blocked = false;
-    if (grounded && now >= crashUntil) {
+    if (grounded && !crash && now >= crashUntil) {
       accumulator += dt;
       while (accumulator >= 1 / 120) {
         accumulator -= 1 / 120;
@@ -1034,12 +1165,7 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
           slope: zf !== null && zr !== null ? (zf - zr) / 2.7 : 0,
           offroad: !road || road.distance > road.width,
         });
-        const owner = manifest.tiles.reduce((a, b) =>
-          Math.hypot(a.x - candidate.x, a.y - candidate.y) <
-          Math.hypot(b.x - candidate.x, b.y - candidate.y)
-            ? a
-            : b,
-        );
+        const owner = tileAt(manifest.tiles, candidate.x, candidate.y);
         const z = groundAtWorld(tiles, candidate.x, candidate.y, true);
         if (!loaded.has(owner.t) || z === null) {
           car = { ...car, v: 0 };
@@ -1055,13 +1181,13 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
         }
         const hit = collisionAt(indexes, candidate, z);
         if (hit) {
-          respawn(hit);
+          startCrash(hit, now);
           break;
         }
         car = candidate;
       }
       // Remember reached, clear intersections; a crash never erases quest progress.
-      if (!blocked && now >= crashUntil)
+      if (!crash && !blocked && now >= crashUntil)
         for (const e of loaded.values())
           for (const p of e.intersections) {
             if (Math.hypot(car.x - p.x, car.y - p.y) < 12) {
@@ -1075,8 +1201,8 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
       trial,
       wallDt,
       car,
-      grounded && now >= crashUntil && input.throttle !== 0,
-      grounded && !blocked && now >= crashUntil,
+      grounded && !crash && now >= crashUntil && input.throttle !== 0,
+      grounded && !crash && !blocked && now >= crashUntil,
     );
     for (const t of found)
       announce(
@@ -1098,6 +1224,7 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
       );
     }
     hud.timer.textContent = formatTime(trial.elapsed);
+    drawSeeker();
     for (const [t, e] of loaded)
       if (e.marker) {
         e.marker.visible = !trial.collected.has(t);
@@ -1111,8 +1238,22 @@ export async function startDrive({ canvas, base, hud, assetBytes }) {
     const ay = Math.sin(car.heading) * 1.5;
     const zf = groundAtWorld(tiles, car.x + ax, car.y + ay) ?? carZ;
     const zr = groundAtWorld(tiles, car.x - ax, car.y - ay) ?? carZ;
-    carMesh.position.set(...V(car.x, car.y, Math.max(carZ, (zf + zr) / 2)));
-    carMesh.rotation.set(0, car.heading, Math.atan2(zf - zr, 3), "YZX");
+    const pose = crash ? crashPose(crash, now / 1000) : null;
+    carMesh.position.set(
+      ...V(car.x, car.y, Math.max(carZ, (zf + zr) / 2) + (pose?.lift || 0)),
+    );
+    carMesh.rotation.set(
+      pose?.roll || 0,
+      pose?.heading ?? car.heading,
+      Math.atan2(zf - zr, 3),
+      "YZX",
+    );
+    const braking = brakeLightsOn(
+      car,
+      input,
+      !!crash || now < crashUntil || trial.status === "ready",
+    );
+    carMesh.userData.brakeMaterial.color.setHex(braking ? 0xff3038 : 0x661018);
     for (const wheel of carMesh.userData.wheels) {
       wheel.pivot.rotation.y = wheel.front ? car.steering || 0 : 0;
       wheel.tyre.rotation.z -= (car.v * dt) / 0.36;

@@ -4,6 +4,7 @@ const markdownIt = require("markdown-it");
 const markdownItAnchor = require("markdown-it-anchor");
 const cheerio = require("cheerio");
 const { moduleVersion } = require("./module-version.js");
+const { sfDownloadAssets } = require("./sf-asset-sizes.cjs");
 
 function normalisePathPrefix(value) {
   const trimmed = String(value || "").trim();
@@ -172,22 +173,10 @@ module.exports = async function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy({
     "src/sf/quest-route.json": "sf/quest-route.json",
   });
-  // Exact on-disk asset size for the game's HUD, including its engine and renderer.
-  const sfManifest = JSON.parse(
-    fs.readFileSync("src/sf/tiles/manifest.json", "utf8"),
-  );
+  // Compressed payload estimates are replaced by actual response sizes in the browser.
   eleventyConfig.addGlobalData(
-    "sfGameBytes",
-    sfManifest.tiles.reduce((sum, t) => sum + t.bytes, 0) +
-      [
-        "src/sf/tiles/manifest.json",
-        "src/sf/quest-route.json",
-        "src/js/sf-drive.js",
-        "src/js/sf-drive-core.js",
-        "src/js/sf-drive-surface.js",
-        "node_modules/three/build/three.module.js",
-        "node_modules/three/build/three.core.js",
-      ].reduce((sum, path) => sum + fs.statSync(path).size, 0),
+    "sfDownloadAssets",
+    JSON.stringify(sfDownloadAssets()),
   );
   eleventyConfig.addPassthroughCopy({ "src/design": "design" });
 

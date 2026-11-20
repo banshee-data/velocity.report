@@ -21,21 +21,32 @@ Steering travels gradually and returns to centre. A bicycle model runs at 120 Hz
 speed-dependent steering, a lateral tyre-grip limit, rolling resistance, aerodynamic drag,
 and gravity along the measured hill slope. Down/S brakes before engaging reverse; space
 brakes and holds the car on a hill. Off-road ground reduces grip and adds resistance.
-The wheels steer and spin, and the body pitches with the terrain.
+The wheels steer and spin, and the body pitches with the terrain. Two rear brake lamps
+and a high centre lamp brighten when space is pressed, opposing throttle brakes the car,
+or recovery holds its brake.
 
 Building roof-face outlines (including courtyard holes) and tree trunks have collision
 checks in 32 m spatial buckets. An oriented rectangle covers the car body and bumpers;
-short physics steps prevent it jumping through a trunk. A crash stops the car and returns
-it to its last reached clear intersection, or the nearest clear loaded intersection if
-that checkpoint has streamed out. R / Reset car uses the same recovery. Inputs are
-released on recovery and on lost focus. Kerbs and tree crowns do not cause a crash.
+short physics steps prevent it jumping through a trunk. A crash stops driving and plays
+a two-second spin at the impact position before returning the car to its last reached
+clear intersection, or the nearest clear loaded intersection if that checkpoint has
+streamed out. The clock continues, pickups are paused, and R / Reset car cannot skip the
+spin. Outside a crash, R / Reset car returns directly to the intersection. Inputs are
+released on impact, recovery and lost focus. Kerbs and tree crowns do not cause a crash.
 The car waits at a missing ground surface or an unloaded tile boundary.
 
 Collect a different emoji at one intersection in each of the 137 tiles with signposted
 intersections, in any order. The other 20 of the 157 tiles have no signposted intersection;
 they remain on the map and are excluded from the completion requirement. Emoji beacons
 appear in the world, and the north-up minimap shows every tile, loaded/loading tiles,
-collected tiles, the car, and a line to the nearest remaining emoji.
+collected tiles, the car, and a line to the seeker target.
+
+The compass seeker points to the uncollected emoji belonging to the current tile, even
+when a neighboring tile's emoji is closer. It shows that emoji on the compass, a direction
+arrow, distance, and the car's cardinal/numeric heading. The car's forward direction is
+always up; compass letters and the target rotate relative to it. After the local pickup,
+the seeker marks it collected and points to the nearest remaining target. Tiles without
+a quest also seek the next target, and a completed rally clears the target arrow.
 
 The car holds its brake before the first driving input, which starts the clock. It measures real elapsed time, including crashes,
 recovery, loading and background time. Collected emojis survive respawns and tile unloading.
@@ -51,10 +62,20 @@ projects their midpoint onto a named carriageway (including roads owned by a nei
 tile), and chooses a grounded intersection clear of buildings and trunks. Its manifest
 hash scopes saved records. The engine tests check complete tile coverage and unique emoji.
 
-The map readout reports compressed tile bytes currently resident, the full tile download,
-and total on-disk game assets (tiles, manifest, quest index, engine modules and three.js).
-It does not estimate JavaScript heap or GPU memory. The full tile set is not downloaded
-to start a run.
+The map readout reports network response-body sizes for the currently loaded tiles, the
+complete city tile set, and the full game asset download (tiles, manifest, quest index,
+engine modules and three.js). It uses Resource Timing's `encodedBodySize`, so gzip/Brotli
+responses count at their compressed size. Headers, protocol overhead, the page document,
+and favicon are excluded. Cached assets count at their encoded download size rather than
+zero; retries do not add the same file twice. This is the asset inventory, not a running
+counter of this session's network traffic or an estimate of heap/GPU memory.
+
+When response timings are unavailable, the build supplies gzip-level-9 estimates for text
+assets and the tile manifest supplies the exact sizes of the existing gzipped tile files.
+A total containing an estimate is marked `≈`. With gzip, the full asset download is about
+30.6 MB, compared with the previous 32.4 MB on-disk total. The displayed number follows the
+host's actual response sizes as they become available; an uncompressed development server
+can therefore report more. No extra requests or full-city download are needed to measure it.
 
 ## Road rendering
 
