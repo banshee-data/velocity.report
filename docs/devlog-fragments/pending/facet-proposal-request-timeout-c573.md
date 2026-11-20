@@ -1,0 +1,1 @@
+- Fixed VV offline facet pose requests timing out before source validation completes on attached storage. Single-anchor and joint proposals now share the evidence request’s bounded five-minute timeout, with request-schema regression coverage. The endpoint remains read-only and does not retry automatically.

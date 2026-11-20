@@ -51,6 +51,26 @@ enum FacetJointFixture {
 }
 
 struct FacetJointPoseProposalTests {
+    @Test func proposalRequestsKeepVersionAndAllowAttachedSourceValidation() throws {
+        let client = FeatureAPIClient(baseURL: URL(string: "http://facet.test")!)
+        let single = try FacetPoseFixture.proposal().request
+        let joint = try FacetJointFixture.proposal().request
+        let requests = [
+            try client.poseProposalRequest(single), try client.poseProposalRequest(joint),
+        ]
+        for (offset, request) in requests.enumerated() {
+            #expect(request.timeoutInterval == 300)
+            #expect(request.httpMethod == "POST")
+            #expect(request.url?.path == "/api/lidar/annotations/features/pose-proposal")
+            #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+            let data = try #require(request.httpBody)
+            let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            #expect(body["schema_version"] as? Int == offset + 1)
+            if offset == 1 {
+                #expect((body["matches"] as? [[String: Any]])?.count == joint.matches.count)
+            }
+        }
+    }
     @Test func sharedGoFixturesRetainSupportAndPartialDirections() throws {
         for name in ["facet-joint-pose-compact.json", "facet-joint-pose-parallel.json"] {
             let result = try FacetJointFixture.proposal(name)
