@@ -6,6 +6,9 @@
   [`sf-drive-core.js`](../../public_html/src/js/sf-drive-core.js) (tested in
   [`sf-drive-core.test.mjs`](../../public_html/src/js/__tests__/sf-drive-core.test.mjs)).
 - **Data:** `public_html/src/sf/tiles/`, published at `/sf/tiles/`.
+- **How the map was built:** [city map record](sf-city-map.md) (levels of detail, decisions, next
+  steps), with the [size study](sf-city-map-size-study.md) and
+  [review brief](sf-city-map-review-brief.md).
 
 The page drives a car anywhere in San Francisco over measured geometry, so a reader can move between
 survey sites with the city around them. A chase camera sits behind the car and a mirror shows the road
