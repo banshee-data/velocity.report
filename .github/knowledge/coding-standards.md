@@ -83,6 +83,9 @@ This policy is maintained there.
 
 ## Documentation Updates
 
+Documents live in the repository as Markdown, never in agent-native storage; see
+[Keep documents in the repository](../../AGENTS.md#keep-documents-in-the-repository).
+
 When changing functionality, update **all** relevant docs:
 
 - Main `README.md`
