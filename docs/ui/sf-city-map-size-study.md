@@ -9,12 +9,12 @@ two roof rounds (V and W) added after it.
 
 ## Summary
 
-| Question                | Answer          | What it holds                                                                                                                                   |
-| ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Smallest useful city    | about 2.5–6 MB  | Every building as a footprint plus height (LoD1, 2.5D), every street centreline and kerb line, brotli-compressed; the client extrudes the boxes |
-| With real roofs (LoD2)  | about 14–19 MB  | The city roof bake's planes for 165,267 buildings, stored as plane and outline per face; the rest fall back to boxes                            |
-| As ready-to-draw meshes | about 90–300 MB | Roofed glTF at full detail; meshopt compression cuts it 2.3–3.3×. The served city tiles (boxes, ground, three levels) are 277 MB                |
-| Roads alone             | under 1 MB      | 1,960 km of centrelines with name, class and one-way: 0.16 MB. Kerbs and street-area polygons add about 0.3 MB each                             |
+| Question                | Answer          | What it holds                                                                                                                                                           |
+| ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Smallest useful city    | about 2.5–6 MB  | Every building as a footprint plus height (LoD1, 2.5D), every street centreline and kerb line, brotli-compressed; the client raises each outline to its measured height |
+| With real roofs (LoD2)  | about 14–19 MB  | The city roof bake's planes for 165,267 buildings, stored as plane and outline per face; the rest fall back to boxes                                                    |
+| As ready-to-draw meshes | about 90–300 MB | Roofed glTF at full detail; meshopt compression cuts it 2.3–3.3×. The served city tiles (boxes, ground, three levels) are 277 MB                                        |
+| Roads alone             | under 1 MB      | 1,960 km of centrelines with name, class and one-way: 0.16 MB. Kerbs and street-area polygons add about 0.3 MB each                                                     |
 
 The ground under the roads is what costs bytes, not the roads.
 
