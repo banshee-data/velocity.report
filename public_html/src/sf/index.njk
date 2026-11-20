@@ -82,11 +82,11 @@ eleventyExcludeFromCollections: true
   <span></span><button type="button" data-act="down" aria-label="Reverse">▼</button><span></span>
 </div>
 <script type="module">
-  import { startDrive } from "{{ modulesBase }}/js/sf-drive.js";
+  import { startDrive } from "{{ (modulesBase + '/js/sf-drive.js') | url }}";
   const $ = (id) => document.getElementById(id);
   startDrive({
     canvas: $("drive"),
-    base: "/sf/tiles/",
+    base: "{{ '/sf/tiles/' | url }}",
     hud: {
       street: $("street"), next: $("next"), speed: $("speed"), compass: $("compass"), tiles: $("tiles"),
       places: $("places"), mirrorBtn: $("mirrorBtn"), viewBtn: $("viewBtn"), mirrorFrame: $("mirrorFrame"),
