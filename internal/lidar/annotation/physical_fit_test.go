@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -207,6 +208,45 @@ func TestFitLifecycleRejectsUnresolvedBodyEvidence(t *testing.T) {
 	p, s := fitScenePack(t, [][]fitBox{{{cx: 10, cy: 6, l: 4.5, w: 1.8}}}, "")
 	if _, err := FitPhysicalObject(p, s, FitRequest{ObjectID: "car", Author: "op", Lifecycle: true}, DefaultFitOptions()); err == nil || !strings.Contains(err.Error(), "no resolved") {
 		t.Fatal(err)
+	}
+}
+
+func TestBoundLifecycleBumpersRequiresLocalReturnSupport(t *testing.T) {
+	frame := fitSample{
+		id: 3, member: []int{0, 1, 2},
+		// The return beyond the rear belongs outside the reviewed mask.
+		pts: Points{X: []float32{-1.5, 0, 2.4, -2.4}, Y: []float32{0, 0, 0, 0}},
+	}
+	local := EndpointEvidence{Status: EvidenceObserved, Support: EvidenceSupport{Frames: []int{3}}}
+	pose := PhysicalKeyframe{SampleID: frame.id,
+		Anchor:   PhysicalAnchor{Kind: AnchorBodyCentre},
+		Position: PositionBound{XM: fp64(0), YM: fp64(0)},
+		Yaw:      YawBound{Axis: AxisResolved, YawRad: fp64(0)},
+		Front:    local, Rear: local,
+	}
+	length := DimensionBound{Status: EvidenceObserved, LowerM: fp64(4.6), Support: EvidenceSupport{Frames: []int{2, 4}}}
+	for _, tc := range []struct {
+		span   DimensionSpan
+		status EvidenceStatus
+		frames []int
+	}{{SpanFull, EvidenceInferred, []int{2, 3, 4}}, {SpanPartial, EvidenceUnknown, nil}} {
+		k := pose
+		length.Span = tc.span
+		if tc.span == SpanFull {
+			length.ValueM, length.UpperM = fp64(4.8), fp64(5)
+		} else {
+			length.ValueM, length.UpperM = nil, nil
+		}
+		boundLifecycleBumpers(&k, BodyGeometry{Length: length}, &frame)
+		if k.Front.Status != EvidenceObserved || !slices.Equal(k.Front.Support.Frames, local.Support.Frames) {
+			t.Fatalf("supported front lost its observation: %+v", k.Front)
+		}
+		if k.Rear.Status != tc.status || !slices.Equal(k.Rear.Support.Frames, tc.frames) {
+			t.Fatalf("%s span: rear = %+v, want %s with support %v", tc.span, k.Rear, tc.status, tc.frames)
+		}
+		if !strings.Contains(k.Review.UncertaintyAssumptions, "rear of the persistent shell extends beyond") {
+			t.Fatalf("missing rear evidence explanation: %q", k.Review.UncertaintyAssumptions)
+		}
 	}
 }
 

@@ -1,0 +1,1 @@
+- Kept lifecycle body fits importable when the persistent shell extends past the current returns, using the existing observed-bumper check to mark an unsupported endpoint inferred or unknown.

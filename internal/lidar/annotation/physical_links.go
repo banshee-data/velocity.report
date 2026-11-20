@@ -225,6 +225,14 @@ func (c *linkChecker) keyframe(o PhysicalObject, k PhysicalKeyframe) error {
 // checked, and is refused as observed. Validate has already required a
 // resolved axis for any named bumper.
 func (c *linkChecker) bumper(o PhysicalObject, k PhysicalKeyframe, name string, sign float64, face AnchorKind) error {
+	pts, err := c.pointsAt(k.SampleID)
+	if err != nil {
+		return err
+	}
+	return checkObservedBumper(o.Body, k, name, sign, face, pts, c.returns[o.ObjectID][k.SampleID])
+}
+
+func checkObservedBumper(body *BodyGeometry, k PhysicalKeyframe, name string, sign float64, face AnchorKind, pts Points, members []int) error {
 	if k.Position.XM == nil || k.Position.YM == nil {
 		return fmt.Errorf("observed %s cannot be checked: the keyframe states no position", name)
 	}
@@ -237,17 +245,13 @@ func (c *linkChecker) bumper(o PhysicalObject, k PhysicalKeyframe, name string, 
 		if !ok {
 			return fmt.Errorf("observed %s cannot be checked: the keyframe states neither that face nor the body centre", name)
 		}
-		if o.Body == nil || o.Body.Length.LowerM == nil {
+		if body == nil || body.Length.LowerM == nil {
 			return fmt.Errorf("observed %s cannot be checked: the body states no length to place it by", name)
 		}
-		end = cx*ux + cy*uy + sign**o.Body.Length.LowerM/2
-	}
-	pts, err := c.pointsAt(k.SampleID)
-	if err != nil {
-		return err
+		end = cx*ux + cy*uy + sign**body.Length.LowerM/2
 	}
 	lo, hi := math.Inf(1), math.Inf(-1)
-	for _, i := range c.returns[o.ObjectID][k.SampleID] {
+	for _, i := range members {
 		s := float64(pts.X[i])*ux + float64(pts.Y[i])*uy
 		lo, hi = math.Min(lo, s), math.Max(hi, s)
 	}
