@@ -11,9 +11,9 @@ and Camera, Roads, Alignment and refinement can add further columns.
 
 This report records the observations needed to challenge the layout before implementing
 a redesign. The operator selected the largest possible 3D viewport with panels appearing
-on demand as the leading preference. The [Claude Design exploration](https://claude.ai/design/p/98edced9-30f9-4a24-9d80-4e1558a1bf72) compares a viewport-first
+on demand as the leading preference. The [Claude Design exploration](https://claude.ai/design/p/98edced9-30f9-4a24-9d80-4e1558a1bf72) compares a viewport-first <!-- agent-doc-link: ignore (owner-held source, not yet moved into the repository) -->
 workspace with a compact inspector. The existing
-[macOS VelocityVisualiser evolution project](https://claude.ai/design/p/9f0769cb-0f23-47e5-932f-a862d24de83c)
+[macOS VelocityVisualiser evolution project](https://claude.ai/design/p/9f0769cb-0f23-47e5-932f-a862d24de83c) <!-- agent-doc-link: ignore (owner-held source, not yet moved into the repository) -->
 was consulted without modification.
 
 ## Method and limits
