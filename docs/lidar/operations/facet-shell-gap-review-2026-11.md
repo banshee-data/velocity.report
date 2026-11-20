@@ -3,6 +3,9 @@
 - **Scope:** Kirk0 development passage, offline proposals and saved reference comparisons
 - **Decision:** retain conservative proposals; do not adopt joint anchors as online DRAC geometry
 
+A [visible-end probe](following-visible-end-probe-2026-11.md) followed up all six missing
+reference comparisons using bounded face proposals and the same fixed sample cohort.
+
 ## Question and method
 
 Can confirmed saved facets carry the same vehicle shell between frames, and how do the

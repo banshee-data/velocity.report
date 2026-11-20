@@ -99,6 +99,12 @@ records two manually confirmed body anchors and conservative joint constraints. 
 read-only comparison holds leader intervals fixed; broad anchor bounds and correlated
 reference evidence do not establish an accuracy improvement.
 
+The [visible-end probe](../lidar/operations/following-visible-end-probe-2026-11.md) restored
+six reference comparisons where detached returns were confined to the opposite end. The
+probe retained wide endpoint bounds and used a previously examined passage. M6 should test
+this limited face proposal on unseen episodes, including cases with contamination at the
+required face or insufficient evidence to name it.
+
 The body-memory part of M5 extends the existing reviewed-point fit with an explicit lifecycle scope.
 The [three-site review record](../lidar/operations/lifecycle-following-three-sites-2026-11.md)
 records its implementation boundary, three reproduced lifecycle fits, completed full-capture

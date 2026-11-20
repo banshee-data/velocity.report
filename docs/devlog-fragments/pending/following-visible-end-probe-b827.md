@@ -1,0 +1,1 @@
+- Checked visible bumper returns in VelocityVisualiser and [recorded the follow-up probe](../../lidar/operations/following-visible-end-probe-2026-11.md). It recovered all six previously missing reference comparisons as bounded proposals, with wider intervals and shared fit evidence.
