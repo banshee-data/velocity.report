@@ -24,6 +24,8 @@ and the separate physical-qualification gates.
 
 The [facet and shell gap review](operations/facet-shell-gap-review-2026-11.md)
 records confirmed saved corners, endpoint inspection and the fixed following comparison.
+Its [visible-end probe](operations/following-visible-end-probe-2026-11.md) examines the six
+reference samples the lifecycle fit omitted because of detached returns.
 
 The [lifecycle and three-site review record](operations/lifecycle-following-three-sites-2026-11.md)
 tracks persistent body proposals, full-capture following exports, stationary-period review
