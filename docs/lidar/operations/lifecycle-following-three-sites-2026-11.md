@@ -3,6 +3,10 @@
 - **Status:** full-capture replays, lane proposals, lifecycle repeats and numerical comparison complete; scoped exports and three-site browser review complete
 - **Scope:** development evidence and proposed geometry; no physical qualification
 
+The follow-up [facet and shell gap review](facet-shell-gap-review-2026-11.md) uses the
+same saved lifecycle fits, confirms two corners in VV and compares fixed following
+intervals without promoting proposals to truth.
+
 ## Question and method
 
 Can the existing reviewed-point fit carry one body through its reviewed passage, and

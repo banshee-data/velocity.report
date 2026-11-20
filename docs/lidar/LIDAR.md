@@ -22,6 +22,9 @@ The [motion-capture operations runbook](operations/motion-capture-following-oper
 tracks existing capture coverage, scalable following/DRAC processing, operator review,
 and the separate physical-qualification gates.
 
+The [facet and shell gap review](operations/facet-shell-gap-review-2026-11.md)
+records confirmed saved corners, endpoint inspection and the fixed following comparison.
+
 The [lifecycle and three-site review record](operations/lifecycle-following-three-sites-2026-11.md)
 tracks persistent body proposals, full-capture following exports, stationary-period review
 coverage and proposed lane context.
