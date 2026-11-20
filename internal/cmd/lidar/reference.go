@@ -14,7 +14,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 )
 
-const annotationReferenceUsage = `Usage: velocity lidar annotation-reference <import|validate|draft-following|fit|repin> --pack DIR [flags]
+const annotationReferenceUsage = `Usage: velocity lidar annotation-reference <import|validate|draft-following|compare-following|fit|repin> --pack DIR [flags]
 
 Import or validate the physical references of an annotation pack: body
 dimensions, keyframe poses and following gaps, each with bounds, evidence
@@ -32,6 +32,9 @@ status and its own review, stored beside the pack's membership sidecar.
                    returns: its size and a pose at the frames that measured it and
                    at any --sample, with every bound's terms printed; it is checked
                    as an import before it is written, and nothing is stored
+  compare-following Compare saved proposal shells against a baseline pack's frozen
+                   following gaps, retaining missing samples; diagnostic only,
+                   with no review, adoption or physical accuracy claim
   repin            After a membership edit, move every review whose frames the
                    edit did not touch to the current membership, so a copy
                    without membership history (a published one) still sees it
@@ -57,6 +60,8 @@ func annotationReferenceMain(args []string, stdout, stderr io.Writer) int {
 		return referenceValidate(args[1:], stdout, stderr)
 	case "draft-following":
 		return referenceDraftFollowing(args[1:], stdout, stderr)
+	case "compare-following":
+		return referenceCompareFollowing(args[1:], stdout, stderr)
 	case "fit":
 		return referenceFit(args[1:], stdout, stderr)
 	case "repin":
@@ -282,6 +287,84 @@ func referenceDraftFollowing(args []string, stdout, stderr io.Writer) int {
 	printDraftedFollowing(stdout, imp.Following[0], skipped)
 	printReferenceSummary(stdout, importValidHeader(merged), "", content, merged)
 	fmt.Fprintf(stdout, "wrote %s\n", *out)
+	return 0
+}
+
+func referenceCompareFollowing(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("velocity-lidar-annotation-reference-compare-following", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	baselinePath := fs.String("pack", "", "Baseline annotation pack directory (required)")
+	candidatePath := fs.String("candidate-pack", "", "Separate saved proposal view of the same pack and membership (required)")
+	out := fs.String("out", "", "Diagnostic JSON to write; existing files are refused (required)")
+	if code, ok := parseReferenceFlags(fs, args); !ok {
+		return code
+	}
+	if *baselinePath == "" || *candidatePath == "" || *out == "" {
+		fmt.Fprintln(stderr, "error: --pack, --candidate-pack and --out are required")
+		return 2
+	}
+	compare := func() (*annotation.FollowingShellComparison, error) {
+		bp, err := annotation.OpenPack(*baselinePath)
+		if err != nil {
+			return nil, err
+		}
+		cp, err := annotation.OpenPack(*candidatePath)
+		if err != nil {
+			return nil, err
+		}
+		baseline, err := annotation.LoadPhysicalReferences(bp)
+		if err != nil {
+			return nil, err
+		}
+		candidate, err := annotation.LoadPhysicalReferences(cp)
+		if err != nil {
+			return nil, err
+		}
+		if baseline.Digest() == "" || candidate.Digest() == "" {
+			return nil, fmt.Errorf("both views need saved physical references")
+		}
+		bs, err := annotation.LoadSidecar(bp)
+		if err != nil {
+			return nil, err
+		}
+		cs, err := annotation.LoadSidecar(cp)
+		if err != nil {
+			return nil, err
+		}
+		if bs.Digest() == "" || cs.Digest() == "" || bs.Digest() != cs.Digest() {
+			return nil, fmt.Errorf("shell comparison requires identical membership digests")
+		}
+		if err := baseline.ValidateLinks(bp, bs); err != nil {
+			return nil, err
+		}
+		if err := candidate.ValidateLinks(cp, cs); err != nil {
+			return nil, err
+		}
+		if drift := baseline.ReviewDrift(bp, bs); len(drift) != 0 {
+			return nil, fmt.Errorf("baseline review membership drift: %v", drift)
+		}
+		if drift := candidate.ReviewDrift(cp, cs); len(drift) != 0 {
+			return nil, fmt.Errorf("candidate review membership drift: %v", drift)
+		}
+		r, err := annotation.CompareFollowingShells(bp, baseline, candidate)
+		if err == nil {
+			r.MembershipDigest = bs.Digest()
+		}
+		return r, err
+	}
+	r, err := compare()
+	if err == nil {
+		var b []byte
+		b, err = json.MarshalIndent(r, "", "  ")
+		if err == nil {
+			err = writeNewFile(*out, append(b, '\n'))
+		}
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "annotation-reference: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "wrote %s: %d sample decisions; proposal comparison only, no physical accuracy claim\n", *out, len(r.Rows))
 	return 0
 }
 

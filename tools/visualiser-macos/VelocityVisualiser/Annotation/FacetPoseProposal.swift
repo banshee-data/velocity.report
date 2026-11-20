@@ -238,11 +238,7 @@ extension FeatureAPIClient {
     func sendPoseProposal<Request: Encodable, Response: Decodable>(
         _ request: Request, as responseType: Response.Type
     ) async throws -> Response {
-        var urlRequest = URLRequest(
-            url: baseURL.appendingPathComponent("api/lidar/annotations/features/pose-proposal"))
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.httpBody = try JSONEncoder().encode(request)
+        let urlRequest = try poseProposalRequest(request)
         let (data, response) = try await session.data(for: urlRequest)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: String]
@@ -250,5 +246,17 @@ extension FeatureAPIClient {
                 body?["error"] ?? "The offline proposal service refused this request")
         }
         return try JSONDecoder().decode(responseType, from: data)
+    }
+
+    func poseProposalRequest<Request: Encodable>(_ request: Request) throws -> URLRequest {
+        var urlRequest = URLRequest(
+            url: baseURL.appendingPathComponent("api/lidar/annotations/features/pose-proposal"))
+        // Pinned source validation can exceed the session's default minute on
+        // attached storage. Match the following-review evidence request budget.
+        urlRequest.timeoutInterval = 300
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try JSONEncoder().encode(request)
+        return urlRequest
     }
 }
