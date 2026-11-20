@@ -13,7 +13,8 @@ loads through the strict parser and must remain identical to current defaults; d
 declared before a later run.
 
 The unchanged [weekend baseline](weekend-following-baseline.json) also underpins the
-[fresh calibration/window rerun](../../docs/lidar/operations/following-identity-rerun-2026-11.md).
+[fresh calibration/window rerun](../../docs/lidar/operations/following-identity-rerun-2026-11.md)
+and the [three-site full-capture review](../../docs/lidar/operations/lifecycle-following-three-sites-2026-11.md).
 
 How to run one, build a new one and map replay experiment names to keys:
 [CONFIG.md](../CONFIG.md#experiment-parameter-sets).

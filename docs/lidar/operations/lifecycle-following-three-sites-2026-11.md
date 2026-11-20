@@ -1,6 +1,6 @@
 # Lifecycle body proposals and three-site following review
 
-- **Status:** full-capture replays complete; publication, numerical comparison and browser review in progress
+- **Status:** full-capture replays, lane proposals, lifecycle repeats and numerical comparison complete; scoped exports and three-site browser review complete
 - **Scope:** development evidence and proposed geometry; no physical qualification
 
 ## Question and method
@@ -39,6 +39,18 @@ Lane derivation saves proposals; it does not approve or adopt them.
 | Columbus–Broadway  | 2026-09-02                   | `aa69875be4dd45094d79c371ca25e434b3a4d8bec0966c116931720cc1653b66` | `gms:01M5GKWEZRV8YEVPSRTA1YGE6Y`         |
 | Embarcadero–Bryant | 2026-09-03                   | `03e10c86b718f068c8733559b1020b56a4e7ae1ec0361529f4fb19e75090fdf3` | `gms:01M684AR57ZPDAHJKC6ZTABDS8`         |
 
+The corresponding frozen clip and source identities are:
+
+| Site               | Clip ID                                | Source ID                                                                    |
+| ------------------ | -------------------------------------- | ---------------------------------------------------------------------------- |
+| Ashbury–Downey     | `62259f99-14a0-497d-a142-53d8a3c7fe25` | `source/v2/57470e02bcc3bb4ea6c9de9a99e43f23d812b6a613c38626ad427a059a925fba` |
+| Columbus–Broadway  | `6451411d-81c3-47f3-a5ff-5ce37b3ab768` | `source/v2/e0d54b902296de7ff1bbf3368edef5e4384f338d3d81504bbbad3ab56f324148` |
+| Embarcadero–Bryant | `dcc58069-fd30-460d-b629-88823e4b97d7` | `source/v2/1407a8300676f44acfb74b980a19709adaf66b8eec9b31204375095ee665867f` |
+
+Metadata run IDs follow `following-lifecycle-20261118-SITE`, using each site's slug.
+The source identities also bind the original ordered paths, extractor and requested
+window; moving a file does not authorise silently relabelling the frozen source.
+
 All three use the explicit sensor-to-sensor identity calibration
 `calibration/v1/30226f66f62ba71b24694c07b3793ab761657aa67d43b929c4cb33ad6d099e28`.
 This records the replay coordinate contract; it is not a surveyed site pose.
@@ -50,6 +62,9 @@ Lane overlays provide review context; unapproved lanes do not become leader-choi
 Required captures, databases, recordings, runtime logs and browser bundles remain on
 the directly attached LiDAR disk. The isolated review registry preserves the source-use
 ledger; the primary server database and original annotation packs are unchanged.
+The metadata registrations use standard zero defaults for run-summary counters that
+the headless preparer did not report. Those defaults are not measured counts: the
+histograms and track population are reduced from the verified paired evidence rows.
 
 ## What the lifecycle proposal means
 
@@ -209,12 +224,30 @@ and replay manifests. The manifests' `calibration_sha256` field hashes the parse
 configuration; `observation_calibration_id` identifies the separately supplied observation
 transform. These are different records and their digests must not be interchanged.
 
-Capture replay used `130020360a560b4e965d4451497e7efaba64add3`. The numerical comparison
-uses that baseline reducer and reviewed main `c17907c3f129e7fc83189b341a99629bdb508eec`.
-The subsequent stationary-scope implementation supplies the review scenes and player. The
+Capture replay used `130020360a560b4e965d4451497e7efaba64add3`. The completed numerical
+comparison used that baseline reducer and buffered build
+`ddebe19501fd93a4ca8c7159234f79f5c4e2aa4a`. All three recording analyses, including
+metadata, row accounting, minima and histograms, matched exactly. The fresh reduction
+completed in 24.1 minutes with uncontrolled cache state and a concurrent RouteSLAM copy;
+this is an observed run duration, not a storage-throughput comparison. A redundant older
+comparison was then retired with its partial output preserved; it contributes no result.
+The stationary-scope implementation at `54f59cf1efbbe0741e2a72aace2518f7c4bf7d36`
+merged unchanged as
+[PR #1080](https://github.com/banshee-data/velocity.report/pull/1080), merge
+`7bf8b876c171f3423f7007b22c87e88b29560e1d`, after all 30 CI checks passed.
+The subsequent scoped export selects buffered build
+`ddebe19501fd93a4ca8c7159234f79f5c4e2aa4a`, whose implementation is identical to
+merged main `38fed6dcfb257479e28febc8ca3a69da36621f19`. That I/O fix merged as
+[PR #1081](https://github.com/banshee-data/velocity.report/pull/1081), with all 27 CI
+checks passing. Its separate terminal-read-error follow-up changes tests only. The
 baseline does not export a second copy of the same large scenes. Producer, reducer and
 viewer identities remain separate; nothing is relabelled as having been captured by a
 later UI build.
+
+The packet/frame, observation, L3–L6, pipeline-composition and behaviour source trees,
+the default tuning file and the selected baseline parameter set are unchanged between
+the capture producer and merged main `38fed6dc`. This source comparison does not claim
+a new packet replay: the published provenance still identifies the actual producer.
 
 Lane publication initially reread complete VRLOGs after local field extraction. The
 resumed job instead sent the cached canonical field JSON through Gerardus's existing
@@ -227,7 +260,7 @@ All recording and field originals were retained.
 The job also calls `ListLaneProposals` and requires the new whole-field ID to appear in
 the derivation's `field_ids`. This verifies that stored fields actually contributed to
 the proposals. Ashbury's model includes two whole fields, one of them this run's;
-Columbus's includes this run's single whole field. Site aggregation is not evidence that
+Columbus's and Embarcadero's each include this run's single whole field. Site aggregation is not evidence that
 capture windows are independent. Existing adoption links remain as stored; this job
 does not approve, reject or adopt a lane.
 
@@ -246,9 +279,110 @@ support to lie in the same period. Do not trim a fitted path into a different fi
 Track counts retain the whole-recording denominator, including missing estimates.
 The default unscoped analysis remains available for the frozen numerical comparison.
 
-Full-capture following histograms and browser inspection are pending. The earlier
+The scope uses catalogue fingerprint
+`sha256:219c5649224da771cd9c204654334fac8a89e2392f8d31f2e494239a9a96dceb`
+and policy `following_static_review_v1`. Nominal timeline coverage is:
+
+| Site               | Periods | Within catalogue coverage (s) | Outside coverage (s) |
+| ------------------ | ------: | ----------------------------: | -------------------: |
+| Ashbury–Downey     |       1 |                     1,157.260 |                0.000 |
+| Columbus–Broadway  |       8 |                     1,648.385 |              314.341 |
+| Embarcadero–Bryant |       5 |                     1,050.262 |              241.984 |
+
+These are clock intervals, not valid following exposure. Requiring both complete paths
+inside one period excludes additional measurements. Ashbury's sub-microsecond endpoint
+clip rounds to zero in this table; browser frame offsets have microsecond resolution.
+
+The slice-size preflight checked all 75 files: 20 at Ashbury, 33 at Columbus and 22 at
+Embarcadero. None exceeds the reader's 64 MiB bound; the largest is Columbus's
+47,307,052-byte minute slice. The new scope file passed its required coverage gate at
+100%, the complete following-review package at 99.5%, and all 339 public-site tests
+passed. These checks establish software behaviour and bounded readability, not
+physical accuracy.
+
+The independent lifecycle repeat completed for `obj_35c661db`, `obj_8c728991` and
+`obj_8e829a06` on reviewed code `c17907c3f129e7fc83189b341a99629bdb508eec`.
+Each length, width and height proposal, including its bounds, and each per-mask
+lifecycle-frame result matched the earlier `130020360` run exactly. The repeat used
+the separate lifecycle review view and wrote new proposal files; it neither changed
+the original QA view nor promoted a physical reference to reviewed. Matching numerical
+outputs establish reproducibility on these frozen memberships, not correct shells.
+
+Catalogued coverage is still not a pose-stability certificate. The earlier
+[pose sweep](l3-corpus-pose-sweep-2026-10.md) found changes at Ashbury and Embarcadero,
+including Embarcadero's 0.13-degree yaw change inside a static part. Those are earlier
+measurements, not new estimates from this run. A single accepted placement and the
+catalogue mask do not correct such changes. Period-specific background agreement and
+pose review remain necessary before treating lane alignment or following distances as
+physically qualified; this export is an inspection aid.
+
+### Scoped export and browser review
+
+All 44,127 scene frames remain available. The independent scene check verified row
+accounting, actor minima and histogram agreement, leader presence for numeric gaps,
+DRAC availability, and all 9,192 projected gap paths against their encoded lengths.
+It found 2,989 supported DRAC samples. These are correlated samples, not encounters.
+Boundary comparisons allow the scene format's one-microsecond timestamp quantum.
+
+| Site               | Software tracks | Without estimate | <0.5 s | 0.5–1 s | 1–1.5 s | 1.5–2 s | 2+ s |
+| ------------------ | --------------: | ---------------: | -----: | ------: | ------: | ------: | ---: |
+| Ashbury–Downey     |             350 |              328 |      0 |       0 |       4 |       3 |   15 |
+| Columbus–Broadway  |           4,130 |            4,045 |      1 |       3 |      11 |      15 |   55 |
+| Embarcadero–Bryant |           3,826 |            3,737 |      1 |       5 |      16 |      15 |   52 |
+| Total              |           8,306 |            8,110 |      2 |       8 |      31 |      33 |  122 |
+
+There are 196 tracks with estimates, compared with 296 in the unscoped baseline.
+The scope excludes 108,762 rows outside stationary coverage and another 3,363 for
+path support crossing a period boundary. This changes the review cohort; it is not
+an improvement in traffic safety or measurement accuracy.
+
+The packaged browser loaded each recording through its site button, without file
+selection. Ashbury displays eleven saved inferred lanes and no proposal overlays;
+its five proposals remain stored separately on Arrow. Columbus displays 23 proposals
+and Embarcadero ten, all violet and explicitly unapproved. Browser checks found:
+
+- Ashbury at approximately 14:11: follower `qv` to leader `qo`, 14.8 m, 1.77 s,
+  supported DRAC 0.02 m/s² and a 1.54 s track minimum. Zooming out was needed to
+  frame both vehicles; a pair-framing action in the existing camera is a useful
+  usability extension.
+- Columbus at approximately 28:17: the chain `5ug` → `5tr` → `5t5` displayed
+  separate 18.5 m / 2.70 s and 20.6 m / 2.32 s gaps. The first pair was non-closing
+  and correctly showed unavailable DRAC. The second had a small supported value
+  rounded to 0.00; unavailable values were not substituted with zero.
+- Embarcadero at 00:00: `d` → `8` displayed 13.6 m / 1.17 s and a 0.96 s minimum,
+  alongside the separate `o` → `d` and `w` → `7` relationships.
+- Columbus at 13:31 and Embarcadero at 12:50 showed excluded-period labels and
+  grey actors, with stationary context, lane overlays and instantaneous following
+  measurements hidden. The whole-recording histogram remained visible by design.
+
+No warning or error appeared in the browser console during these checks. Five
+full-page screenshots and their SHA-256 digests are retained under the local evidence
+root's `browser-review/`, alongside `static-review-export-verification.json` and the
+bundle manifest. The bundle is local review output, not a public deployment.
+
+The earlier
 [four-site report](following-corpus-four-sites-2026-11.md)
 remains the record for the previous outputs and must not be presented as this rerun.
+
+### Unscoped diagnostic baseline
+
+The completed `130020360` reduction, before the catalogue review restriction, has the
+following recording-wide minima. These are diagnostic baseline counts, not the final
+scoped browser histogram or physical vehicle counts.
+
+| Site               | Software tracks | Without estimate | <0.5 s | 0.5–1 s | 1–1.5 s | 1.5–2 s | 2+ s |
+| ------------------ | --------------: | ---------------: | -----: | ------: | ------: | ------: | ---: |
+| Ashbury–Downey     |             350 |              326 |      0 |       0 |       4 |       4 |   16 |
+| Columbus–Broadway  |           4,130 |            3,990 |      2 |       5 |      24 |      27 |   82 |
+| Embarcadero–Bryant |           3,826 |            3,694 |      4 |       9 |      26 |      26 |   67 |
+| Total              |           8,306 |            8,010 |      6 |      14 |      54 |      57 |  165 |
+
+Only 296 software tracks have an eligible minimum. Across all 703,286 rows, primary
+buckets are 472,222 pairing exclusions, 149,719 without a leader, 54,331 record gaps,
+13,100 following exclusions and 13,914 eligible rows. These buckets sum to the raw
+row count; eligible rows are samples, not independent encounters. The large unavailable
+population must remain visible. It does not establish a physical following rate, and
+fragmentation, non-vehicle tracks and estimator applicability still need separate review.
 
 The next accuracy opportunities use the same tools: retain confirmed facet matchsets
 through the existing feature writer, compare the joint-facet pose proposals with this

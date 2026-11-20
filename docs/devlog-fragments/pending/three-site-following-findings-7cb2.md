@@ -1,0 +1,1 @@
+- Recorded the [three-site lifecycle and following review](../../lidar/operations/lifecycle-following-three-sites-2026-11.md), including full-capture provenance, exact baseline agreement, proposed lane publication, scoped histograms and browser checks; separated reproducibility from unresolved physical accuracy and database-integrity checks.
