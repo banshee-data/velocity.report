@@ -127,6 +127,11 @@ function buildTile(tile, C) {
         const a = [];
         for (let i = 0; i < r.length; i += 3)
           a.push([ox + r[i] / 10, oy + r[i + 1] / 10, r[i + 2] / 10]);
+        // Drop a closing point that repeats the first: the triangulator drops it
+        // too, and its indices must address the same vertices as `all` below.
+        const f = a[0];
+        const l = a.at(-1);
+        if (a.length > 3 && f[0] === l[0] && f[1] === l[1]) a.pop();
         return a;
       });
       const outer = rings[0].map((v) => new THREE.Vector2(v[0], v[1]));
