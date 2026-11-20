@@ -319,60 +319,151 @@ function buildTile(tile, C) {
     grp.add(crown, trunk);
   }
 
-  // signposts: a pole with the cross streets' names
-  for (const sg of tile.s) {
-    const x = ox + sg[0] / 10;
-    const y = oy + sg[1] / 10;
-    const z = gz(sg[0] / 10, sg[1] / 10);
-    const names = sg
-      .slice(2)
-      .map((k) => tile.n[k])
-      .filter(Boolean);
-    if (!names.length) continue;
-    const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.05, 0.05, 3.6, 6),
-      new THREE.MeshLambertMaterial({ color: C.pole }),
-    );
-    pole.position.set(...V(x, y, z + 1.8));
-    grp.add(pole);
-    const sprite = signSprite(names, C);
-    sprite.position.set(...V(x, y, z + 4.6));
-    grp.add(sprite);
-  }
+  // signposts: a pole on the corner, with a blade per street lined up with that street
+  if (tile.s.length) grp.add(buildSigns(tile, C, ox, oy, gz));
   return grp;
 }
 
-const signCache = new Map();
-function signSprite(names, C) {
-  const key = names.join("|");
-  let entry = signCache.get(key);
-  if (!entry) {
-    const lines = names.slice(0, 3);
-    const cv = document.createElement("canvas");
-    const ctx = cv.getContext("2d");
-    ctx.font = "600 44px system-ui, -apple-system, Segoe UI, sans-serif";
-    const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 48;
-    cv.width = Math.ceil(w);
-    cv.height = 64 * lines.length + 16;
-    ctx.fillStyle = `#${C.sign.getHexString()}`;
-    ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(6, 6, cv.width - 12, cv.height - 12);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "600 44px system-ui, -apple-system, Segoe UI, sans-serif";
-    ctx.textBaseline = "middle";
-    lines.forEach((l, i) => ctx.fillText(l, 24, 8 + 32 + 64 * i));
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    entry = { tex, aspect: cv.width / cv.height };
-    signCache.set(key, entry);
+// Street-name blades as on San Francisco poles: a green blade per street, white
+// letters on both faces, the lower blade on the first street and the upper on
+// the second. One texture atlas and one mesh per tile, so a tile of several
+// hundred posts costs three draw calls.
+const BLADE_H = 0.3; // m; a little larger than the city's 0.2 m so it reads from the car
+const POLE_H = 3.3;
+function buildSigns(tile, C, ox, oy, gz) {
+  const ids = [];
+  for (const sg of tile.s)
+    for (let i = 2; i < sg.length; i += 2)
+      if (!ids.includes(sg[i]) && tile.n[sg[i]]) ids.push(sg[i]);
+  // shelf-pack the names into one canvas
+  const font = "600 34px system-ui, -apple-system, Segoe UI, sans-serif";
+  const rowH = 48;
+  const atlasW = 1024;
+  const probe = document.createElement("canvas").getContext("2d");
+  probe.font = font;
+  const cells = new Map();
+  let x = 0;
+  let y = 0;
+  for (const id of ids) {
+    const w = Math.min(
+      atlasW,
+      Math.ceil(probe.measureText(tile.n[id]).width + 28),
+    );
+    if (x + w > atlasW) {
+      x = 0;
+      y += rowH;
+    }
+    cells.set(id, { x, y, w });
+    x += w;
   }
-  const mat = new THREE.SpriteMaterial({ map: entry.tex, depthTest: true });
-  const sp = new THREE.Sprite(mat);
-  const h = 0.8 * Math.min(3, names.length) + 0.3;
-  sp.scale.set(h * entry.aspect, h, 1);
-  return sp;
+  const atlasH = y + rowH;
+  const cv = document.createElement("canvas");
+  cv.width = atlasW;
+  cv.height = atlasH;
+  const ctx = cv.getContext("2d");
+  ctx.font = font;
+  ctx.textBaseline = "middle";
+  for (const [id, c] of cells) {
+    ctx.fillStyle = `#${C.sign.getHexString()}`;
+    ctx.fillRect(c.x, c.y, c.w, rowH);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(c.x + 3, c.y + 3, c.w - 6, rowH - 6);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(tile.n[id], c.x + 14, c.y + rowH / 2 + 1);
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+
+  const P = [];
+  const UV = [];
+  const quad = (a, b, z0, z1, u0, u1, v0, v1) => {
+    // a and b are the blade's two ends; u0 at a, u1 at b
+    const c = [
+      [a, z0, u0, v0],
+      [b, z0, u1, v0],
+      [b, z1, u1, v1],
+      [a, z0, u0, v0],
+      [b, z1, u1, v1],
+      [a, z1, u0, v1],
+    ];
+    for (const [p, z, u, v] of c) {
+      P.push(...V(p[0], p[1], z));
+      UV.push(u, v);
+    }
+  };
+  const poles = [];
+  for (const sg of tile.s) {
+    const lx = sg[0] / 10;
+    const ly = sg[1] / 10;
+    const z = gz(lx, ly) ?? tile.zfill;
+    const px = ox + lx;
+    const py = oy + ly;
+    poles.push([px, py, z]);
+    let level = 0;
+    for (let i = 2; i + 1 < sg.length; i += 2) {
+      const c = cells.get(sg[i]);
+      if (!c) continue;
+      const a = (sg[i + 1] * Math.PI) / 180;
+      const ux = Math.cos(a);
+      const uy = Math.sin(a);
+      const half = (BLADE_H * c.w) / rowH / 2;
+      const nx = -uy * 0.012;
+      const ny = ux * 0.012;
+      const z0 = z + POLE_H - 0.55 + level * (BLADE_H + 0.04);
+      const z1 = z0 + BLADE_H;
+      const u0 = c.x / atlasW;
+      const u1 = (c.x + c.w) / atlasW;
+      const v1 = 1 - c.y / atlasH;
+      const v0 = 1 - (c.y + rowH) / atlasH;
+      const e1 = [px + ux * half, py + uy * half];
+      const e2 = [px - ux * half, py - uy * half];
+      // seen from the +n side the words run toward -u; from the -n side toward +u
+      quad(
+        [e1[0] + nx, e1[1] + ny],
+        [e2[0] + nx, e2[1] + ny],
+        z0,
+        z1,
+        u0,
+        u1,
+        v0,
+        v1,
+      );
+      quad(
+        [e2[0] - nx, e2[1] - ny],
+        [e1[0] - nx, e1[1] - ny],
+        z0,
+        z1,
+        u0,
+        u1,
+        v0,
+        v1,
+      );
+      level += 1;
+    }
+  }
+  const out = new THREE.Group();
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(P, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(UV, 2));
+  const blades = new THREE.Mesh(
+    geo,
+    new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }),
+  );
+  out.add(blades);
+  const pole = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.045, 0.05, POLE_H, 8),
+    new THREE.MeshLambertMaterial({ color: C.pole }),
+    poles.length,
+  );
+  const m = new THREE.Matrix4();
+  poles.forEach(([px, py, z], i) => {
+    m.makeTranslation(...V(px, py, z + POLE_H / 2));
+    pole.setMatrixAt(i, m);
+  });
+  out.add(pole);
+  return out;
 }
 
 function makeCar(C) {
@@ -451,8 +542,10 @@ export async function startDrive({ canvas, base, hud }) {
       scene.remove(e.grp);
       e.grp.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
-        if (o.material && !o.isSprite) o.material.dispose();
-        if (o.isSprite) o.material.dispose();
+        if (o.material) {
+          if (o.material.map) o.material.map.dispose(); // the tile's sign atlas
+          o.material.dispose();
+        }
       });
       loaded.delete(t);
     }

@@ -147,6 +147,13 @@ export function streetAt(loaded, x, y, heading, reach = 14) {
   return best;
 }
 
+/** Name ids on a signpost row [x, y, name, blade angle, name, blade angle, ...]. */
+export function signNameIds(s) {
+  const ids = [];
+  for (let i = 2; i < s.length; i += 2) ids.push(s[i]);
+  return ids;
+}
+
 /** The next signposted intersection ahead within `ahead` metres: its street names other than `current`. */
 export function nextCrossing(loaded, x, y, heading, current, ahead = 140) {
   const hx = Math.cos(heading);
@@ -164,8 +171,7 @@ export function nextCrossing(loaded, x, y, heading, current, ahead = 140) {
       const across = Math.abs(-dx * hy + dy * hx);
       if (across > 22) continue;
       if (along < bestD) {
-        const names = s
-          .slice(2)
+        const names = signNameIds(s)
           .map((k) => tile.n[k])
           .filter((n) => n && n !== current);
         if (names.length) {

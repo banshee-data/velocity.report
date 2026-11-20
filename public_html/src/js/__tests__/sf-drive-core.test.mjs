@@ -6,6 +6,7 @@ import {
   groundAt,
   groundAtWorld,
   nextCrossing,
+  signNameIds,
   streetAt,
   tilesAround,
 } from "../sf-drive-core.js";
@@ -68,7 +69,7 @@ const tile = {
     [0, 4, 0, [-1000, 0, 1000, 0], []],
     [1, 4, 0, [500, -1000, 500, 1000], []],
   ],
-  s: [[500, 0, 0, 1]],
+  s: [[500, 0, 0, 0, 1, 90]],
 };
 
 test("streetAt prefers the street aligned with the heading", () => {
@@ -82,4 +83,9 @@ test("nextCrossing names the cross street ahead, not the current one", () => {
   assert.deepEqual(next.names, ["Beale St"]);
   assert.equal(Math.round(next.distance), 50);
   assert.equal(nextCrossing([tile], 0, 0, Math.PI, "Mission St"), null);
+});
+
+test("signNameIds reads the name ids between blade angles", () => {
+  assert.deepEqual(signNameIds([10, 20, 3, 45, 7, 135]), [3, 7]);
+  assert.deepEqual(signNameIds([10, 20]), []);
 });
