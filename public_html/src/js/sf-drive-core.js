@@ -88,6 +88,18 @@ export function groundAtWorld(loaded, x, y, strict = false) {
   return best;
 }
 
+// GTI-inspired game tune. Peak torque and power are a simplified envelope
+// through an idealised transmission, with a traction-limited launch.
+export const DRIVE_CAR = Object.freeze({
+  mass: 1280, // kg
+  power: 350 * 745.7, // W at the engine
+  torque: 420, // N·m at the engine
+  driveRatio: 8,
+  efficiency: 0.88,
+  tyreRadius: 0.36, // m
+  topSpeed: 250 / 3.6, // m/s, 250 km/h limiter
+});
+
 /** Bicycle model with steering travel, tyre grip, drag and hill gravity. Metres / seconds. */
 export function carStep(car, input, dt, surface = {}) {
   dt = Math.max(0, Math.min(dt, 0.05));
@@ -96,21 +108,31 @@ export function carStep(car, input, dt, surface = {}) {
   const throttle = Math.max(-1, Math.min(1, input.throttle || 0));
   const brake = Math.min(1, Math.max(0, Number(input.brake) || 0));
   const moveToward = (a, b, max) => a + Math.max(-max, Math.min(max, b - a));
+  const previousSteering = car.steering || 0;
   const steering = moveToward(
-    car.steering || 0,
+    previousSteering,
     Math.max(-1, Math.min(1, input.steer || 0)) *
       (0.58 / (1 + Math.abs(v) / 20)),
     1.65 * dt,
   );
   // Down/S brakes before engaging reverse; braking never jumps through zero.
   const opposing = throttle * v < 0;
-  let acceleration = opposing
-    ? 0
-    : throttle * (throttle > 0 ? 4.2 / (1 + Math.abs(v) / 24) : 2.6);
+  const { mass, power, torque, driveRatio, efficiency, tyreRadius, topSpeed } =
+    DRIVE_CAR;
+  const driveForce = Math.min(
+    (torque * driveRatio * efficiency) / tyreRadius,
+    (power * efficiency) / Math.max(1, v),
+    mass * 9.81 * 0.7 * grip,
+  );
+  let acceleration = 0;
+  if (!opposing && !brake)
+    acceleration = throttle * (throttle > 0 ? driveForce / mass : 2.6);
   const slope = surface.slope || 0;
   acceleration -= (9.81 * slope) / Math.hypot(1, slope);
   v += acceleration * dt;
-  const resistance = (surface.offroad ? 1.8 : 0.18) + 0.0035 * v * v;
+  // Air density 1.225 kg/m³ and an assumed drag area of 0.74 m².
+  const drag = (0.5 * 1.225 * 0.74 * v * v) / mass;
+  const resistance = (surface.offroad ? 1.8 : 0.15) + drag;
   v = moveToward(v, 0, (resistance + (opposing ? 8 : brake * 10) * grip) * dt);
   if (
     brake &&
@@ -118,19 +140,22 @@ export function carStep(car, input, dt, surface = {}) {
     Math.abs(acceleration) < brake * 10 * grip
   )
     v = 0;
-  v = Math.max(-6, Math.min(32, v));
-  const desiredYaw = (v / 2.7) * Math.tan(steering);
+  v = Math.max(-6, Math.min(topSpeed, v));
+  const speed = (car.v + v) / 2;
+  const desiredYaw =
+    (speed / 2.7) * Math.tan((previousSteering + steering) / 2);
   // Limit lateral acceleration to available tyre grip; speed affects turning radius.
-  const limit = (7.5 * grip) / Math.max(1, Math.abs(v));
+  const limit = (7.5 * grip) / Math.max(1, Math.abs(v), Math.abs(speed));
   const yawRate = Math.max(-limit, Math.min(limit, desiredYaw));
   const heading = car.heading + yawRate * dt;
   const mid = car.heading + (yawRate * dt) / 2;
   return {
-    x: car.x + Math.cos(mid) * v * dt,
-    y: car.y + Math.sin(mid) * v * dt,
+    x: car.x + Math.cos(mid) * speed * dt,
+    y: car.y + Math.sin(mid) * speed * dt,
     heading,
     v,
     steering,
+    lateralAcceleration: v * yawRate,
   };
 }
 

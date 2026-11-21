@@ -58,7 +58,7 @@ eleventyExcludeFromCollections: true
   #seekerTurn { color: #fde68a; font-size: 11px; }
   #seekerScope { font-size: 10px; font-weight: 400; color: #d4dce2; }
   #seekerHeading { display: none; }
-  .mirror { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); right: max(8px, env(safe-area-inset-right, 0px)); width: min(220px, calc(25vw - max(8px, env(safe-area-inset-right, 0px)))); aspect-ratio: 3.2; border: 2px solid #111; border-radius: 8px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+  .mirror { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: 50%; transform: translateX(-50%); width: min(220px, calc(25vw - 8px)); aspect-ratio: 3.2; border: 2px solid #111; border-radius: 8px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
   .pad { position: fixed; bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: none; gap: 8px; }
   .steering { left: max(12px, env(safe-area-inset-left, 0px)); }
   .pedals { right: max(12px, env(safe-area-inset-right, 0px)); }
@@ -155,8 +155,8 @@ eleventyExcludeFromCollections: true
   </div>
   <div class="map" aria-label="City minimap and assets">
     <div class="title">City coverage</div>
-    <canvas id="minimap" role="img" aria-label="North-up minimap: loaded tiles in teal, collected tiles in gold, your car in white, and a line to the emoji on this tile or the next target."></canvas>
-    <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span><span>● Quest</span></div>
+    <canvas id="minimap" role="img" aria-label="North-up S2 level-13 coverage map with loaded tiles in teal, collected tiles in gold and your car in white."></canvas>
+    <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span></div>
     <div class="detail" id="assets"></div>
     <div class="detail" id="gameSize"></div>
     <div class="detail" id="coverage"></div>

@@ -29,7 +29,8 @@ import { terrainTriangles, tileRegion } from "./sf-drive-surface.js";
 import { createDownloadSizeTracker } from "./sf-download-size.js";
 import { bindDrivingPad } from "./sf-touch-controls.js";
 import { districtTrials, seekerDirection } from "./sf-district-trials.js";
-import { DRIVE_VIEWS, driveCameraPose } from "./sf-drive-camera.js";
+import { DRIVE_VIEWS, driveCameraPose, incarRoll } from "./sf-drive-camera.js";
+import { createCarReveal } from "./sf-car-reveal.js";
 import { roadDashPolygons } from "./sf-road-markings.js";
 import { createTerrainPainter } from "./sf-terrain-painter.js";
 
@@ -76,9 +77,6 @@ function mesh(positions, colour, opts = {}) {
     color: opts.colours ? 0xffffff : colour,
     vertexColors: !!opts.colours,
     side: THREE.DoubleSide,
-    polygonOffset: !!opts.offset,
-    polygonOffsetFactor: -(opts.offset || 0),
-    polygonOffsetUnits: -(opts.offset || 0),
   });
   return new THREE.Mesh(g, m);
 }
@@ -130,18 +128,13 @@ function paintTerrain(entry, entries, C, rasterMarkings = false) {
     -(o[0] + g.x0) * scale,
     (o[1] + g.y0 + (g.n - 1) * g.s) * scale,
   );
-  const shapes = [];
-  for (const e of entries) {
-    if (
-      Math.hypot(e.tile.o[0] - o[0], e.tile.o[1] - o[1]) >
-      entry.tile.half + e.tile.half + 100
-    )
-      continue;
-    shapes.push(...e.roads);
-  }
+  const shapes = entries.flatMap((e) => e.roads);
+  const trace = (points) => {
+    points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  };
   const path = (points) => {
     ctx.beginPath();
-    points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    trace(points);
   };
   // Paths first, then carriageways. Both colours share one depth surface.
   for (const road of [false, true])
@@ -152,6 +145,14 @@ function paintTerrain(entry, entries, C, rasterMarkings = false) {
       ctx.fillStyle = `#${(road ? C.asphalt : C.path).getHexString()}`;
       ctx.fill();
     }
+  // The baked kerb lines can span many terrain cells. Paint them on the
+  // surface so they follow every slope and stay out of missing ground.
+  ctx.beginPath();
+  for (const source of entries) for (const line of source.kerbs) trace(line);
+  ctx.strokeStyle = `#${C.kerb.getHexString()}`;
+  ctx.lineWidth = 0.3;
+  ctx.lineJoin = "round";
+  ctx.stroke();
   if (rasterMarkings) {
     ctx.strokeStyle = `#${C.dash.getHexString()}`;
     ctx.lineWidth = 0.3;
@@ -195,7 +196,7 @@ function applyRoadPaint(entry, positions, C) {
   paint.geometry = geometry;
 }
 
-function buildTile(tile, C, region) {
+function buildTile(tile, C, region, reveal) {
   const ox = tile.o[0];
   const oy = tile.o[1];
   const gz = groundFn(tile);
@@ -285,56 +286,11 @@ function buildTile(tile, C, region) {
       }
     }
   }
-  if (P.length) grp.add(mesh(P, null, { colours: CL }));
-
-  // Road fills are painted onto the terrain's own triangles (see paintTerrain).
-  // A second, independently interpolated road mesh cuts into hills and flickers.
-
-  // kerbs: 0.3 m wide, raised 15 cm
-  const K = [];
-  for (const k of tile.k) {
-    for (let i = 0; i + 3 < k.length; i += 2) {
-      const x0 = ox + k[i] / 10;
-      const y0 = oy + k[i + 1] / 10;
-      const x1 = ox + k[i + 2] / 10;
-      const y1 = oy + k[i + 3] / 10;
-      const len = Math.hypot(x1 - x0, y1 - y0);
-      if (len < 1e-6) continue;
-      const nx = (-(y1 - y0) / len) * 0.15;
-      const ny = ((x1 - x0) / len) * 0.15;
-      const z0 = gz(x0 - ox, y0 - oy);
-      const z1 = gz(x1 - ox, y1 - oy);
-      const a = V(x0 + nx, y0 + ny, z0 + 0.15);
-      const b = V(x0 - nx, y0 - ny, z0 + 0.15);
-      const c = V(x1 + nx, y1 + ny, z1 + 0.15);
-      const d = V(x1 - nx, y1 - ny, z1 + 0.15);
-      const e = V(x0 + nx, y0 + ny, z0);
-      const f = V(x1 + nx, y1 + ny, z1);
-      const h = V(x0 - nx, y0 - ny, z0);
-      const q = V(x1 - nx, y1 - ny, z1);
-      K.push(
-        ...a,
-        ...b,
-        ...c,
-        ...b,
-        ...d,
-        ...c,
-        ...e,
-        ...a,
-        ...f,
-        ...a,
-        ...c,
-        ...f,
-        ...h,
-        ...q,
-        ...b,
-        ...b,
-        ...q,
-        ...d,
-      );
-    }
+  if (P.length) {
+    const buildings = mesh(P, null, { colours: CL });
+    reveal.enableOn(buildings.material);
+    grp.add(buildings);
   }
-  if (K.length) grp.add(mesh(K, C.kerb, { offset: 1 }));
 
   // trees: crown and trunk, instanced
   const nt = tile.tr.length;
@@ -349,6 +305,8 @@ function buildTile(tile, C, region) {
       new THREE.MeshLambertMaterial({ color: C.trunk }),
       nt,
     );
+    reveal.enableOn(crown.material);
+    reveal.enableOn(trunk.material);
     const mtx = new THREE.Matrix4();
     const qn = new THREE.Quaternion();
     const s = new THREE.Vector3();
@@ -566,10 +524,12 @@ function makeCar(C) {
 }
 
 export async function startDrive({ canvas, base, hud, downloadAssets }) {
-  const [manifest, route] = await Promise.all([
+  const [manifest, route, coverage] = await Promise.all([
     fetchJsonGz(`${base}manifest.json`),
     fetchJsonGz(`${base}../quest-route.json`),
+    fetchJsonGz(`${base}../coverage.json`),
   ]);
+  const coverageCorners = Object.values(coverage).flat();
   const downloads = createDownloadSizeTracker({
     tiles: manifest.tiles,
     assets: downloadAssets,
@@ -610,6 +570,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   scene.add(sun);
   const camera = new THREE.PerspectiveCamera(62, 1, 0.3, 2500);
   const mirrorCam = new THREE.PerspectiveCamera(48, 3.2, 0.3, 900);
+  const reveal = createCarReveal();
   const carMesh = makeCar(C);
   scene.add(carMesh);
 
@@ -638,7 +599,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   let messageUntil = 0;
   const failures = new Map();
   const recordKey = () =>
-    `sf-trial-v1:${route.manifestSha256}:${selectedStart.id}${activeDistrict ? `:district:${activeDistrict.recordScope}` : ""}`;
+    `sf-trial-v2:${route.manifestSha256}:${selectedStart.id}${activeDistrict ? `:district:${activeDistrict.recordScope}` : ""}`;
   const recordsByStart = new Map();
   function records() {
     if (!recordsByStart.has(recordKey())) {
@@ -750,13 +711,22 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       fetchJsonGz(`${base}${t}.json.gz`)
         .then((tile) => {
           tile.half = byToken.get(t).half;
-          const grp = buildTile(tile, C, regions.get(t));
+          const grp = buildTile(tile, C, regions.get(t), reveal);
           scene.add(grp);
           const roads = roadShapes(tile);
           const entry = {
             tile,
             grp,
             roads,
+            kerbs: tile.k.map((line) => {
+              const points = [];
+              for (let i = 0; i + 1 < line.length; i += 2)
+                points.push([
+                  tile.o[0] + line[i] / 10,
+                  tile.o[1] + line[i + 1] / 10,
+                ]);
+              return points;
+            }),
             region: regions.get(t),
             markings: roadDashPolygons(roads),
             collisions: buildCollisionIndex(tile),
@@ -905,7 +875,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   function startCrash(kind, now) {
     if (crash) return;
     crash = beginCrash(car, kind, now / 1000);
-    car = { ...car, v: 0, steering: 0 };
+    car = { ...car, v: 0, steering: 0, lateralAcceleration: 0 };
     accumulator = 0;
     releaseInputs();
     if (trial.status === "running") trial.crashes++;
@@ -1002,6 +972,8 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   let streamAt = 0;
   const camPos = new THREE.Vector3();
   const camLook = new THREE.Vector3();
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let cameraRoll = 0;
   let camInit = false;
   setView(state.view);
   let roadAt = 0,
@@ -1105,7 +1077,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     ctx.clearRect(0, 0, w, h);
     const polygons = activeDistrict
       ? [...activeDistrict.polygons.flat(2), [car.x, car.y]]
-      : [...regions.values()].flat();
+      : coverageCorners;
     const minX = Math.min(...polygons.map((p) => p[0])),
       maxX = Math.max(...polygons.map((p) => p[0]));
     const minY = Math.min(...polygons.map((p) => p[1])),
@@ -1116,15 +1088,14 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       h / 2 - (y - (minY + maxY) / 2) * scale,
     ];
     ctx.lineWidth = 0.6;
+    ctx.strokeStyle = css("--muted");
     for (const row of manifest.tiles) {
       ctx.globalAlpha =
         activeDistrict && !activeDistrict.overlapTiles.has(row.t) ? 0.25 : 1;
       ctx.beginPath();
-      regions
-        .get(row.t)
-        .forEach(([x, y], i) =>
-          i ? ctx.lineTo(...point(x, y)) : ctx.moveTo(...point(x, y)),
-        );
+      coverage[row.t].forEach(([x, y], i) =>
+        i ? ctx.lineTo(...point(x, y)) : ctx.moveTo(...point(x, y)),
+      );
       ctx.closePath();
       ctx.fillStyle = trial.collected.has(row.t)
         ? "#c79226"
@@ -1133,7 +1104,6 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
           : loading.has(row.t)
             ? "#73c7d1"
             : "#8c99a544";
-      ctx.strokeStyle = css("--muted");
       ctx.fill();
       ctx.stroke();
     }
@@ -1154,39 +1124,19 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         ctx.stroke();
       }
     }
-    const remaining = trial.targets.filter((t) => !trial.collected.has(t.t));
-    const nearest = questSeeker(trial, manifest.tiles, car).target;
-    for (const t of remaining) {
-      ctx.beginPath();
-      ctx.arc(...point(t.x, t.y), 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = css("--ink");
-      ctx.fill();
-    }
-    if (nearest) {
-      const p = point(nearest.x, nearest.y);
-      ctx.beginPath();
-      ctx.moveTo(...point(car.x, car.y));
-      ctx.lineTo(...p);
-      ctx.strokeStyle = "#f2b84a";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.font = "18px system-ui";
-      ctx.textAlign = "center";
-      ctx.fillText(nearest.emoji, p[0], p[1] - 4);
-    }
     const [cx, cy] = point(car.x, car.y);
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(-car.heading);
     ctx.beginPath();
-    ctx.moveTo(7, 0);
-    ctx.lineTo(-5, -4);
-    ctx.lineTo(-3, 0);
-    ctx.lineTo(-5, 4);
+    ctx.moveTo(4, 0);
+    ctx.lineTo(-2.5, -2);
+    ctx.lineTo(-1.5, 0);
+    ctx.lineTo(-2.5, 2);
     ctx.closePath();
     ctx.fillStyle = "#fff";
     ctx.strokeStyle = "#17202a";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 0.8;
     ctx.fill();
     ctx.stroke();
     ctx.restore();
@@ -1303,7 +1253,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         const owner = tileAt(manifest.tiles, candidate.x, candidate.y);
         const z = groundAtWorld(tiles, candidate.x, candidate.y, true);
         if (!loaded.has(owner.t) || z === null) {
-          car = { ...car, v: 0 };
+          car = { ...car, v: 0, lateralAcceleration: 0 };
           blocked = true;
           accumulator = 0;
           announce(
@@ -1398,8 +1348,16 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
 
     const hx = Math.cos(car.heading);
     const hy = Math.sin(car.heading);
-    const view = driveCameraPose(state.view, car, carZ, (x, y) =>
-      groundAtWorld(tiles, x, y),
+    cameraRoll =
+      state.view === "incar" && camInit && !reducedMotion.matches
+        ? incarRoll(cameraRoll, car.lateralAcceleration || 0, dt)
+        : 0;
+    const view = driveCameraPose(
+      state.view,
+      car,
+      carZ,
+      (x, y) => groundAtWorld(tiles, x, y),
+      cameraRoll,
     );
     const target = new THREE.Vector3(...V(...view.position));
     const look = new THREE.Vector3(...V(...view.look));
@@ -1428,6 +1386,8 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, W / pr, H / pr);
     carMesh.visible = !view.hideCar;
+    if (carMesh.visible) reveal.update(camera, carMesh.position, W, H, pr);
+    else reveal.disable();
     renderer.render(scene, camera);
     carMesh.visible = true;
     const showMirror = view.mirror && state.mirror;
@@ -1438,7 +1398,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         ...V(car.x - hx * 0.4, car.y - hy * 0.4, carZ + 1.9),
       );
       mirrorCam.lookAt(...V(car.x - hx * 30, car.y - hy * 30, carZ + 1.2));
-      // CSS docks the mirror outside the central road view, including safe areas.
+      // Match the scissor rectangle to the centred CSS frame.
       const frame = hud.mirrorFrame.getBoundingClientRect();
       const mw = frame.width * pr,
         mh = frame.height * pr;

@@ -57,8 +57,9 @@ test("carStep accelerates, brakes to rest and turns with steer", () => {
 
 test("carStep never exceeds its speed limits", () => {
   let car = { x: 0, y: 0, heading: 0, v: 0 };
-  for (let i = 0; i < 3000; i++) car = carStep(car, { throttle: 1 }, 1 / 30);
-  assert.ok(car.v <= 27);
+  for (let i = 0; i < 3000; i++)
+    car = carStep(car, { throttle: 1 }, 1 / 30, { slope: -0.15 });
+  assert.equal(car.v, 250 / 3.6);
 });
 
 const tile = {

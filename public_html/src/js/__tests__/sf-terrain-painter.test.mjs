@@ -140,6 +140,28 @@ test("source bounds do not bypass the existing neighbour-distance limit", () => 
   assert.ok(s.paints.every((p) => p.e !== a));
 });
 
+test("a kerb-only source repaints the neighbour reached by its stroke", () => {
+  const s = setup(false);
+  const a = entry(0);
+  const kerb = {
+    ...entry(10),
+    roads: [],
+    markings: [],
+    kerbs: [
+      [
+        [5.1, -1],
+        [5.1, 1],
+      ],
+    ],
+  };
+  s.painter.add("a", a);
+  s.settle();
+  s.paints.length = 0;
+  s.painter.add("kerb", kerb);
+  s.settle();
+  assert.ok(s.paints.some((p) => p.e === a && p.sources.includes(kerb)));
+});
+
 test("an in-flight result is discarded when another source changes its target", () => {
   const s = setup(),
     a = entry(0),

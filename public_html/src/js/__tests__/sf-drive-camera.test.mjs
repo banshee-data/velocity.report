@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DRIVE_VIEWS, driveCameraPose } from "../sf-drive-camera.js";
+import { DRIVE_VIEWS, driveCameraPose, incarRoll } from "../sf-drive-camera.js";
 
 const car = { x: 100, y: 200, heading: 0 };
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
@@ -54,4 +54,17 @@ test("only in-car mode permits a mirror and hides the opaque car body", () => {
     assert.equal(pose.mirror, view === "incar");
     assert.equal(pose.hideCar, view === "incar");
   }
+});
+
+test("in-car roll builds with lateral acceleration and returns smoothly to level", () => {
+  const slow = incarRoll(0, 1, 0.1);
+  const fast = incarRoll(0, 7.5, 0.1);
+  assert.ok(fast > slow && slow > 0);
+  assert.ok(Math.abs(incarRoll(0, 20, 2)) < (6 * Math.PI) / 180);
+  assert.ok(incarRoll(fast, 0, 0.1) < fast);
+  near(incarRoll(incarRoll(0, 7.5, 0.05), 7.5, 0.05), fast);
+  near(incarRoll(0, -7.5, 0.1), -fast);
+  const tilted = driveCameraPose("incar", car, 10, undefined, fast);
+  assert.ok(tilted.up[1] < 0, "left turn leans right");
+  assert.deepEqual(tilted.look, driveCameraPose("incar", car, 10).look);
 });

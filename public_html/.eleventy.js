@@ -171,6 +171,9 @@ module.exports = async function (eleventyConfig) {
   // plus their manifest, baked from Gerardus's city layers; copied verbatim.
   eleventyConfig.addPassthroughCopy({ "src/sf/tiles": "sf/tiles" });
   eleventyConfig.addPassthroughCopy({
+    "src/sf/coverage.json": "sf/coverage.json",
+  });
+  eleventyConfig.addPassthroughCopy({
     "src/sf/quest-route.json": "sf/quest-route.json",
   });
   // Compressed payload estimates are replaced by actual response sizes in the browser.
