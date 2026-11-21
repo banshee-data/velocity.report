@@ -199,7 +199,7 @@ flowchart LR
 
 The bake took about 6 hours for all 157 land cells with no failures. It runs one worker because a dense downtown tile peaks at 4.2 GB, and arrow shares its 9.9 GB with the live Gerardus server; an earlier two-worker run capped at 2.8 GB failed 115 of 157 tiles. A lean lidar reader (`ept.points_split`) and chunked 2 m grids made one worker fit. Most of each tile's time is lidar decoding (about 90 s of 120–220 s).
 
-**Tile contents.** Ground on an 8 m grid in decimetres (gaps marked −32768); buildings as roof faces on outlines plus boxes and violet 3DEP tiers; trees as position, height and crown; road centrelines with per-vertex kerb widths, class and one-way flag; kerb lines clipped to the cell; signposts; and the tile's name list. A tile owns what falls in its cell (a building by its representative point), so nothing is drawn twice, and all tiles share the EPSG:7131 frame, so they meet without seams.
+**Tile contents.** Ground on an 8 m grid in decimetres (gaps marked −32768); buildings as roof faces on outlines plus boxes and inferred 3DEP tiers; trees as position, height and crown; road centrelines with per-vertex kerb widths, class and one-way flag; kerb lines clipped to the cell; signposts; and the tile's name list. A tile owns what falls in its cell (a building by its representative point), so nothing is drawn twice, and all tiles share the EPSG:7131 frame, so they meet without seams.
 
 **The page** (`public_html/src/sf/`, three.js 0.186.1, vendored):
 

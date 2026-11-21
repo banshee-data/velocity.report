@@ -9,20 +9,20 @@
 .sv-shell {
   /* Always dark, so native controls (search, radios, dialog) follow. */
   color-scheme: dark;
-  --bg: #07090c;
+  --bg: var(--scene-canvas);
   --bg-2: #0b0f14;
-  --panel: #0d1218;
+  --panel: var(--scene-panel);
   --panel-2: #111820;
   --panel-3: #161e28;
   --line: #1b2632;
   --line-2: #243140;
-  --text: #e6ebf2;
-  --soft: #a7b2c0;
+  --text: var(--scene-text);
+  --soft: var(--scene-text-soft);
   --mute: #7c8898;
   --dim: #4a5563;
-  --em: #10b981;
+  --em: var(--scene-primary);
   --em-2: #34d399;
-  --em-fg: #6ee7b7;
+  --em-fg: var(--scene-primary-text);
   --em-3: #047857;
   --amber: #f59e0b;
   --amber-fg: #fbbf24;
@@ -43,7 +43,7 @@
   -webkit-font-smoothing: antialiased;
 }
 body:has(.sv-shell) {
-  background: #07090c;
+  background: var(--scene-canvas);
 }
 /* Several blocks set display: grid, which would beat the UA's [hidden] rule. */
 .sv-shell [hidden] {

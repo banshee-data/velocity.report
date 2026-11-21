@@ -51,6 +51,14 @@ mirrored-heading defect, exact playback times, provenance, and remaining physica
 The [scene refresh report](../docs/lidar/operations/scene-export-refresh-2026-11.md) records the
 subsequent replay/export coverage and rendered acceptance checks.
 
+## Shared public scenes
+
+The homepage hero, `/sf/` driving game and survey player use the same traffic and context
+colours from [scene-colours.js](src/js/scene-colours.js). Eleventy publishes the CSS variables
+from that module. The [game-design skill](../.claude/skills/game-design/SKILL.md#public-scene-design)
+sets the object and outline treatments. The [driving view](../docs/ui/sf-driving-view.md#survey-traffic-replay)
+describes the replay, survey placement and speed-card data.
+
 ## Street survey pages
 
 `/surveys/` (`src/scenes/index.njk`) lists every survey site; each site page uses

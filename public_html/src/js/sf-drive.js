@@ -47,6 +47,8 @@ import { DRIVE_VIEWS, driveCameraPose, incarRoll } from "./sf-drive-camera.js";
 import { createCarReveal } from "./sf-car-reveal.js";
 import { roadDashPolygons } from "./sf-road-markings.js";
 import { createTerrainPainter } from "./sf-terrain-painter.js";
+import { SCENE_COLOURS } from "./scene-colours.js";
+import { mountSurveyReplay } from "./sf-survey-replay.js";
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -219,6 +221,38 @@ function applyRoadPaint(entry, positions, C) {
   paint.geometry = geometry;
 }
 
+function appendBuildingOutlines(outlines, edges, base) {
+  const corners = new Map();
+  for (const { a, b, shared } of edges.values()) {
+    outlines.push(...V(...a), ...V(...b));
+    if (shared) continue;
+    for (const [point, neighbour] of [
+      [a, b],
+      [b, a],
+    ]) {
+      const key = point.join(",");
+      const corner = corners.get(key) ?? { point, neighbours: [] };
+      corner.neighbours.push(neighbour);
+      corners.set(key, corner);
+    }
+  }
+  for (const { point, neighbours } of corners.values()) {
+    // Only draw wall posts at real turns in the eaves. Straight edge
+    // subdivisions and the ends of interior roof ridges need no posts.
+    if (neighbours.length !== 2) continue;
+    const [a, b] = neighbours;
+    const ax = a[0] - point[0],
+      ay = a[1] - point[1];
+    const bx = b[0] - point[0],
+      by = b[1] - point[1];
+    if (
+      Math.abs(ax * by - ay * bx) >
+      0.5 * Math.hypot(ax, ay) * Math.hypot(bx, by)
+    )
+      outlines.push(...V(...point), ...V(point[0], point[1], base));
+  }
+}
+
 function buildTile(tile, C, region, reveal) {
   const ox = tile.o[0];
   const oy = tile.o[1];
@@ -256,10 +290,12 @@ function buildTile(tile, C, region, reveal) {
   // buildings: each roof face a prism from the building base to its plane
   const P = [];
   const CL = [];
+  const outlines = [];
   for (const b of tile.b) {
     const zb = b[0] / 10;
     const roof = b[2] ? C.extra : C.roof;
     const wall = b[2] ? C.extra : C.wall;
+    const roofEdges = new Map();
     for (const face of b[1]) {
       const rings = face.map((r) => {
         const a = [];
@@ -293,6 +329,10 @@ function buildTile(tile, C, region, reveal) {
         for (let i = 0; i < r.length; i++) {
           const a = r[i];
           const c = r[(i + 1) % r.length];
+          const edge = [a.join(","), c.join(",")].sort().join("|");
+          const existing = roofEdges.get(edge);
+          if (existing) existing.shared = true;
+          else roofEdges.set(edge, { a, b: c, shared: false });
           const q = [
             [a[0], a[1], zb],
             [c[0], c[1], zb],
@@ -308,11 +348,35 @@ function buildTile(tile, C, region, reveal) {
         }
       }
     }
+    appendBuildingOutlines(outlines, roofEdges, zb);
   }
   if (P.length) {
     const buildings = mesh(P, null, { colours: CL });
+    // One translucent surface mesh and one edge batch per tile. Skip the
+    // triangulation diagonals so the eaves and roof ridges read clearly.
+    buildings.material.transparent = true;
+    buildings.material.opacity = 0.28;
+    buildings.material.depthWrite = false;
+    buildings.material.forceSinglePass = true;
+    buildings.renderOrder = -2;
+    const edges = new THREE.BufferGeometry();
+    edges.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(outlines, 3),
+    );
+    const lines = new THREE.LineSegments(
+      edges,
+      new THREE.LineBasicMaterial({
+        color: SCENE_COLOURS.buildingOutline,
+        opacity: 0.36,
+        transparent: true,
+        depthWrite: false,
+      }),
+    );
+    lines.renderOrder = -1;
     reveal.enableOn(buildings.material);
-    grp.add(buildings);
+    reveal.enableOn(lines.material);
+    grp.add(buildings, lines);
   }
 
   // trees: crown and trunk, instanced
@@ -499,18 +563,23 @@ function buildSigns(tile, C, ox, oy, gz) {
   return out;
 }
 
-function makeCar(C) {
+function makeCar() {
   const car = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(4.4, 0.9, 1.85),
-    new THREE.MeshLambertMaterial({ color: C.car }),
+    new THREE.MeshLambertMaterial({ color: SCENE_COLOURS.vehicleShade }),
   );
   body.position.y = 0.7;
   const cab = new THREE.Mesh(
     new THREE.BoxGeometry(2.2, 0.7, 1.65),
-    new THREE.MeshLambertMaterial({ color: C.carDark }),
+    new THREE.MeshLambertMaterial({ color: SCENE_COLOURS.vehicleShade }),
   );
   cab.position.set(-0.3, 1.45, 0);
+  const outline = new THREE.LineBasicMaterial({ color: SCENE_COLOURS.vehicle });
+  for (const part of [body, cab])
+    part.add(
+      new THREE.LineSegments(new THREE.EdgesGeometry(part.geometry), outline),
+    );
   car.add(body, cab);
   // Rear lamps face the chase camera; a high centre lamp sits on the cabin.
   const brakeMaterial = new THREE.MeshBasicMaterial({ color: 0x661018 });
@@ -546,7 +615,13 @@ function makeCar(C) {
   return car;
 }
 
-export async function startDrive({ canvas, base, hud, downloadAssets }) {
+export async function startDrive({
+  canvas,
+  base,
+  hud,
+  downloadAssets,
+  surveySites = [],
+}) {
   const [manifest, route, coverage] = await Promise.all([
     fetchJsonGz(`${base}manifest.json`),
     fetchJsonGz(`${base}../quest-route.json`),
@@ -577,19 +652,17 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   const C = {
     sky: col("--sky"),
     land: col("--land"),
-    roof: col("--roof"),
-    wall: col("--wall"),
-    extra: col("--extra"),
-    asphalt: col("--asphalt"),
-    path: col("--path"),
+    roof: new THREE.Color(SCENE_COLOURS.buildingRoof),
+    wall: new THREE.Color(SCENE_COLOURS.buildingWall),
+    extra: new THREE.Color(SCENE_COLOURS.buildingInferred),
+    asphalt: new THREE.Color(SCENE_COLOURS.asphalt),
+    path: new THREE.Color(SCENE_COLOURS.path),
     dash: col("--dash"),
-    kerb: col("--kerb"),
-    tree: col("--tree"),
-    trunk: col("--trunk"),
+    kerb: new THREE.Color(SCENE_COLOURS.kerb),
+    tree: new THREE.Color(SCENE_COLOURS.treeCrown),
+    trunk: new THREE.Color(SCENE_COLOURS.treeTrunk),
     pole: col("--pole"),
     sign: col("--sign"),
-    car: col("--car"),
-    carDark: col("--car-dark"),
   };
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -603,7 +676,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   const camera = new THREE.PerspectiveCamera(62, 1, 0.3, 2500);
   const mirrorCam = new THREE.PerspectiveCamera(48, 3.2, 0.3, 900);
   const reveal = createCarReveal();
-  const carMesh = makeCar(C);
+  const carMesh = makeCar();
   scene.add(carMesh);
 
   const places = manifest.places || [];
@@ -617,6 +690,14 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   let grounded = false;
   const loaded = new Map(); // token -> {tile, grp}
   const loading = new Set();
+  let surveyTerrain = [];
+  const surveyReplay = mountSurveyReplay({
+    sites: surveySites,
+    root: new URL("../../", new URL(base, location.href)),
+    scene,
+    hud: hud.survey,
+    groundAt: (x, y) => groundAtWorld(surveyTerrain, x, y, true),
+  });
   const byToken = new Map(manifest.tiles.map((t) => [t.t, t]));
   const regions = new Map(
     manifest.tiles.map((t) => [t.t, tileRegion(t, manifest.tiles)]),
@@ -855,7 +936,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   window.addEventListener("keydown", (e) => {
     if (hud.menu.open) return;
     if (e.target.closest?.("select, input, textarea")) return;
-    if (e.target.closest?.("button") && ["Space", "Enter"].includes(e.code))
+    if (e.target.closest?.("button, a") && ["Space", "Enter"].includes(e.code))
       return;
     if (keyMap[e.code]) {
       state.keys.add(keyMap[e.code]);
@@ -1073,6 +1154,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     document.body.dataset.solo = String(solo);
     practice.visible = solo;
     if (solo) {
+      surveyReplay.update(null, 0);
       cityCar = { car, carZ, grounded };
       cityPauseAt = performance.now();
       restartSolo();
@@ -1401,6 +1483,16 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         ctx.stroke();
       }
     }
+    ctx.fillStyle = colour("--scene-vehicle");
+    for (const site of surveySites) {
+      const [x, y] = point(site.x, site.y);
+      ctx.beginPath();
+      ctx.moveTo(x, y - 2.8);
+      ctx.lineTo(x + 2.8, y);
+      ctx.lineTo(x, y + 2.8);
+      ctx.lineTo(x - 2.8, y);
+      ctx.fill();
+    }
     const [cx, cy] = point(car.x, car.y);
     ctx.save();
     ctx.translate(cx, cy);
@@ -1431,8 +1523,8 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       "Compressed response-body sizes of the loaded tiles and complete city tile set.";
     hud.gameSize.textContent = `${size.estimated ? "≈ " : ""}${formatBytes(size.total)} asset download`;
     hud.gameSize.title = size.estimated
-      ? "Compressed network payload: gzip estimates where browser response sizes are unavailable. Excludes HTTP headers."
-      : "Network payload using encoded response-body sizes, including compressed responses. Excludes HTTP headers; cached assets count at their download size.";
+      ? "Compressed network payload: gzip estimates where browser response sizes are unavailable. Excludes HTTP headers and on-demand survey recordings."
+      : "Network payload using encoded response-body sizes, including compressed responses. Excludes HTTP headers; cached assets count at their download size. Excludes on-demand survey recordings.";
     hud.coverage.textContent = `${manifest.tiles.length} L13 tiles · ${route.skipped.length} without a playable intersection`;
     hud.progress.textContent = `${trial.collected.size}/${trial.targets.length} emojis`;
     hud.progressBar.max = trial.targets.length;
@@ -1592,6 +1684,8 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         e.marker.userData.sprite.position.y =
           e.marker.userData.baseZ + Math.sin(now / 450) * 0.4;
       }
+    surveyTerrain = tiles;
+    surveyReplay.update(car, wallDt);
     const z = groundAtWorld(tiles, car.x, car.y);
     if (z !== null) carZ = z;
     // Pitch the car with the ground under its axles, so it does not sink into steep hills.

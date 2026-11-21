@@ -5,19 +5,20 @@
  * for "Save chart" keeps them.
  */
 import { validLimit } from "./survey-model.js";
+import { SCENE_CSS_COLOURS } from "./scene-colours.js";
 
 export const C = {
-  bg: "#07090c",
+  bg: SCENE_CSS_COLOURS.canvas,
   line: "#1b2632",
   line2: "#243140",
-  text: "#e6ebf2",
-  soft: "#a7b2c0",
+  text: SCENE_CSS_COLOURS.text,
+  soft: SCENE_CSS_COLOURS.textSoft,
   mute: "#7c8898",
   dim: "#4a5563",
   under: "#38bdf8",
   over: "#f87171",
   p85: "#fbbf24",
-  latest: "#6ee7b7",
+  latest: SCENE_CSS_COLOURS.primaryText,
 };
 const MONO = "JetBrains Mono, ui-monospace, Menlo, monospace";
 
@@ -75,6 +76,7 @@ export function histogramSvg(speed, opts = {}) {
     width = 720,
     height = 240,
     compact = false,
+    showMph = false,
     label = "Vehicle speed distribution",
   } = opts;
   const limit = validLimit(opts.limit);
@@ -156,6 +158,18 @@ export function histogramSvg(speed, opts = {}) {
         ),
       );
     out.push(text(2, pt + 4, `${ymax}%`, `font-size="9" fill="${C.dim}"`));
+  } else if (showMph) {
+    const step = 5 * Math.max(1, Math.ceil((hi - lo) / 25));
+    for (let t = lo; t < hi - step / 2; t += step)
+      out.push(text(x(t), height - 1, t, `font-size="10" fill="${C.soft}"`));
+    out.push(
+      text(
+        x(hi),
+        height - 1,
+        `${hi} mph`,
+        `font-size="10" fill="${C.soft}" text-anchor="end"`,
+      ),
+    );
   }
   out.push("</svg>");
   return out.join("");

@@ -1,5 +1,9 @@
 import * as THREE from "../vendor/three/three.module.js";
-import { SCENE_CSS_COLOURS } from "./scene-colours.js";
+import { SCENE_COLOURS, SCENE_CSS_COLOURS } from "./scene-colours.js";
+import {
+  createTrackBoxGeometry,
+  TRACK_OUTLINE_OPACITY,
+} from "./scene-track-box.js";
 
 // =============================================================================
 // Stationary roadside LiDAR background — v1 aesthetic restored.
@@ -19,10 +23,10 @@ if (canvas) {
     powerPreference: "high-performance",
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-  renderer.setClearColor(0x07090c, 1);
+  renderer.setClearColor(SCENE_COLOURS.canvas, 1);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x07090c, 14, 62);
+  scene.fog = new THREE.Fog(SCENE_COLOURS.canvas, 14, 62);
 
   const camera = new THREE.PerspectiveCamera(54, 1, 0.1, 220);
   const CAM_BASE = new THREE.Vector3(-2.6, 2.6, 6.2);
@@ -40,12 +44,14 @@ if (canvas) {
   window.addEventListener("resize", resize);
 
   // ---------- palette ----------
-  const COL_ROAD = new THREE.Color(0x2a3a4a);
-  const COL_LANE = new THREE.Color(0xa8c0d4);
-  const COL_WALK = new THREE.Color(0x3a4a5a);
-  const COL_BLDG = new THREE.Color(0x35495e);
-  const COL_PARKED = new THREE.Color(0x5a7a90);
-  const COL_TREE = new THREE.Color(0x3a6a52);
+  const COL_ROAD = new THREE.Color(SCENE_COLOURS.asphalt);
+  const COL_LANE = new THREE.Color(SCENE_COLOURS.kerb);
+  const COL_WALK = new THREE.Color(SCENE_COLOURS.path);
+  const COL_BLDG = new THREE.Color(SCENE_COLOURS.buildingWall);
+  const COL_ROOF = new THREE.Color(SCENE_COLOURS.buildingRoof);
+  const COL_PARKED = new THREE.Color(SCENE_COLOURS.vehicleShade);
+  const COL_TREE = new THREE.Color(SCENE_COLOURS.treeCrown);
+  const COL_TRUNK = new THREE.Color(SCENE_COLOURS.treeTrunk);
 
   // ---------- scene geometry params ----------
   const ROAD_HALF_W = 4.2;
@@ -188,6 +194,19 @@ if (canvas) {
   const LOT_DEPTH = 7.0;
   const STOREY_H = 3.2;
 
+  const facadeEdges = [];
+  const unitBox = createTrackBoxGeometry();
+  const edgePositions = unitBox.edges.getAttribute("position");
+  function outlineFacade(x, y, z, w, h, d) {
+    for (let i = 0; i < edgePositions.count; i++) {
+      facadeEdges.push(
+        x + edgePositions.getX(i) * w,
+        y + edgePositions.getY(i) * h,
+        z + edgePositions.getZ(i) * d,
+      );
+    }
+  }
+
   function buildFacade(side) {
     const faceX = side === "left" ? FACADE_LEFT_X : FACADE_RIGHT_X;
     const outward = side === "left" ? -1 : +1;
@@ -206,6 +225,7 @@ if (canvas) {
       const cx = faceX + outward * (LOT_DEPTH / 2 + setback);
       const cz = z - lotW / 2;
       sampleBox(cx, h / 2, cz, LOT_DEPTH, h, lotW, 240, COL_BLDG, 1.2, 0.04);
+      outlineFacade(cx, h / 2, cz, LOT_DEPTH, h, lotW);
       if (storeys >= 4 && Math.random() < 0.5) {
         const parapetW = lotW * (0.4 + Math.random() * 0.3);
         const parapetH = 0.6 + Math.random() * 0.8;
@@ -217,9 +237,17 @@ if (canvas) {
           parapetH,
           parapetW,
           30,
-          COL_BLDG,
+          COL_ROOF,
           1.1,
           0.04,
+        );
+        outlineFacade(
+          cx + outward * 0.3,
+          h + parapetH / 2,
+          cz,
+          LOT_DEPTH - 0.6,
+          parapetH,
+          parapetW,
         );
       }
       const gap = Math.random() < 0.12 ? 1.2 + Math.random() * 1.2 : 0.0;
@@ -228,6 +256,24 @@ if (canvas) {
   }
   buildFacade("left");
   buildFacade("right");
+  unitBox.fill.dispose();
+  unitBox.edges.dispose();
+  const facadeGeometry = new THREE.BufferGeometry();
+  facadeGeometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(facadeEdges, 3),
+  );
+  scene.add(
+    new THREE.LineSegments(
+      facadeGeometry,
+      new THREE.LineBasicMaterial({
+        color: SCENE_COLOURS.buildingOutline,
+        transparent: true,
+        opacity: 0.31,
+        depthWrite: false,
+      }),
+    ),
+  );
 
   // Parked cars on the far curb (right side from camera)
   for (const pz of [-6, -14, -22, -34, -46, -58, -70]) {
@@ -271,7 +317,7 @@ if (canvas) {
   for (let z = Z_NEAR - 9; z > Z_FAR; z -= 18) {
     const side = Math.floor(z / 18) % 2 === 0 ? 1 : -1;
     const x = side * (ROAD_HALF_W + WALK_W * 0.6);
-    sampleCylinder(x, z, 0.18, 0, 2.4, 70, COL_LANE);
+    sampleCylinder(x, z, 0.18, 0, 2.4, 70, COL_TRUNK);
     sampleSphere(x, 3.6, z, 1.6, 320, COL_TREE);
   }
 
@@ -857,7 +903,8 @@ if (canvas) {
     // Static cloud at moderate brightness — bright enough to read as an active
     // sensor scene, but not so bright it competes with hero text (the copy
     // column has its own dim plate that absorbs the extra cloud brightness).
-    gl_FragColor = vec4(col * 0.72, alpha * 0.92);
+    gl_FragColor = vec4(col * 0.48, alpha * 0.38);
+    #include <colorspace_fragment>
   }
 `;
   const pointFSMoving = /* glsl */ `
@@ -877,7 +924,8 @@ if (canvas) {
     alpha *= fog;
     // Tracked objects keep full color saturation so they remain the visual
     // anchor of the scene even as the static cloud falls back.
-    gl_FragColor = vec4(vColor, alpha);
+    gl_FragColor = vec4(vColor, alpha * 0.7);
+    #include <colorspace_fragment>
   }
 `;
   const staticMat = new THREE.ShaderMaterial({
@@ -1432,7 +1480,7 @@ if (canvas) {
         slot.box.position.set(slot.pose.x, slot.pose.y, slot.pose.z);
         slot.box.rotation.y = slot.pose.yaw;
         const opacity = Math.min(1, slot.life * 1.4);
-        slot.box.userData.bracketMat.opacity = 0.95 * opacity;
+        slot.box.userData.bracketMat.opacity = TRACK_OUTLINE_OPACITY * opacity;
         slot.box.userData.wireMat.opacity = 0.18 * opacity;
       }
       if (slot.label) {
