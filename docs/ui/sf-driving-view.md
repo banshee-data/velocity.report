@@ -11,8 +11,8 @@
   [review brief](sf-city-map-review-brief.md).
 
 The page drives a car anywhere in San Francisco over measured geometry, so a reader can move between
-survey sites with the city around them. A chase camera sits behind the car and a mirror shows the road
-behind. A readout names the street under the car and the next signposted cross street ahead, and
+survey sites with the city around them. The camera starts zoomed out behind and above the car;
+Overhead and In car are selectable in the menu. A readout names the street under the car and the next signposted cross street ahead, and
 street-name signs stand at intersections.
 
 ## Game design and review
@@ -25,6 +25,36 @@ feedback-loop questions, and future autonomous-traffic contracts. The
 discussion, implementation, and review; agent instructions route SF game changes to it.
 
 ## Driving and time trials
+
+**UI:** the normal driving screen has a 48 px status strip (street, speed, clock,
+collection count and menu), a separate gold direction seeker, and two thumb clusters.
+Steer left/right with the left thumb; brake/accelerate with the right. Map & game opens
+a scrollable modal containing camera choices, trial area, starting place, reset/new trial,
+the full minimap, compressed download sizes, records and help. Opening it releases held
+controls and keeps keyboard driving inactive until it closes; the trial clock continues.
+Crash countdown and completion messages stay visible in the status strip.
+
+The closed-menu mobile layout targets less than 25% of the viewport for visible UI,
+including the control groups and the in-car mirror. Count the bounding rectangles of the
+status strip, seeker, both thumb clusters and any visible mirror against viewport area;
+the full-screen 3D canvas is excluded. The expanded menu is an explicit detail view and
+does not share this gameplay-area budget. Short screens use a smaller seeker and 48 px
+buttons; other touch screens use 56 px buttons. Safe-area insets keep controls clear of
+the device edges, without disabling page zoom globally.
+
+Chromium touch-emulation checks measured 17.94% for the default HUD and 19.33% in car
+at 390×690. Across eight sizes (320×480 through 1024×768, including portrait and
+landscape), the largest measurement was 24.26% at 667×375 in car. These are CSS bounding
+areas, including gaps within each control group, rather than pixel-opacity measurements;
+physical iOS behaviour still needs device validation.
+
+Camera choices are Zoomed out (default, 34 m behind and 26 m above), Overhead (85 m
+directly above, with the car's heading up), and In car (attached at driver eye height,
+following local road slope). In-car rendering hides the opaque car body. Only In car
+permits the rear-view mirror, including on mobile; its switch is in the menu. V cycles
+through the cameras, and M toggles the mirror while in car. Changing cameras snaps to the
+new pose. Camera poses are covered by
+[`sf-drive-camera.test.mjs`](../../public_html/src/js/__tests__/sf-drive-camera.test.mjs).
 
 The touch pad captures each pointer until release or cancellation, supports simultaneous
 throttle/steering/braking, and prevents text selection, long-press callouts and double-tap
@@ -56,12 +86,13 @@ appear in the world, and the north-up minimap shows every tile, loaded/loading t
 collected tiles, the car, and a line to the seeker target.
 
 The compass seeker points to the uncollected emoji belonging to the current tile, even
-when a neighboring tile's emoji is closer. It shows that emoji on the compass, a direction
-arrow, distance, and the car's cardinal/numeric heading. The car's forward direction is
+when a neighboring tile's emoji is closer. A gold, white-outlined arrow fills the compass
+dial, with the target emoji and distance alongside it so the emoji cannot cover the arrow.
+The seeker also shows the car's cardinal/numeric heading on taller screens. The car's forward direction is
 always up; compass letters and the target rotate relative to it. After the local pickup,
 the seeker marks it collected and points to the nearest remaining target. Tiles without
 a quest also seek the next target, and a completed rally clears the target arrow.
-The enlarged dial uses a stronger arrow and an explicit turn instruction such as
+The dial uses an explicit turn instruction such as
 Straight ahead, Bear left, Turn right or Turn around.
 
 The Time trial selector supports Whole city and optional district-only runs. District runs

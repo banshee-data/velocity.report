@@ -21,6 +21,7 @@ function sfDownloadAssets(root = __dirname) {
       "sf-download-size.js",
       "sf-touch-controls.js",
       "sf-district-trials.js",
+      "sf-drive-camera.js",
     ].map((name) => ["modules", `./${name}`, `src/js/${name}`]),
     ...["three.module.js", "three.core.js"].map((name) => [
       "modules",

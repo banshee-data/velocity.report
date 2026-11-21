@@ -1,7 +1,7 @@
 // San Francisco driving view (/sf/): drive anywhere in the city over measured
 // geometry. Tiles (one per S2 level-13 cell, about 1.1 km across) stream in
 // around the car: ground, buildings, trees, roads with kerbs, and street-name
-// signposts. The chase camera sits behind the car; a mirror shows the road behind.
+// signposts. Start zoomed out; overhead and in-car views are available in the menu.
 import * as THREE from "../vendor/three/three.module.js";
 import {
   advanceTrial,
@@ -29,6 +29,7 @@ import { terrainTriangles, tileRegion } from "./sf-drive-surface.js";
 import { createDownloadSizeTracker } from "./sf-download-size.js";
 import { bindDrivingPad } from "./sf-touch-controls.js";
 import { districtTrials, seekerDirection } from "./sf-district-trials.js";
+import { DRIVE_VIEWS, driveCameraPose } from "./sf-drive-camera.js";
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -665,7 +666,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   }
   const state = {
     mirror: true,
-    view: "chase",
+    view: DRIVE_VIEWS[0],
     keys: new Set(),
     touch: { throttle: 0, steer: 0, brake: false },
   };
@@ -744,7 +745,10 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     Space: "brake",
   };
   window.addEventListener("keydown", (e) => {
-    if (e.target.closest && e.target.closest("select, input, button")) return;
+    if (hud.menu.open) return;
+    if (e.target.closest?.("select, input, textarea")) return;
+    if (e.target.closest?.("button") && ["Space", "Enter"].includes(e.code))
+      return;
     if (keyMap[e.code]) {
       state.keys.add(keyMap[e.code]);
       e.preventDefault();
@@ -770,14 +774,27 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     if (document.hidden) releaseInputs();
   });
   const toggleMirror = () => {
+    if (state.view !== "incar") return;
     state.mirror = !state.mirror;
     hud.mirrorFrame.hidden = !state.mirror;
     hud.mirrorBtn.setAttribute("aria-pressed", String(state.mirror));
   };
-  const toggleView = () => {
-    state.view = state.view === "chase" ? "high" : "chase";
-    hud.viewBtn.setAttribute("aria-pressed", String(state.view === "high"));
+  const setView = (view) => {
+    state.view = view;
+    camInit = false;
+    hud.viewMode.value = view;
+    hud.mirrorBtn.hidden = view !== "incar";
+    hud.mirrorFrame.hidden = view !== "incar" || !state.mirror;
+    canvas.dataset.view = view;
+    canvas.setAttribute(
+      "aria-label",
+      `${hud.viewMode.selectedOptions[0].textContent} 3D view of San Francisco`,
+    );
   };
+  const toggleView = () =>
+    setView(
+      DRIVE_VIEWS[(DRIVE_VIEWS.indexOf(state.view) + 1) % DRIVE_VIEWS.length],
+    );
   const reset = (p = selectedStart) => {
     car = { x: p.x, y: p.y, heading: p.heading, v: 0 };
     grounded = false;
@@ -857,9 +874,17 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     toggleMirror();
     releaseFocus(e);
   });
-  hud.viewBtn.addEventListener("click", (e) => {
-    toggleView();
-    releaseFocus(e);
+  hud.viewMode.addEventListener("change", () => {
+    setView(hud.viewMode.value);
+    hud.viewMode.blur();
+  });
+  hud.menuBtn.addEventListener("click", () => {
+    releaseInputs();
+    hud.menu.showModal();
+    hud.menuBtn.setAttribute("aria-expanded", "true");
+  });
+  hud.menu.addEventListener("close", () => {
+    hud.menuBtn.setAttribute("aria-expanded", "false");
   });
   hud.restartBtn.addEventListener("click", (e) => {
     newTrial();
@@ -921,13 +946,12 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   const camPos = new THREE.Vector3();
   const camLook = new THREE.Vector3();
   let camInit = false;
+  setView(state.view);
   let roadAt = 0,
     road = null;
   const seekerColours = {
-    ink: css("--ink"),
-    muted: css("--muted"),
-    accent: css("--accent"),
-    bg: css("--bg"),
+    muted: "#b8c5cc",
+    accent: "#fbbf24",
   };
   function drawSeeker() {
     const seeker = questSeeker(trial, manifest.tiles, car);
@@ -941,11 +965,11 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, w);
     ctx.beginPath();
-    ctx.arc(c, c, w * 0.46, 0, Math.PI * 2);
+    ctx.arc(c, c, w * 0.48, 0, Math.PI * 2);
     ctx.strokeStyle = seekerColours.muted;
     ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.font = `600 ${w * 0.12}px system-ui`;
+    ctx.font = `600 ${w * 0.13}px system-ui`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     for (const [name, bearing] of [
@@ -958,8 +982,8 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       ctx.fillStyle = name === "N" ? seekerColours.accent : seekerColours.muted;
       ctx.fillText(
         name,
-        c + Math.sin(angle) * w * 0.39,
-        c - Math.cos(angle) * w * 0.39,
+        c + Math.sin(angle) * w * 0.43,
+        c - Math.cos(angle) * w * 0.43,
       );
     }
     if (seeker.target) {
@@ -967,26 +991,24 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       ctx.save();
       ctx.translate(c, c);
       ctx.rotate(angle);
-      ctx.strokeStyle = seekerColours.accent;
+      ctx.strokeStyle = "#ffffff";
       ctx.fillStyle = seekerColours.accent;
-      ctx.lineWidth = 5;
+      ctx.lineWidth = 2;
+      ctx.lineJoin = "round";
+      ctx.shadowColor = "#000";
+      ctx.shadowBlur = 4;
       ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(0, -w * 0.28);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, -w * 0.34);
-      ctx.lineTo(-w * 0.1, -w * 0.19);
-      ctx.lineTo(w * 0.1, -w * 0.19);
+      ctx.moveTo(0, -w * 0.35);
+      ctx.lineTo(w * 0.22, -w * 0.04);
+      ctx.lineTo(w * 0.09, -w * 0.04);
+      ctx.lineTo(w * 0.09, w * 0.28);
+      ctx.lineTo(-w * 0.09, w * 0.28);
+      ctx.lineTo(-w * 0.09, -w * 0.04);
+      ctx.lineTo(-w * 0.22, -w * 0.04);
       ctx.closePath();
       ctx.fill();
+      ctx.stroke();
       ctx.restore();
-      ctx.beginPath();
-      ctx.arc(c, c, w * 0.16, 0, Math.PI * 2);
-      ctx.fillStyle = seekerColours.bg;
-      ctx.fill();
-      ctx.font = `${w * 0.26}px system-ui`;
-      ctx.fillText(seeker.target.emoji, c, c);
     }
     // Your heading is always up; the compass ring and target turn around it.
     if (!seeker.target) {
@@ -1002,7 +1024,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
           ? `${seeker.local.emoji} ✓ · next tile`
           : "Next tile";
     hud.seekerDistance.textContent = seeker.target
-      ? `${seeker.target.emoji} ${Math.round(seeker.distance)} m`
+      ? `${seeker.target.emoji} ${seeker.distance >= 1000 ? `${(seeker.distance / 1000).toFixed(1)} km` : `${Math.round(seeker.distance)} m`}`
       : "All collected!";
     hud.seekerTurn.textContent = seekerDirection(seeker.relative);
     hud.seekerHeading.textContent = `${seeker.cardinal} · ${String(Math.round(seeker.heading) % 360).padStart(3, "0")}°`;
@@ -1017,6 +1039,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     const w = cv.clientWidth,
       h = cv.clientHeight,
       dpr = Math.min(2, devicePixelRatio || 1);
+    if (!w || !h) return; // The full map lives in the on-demand menu.
     if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
       cv.width = Math.round(w * dpr);
       cv.height = Math.round(h * dpr);
@@ -1114,6 +1137,9 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     ctx.font = "600 11px system-ui";
     ctx.textAlign = "right";
     ctx.fillText("N ↑", w - 6, 14);
+  }
+  function updateTrialHud() {
+    const nearest = questSeeker(trial, manifest.tiles, car).target;
     downloads.observe(performance.getEntriesByType("resource"));
     const size = downloads.sizes(loaded.keys());
     hud.assets.textContent = `${formatBytes(size.resident)} loaded · ${formatBytes(size.tiles)} city tiles`;
@@ -1124,7 +1150,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       ? "Compressed network payload: gzip estimates where browser response sizes are unavailable. Excludes HTTP headers."
       : "Network payload using encoded response-body sizes, including compressed responses. Excludes HTTP headers; cached assets count at their download size.";
     hud.coverage.textContent = `${manifest.tiles.length} L13 tiles · ${route.skipped.length} without a playable intersection`;
-    hud.progress.textContent = `${trial.collected.size} / ${trial.targets.length} emojis`;
+    hud.progress.textContent = `${trial.collected.size}/${trial.targets.length} emojis`;
     hud.progressBar.max = trial.targets.length;
     hud.progressBar.value = trial.collected.size;
     hud.target.textContent = nearest
@@ -1315,18 +1341,19 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
 
     const hx = Math.cos(car.heading);
     const hy = Math.sin(car.heading);
-    const back = state.view === "chase" ? 10 : 34;
-    const up = state.view === "chase" ? 3.6 : 26;
-    const bx = car.x - hx * back;
-    const by = car.y - hy * back;
-    const bz = Math.max(groundAtWorld(tiles, bx, by) ?? carZ, carZ) + up;
-    const target = new THREE.Vector3(...V(bx, by, bz));
-    const look = new THREE.Vector3(
-      ...V(car.x + hx * 14, car.y + hy * 14, carZ + 1.4),
+    const view = driveCameraPose(state.view, car, carZ, (x, y) =>
+      groundAtWorld(tiles, x, y),
     );
+    const target = new THREE.Vector3(...V(...view.position));
+    const look = new THREE.Vector3(...V(...view.look));
     // Snap rather than glide after a jump, before the ground loads, or when far behind (a slow frame rate
     // on a hill would otherwise leave the camera under the slope); the glide rate does not depend on frame rate.
-    if (!camInit || !grounded || camPos.distanceTo(target) > 40) {
+    if (
+      view.attached ||
+      !camInit ||
+      !grounded ||
+      camPos.distanceTo(target) > 40
+    ) {
       camPos.copy(target);
       camLook.copy(look);
       camInit = true;
@@ -1335,6 +1362,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       camLook.lerp(look, 1 - Math.pow(0.8, dt * 60));
     }
     camera.position.copy(camPos);
+    camera.up.set(...V(...view.up));
     camera.lookAt(camLook);
 
     const W = renderer.domElement.width;
@@ -1342,11 +1370,10 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     const pr = renderer.getPixelRatio();
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, W / pr, H / pr);
+    carMesh.visible = !view.hideCar;
     renderer.render(scene, camera);
-    const showMirror =
-      state.mirror &&
-      canvas.clientWidth > 760 &&
-      !matchMedia("(pointer: coarse)").matches;
+    carMesh.visible = true;
+    const showMirror = view.mirror && state.mirror;
     hud.mirrorFrame.hidden = !showMirror;
     if (showMirror) {
       // the mirror: from the cabin roof, looking back over the boot
@@ -1354,10 +1381,13 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         ...V(car.x - hx * 0.4, car.y - hy * 0.4, carZ + 1.9),
       );
       mirrorCam.lookAt(...V(car.x - hx * 30, car.y - hy * 30, carZ + 1.2));
-      const mw = Math.min(0.36 * W, 520 * pr);
+      // Match the frame to the safe-area-aware HUD, including mobile browser chrome.
+      const bar = hud.driveBar.getBoundingClientRect();
+      const mw = Math.min(0.28 * W, 240 * pr);
       const mh = mw / 3.2;
-      const mx = (W - mw) / 2;
-      const my = H - mh - 14 * pr;
+      const mx = W - mw - (canvas.clientWidth - bar.right) * pr;
+      const top = (bar.bottom + 8) * pr;
+      const my = H - mh - top;
       mirrorCam.aspect = mw / mh;
       mirrorCam.updateProjectionMatrix();
       renderer.setScissorTest(true);
@@ -1371,7 +1401,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         width: `${mw / pr}px`,
         height: `${mh / pr}px`,
         left: `${mx / pr}px`,
-        top: "14px",
+        top: `${top / pr}px`,
       });
     }
 
@@ -1389,12 +1419,21 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       hud.next.textContent = next
         ? `${next.names.join(" · ")} in ${Math.round(next.distance / 10) * 10} m`
         : "";
+      if (crash)
+        hud.next.textContent = `Crash · reset in ${crashPose(crash, now / 1000).remaining.toFixed(1)} s`;
+      else if (trial.status === "finished")
+        hud.next.textContent = `Finished! ${trial.crashes} crashes`;
+      else if (now < messageUntil)
+        hud.next.textContent = hud.status.textContent;
+      hud.next.title = hud.next.textContent;
+      hud.driveBar.dataset.crash = String(!!crash);
       hud.speed.textContent = `${Math.round(Math.abs(car.v) * 2.23694)} mph`;
       const deg = (((90 - (car.heading * 180) / Math.PI) % 360) + 360) % 360;
       hud.compass.textContent = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][
         Math.round(deg / 45) % 8
       ];
       if (!grounded) hud.street.textContent = "Loading the city around you…";
+      updateTrialHud();
       drawMinimap();
     }
   }
