@@ -41,6 +41,17 @@ and tracks without an eligible minimum remain in the denominator. The original e
 and the default recording-wide analysis, including the Runs action, are unchanged.
 Catalogue coverage is review context, not a surveyed pose or physical qualification.
 
+The scoped batch also writes `experimental_drac` in each recording's analysis. Its
+`following_scoped_drac_v1` summary counts positive-duration follower intervals by
+applicability or exclusion reason, with terminal samples counted separately. Each
+contiguous sequence of supported samples for the same software follower and leader
+contributes one peak to the `[0,1)`, `[1,2)`, `[2,4)` or `[4,∞)` m/s² band. These
+are descriptive bins. A leader switch, missing interval or excluded sample breaks a
+sequence. Record gaps and stationary-period or path-support exclusions retain their
+own durations and are excluded from the survey's accounted in-scope follower-time.
+The summary contains neither actor identities nor time series. The completion receipt
+and its full evidence remain on the attached drive.
+
 The output directory must not exist. `complete.json` appears only after every requested
 recording and optional scene succeeds. A failure leaves diagnostic output without a completion
 marker. The registered database is read-only. No VV, browser, listener or interactive input is
