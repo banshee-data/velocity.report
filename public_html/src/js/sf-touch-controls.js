@@ -1,4 +1,15 @@
 // A driving pad holds actions; it does not select text, focus buttons or zoom.
+export function drivingInput(keys, touch) {
+  const forward = keys.has("up") || touch.throttle > 0;
+  const reverse = keys.has("down") || touch.throttle < 0 || touch.brake;
+  return {
+    throttle: Number(forward) - Number(reverse),
+    steer: Number(keys.has("left")) - Number(keys.has("right")) + touch.steer,
+    // Space is a dedicated brake. Both pedals together also brake and hold.
+    brake: keys.has("brake") || (forward && reverse),
+  };
+}
+
 export function bindDrivingPad(buttons, onChange, root = window) {
   const held = new Map();
   const list = [...buttons];

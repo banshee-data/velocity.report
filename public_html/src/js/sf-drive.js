@@ -27,7 +27,7 @@ import {
 
 import { terrainTriangles, tileRegion } from "./sf-drive-surface.js";
 import { createDownloadSizeTracker } from "./sf-download-size.js";
-import { bindDrivingPad } from "./sf-touch-controls.js";
+import { bindDrivingPad, drivingInput } from "./sf-touch-controls.js";
 import { districtTrials, seekerDirection } from "./sf-district-trials.js";
 import { DRIVE_VIEWS, driveCameraPose, incarRoll } from "./sf-drive-camera.js";
 import { createCarReveal } from "./sf-car-reveal.js";
@@ -37,6 +37,15 @@ import { createTerrainPainter } from "./sf-terrain-painter.js";
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const col = (n) => new THREE.Color(css(n));
+
+function mapPath(lines, close = false) {
+  const path = new Path2D();
+  for (const line of lines) {
+    line.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)));
+    if (close) path.closePath();
+  }
+  return path;
+}
 
 async function fetchJsonGz(url) {
   const res = await fetch(url);
@@ -529,7 +538,16 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     fetchJsonGz(`${base}../quest-route.json`),
     fetchJsonGz(`${base}../coverage.json`),
   ]);
-  const coverageCorners = Object.values(coverage).flat();
+  const coverageCorners = Object.values(coverage.cells).flat();
+  const cellPaths = new Map(
+    Object.entries(coverage.cells).map(([t, ring]) => [
+      t,
+      mapPath([ring], true),
+    ]),
+  );
+  const landPath = mapPath(coverage.coast.flat(), true);
+  const parkPath = mapPath(coverage.parks.flat(), true);
+  const arterialPath = mapPath(coverage.arterials);
   const downloads = createDownloadSizeTracker({
     tiles: manifest.tiles,
     assets: downloadAssets,
@@ -1062,19 +1080,21 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       `Heading ${seeker.cardinal}, ${Math.round(seeker.heading) % 360} degrees. ${seeker.target ? `${seeker.target.emoji}, ${seeker.onTile ? "this tile" : "next tile"}, ${Math.round(seeker.distance)} metres away, bearing ${Math.round(seeker.bearing) % 360} degrees.` : "All emojis collected."}`,
     );
   }
-  function drawMinimap() {
-    const cv = hud.minimap,
-      ctx = cv.getContext("2d");
+  function drawMinimap(cv) {
     const w = cv.clientWidth,
       h = cv.clientHeight,
       dpr = Math.min(2, devicePixelRatio || 1);
-    if (!w || !h) return; // The full map lives in the on-demand menu.
+    if (!w || !h) return; // The gameplay map is hidden on touch layouts.
+    const ctx = cv.getContext("2d");
     if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
       cv.width = Math.round(w * dpr);
       cv.height = Math.round(h * dpr);
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, w, h);
+    const styles = getComputedStyle(cv);
+    const colour = (name) => styles.getPropertyValue(name).trim();
+    ctx.fillStyle = colour("--map-water");
+    ctx.fillRect(0, 0, w, h);
     const polygons = activeDistrict
       ? [...activeDistrict.polygons.flat(2), [car.x, car.y]]
       : coverageCorners;
@@ -1087,27 +1107,39 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       (x - (minX + maxX) / 2) * scale + w / 2,
       h / 2 - (y - (minY + maxY) / 2) * scale,
     ];
-    ctx.lineWidth = 0.6;
-    ctx.strokeStyle = css("--muted");
+    ctx.save();
+    ctx.translate(...point(0, 0));
+    ctx.scale(scale, -scale);
+    ctx.fillStyle = colour("--map-land");
+    ctx.fill(landPath, "evenodd");
+    ctx.strokeStyle = colour("--map-coast");
+    ctx.lineWidth = 0.8 / scale;
+    ctx.stroke(landPath);
+    ctx.lineWidth = 0.55 / scale;
+    ctx.strokeStyle = colour("--map-grid");
     for (const row of manifest.tiles) {
       ctx.globalAlpha =
         activeDistrict && !activeDistrict.overlapTiles.has(row.t) ? 0.25 : 1;
-      ctx.beginPath();
-      coverage[row.t].forEach(([x, y], i) =>
-        i ? ctx.lineTo(...point(x, y)) : ctx.moveTo(...point(x, y)),
-      );
-      ctx.closePath();
+      const cell = cellPaths.get(row.t);
       ctx.fillStyle = trial.collected.has(row.t)
-        ? "#c79226"
+        ? "#d79927a6"
         : loaded.has(row.t)
-          ? "#0f9383"
+          ? "#0f93839e"
           : loading.has(row.t)
-            ? "#73c7d1"
-            : "#8c99a544";
-      ctx.fill();
-      ctx.stroke();
+            ? "#73c7d199"
+            : "#8c99a51a";
+      ctx.fill(cell);
+      ctx.stroke(cell);
     }
     ctx.globalAlpha = 1;
+    ctx.fillStyle = colour("--map-park");
+    ctx.fill(parkPath, "evenodd");
+    ctx.strokeStyle = colour("--map-arterial");
+    ctx.lineWidth = 0.75 / scale;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.stroke(arterialPath);
+    ctx.restore();
     if (activeDistrict) {
       for (const polygon of activeDistrict.polygons) {
         ctx.beginPath();
@@ -1140,7 +1172,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     ctx.fill();
     ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = css("--ink");
+    ctx.fillStyle = colour("--ink");
     ctx.font = "600 11px system-ui";
     ctx.textAlign = "right";
     ctx.fillText("N ↑", w - 6, 14);
@@ -1189,14 +1221,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     if (crash && crashPose(crash, now / 1000).done && now >= crashUntil)
       respawn(true);
     hud.respawnBtn.disabled = !!crash;
-    const k = state.keys;
-    const input = {
-      throttle:
-        (k.has("up") ? 1 : 0) - (k.has("down") ? 1 : 0) + state.touch.throttle,
-      steer:
-        (k.has("left") ? 1 : 0) - (k.has("right") ? 1 : 0) + state.touch.steer,
-      brake: k.has("brake") || state.touch.brake,
-    };
+    const input = drivingInput(state.keys, state.touch);
     const tiles = [...loaded.values()].map((e) => e.tile);
     const indexes = [...loaded.values()].map((e) => e.collisions);
     if (!grounded) {
@@ -1444,7 +1469,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       ];
       if (!grounded) hud.street.textContent = "Loading the city around you…";
       updateTrialHud();
-      drawMinimap();
+      drawMinimap(hud.menu.open ? hud.minimap : hud.desktopMap);
     }
   }
   stream();

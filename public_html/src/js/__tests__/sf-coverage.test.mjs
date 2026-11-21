@@ -7,7 +7,7 @@ const read = (file) =>
 
 test("city coverage has actual L13 corners with identical shared edges", () => {
   const manifest = read("tiles/manifest.json");
-  const coverage = read("coverage.json");
+  const { cells: coverage } = read("coverage.json");
   assert.deepEqual(
     Object.keys(coverage).sort(),
     manifest.tiles.map(({ t }) => t).sort(),

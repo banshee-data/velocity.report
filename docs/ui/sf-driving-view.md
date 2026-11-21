@@ -30,10 +30,12 @@ discussion, implementation, and review; agent instructions route SF game changes
 collection count and menu), a narrow portrait direction seeker, and two thumb clusters.
 The speed numeral is 26 px with a smaller mph unit. Below the strip, the compass stays
 in the left quarter and the in-car mirror sits at the top centre.
-Steer left/right with the left thumb; brake/accelerate with the right. Map & game opens
+Steer left/right with the left thumb and brake/accelerate with the right. Keep holding
+the brake to reverse after stopping. Both pedals together hold the brake. Map & game opens
 a scrollable modal containing camera choices, trial area, starting place, reset/new trial,
 the full minimap, compressed download sizes, records and help. Opening it releases held
-controls and keeps keyboard driving inactive until it closes; the trial clock continues.
+controls and keeps keyboard driving inactive until it closes. The trial clock continues.
+Desktop layouts also show City coverage in the bottom right during play.
 Crash countdown and completion messages stay visible in the status strip.
 
 The closed-menu mobile layout targets less than 25% of the viewport for visible UI,
@@ -125,13 +127,20 @@ hash scopes saved records. The engine tests check complete tile coverage and uni
 
 City coverage draws the four S2 level-13 corners of each manifest token in the game's
 EPSG:7131 frame. The projected cell boundaries share corners across tiles. The map shows
-loaded and collected cells and a small white car arrow. The driving compass provides
-emoji guidance. Regenerate `public_html/src/sf/coverage.json` after a manifest change
-with `python3 tools/sf-drive/build-coverage.py` using `s2sphere==0.2.5` and `pyproj==3.7.2`.
+loaded and collected cells, a small white car arrow, the shoreline, larger park properties
+and major roads. The driving compass provides emoji guidance.
+
+The map uses the repository's [DataSF shoreline](https://data.sf.gov/d/rgcx-5tix),
+[Recreation and Parks Properties](https://data.sf.gov/d/gtr9-ntp6), and road classes 1–3
+from the existing tiles. The map simplifies these layers at city scale. Both DataSF
+polygon sources use the Public Domain Dedication and License. Regenerate
+`public_html/src/sf/coverage.json` with `python3 tools/sf-drive/build-coverage.py <parks.geojson>`
+using `s2sphere==0.2.5`, `pyproj==3.7.2` and `shapely==2.1.2`. The checked-in map uses
+the [December 2025 DataSF export](https://github.com/DasilvaKareem/sf_tourism_data/blob/1ace88d893f0b724c14949730b131099b88eca45/parks/recreation_parks.geojson).
 
 The map readout reports network response-body sizes for the currently loaded tiles, the
 complete city tile set, and the full game asset download (tiles, manifest, quest index,
-coverage corners, engine modules and three.js). It uses Resource Timing's `encodedBodySize`, so gzip/Brotli
+coverage map, engine modules and three.js). It uses Resource Timing's `encodedBodySize`, so gzip/Brotli
 responses count at their compressed size. Headers, protocol overhead, the page document,
 and favicon are excluded. Cached assets count at their encoded download size rather than
 zero; retries do not add the same file twice. This is the asset inventory, not a running

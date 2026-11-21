@@ -134,13 +134,14 @@ See the [scene export guide](../tools/s2-archive/README.md#street-geometry-from-
 `/sf/` streams the existing S2 L13 city tiles and runs an emoji collection time trial.
 The engine includes a 350 hp GTI-inspired tune, a two-second crash spin before building/trunk
 collision recovery, brake lamps, an emoji compass seeker for the current tile, a minimap
-with S2 cell boundaries and compressed network download sizes, and personal best times saved on the device.
+with S2 cell boundaries, the shoreline, parks and major roads, and personal best times saved on the device.
 The fixed route has one distinct emoji at an intersection in each of 137 eligible tiles;
 20 tiles without signposted intersections remain visible on the map.
 See [driving controls, route generation and rendering](../docs/ui/sf-driving-view.md).
 The touch pad captures held multi-touch input without selection or control gestures. The
-compact driving HUD puts steering on the left and brake/accelerator on the right, with
-the map, records and trial setup in a menu. A narrow portrait compass and larger speed
+compact driving HUD puts steering on the left and brake/accelerator on the right. Hold the
+brake after stopping to reverse. The map, download sizes, records and trial setup are in a menu,
+with the map also visible during desktop play. A narrow portrait compass and larger speed
 numeral leave the road ahead visible. Kerb paint follows the ground, and crisp centre dashes are generated from the current
 tiles without a bake; the [layered-road handoff](../docs/plans/ui-sf-layered-roads-plan.md)
 separates those improvements from the Gerardus work needed for tunnels and bridge decks.
