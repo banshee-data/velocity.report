@@ -137,6 +137,9 @@ See [driving controls, route generation and rendering](../docs/ui/sf-driving-vie
 The touch pad captures held multi-touch input without selection or control gestures. The
 district-trial UI accepts optional boundary and pickup metadata; real district runs await
 the [separate Gerardus data implementation](../docs/plans/ui-sf-district-trials-plan.md).
+
+Game discussions and reviews use [World, Physics, Traffic, Goals, UI, and Data](../.github/knowledge/game-design.md)
+through the shared [game-design skill](../.claude/skills/game-design/SKILL.md).
 Run `make test-public-html` from the repository root for engine and route regression checks.
 
 ## Deployment

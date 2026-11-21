@@ -1,0 +1,10 @@
+---
+name: game-design
+description: Use World, Physics, Traffic, Goals, UI, and Data to frame SF game discussions, implementation, and code review. Apply to the SF game page, sf-prefixed modules/tests/asset helpers, tools/sf-drive, and SF game documentation.
+---
+
+# Game design
+
+Read and follow the [canonical game-design skill](../../../.claude/skills/game-design/SKILL.md).
+It uses the [shared framing](../../../.github/knowledge/game-design.md); keep the taxonomy and
+procedure in those sources rather than duplicating them here.
