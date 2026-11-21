@@ -109,21 +109,22 @@ const counts = {
 const treeSeen = new Map();
 const nameSet = new Set();
 const origins = tiles.map((t) => t.d.o);
+// A ground node belongs to the tile whose origin is nearest in straight-line
+// distance, as the game decides (groundAtWorld, tileRegion). A tile's grid
+// reaches 1,086 m from its origin, so rival origins lie within 2,500 m.
 const near = new Map(
   tiles.map((t) => [
     t,
     origins.filter(
       ([px, py]) =>
         (px !== t.d.o[0] || py !== t.d.o[1]) &&
-        Math.max(Math.abs(px - t.d.o[0]), Math.abs(py - t.d.o[1])) < 2000,
+        Math.hypot(px - t.d.o[0], py - t.d.o[1]) < 2500,
     ),
   ]),
 );
 const nearerElsewhere = (t, wx, wy) => {
-  const own = Math.max(Math.abs(wx - t.d.o[0]), Math.abs(wy - t.d.o[1]));
-  return near
-    .get(t)
-    .some(([px, py]) => Math.max(Math.abs(wx - px), Math.abs(wy - py)) < own);
+  const own = Math.hypot(wx - t.d.o[0], wy - t.d.o[1]);
+  return near.get(t).some(([px, py]) => Math.hypot(wx - px, wy - py) < own);
 };
 for (const t of tiles) {
   const d = t.d;
@@ -468,5 +469,8 @@ const out = {
 };
 const i = process.argv.indexOf("--out");
 const text = JSON.stringify(out, null, 1) + "\n";
-if (i > 0) fs.writeFileSync(process.argv[i + 1], text);
+if (i > 0) {
+  fs.mkdirSync(path.dirname(process.argv[i + 1]), { recursive: true });
+  fs.writeFileSync(process.argv[i + 1], text);
+}
 process.stdout.write(text);

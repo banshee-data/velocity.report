@@ -32,6 +32,7 @@ windows.
 
 ```sh
 cd /home/banshee/city-assets-20261118
+mkdir -p <repo>/tools/sf-size-audit/results
 venv/bin/python -I <repo>/tools/sf-size-audit/study_crosscheck.py <repo>/public_html/src/sf/tiles \
   > <repo>/tools/sf-size-audit/results/study-crosscheck.json
 ```
