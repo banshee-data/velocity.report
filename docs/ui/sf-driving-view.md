@@ -26,6 +26,11 @@ discussion, implementation, and review; agent instructions route SF game changes
 
 ## Driving and time trials
 
+The touch pad captures each pointer until release or cancellation, supports simultaneous
+throttle/steering/braking, and prevents text selection, long-press callouts and double-tap
+zoom on the controls. Held buttons have a visible pressed state. Losing focus, hiding the
+page or recovering the car clears held input. Viewport zoom is not disabled globally.
+
 Steering travels gradually and returns to centre. A bicycle model runs at 120 Hz, with
 speed-dependent steering, a lateral tyre-grip limit, rolling resistance, aerodynamic drag,
 and gravity along the measured hill slope. Down/S brakes before engaging reverse; space
@@ -56,6 +61,14 @@ arrow, distance, and the car's cardinal/numeric heading. The car's forward direc
 always up; compass letters and the target rotate relative to it. After the local pickup,
 the seeker marks it collected and points to the nearest remaining target. Tiles without
 a quest also seek the next target, and a completed rally clears the target arrow.
+The enlarged dial uses a stronger arrow and an explicit turn instruction such as
+Straight ahead, Bear left, Turn right or Turn around.
+
+The Time trial selector supports Whole city and optional district-only runs. District runs
+appear when the map includes authoritative district boundaries and quest membership; they
+are unavailable in the current map. The frontend includes selection, a fixed district start,
+filtered beacons/seeker/completion, a boundary overlay and separate best times. See the
+[district metadata contract and separate Gerardus handoff](../plans/ui-sf-district-trials-plan.md).
 
 The car holds its brake before the first driving input, which starts the clock. It measures real elapsed time, including crashes,
 recovery, loading and background time. Collected emojis survive respawns and tile unloading.
