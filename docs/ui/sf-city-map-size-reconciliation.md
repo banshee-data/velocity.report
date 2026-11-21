@@ -77,15 +77,15 @@ never been round-tripped.
 reproduces the committed files byte for byte (30,169,632 bytes), and the manifest's byte counts
 sum to the same figure.
 
-| Layer              | Shipped                                                                                                                                                   | In the 9.5 MB budget                                                     | Gzip ablation (bytes) |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------: |
-| Buildings          | 176,866 (1,296 lidar-only); 581,152 face rings, 3,781,835 ring vertices (3,431,828 distinct per building), each with its own height, 0.1 m grid, unwelded | 165,267 baked buildings as a welded plane-coded graph; boxes; lidar-only |            19,047,936 |
-| Ground             | 157 grids of 192 × 192 nodes at 8 m: 5,787,648 nodes over 370 km², of which 2,886,519 (49.9 %) lie nearer another tile's origin and 1,174,472 are gaps    | not included                                                             |             4,873,043 |
-| Roads              | 15,671 lines resampled every 3 m to 657,659 vertices, 15,494 with left and right kerb distances per vertex                                                | 15,671 lines, 54,728 vertices, no widths                                 |             3,403,883 |
-| Trees              | 343,046 at 0.1 m positions, 1 m height and crown; 15,689 share a position with another tree in the same tile                                              | 671,526 (area-scaled) at 0.5 m positions                                 |             1,994,571 |
-| Kerbs              | 10,669 lines clipped to their cells, 141,129 vertices                                                                                                     | the same source at 0.25 m tolerance                                      |               648,054 |
-| Signposts          | 15,046 posts at 7,523 intersections, with blade angles                                                                                                    | not included                                                             |               124,544 |
-| Street-name tables | 4,629 entries in 157 per-tile tables, 2,438 distinct names                                                                                                | inside the centreline stream                                             |                52,165 |
+| Layer              | Shipped                                                                                                                                                                                            | In the 9.5 MB budget                                                     | Gzip ablation (bytes) |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------: |
+| Buildings          | 176,866 (1,296 lidar-only); 581,152 face rings, 3,781,835 ring vertices (3,431,828 distinct per building), each with its own height, 0.1 m grid, unwelded                                          | 165,267 baked buildings as a welded plane-coded graph; boxes; lidar-only |            19,047,936 |
+| Ground             | 157 grids of 192 × 192 nodes at 8 m: 5,787,648 nodes over 370 km², of which 2,890,480 (49.9 %) lie nearer another tile's origin (straight-line, as the game assigns ground) and 1,174,472 are gaps | not included                                                             |             4,873,043 |
+| Roads              | 15,671 lines resampled every 3 m to 657,659 vertices, 15,494 with left and right kerb distances per vertex                                                                                         | 15,671 lines, 54,728 vertices, no widths                                 |             3,403,883 |
+| Trees              | 343,046 at 0.1 m positions, 1 m height and crown; 15,689 share a position with another tree in the same tile                                                                                       | 671,526 (area-scaled) at 0.5 m positions                                 |             1,994,571 |
+| Kerbs              | 10,669 lines clipped to their cells, 141,129 vertices                                                                                                                                              | the same source at 0.25 m tolerance                                      |               648,054 |
+| Signposts          | 15,046 posts at 7,523 intersections, with blade angles                                                                                                                                             | not included                                                             |               124,544 |
+| Street-name tables | 4,629 entries in 157 per-tile tables, 2,438 distinct names                                                                                                                                         | inside the centreline stream                                             |                52,165 |
 
 The ablation is how much the gzipped tiles shrink without that layer (measured). The figures do
 not add up to the whole (30,144,196 against 30,169,632) because compression is not additive.
@@ -103,7 +103,7 @@ while its cell is about 1.1 km across, so about half of every grid repeats a nei
 | Per-tile files against one bundle, Brotli 11          | shipped JSON                   | 22,014,251 → 21,572,373 | measured  |
 | Per-tile files against one bundle, gzip 9             | shipped JSON                   | 30,169,632 → 30,189,966 | measured  |
 | JSON against the audit's compact codec, Brotli 11     | all shipped layers, one stream | 21,572,373 → 14,042,291 | measured  |
-| Ground with each place once                           | compact, Brotli 11             | 2,280,671 → 1,093,893   | measured  |
+| Ground with each place once                           | compact, Brotli 11             | 2,280,671 → 1,098,359   | measured  |
 | Roads resampled with widths against plain centrelines | compact, Brotli 11             | 518,834 → 304,982       | measured  |
 | Trees at 0.1 m against 0.5 m positions                | compact, Brotli 11             | 991,136 → 807,222       | measured  |
 | Buildings, audit codec against the study's encoder    | the study's three windows      | ratio 1.4226            | measured  |
@@ -177,9 +177,9 @@ and the current geometry:
 | Shipped: JSON, 157 files, gzip 9                                                |  30,169,632 | measured  |
 | Same JSON, Brotli 11                                                            |  22,014,251 | measured  |
 | Compact codec, all layers, one Brotli stream                                    |  14,042,291 | measured  |
-| The same with the ground kept once per place                                    |  12,854,778 | measured  |
-| The same with buildings in the study's encoder (−2,963,076 at the window ratio) | ≈ 9,892,000 | estimated |
-| The same with trees at 0.5 m                                                    | ≈ 9,708,000 | estimated |
+| The same with the ground kept once per place                                    |  12,857,680 | measured  |
+| The same with buildings in the study's encoder (−2,963,076 at the window ratio) | ≈ 9,895,000 | estimated |
+| The same with trees at 0.5 m                                                    | ≈ 9,711,000 | estimated |
 
 About 9.5–10 MB is plausible only if all of these are built:
 
@@ -218,6 +218,7 @@ shipped tiles, and the window calibration:
 
 ```sh
 cd /home/banshee/city-assets-20261118
+mkdir -p <repo>/tools/sf-size-audit/results
 venv/bin/python -I <repo>/tools/sf-size-audit/study_crosscheck.py <repo>/public_html/src/sf/tiles \
   > <repo>/tools/sf-size-audit/results/study-crosscheck.json
 ```
