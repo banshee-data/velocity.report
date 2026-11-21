@@ -367,12 +367,25 @@ The following repository workflow skills are available as Claude Code slash comm
 | decision-review-integrate | `/decision-review-integrate <packet>` | High-capability review, downstream updates, PR, and focused return questions               |
 | free-space                | `/free-space [--min-mb N]`            | Find disk space to free; keep required evidence on lidar and archive optional copies       |
 | repo-docs                 | `/repo-docs [topic or link]`          | Write or move a document as repository Markdown, never in agent-native storage             |
+| game-design               | `/game-design [topic/files/PR]`       | Frame game discussion and review with World, Physics, Traffic, Goals, UI, and Data         |
 
 Skill definitions: [.claude/skills/\*/SKILL.md](.claude/skills/).
 
 The [decision-review guide](docs/platform/operations/decision-review.md) explains the report,
 voice handoff, decision log, and integration checkpoints. Model selection and voice availability
 depend on the active client; the packet carries context across clients and sessions.
+
+### SF game design and review
+
+For discussion, implementation, or review affecting the SF game, read and apply the
+[game-design skill](.claude/skills/game-design/SKILL.md) and its
+[shared framing](.github/knowledge/game-design.md). This includes `public_html/src/sf/**`,
+`public_html/src/js/sf-*`, `public_html/src/js/__tests__/sf-*`,
+`public_html/sf-*`, `tools/sf-drive/**`, and `docs/ui/sf-*.md`, plus shared code when the
+change affects the game. Use World, Physics, Traffic, Goals, UI, and Data as the exact anchors;
+a change may span several. Apply the framing to code reviews as well as authored changes.
+Codex and Copilot skill entry points link to the canonical procedure; folder/path instructions
+route game reviews to it without applying game terminology to unrelated platform work.
 
 ## Development log updates
 

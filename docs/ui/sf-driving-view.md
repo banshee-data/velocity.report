@@ -15,6 +15,15 @@ survey sites with the city around them. A chase camera sits behind the car and a
 behind. A readout names the street under the car and the next signposted cross street ahead, and
 street-name signs stand at intersections.
 
+## Game design and review
+
+Describe and review game updates using the six shared anchors: **World, Physics, Traffic,
+Goals, UI, Data**. A change may span several anchors. The
+[framing and references](../../.github/knowledge/game-design.md) define their boundaries,
+feedback-loop questions, and future autonomous-traffic contracts. The
+[game-design skill](../../.claude/skills/game-design/SKILL.md) applies that language in
+discussion, implementation, and review; agent instructions route SF game changes to it.
+
 ## Driving and time trials
 
 Steering travels gradually and returns to centre. A bicycle model runs at 120 Hz, with

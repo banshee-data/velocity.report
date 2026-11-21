@@ -4,6 +4,13 @@
 
 Read [AGENTS.md](../AGENTS.md) for repository-wide agent instructions before making changes.
 
+For SF game discussion, implementation, and code review, follow the
+[scoped game instructions](instructions/sf-game.instructions.md), which route affected game
+files to the canonical [game-design skill](../.claude/skills/game-design/SKILL.md) and
+[shared framing](knowledge/game-design.md). Use World, Physics, Traffic, Goals, UI, and Data
+as the exact anchors. A change may span several; apply these to game changes rather than
+unrelated platform work.
+
 ## Tenets
 
 See [TENETS.md](../TENETS.md) for the full project constitution. The short version:
