@@ -41,7 +41,9 @@ eleventyExcludeFromCollections: true
   .street { font-weight: 700; font-size: 13px; }
   .next { color: var(--muted); font-size: 11px; min-height: 14px; }
   .drive-bar[data-crash="true"] .next { color: #f97316; font-weight: 700; }
-  .speed { font-size: 12px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .speed { display: flex; align-items: baseline; gap: 2px; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #speed { font: 800 26px/1 ui-monospace, monospace; }
+  .speed small { font-size: 10px; font-weight: 600; }
   .run { text-align: right; white-space: nowrap; font-size: 10px; color: var(--muted); }
   .timer { display: block; color: var(--ink); font: 700 14px/1.2 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
   button, select { font: inherit; color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
@@ -49,14 +51,14 @@ eleventyExcludeFromCollections: true
   button:disabled { opacity: 0.5; cursor: default; }
   button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   .icon-button { width: 44px; height: 44px; flex: none; font-size: 22px; }
-  .seeker { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: max(8px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 8px; width: 192px; height: 88px; padding: 6px; background: #12232ef2; color: #fff; border: 2px solid #fbbf24; border-radius: 14px; pointer-events: none; }
-  #seekerCompass { width: 72px; height: 72px; display: block; flex: none; }
-  .seeker-copy { display: grid; gap: 2px; min-width: 0; line-height: 1.2; }
-  #seekerDistance { order: -1; font-size: 19px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #seekerTurn { color: #fde68a; font-size: 12px; }
+  .seeker { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: max(8px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; align-items: center; gap: 3px; width: min(84px, calc(25vw - 8px)); height: 148px; padding: 4px 2px; background: #12232ef2; color: #fff; border: 2px solid #fbbf24; border-radius: 14px; pointer-events: none; text-align: center; }
+  #seekerCompass { width: 64px; height: 64px; display: block; flex: none; }
+  .seeker-copy { display: grid; gap: 3px; min-width: 0; max-width: 100%; line-height: 1.15; }
+  #seekerDistance { order: -1; font-size: 12px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #seekerTurn { color: #fde68a; font-size: 11px; }
   #seekerScope { font-size: 10px; font-weight: 400; color: #d4dce2; }
-  #seekerHeading { font-size: 10px; color: #d4dce2; }
-  .mirror { position: fixed; border: 2px solid #111; border-radius: 8px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+  #seekerHeading { display: none; }
+  .mirror { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); right: max(8px, env(safe-area-inset-right, 0px)); width: min(220px, calc(25vw - max(8px, env(safe-area-inset-right, 0px)))); aspect-ratio: 3.2; border: 2px solid #111; border-radius: 8px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
   .pad { position: fixed; bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: none; gap: 8px; }
   .steering { left: max(12px, env(safe-area-inset-left, 0px)); }
   .pedals { right: max(12px, env(safe-area-inset-right, 0px)); }
@@ -87,11 +89,10 @@ eleventyExcludeFromCollections: true
   kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
   @media (pointer: coarse), (max-width: 760px) { .pad { display: flex; } }
   @media (max-height: 600px) {
-    .seeker { width: 160px; height: 64px; padding: 2px; gap: 4px; }
+    .seeker { width: min(76px, calc(25vw - 8px)); height: 128px; padding: 3px 2px; gap: 3px; }
     #seekerCompass { width: 56px; height: 56px; }
-    #seekerDistance { font-size: 16px; }
-    #seekerHeading { display: none; }
-    #seekerTurn { font-size: 11px; }
+    #seekerDistance { font-size: 11px; }
+    #seekerTurn { font-size: 10px; }
     .pad { gap: 6px; }
     .pad button { width: 48px; height: 48px; font-size: 25px; }
   }
@@ -105,7 +106,7 @@ eleventyExcludeFromCollections: true
     <div class="street" id="street">Loading the city…</div>
     <div class="next" id="next" role="status"></div>
   </div>
-  <span class="speed" id="speed">0 mph</span>
+  <span class="speed"><span id="speed">0</span><small>mph</small></span>
   <div class="run">
     <span class="timer" id="timer" role="timer" aria-label="Elapsed trial time">0:00.00</span>
     <span id="progress">0 emojis</span>
