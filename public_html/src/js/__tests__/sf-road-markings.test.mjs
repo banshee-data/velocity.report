@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { roadDashPolygons, roadMarkingTriangles } from "../sf-road-markings.js";
+import {
+  roadDashPolygons,
+  roadMarkingTriangles,
+  createRoadMarkingCache,
+} from "../sf-road-markings.js";
 import { groundAt } from "../sf-drive-core.js";
 
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-7, `${a} != ${b}`);
@@ -111,4 +115,35 @@ test("missing ground and out-of-grid marks leave holes instead of floating paint
     [],
   );
   assert.deepEqual(roadMarkingTriangles(tile, region, []), []);
+});
+
+test("cached contributor geometry matches a full clip and survives transferring its result", () => {
+  const a = [box(100, 201, 104, 203)],
+    b = [box(104, 201, 108, 203)];
+  let clips = 0;
+  const cache = createRoadMarkingCache((...args) => {
+    clips++;
+    return roadMarkingTriangles(...args);
+  });
+  cache.set("a", { tile, region, markings: a });
+  cache.set("b", { tile, region, markings: b });
+  const expected = new Float32Array(
+    roadMarkingTriangles(tile, region, [...a, ...b]),
+  );
+  const result = cache.build("a", ["a", "b"]);
+  assert.deepEqual(result, expected);
+  assert.equal(clips, 2);
+  structuredClone(result, { transfer: [result.buffer] });
+  assert.equal(result.length, 0);
+  assert.deepEqual(cache.build("a", ["a", "b"]), expected);
+  assert.equal(clips, 2, "unchanged pairs are never reclipped");
+  cache.remove("b");
+  assert.deepEqual(
+    cache.build("a", ["a"]),
+    new Float32Array(roadMarkingTriangles(tile, region, a)),
+  );
+  assert.equal(clips, 2, "removal retains the remaining contributor");
+  cache.set("b", { tile, region, markings: [box(105, 201, 108, 203)] });
+  cache.build("a", ["a", "b"]);
+  assert.equal(clips, 3, "only the replaced source is reclipped");
 });

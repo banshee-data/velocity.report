@@ -30,7 +30,8 @@ import { createDownloadSizeTracker } from "./sf-download-size.js";
 import { bindDrivingPad } from "./sf-touch-controls.js";
 import { districtTrials, seekerDirection } from "./sf-district-trials.js";
 import { DRIVE_VIEWS, driveCameraPose } from "./sf-drive-camera.js";
-import { roadDashPolygons, roadMarkingTriangles } from "./sf-road-markings.js";
+import { roadDashPolygons } from "./sf-road-markings.js";
+import { createTerrainPainter } from "./sf-terrain-painter.js";
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -112,7 +113,7 @@ function roadShapes(tile) {
   });
 }
 
-function paintTerrain(entry, entries, C) {
+function paintTerrain(entry, entries, C, rasterMarkings = false) {
   const texture = entry.grp.userData.terrain.material.map;
   const cv = texture.image,
     ctx = cv.getContext("2d"),
@@ -130,7 +131,6 @@ function paintTerrain(entry, entries, C) {
     (o[1] + g.y0 + (g.n - 1) * g.s) * scale,
   );
   const shapes = [];
-  const marks = [];
   for (const e of entries) {
     if (
       Math.hypot(e.tile.o[0] - o[0], e.tile.o[1] - o[1]) >
@@ -138,7 +138,6 @@ function paintTerrain(entry, entries, C) {
     )
       continue;
     shapes.push(...e.roads);
-    marks.push(...e.markings);
   }
   const path = (points) => {
     ctx.beginPath();
@@ -153,16 +152,27 @@ function paintTerrain(entry, entries, C) {
       ctx.fillStyle = `#${(road ? C.asphalt : C.path).getHexString()}`;
       ctx.fill();
     }
+  if (rasterMarkings) {
+    ctx.strokeStyle = `#${C.dash.getHexString()}`;
+    ctx.lineWidth = 0.3;
+    ctx.setLineDash([3, 3]);
+    for (const shape of shapes)
+      if (shape.dashed) {
+        path(shape.centre);
+        ctx.stroke();
+      }
+    ctx.setLineDash([]);
+  }
   texture.needsUpdate = true;
+}
+
+function applyRoadPaint(entry, positions, C) {
   // Vector paint stays sharp without increasing the mobile terrain texture.
   // Clip to the very same terrain planes; offset only in depth-buffer space.
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute(
     "position",
-    new THREE.Float32BufferAttribute(
-      roadMarkingTriangles(entry.tile, entry.region, marks),
-      3,
-    ),
+    new THREE.Float32BufferAttribute(positions, 3),
   );
   let paint = entry.grp.userData.markings;
   if (paint) paint.geometry.dispose();
@@ -206,6 +216,9 @@ function buildTile(tile, C, region) {
   gg.computeVertexNormals();
   const cv = document.createElement("canvas");
   cv.width = cv.height = matchMedia("(pointer: coarse)").matches ? 1024 : 2048;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = `#${C.land.getHexString()}`;
+  ctx.fillRect(0, 0, cv.width, cv.height);
   const texture = new THREE.CanvasTexture(cv);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
@@ -650,10 +663,6 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     hud.status.textContent = text;
     messageUntil = performance.now() + seconds * 1000;
   }
-  function refreshTerrain() {
-    const entries = [...loaded.values()];
-    for (const e of entries) paintTerrain(e, entries, C);
-  }
   function markerFor(target) {
     const cv = document.createElement("canvas");
     cv.width = cv.height = 128;
@@ -694,12 +703,36 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     touch: { throttle: 0, steer: 0, brake: false },
   };
 
+  let roadWorker = null;
+  try {
+    roadWorker = new Worker(
+      new URL("./sf-road-markings-worker.js", import.meta.url),
+      { type: "module" },
+    );
+  } catch (error) {
+    console.warn(
+      "Vector road paint unavailable; using texture markings.",
+      error,
+    );
+  }
+  const terrainPainter = createTerrainPainter({
+    worker: roadWorker,
+    paint: (entry, sources, fallback) =>
+      paintTerrain(entry, sources, C, fallback),
+    apply: (entry, positions) => applyRoadPaint(entry, positions, C),
+    onError: (error) =>
+      console.warn(
+        "Vector road paint unavailable; using texture markings.",
+        error,
+      ),
+  });
+
   function stream() {
     const { want, drop } = tilesAround(manifest.tiles, car.x, car.y);
-    let changed = false;
     for (const t of drop) {
       const e = loaded.get(t);
       if (!e) continue;
+      terrainPainter.remove(t);
       scene.remove(e.grp);
       e.grp.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
@@ -709,9 +742,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         }
       });
       loaded.delete(t);
-      changed = true;
     }
-    if (changed) refreshTerrain();
     for (const t of want) {
       if (loaded.has(t) || loading.has(t) || loading.size >= 3) continue;
       if ((failures.get(t) || 0) > performance.now()) continue;
@@ -737,7 +768,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
             entry.marker = markerFor(target);
             grp.add(entry.marker);
           }
-          refreshTerrain();
+          terrainPainter.add(t, entry);
           failures.delete(t);
         })
         .catch((e) => {

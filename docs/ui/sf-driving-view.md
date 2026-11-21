@@ -147,11 +147,43 @@ Centre dashes use a separate unlit vector-paint mesh, clipped to those exact sam
 triangles and tile ownership boundaries. This keeps thin paint sharper than the mobile
 texture without increasing its resolution. Only the depth buffer is offset; the paint's
 vertices use the original terrain planes, including hill diagonals and missing-ground
-holes. Geometry is replaced/disposed when neighbouring tiles arrive or leave. The
+holes. The
 [`sf-road-markings`](../../public_html/src/js/sf-road-markings.js) helper carries the 3 m
 dash / 3 m gap phase through each polyline's bends. Dashes are 0.30 m wide, drawn only
 for existing two-way carriageways; they are stylised guidance rather than observed paint
 or passing rules. No lane counts, stop bars, crossings or turn arrows are inferred.
+
+Streaming paint uses [`sf-terrain-painter`](../../public_html/src/js/sf-terrain-painter.js)
+and a module worker. A source tile invalidates only target ownership regions its road/
+marking bounds can overlap, within the existing neighbour-distance limit. Unaffected
+textures and mesh objects remain unchanged. Pending changes coalesce; the main thread
+paints at most one terrain texture and applies at most one marking result per animation
+frame. A tile's ground/region/markings are sent to the worker once on load. The worker
+caches clipped geometry per target/source pair, reuses retained contributors when a
+source leaves, and evicts those parts on unload. Transferred result buffers are separate
+from cached parts. Target identity and revision checks reject obsolete results, including
+unload/reload of the same token. If module workers fail, the same bounded texture queue
+draws raster dashes instead of running clipping on the main thread.
+
+The manual [road-paint benchmark](../../tools/sf-drive/benchmark-road-paint.mjs) runs with
+`node tools/sf-drive/benchmark-road-paint.mjs`. It uses the nine `tilesAround` tiles centred
+on `808580c4`, their manifest ownership regions and the original neighbour filter. In
+Node v24.19.0 here, after warm-up, five passes produced these median CPU times:
+
+| Work across all nine tiles           | Median    | Clipping calls with a warm cache |
+| ------------------------------------ | --------- | -------------------------------- |
+| Full clipping and Float32 conversion | 251.01 ms | Not cached                       |
+| Cached result assembly               | 10.93 ms  | 0                                |
+
+The tool checks identical Float32 geometry (340,212 vertices). This compares CPU geometry
+work, excluding texture painting, worker startup/transport, GPU uploads and rendering;
+the browser uses affected-tile scheduling rather than recomposing all nine each time.
+Chromium touch emulation at 390×690 verified zero main-thread clipping calls while
+streaming into that neighbourhood. Removing `808580b4` repainted/replaced only two
+remaining targets, reused all retained clipped parts and preserved other mesh objects.
+Observed callback maxima were 5.8 ms for texture paint, 0.7 ms for mesh replacement and
+8.4 ms for adding/sending a source. These headless measurements are not mobile-device
+frame-rate guarantees; physical-device validation remains outstanding.
 
 All current roads still share one ground surface at a horizontal position. Proper bridge
 decks, overpasses and tunnels need separate supported surfaces and connectivity. See the

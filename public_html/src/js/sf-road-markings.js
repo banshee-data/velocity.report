@@ -105,3 +105,44 @@ export function roadMarkingTriangles(tile, region, marks) {
   }
   return positions;
 }
+
+// Worker-owned immutable source/target pairs. Streaming one source must not
+// reclip the other contributors, and transferred results must not detach cache.
+export function createRoadMarkingCache(project = roadMarkingTriangles) {
+  const entries = new Map();
+  const remove = (token) => {
+    entries.delete(token);
+    for (const entry of entries.values()) entry.parts.delete(token);
+  };
+  return {
+    set(token, entry) {
+      remove(token);
+      entries.set(token, { ...entry, parts: new Map() });
+    },
+    remove,
+    build(token, sources) {
+      const target = entries.get(token);
+      const parts = sources.map((sourceToken) => {
+        if (!target.parts.has(sourceToken)) {
+          const source = entries.get(sourceToken);
+          target.parts.set(
+            sourceToken,
+            new Float32Array(
+              project(target.tile, target.region, source.markings),
+            ),
+          );
+        }
+        return target.parts.get(sourceToken);
+      });
+      const positions = new Float32Array(
+        parts.reduce((n, p) => n + p.length, 0),
+      );
+      let offset = 0;
+      for (const part of parts) {
+        positions.set(part, offset);
+        offset += part.length;
+      }
+      return positions;
+    },
+  };
+}
