@@ -29,12 +29,13 @@ discussion, implementation, and review; agent instructions route SF game changes
 **UI:** the normal driving screen has a 48 px status strip (street, speed, clock,
 collection count and menu), a narrow portrait direction seeker, and two thumb clusters.
 The speed numeral is 26 px with a smaller mph unit. Below the strip, the compass stays
-in the left quarter and the in-car mirror stays in the right quarter, leaving the
-central half of the road view free of HUD panels. World geometry still occludes naturally.
-Steer left/right with the left thumb; brake/accelerate with the right. Map & game opens
+in the left quarter and the in-car mirror sits at the top centre.
+Steer left/right with the left thumb and brake/accelerate with the right. Keep holding
+the brake to reverse after stopping. Both pedals together hold the brake. Map & game opens
 a scrollable modal containing camera choices, trial area, starting place, reset/new trial,
 the full minimap, compressed download sizes, records and help. Opening it releases held
-controls and keeps keyboard driving inactive until it closes; the trial clock continues.
+controls and keeps keyboard driving inactive until it closes. The trial clock continues.
+Desktop layouts also show City coverage in the bottom right during play.
 Crash countdown and completion messages stay visible in the status strip.
 
 The closed-menu mobile layout targets less than 25% of the viewport for visible UI,
@@ -45,19 +46,19 @@ does not share this gameplay-area budget. Short screens use a smaller seeker and
 buttons; other touch screens use 56 px buttons. Safe-area insets keep controls clear of
 the device edges, without disabling page zoom globally.
 
-Chromium touch-emulation checks measured 16.29% for the default HUD and 17.22% in car
-at 390×690. Across eight sizes (320×480 through 1024×768, including portrait and
-landscape), the largest measurement was 22.93% at 320×480 in car. These are CSS bounding
-areas, including gaps within each control group, rather than pixel-opacity measurements;
-physical iOS behaviour still needs device validation.
-
 Camera choices are Zoomed out (default, 34 m behind and 26 m above), Overhead (85 m
 directly above, with the car's heading up), and In car (attached at driver eye height,
-following local road slope). In-car rendering hides the opaque car body. Only In car
-permits the rear-view mirror, including on mobile; its switch is in the menu. V cycles
+following local road slope). In-car rendering hides the car body. Lateral acceleration
+banks the cockpit outward up to six degrees, with a damped return as the car straightens.
+The reduced motion setting keeps roll level. Only In car permits the rear-view mirror,
+including on mobile. Its switch is in the menu. V cycles
 through the cameras, and M toggles the mirror while in car. Changing cameras snaps to the
 new pose. Camera poses are covered by
 [`sf-drive-camera.test.mjs`](../../public_html/src/js/__tests__/sf-drive-camera.test.mjs).
+
+In the two external views, trees and buildings in front of the car reveal it through
+a circular cutout sized to the projected car, with a three CSS pixel feather. The mask
+leaves terrain and the rear-view mirror intact. Collision still uses the full geometry.
 
 The touch pad captures each pointer until release or cancellation, supports simultaneous
 throttle/steering/braking, and prevents text selection, long-press callouts and double-tap
@@ -68,6 +69,11 @@ Steering travels gradually and returns to centre. A bicycle model runs at 120 Hz
 speed-dependent steering, a lateral tyre-grip limit, rolling resistance, aerodynamic drag,
 and gravity along the measured hill slope. Down/S brakes before engaging reverse; space
 brakes and holds the car on a hill. Off-road ground reduces grip and adds resistance.
+The GTI-inspired tune uses 350 hp, 420 N·m and a mass of 1,280 kg. Wheel force is
+limited by torque at low speed, available power at high speed, and traction. The model
+uses an idealised transmission, 88% drivetrain efficiency and a 250 km/h limiter.
+On level asphalt the 120 Hz simulation reaches 60 mph in 4.34 seconds and 155 mph at
+the limiter. These are game simulation results.
 The wheels steer and spin, and the body pitches with the terrain. Two rear brake lamps
 and a high centre lamp brighten when space is pressed, opposing throttle brakes the car,
 or recovery holds its brake.
@@ -107,7 +113,8 @@ filtered beacons/seeker/completion, a boundary overlay and separate best times. 
 The car holds its brake before the first driving input, which starts the clock. It measures real elapsed time, including crashes,
 recovery, loading and background time. Collected emojis survive respawns and tile unloading.
 Completing the fixed target set stops the clock and saves the five fastest personal times
-on this device, separately for each starting place and map manifest. New trial or choosing
+on this device, separately for each starting place, map manifest and driving tune. The GTI
+tune starts a fresh set of times. Earlier records stay in browser storage. New trial or choosing
 a different starting place resets the entire run; Reset car keeps the clock running.
 There is no shared leaderboard. When browser storage is unavailable, records last for the session.
 
@@ -118,9 +125,22 @@ projects their midpoint onto a named carriageway (including roads owned by a nei
 tile), and chooses a grounded intersection clear of buildings and trunks. Its manifest
 hash scopes saved records. The engine tests check complete tile coverage and unique emoji.
 
+City coverage draws the four S2 level-13 corners of each manifest token in the game's
+EPSG:7131 frame. The projected cell boundaries share corners across tiles. The map shows
+loaded and collected cells, a small white car arrow, the shoreline, larger park properties
+and major roads. The driving compass provides emoji guidance.
+
+The map uses the repository's [DataSF shoreline](https://data.sf.gov/d/rgcx-5tix),
+[Recreation and Parks Properties](https://data.sf.gov/d/gtr9-ntp6), and road classes 1–3
+from the existing tiles. The map simplifies these layers at city scale. Both DataSF
+polygon sources use the Public Domain Dedication and License. Regenerate
+`public_html/src/sf/coverage.json` with `python3 tools/sf-drive/build-coverage.py <parks.geojson>`
+using `s2sphere==0.2.5`, `pyproj==3.7.2` and `shapely==2.1.2`. The checked-in map uses
+the [December 2025 DataSF export](https://github.com/DasilvaKareem/sf_tourism_data/blob/1ace88d893f0b724c14949730b131099b88eca45/parks/recreation_parks.geojson).
+
 The map readout reports network response-body sizes for the currently loaded tiles, the
 complete city tile set, and the full game asset download (tiles, manifest, quest index,
-engine modules and three.js). It uses Resource Timing's `encodedBodySize`, so gzip/Brotli
+coverage map, engine modules and three.js). It uses Resource Timing's `encodedBodySize`, so gzip/Brotli
 responses count at their compressed size. Headers, protocol overhead, the page document,
 and favicon are excluded. Cached assets count at their encoded download size rather than
 zero; retries do not add the same file twice. This is the asset inventory, not a running
@@ -140,8 +160,11 @@ the terrain's own triangles. This gives each road point one surface;
 an independently interpolated asphalt mesh can no longer intersect the hill underneath.
 Adjacent overlapping ground grids are clipped at their nearest-origin boundaries, and
 height queries use the same triangle planes. Texture resolution is 2048 pixels per tile
-on desktop and 1024 on touch devices. Buildings, trees, signs, kerbs and source tile files
-retain their existing geometry.
+on desktop and 1024 on touch devices. Kerb lines also paint onto that texture. The
+previous raised strips interpolated only between endpoints, so long segments could
+float above or cut through hills. The paint follows every rendered terrain triangle
+and stops at gaps in the ground. Independent height samples can still disagree at terrain
+ownership seams.
 
 Centre dashes use a separate unlit vector-paint mesh, clipped to those exact same ground
 triangles and tile ownership boundaries. This keeps thin paint sharper than the mobile
@@ -196,7 +219,7 @@ decks, overpasses and tunnels need separate supported surfaces and connectivity.
 | Buildings                         | DataSF Building Footprints (`ynuv-fyni`, PDDL-1.0; 2010 heights) and roof planes fitted to USGS 3DEP lidar (flown April 2023, public domain) by Gerardus's city roof bake | Each roof face is a plane over its outline; walls stand on the City's outline. Faces whose lidar returns show canopy are given to a neighbour. Buildings without fitted roofs are boxes at their 2010 height                                                                                                          |
 | Structures the 2010 outlines lack | 3DEP lidar: solid, planar returns at least 3 m up with no footprint, or a footprint whose lidar top stands well above its 2010 height                                     | Flat tiers at 1.5 m steps, shaded violet. Salesforce Tower and other post-2010 towers appear this way                                                                                                                                                                                                                 |
 | Trees                             | DataSF Street Tree List (`tkzw-k3nq`, PDDL-1.0) inside the street right of way; 3DEP canopy tops elsewhere                                                                | A listed tree takes height and crown from the lidar canopy over it, or a size from its trunk diameter. No trunk stands on the carriageway                                                                                                                                                                             |
-| Roads                             | DataSF streets (`3psu-pn9h`), Curbs and Islands (`emxt-b6yg`, 2016), Right of Way (`h8n7-e4ns`), all PDDL-1.0                                                             | Asphalt between the kerbs, from each centreline's distance to the first kerb on either side; kerbs raised 15 cm; dashed centrelines on two-way streets                                                                                                                                                                |
+| Roads                             | DataSF streets (`3psu-pn9h`), Curbs and Islands (`emxt-b6yg`, 2016), Right of Way (`h8n7-e4ns`), all PDDL-1.0                                                             | Asphalt between the kerbs, from each centreline's distance to the first kerb on either side. Kerb lines follow the terrain and two-way streets have dashed centrelines.                                                                                                                                               |
 | Ground                            | 3DEP class-2 ground via Gerardus's city view tiles                                                                                                                        | An 8 m grid                                                                                                                                                                                                                                                                                                           |
 | Signposts                         | DataSF streets and street nodes; Curbs and Islands                                                                                                                        | A pole on each of two opposite corners wherever two or more named streets meet, 1 m past the corner kerb on the bisector between the streets (median-island kerbs skipped). Each street gets a green blade lined up with that street, lettered on both faces. DataSF's placeholder names ("Unnamed 186") are left off |
 
@@ -210,7 +233,7 @@ less a fixed origin, heights NAVD88.
 One gzipped JSON per S2 level-13 cell (about 1.1 km across, 157 cells with land), plus
 `manifest.json` listing each tile's origin and half-width and the named starting places. A tile owns
 the buildings, trees, roads and signs whose point falls inside its cell, so nothing is drawn twice.
-All tiles share one planar frame, so they meet without seams. Inside a tile, positions are integer
+All tiles share one planar frame. Inside a tile, positions are integer
 decimetres from the tile origin. Tile format version 2 writes a signpost as
 `[x, y, name id, blade angle, name id, blade angle, …]`, the angle in whole degrees from east, 0–179.
 

@@ -14,6 +14,7 @@ function sfDownloadAssets(root = __dirname) {
   const files = [
     ["tiles", "manifest.json", "src/sf/tiles/manifest.json"],
     ["tiles", "../quest-route.json", "src/sf/quest-route.json"],
+    ["tiles", "../coverage.json", "src/sf/coverage.json"],
     ...[
       "sf-drive.js",
       "sf-drive-core.js",
@@ -22,6 +23,7 @@ function sfDownloadAssets(root = __dirname) {
       "sf-touch-controls.js",
       "sf-district-trials.js",
       "sf-drive-camera.js",
+      "sf-car-reveal.js",
       "sf-road-markings.js",
       "sf-road-markings-worker.js",
       "sf-terrain-painter.js",

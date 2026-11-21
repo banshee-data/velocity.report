@@ -146,15 +146,22 @@ export function createTerrainPainter({
     add(token, entry) {
       if (disposed) return;
       remove(token);
+      const paintBounds = bounds([
+        ...entry.roads.flatMap((road) => road.polygon),
+        ...entry.markings.flat(),
+        ...(entry.kerbs ?? []).flat(),
+      ]);
+      // Include the half-width of the kerb stroke outside its centreline.
+      paintBounds[0] -= 0.15;
+      paintBounds[1] -= 0.15;
+      paintBounds[2] += 0.15;
+      paintBounds[3] += 0.15;
       const record = {
         token,
         entry,
         revision: 0,
         regionBounds: bounds(entry.region),
-        paintBounds: bounds([
-          ...entry.roads.flatMap((road) => road.polygon),
-          ...entry.markings.flat(),
-        ]),
+        paintBounds,
       };
       entries.set(token, record);
       send({

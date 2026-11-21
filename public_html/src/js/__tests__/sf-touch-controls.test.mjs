@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bindDrivingPad } from "../sf-touch-controls.js";
+import { bindDrivingPad, drivingInput } from "../sf-touch-controls.js";
+import { carStep } from "../sf-drive-core.js";
 
 class Button extends EventTarget {
   constructor(act) {
@@ -106,4 +107,21 @@ test("keyboard holds remain available without a click toggle", () => {
   assert.equal(p.state.throttle, 1);
   p.buttons.up.dispatchEvent(event("blur"));
   assert.equal(p.state.throttle, 0);
+});
+
+test("the touch brake stops the car and reverses only if it stays held", () => {
+  const p = pad();
+  const keys = new Set();
+  let car = { x: 0, y: 0, heading: 0, v: 8 };
+  p.buttons.brake.dispatchEvent(
+    event("pointerdown", { pointerId: 1, button: 0 }),
+  );
+  for (let i = 0; car.v > 0 && i < 120; i++)
+    car = carStep(car, drivingInput(keys, p.state), 1 / 120);
+  assert.equal(car.v, 0);
+  assert.ok(carStep(car, drivingInput(keys, p.state), 1 / 120).v < 0);
+  p.buttons.up.dispatchEvent(event("pointerdown", { pointerId: 2, button: 0 }));
+  assert.equal(carStep(car, drivingInput(keys, p.state), 1 / 120).v, 0);
+  p.control.clear();
+  assert.equal(carStep(car, drivingInput(keys, p.state), 1 / 120).v, 0);
 });

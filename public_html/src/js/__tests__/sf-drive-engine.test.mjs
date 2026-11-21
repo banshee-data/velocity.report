@@ -39,6 +39,14 @@ test("hills, rolling resistance and off-road surfaces affect the car", () => {
   );
 });
 
+test("the GTI tune reaches 60 mph in under five seconds and 155 mph on level asphalt", () => {
+  const throttle = { throttle: 1 };
+  assert.ok(drive(car(), throttle, 4).v * 2.23694 < 60);
+  assert.ok(drive(car(), throttle, 5).v * 2.23694 > 60);
+  assert.ok(drive(car(), throttle, 30).v * 2.23694 > 155);
+  assert.equal(drive(car(), { throttle: 1, brake: true }, 1).v, 0);
+});
+
 test("braking stops without reversing; reverse engages after braking", () => {
   assert.equal(drive(car(10), { brake: true }, 4).v, 0);
   const braking = drive(car(10), { throttle: -1 }, 0.5);
@@ -53,6 +61,8 @@ test("steering takes time, unwinds, and respects lateral grip at speed", () => {
   const turned = drive(car(25), { steer: 1 }, 1);
   const next = carStep(turned, { steer: 1 }, 1 / 120);
   assert.ok(Math.abs((next.heading - turned.heading) * 120 * next.v) <= 7.501);
+  assert.ok(next.lateralAcceleration > 0 && next.lateralAcceleration <= 7.501);
+  assert.equal(carStep(car(), { steer: 1 }, 1 / 120).lateralAcceleration, 0);
   assert.ok(Math.abs(drive(turned, {}, 1).steering) < 0.001);
   assert.equal(drive(car(), { steer: 1 }, 1).heading, 0, "no rotation at rest");
 });
