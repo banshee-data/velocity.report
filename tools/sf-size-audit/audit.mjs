@@ -175,6 +175,9 @@ counts.tree_positions_repeated = [...treeSeen.values()].filter(
 ).length;
 counts.ground_grid_step_m = tiles[0].d.g.s;
 counts.ground_area_km2_gridded = (counts.ground_nodes * 64) / 1e6;
+counts.ground_nodes_kept_once_with_boundary = sum(
+  tiles.map((t) => groundKeep(t).reduce((a, b) => a + b, 0)),
+);
 
 // ---- 4. the same data in a compact binary encoding ------------------------
 // Zig-zag LEB128 varints of deltas, one column at a time (the scheme of the
@@ -303,7 +306,7 @@ function encTrees(posStepDm) {
 
 const nameIndex = new Map([...nameSet].sort().map((n, i) => [n, i]));
 function encRoads(withWidths) {
-  const c = cols(["name", "cls", "dir", "nv", "x", "y", "wl", "wr"]);
+  const c = cols(["name", "cls", "dir", "nv", "x", "y", "hasw", "wl", "wr"]);
   let px = 0,
     py = 0;
   for (const t of tiles)
@@ -321,7 +324,9 @@ function encRoads(withWidths) {
         py = y;
       }
       if (!withWidths) continue;
+      // 177 roads ship without widths, and the game skips them; flag which
       const w = r[4];
+      c.hasw.u(w.length ? 1 : 0);
       let pl = 0,
         pr = 0;
       for (let i = 0; i < w.length; i += 2) {
@@ -370,14 +375,43 @@ function encSigns() {
   return pack(c);
 }
 const encNames = () => Buffer.from([...nameIndex.keys()].join("\n"));
-// ground as shipped (every tile's whole grid) or only the nodes nearest the
-// tile's own origin (each place once); valid heights delta-coded in row
-// order, gaps kept as alternating run lengths (valid, missing, valid, ...)
+// ground as shipped (every tile's whole grid) or each place once: the nodes
+// nearest the tile's own origin, plus the ring of nodes beside them, which
+// the renderer's boundary triangles still use (terrainTriangles builds whole
+// grid quads, then clips them to the tile's region). Valid heights are
+// delta-coded in row order, gaps kept as alternating run lengths (valid,
+// missing, valid, ...).
+function groundKeep(t) {
+  const g = t.d.g;
+  const owned = new Uint8Array(g.n * g.n);
+  for (let j = 0; j < g.n; j++)
+    for (let i = 0; i < g.n; i++)
+      owned[j * g.n + i] = nearerElsewhere(
+        t,
+        t.d.o[0] + g.x0 + i * g.s,
+        t.d.o[1] + g.y0 + j * g.s,
+      )
+        ? 0
+        : 1;
+  // a node is kept when it or a node in any quad it shares is owned
+  const keep = new Uint8Array(g.n * g.n);
+  for (let j = 0; j < g.n; j++)
+    for (let i = 0; i < g.n; i++) {
+      if (!owned[j * g.n + i]) continue;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const a = i + di,
+            b = j + dj;
+          if (a >= 0 && b >= 0 && a < g.n && b < g.n) keep[b * g.n + a] = 1;
+        }
+    }
+  return keep;
+}
 function encGround(ownOnly) {
   const c = cols(["hdr", "gap", "z"]);
   for (const t of tiles) {
     const g = t.d.g;
-    const [ox, oy] = t.d.o;
+    const keep = ownOnly ? groundKeep(t) : null;
     c.hdr.s(Math.round(g.x0));
     c.hdr.s(Math.round(g.y0));
     c.hdr.u(g.n);
@@ -386,11 +420,7 @@ function encGround(ownOnly) {
       run = 0;
     for (let j = 0; j < g.n; j++)
       for (let i = 0; i < g.n; i++) {
-        if (
-          ownOnly &&
-          nearerElsewhere(t, ox + g.x0 + i * g.s, oy + g.y0 + j * g.s)
-        )
-          continue;
+        if (keep && !keep[j * g.n + i]) continue;
         const z = g.z[j * g.n + i];
         if ((z === -32768) !== missing) {
           c.gap.u(run);
