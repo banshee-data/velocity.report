@@ -100,6 +100,12 @@ eleventyExcludeFromCollections: true
     .pad { gap: 6px; }
     .pad button { width: 48px; height: 48px; font-size: 25px; }
   }
+  body[data-solo="true"] .seeker, body[data-solo="true"] .map,
+  body[data-solo="true"] #desktopMap, body[data-solo="true"] .details,
+  body[data-solo="true"] #trialArea, body[data-solo="true"] label[for="trialArea"],
+  body[data-solo="true"] #places, body[data-solo="true"] label[for="places"] { display: none; }
+  body:not([data-solo="true"]) #soloDetails { display: none; }
+  #soloTrace { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
 </style>
 </head>
 <body>
@@ -133,6 +139,8 @@ eleventyExcludeFromCollections: true
     <form method="dialog"><button class="icon-button" aria-label="Close settings">×</button></form>
   </div>
   <div class="tools">
+    <label for="gameMode">Game mode</label>
+    <select id="gameMode"><option value="city">City emoji time trial</option><option value="solo">Solo safety practice</option></select>
     <label for="viewMode">Camera</label>
     <select id="viewMode">
       <option value="zoomed" selected>Zoomed out</option>
@@ -149,6 +157,15 @@ eleventyExcludeFromCollections: true
       <button type="button" id="respawnBtn">Reset car</button>
     </div>
   </div>
+  <section id="soloDetails" aria-labelledby="soloTitle">
+    <h2 id="soloTitle">Solo safety practice</h2>
+    <p>Drive east over the crest to the white finish line, 300 m from the start. Close this menu and accelerate to begin. Stay on the road; there is no reward for faster time.</p>
+    <p>This is an authored practice course, not Harrison or a surveyed street. The practice limit is 20 mph up to the gold line; the last 50 m has an unknown limit. Kerbs are authored at 15 cm.</p>
+    <p>Opening the menu pauses driving and excludes that simulation time. Restarting aborts this attempt and starts fresh; city pickups and records stay separate.</p>
+    <p id="soloSummary"></p>
+    <details><summary>Event evidence (simulation seconds)</summary><pre id="soloTrace"></pre></details>
+    <details><summary>Previous attempt (this session)</summary><p id="soloPrevious">No previous attempt.</p></details>
+  </section>
   <div class="details" aria-label="Emoji time trial">
     <div class="title" id="trialTitle">San Francisco emoji rally</div>
     <progress id="progressBar" value="0" max="1" aria-label="Emojis collected"></progress>
@@ -188,6 +205,7 @@ eleventyExcludeFromCollections: true
     base: "{{ '/sf/tiles/' | url }}",
     downloadAssets: {{ sfDownloadAssets | safe }},
     hud: {
+      gameMode: $("gameMode"), soloSummary: $("soloSummary"), soloTrace: $("soloTrace"), soloPrevious: $("soloPrevious"),
       street: $("street"), next: $("next"), speed: $("speed"), compass: $("compass"), tiles: $("tiles"),
       places: $("places"), mirrorBtn: $("mirrorBtn"), viewMode: $("viewMode"), mirrorFrame: $("mirrorFrame"),
       menu: $("gameMenu"), menuBtn: $("menuBtn"), driveBar: $("driveBar"),

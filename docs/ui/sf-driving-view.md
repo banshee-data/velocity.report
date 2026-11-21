@@ -25,8 +25,9 @@ feedback-loop questions, and future autonomous-traffic contracts. The
 discussion, implementation, and review; agent instructions route SF game changes to it.
 
 The [safer driving plan](../plans/ui-sf-safer-driving-plan.md) proposes a solo safety
-mode and a repeatable following and downhill braking scenario. It does not change the
-current time trial.
+mode and a repeatable following and downhill braking scenario. The optional
+[solo practice slice](sf-solo-practice.md) implements Milestone 1 on an explicitly
+authored course; its contact model and evidence remain separate from the city time trial.
 
 ## Driving and time trials
 

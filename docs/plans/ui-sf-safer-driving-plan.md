@@ -28,13 +28,20 @@ a safety score.
 Controls and cues sit under **UI**, not a separate anchor. Keep the live driving
 view clear; richer feedback belongs at a stop or at the end of a run.
 
+The [implemented solo practice slice](../ui/sf-solo-practice.md) supplies a controlled
+fixture, separate run lifecycle and evidence-first results. The Harrison/Beale road-level attribution,
+city-route applicability and production weights remain unresolved; this does not close
+all milestone acceptance gates.
+
 ## Milestone 1: Solo driving and a credible crest
 
 ### World and Physics: separate the reported dip from an actual crest
 
-The dip was reported as likely on Harrison; the exact segment, direction, and cause are
-unverified. First locate and reproduce it with a route, direction, speed, coordinates, tile
-and manifest revision, and a trace of road/ground height and tyre contact. Compare the
+David located the dip at Harrison Street and Beale Street. The
+[Milestone 1 investigation](../ui/sf-solo-practice.md#harrison-at-beale-reproduced-dip-unresolved-road-level-attribution)
+reproduces the baked height valley in both directions with pinned geometry and contact
+traces; the correct road level and source cause remain unverified. Preserve route,
+direction, speed, coordinates, tile and manifest revision when comparing a fix. Compare the
 height profile with the source geometry. Check tile seams, interpolation, draped asphalt,
 and contact calculations before deciding that the tile is wrong. If a map fault is verified,
 repair or rebake only the affected tile or dependency set, then repeat the same approach
@@ -148,7 +155,7 @@ separation that the map cannot distinguish.
 
 ## Decisions before implementation
 
-1. Confirm the first repeatable solo and downhill routes and locate the reported dip.
+1. Confirm the first repeatable solo and downhill routes and verify road-level attribution at Harrison/Beale.
 2. Pick posted-limit and approach-control sources, identify unknown coverage, and distinguish
    verified street features from authored scenario inputs.
 3. Decide what happens to pickups and time trials when the proposed safety mode becomes the
