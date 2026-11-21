@@ -10,7 +10,7 @@ validated, and what to improve next.
 
 ## Summary
 
-The whole of San Francisco now ships as a drivable map: 157 tiles, 30 MB, with lidar-fitted roofs, reconciled street trees, kerbed roads and named signposts, in PR [velocity.report #1085](https://github.com/banshee-data/velocity.report/pull/1085). The same geometry in a compact binary encoding measured about 9.5 MB for the city (level S6).
+The whole of San Francisco now ships as a drivable map: 157 tiles, 30 MB, with lidar-fitted roofs, reconciled street trees, kerbed roads and named signposts, in PR [velocity.report #1085](https://github.com/banshee-data/velocity.report/pull/1085). The study's estimate for level S6 was about 9.5 MB in a compact binary encoding under Brotli, but for fewer layers (no ground, signposts or kerb widths) and scaled from three test windows; the [size reconciliation](sf-city-map-size-reconciliation.md) traces the 30 MB to it.
 
 The work ran in nine rounds between 2026-11-18 and 2026-11-20, each driven by the owner's review of the last:
 
@@ -87,7 +87,7 @@ The three families are not like for like: the S levels carry trees (about 1.6 MB
 | L4–L6       | DataSF outlines as flat-topped boxes at 2010 height   | every roof shape; L6 also sheds and 1 m detail                | not scored (no roofs)                                  |
 | L7–L8       | merged blocks, a skyline                              | individual buildings                                          | not scored                                             |
 
-The game tiles carry S6 roofs but as gzipped JSON in integer decimetres, 30 MB in all: readable and easy to decode, three times the compact size.
+The S-level totals are estimates: roofs and trees scaled from the three windows, with no ground, signposts or kerb widths. The game tiles carry S6 roofs as gzipped JSON in integer decimetres, with those extra layers, 30,169,632 bytes in all; the [size reconciliation](sf-city-map-size-reconciliation.md) accounts for the difference.
 
 ## Roof geometry decisions
 
