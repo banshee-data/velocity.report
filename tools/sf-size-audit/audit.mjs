@@ -207,15 +207,17 @@ const city = (t, x, y) => [
 ];
 
 function encBuildings(welded) {
-  const c = cols(["nf", "nv", "x", "y", "z", "zb", "idx", "flag"]);
+  const c = cols(["nf", "nr", "nv", "x", "y", "z", "zb", "idx", "flag"]);
   let px = 0,
     py = 0;
   for (const t of tiles)
     for (const b of t.d.b) {
       c.zb.s(b[0]);
       c.flag.u(b[2] === 1 ? 1 : 0);
+      // faces, then each face's ring count: its outer ring and holes
+      c.nf.u(b[1].length);
+      for (const face of b[1]) c.nr.u(face.length);
       const rings = b[1].flat();
-      c.nf.u(rings.length);
       if (!welded) {
         for (const ring of rings) {
           c.nv.u(ring.length / 3);
@@ -368,16 +370,19 @@ function encSigns() {
 }
 const encNames = () => Buffer.from([...nameIndex.keys()].join("\n"));
 // ground as shipped (every tile's whole grid) or only the nodes nearest the
-// tile's own origin (each place once); rows delta-coded, gaps kept
+// tile's own origin (each place once); valid heights delta-coded in row
+// order, gaps kept as alternating run lengths (valid, missing, valid, ...)
 function encGround(ownOnly) {
-  const c = cols(["hdr", "z"]);
+  const c = cols(["hdr", "gap", "z"]);
   for (const t of tiles) {
     const g = t.d.g;
     const [ox, oy] = t.d.o;
     c.hdr.s(Math.round(g.x0));
     c.hdr.s(Math.round(g.y0));
     c.hdr.u(g.n);
-    let prev = 0;
+    let prev = 0,
+      missing = false,
+      run = 0;
     for (let j = 0; j < g.n; j++)
       for (let i = 0; i < g.n; i++) {
         if (
@@ -386,10 +391,18 @@ function encGround(ownOnly) {
         )
           continue;
         const z = g.z[j * g.n + i];
-        const v = z === -32768 ? prev : z;
-        c.z.s(v - prev);
-        prev = v;
+        if ((z === -32768) !== missing) {
+          c.gap.u(run);
+          missing = !missing;
+          run = 0;
+        }
+        run += 1;
+        if (!missing) {
+          c.z.s(z - prev);
+          prev = z;
+        }
       }
+    c.gap.u(run);
   }
   return pack(c);
 }

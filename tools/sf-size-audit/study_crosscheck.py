@@ -129,7 +129,7 @@ centres = {
 }
 cal = {}
 for k, (cx, cy) in centres.items():
-    cols = {n: bytearray() for n in ("nf", "nv", "x", "y", "z", "zb", "flag")}
+    cols = {n: bytearray() for n in ("nf", "nr", "nv", "x", "y", "z", "zb", "flag")}
     px = py = n = 0
     for d in tiles:
         ox, oy = d["o"]
@@ -140,8 +140,11 @@ for k, (cx, cy) in centres.items():
             n += 1
             uv(cols["zb"], zz(b[0]))
             uv(cols["flag"], 1 if len(b) > 2 and b[2] == 1 else 0)
+            # faces, then each face's ring count (outer ring and holes)
+            uv(cols["nf"], len(b[1]))
+            for face in b[1]:
+                uv(cols["nr"], len(face))
             rings = [r for f in b[1] for r in f]
-            uv(cols["nf"], len(rings))
             for ring in rings:
                 uv(cols["nv"], len(ring) // 3)
                 pz = b[0]
