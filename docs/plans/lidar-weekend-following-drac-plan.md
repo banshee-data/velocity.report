@@ -44,6 +44,10 @@ review exposed broad intervals and a width disagreement, so full-shell physical 
 promotion into following measurements remain open. No validation-cohort recording was added to
 the development batch.
 
+The [experimental survey DRAC report](../lidar/operations/survey-experimental-drac.md)
+tracks the first three published development summaries, with scoped follower-time,
+episode-peak bands and the remaining archive preparation work.
+
 The [Broderick VV software walkthrough](../lidar/operations/broderick-vv-walkthrough-2026-11.md)
 records the one-action review and timeline checks, the isolated uncertain audit, and the
 attached-drive build diagnosis. It does not close the operator or physical qualification gates.

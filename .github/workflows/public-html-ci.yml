@@ -11,6 +11,7 @@ on:
     types: [opened, reopened, synchronize]
     paths:
       - "public_html/**"
+      - "docs/lidar/operations/survey-experimental-drac.md"
       - "Makefile"
       - ".github/workflows/public-html-ci.yml"
       - ".github/actions/setup-node-pnpm/**"

@@ -69,6 +69,10 @@ subsequent replay/export coverage and rendered acceptance checks.
   reaches `src/_data/scenes.json` through `make render-scene-data`, which needs no archive. Sites
   default to 25 mph, San Francisco's default, until each sign has been checked; a blank value means
   unknown, and the page then shows speeds without a limit line or an over-limit share.
+- **Experimental DRAC.** A survey's card reads the reviewed headline table in the
+  [three-site report](../docs/lidar/operations/survey-experimental-drac.md), keyed by site
+  and published capture name. The static build uses those aggregates and the report link.
+  Prepared recordings, review slices and replay output stay on the attached evidence drive.
 - **Generated, never edited.** `src/_data/scenes.json` and `src/_includes/scene-map.svg` are
   written by `make render-scene-data` from the field marks, the overrides and the site index, and
   each published site's page is paginated from `scenes.json` by `src/scenes/survey-pages.11ty.js`.

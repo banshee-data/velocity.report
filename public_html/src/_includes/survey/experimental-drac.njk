@@ -1,0 +1,24 @@
+{% set drac = site.experimentalDRAC %}
+<section class="sv-card sv-family sv-drac" id="experimental-drac" aria-labelledby="experimental-drac-title">
+  <div class="sv-card__head">
+    <h2 class="sv-card__title" id="experimental-drac-title">Experimental DRAC</h2>
+    <span class="sv-mono sv-small">Research estimate · <time datetime="{{ drac.date }}">{{ drac.date }}</time></span>
+  </div>
+  <div class="sv-stack sv-standard">
+    <p class="sv-note">Deceleration rate to avoid a crash estimates the braking needed if two vehicles continue along the same path and the leader holds its speed.</p>
+    <p><b>{{ drac.supported | fixed1 }} of {{ drac.accounted | fixed1 }} follower-seconds</b> supported an estimate across {{ (drac.stationary / 60) | fixed1 }} minutes of stationary capture.</p>
+    {% if drac.episodes %}
+      <h3 class="sv-eyebrow">Peak demand per supported episode · m/s²</h3>
+      <ul class="sv-bands">
+        {% for band in drac.bands %}
+          <li><span class="sv-mono">{{ band.label | escape }}</span><span class="sv-bands__track" aria-hidden="true"><span style="width: {{ band.bar | round(1) }}%"></span></span><span class="sv-bands__value">{{ band.count }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="sv-note">{{ drac.episodes }} episodes. Each is a continuous sequence with the same software follower and leader. One vehicle may contribute more than one episode.</p>
+    {% else %}
+      <p class="sv-note">No supported episodes in this analysis.</p>
+    {% endif %}
+    <p class="sv-note">This separate replay analysis uses catalogued stationary periods. The estimates await independent checks of bumper gaps and closing speeds.</p>
+    <p class="sv-note"><a href="https://github.com/banshee-data/velocity.report/blob/main/docs/lidar/operations/survey-experimental-drac.md">Methods, coverage and exclusions</a></p>
+  </div>
+</section>

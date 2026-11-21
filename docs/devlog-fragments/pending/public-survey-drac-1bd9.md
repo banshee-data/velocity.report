@@ -1,0 +1,1 @@
+- Reduced experimental DRAC across the three prepared development captures and added [capture-bound survey summaries](../../lidar/operations/survey-experimental-drac.md) with scoped exposure and episode-peak bands.
