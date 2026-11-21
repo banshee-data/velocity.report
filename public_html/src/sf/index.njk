@@ -29,137 +29,150 @@ eleventyExcludeFromCollections: true
       --tree: #6f9a5c; --trunk: #5a4a39; --pole: #9aa3a9; --sign: #217a4a; --car: #2dd4bf; --car-dark: #138a7c;
     }
   }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { height: 100%; margin: 0; }
   body { background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
   #drive { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  .panel { position: fixed; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; }
-  .where { left: max(12px, env(safe-area-inset-left, 0px)); top: max(12px, env(safe-area-inset-top, 0px)); min-width: 210px; max-width: 42vw; display: grid; gap: 4px; }
-  .where .street { font-weight: 700; font-size: 18px; }
-  .where .next { color: var(--muted); min-height: 1.2em; }
-  .where .meta { display: flex; gap: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .where .speed { color: var(--ink); font-weight: 600; }
-  .tools { right: max(12px, env(safe-area-inset-right, 0px)); top: max(12px, env(safe-area-inset-top, 0px)); display: grid; gap: 8px; max-width: 260px; }
-  .tools label { font-size: 12px; color: var(--muted); }
-  .tools select { width: 100%; font: inherit; font-size: 16px; padding: 6px; border-radius: 6px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); }
-  .tools button { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
-  .tools .row { display: flex; gap: 6px; }
-  .tools button, .pad button { font: 600 13px/1 inherit; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); cursor: pointer; }
-  .tools button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .quest { left: max(12px, env(safe-area-inset-left, 0px)); top: 128px; width: 240px; display: grid; gap: 6px; }
-  .quest .title, .map .title { font-weight: 700; }
-  .quest .timer { font: 700 28px/1.2 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-  .quest progress { width: 100%; height: 7px; accent-color: var(--accent); }
-  .quest .target { font-weight: 600; }
-  .quest .detail, .map .detail { color: var(--muted); font-size: 11px; }
-  .quest .status { font-size: 12px; min-height: 2.8em; }
-  .seeker { display: flex; align-items: center; gap: 10px; border-block: 1px solid var(--rule); padding: 5px 0; }
-  #seekerCompass { width: 120px; height: 120px; display: block; flex: none; }
-  .seeker-copy { display: grid; gap: 3px; min-width: 0; }
-  .seeker-copy strong { font-size: 12px; }
-  #seekerDistance { font-size: 20px; font-weight: 750; font-variant-numeric: tabular-nums; }
-  #seekerTurn { color: var(--accent); font-weight: 750; font-size: 14px; }
-  #seekerHeading { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; }
+  .drive-bar { position: fixed; top: max(8px, env(safe-area-inset-top, 0px)); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); height: 48px; max-width: 620px; display: flex; align-items: center; gap: 10px; padding: 2px 2px 2px 10px; }
+  .where { flex: 1; min-width: 0; line-height: 1.25; }
+  .street, .next { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .street { font-weight: 700; font-size: 13px; }
+  .next { color: var(--muted); font-size: 11px; min-height: 14px; }
+  .drive-bar[data-crash="true"] .next { color: #f97316; font-weight: 700; }
+  .speed { font-size: 12px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .run { text-align: right; white-space: nowrap; font-size: 10px; color: var(--muted); }
+  .timer { display: block; color: var(--ink); font: 700 14px/1.2 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  button, select { font: inherit; color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
+  button { cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   button:disabled { opacity: 0.5; cursor: default; }
-  .map { right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); width: 260px; }
-  #minimap { display: block; width: 100%; height: 235px; }
-  .map .legend { display: flex; gap: 10px; font-size: 11px; }
-  .map .loaded { color: #0f9383; } .map .collected { color: #b38120; }
-  button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .mirror { position: fixed; border: 3px solid #111; border-radius: 10px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
-  .help { left: max(12px, env(safe-area-inset-left, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); max-width: min(560px, calc(100vw - 340px)); font-size: 12px; color: var(--muted); }
-  .help p { margin: 0 0 4px; }
-  .help a { color: var(--accent); }
-  .pad { position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: none; grid-template-columns: repeat(3, 56px); gap: 6px; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .icon-button { width: 44px; height: 44px; flex: none; font-size: 22px; }
+  .seeker { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: max(8px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 8px; width: 192px; height: 88px; padding: 6px; background: #12232ef2; color: #fff; border: 2px solid #fbbf24; border-radius: 14px; pointer-events: none; }
+  #seekerCompass { width: 72px; height: 72px; display: block; flex: none; }
+  .seeker-copy { display: grid; gap: 2px; min-width: 0; line-height: 1.2; }
+  #seekerDistance { order: -1; font-size: 19px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #seekerTurn { color: #fde68a; font-size: 12px; }
+  #seekerScope { font-size: 10px; font-weight: 400; color: #d4dce2; }
+  #seekerHeading { font-size: 10px; color: #d4dce2; }
+  .mirror { position: fixed; border: 2px solid #111; border-radius: 8px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+  .pad { position: fixed; bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: none; gap: 8px; }
+  .steering { left: max(12px, env(safe-area-inset-left, 0px)); }
+  .pedals { right: max(12px, env(safe-area-inset-right, 0px)); }
   .pad, .pad button { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-  .pad button { height: 56px; font-size: 24px; -webkit-tap-highlight-color: transparent; }
+  .pad button { width: 56px; height: 56px; padding: 0; font-size: 28px; font-weight: 750; -webkit-tap-highlight-color: transparent; box-shadow: 0 2px 12px #0003; }
+  .pedals [data-act="up"] { border-color: var(--accent); }
   .pad button.held { background: var(--accent); color: #fff; border-color: var(--accent); transform: translateY(2px); }
+  dialog { width: min(380px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 16px; color: var(--ink); overscroll-behavior: contain; overflow-y: auto; }
+  dialog::backdrop { background: #071018a6; }
+  .menu-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .menu-heading h1 { font-size: 18px; margin: 0; }
+  .tools { display: grid; gap: 8px; }
+  .tools label { font-size: 12px; color: var(--muted); }
+  .tools select { width: 100%; min-height: 44px; font-size: 16px; padding: 6px; }
+  .tools .row { display: flex; gap: 8px; }
+  .tools button { min-height: 44px; padding: 8px 12px; flex: 1; }
+  .tools button[aria-pressed="true"] { border-color: var(--accent); }
+  .details, .map, .help { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--rule); }
+  .title { font-weight: 700; }
+  .detail, .legend, .meta, .help { font-size: 11px; color: var(--muted); }
+  .meta, .legend { display: flex; flex-wrap: wrap; gap: 10px; }
+  .details { display: grid; gap: 6px; }
+  .details progress { width: 100%; height: 7px; accent-color: var(--accent); }
+  #minimap { display: block; width: 100%; height: 220px; }
+  .map .loaded { color: #0f9383; } .map .collected { color: #b38120; }
+  .help p { margin: 0 0 8px; }
+  .help a { color: var(--accent); }
   kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
-  @media (pointer: coarse) { .pad { display: grid; } .help, #mirrorBtn { display: none; } .map { bottom: 210px; } }
-  @media (max-width: 760px) {
-    .where { min-width: 0; max-width: calc(100vw - 172px); } .where .street { font-size: 15px; }
-    .where .meta { gap: 6px; font-size: 11px; }
-    .tools { width: 120px; gap: 4px; } .tools .row { flex-wrap: nowrap; }
-    .tools button { padding: 7px 5px; font-size: 10px; flex: 1; white-space: nowrap; }
-    #mirrorBtn { display: none; }
-    .quest { top: 142px; width: 160px; font-size: 12px; padding: 8px; }
-    .quest .timer { font-size: 23px; }
-    .seeker { gap: 6px; display: grid; justify-items: center; text-align: center; } #seekerCompass { width: 112px; height: 112px; }
-    .seeker-copy strong, #seekerHeading { font-size: 10px; }
-    .map { width: 140px; top: 236px; bottom: auto; padding: 8px; }
-    #minimap { height: 170px; } .map .legend { gap: 5px; flex-wrap: wrap; }
-    .help { display: none; } .mirror { display: none; }
-  }
-  @media (max-width: 760px) and (max-height: 740px) { .quest .detail, .quest .target, .map .detail { display: none; } .seeker { display: flex; text-align: left; } #seekerCompass { width: 88px; height: 88px; } #seekerDistance { font-size: 16px; } #seekerTurn { font-size: 11px; } #minimap { height: 120px; } }
-  @media (max-height: 520px) {
-    .quest { top: 108px; gap: 3px; }
-    .quest .detail, .quest .target, #records, .help, .map .detail { display: none; }
-    .map { top: auto; bottom: 12px; right: 215px; width: 160px; }
-    #minimap { height: 110px; } #seekerCompass { width: 80px; height: 80px; }
-    .seeker { padding: 2px 0; } .quest .status { min-height: 0; }
-    .tools { width: 180px; gap: 3px; padding: 8px; }
-    .tools label { font-size: 10px; line-height: 1; }
-    .tools select { font-size: 16px; padding: 3px; height: 30px; }
-    .tools button { font-size: 10px; padding: 6px; }
+  @media (pointer: coarse), (max-width: 760px) { .pad { display: flex; } }
+  @media (max-height: 600px) {
+    .seeker { width: 160px; height: 64px; padding: 2px; gap: 4px; }
+    #seekerCompass { width: 56px; height: 56px; }
+    #seekerDistance { font-size: 16px; }
+    #seekerHeading { display: none; }
+    #seekerTurn { font-size: 11px; }
+    .pad { gap: 6px; }
+    .pad button { width: 48px; height: 48px; font-size: 25px; }
   }
 </style>
 </head>
 <body>
-<canvas id="drive" aria-label="3D view of San Francisco from behind your car"></canvas>
-<div class="mirror" id="mirrorFrame" aria-hidden="true"></div>
-<div class="panel where" aria-live="polite">
-  <div class="street" id="street">Loading the city around you…</div>
-  <div class="next" id="next"></div>
-  <div class="meta"><span class="speed" id="speed">0 mph</span><span id="compass">N</span><span id="tiles">0 tiles</span></div>
-</div>
-<div class="panel tools">
-  <label for="trialArea">Time trial</label>
-  <select id="trialArea" aria-label="Time trial area"></select>
-  <label for="places">Start from</label>
-  <select id="places"></select>
-  <div class="row">
-    <button type="button" id="mirrorBtn" aria-pressed="true">Mirror</button>
-    <button type="button" id="viewBtn" aria-pressed="false">High view</button>
+<canvas id="drive" aria-label="Zoomed-out 3D view of San Francisco"></canvas>
+<div class="mirror" id="mirrorFrame" aria-hidden="true" hidden></div>
+<header class="panel drive-bar" id="driveBar" aria-label="Driving status">
+  <div class="where">
+    <div class="street" id="street">Loading the city…</div>
+    <div class="next" id="next" role="status"></div>
   </div>
-  <div class="row">
-    <button type="button" id="restartBtn">New trial</button>
-    <button type="button" id="respawnBtn">Reset car</button>
+  <span class="speed" id="speed">0 mph</span>
+  <div class="run">
+    <span class="timer" id="timer" role="timer" aria-label="Elapsed trial time">0:00.00</span>
+    <span id="progress">0 emojis</span>
+  </div>
+  <button type="button" class="icon-button" id="menuBtn" aria-label="Map and game settings" aria-haspopup="dialog" aria-controls="gameMenu" aria-expanded="false">☰</button>
+</header>
+<div class="seeker" aria-label="Direction to next emoji">
+  <canvas id="seekerCompass" width="144" height="144" role="img" aria-label="Direction to the next emoji, relative to the car"></canvas>
+  <div class="seeker-copy">
+    <strong id="seekerTurn">Follow arrow</strong>
+    <span id="seekerScope">This tile</span>
+    <span id="seekerDistance"></span>
+    <span id="seekerHeading"></span>
   </div>
 </div>
-<div class="panel quest" aria-label="Emoji time trial">
-  <div class="title" id="trialTitle">San Francisco emoji rally</div>
-  <div class="timer" id="timer" role="timer" aria-label="Elapsed trial time">0:00.00</div>
-  <div id="progress">Loading the quest…</div>
-  <progress id="progressBar" value="0" max="1" aria-label="Emojis collected"></progress>
-  <div class="seeker" aria-label="Emoji compass seeker">
-    <canvas id="seekerCompass" width="96" height="96" role="img" aria-label="Compass and direction to the emoji on this tile"></canvas>
-    <div class="seeker-copy">
-      <strong id="seekerTurn">Follow the arrow</strong>
-      <strong id="seekerScope">This tile</strong>
-      <span id="seekerDistance"></span>
-      <span id="seekerHeading"></span>
+<dialog class="panel" id="gameMenu" aria-labelledby="menuTitle">
+  <div class="menu-heading">
+    <h1 id="menuTitle">Map &amp; game</h1>
+    <form method="dialog"><button class="icon-button" aria-label="Close settings">×</button></form>
+  </div>
+  <div class="tools">
+    <label for="viewMode">Camera</label>
+    <select id="viewMode">
+      <option value="zoomed" selected>Zoomed out</option>
+      <option value="overhead">Overhead</option>
+      <option value="incar">In car</option>
+    </select>
+    <button type="button" id="mirrorBtn" aria-pressed="true" hidden>Rear-view mirror</button>
+    <label for="trialArea">Time trial</label>
+    <select id="trialArea" aria-label="Time trial area"></select>
+    <label for="places">Start from</label>
+    <select id="places"></select>
+    <div class="row">
+      <button type="button" id="restartBtn">New trial</button>
+      <button type="button" id="respawnBtn">Reset car</button>
     </div>
   </div>
-  <div class="target" id="target"></div>
-  <div class="status" id="status" role="status">Drive to start the clock.</div>
-  <div class="detail" id="best">Personal best —</div>
-  <div class="detail" id="records"></div>
+  <div class="details" aria-label="Emoji time trial">
+    <div class="title" id="trialTitle">San Francisco emoji rally</div>
+    <progress id="progressBar" value="0" max="1" aria-label="Emojis collected"></progress>
+    <div id="target"></div>
+    <div id="status">Drive to start the clock.</div>
+    <div class="detail" id="best">Personal best —</div>
+    <div class="detail" id="records"></div>
+    <div class="meta"><span id="compass">N</span><span id="tiles">0 tiles</span></div>
+  </div>
+  <div class="map" aria-label="City minimap and assets">
+    <div class="title">City coverage</div>
+    <canvas id="minimap" role="img" aria-label="North-up minimap: loaded tiles in teal, collected tiles in gold, your car in white, and a line to the emoji on this tile or the next target."></canvas>
+    <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span><span>● Quest</span></div>
+    <div class="detail" id="assets"></div>
+    <div class="detail" id="gameSize"></div>
+    <div class="detail" id="coverage"></div>
+  </div>
+  <div class="help">
+    <p>Steer with the left thumb; accelerate and brake with the right. Hold each button to drive. Follow the gold arrow to the indicated emoji. Camera choices are Zoomed out, Overhead and In car. The mirror is available only in car view.</p>
+    <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive/reverse, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror in car, <kbd>V</kbd> cycle cameras, <kbd>R</kbd> return to an intersection. A crash spins the car for 2 seconds, then resets it; the clock keeps running. New trial or a new start resets the run. The clock also continues while this menu is open.</p>
+    <p>Measured geometry as context, not a survey or a plan: building outlines and 2010 heights from DataSF (PDDL), roofs fitted to USGS 3DEP lidar flown April 2023 (public domain), street trees from DataSF's Street Tree List with lidar canopy, streets, kerbs (2016) and street names from DataSF. Buildings 3DEP sees that the City's 2010 outlines lack are shaded violet. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">About this data</a>.</p>
+  </div>
+</dialog>
+<div class="pad steering" role="group" aria-label="Steering controls">
+  <button type="button" data-act="left" aria-label="Steer left">←</button>
+  <button type="button" data-act="right" aria-label="Steer right">→</button>
 </div>
-<div class="panel map" aria-label="City minimap and assets">
-  <div class="title">City coverage</div>
-  <canvas id="minimap" role="img" aria-label="North-up minimap: loaded tiles in teal, collected tiles in gold, your car in white, and a line to the emoji on this tile or the next target."></canvas>
-  <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span><span>● Quest</span></div>
-  <div class="detail" id="assets"></div>
-  <div class="detail" id="gameSize"></div>
-  <div class="detail" id="coverage"></div>
-</div>
-<div class="panel help">
-  <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror, <kbd>V</kbd> view, <kbd>R</kbd> return to an intersection. Follow the compass arrow to this tile's emoji. A crash spins the car for 2 seconds, then resets it; the clock keeps running. New trial or a new start resets the run.</p>
-  <p>Measured geometry as context, not a survey or a plan: building outlines and 2010 heights from DataSF (PDDL), roofs fitted to USGS 3DEP lidar flown April 2023 (public domain), street trees from DataSF's Street Tree List with lidar canopy, streets, kerbs (2016) and street names from DataSF. Buildings 3DEP sees that the City's 2010 outlines lack are shaded violet. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">About this data</a>.</p>
-</div>
-<div class="pad" aria-label="Driving controls">
-  <span></span><button type="button" data-act="up" aria-label="Accelerate">▲</button><span></span>
-  <button type="button" data-act="left" aria-label="Steer left">←</button><button type="button" data-act="brake" aria-label="Brake">■</button><button type="button" data-act="right" aria-label="Steer right">→</button>
-  <span></span><button type="button" data-act="down" aria-label="Reverse">▼</button><span></span>
+<div class="pad pedals" role="group" aria-label="Accelerator and brake">
+  <button type="button" data-act="brake" aria-label="Brake">■</button>
+  <button type="button" data-act="up" aria-label="Accelerate">▲</button>
 </div>
 <script type="module">
   import { startDrive } from "{{ (modulesBase + '/js/sf-drive.js') | url }}";
@@ -170,7 +183,8 @@ eleventyExcludeFromCollections: true
     downloadAssets: {{ sfDownloadAssets | safe }},
     hud: {
       street: $("street"), next: $("next"), speed: $("speed"), compass: $("compass"), tiles: $("tiles"),
-      places: $("places"), mirrorBtn: $("mirrorBtn"), viewBtn: $("viewBtn"), mirrorFrame: $("mirrorFrame"),
+      places: $("places"), mirrorBtn: $("mirrorBtn"), viewMode: $("viewMode"), mirrorFrame: $("mirrorFrame"),
+      menu: $("gameMenu"), menuBtn: $("menuBtn"), driveBar: $("driveBar"),
       restartBtn: $("restartBtn"), respawnBtn: $("respawnBtn"), minimap: $("minimap"),
       timer: $("timer"), progress: $("progress"), progressBar: $("progressBar"), target: $("target"),
       seekerCompass: $("seekerCompass"), seekerScope: $("seekerScope"), seekerDistance: $("seekerDistance"), seekerHeading: $("seekerHeading"),
