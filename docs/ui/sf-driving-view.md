@@ -24,6 +24,10 @@ feedback-loop questions, and future autonomous-traffic contracts. The
 [game-design skill](../../.claude/skills/game-design/SKILL.md) applies that language in
 discussion, implementation, and review; agent instructions route SF game changes to it.
 
+The [safer driving plan](../plans/ui-sf-safer-driving-plan.md) proposes a solo safety
+mode and a repeatable following and downhill braking scenario. It does not change the
+current time trial.
+
 ## Driving and time trials
 
 **UI:** the normal driving screen has a 48 px status strip (street, speed, clock,

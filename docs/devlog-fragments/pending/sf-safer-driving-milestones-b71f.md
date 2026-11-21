@@ -1,0 +1,1 @@
+- Documented the proposed [SF safer driving milestones](../../plans/ui-sf-safer-driving-plan.md), separating solo terrain and scoring checks from a repeatable following and downhill stopping scenario; no gameplay changed.
