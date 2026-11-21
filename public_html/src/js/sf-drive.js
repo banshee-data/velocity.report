@@ -5,6 +5,7 @@
 import {
   SOLO,
   soloHeight,
+  soloPitch,
   soloSurface,
   soloCar,
   contactStep,
@@ -1168,10 +1169,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     for (const e of loaded.values()) e.grp.visible = false;
     carZ = car.z;
     carMesh.position.set(...V(car.x, car.y, car.z));
-    const pitch = car.grounded
-      ? Math.atan2(soloHeight(car.x + 0.1) - soloHeight(car.x - 0.1), 0.2)
-      : Math.atan2(car.vz, Math.max(0.1, Math.abs(car.v)));
-    carMesh.rotation.set(0, car.heading, pitch, "YZX");
+    carMesh.rotation.set(0, car.heading, soloPitch(car), "YZX");
     carMesh.visible = state.view !== "incar";
     carMesh.userData.brakeMaterial.color.setHex(
       brakeLightsOn(car, input, soloRun.status !== "running")

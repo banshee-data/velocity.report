@@ -4,6 +4,7 @@ import {
   SOLO,
   MPH,
   soloHeight,
+  soloPitch,
   soloSurface,
   soloCar,
   contactStep,
@@ -277,4 +278,14 @@ test("rising road can restore contact while the car still has upward velocity", 
   assert.equal(next.grounded, true);
   near(next.z, next.x);
   near(next.heading, car.heading);
+});
+
+test("grounded solo pitch follows the slope in the direction the car faces", () => {
+  for (const x of [-25, 25]) {
+    const car = { ...soloCar(), x };
+    const east = soloPitch(car);
+    assert.equal(Math.sign(east), -Math.sign(x));
+    near(soloPitch({ ...car, heading: Math.PI }), -east);
+    near(soloPitch({ ...car, heading: Math.PI / 2 }), 0);
+  }
 });
