@@ -9,8 +9,8 @@ output), with the command that produces it.
 
 - **Status:** Audit of `main` at `9ff3666e` (tiles built 2026-11-20T18:26Z); no tile, geometry or
   HUD change
-- **Tool:** [tools/sf-size-audit/](../../tools/sf-size-audit/README.md), outputs in
-  [generated/](../../tools/sf-size-audit/generated/)
+- **Tool:** [tools/sf-size-audit/](../../tools/sf-size-audit/README.md); its outputs stay local
+  in `tools/sf-size-audit/results/` and the figures used are recorded here
 
 ## Summary
 
@@ -26,17 +26,17 @@ the rest of the 30.2 MB.
 | Step                                                                                        | Payload (bytes) | Change (bytes) | Label     |
 | ------------------------------------------------------------------------------------------- | --------------: | -------------: | --------- |
 | S6 budget: roofs, unroofed boxes, lidar-only buildings, trees, centrelines, kerbs           |       9,464,631 |                | estimated |
-| Same layers re-measured on the shipped geometry, study encoders                             |       8,197,615 |     −1,267,016 | estimated |
-| Add the game's layers outside the budget: ground, roads resampled with widths, signs, names |      10,891,160 |     +2,693,545 | estimated |
-| Trees at the shipped 0.1 m positions instead of 0.5 m                                       |      11,075,074 |       +183,914 | estimated |
-| Buildings in the audit's codec instead of the study's welded, plane-coded encoder           |      13,998,725 |     +2,923,651 | measured  |
-| Same layers as one Brotli stream                                                            |      13,995,474 |         −3,251 | measured  |
-| JSON instead of compact binary, one citywide bundle, Brotli 11                              |      21,572,373 |     +7,576,899 | measured  |
+| Same layers re-measured on the shipped geometry, study encoders                             |       8,173,887 |     −1,290,744 | estimated |
+| Add the game's layers outside the budget: ground, roads resampled with widths, signs, names |      10,896,636 |     +2,722,749 | estimated |
+| Trees at the shipped 0.1 m positions instead of 0.5 m                                       |      11,080,550 |       +183,914 | estimated |
+| Buildings in the audit's codec instead of the study's welded, plane-coded encoder           |      14,045,545 |     +2,964,995 | measured  |
+| Same layers as one Brotli stream                                                            |      14,042,291 |         −3,254 | measured  |
+| JSON instead of compact binary, one citywide bundle, Brotli 11                              |      21,572,373 |     +7,530,082 | measured  |
 | 157 tile files instead of one bundle, Brotli 11                                             |      22,014,251 |       +441,878 | measured  |
 | gzip 9 instead of Brotli 11: **the shipped tiles**                                          |  **30,169,632** |     +8,155,381 | measured  |
 
-Rows 2 to 4 rest on one estimate: the shipped buildings in the study's encoder, 6,932,794 bytes,
-from the audit codec's measured 9,808,445 bytes divided by a calibration ratio of 1.4148 measured
+Rows 2 to 4 rest on one estimate: the shipped buildings in the study's encoder, 6,909,066 bytes,
+from the audit codec's measured 9,828,576 bytes divided by a calibration ratio of 1.4226 measured
 on the study's three windows (see [Encoders](#encoders)). The other terms in those rows are measured.
 From row 5 on, every row is a whole-payload measurement of the same data. The order of the steps
 is a choice; compression is not additive, so the changes hold only along this path.
@@ -102,12 +102,12 @@ while its cell is about 1.1 km across, so about half of every grid repeats a nei
 | gzip 9 against Brotli 11, per tile                    | shipped JSON                   | 30,169,632 → 22,014,251 | measured  |
 | Per-tile files against one bundle, Brotli 11          | shipped JSON                   | 22,014,251 → 21,572,373 | measured  |
 | Per-tile files against one bundle, gzip 9             | shipped JSON                   | 30,169,632 → 30,189,966 | measured  |
-| JSON against the audit's compact codec, Brotli 11     | all shipped layers, one stream | 21,572,373 → 13,995,474 | measured  |
-| Ground with each place once                           | compact, Brotli 11             | 2,251,467 → 1,081,922   | measured  |
+| JSON against the audit's compact codec, Brotli 11     | all shipped layers, one stream | 21,572,373 → 14,042,291 | measured  |
+| Ground with each place once                           | compact, Brotli 11             | 2,280,671 → 1,093,893   | measured  |
 | Roads resampled with widths against plain centrelines | compact, Brotli 11             | 518,834 → 304,982       | measured  |
 | Trees at 0.1 m against 0.5 m positions                | compact, Brotli 11             | 991,136 → 807,222       | measured  |
-| Buildings, audit codec against the study's encoder    | the study's three windows      | ratio 1.4148            | measured  |
-| Buildings, audit codec against the study's encoder    | whole city                     | 9,808,445 → 6,932,794   | estimated |
+| Buildings, audit codec against the study's encoder    | the study's three windows      | ratio 1.4226            | measured  |
+| Buildings, audit codec against the study's encoder    | whole city                     | 9,828,576 → 6,909,066   | estimated |
 | Trees in the budget against the shipped trees         | the study's tree encoder       | 1,607,964 → 805,155     | measured  |
 
 Compression is the largest single factor and costs no geometry: Brotli 11 is 27 % smaller than gzip
@@ -117,13 +117,14 @@ cannot see across tiles. Serialisation is the next: JSON's decimal text and repe
 2.9 MB of buildings), the ground's overlap (1.2 MB) and the 3 m road resampling.
 
 The budget over-estimated in two places, which hid part of the gap: it scaled 4,502 window trees
-to 671,526 where the city tiles hold 343,046 (0.80 MB too many), and its buildings come out 0.46 MB
+to 671,526 where the city tiles hold 343,046 (0.80 MB too many), and its buildings come out 0.49 MB
 above the calibrated estimate for the shipped ones.
 
 ## Encoders
 
 The audit's codec writes zig-zag varint deltas one column at a time, the scheme of the study's
-`delta_stream`. On the shipped tiles it agrees with the study's encoders (measured,
+`delta_stream`, and keeps everything the game reads: each face's outer ring and holes (18,051 faces
+have holes) and the ground's gaps, as run lengths. On the shipped tiles it agrees with the study's encoders (measured,
 `study_crosscheck.py`): 807,222 against 805,155 bytes for the trees at 0.5 m, and 297,211 against
 297,359 for the kerbs.
 
@@ -132,11 +133,11 @@ apexes and ridge ends from the planes and codes each plane against the building'
 do not carry the planes, lattice or axis that encoder needs, so it cannot run on them.
 
 Instead, `study_crosscheck.py` encodes the shipped buildings that fall in the study's three windows
-with the audit codec and compares them with the study's S6 bytes for the same windows: 54,015
-against 38,179 bytes over 729 buildings, a ratio of 1.4148 (measured). The ratio is an upper bound
+with the audit codec and compares them with the study's S6 bytes for the same windows: 54,312
+against 38,179 bytes over 729 buildings, a ratio of 1.4226 (measured). The ratio is an upper bound
 on the encoder's advantage: the tile side also counts unroofed boxes, which the study's window
 figure leaves out. Welding the audit codec's vertices into one table per building gains nothing on
-its own (9,854,526 against 9,808,445 bytes): the saving needs the plane code and implicit vertices.
+its own (9,872,142 against 9,828,576 bytes): the saving needs the plane code and implicit vertices.
 
 ## The download readout
 
@@ -175,10 +176,10 @@ and the current geometry:
 | ------------------------------------------------------------------------------- | ----------: | --------- |
 | Shipped: JSON, 157 files, gzip 9                                                |  30,169,632 | measured  |
 | Same JSON, Brotli 11                                                            |  22,014,251 | measured  |
-| Compact codec, all layers, one Brotli stream                                    |  13,995,474 | measured  |
-| The same with the ground kept once per place                                    |  12,826,928 | measured  |
-| The same with buildings in the study's encoder (−2,921,732 at the window ratio) | ≈ 9,905,000 | estimated |
-| The same with trees at 0.5 m                                                    | ≈ 9,721,000 | estimated |
+| Compact codec, all layers, one Brotli stream                                    |  14,042,291 | measured  |
+| The same with the ground kept once per place                                    |  12,854,778 | measured  |
+| The same with buildings in the study's encoder (−2,963,076 at the window ratio) | ≈ 9,892,000 | estimated |
+| The same with trees at 0.5 m                                                    | ≈ 9,708,000 | estimated |
 
 About 9.5–10 MB is plausible only if all of these are built:
 
@@ -198,7 +199,7 @@ coarser or smoother ground code.
 
 ## Missing evidence
 
-- No whole-city measurement of the shipped buildings in `enc_graph2`. The 6,932,794-byte figure
+- No whole-city measurement of the shipped buildings in `enc_graph2`. The 6,909,066-byte figure
   rests on 729 buildings in three windows.
 - No decoder for `enc_graph2`, so its bytes have not been shown to decode to the same roofs.
 - The 0.35 MB for unroofed boxes is quoted in the round-1 report without a saved output.
@@ -209,7 +210,7 @@ coarser or smoother ground code.
 From a checkout (tiles are in the repository):
 
 ```sh
-node tools/sf-size-audit/audit.mjs --out tools/sf-size-audit/generated/sf-size-audit.json
+node tools/sf-size-audit/audit.mjs --out tools/sf-size-audit/results/sf-size-audit.json
 ```
 
 On arrow-worker, in the study's work directory, for the budget terms, the study's encoders on the
@@ -218,7 +219,7 @@ shipped tiles, and the window calibration:
 ```sh
 cd /home/banshee/city-assets-20261118
 venv/bin/python -I <repo>/tools/sf-size-audit/study_crosscheck.py <repo>/public_html/src/sf/tiles \
-  > <repo>/tools/sf-size-audit/generated/study-crosscheck.json
+  > <repo>/tools/sf-size-audit/results/study-crosscheck.json
 ```
 
 The readout's inventory and live sizes:
