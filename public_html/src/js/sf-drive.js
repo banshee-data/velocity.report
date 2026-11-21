@@ -2,6 +2,19 @@
 // geometry. Tiles (one per S2 level-13 cell, about 1.1 km across) stream in
 // around the car: ground, buildings, trees, roads with kerbs, and street-name
 // signposts. Start zoomed out; overhead and in-car views are available in the menu.
+import {
+  SOLO,
+  soloHeight,
+  soloSurface,
+  soloCar,
+  contactStep,
+  createSoloRun,
+  startSoloRun,
+  endSoloRun,
+  accountSolo,
+  soloSample,
+  soloSummary,
+} from "./sf-solo.js";
 import * as THREE from "../vendor/three/three.module.js";
 import {
   advanceTrial,
@@ -607,6 +620,55 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   const regions = new Map(
     manifest.tiles.map((t) => [t.t, tileRegion(t, manifest.tiles)]),
   );
+  let solo = false;
+  let soloRun = createSoloRun();
+  let cityCar = null;
+  let cityPauseAt = 0;
+  let soloHudAt = 0;
+  const practice = new THREE.Group();
+  practice.visible = false;
+  scene.add(practice);
+  // Explicitly authored surfaces, isolated from the unchanged city assets.
+  for (const [left, right, colour, lift] of [
+    [-40, 40, 0x6b8152, -0.02],
+    [-6, 6, 0x40454a, 0],
+    [-6.15, -6, 0xd4d4cf, 0.15],
+    [6, 6.15, 0xd4d4cf, 0.15],
+  ]) {
+    const positions = [];
+    for (let x = SOLO.start - 20; x < SOLO.end + 40; x++) {
+      const points = [
+        [x, left],
+        [x + 1, left],
+        [x, right],
+        [x + 1, right],
+      ];
+      for (const i of [0, 1, 2, 1, 3, 2])
+        positions.push(
+          ...V(points[i][0], points[i][1], soloHeight(points[i][0]) + lift),
+        );
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(positions, 3),
+    );
+    practice.add(
+      new THREE.Mesh(
+        geometry,
+        new THREE.MeshBasicMaterial({ color: colour, side: THREE.DoubleSide }),
+      ),
+    );
+  }
+  for (const x of [SOLO.start, 100, SOLO.end]) {
+    const geometry = new THREE.BoxGeometry(0.5, 0.03, 12);
+    const marker = new THREE.Mesh(
+      geometry,
+      new THREE.MeshBasicMaterial({ color: x === 100 ? 0xfbbf24 : 0xffffff }),
+    );
+    marker.position.set(...V(x, 0, soloHeight(x) + 0.02));
+    practice.add(marker);
+  }
   let trial = createTrial(route.targets);
   let selectedStart = start;
   let cityStart = start;
@@ -833,7 +895,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     canvas.dataset.view = view;
     canvas.setAttribute(
       "aria-label",
-      `${hud.viewMode.selectedOptions[0].textContent} 3D view of San Francisco`,
+      `${hud.viewMode.selectedOptions[0].textContent} 3D view of ${solo ? "the authored practice course" : "San Francisco"}`,
     );
   };
   const toggleView = () =>
@@ -861,6 +923,10 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     });
   }
   function respawn(afterCrash = false) {
+    if (solo) {
+      restartSolo();
+      return;
+    }
     if (crash && !afterCrash) return;
     const kind = crash?.kind;
     const safe = safeIntersections();
@@ -900,6 +966,10 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     announce(`Hit a ${kind} · spinning before reset`, 2);
   }
   function newTrial(p = selectedStart) {
+    if (solo) {
+      restartSolo();
+      return;
+    }
     selectedStart = p;
     trial = createTrial(activeDistrict?.targets || route.targets);
     checkpoint = null;
@@ -984,6 +1054,183 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
   drivingPad = bindDrivingPad(hud.touchButtons, (input) => {
     state.touch = input;
   });
+
+  function restartSolo() {
+    endSoloRun(soloRun, "aborted");
+    hud.soloPrevious.textContent = soloSummary(soloRun);
+    soloRun = createSoloRun();
+    car = soloCar();
+    carZ = car.z;
+    accumulator = 0;
+    releaseInputs();
+    camInit = false;
+    hud.soloSummary.textContent = soloSummary(soloRun);
+  }
+  hud.gameMode.addEventListener("change", () => {
+    releaseInputs();
+    solo = hud.gameMode.value === "solo";
+    document.body.dataset.solo = String(solo);
+    practice.visible = solo;
+    if (solo) {
+      cityCar = { car, carZ, grounded };
+      cityPauseAt = performance.now();
+      restartSolo();
+    } else {
+      endSoloRun(soloRun, "aborted");
+      ({ car, carZ, grounded } = cityCar);
+      if (trial.status === "running")
+        trial.elapsed += (performance.now() - cityPauseAt) / 1000;
+      for (const e of loaded.values()) e.grp.visible = true;
+      accumulator = 0;
+      camInit = false;
+    }
+    hud.restartBtn.textContent = solo ? "New solo run" : "New trial";
+    hud.respawnBtn.textContent = solo ? "Restart solo route" : "Reset car";
+    hud.respawnBtn.disabled = false;
+    hud.mirrorFrame.hidden = state.view !== "incar" || !state.mirror;
+    hud.timer.setAttribute(
+      "aria-label",
+      solo ? "Elapsed simulation time, no time reward" : "Elapsed trial time",
+    );
+    setView(state.view);
+    soloHudAt = 0;
+    hud.gameMode.blur();
+  });
+  function renderView(view) {
+    const hx = Math.cos(car.heading),
+      hy = Math.sin(car.heading);
+    const W = renderer.domElement.width;
+    const H = renderer.domElement.height;
+    const pr = renderer.getPixelRatio();
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, W / pr, H / pr);
+    carMesh.visible = !view.hideCar;
+    if (carMesh.visible) reveal.update(camera, carMesh.position, W, H, pr);
+    else reveal.disable();
+    renderer.render(scene, camera);
+    carMesh.visible = true;
+    const showMirror = view.mirror && state.mirror;
+    hud.mirrorFrame.hidden = !showMirror;
+    if (showMirror) {
+      // the mirror: from the cabin roof, looking back over the boot
+      mirrorCam.position.set(
+        ...V(car.x - hx * 0.4, car.y - hy * 0.4, carZ + 1.9),
+      );
+      mirrorCam.lookAt(...V(car.x - hx * 30, car.y - hy * 30, carZ + 1.2));
+      // Match the scissor rectangle to the centred CSS frame.
+      const frame = hud.mirrorFrame.getBoundingClientRect();
+      const mw = frame.width * pr,
+        mh = frame.height * pr;
+      const mx = frame.left * pr,
+        my = H - frame.bottom * pr;
+      mirrorCam.aspect = mw / mh;
+      mirrorCam.updateProjectionMatrix();
+      renderer.setScissorTest(true);
+      renderer.setScissor(mx / pr, my / pr, mw / pr, mh / pr);
+      renderer.setViewport(mx / pr, my / pr, mw / pr, mh / pr);
+      carMesh.visible = false; // the view behind, not the inside of the cabin
+      renderer.render(scene, mirrorCam);
+      carMesh.visible = true;
+      renderer.setScissorTest(false);
+    }
+  }
+  function soloFrame(dt, now) {
+    const input = drivingInput(state.keys, state.touch);
+    const paused = hud.menu.open || document.hidden || !document.hasFocus();
+    if (!paused && input.throttle !== 0) startSoloRun(soloRun);
+    accumulator += dt;
+    while (accumulator >= 1 / 120) {
+      accumulator -= 1 / 120;
+      if (soloRun.status !== "running") continue;
+      if (paused) {
+        accountSolo(soloRun, 1 / 120, { excluded: true });
+        continue;
+      }
+      const before = car;
+      car = contactStep(car, input, 1 / 120, soloSurface);
+      accountSolo(
+        soloRun,
+        1 / 120,
+        car.blocked ? { excluded: true } : soloSample(before, car),
+      );
+      if (
+        car.x >= SOLO.end &&
+        Math.abs(car.y) <= SOLO.halfWidth &&
+        car.grounded
+      ) {
+        endSoloRun(soloRun);
+        releaseInputs();
+        hud.menu.showModal();
+        hud.menuBtn.setAttribute("aria-expanded", "true");
+        break;
+      }
+    }
+    for (const e of loaded.values()) e.grp.visible = false;
+    carZ = car.z;
+    carMesh.position.set(...V(car.x, car.y, car.z));
+    const pitch = car.grounded
+      ? Math.atan2(soloHeight(car.x + 0.1) - soloHeight(car.x - 0.1), 0.2)
+      : Math.atan2(car.vz, Math.max(0.1, Math.abs(car.v)));
+    carMesh.rotation.set(0, car.heading, pitch, "YZX");
+    carMesh.visible = state.view !== "incar";
+    carMesh.userData.brakeMaterial.color.setHex(
+      brakeLightsOn(car, input, soloRun.status !== "running")
+        ? 0xff3038
+        : 0x661018,
+    );
+    for (const wheel of carMesh.userData.wheels) {
+      wheel.pivot.rotation.y = wheel.front ? car.steering || 0 : 0;
+      if (!paused) wheel.tyre.rotation.z -= (car.v * dt) / 0.36;
+    }
+    const view = driveCameraPose(
+      state.view,
+      car,
+      carZ,
+      (x) => soloHeight(x),
+      0,
+    );
+    camera.position.set(...V(...view.position));
+    camera.up.set(...V(...view.up));
+    camera.lookAt(...V(...view.look));
+    renderView(view);
+    const statusChanged = canvas.dataset.soloStatus !== soloRun.status;
+    canvas.dataset.soloStatus = soloRun.status;
+    canvas.dataset.contact = car.grounded ? "grounded" : "airborne";
+    if (now - soloHudAt < 250 && !statusChanged) return;
+    soloHudAt = now;
+    const sample = soloSample(car, car);
+    hud.street.textContent = "Solo · authored crest";
+    hud.speed.textContent = Math.round(sample.mph);
+    hud.timer.textContent = formatTime(soloRun.elapsed);
+    hud.progress.textContent = sample.limit
+      ? "20 mph practice limit"
+      : "Limit unknown";
+    const cue = car.blocked
+      ? "Course boundary · restart in menu"
+      : soloRun.status === "finished"
+        ? "Complete · evidence in menu"
+        : sample.drivable === false
+          ? "Off road · return gently"
+          : sample.curbContact
+            ? "Kerb contact"
+            : !car.grounded
+              ? "Airborne · momentum carries"
+              : `${Math.max(0, Math.round(SOLO.end - car.x))} m east to finish · no time reward`;
+    if (hud.next.textContent !== cue) hud.next.textContent = cue;
+    hud.driveBar.dataset.crash = "false";
+    if (hud.menu.open) hud.soloSummary.textContent = soloSummary(soloRun);
+    if (hud.menu.open)
+      hud.soloTrace.textContent = JSON.stringify(
+        {
+          limits: soloRun.limits,
+          excursions: soloRun.excursions,
+          strikes: soloRun.strikes,
+          incidents: soloRun.incidents,
+        },
+        null,
+        2,
+      );
+  }
 
   let last = performance.now();
   let hudAt = 0;
@@ -1218,6 +1465,10 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     const wallDt = Math.max(0, (now - last) / 1000);
     const dt = Math.min(0.05, wallDt);
     last = now;
+    if (solo) {
+      soloFrame(dt, now);
+      return;
+    }
     if (crash && crashPose(crash, now / 1000).done && now >= crashUntil)
       respawn(true);
     hud.respawnBtn.disabled = !!crash;
@@ -1405,40 +1656,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     camera.up.set(...V(...view.up));
     camera.lookAt(camLook);
 
-    const W = renderer.domElement.width;
-    const H = renderer.domElement.height;
-    const pr = renderer.getPixelRatio();
-    renderer.setScissorTest(false);
-    renderer.setViewport(0, 0, W / pr, H / pr);
-    carMesh.visible = !view.hideCar;
-    if (carMesh.visible) reveal.update(camera, carMesh.position, W, H, pr);
-    else reveal.disable();
-    renderer.render(scene, camera);
-    carMesh.visible = true;
-    const showMirror = view.mirror && state.mirror;
-    hud.mirrorFrame.hidden = !showMirror;
-    if (showMirror) {
-      // the mirror: from the cabin roof, looking back over the boot
-      mirrorCam.position.set(
-        ...V(car.x - hx * 0.4, car.y - hy * 0.4, carZ + 1.9),
-      );
-      mirrorCam.lookAt(...V(car.x - hx * 30, car.y - hy * 30, carZ + 1.2));
-      // Match the scissor rectangle to the centred CSS frame.
-      const frame = hud.mirrorFrame.getBoundingClientRect();
-      const mw = frame.width * pr,
-        mh = frame.height * pr;
-      const mx = frame.left * pr,
-        my = H - frame.bottom * pr;
-      mirrorCam.aspect = mw / mh;
-      mirrorCam.updateProjectionMatrix();
-      renderer.setScissorTest(true);
-      renderer.setScissor(mx / pr, my / pr, mw / pr, mh / pr);
-      renderer.setViewport(mx / pr, my / pr, mw / pr, mh / pr);
-      carMesh.visible = false; // the view behind, not the inside of the cabin
-      renderer.render(scene, mirrorCam);
-      carMesh.visible = true;
-      renderer.setScissorTest(false);
-    }
+    renderView(view);
 
     if (now - streamAt > 400) {
       streamAt = now;
