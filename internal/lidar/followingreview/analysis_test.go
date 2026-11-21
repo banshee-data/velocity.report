@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"testing"
 
@@ -109,5 +110,66 @@ func TestFollowingAnalysisRefusesUnorderedAndInvalidMeasurements(t *testing.T) {
 	s = analysisFixture(t, []fieldrun.EvidenceRow{r})
 	if _, err := s.Analyse(context.Background(), nil); err == nil {
 		t.Fatal("invalid gap accepted")
+	}
+}
+
+func TestScopedDRACExposureAndEpisodePeaks(t *testing.T) {
+	var rows []fieldrun.EvidenceRow
+	add := func(at, duration int64, leader, status string, value float64) {
+		r := minimumRow("follower", at, 1)
+		r.Point = nil
+		r.Bucket = "following_excluded" // DRAC is independent of headway eligibility.
+		r.IntervalNanos = duration
+		r.Decision.LeaderTrackID = leader
+		r.Decision.Candidates[0].TrackID = leader
+		r.DRAC.Status = status
+		if status == "supported" {
+			r.DRAC.Calculation = &l8behaviour.DRACResult{Status: l8behaviour.DRACSupported, ValueMPS2: &value}
+		}
+		rows = append(rows, r)
+	}
+	add(1000, 1, "leader", "supported", 0.4)
+	add(1001, 1, "leader", "supported", 1)
+	add(1002, 1, "other", "supported", 2)
+	add(1003, 1, "other", "non_closing", 0)
+	add(1004, 1, "other", "supported", 4)
+	add(1006, 1, "other", "supported", 2)
+	add(1008, 1, "leader", "", 0)
+	add(1010, 5, "leader", "record_gap", 0)
+	rows[len(rows)-1].Bucket = "record_gap"
+	add(1042, 1, "leader", "supported", 4)
+	add(1050, 1, "leader", "supported", 4)
+	add(1100, 0, "leader", "supported", 4)
+	s := analysisFixture(t, rows)
+	for _, id := range []string{"follower", "leader", "other"} {
+		path := s.paths[0]
+		path.FollowerTrackID, path.First, path.Last = id, 1000, 1020
+		s.paths = append(s.paths, path)
+	}
+	scope := &ReviewScope{Schema: ReviewScopeSchema, CatalogSHA: "catalog", Site: "site", Periods: []ReviewPeriod{{1000, 1040}, {1050, 1101}}}
+	a, err := s.AnalyseScoped(context.Background(), scope, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]DRACExposure{
+		"supported": {5, 5}, "non_closing": {1, 1}, "missing_drac_status": {1, 1}, "record_gap": {1, 5},
+		"outside_catalogued_static_period": {1, 1}, "path_support_crosses_static_period": {1, 1},
+	}
+	d := a.ExperimentalDRAC
+	if d == nil || d.Schema != "following_scoped_drac_v1" || d.TerminalSamples != 1 || !maps.Equal(d.Exposure, want) || d.EpisodePeakBins != [4]int{0, 1, 2, 1} {
+		t.Fatalf("unexpected DRAC summary: %+v", d)
+	}
+	legacy, err := s.Analyse(context.Background(), nil)
+	if err != nil || legacy.ExperimentalDRAC != nil {
+		t.Fatalf("unscoped analysis changed: %+v, %v", legacy, err)
+	}
+}
+
+func TestSupportedDRACRequiresValueAndLeader(t *testing.T) {
+	d := DRACSummary{Exposure: map[string]DRACExposure{}}
+	r := minimumRow("follower", 1000, 1)
+	r.DRAC.Status = "supported"
+	if err := d.record(r, "", nil); err == nil {
+		t.Fatal("accepted supported DRAC without a calculation")
 	}
 }

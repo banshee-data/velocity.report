@@ -1,0 +1,1 @@
+- Added scoped experimental DRAC exposure and episode-peak bands to the [following corpus reduction](../../lidar/operations/following-corpus-analysis.md), with explicit record gaps and coverage exclusions.

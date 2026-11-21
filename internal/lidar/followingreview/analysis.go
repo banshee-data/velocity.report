@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l8behaviour"
 	"github.com/banshee-data/velocity.report/internal/report/headway/fieldrun"
 )
 
@@ -13,16 +14,38 @@ import (
 // One minimum belongs to one software track, not an independently identified
 // vehicle. Online estimates remain provisional, including non-closing pairs.
 type Analysis struct {
-	Schema         string         `json:"schema"`
-	Metadata       Metadata       `json:"metadata"`
-	Population     string         `json:"population"`
-	Rows           int            `json:"rows"`
-	Tracks         int            `json:"tracks"`
-	WithoutTimeGap int            `json:"without_time_gap"`
-	Buckets        map[string]int `json:"row_buckets"`
-	Histogram      []MinimumBin   `json:"histogram"`
-	Minima         []TrackMinimum `json:"minima"`
-	ReviewScope    *ReviewScope   `json:"review_scope,omitempty"`
+	Schema           string         `json:"schema"`
+	Metadata         Metadata       `json:"metadata"`
+	Population       string         `json:"population"`
+	Rows             int            `json:"rows"`
+	Tracks           int            `json:"tracks"`
+	WithoutTimeGap   int            `json:"without_time_gap"`
+	Buckets          map[string]int `json:"row_buckets"`
+	Histogram        []MinimumBin   `json:"histogram"`
+	Minima           []TrackMinimum `json:"minima"`
+	ReviewScope      *ReviewScope   `json:"review_scope,omitempty"`
+	ExperimentalDRAC *DRACSummary   `json:"experimental_drac,omitempty"`
+}
+
+// DRACSummary accounts for positive-duration follower intervals. Each
+// episode is a contiguous sequence of supported intervals for the same
+// follower and leader. Bins count episode peaks in [0,1), [1,2), [2,4), [4,∞).
+type DRACSummary struct {
+	Schema          string                  `json:"schema"`
+	Exposure        map[string]DRACExposure `json:"exposure_by_status"`
+	TerminalSamples int                     `json:"terminal_samples"`
+	EpisodePeakBins [4]int                  `json:"episode_peak_bins"`
+}
+
+type DRACExposure struct {
+	Samples       int   `json:"samples"`
+	IntervalNanos int64 `json:"interval_nanos"`
+}
+
+type dracEpisode struct {
+	leader  string
+	end     int64
+	peakBin int
 }
 
 type MinimumBin struct {
@@ -56,8 +79,11 @@ func (s *Session) AnalyseScoped(ctx context.Context, scope *ReviewScope, visit f
 		Population: "one minimum eligible positive-duration estimated net time gap per follower track per recording; provisional, not physical vehicles",
 		Buckets:    map[string]int{}, Histogram: []MinimumBin{{Label: "<0.5"}, {Label: "0.5–1"}, {Label: "1–1.5"}, {Label: "1.5–2"}, {Label: "2+"}}, Minima: []TrackMinimum{}}
 	a.ReviewScope = scope
+	var episodes map[string]dracEpisode
 	if scope != nil {
 		a.Population = "one minimum eligible estimated net time gap per follower track within catalogued stationary periods, with both paths supported inside one period; denominator all software tracks in the recording, provisional, not physical vehicles"
+		a.ExperimentalDRAC = &DRACSummary{Schema: "following_scoped_drac_v1", Exposure: map[string]DRACExposure{}}
+		episodes = map[string]dracEpisode{}
 	}
 	tracks := map[string]bool{}
 	minima := map[string]TrackMinimum{}
@@ -86,8 +112,14 @@ func (s *Session) AnalyseScoped(ctx context.Context, scope *ReviewScope, visit f
 				}
 			}
 			bucket := row.Bucket
-			if reason := filter(row); reason != "" {
+			reason := filter(row)
+			if reason != "" {
 				bucket = reason
+			}
+			if a.ExperimentalDRAC != nil {
+				if err := a.ExperimentalDRAC.record(row, reason, episodes); err != nil {
+					return Analysis{}, err
+				}
 			}
 			a.Buckets[bucket]++
 			if bucket != "following_eligible" || !eligible {
@@ -116,4 +148,43 @@ func (s *Session) AnalyseScoped(ctx context.Context, scope *ReviewScope, visit f
 	}
 	sort.Slice(a.Minima, func(i, j int) bool { return a.Minima[i].Follower < a.Minima[j].Follower })
 	return a, nil
+}
+
+func (d *DRACSummary) record(row fieldrun.EvidenceRow, scopeReason string, episodes map[string]dracEpisode) error {
+	if row.IntervalNanos == 0 {
+		d.TerminalSamples++
+		return nil
+	}
+	status := row.DRAC.Status
+	switch {
+	case row.Bucket == "record_gap":
+		status = "record_gap"
+	case scopeReason != "":
+		status = scopeReason
+	case status == "":
+		status = "missing_drac_status"
+	}
+	exposure := d.Exposure[status]
+	exposure.Samples++
+	exposure.IntervalNanos += row.IntervalNanos
+	d.Exposure[status] = exposure
+
+	leader := row.Decision.LeaderTrackID
+	if status != string(l8behaviour.DRACSupported) {
+		delete(episodes, row.FollowerTrackID)
+		return nil
+	}
+	if row.DRAC.Calculation == nil || row.DRAC.Calculation.ValueMPS2 == nil || leader == "" {
+		return fmt.Errorf("supported DRAC lacks a value or leader for sample %d", row.CaptureUnixNanos)
+	}
+	value := *row.DRAC.Calculation.ValueMPS2
+	bin := sort.Search(3, func(i int) bool { return value < [...]float64{1, 2, 4}[i] })
+	previous, ok := episodes[row.FollowerTrackID]
+	if ok && previous.leader == leader && previous.end == row.CaptureUnixNanos {
+		d.EpisodePeakBins[previous.peakBin]--
+		bin = max(bin, previous.peakBin)
+	}
+	d.EpisodePeakBins[bin]++
+	episodes[row.FollowerTrackID] = dracEpisode{leader: leader, end: row.CaptureUnixNanos + row.IntervalNanos, peakBin: bin}
+	return nil
 }
