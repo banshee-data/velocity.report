@@ -24,6 +24,92 @@ const fs = require("fs");
 const path = require("path");
 
 const DEFAULT_SCENES = path.join(__dirname, "..", "scenes");
+const DRAC_REPORT = path.resolve(
+  __dirname,
+  "../../../docs/lidar/operations/survey-experimental-drac.md",
+);
+
+// Read the reviewed headline table. The public build has no input from the
+// local receipt, evidence slices or per-vehicle measurements.
+function readSurveyDRAC(markdown) {
+  const section = markdown.split(/^## Survey figures\s*$/m)[1];
+  const cells = (line) =>
+    line
+      .trim()
+      .slice(1, -1)
+      .split("|")
+      .map((v) => v.trim());
+  const [header, rule, ...rows] = (section ?? "")
+    .split(/^## /m)[0]
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("|"))
+    .map(cells);
+  const columns = [
+    "Site",
+    "Capture",
+    "Stationary seconds",
+    "Accounted follower-seconds",
+    "Supported follower-seconds",
+    "Below 1",
+    "1 to below 2",
+    "2 to below 4",
+    "4 and above",
+  ];
+  if (
+    header?.join("|") !== columns.join("|") ||
+    rule?.length !== columns.length ||
+    rows.length === 0
+  ) {
+    throw new Error("survey DRAC: missing or changed headline table");
+  }
+  const bySite = new Map();
+  for (const row of rows) {
+    const [site, capture, ...values] = row;
+    if (
+      row.length !== columns.length ||
+      bySite.has(site) ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(site) ||
+      !/^\d{8}T\d{4}_[a-z0-9_-]+\.pcapng$/.test(capture) ||
+      !capture.endsWith(`_${site}.pcapng`) ||
+      !values.every((v) => /^\d+(?:\.\d+)?$/.test(v))
+    ) {
+      throw new Error(
+        `survey DRAC: invalid or duplicate headline row for ${site}`,
+      );
+    }
+    const [stationary, accounted, supported, ...counts] = values.map(Number);
+    const episodes = counts.reduce((sum, count) => sum + count, 0);
+    if (
+      ![stationary, accounted, supported].every(Number.isFinite) ||
+      stationary <= 0 ||
+      supported > accounted ||
+      !Number.isSafeInteger(episodes) ||
+      !counts.every(Number.isSafeInteger) ||
+      (episodes === 0) !== (supported === 0)
+    ) {
+      throw new Error(
+        `survey DRAC: inconsistent exposure or episode counts for ${site}`,
+      );
+    }
+    const date = `${capture.slice(0, 4)}-${capture.slice(4, 6)}-${capture.slice(6, 8)}`;
+    const peak = Math.max(1, ...counts);
+    const bands = counts.map((count, i) => ({
+      label: ["<1", "1–<2", "2–<4", "4+"][i],
+      count,
+      bar: (count * 100) / peak,
+    }));
+    bySite.set(site, {
+      capture,
+      date,
+      stationary,
+      accounted,
+      supported,
+      episodes,
+      bands,
+    });
+  }
+  return bySite;
+}
 
 function readJSON(file) {
   if (!fs.existsSync(file)) return null;
@@ -171,6 +257,7 @@ function disambiguate(siteId, recordings, warn) {
 async function loadSurveys({
   scenesDir = DEFAULT_SCENES,
   index = require("./scenes.json"),
+  drac = readSurveyDRAC(fs.readFileSync(DRAC_REPORT, "utf8")),
   warn = (message) => console.warn(`[surveys] ${message}`),
 } = {}) {
   const model = await import("../js/survey-model.js");
@@ -197,6 +284,12 @@ async function loadSurveys({
         .sort((a, b) => a.startMs - b.startMs);
       disambiguate(site.id, recordings, warn);
       const latest = recordings.at(-1) ?? null;
+      const experimentalDRAC = drac.get(site.id);
+      const currentCapture =
+        experimentalDRAC?.capture ===
+        path.basename(site.capture?.raw_path ?? "");
+      if (experimentalDRAC && !currentCapture)
+        warn(`${site.id}: experimental DRAC belongs to a different capture`);
       return {
         id: site.id,
         title: site.title,
@@ -214,6 +307,7 @@ async function loadSurveys({
         gridAzimuthDeg: site.grid_azimuth_deg ?? null,
         northAzimuthDeg: site.north_azimuth_deg ?? null,
         capture: site.capture ?? null,
+        experimentalDRAC: currentCapture ? experimentalDRAC : null,
         recordings,
         latest,
         sensors: [...new Set(recordings.map((r) => r.sensor))],
@@ -256,3 +350,4 @@ async function loadSurveys({
 // Eleventy calls the default export with no arguments.
 module.exports = () => loadSurveys();
 module.exports.loadSurveys = loadSurveys;
+module.exports.readSurveyDRAC = readSurveyDRAC;

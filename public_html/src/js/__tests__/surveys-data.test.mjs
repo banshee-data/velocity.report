@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
-const { loadSurveys } = require("../../_data/surveys.js");
+const { loadSurveys, readSurveyDRAC } = require("../../_data/surveys.js");
 const { marks } = require("../../../../tools/s2-archive/map-marks.json");
 const markLimit = new Map(marks.map((m) => [m.id, m.speed_limit_mph]));
 const markById = new Map(marks.map((m) => [m.id, m]));
@@ -129,6 +129,73 @@ const header = (ns, extra = {}) => ({
   ...extra,
 });
 const NS = 1788380476586544330n; // 2026-09-02T20:21Z
+
+const DRAC_HEADLINE = `## Survey figures
+
+| Site | Capture | Stationary seconds | Accounted follower-seconds | Supported follower-seconds | Below 1 | 1 to below 2 | 2 to below 4 | 4 and above |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| x | 20260902T1320_80858-0f4_x.pcapng | 512 | 1085.6 | 14.2 | 2 | 1 | 0 | 1 |
+
+## Private evidence
+
+| Should be ignored |
+| --- |
+| sample identities |
+`;
+
+test("survey DRAC uses only the reviewed aggregates for the matching capture", async () => {
+  const drac = readSurveyDRAC(DRAC_HEADLINE);
+  const summary = drac.get("x");
+  assert.equal(summary.date, "2026-09-02");
+  assert.equal(summary.supported, 14.2);
+  assert.equal(summary.episodes, 4);
+  assert.deepEqual(
+    summary.bands.map((band) => band.bar),
+    [100, 50, 0, 50],
+  );
+  assert.equal(summary.rows, undefined);
+
+  const { byId } = await loadSurveys({
+    scenesDir: scratch({}),
+    index: INDEX,
+    drac,
+  });
+  assert.deepEqual(byId.x.experimentalDRAC, summary);
+  const otherCapture = structuredClone(INDEX);
+  otherCapture.sites[0].capture.raw_path =
+    "raw/lidar/20260903T1320_80858-0f4_x.pcapng";
+  const warnings = [];
+  const other = await loadSurveys({
+    scenesDir: scratch({}),
+    index: otherCapture,
+    drac,
+    warn: (message) => warnings.push(message),
+  });
+  assert.equal(other.byId.x.experimentalDRAC, null);
+  assert.match(warnings.join("\n"), /belongs to a different capture/);
+});
+
+test("survey DRAC refuses mislabelled totals and malformed headline tables", () => {
+  assert.throws(
+    () => readSurveyDRAC(DRAC_HEADLINE.replace("Below 1", "Below 2")),
+    /headline table/,
+  );
+  assert.throws(
+    () => readSurveyDRAC(DRAC_HEADLINE.replace("14.2", "1086")),
+    /inconsistent/,
+  );
+  assert.throws(
+    () =>
+      readSurveyDRAC(
+        DRAC_HEADLINE.replace("| 2 | 1 | 0 | 1 |", "| 2.5 | 1 | 0 | 1 |"),
+      ),
+    /inconsistent/,
+  );
+  assert.throws(
+    () => readSurveyDRAC(DRAC_HEADLINE.replace("_x.pcapng", "_y.pcapng")),
+    /invalid/,
+  );
+});
 
 // Playback fetches frames as it reaches them, so a page save records only the
 // first few. Archived playback then stopped with "chunk_0002.ndjson.gz returned

@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "public_html/**"
+      - "docs/lidar/operations/survey-experimental-drac.md"
       - "Makefile"
       - ".github/workflows/deploy-gh-pages.yml"
   workflow_dispatch:

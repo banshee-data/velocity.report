@@ -237,6 +237,7 @@ layout: survey.njk
           {# Each recording has its own card; survey-page.js retargets the link when another recording or the compare view is shown. #}
           <li><a href="#family-{{ family.id }}-{{ latest.id }}" data-family-link="{{ family.id }}">{{ family.name }}</a></li>
         {% endif %}{% endfor %}
+        {% if site.experimentalDRAC %}<li><a href="#experimental-drac">Experimental DRAC</a></li>{% endif %}
         {% if view.hasPlayback %}<li data-single-only data-evidence-link><a href="#evidence">Evidence · 3D playback</a></li>{% endif %}
         <li><a href="#methods">Data &amp; methods</a></li>
       </ul>
@@ -319,6 +320,10 @@ layout: survey.njk
         {% endfor %}
       </div>
     {% endfor %}
+
+    {% if site.experimentalDRAC %}
+      {% include "survey/experimental-drac.njk" %}
+    {% endif %}
 
     {% if view.canCompare %}
       {# Filled by survey-page.js from the JSON below when ?compare= names two or more recordings. #}

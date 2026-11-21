@@ -612,6 +612,9 @@ body:has(.sv-shell) {
   background: var(--red);
   border-radius: 3px;
 }
+.sv-drac .sv-bands__track span {
+  background: var(--sky);
+}
 .sv-shell .sv-bands__value {
   color: var(--text);
   text-align: right;

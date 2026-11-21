@@ -32,6 +32,8 @@ compares the ordinary and lifecycle fits against new hand-placed references in K
 The [lifecycle and three-site review record](operations/lifecycle-following-three-sites-2026-11.md)
 tracks persistent body proposals, full-capture following exports, stationary-period review
 coverage and proposed lane context.
+The [experimental survey DRAC report](operations/survey-experimental-drac.md) records
+stationary-period coverage, supported follower-time and peak demand by episode.
 
 The [weekend following and DRAC evidence plan](../plans/lidar-weekend-following-drac-plan.md)
 connects the [oracle questions](../research/lidar-weekend-facets-headway-drac-oracle-brief.md)
