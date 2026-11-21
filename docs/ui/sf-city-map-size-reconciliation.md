@@ -27,11 +27,11 @@ the rest of the 30.2 MB.
 | ------------------------------------------------------------------------------------------- | --------------: | -------------: | --------- |
 | S6 budget: roofs, unroofed boxes, lidar-only buildings, trees, centrelines, kerbs           |       9,464,631 |                | estimated |
 | Same layers re-measured on the shipped geometry, study encoders                             |       8,173,887 |     −1,290,744 | estimated |
-| Add the game's layers outside the budget: ground, roads resampled with widths, signs, names |      10,896,636 |     +2,722,749 | estimated |
-| Trees at the shipped 0.1 m positions instead of 0.5 m                                       |      11,080,550 |       +183,914 | estimated |
-| Buildings in the audit's codec instead of the study's welded, plane-coded encoder           |      14,045,545 |     +2,964,995 | measured  |
-| Same layers as one Brotli stream                                                            |      14,042,291 |         −3,254 | measured  |
-| JSON instead of compact binary, one citywide bundle, Brotli 11                              |      21,572,373 |     +7,530,082 | measured  |
+| Add the game's layers outside the budget: ground, roads resampled with widths, signs, names |      10,896,907 |     +2,723,020 | estimated |
+| Trees at the shipped 0.1 m positions instead of 0.5 m                                       |      11,080,821 |       +183,914 | estimated |
+| Buildings in the audit's codec instead of the study's welded, plane-coded encoder           |      14,045,816 |     +2,964,995 | measured  |
+| Same layers as one Brotli stream                                                            |      14,040,673 |         −5,143 | measured  |
+| JSON instead of compact binary, one citywide bundle, Brotli 11                              |      21,572,373 |     +7,531,700 | measured  |
 | 157 tile files instead of one bundle, Brotli 11                                             |      22,014,251 |       +441,878 | measured  |
 | gzip 9 instead of Brotli 11: **the shipped tiles**                                          |  **30,169,632** |     +8,155,381 | measured  |
 
@@ -95,6 +95,11 @@ tile, and no tree appears in two tiles. Each tile's ground grid spans 1,536 m ar
 while its cell is about 1.1 km across, so about half of every grid repeats a neighbour's. The
 15,689 trees stacked on another tree's position are a geometry matter, not packaging.
 
+Keeping each place once still needs the ring of nodes just outside a tile's own region: the
+renderer builds whole 8 m grid squares and clips them to the region, so a square crossing the
+boundary uses corners the neighbour owns. With that ring the grids keep 2,982,838 of 5,787,648
+nodes, and the game draws the same terrain from them as from the full grids (checked on four tiles).
+
 ## How much each difference explains
 
 | Difference                                            | Measured on                    | Effect (bytes)          | Label     |
@@ -102,9 +107,9 @@ while its cell is about 1.1 km across, so about half of every grid repeats a nei
 | gzip 9 against Brotli 11, per tile                    | shipped JSON                   | 30,169,632 → 22,014,251 | measured  |
 | Per-tile files against one bundle, Brotli 11          | shipped JSON                   | 22,014,251 → 21,572,373 | measured  |
 | Per-tile files against one bundle, gzip 9             | shipped JSON                   | 30,169,632 → 30,189,966 | measured  |
-| JSON against the audit's compact codec, Brotli 11     | all shipped layers, one stream | 21,572,373 → 14,042,291 | measured  |
-| Ground with each place once                           | compact, Brotli 11             | 2,280,671 → 1,098,359   | measured  |
-| Roads resampled with widths against plain centrelines | compact, Brotli 11             | 518,834 → 304,982       | measured  |
+| JSON against the audit's compact codec, Brotli 11     | all shipped layers, one stream | 21,572,373 → 14,040,673 | measured  |
+| Ground with each place once, plus edge nodes          | compact, Brotli 11             | 2,280,671 → 1,133,988   | measured  |
+| Roads resampled with widths against plain centrelines | compact, Brotli 11             | 519,105 → 304,982       | measured  |
 | Trees at 0.1 m against 0.5 m positions                | compact, Brotli 11             | 991,136 → 807,222       | measured  |
 | Buildings, audit codec against the study's encoder    | the study's three windows      | ratio 1.4226            | measured  |
 | Buildings, audit codec against the study's encoder    | whole city                     | 9,828,576 → 6,909,066   | estimated |
@@ -114,7 +119,7 @@ Compression is the largest single factor and costs no geometry: Brotli 11 is 27 
 9 on the same tiles. Bundling the tiles helps Brotli by 2 % and gzip not at all, whose 32 KiB window
 cannot see across tiles. Serialisation is the next: JSON's decimal text and repeated brackets cost
 54 % over the compact codec under the same Brotli. Then come the study's roof encoder (an estimated
-2.9 MB of buildings), the ground's overlap (1.2 MB) and the 3 m road resampling.
+2.9 MB of buildings), the ground's overlap (1.1 MB) and the 3 m road resampling.
 
 The budget over-estimated in two places, which hid part of the gap: it scaled 4,502 window trees
 to 671,526 where the city tiles hold 343,046 (0.80 MB too many), and its buildings come out 0.49 MB
@@ -124,7 +129,7 @@ above the calibrated estimate for the shipped ones.
 
 The audit's codec writes zig-zag varint deltas one column at a time, the scheme of the study's
 `delta_stream`, and keeps everything the game reads: each face's outer ring and holes (18,051 faces
-have holes) and the ground's gaps, as run lengths. On the shipped tiles it agrees with the study's encoders (measured,
+have holes), which roads carry widths (177 do not), and the ground's gaps, as run lengths. On the shipped tiles it agrees with the study's encoders (measured,
 `study_crosscheck.py`): 807,222 against 805,155 bytes for the trees at 0.5 m, and 297,211 against
 297,359 for the kerbs.
 
@@ -176,10 +181,10 @@ and the current geometry:
 | ------------------------------------------------------------------------------- | ----------: | --------- |
 | Shipped: JSON, 157 files, gzip 9                                                |  30,169,632 | measured  |
 | Same JSON, Brotli 11                                                            |  22,014,251 | measured  |
-| Compact codec, all layers, one Brotli stream                                    |  14,042,291 | measured  |
-| The same with the ground kept once per place                                    |  12,857,680 | measured  |
-| The same with buildings in the study's encoder (−2,963,076 at the window ratio) | ≈ 9,895,000 | estimated |
-| The same with trees at 0.5 m                                                    | ≈ 9,711,000 | estimated |
+| Compact codec, all layers, one Brotli stream                                    |  14,040,673 | measured  |
+| The same with the ground kept once per place, plus edge nodes                   |  12,893,753 | measured  |
+| The same with buildings in the study's encoder (−2,963,076 at the window ratio) | ≈ 9,931,000 | estimated |
+| The same with trees at 0.5 m                                                    | ≈ 9,747,000 | estimated |
 
 About 9.5–10 MB is plausible only if all of these are built:
 
@@ -187,8 +192,8 @@ About 9.5–10 MB is plausible only if all of these are built:
 2. The study's welded, plane-coded roof encoding, with the decoder that was never written and a
    round-trip test against the current roofs (about 2.9 MB estimated). The tile bake would have to
    keep the planes, lattice and axis it needs.
-3. Ground stored once per place: grids cut to each tile's own cell, or one citywide heightmap
-   (about 1.2 MB measured).
+3. Ground stored once per place: grids cut to each tile's own cell plus the one-node ring its edge
+   triangles use, or one citywide heightmap (about 1.1 MB measured).
 4. Brotli at quality 11 for the payload (about 27 % against gzip 9, measured). The live host
    answered gzip only, even when Brotli was accepted, so this needs pre-compressed files and a
    client-side Brotli decoder; browser support for decoding them was not tested here. Under gzip,
