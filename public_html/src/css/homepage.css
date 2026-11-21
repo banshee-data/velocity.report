@@ -5,23 +5,23 @@
  * ========================================================================= */
 
 :root {
-  --bg: #07090c;
+  --bg: var(--scene-canvas);
   --bg-2: #0b0f14;
-  --panel: #0d1218;
+  --panel: var(--scene-panel);
   --panel-2: #111820;
   --panel-3: #161e28;
   --line: #1b2632;
   --line-2: #243140;
   --line-soft: #131c26;
-  --text: #e6ebf2;
-  --text-soft: #a7b2c0;
+  --text: var(--scene-text);
+  --text-soft: var(--scene-text-soft);
   --text-mute: #6b7787;
   --text-dim: #4a5563;
-  --emerald: #10b981;
+  --emerald: var(--scene-primary);
   --emerald-2: #34d399;
   --emerald-3: #047857;
   --emerald-4: #064e3b;
-  --emerald-fg: #6ee7b7;
+  --emerald-fg: var(--scene-primary-text);
   --amber: #f59e0b;
   --amber-fg: #fbbf24;
   --signal: #38bdf8;
@@ -226,7 +226,11 @@ a:hover {
   text-wrap: balance;
 }
 .hero h1 .accent {
-  background: linear-gradient(180deg, #6ee7b7 0%, #10b981 70%);
+  background: linear-gradient(
+    180deg,
+    var(--scene-primary-text) 0%,
+    var(--scene-primary) 70%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

@@ -64,6 +64,9 @@ importers:
       postcss:
         specifier: ^8.5.32
         version: 8.5.32
+      proj4:
+        specifier: 2.23.0
+        version: 2.23.0
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -1059,6 +1062,9 @@ packages:
     resolution: {integrity: sha512-S3UwM3yj5mtUSEfP41UZmt/0SCoVYUcU1rkXv+BQ5Ig8ndL4sPoJNBUJERafdPb5jjHJGuMgytgKvKIf58XNBw==}
     engines: {node: '>= 0.10.0'}
 
+  mgrs@1.0.0:
+    resolution: {integrity: sha512-awNbTOqCxK1DBGjalK3xqWIstBZgN6fxsMSiXLs9/spqWkF2pAhb2rrYCFSsr1/tT7PhcDGjZndG8SWYn0byYA==}
+
   micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
@@ -1242,6 +1248,14 @@ packages:
   prismjs@1.30.0:
     resolution: {integrity: sha512-DEvV2ZF2r2/63V+tK8hQvrR2ZGn10srHbXviTlcv7Kpzw8jWiNTqbVgjO3IY8RxrrOUF8VPMQQFysYYYv0YZxw==}
     engines: {node: '>=6'}
+
+  proj4@2.23.0:
+    resolution: {integrity: sha512-vb1Z/dOztEyXg5JC2LgKc2ye+md4qUdwH/RLS0EUUMKzoIsAC2PT1IGKPIDv9qg51p7uONn93qTh9gtfh+GmOQ==}
+    peerDependencies:
+      geotiff: '*'
+    peerDependenciesMeta:
+      geotiff:
+        optional: true
 
   prr@1.0.1:
     resolution: {integrity: sha512-yPw4Sng1gWghHQWj0B3ZggWUm4qVbPwPFcRG8KyxiU7J2OHFSoEHKS+EZ3fv5l1t9CyCiop6l/ZYeWbrgoQejw==}
@@ -1514,6 +1528,9 @@ packages:
   which@1.3.1:
     resolution: {integrity: sha512-HxJdYWq1MTIQbJ3nw0cqssHoTNU267KlrDuGZ1WYlxDStUtKUhOaJmh112/TZmHxxUfuJqPXSOm7tDyas0OSIQ==}
     hasBin: true
+
+  wkt-parser@1.9.0:
+    resolution: {integrity: sha512-0muBykCBpbUgMPqmH+2rlvFlFwwH1kdgIMa0YbaQ/JZAlyWCv8Fa4HFSbEvZs2gYRaqJP/0D8xSI1G7Z4tn0vw==}
 
   ws@8.21.0:
     resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
@@ -2592,6 +2609,8 @@ snapshots:
 
   memorystream@0.3.1: {}
 
+  mgrs@1.0.0: {}
+
   micromatch@4.0.8:
     dependencies:
       braces: 3.0.3
@@ -2760,6 +2779,11 @@ snapshots:
       posthtml-render: 3.0.0
 
   prismjs@1.30.0: {}
+
+  proj4@2.23.0:
+    dependencies:
+      mgrs: 1.0.0
+      wkt-parser: 1.9.0
 
   prr@1.0.1: {}
 
@@ -3104,5 +3128,7 @@ snapshots:
   which@1.3.1:
     dependencies:
       isexe: 2.0.0
+
+  wkt-parser@1.9.0: {}
 
   ws@8.21.0: {}

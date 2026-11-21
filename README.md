@@ -172,7 +172,7 @@ The [full PDF is available at banshee-data.com](https://banshee-data.com/velocit
 | **PDF reports**      | Turns speed data into professional PDF reports with charts, statistics, and proper formatting. Go + Typst -> [internal/report/](internal/report/)                                                                       |
 | **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript -> [web/](web/README.md)                                                                                                         |
 | **macOS visualiser** | Native 3D LiDAR point cloud viewer with object tracking, replay, debug overlays, and point-cloud annotation for building reference datasets. macOS/Metal -> [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
-| **SF driving game**  | Explore the measured city in `/sf/`, collect intersection emojis against the clock, and track personal bests -> [driving game](docs/ui/sf-driving-view.md)                                                              |
+| **SF driving game**  | Explore the measured city in `/sf/`, collect intersection emojis against the clock, and see recorded traffic and speed histograms near survey sites -> [driving game](docs/ui/sf-driving-view.md)                       |
 
 ## Quick start
 

@@ -5,6 +5,7 @@ const markdownItAnchor = require("markdown-it-anchor");
 const cheerio = require("cheerio");
 const { moduleVersion } = require("./module-version.js");
 const { sfDownloadAssets } = require("./sf-asset-sizes.cjs");
+const { sfSurveyData } = require("./sf-survey-data.cjs");
 
 function normalisePathPrefix(value) {
   const trimmed = String(value || "").trim();
@@ -273,6 +274,15 @@ module.exports = async function (eleventyConfig) {
 
   // Survey pages: figures, findings and charts for a site at its posted limit.
   eleventyConfig.addFilter("surveyView", surveyView);
+  eleventyConfig.addFilter("sfSurveyData", (surveys) =>
+    JSON.stringify(
+      sfSurveyData(
+        surveys,
+        require("./src/city/sites.json"),
+        require("./src/sf/tiles/manifest.json"),
+      ),
+    ).replaceAll("<", "\\u003c"),
+  );
   // One decimal, always: "26.0" beside "22.6", and a dash for a missing value.
   eleventyConfig.addFilter("fixed1", surveyModel.mph);
 

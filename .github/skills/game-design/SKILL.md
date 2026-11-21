@@ -1,6 +1,6 @@
 ---
 name: game-design
-description: Use World, Physics, Traffic, Goals, UI, and Data to frame SF game discussions, implementation, and code review. Apply to the SF game page, sf-prefixed modules/tests/asset helpers, tools/sf-drive, and SF game documentation.
+description: Use World, Physics, Traffic, Goals, UI, and Data to frame SF game discussions, implementation, and code review. Apply to the SF game page, sf-prefixed modules/tests/asset helpers, tools/sf-drive, SF game documentation, and the shared public scene design across the game, homepage hero, and surveys.
 ---
 
 # Game design

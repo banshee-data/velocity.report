@@ -304,8 +304,8 @@ test("tree trunk and crown are gravitropic in a tilted sensor frame", () => {
       ),
     ],
   });
-  const start = new THREE.Vector3(...tree.lines.slice(0, 3)),
-    end = new THREE.Vector3(...tree.lines.slice(3, 6));
+  const start = new THREE.Vector3(...tree.trunks.slice(0, 3)),
+    end = new THREE.Vector3(...tree.trunks.slice(3, 6));
   const direction = end.clone().sub(start);
   assert.ok(
     direction

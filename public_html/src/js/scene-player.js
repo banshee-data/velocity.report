@@ -35,7 +35,16 @@ import {
   sceneSkipTarget,
   sceneSourcesAlign,
 } from "./scene-playback.js";
-import { SCENE_COLOURS } from "./scene-colours.js";
+import { SCENE_COLOURS, sceneTrackColour } from "./scene-colours.js";
+import {
+  createTrackBoxGeometry,
+  createTrackBoxMaterials,
+  placeTrackBox,
+  trackBoxAnchor,
+  trackBoxSize,
+  TRACK_FILL_OPACITY,
+  TRACK_OUTLINE_OPACITY,
+} from "./scene-track-box.js";
 import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
 import {
   createGroundGroup,
@@ -53,35 +62,11 @@ import { createBuildingMask } from "./scene-buildings.js";
 
 const MPS_TO_MPH = 2.236936;
 
-/** Class colours. Anything unrecognised falls back to `default`. */
-const CLASS_COLOUR = {
-  // These read across the scene and timeline strip, so a colour means one thing.
-  car: SCENE_COLOURS.vehicle,
-  bus: SCENE_COLOURS.vehicle,
-  truck: SCENE_COLOURS.vehicle,
-  pedestrian: SCENE_COLOURS.walking,
-  cyclist: SCENE_COLOURS.cycle,
-  motorcyclist: SCENE_COLOURS.cycle,
-  bird: SCENE_COLOURS.bird,
-  dynamic: SCENE_COLOURS.dynamic,
-  noise: SCENE_COLOURS.noise,
-  default: SCENE_COLOURS.dynamic,
-};
-
 // A safety bound on trail buffer growth, not a normal operating size. Five
 // seconds of history at typical rotation rates is far under this; it exists
 // only so a very long recipe-supplied history window cannot grow a buffer
 // unboundedly.
 const TRAIL_MAX_POINTS = 2000;
-
-// A floor on the rendered box extent. Many real clusters are a few tens of
-// centimetres across, which at street scale is under a pixel; the box is a
-// marker for a measurement, so it stays legible rather than true to size.
-const MIN_BOX_EXTENT = 0.9;
-
-function colourFor(cls) {
-  return CLASS_COLOUR[cls] ?? CLASS_COLOUR.default;
-}
 
 /**
  * One track's position in scene coordinates, lifted just clear of the box's
@@ -92,7 +77,7 @@ function colourFor(cls) {
  * and a currently-rendered box use identical placement math.
  */
 export function sceneTrailPoint(t) {
-  const [x, y] = trailAnchor(t);
+  const [x, y] = trackBoxAnchor(t);
   return [toSceneX(x), toSceneY(t.z) + 0.05, toSceneZ(y)];
 }
 
@@ -168,19 +153,12 @@ export function buildTrailHistories(frames, trackIds, buildingMask = null) {
         continue;
       }
       // Scene north is -Z: convert the prior trail point back to sensor XY.
-      if (last && buildingMask?.crosses([last[0], -last[2]], trailAnchor(t)))
+      if (last && buildingMask?.crosses([last[0], -last[2]], trackBoxAnchor(t)))
         pts.length = 0;
       pts.push(sceneTrailPoint(t));
     }
   }
   return byTrack;
-}
-
-/** Use a complete published centre, or fall back to the recorded position. */
-function trailAnchor(t) {
-  return Number.isFinite(t.bx) && Number.isFinite(t.by)
-    ? [t.bx, t.by]
-    : [t.x, t.y];
 }
 
 const PREDICTED_SUPPORT = new Set([
@@ -255,7 +233,7 @@ export function buildTrailSegments(
         prior.index === index - 1 &&
         frame.t > prior.time &&
         frame.t - prior.time <= maxGapUs &&
-        !buildingMask?.crosses(trailAnchor(prior.track), trailAnchor(t))
+        !buildingMask?.crosses(trackBoxAnchor(prior.track), trackBoxAnchor(t))
       ) {
         segments.push({
           style: trailStyle(prior.track, t),
@@ -283,27 +261,13 @@ const TRAIL_STYLES = {
 export class TrackVisual {
   constructor(scene, colour) {
     this.colour = colour;
-    const geo = new THREE.BoxGeometry(1, 1, 1);
+    const geometry = createTrackBoxGeometry();
+    const materials = createTrackBoxMaterials(colour);
     this.edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(geo),
-      sceneFade(
-        new THREE.LineBasicMaterial({
-          color: colour,
-          transparent: true,
-          opacity: 0.95,
-        }),
-      ),
+      geometry.edges,
+      sceneFade(materials.edges),
     );
-    this.fill = new THREE.Mesh(
-      geo,
-      sceneFade(
-        new THREE.MeshBasicMaterial({
-          color: colour,
-          transparent: true,
-          opacity: 0.22,
-        }),
-      ),
-    );
+    this.fill = new THREE.Mesh(geometry.fill, sceneFade(materials.fill));
     scene.add(this.edges);
     scene.add(this.fill);
 
@@ -347,29 +311,11 @@ export class TrackVisual {
 
   /** Positions the box and its edges. Trail placement is separate: see setTrail. */
   update(t) {
-    // The box model publishes the box's own centre (bx, by), which is not
-    // the tracked position; without it the box is drawn at the track.
-    const [anchorX, anchorY] = trailAnchor(t);
-    const x = toSceneX(anchorX);
-    const z = toSceneZ(anchorY);
-
-    const l = Math.max(t.l || 0, MIN_BOX_EXTENT);
-    const w = Math.max(t.w || 0, MIN_BOX_EXTENT);
-    const h = Math.max(t.h || 0, MIN_BOX_EXTENT);
-
-    // `z` is the box's base, not its centre. The unit geometry is centred on
-    // its origin, so the object sits h/2 above the base to put the base at
-    // z; the macOS visualiser's unit box runs 0..1 and needs no lift. The
-    // object's position stays the box centre, which labels hang from.
-    const y = toSceneY(t.z) + h / 2;
-
+    const anchor = [...trackBoxAnchor(t), t.z];
+    const size = trackBoxSize(t);
     for (const obj of [this.edges, this.fill]) {
       obj.visible = true;
-      obj.position.set(x, y, z);
-      obj.scale.set(l, h, w);
-      // ENU +yaw takes +X toward +Y (north). With north mapped to -Z,
-      // three.js +Y rotation takes +X toward -Z too: preserve the sign.
-      obj.rotation.set(0, t.bh ?? t.hdg ?? 0, 0);
+      placeTrackBox(obj, anchor, size, t.bh ?? t.hdg ?? 0);
     }
   }
 
@@ -461,8 +407,8 @@ export class TrackVisual {
   }
 
   setOpacity(opacity) {
-    this.edges.material.opacity = 0.95 * opacity;
-    this.fill.material.opacity = 0.22 * opacity;
+    this.edges.material.opacity = TRACK_OUTLINE_OPACITY * opacity;
+    this.fill.material.opacity = TRACK_FILL_OPACITY * opacity;
     this.trail.material.opacity = 0.7 * opacity;
     for (const line of this.segmentLines.values())
       line.material.opacity = 0.7 * opacity;
@@ -1148,7 +1094,7 @@ export async function mountScenePlayer({
       seen.add(t.id);
       let v = visuals.get(t.id);
       if (!v) {
-        v = new TrackVisual(scene, colourFor(t.c));
+        v = new TrackVisual(scene, sceneTrackColour(t.c));
         visuals.set(t.id, v);
       }
       // Re-applied every frame: a track's class can change under it.
@@ -1161,7 +1107,7 @@ export async function mountScenePlayer({
           ? Number.parseInt(band.colour.slice(1), 16)
           : followingReview
             ? 0x6b7c88
-            : colourFor(t.c),
+            : sceneTrackColour(t.c),
       );
       v.update(t);
       v.setOpacity(1);

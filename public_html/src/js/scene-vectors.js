@@ -1,4 +1,5 @@
 import { sceneFade } from "./scene-fade.js";
+import { SCENE_COLOURS } from "./scene-colours.js";
 // Gerardus's street geometry in a scene: kerbs, walls, roofs, trees, and registered
 // ground, as Gerardus measured or inferred them, drawn in the
 // scene's own sensor frame.
@@ -35,32 +36,44 @@ export const VECTOR_STYLE = {
     line: 0.65,
     lift: 0.1,
   },
-  trees: { label: "trees", colour: 0x245238, fill: 0.16, line: 0.45 },
+  trees: {
+    label: "trees",
+    colour: SCENE_COLOURS.treeCrown,
+    fill: 0.16,
+    line: 0.75,
+  },
   city_streets: { label: "street centrelines", colour: 0x56656e, line: 0.4 },
-  footprints: { label: "building footprints", colour: 0x7b8790, line: 0.35 },
+  footprints: {
+    label: "building footprints",
+    colour: SCENE_COLOURS.buildingOutline,
+    line: 0.35,
+  },
   observed: {
     label: "kerbs",
-    colour: 0xd3dbe0,
+    colour: SCENE_COLOURS.kerb,
     line: 0.75,
     lift: 0.06,
   },
   box_walls: {
     label: "building walls",
-    colour: 0x74838d,
-    fill: 0.04,
-    line: 0.11,
+    colour: SCENE_COLOURS.buildingWall,
+    edge: SCENE_COLOURS.buildingOutline,
+    fill: 0.1,
+    line: 0.44,
   },
   wall_surfaces: {
     label: "building walls",
-    colour: 0x74838d,
-    fill: 0.04,
-    line: 0.11,
+    colour: SCENE_COLOURS.buildingWall,
+    edge: SCENE_COLOURS.buildingOutline,
+    fill: 0.1,
+    line: 0.44,
   },
   roof_planes: {
     label: "roof planes",
-    colour: 0x9a8f7c,
-    fill: 0.05,
-    line: 0.14,
+    colour: SCENE_COLOURS.buildingRoof,
+    edge: SCENE_COLOURS.buildingOutline,
+    fill: 0.12,
+    line: 0.46,
   },
 };
 
@@ -144,7 +157,7 @@ function treeGeometry(destination, points, props, basis) {
     : bottom + 2 * r;
   const half = Math.max(0.5, (crownTop - bottom) / 2);
   const mid = bottom + half;
-  layer.segments.push(base, [base[0], base[1], bottom]);
+  const trunk = [base, [base[0], base[1], bottom]];
   const start = layer.positions.length;
   const rows = 10,
     columns = 20;
@@ -187,6 +200,7 @@ function treeGeometry(destination, points, props, basis) {
   };
   const offset = destination.positions.length;
   destination.segments.push(...layer.segments.map(sensor));
+  destination.trunks.push(...trunk.map(sensor));
   destination.positions.push(...layer.positions.map(sensor));
   destination.indices.push(...layer.indices.map((i) => i + offset));
 }
@@ -229,6 +243,7 @@ export function vectorLayers(collection) {
         layer: props.layer,
         style,
         segments: [],
+        trunks: [],
         positions: [],
         indices: [],
         count: 0,
@@ -268,6 +283,7 @@ export function vectorLayers(collection) {
     style: l.style,
     count: l.count,
     lines: Float32Array.from(l.segments.flatMap(toScene)),
+    trunks: Float32Array.from(l.trunks.flatMap(toScene)),
     fill: l.indices.length
       ? {
           positions: Float32Array.from(l.positions.flatMap(toScene)),
@@ -309,21 +325,25 @@ export function createVectorGroup(collection) {
       mesh.renderOrder = -2;
       group.add(mesh);
     }
-    if (l.lines.length) {
+    for (const [kind, positions, colour] of [
+      ["lines", l.lines, l.style.edge ?? l.style.colour],
+      ["trunks", l.trunks, SCENE_COLOURS.treeTrunk],
+    ]) {
+      if (!positions.length) continue;
       const geo = new THREE.BufferGeometry();
-      geo.setAttribute("position", new THREE.BufferAttribute(l.lines, 3));
+      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       const lines = new THREE.LineSegments(
         geo,
         sceneFade(
           new THREE.LineBasicMaterial({
-            color: l.style.colour,
+            color: colour,
             transparent: true,
             opacity: l.style.line,
             depthWrite: false,
           }),
         ),
       );
-      lines.name = `${l.layer}:lines`;
+      lines.name = `${l.layer}:${kind}`;
       lines.renderOrder = -1;
       group.add(lines);
     }

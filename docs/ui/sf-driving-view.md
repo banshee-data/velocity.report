@@ -1,6 +1,6 @@
 # San Francisco driving view (`/sf/`)
 
-- **Status:** driving engine and emoji time trials.
+- **Status:** driving engine, emoji time trials, survey traffic replay and solo safety practice.
 - **Page:** [`public_html/src/sf/index.njk`](../../public_html/src/sf/index.njk); logic in
   [`sf-drive.js`](../../public_html/src/js/sf-drive.js) and
   [`sf-drive-core.js`](../../public_html/src/js/sf-drive-core.js) (tested in
@@ -133,7 +133,7 @@ hash scopes saved records. The engine tests check complete tile coverage and uni
 City coverage draws the four S2 level-13 corners of each manifest token in the game's
 EPSG:7131 frame. The projected cell boundaries share corners across tiles. The map shows
 loaded and collected cells, a small white car arrow, the shoreline, larger park properties
-and major roads. The driving compass provides emoji guidance.
+major roads and red diamonds for replayable surveys. The driving compass provides emoji guidance.
 
 The map uses the repository's [DataSF shoreline](https://data.sf.gov/d/rgcx-5tix),
 [Recreation and Parks Properties](https://data.sf.gov/d/gtr9-ntp6), and road classes 1–3
@@ -147,7 +147,7 @@ The map readout reports network response-body sizes for the currently loaded til
 complete city tile set, and the full game asset download (tiles, manifest, quest index,
 coverage map, engine modules and three.js). It uses Resource Timing's `encodedBodySize`, so gzip/Brotli
 responses count at their compressed size. Headers, protocol overhead, the page document,
-and favicon are excluded. Cached assets count at their encoded download size rather than
+favicon and on-demand survey recordings are excluded. Cached assets count at their encoded download size rather than
 zero; retries do not add the same file twice. This is the asset inventory, not a running
 counter of this session's network traffic or an estimate of heap/GPU memory.
 
@@ -157,6 +157,40 @@ A total containing an estimate is marked `≈`. With gzip, the full asset downlo
 30.6 MB, compared with the previous 32.4 MB on-disk total. The displayed number follows the
 host's actual response sizes as they become available; an uncompressed development server
 can therefore report more. No extra requests or full-city download are needed to measure it.
+
+## Survey traffic replay
+
+**Data, World, UI.** Drive within 115 m of a survey's placed sensor to start its recording
+at normal speed and open its speed card. The nearest eligible survey takes priority, with
+a 15 m margin before switching between overlapping approaches. The replay closes beyond
+145 m or when switching to solo safety practice. Each visit starts the recording again,
+and the recording loops at its end. The red
+diamonds on the minimap identify the 24 playable surveys. SoMa 1 is published without an
+accepted pose.
+
+The game streams the published survey's frames on approach. The replay shows classified
+motor vehicles, pedestrians and cyclists as boxes. Their motion follows the recorded
+timestamps. They are visual observations with no collisions or response to driving input.
+The game starts each intersection independently and uses the survey's stationary coverage
+when the export defines it. Broken replay assets leave the card and survey link available.
+
+The card shows the distribution of peak speed per vehicle track, the P85 and the number
+of vehicle tracks for the replayed recording. It uses the survey's published bins and posted
+limit, and opens that recording in a new tab to keep the drive in progress.
+
+At build time, [the survey data join](../../public_html/sf-survey-data.cjs) pairs the placed
+export in [the city index](city-view.md#citysitesjson-the-city-site-index) with its histogram.
+It converts the accepted sensor pose through GRS80 ECEF to the game's EPSG:7131 grid and
+NAVD88 heights. A local affine transform places track boxes within the surveyed area. The
+rendering lifts any box whose measured base would fall under the game's coarser terrain.
+The [placement tests](../../public_html/src/js/__tests__/sf-survey-replay.test.mjs) compare
+sample positions with independent PROJ results.
+
+**UI, World.** The game, homepage hero and survey viewer share a dark palette, red motor
+vehicles, hero-green pedestrians and blue cyclists. Grey and tan buildings have
+translucent faces and restrained outlines. Trees use dark emerald and brown. The
+[game-design skill](../../.claude/skills/game-design/SKILL.md#public-scene-design)
+describes how to carry these roles into future changes.
 
 ## Road rendering
 
@@ -222,7 +256,7 @@ decks, overpasses and tunnels need separate supported surfaces and connectivity.
 | Layer                             | Source                                                                                                                                                                    | Treatment                                                                                                                                                                                                                                                                                                             |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Buildings                         | DataSF Building Footprints (`ynuv-fyni`, PDDL-1.0; 2010 heights) and roof planes fitted to USGS 3DEP lidar (flown April 2023, public domain) by Gerardus's city roof bake | Each roof face is a plane over its outline; walls stand on the City's outline. Faces whose lidar returns show canopy are given to a neighbour. Buildings without fitted roofs are boxes at their 2010 height                                                                                                          |
-| Structures the 2010 outlines lack | 3DEP lidar: solid, planar returns at least 3 m up with no footprint, or a footprint whose lidar top stands well above its 2010 height                                     | Flat tiers at 1.5 m steps, shaded violet. Salesforce Tower and other post-2010 towers appear this way                                                                                                                                                                                                                 |
+| Structures the 2010 outlines lack | 3DEP lidar: solid, planar returns at least 3 m up with no footprint, or a footprint whose lidar top stands well above its 2010 height                                     | Flat tiers at 1.5 m steps, shaded warm tan. Salesforce Tower and other post-2010 towers appear this way                                                                                                                                                                                                               |
 | Trees                             | DataSF Street Tree List (`tkzw-k3nq`, PDDL-1.0) inside the street right of way; 3DEP canopy tops elsewhere                                                                | A listed tree takes height and crown from the lidar canopy over it, or a size from its trunk diameter. No trunk stands on the carriageway                                                                                                                                                                             |
 | Roads                             | DataSF streets (`3psu-pn9h`), Curbs and Islands (`emxt-b6yg`, 2016), Right of Way (`h8n7-e4ns`), all PDDL-1.0                                                             | Asphalt between the kerbs, from each centreline's distance to the first kerb on either side. Kerb lines follow the terrain and two-way streets have dashed centrelines.                                                                                                                                               |
 | Ground                            | 3DEP class-2 ground via Gerardus's city view tiles                                                                                                                        | An 8 m grid                                                                                                                                                                                                                                                                                                           |

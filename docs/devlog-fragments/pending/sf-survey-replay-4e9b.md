@@ -1,0 +1,2 @@
+- Added proximity-triggered survey traffic replay to the [San Francisco driving game](../../ui/sf-driving-view.md#survey-traffic-replay). It places 24 recordings using their accepted sensor poses, loops their classified tracks and links each published speed histogram to the matching recording.
+- Shared the public road-user palette and muted street geometry across the game, homepage hero and survey viewer, and extended the [game-design skill](../../../.claude/skills/game-design/SKILL.md#public-scene-design).

@@ -9,32 +9,28 @@ eleventyExcludeFromCollections: true
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
 <title>{{ title }}</title>
 <meta name="description" content="{{ description }}">
 <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/scene-colours.css">
+<link rel="stylesheet" href="/css/fonts.css">
 <style>
   /* Full-viewport drive: the 3D view fills the page; the readout, controls and mirror float over it. */
   :root {
-    --bg: #eef1f3; --panel: rgba(255, 255, 255, 0.92); --ink: #17202a; --muted: #56636c; --rule: #d3d9dd; --accent: #0f766e;
-    --sky: #cfdde6; --land: #b4b7a5; --roof: #d9cdb8; --wall: #e6e1d7; --extra: #8b74c9;
-    --asphalt: #4a4f55; --path: #b7b2a6; --dash: #f2d36b; --kerb: #eeece6;
-    --tree: #5f8a4e; --trunk: #6b5a45; --pole: #5f666c; --sign: #1f6f43; --car: #0f766e; --car-dark: #0b4f4a;
-    --map-water: #d4e5ef; --map-land: #f8f6ed; --map-coast: #6f94aa; --map-grid: #56636c99; --map-park: #6f9d5fb3; --map-arterial: #7f655a99;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #11161a; --panel: rgba(24, 32, 38, 0.92); --ink: #e2e7ea; --muted: #98a5ad; --rule: #2b363e; --accent: #34d399;
-      --sky: #1c2a33; --land: #5b5f55; --roof: #b4a890; --wall: #c9c3b7; --extra: #a28fe0;
-      --asphalt: #2a2e33; --path: #6d6b65; --dash: #d9b94a; --kerb: #c9c6bd;
-      --tree: #6f9a5c; --trunk: #5a4a39; --pole: #9aa3a9; --sign: #217a4a; --car: #2dd4bf; --car-dark: #138a7c;
-      --map-water: #192e3a; --map-land: #3d484e; --map-coast: #7397aa; --map-grid: #b0c4cb99; --map-park: #86ad65a6; --map-arterial: #e5bca799;
-    }
+    color-scheme: dark;
+    --bg: var(--scene-canvas); --panel: var(--scene-panel); --ink: var(--scene-text);
+    --muted: var(--scene-text-soft); --rule: var(--scene-panel-border); --accent: var(--scene-primary-text);
+    --sky: #0b141f; --land: #182925; --dash: #e5cc80; --pole: #91a5b0; --sign: #185541;
+    --map-water: #101e2a; --map-land: #293539; --map-coast: #7397aa; --map-grid: #b0c4cb66;
+    --map-park: #39725eaa; --map-arterial: #b2a594a6;
+    --sans: "Geist", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   html, body { height: 100%; margin: 0; }
-  body { background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.4 var(--sans); overflow: hidden; }
   #drive { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; }
   .drive-bar { position: fixed; top: max(8px, env(safe-area-inset-top, 0px)); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); height: 48px; max-width: 620px; display: flex; align-items: center; gap: 10px; padding: 2px 2px 2px 10px; }
@@ -44,10 +40,10 @@ eleventyExcludeFromCollections: true
   .next { color: var(--muted); font-size: 11px; min-height: 14px; }
   .drive-bar[data-crash="true"] .next { color: #f97316; font-weight: 700; }
   .speed { display: flex; align-items: baseline; gap: 2px; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #speed { font: 800 26px/1 ui-monospace, monospace; }
+  #speed { font: 800 26px/1 var(--mono); }
   .speed small { font-size: 10px; font-weight: 600; }
   .run { text-align: right; white-space: nowrap; font-size: 10px; color: var(--muted); }
-  .timer { display: block; color: var(--ink); font: 700 14px/1.2 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .timer { display: block; color: var(--ink); font: 700 14px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
   button, select { font: inherit; color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
   button { cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   button:disabled { opacity: 0.5; cursor: default; }
@@ -60,6 +56,34 @@ eleventyExcludeFromCollections: true
   #seekerTurn { color: #fde68a; font-size: 11px; }
   #seekerScope { font-size: 10px; font-weight: 400; color: #d4dce2; }
   #seekerHeading { display: none; }
+  .survey-card {
+    position: fixed; left: max(12px, env(safe-area-inset-left, 0px));
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    width: min(280px, calc(100vw - 24px)); padding: 10px 12px; border-radius: 8px;
+    border-top: 2px solid var(--scene-vehicle); box-shadow: 0 12px 28px #0008;
+  }
+  .survey-card h2 { margin: 1px 0 2px; font-size: 15px; line-height: 1.2; }
+  .survey-status, .survey-details, .survey-metric { color: var(--muted); font: 11px/1.35 var(--mono); }
+  .survey-status { color: var(--accent); }
+  .survey-metric { margin-top: 8px; display: flex; justify-content: space-between; gap: 5px; }
+  #surveyP85 { color: var(--ink); }
+  .survey-chart svg { display: block; width: 100%; height: auto; }
+  .survey-card a { color: var(--accent); font-size: 13px; font-weight: 600; }
+  @media (pointer: coarse), (max-width: 760px) {
+    .survey-card { left: auto; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(max(12px, env(safe-area-inset-bottom, 0px)) + 64px); }
+  }
+  @media (orientation: portrait) and (max-width: 760px) {
+    .survey-card {
+      top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); bottom: auto;
+      width: min(258px, calc(100vw - 104px));
+    }
+    body:has(#mirrorFrame:not([hidden])) .survey-card { top: calc(max(8px, env(safe-area-inset-top, 0px)) + 96px); }
+  }
+  @media (max-height: 430px) {
+    .survey-card { width: min(234px, calc(100vw - 24px)); padding: 6px 9px; }
+    .survey-chart svg { max-height: 68px; }
+    .survey-metric { margin-top: 4px; }
+  }
   .mirror { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: 50%; transform: translateX(-50%); width: min(220px, calc(25vw - 8px)); aspect-ratio: 3.2; border: 2px solid #111; border-radius: 8px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
   .pad { position: fixed; bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: none; gap: 8px; }
   .steering { left: max(12px, env(safe-area-inset-left, 0px)); }
@@ -67,7 +91,7 @@ eleventyExcludeFromCollections: true
   .pad, .pad button { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   .pad button { width: 56px; height: 56px; padding: 0; font-size: 28px; font-weight: 750; -webkit-tap-highlight-color: transparent; box-shadow: 0 2px 12px #0003; }
   .pedals [data-act="up"] { border-color: var(--accent); }
-  .pad button.held { background: var(--accent); color: #fff; border-color: var(--accent); transform: translateY(2px); }
+  .pad button.held { background: var(--accent); color: var(--scene-primary-ink); border-color: var(--accent); transform: translateY(2px); }
   dialog { width: min(380px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 16px; color: var(--ink); overscroll-behavior: contain; overflow-y: auto; }
   dialog::backdrop { background: #071018a6; }
   .menu-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -87,7 +111,7 @@ eleventyExcludeFromCollections: true
   #minimap { display: block; width: 100%; height: 220px; }
   #desktopMap { display: none; position: fixed; right: 12px; bottom: 12px; width: min(260px, 34vw); height: min(193px, 35vh); pointer-events: none; }
   @media (pointer: fine) { #desktopMap { display: block; } }
-  .map .loaded { color: #0f9383; } .map .collected { color: #b38120; }
+  .map .loaded { color: var(--accent); } .map .collected { color: #fbbf24; } .map .survey-dot { color: var(--scene-vehicle); }
   .help p { margin: 0 0 8px; }
   .help a { color: var(--accent); }
   kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
@@ -132,6 +156,14 @@ eleventyExcludeFromCollections: true
     <span id="seekerHeading"></span>
   </div>
 </div>
+<aside class="panel survey-card" id="surveyCard" aria-labelledby="surveyTitle" hidden>
+  <div class="survey-status" id="surveyStatus" role="status"></div>
+  <h2 id="surveyTitle"></h2>
+  <div class="survey-details" id="surveyDetails"></div>
+  <div class="survey-metric"><span>Peak speed per vehicle</span><strong id="surveyP85"></strong></div>
+  <div class="survey-chart" id="surveyChart"></div>
+  <a id="surveyLink" target="_blank" rel="noopener" aria-label="View this survey (opens in a new tab)">View this survey <span aria-hidden="true">→</span></a>
+</aside>
 <canvas class="panel" id="desktopMap" role="img" aria-label="City coverage showing the coastline, parks, major roads, S2 tiles and your car."></canvas>
 <dialog class="panel" id="gameMenu" aria-labelledby="menuTitle">
   <div class="menu-heading">
@@ -177,8 +209,8 @@ eleventyExcludeFromCollections: true
   </div>
   <div class="map" aria-label="City minimap and assets">
     <div class="title">City coverage</div>
-    <canvas id="minimap" role="img" aria-label="North-up S2 level-13 coverage map with coastline, parks and major roads. Loaded tiles are teal, collected tiles are gold and your car is white."></canvas>
-    <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span></div>
+    <canvas id="minimap" role="img" aria-label="North-up S2 level-13 coverage map with coastline, parks and major roads. Loaded tiles are teal, collected tiles are gold, survey sites are red diamonds and your car is white."></canvas>
+    <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span><span class="survey-dot">◆ Survey</span></div>
     <div class="detail" id="assets"></div>
     <div class="detail" id="gameSize"></div>
     <div class="detail" id="coverage"></div>
@@ -186,7 +218,7 @@ eleventyExcludeFromCollections: true
   <div class="help">
     <p>Steer with the left thumb. Use the right thumb to accelerate or brake. Keep holding the brake to reverse after stopping. Follow the gold arrow to the indicated emoji. Camera choices are Zoomed out, Overhead and In car. The mirror is available only in car view.</p>
     <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive/reverse, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror in car, <kbd>V</kbd> cycle cameras, <kbd>R</kbd> return to an intersection. A crash spins the car for 2 seconds, then resets it; the clock keeps running. New trial or a new start resets the run. The clock also continues while this menu is open.</p>
-    <p>Measured geometry as context, not a survey or a plan: building outlines and 2010 heights from DataSF (PDDL), roofs fitted to USGS 3DEP lidar flown April 2023 (public domain), street trees from DataSF's Street Tree List with lidar canopy, streets, kerbs (2016) and street names from DataSF. Buildings 3DEP sees that the City's 2010 outlines lack are shaded violet. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">About this data</a>.</p>
+    <p>Measured geometry as context, not a survey or a plan: building outlines and 2010 heights from DataSF (PDDL), roofs fitted to USGS 3DEP lidar flown April 2023 (public domain), street trees from DataSF's Street Tree List with lidar canopy, streets, kerbs (2016) and street names from DataSF. Buildings 3DEP sees that the City's 2010 outlines lack use a warmer tan. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">About this data</a>.</p>
   </div>
 </dialog>
 <div class="pad steering" role="group" aria-label="Steering controls">
@@ -197,6 +229,7 @@ eleventyExcludeFromCollections: true
   <button type="button" data-act="brake" aria-label="Brake or hold to reverse">▼</button>
   <button type="button" data-act="up" aria-label="Accelerate">▲</button>
 </div>
+<script type="application/json" id="surveySites">{{ surveys | sfSurveyData | safe }}</script>
 <script type="module">
   import { startDrive } from "{{ (modulesBase + '/js/sf-drive.js') | url }}";
   const $ = (id) => document.getElementById(id);
@@ -204,6 +237,7 @@ eleventyExcludeFromCollections: true
     canvas: $("drive"),
     base: "{{ '/sf/tiles/' | url }}",
     downloadAssets: {{ sfDownloadAssets | safe }},
+    surveySites: JSON.parse($("surveySites").textContent),
     hud: {
       gameMode: $("gameMode"), soloSummary: $("soloSummary"), soloTrace: $("soloTrace"), soloPrevious: $("soloPrevious"),
       street: $("street"), next: $("next"), speed: $("speed"), compass: $("compass"), tiles: $("tiles"),
@@ -215,6 +249,10 @@ eleventyExcludeFromCollections: true
       seekerTurn: $("seekerTurn"), trialArea: $("trialArea"), trialTitle: $("trialTitle"),
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
       touchButtons: document.querySelectorAll(".pad button"),
+      survey: {
+        card: $("surveyCard"), status: $("surveyStatus"), title: $("surveyTitle"),
+        details: $("surveyDetails"), p85: $("surveyP85"), chart: $("surveyChart"), link: $("surveyLink"),
+      },
     },
   }).catch((e) => {
     $("street").textContent = "The city tiles could not be loaded.";

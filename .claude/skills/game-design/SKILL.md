@@ -1,6 +1,6 @@
 ---
 name: game-design
-description: Frame SF driving-game discussions, changes, and reviews using World, Physics, Traffic, Goals, UI, and Data. Use for the /sf/ page, sf-prefixed browser modules and tests, game asset helpers, tools/sf-drive, and SF game documentation; also use when shared code changes affect the game.
+description: Frame SF driving-game discussions, changes, and reviews using World, Physics, Traffic, Goals, UI, and Data. Use for the /sf/ page, sf-prefixed browser modules and tests, game asset helpers, tools/sf-drive, and SF game documentation; also use for the public scene design shared with the homepage hero and survey viewer.
 argument-hint: "[discussion topic, file paths, branch, or PR]"
 ---
 
@@ -31,8 +31,36 @@ Apply this workflow to:
 - `docs/ui/sf-*.md` and changes to this framing or its agent entry points.
 - Shared build, rendering, input, or data code when the change affects the SF game.
 
-Other site pages, the survey viewer, and LiDAR processing are outside this skill unless a
-change affects the game or the user explicitly includes them.
+Apply the public scene design guidance below to changes in the homepage hero or survey
+viewer that affect the shared appearance. Apply the game anchors when the change affects
+the game. Other public-site content and LiDAR processing have their own conventions.
+
+## Public scene design
+
+Use the [shared scene palette](../../../public_html/src/js/scene-colours.js) for WebGL
+and the generated `--scene-*` CSS variables for page styles. Define any new scene
+colour role there. Use the survey viewer as the reference for measured object boxes.
+
+| Object                | Colour role                        | Treatment |
+| --------------------- | ---------------------------------- | --------- |
+| Motor vehicles        | `vehicle` red                      | Bright outline, subdued fill. The player car also uses red, with a solid body and wheels. |
+| Pedestrians           | `walking` hero green               | Bright outline, subdued fill. |
+| Cyclists              | `cycle` blue                       | Bright outline, subdued fill. |
+| Buildings             | `buildingWall`, `buildingRoof`     | Muted grey walls, tan roofs, translucent faces and quiet edges. Use `buildingInferred` for the game's inferred tiers. |
+| Trees                 | `treeCrown`, `treeTrunk`           | Dark emerald foliage and brown trunks. Keep the silhouette softer than a road-user outline. |
+
+Keep the dark canvas, crisp class-coloured outlines, subdued geometry and legible mono
+readouts across the three surfaces. The homepage uses a procedural illustration and
+labels it as such. The survey and game replays use the shared
+[box geometry and placement conventions](../../../public_html/src/js/scene-track-box.js).
+Preserve track class and measured position when restyling playback. Keep measurement
+colours such as histogram limit bands and the game's gold navigation cues attached to
+their existing meanings.
+
+When changing a shared role or object, inspect the homepage hero, a survey with vectors,
+and `/sf/` near a survey. Check the player's view through translucent buildings, the
+class outlines and the mobile controls and histogram. For replay changes, verify that
+the chart and link still identify the same recording as the traffic shown.
 
 ## Apply it
 
