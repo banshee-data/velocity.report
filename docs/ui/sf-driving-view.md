@@ -231,8 +231,10 @@ and drops tiles more than 1.6 km past their edge.
 - Tall post-2010 towers are flat tiers, not their curved forms.
 - Collision uses the available building outlines and trunks; it does not model kerb impacts,
   tyre suspension, vehicle damage or traffic. Ground and roof heights retain the source limits.
-- The tiles are gzipped JSON for ease of reading. A binary encoding of the same geometry measured about a
-  third of the size in the asset study, and would be the next step if load time matters.
+- The tiles are gzipped JSON for ease of reading, 30,169,632 bytes. The asset study's 9.5 MB was an
+  estimate for fewer layers in a compact binary encoding under Brotli, not a measurement of these
+  tiles; the [size reconciliation](sf-city-map-size-reconciliation.md) measures the same data in each
+  form and lists what a smaller format would need.
 - Tree crowns are drawn as spheres from low on the trunk, so a blade can sit inside a street tree's
   crown that the City would have pruned clear of the sign.
 - The tiles are baked outside this repository from Gerardus's caches; the manifest records the inputs
