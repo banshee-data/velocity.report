@@ -27,7 +27,10 @@ discussion, implementation, and review; agent instructions route SF game changes
 ## Driving and time trials
 
 **UI:** the normal driving screen has a 48 px status strip (street, speed, clock,
-collection count and menu), a separate gold direction seeker, and two thumb clusters.
+collection count and menu), a narrow portrait direction seeker, and two thumb clusters.
+The speed numeral is 26 px with a smaller mph unit. Below the strip, the compass stays
+in the left quarter and the in-car mirror stays in the right quarter, leaving the
+central half of the road view free of HUD panels. World geometry still occludes naturally.
 Steer left/right with the left thumb; brake/accelerate with the right. Map & game opens
 a scrollable modal containing camera choices, trial area, starting place, reset/new trial,
 the full minimap, compressed download sizes, records and help. Opening it releases held
@@ -42,9 +45,9 @@ does not share this gameplay-area budget. Short screens use a smaller seeker and
 buttons; other touch screens use 56 px buttons. Safe-area insets keep controls clear of
 the device edges, without disabling page zoom globally.
 
-Chromium touch-emulation checks measured 17.94% for the default HUD and 19.33% in car
+Chromium touch-emulation checks measured 16.29% for the default HUD and 17.22% in car
 at 390×690. Across eight sizes (320×480 through 1024×768, including portrait and
-landscape), the largest measurement was 24.26% at 667×375 in car. These are CSS bounding
+landscape), the largest measurement was 22.93% at 320×480 in car. These are CSS bounding
 areas, including gaps within each control group, rather than pixel-opacity measurements;
 physical iOS behaviour still needs device validation.
 
@@ -88,9 +91,9 @@ collected tiles, the car, and a line to the seeker target.
 The compass seeker points to the uncollected emoji belonging to the current tile, even
 when a neighboring tile's emoji is closer. A gold, white-outlined arrow fills the compass
 dial, with the target emoji and distance alongside it so the emoji cannot cover the arrow.
-The seeker also shows the car's cardinal/numeric heading on taller screens. The car's forward direction is
-always up; compass letters and the target rotate relative to it. After the local pickup,
-the seeker marks it collected and points to the nearest remaining target. Tiles without
+The car's forward direction is always up; compass letters and the target rotate relative
+to it. After the local pickup, the seeker points to the nearest remaining target and
+labels its scope Next tile; the collection count and minimap show progress. Tiles without
 a quest also seek the next target, and a completed rally clears the target arrow.
 The dial uses an explicit turn instruction such as
 Straight ahead, Bear left, Turn right or Turn around.
@@ -132,13 +135,59 @@ can therefore report more. No extra requests or full-city download are needed to
 
 ## Road rendering
 
-Road and path colours and dashed markings are painted from the existing centreline and
-kerb-width data onto the terrain's own triangles. This gives each road point one surface;
+Road and path colours are painted from the existing centreline and kerb-width data onto
+the terrain's own triangles. This gives each road point one surface;
 an independently interpolated asphalt mesh can no longer intersect the hill underneath.
 Adjacent overlapping ground grids are clipped at their nearest-origin boundaries, and
 height queries use the same triangle planes. Texture resolution is 2048 pixels per tile
 on desktop and 1024 on touch devices. Buildings, trees, signs, kerbs and source tile files
 retain their existing geometry.
+
+Centre dashes use a separate unlit vector-paint mesh, clipped to those exact same ground
+triangles and tile ownership boundaries. This keeps thin paint sharper than the mobile
+texture without increasing its resolution. Only the depth buffer is offset; the paint's
+vertices use the original terrain planes, including hill diagonals and missing-ground
+holes. The
+[`sf-road-markings`](../../public_html/src/js/sf-road-markings.js) helper carries the 3 m
+dash / 3 m gap phase through each polyline's bends. Dashes are 0.30 m wide, drawn only
+for existing two-way carriageways; they are stylised guidance rather than observed paint
+or passing rules. No lane counts, stop bars, crossings or turn arrows are inferred.
+
+Streaming paint uses [`sf-terrain-painter`](../../public_html/src/js/sf-terrain-painter.js)
+and a module worker. A source tile invalidates only target ownership regions its road/
+marking bounds can overlap, within the existing neighbour-distance limit. Unaffected
+textures and mesh objects remain unchanged. Pending changes coalesce; the main thread
+paints at most one terrain texture and applies at most one marking result per animation
+frame. A tile's ground/region/markings are sent to the worker once on load. The worker
+caches clipped geometry per target/source pair, reuses retained contributors when a
+source leaves, and evicts those parts on unload. Transferred result buffers are separate
+from cached parts. Target identity and revision checks reject obsolete results, including
+unload/reload of the same token. If module workers fail, the same bounded texture queue
+draws raster dashes instead of running clipping on the main thread.
+
+The manual [road-paint benchmark](../../tools/sf-drive/benchmark-road-paint.mjs) runs with
+`node tools/sf-drive/benchmark-road-paint.mjs`. It uses the nine `tilesAround` tiles centred
+on `808580c4`, their manifest ownership regions and the original neighbour filter. In
+Node v24.19.0 here, after warm-up, five passes produced these median CPU times:
+
+| Work across all nine tiles           | Median    | Clipping calls with a warm cache |
+| ------------------------------------ | --------- | -------------------------------- |
+| Full clipping and Float32 conversion | 251.01 ms | Not cached                       |
+| Cached result assembly               | 10.93 ms  | 0                                |
+
+The tool checks identical Float32 geometry (340,212 vertices). This compares CPU geometry
+work, excluding texture painting, worker startup/transport, GPU uploads and rendering;
+the browser uses affected-tile scheduling rather than recomposing all nine each time.
+Chromium touch emulation at 390×690 verified zero main-thread clipping calls while
+streaming into that neighbourhood. Removing `808580b4` repainted/replaced only two
+remaining targets, reused all retained clipped parts and preserved other mesh objects.
+Observed callback maxima were 5.8 ms for texture paint, 0.7 ms for mesh replacement and
+8.4 ms for adding/sending a source. These headless measurements are not mobile-device
+frame-rate guarantees; physical-device validation remains outstanding.
+
+All current roads still share one ground surface at a horizontal position. Proper bridge
+decks, overpasses and tunnels need separate supported surfaces and connectivity. See the
+[current-tile capabilities and Gerardus handoff](../plans/ui-sf-layered-roads-plan.md).
 
 ## What it shows
 

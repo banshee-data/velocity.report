@@ -136,7 +136,10 @@ The fixed route has one distinct emoji at an intersection in each of 137 eligibl
 See [driving controls, route generation and rendering](../docs/ui/sf-driving-view.md).
 The touch pad captures held multi-touch input without selection or control gestures. The
 compact driving HUD puts steering on the left and brake/accelerator on the right, with
-the map, records and trial setup in a menu. A gold arrow points to the indicated emoji.
+the map, records and trial setup in a menu. A narrow portrait compass and larger speed
+numeral leave the road ahead visible. Crisp centre dashes are generated from the current
+tiles without a bake; the [layered-road handoff](../docs/plans/ui-sf-layered-roads-plan.md)
+separates those improvements from the Gerardus work needed for tunnels and bridge decks.
 The camera starts zoomed out, with Overhead and In car options; only In car shows a mirror. The
 district-trial UI accepts optional boundary and pickup metadata; real district runs await
 the [separate Gerardus data implementation](../docs/plans/ui-sf-district-trials-plan.md).

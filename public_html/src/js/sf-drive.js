@@ -30,6 +30,8 @@ import { createDownloadSizeTracker } from "./sf-download-size.js";
 import { bindDrivingPad } from "./sf-touch-controls.js";
 import { districtTrials, seekerDirection } from "./sf-district-trials.js";
 import { DRIVE_VIEWS, driveCameraPose } from "./sf-drive-camera.js";
+import { roadDashPolygons } from "./sf-road-markings.js";
+import { createTerrainPainter } from "./sf-terrain-painter.js";
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -111,7 +113,7 @@ function roadShapes(tile) {
   });
 }
 
-function paintTerrain(entry, entries, C) {
+function paintTerrain(entry, entries, C, rasterMarkings = false) {
   const texture = entry.grp.userData.terrain.material.map;
   const cv = texture.image,
     ctx = cv.getContext("2d"),
@@ -141,7 +143,7 @@ function paintTerrain(entry, entries, C) {
     ctx.beginPath();
     points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
   };
-  // Paths first, then carriageways, then markings. All colours share one depth surface.
+  // Paths first, then carriageways. Both colours share one depth surface.
   for (const road of [false, true])
     for (const shape of shapes) {
       if (shape.road !== road) continue;
@@ -150,16 +152,47 @@ function paintTerrain(entry, entries, C) {
       ctx.fillStyle = `#${(road ? C.asphalt : C.path).getHexString()}`;
       ctx.fill();
     }
-  ctx.strokeStyle = `#${C.dash.getHexString()}`;
-  ctx.lineWidth = 0.28;
-  ctx.setLineDash([3, 3]);
-  for (const shape of shapes)
-    if (shape.dashed) {
-      path(shape.centre);
-      ctx.stroke();
-    }
-  ctx.setLineDash([]);
+  if (rasterMarkings) {
+    ctx.strokeStyle = `#${C.dash.getHexString()}`;
+    ctx.lineWidth = 0.3;
+    ctx.setLineDash([3, 3]);
+    for (const shape of shapes)
+      if (shape.dashed) {
+        path(shape.centre);
+        ctx.stroke();
+      }
+    ctx.setLineDash([]);
+  }
   texture.needsUpdate = true;
+}
+
+function applyRoadPaint(entry, positions, C) {
+  // Vector paint stays sharp without increasing the mobile terrain texture.
+  // Clip to the very same terrain planes; offset only in depth-buffer space.
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  let paint = entry.grp.userData.markings;
+  if (paint) paint.geometry.dispose();
+  else {
+    paint = new THREE.Mesh(
+      geometry,
+      new THREE.MeshBasicMaterial({
+        color: C.dash,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+      }),
+    );
+    paint.renderOrder = 1;
+    entry.grp.userData.markings = paint;
+    entry.grp.add(paint);
+  }
+  paint.geometry = geometry;
 }
 
 function buildTile(tile, C, region) {
@@ -183,6 +216,9 @@ function buildTile(tile, C, region) {
   gg.computeVertexNormals();
   const cv = document.createElement("canvas");
   cv.width = cv.height = matchMedia("(pointer: coarse)").matches ? 1024 : 2048;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = `#${C.land.getHexString()}`;
+  ctx.fillRect(0, 0, cv.width, cv.height);
   const texture = new THREE.CanvasTexture(cv);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
@@ -251,7 +287,7 @@ function buildTile(tile, C, region) {
   }
   if (P.length) grp.add(mesh(P, null, { colours: CL }));
 
-  // Roads are painted onto the terrain's own triangles (see paintTerrain).
+  // Road fills are painted onto the terrain's own triangles (see paintTerrain).
   // A second, independently interpolated road mesh cuts into hills and flickers.
 
   // kerbs: 0.3 m wide, raised 15 cm
@@ -627,10 +663,6 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     hud.status.textContent = text;
     messageUntil = performance.now() + seconds * 1000;
   }
-  function refreshTerrain() {
-    const entries = [...loaded.values()];
-    for (const e of entries) paintTerrain(e, entries, C);
-  }
   function markerFor(target) {
     const cv = document.createElement("canvas");
     cv.width = cv.height = 128;
@@ -671,12 +703,36 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
     touch: { throttle: 0, steer: 0, brake: false },
   };
 
+  let roadWorker = null;
+  try {
+    roadWorker = new Worker(
+      new URL("./sf-road-markings-worker.js", import.meta.url),
+      { type: "module" },
+    );
+  } catch (error) {
+    console.warn(
+      "Vector road paint unavailable; using texture markings.",
+      error,
+    );
+  }
+  const terrainPainter = createTerrainPainter({
+    worker: roadWorker,
+    paint: (entry, sources, fallback) =>
+      paintTerrain(entry, sources, C, fallback),
+    apply: (entry, positions) => applyRoadPaint(entry, positions, C),
+    onError: (error) =>
+      console.warn(
+        "Vector road paint unavailable; using texture markings.",
+        error,
+      ),
+  });
+
   function stream() {
     const { want, drop } = tilesAround(manifest.tiles, car.x, car.y);
-    let changed = false;
     for (const t of drop) {
       const e = loaded.get(t);
       if (!e) continue;
+      terrainPainter.remove(t);
       scene.remove(e.grp);
       e.grp.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
@@ -686,9 +742,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         }
       });
       loaded.delete(t);
-      changed = true;
     }
-    if (changed) refreshTerrain();
     for (const t of want) {
       if (loaded.has(t) || loading.has(t) || loading.size >= 3) continue;
       if ((failures.get(t) || 0) > performance.now()) continue;
@@ -698,10 +752,13 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
           tile.half = byToken.get(t).half;
           const grp = buildTile(tile, C, regions.get(t));
           scene.add(grp);
+          const roads = roadShapes(tile);
           const entry = {
             tile,
             grp,
-            roads: roadShapes(tile),
+            roads,
+            region: regions.get(t),
+            markings: roadDashPolygons(roads),
             collisions: buildCollisionIndex(tile),
             intersections: intersectionsForTile(tile),
           };
@@ -711,7 +768,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
             entry.marker = markerFor(target);
             grp.add(entry.marker);
           }
-          refreshTerrain();
+          terrainPainter.add(t, entry);
           failures.delete(t);
         })
         .catch((e) => {
@@ -1017,16 +1074,16 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       ctx.fillText("✓", c, c);
     }
     hud.seekerScope.textContent = !seeker.target
-      ? "Rally complete"
+      ? "All emojis"
       : seeker.onTile
         ? "This tile"
-        : seeker.localCollected
-          ? `${seeker.local.emoji} ✓ · next tile`
-          : "Next tile";
+        : "Next tile";
     hud.seekerDistance.textContent = seeker.target
       ? `${seeker.target.emoji} ${seeker.distance >= 1000 ? `${(seeker.distance / 1000).toFixed(1)} km` : `${Math.round(seeker.distance)} m`}`
-      : "All collected!";
-    hud.seekerTurn.textContent = seekerDirection(seeker.relative);
+      : "✓";
+    hud.seekerTurn.textContent = seeker.target
+      ? seekerDirection(seeker.relative)
+      : "Complete";
     hud.seekerHeading.textContent = `${seeker.cardinal} · ${String(Math.round(seeker.heading) % 360).padStart(3, "0")}°`;
     cv.setAttribute(
       "aria-label",
@@ -1381,13 +1438,12 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         ...V(car.x - hx * 0.4, car.y - hy * 0.4, carZ + 1.9),
       );
       mirrorCam.lookAt(...V(car.x - hx * 30, car.y - hy * 30, carZ + 1.2));
-      // Match the frame to the safe-area-aware HUD, including mobile browser chrome.
-      const bar = hud.driveBar.getBoundingClientRect();
-      const mw = Math.min(0.28 * W, 240 * pr);
-      const mh = mw / 3.2;
-      const mx = W - mw - (canvas.clientWidth - bar.right) * pr;
-      const top = (bar.bottom + 8) * pr;
-      const my = H - mh - top;
+      // CSS docks the mirror outside the central road view, including safe areas.
+      const frame = hud.mirrorFrame.getBoundingClientRect();
+      const mw = frame.width * pr,
+        mh = frame.height * pr;
+      const mx = frame.left * pr,
+        my = H - frame.bottom * pr;
       mirrorCam.aspect = mw / mh;
       mirrorCam.updateProjectionMatrix();
       renderer.setScissorTest(true);
@@ -1397,12 +1453,6 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
       renderer.render(scene, mirrorCam);
       carMesh.visible = true;
       renderer.setScissorTest(false);
-      Object.assign(hud.mirrorFrame.style, {
-        width: `${mw / pr}px`,
-        height: `${mh / pr}px`,
-        left: `${mx / pr}px`,
-        top: `${top / pr}px`,
-      });
     }
 
     if (now - streamAt > 400) {
@@ -1427,7 +1477,7 @@ export async function startDrive({ canvas, base, hud, downloadAssets }) {
         hud.next.textContent = hud.status.textContent;
       hud.next.title = hud.next.textContent;
       hud.driveBar.dataset.crash = String(!!crash);
-      hud.speed.textContent = `${Math.round(Math.abs(car.v) * 2.23694)} mph`;
+      hud.speed.textContent = Math.round(Math.abs(car.v) * 2.23694);
       const deg = (((90 - (car.heading * 180) / Math.PI) % 360) + 360) % 360;
       hud.compass.textContent = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][
         Math.round(deg / 45) % 8
