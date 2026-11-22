@@ -1,0 +1,63 @@
+---
+permalink: /sf/offline.js
+eleventyExcludeFromCollections: true
+---
+const scope = new URL(self.registration.scope);
+const modules = new URL("{{ (modulesBase + '/js/') | url }}", scope);
+const tiles = new URL("tiles/", scope);
+const version = "{{ sfTileVersion }}";
+const shellCache = `sf-shell-${modules.pathname}-${version}`;
+const tileCache = `sf-tiles-${scope.pathname}-${version}`;
+const assets = [
+  scope.href,
+  new URL("../css/scene-colours.css", scope).href,
+  new URL("../css/fonts.css", scope).href,
+  ...{{ sfDownloadAssets | safe }}.map((asset) =>
+    new URL(asset.url, asset.base === "modules" ? modules : tiles).href
+  ),
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(shellCache).then((cache) =>
+      cache.addAll(assets.map((url) => new Request(url, { cache: "reload" }))),
+    ).then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+async function tileResponse(request) {
+  const cache = await caches.open(tileCache);
+  const stored = await cache.match(request);
+  if (stored) return stored;
+  const response = await fetch(request);
+  if (response.ok) {
+    try {
+      await cache.put(request, response.clone());
+    } catch {
+      // Quota and eviction can limit offline coverage without breaking play.
+    }
+  }
+  return response;
+}
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== scope.origin) return;
+  if (request.mode === "navigate" && url.pathname === scope.pathname) {
+    event.respondWith(fetch(request).catch(async () => {
+      const cache = await caches.open(shellCache);
+      return (await cache.match(scope.href)) || Response.error();
+    }));
+  } else if (url.href.startsWith(tiles.href) && /^[0-9a-f]{8}\.json\.gz$/.test(url.pathname.split("/").at(-1))) {
+    event.respondWith(tileResponse(request));
+  } else if (assets.includes(url.href)) {
+    event.respondWith(caches.open(shellCache).then(async (cache) =>
+      (await cache.match(request)) || fetch(request),
+    ));
+  }
+});

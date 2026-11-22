@@ -37,8 +37,8 @@ The speed numeral is 26 px with a smaller mph unit. Below the strip, the compass
 in the left quarter and the in-car mirror sits at the top centre.
 Steer left/right with the left thumb and brake/accelerate with the right. Keep holding
 the brake to reverse after stopping. Both pedals together hold the brake. Map & game opens
-a scrollable modal containing camera choices, trial area, starting place, reset/new trial,
-the full minimap, compressed download sizes, records and help. Opening it releases held
+a scrollable modal starting with a three-stop camera slider, followed by starting place, reset,
+the full minimap, compressed download sizes, records and help. Map sources is last. Opening it releases held
 controls and keeps keyboard driving inactive until it closes. The trial clock continues.
 Desktop layouts also show City coverage in the bottom right during play.
 Crash countdown and completion messages stay visible in the status strip.
@@ -109,7 +109,14 @@ a quest also seek the next target, and a completed rally clears the target arrow
 The dial uses an explicit turn instruction such as
 Straight ahead, Bear left, Turn right or Turn around.
 
-The Time trial selector supports Whole city and optional district-only runs. District runs
+The nearest uncollected emoji with a loaded marker has a gold button drawn above the
+scene, including in front of intervening buildings. A dashed outline indicates the
+marker is outside the playable view. Click, tap or activate the button with the keyboard
+to centre the camera on the emoji. Activate it again or use a driving control to return
+to the normal camera. A camera change, opening the menu, reset, crash or a change of
+target ends the lock. Steering and tile loading still follow the car.
+
+The whole city is the default. Open `/sf/?district=<id>` to load an optional district-only run. District runs
 appear when the map includes authoritative district boundaries and quest membership; they
 are unavailable in the current map. The frontend includes selection, a fixed district start,
 filtered beacons/seeker/completion, a boundary overlay and separate best times. See the
@@ -119,8 +126,7 @@ The car holds its brake before the first driving input, which starts the clock. 
 recovery, loading and background time. Collected emojis survive respawns and tile unloading.
 Completing the fixed target set stops the clock and saves the five fastest personal times
 on this device, separately for each starting place, map manifest and driving tune. The GTI
-tune starts a fresh set of times. Earlier records stay in browser storage. New trial or choosing
-a different starting place resets the entire run; Reset car keeps the clock running.
+tune starts a fresh set of times. Earlier records stay in browser storage. Choosing a starting place or reloading the page resets the entire run; Reset car keeps the clock running.
 There is no shared leaderboard. When browser storage is unavailable, records last for the session.
 
 `public_html/src/sf/quest-route.json` is a small gameplay index alongside the unchanged
@@ -273,25 +279,24 @@ earns either ten free seconds or twenty half-rate seconds. Credits count down du
 manual driving and free seconds are used first. The HUD tracks deliveries, spend and
 crash infractions. These rates are game tuning values.
 
-In **Map & game**, **Explore city road layers** draws Arrow's provisional elevated
-profiles as the map loads. With compatible Gerardus layers available, **Bay Bridge
-approach** starts at 50 mph. Use **Start from** to return to the approach or
-choose a stationary start at Fremont Street exit or a city intersection. The westbound
-route crosses the bridge, takes the Fremont exit and rejoins I-80 from Fourth Street.
-Both Fourth Street entrance rails deflect the car and slow it down on contact.
-Use the same self-driving and manual controls. Map sources accepts a
-Gerardus server or a version-2 city road manifest URL. See the
-[citywide bake and game route](../plans/ui-sf-layered-roads-plan.md#citywide-bake-and-bay-bridge-game-route)
-for the supported extent and authored connections.
+Choose **Bay Bridge approach** in **Start from** for the westbound drive at 50 mph.
+The route crosses the bridge, takes the Fremont exit and rejoins I-80 from Fourth
+Street. The picker also includes Fremont Street exit and city intersection starts.
+Both Fourth Street entrance rails deflect the car and slow it down on contact. The
+same self-driving and manual controls apply. The game draws the baked overpasses
+in the city tiles. See the [citywide bake and game route](../plans/ui-sf-layered-roads-plan.md#citywide-bake-and-bay-bridge-game-route)
+for supported geometry and authored connections.
 
 The westbound bridge view loads the waterfront skyline before the car starts
 across the span. As the car approaches San Francisco, the local city tiles take
 over and restore the usual draw distance.
 
-GitHub Pages requires a public HTTPS manifest URL and read access from the game origin
-to the companion files. The deploy workflow reads `SF_CITY_ROADS_MANIFEST`. Hydra
-continues to use Arrow's private HTTP endpoint. Updating the public URL is independent
-of fitting and baking the road data.
+The game loads its tiles and the bridge route from its own origin. On HTTPS and
+localhost, a service worker stores the game shell and downloaded tiles in browser
+Cache Storage. Return to the same origin to keep playing offline in cached areas.
+An uncached area needs a connection before the game can load its tiles. Emoji
+collections and the trial checkpoint are saved per start and district in local
+storage. **Best airtimes** lists the three longest landed jumps across starts.
 
 ## What it shows
 

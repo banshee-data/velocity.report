@@ -1,7 +1,7 @@
 # SF solo safety practice
 
 Milestone 1 adds an optional, deliberately authored solo course to `/sf/`. Select
-**Map & game → Game mode → Solo safety practice**, close the menu and accelerate.
+`/sf/?mode=solo`, then accelerate. Open `/sf/` to return to the city.
 This is a testable practice slice, not a representation of Harrison or a validated
 measure of real driving safety. Production score weights remain open.
 
@@ -47,7 +47,7 @@ This is not a claim that the city renderer's kerb lines have physical collision 
 
 The first driving input starts the run; the finish requires x ≥ 150 m, the vehicle centre
 within the road and grounded contact. Reversing and returning to the course are allowed.
-There is no elapsed-time reward or tie-breaker. Reset car, R and New solo run abort the
+There is no elapsed-time reward or tie-breaker. Restart solo route and R abort the
 current attempt, close active events and start at the same initial state. The preceding
 summary remains in the menu for the session; raw event arrays are local to the attempt.
 Nothing is written to time-trial storage. Leaving practice aborts an unfinished attempt.

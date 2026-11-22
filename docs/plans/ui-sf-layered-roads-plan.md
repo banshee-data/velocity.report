@@ -197,25 +197,27 @@ also needs evidence for the unresolved freeway moves and coverage gaps.
 The [published Arrow revision](http://arrow-worker:50061/city-tiles/sf-city-roads-34248382d964cdeb67b7ea6698f262b86a5f05602499d0f1de1e71c92490d2c6/manifest.json)
 contains 15,491 ground profiles, 9,875 ground continuations, 273 provisional overpass spans
 and 17 provisional bridge spans across 157 tiles. Arrow verified all 161 files and 13 regional
-references over HTTP. The browser checks the base map and coordinate frame, then verifies the
-checksums of the road and route files it reads. **Explore city road layers** shows the
-provisional overpass and bridge profiles in cyan and gold and retains gaps in their drawing.
+references over HTTP. The game bake embeds 248 supported continuous runs in
+34 of the 157 game tiles. Every owning tile carries the complete run so the display
+can extend across a tile edge when the next tile is unavailable. The game draws one
+copy per run ID. The bake retains gaps where the source lacks supported positions.
 
-**Bay Bridge approach** is available in **Start from** when the game can load the Arrow
-route. It starts westbound near Yerba Buena Island at 50 mph in self-driving mode.
+**Bay Bridge approach** is available in **Start from**. It starts westbound near Yerba Buena Island at 50 mph in self-driving mode.
 Fremont Street exit and the city intersections start at rest in the same picker.
 Driving input opens the Meat mode confirmation.
 The route follows the west span to the city approach, takes the Fremont Street exit,
 follows Fremont, Howard, Second and Harrison, and rejoins westbound I-80 at Fourth Street.
 The named route is 6.22 km.
 
-For a public release, publish the immutable city manifest, owner tiles and checksummed
-`gamedrives.json` through an HTTPS URL that the production origin can read. Keep the
-base-game manifest hash and the per-tile hashes aligned. A rebake can add rendered
-spans citywide, while playable ramps and overpasses need continuous supported contact,
-directed same-level joins across owners, shoulder and rail metadata, and drive checks
-for both traversal directions where they are allowed. Preserve the gaps and the
-review status for unsupported or unverified spans.
+Run the [game tile embedder](../../tools/sf-drive/embed-road-layers.py) with
+`--source` set to the immutable Gerardus revision directory or URL,
+`--base` set to the matching original game tile directory, and
+`--quest` set to the game's quest route. It writes changed compressed tiles,
+the patched manifest and quest route, and the checksummed game drive under
+`--output`. Review and copy those files into `public_html/src/sf/`. Publish them
+with the game on its own origin. Playable ramps and overpasses need continuous
+supported contact, directed same-level joins, shoulder and rail metadata, and
+drive checks for each legal direction.
 
 Both rails at the Fourth Street entrance use a rebound for side impacts at any speed.
 The car loses speed and stays on the ramp. The replay checks a 50 mph strike on each
@@ -293,9 +295,8 @@ their respective touchdowns. The same check advances the clock to 1,999 ms and
 2,000 ms after each touchdown to verify the exact expiry boundaries.
 **Show both charts** pauses the replay with both touchdown cards visible.
 
-Run `node tools/sf-drive/replay-city-drive.mjs` with the Hydra preview running on
-port 8090 to repeat the physics check against the published route and matching local
-tiles. The check asserts continuous contact and collision-free progression across all
+Run `node tools/sf-drive/replay-city-drive.mjs` to repeat the physics check against
+the bundled route and matching local tiles. The check asserts continuous contact and collision-free progression across all
 six sections. It reaches the westbound continuation at 11.08 m NAVD88 after dropping
 to 7.31 m at the Fremont street join and ascending from 4.72 m at Fourth Street.
 

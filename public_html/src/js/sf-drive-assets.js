@@ -52,6 +52,22 @@ async function verifiedBytes(url, info, signal) {
   return bytes;
 }
 
+export async function readBundledDrive(url, bake, driveId) {
+  if (url.origin !== location.origin)
+    throw new Error("The game drive must be bundled on this origin.");
+  const bytes = await verifiedBytes(url, { sha256: bake?.driveSha256 });
+  const payload = JSON.parse(new TextDecoder().decode(bytes));
+  const drive = payload.drives?.find((record) => record.id === driveId);
+  if (
+    payload.format !== "sf-city-game-drives" ||
+    payload.base_manifest_sha256 !== bake.baseSha256 ||
+    payload.source_revision !== bake.driveSourceRevision ||
+    drive?.status !== "authored_game_drive"
+  )
+    throw new Error("The bundled drive does not match the road bake.");
+  return drive;
+}
+
 export async function openCityRoadLayers(url, baseUrl, signal, driveId) {
   const decoder = new TextDecoder();
   const parse = (raw) => JSON.parse(decoder.decode(raw));

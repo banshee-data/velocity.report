@@ -21,16 +21,9 @@ const { chromium } = require("playwright");
       const page = await context.newPage();
       const errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
-      await page.goto(
-        `${process.env.SF_BASE_URL || "http://127.0.0.1:8090"}/sf/`,
-      );
-      await page.waitForFunction(
-        () => document.querySelector("#trialArea").options.length > 0,
-      );
+      const url = `${process.env.SF_BASE_URL || "http://127.0.0.1:8090"}/sf/`;
+      await page.goto(`${url}?mode=solo`);
       const storage = await page.evaluate(() => JSON.stringify(localStorage));
-      await page.locator("#menuBtn").click();
-      await page.locator("#gameMode").selectOption("solo");
-      await page.locator('[aria-label="Close settings"]').click();
       await page.waitForFunction(
         () => document.querySelector("#drive").dataset.soloStatus === "ready",
       );
@@ -69,8 +62,8 @@ const { chromium } = require("playwright");
           await page.locator('[data-act="up"]').getAttribute("aria-pressed"),
           "false",
         );
-        await page.locator("#restartBtn").click();
-        await page.locator("#viewMode").selectOption("incar");
+        await page.locator("#respawnBtn").click();
+        await page.locator("#viewMode").press("End");
         await page.locator('[aria-label="Close settings"]').click();
         await page.waitForFunction(
           () => !document.querySelector("#mirrorFrame").hidden,
@@ -108,7 +101,7 @@ const { chromium } = require("playwright");
           storage,
         );
         console.log("desktop:", await page.locator("#soloSummary").innerText());
-        await page.locator("#restartBtn").click();
+        await page.locator("#respawnBtn").click();
         await page.locator('[aria-label="Close settings"]').click();
         await page.keyboard.down("ArrowUp");
         await page.waitForFunction(
@@ -120,9 +113,7 @@ const { chromium } = require("playwright");
         await page.waitForFunction(
           () => document.querySelector("#drive").dataset.soloStatus === "ready",
         );
-        await page.locator("#menuBtn").click();
-        await page.locator("#gameMode").selectOption("city");
-        await page.locator('[aria-label="Close settings"]').click();
+        await page.goto(url);
         await page.waitForFunction(() =>
           document.querySelector("#progress").textContent.includes("emojis"),
         );

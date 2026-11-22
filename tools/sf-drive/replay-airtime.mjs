@@ -9,7 +9,6 @@ import {
   BAY_BRIDGE_CITY_DRIVE,
   buildCityGameDrive,
 } from "../../public_html/src/js/sf-city-road-drive.js";
-import { openCityRoadLayers } from "../../public_html/src/js/sf-drive-assets.js";
 import {
   buildCollisionIndex,
   collisionAt,
@@ -19,7 +18,6 @@ import {
   tileAt,
   tilesAround,
 } from "../../public_html/src/js/sf-drive-core.js";
-import { CITY_ROAD_LAYERS } from "../../public_html/src/js/sf-drive-settings.js";
 import {
   fallFromRoad,
   highwayRailSegments,
@@ -31,23 +29,23 @@ import {
 import { driveOnRoadSurface } from "../../public_html/src/js/sf-road-contact.js";
 import { soloSurface } from "../../public_html/src/js/sf-solo.js";
 
-const base = new URL(process.env.SF_BASE_URL || "http://localhost:8090/sf/");
-const { manifest, drive } = await openCityRoadLayers(
-  new URL(CITY_ROAD_LAYERS),
-  new URL("tiles/manifest.json", base),
-  AbortSignal.timeout(15000),
-  BAY_BRIDGE_CITY_DRIVE,
+const directory = new URL("../../public_html/src/sf/tiles/", import.meta.url);
+const map = JSON.parse(readFileSync(new URL("manifest.json", directory)));
+const driveBytes = readFileSync(new URL("../gamedrives.json", directory));
+assert.equal(
+  createHash("sha256").update(driveBytes).digest("hex"),
+  map.roadBake.driveSha256,
 );
-const directory = new URL("../../public_html/_site/sf/tiles/", import.meta.url);
-const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const mapBytes = readFileSync(new URL("manifest.json", directory));
-assert.equal(digest(mapBytes), manifest.base_manifest_sha256);
-const map = JSON.parse(mapBytes);
+const bundle = JSON.parse(driveBytes);
+assert.equal(bundle.base_manifest_sha256, map.roadBake.baseSha256);
+const drive = bundle.drives.find((entry) => entry.id === BAY_BRIDGE_CITY_DRIVE);
+assert.ok(drive);
+const tileSizes = new Map(map.tiles.map((tile) => [tile.t, tile.bytes]));
 const cache = new Map();
 function load(token) {
   if (!cache.has(token)) {
     const bytes = readFileSync(new URL(`${token}.json.gz`, directory));
-    assert.equal(digest(bytes), manifest.tiles[token].base_tile_gzip_sha256);
+    assert.equal(bytes.length, tileSizes.get(token), `Invalid tile ${token}`);
     const tile = JSON.parse(gunzipSync(bytes));
     applyCityDriveScenery(tile, drive.scene_exclusions?.[token]);
     cache.set(token, { tile, index: buildCollisionIndex(tile) });
