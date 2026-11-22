@@ -1,6 +1,7 @@
 // Build and serve public_html/_site, then run with Playwright on NODE_PATH.
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
+const { confirmManualTakeover } = require("./manual-takeover.cjs");
 
 (async () => {
   const browser = await chromium.launch({
@@ -49,6 +50,7 @@ const { chromium } = require("playwright");
       await slider.press("Home");
       await menu.getByRole("button", { name: "Close settings" }).click();
 
+      await confirmManualTakeover(page);
       const position = () =>
         page
           .locator("#drive")

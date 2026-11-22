@@ -1,6 +1,7 @@
 // Run against the built site with Playwright on NODE_PATH.
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
+const { confirmManualTakeover } = require("./manual-takeover.cjs");
 const manifest = require("../../public_html/src/sf/tiles/manifest.json");
 const { targets } = require("../../public_html/src/sf/quest-route.json");
 
@@ -87,6 +88,7 @@ const { targets } = require("../../public_html/src/sf/quest-route.json");
     await page.reload();
     await grounded();
     assert.match(await page.locator("#progress").textContent(), /^0\//);
+    await confirmManualTakeover(page);
     await page.keyboard.down("ArrowUp");
     await page.waitForFunction(
       ({ key, token }) =>
