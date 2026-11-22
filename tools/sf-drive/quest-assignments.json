@@ -52,16 +52,16 @@
   "8085875c": { "emoji": "☕" },
   "80858764": { "emoji": "🪟" },
   "8085876c": { "emoji": "🚣" },
-  "80858774": { "emoji": "🦬" },
+  "80858774": { "emoji": "🍂" },
   "8085877c": { "emoji": "🌈" },
   "80858784": { "emoji": "🛒" },
   "8085878c": { "emoji": "🌅", "intersection": ["48th Ave", "Pacheco St"] },
   "80858794": { "emoji": "🏄", "intersection": ["48th Ave", "Kirkham St"] },
-  "8085879c": { "emoji": "🥐" },
-  "808587a4": {
-    "emoji": "🦆",
-    "intersection": ["John F Kennedy Dr", "Chain Of Lakes Dr"]
+  "8085879c": {
+    "emoji": "🦬",
+    "intersection": ["Chain Of Lakes Dr", "Martin Luther King Jr Dr"]
   },
+  "808587a4": { "emoji": "🦆" },
   "808587ac": { "emoji": "🌷" },
   "808587b4": { "emoji": "🔭" },
   "808587bc": { "emoji": "⛳" },
@@ -101,7 +101,7 @@
   "808f7e0c": { "emoji": "🏪" },
   "808f7e14": { "emoji": "🛴" },
   "808f7e1c": {
-    "emoji": "🥛",
+    "emoji": "🏳️‍🌈",
     "intersection": ["Castro St", "17th St", "Market St"]
   },
   "808f7e24": { "emoji": "🖌️" },
