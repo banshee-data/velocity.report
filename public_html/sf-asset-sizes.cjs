@@ -17,6 +17,11 @@ function sfDownloadAssets(root = __dirname) {
     ["tiles", "../coverage.json", "src/sf/coverage.json"],
     ...[
       "sf-drive.js",
+      "sf-drive-assets.js",
+      "sf-drive-settings.js",
+      "sf-road-contact.js",
+      "sf-building-walls.js",
+      "sf-airtime.js",
       "sf-solo.js",
       "sf-survey-replay.js",
       "scene-colours.js",

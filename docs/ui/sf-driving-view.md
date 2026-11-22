@@ -295,11 +295,20 @@ and drops tiles more than 1.6 km past their edge.
 
 ## Limits
 
+- With the Bay Bridge overlay loaded, the driving menu offers the supported upper deck and
+  ground street as separate starts. Both runs stop at the limits of their contact mesh.
+  See the [Bay Bridge driving pilot](../plans/ui-sf-layered-roads-plan.md#driving-the-bounded-pilot).
+- The city car can leave the road when its momentum carries it over a crest. In flight it
+  keeps horizontal momentum and falls under gravity until it meets supported ground.
+  The airtime panel follows the takeoff road's centreline and shows altitude through touchdown.
+  The vehicle uses point support as a gameplay approximation.
 - Roof shapes come from the April 2023 lidar and the City's 2010 outlines; buildings changed since are
   shown as the lidar saw them, or not at all.
 - The canopy test reads the lidar at a coarser density than the per-site studies and flags somewhat
   more roof faces than they did.
-- Tall post-2010 towers are flat tiers, not their curved forms.
+- Tall post-2010 towers are flat tiers. The renderer joins adjacent roof faces at their shared
+  edges and draws exterior walls and exposed steps. It keeps genuine gaps in the inferred
+  footprint and skips faces with unassigned elevations.
 - Collision uses the available building outlines and trunks; it does not model kerb impacts,
   tyre suspension, vehicle damage or traffic. Ground and roof heights retain the source limits.
 - The tiles are gzipped JSON for ease of reading, 30,169,632 bytes. The asset study's 9.5 MB was an

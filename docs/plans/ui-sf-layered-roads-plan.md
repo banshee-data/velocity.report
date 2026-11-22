@@ -1,10 +1,11 @@
 # SF tunnels, overpasses and bridges
 
-This is the handoff between the existing SF game tiles and Gerardus's future layered
+This is the handoff between the existing SF game tiles and Gerardus's layered
 road export. It separates improvements possible with the published data from the World
 and Physics work needed to drive above and below the same horizontal position.
 
-- **Status:** current-tile marking and HUD improvements implemented; layered roads planned.
+- **Status:** the SF road surface explorer and two driving starts read the bounded Bay Bridge
+  approach pilot directly from Gerardus. General multilevel routing remains planned.
 - **Anchors:** World and Physics for road levels; UI for visibility and markings; Traffic,
   Goals and Data where connectivity, pickups and provenance depend on the selected level.
 - **Consumer:** [SF driving view](../ui/sf-driving-view.md).
@@ -75,21 +76,62 @@ ground-preview version must not be described as implemented multilevel driving.
    per-L13 sidecar or versioned tile extension, with consistent EPSG:7131 origin,
    NAVD88 heights, units, ownership/halo rules, product hashes and source epochs.
    Carry observed/interpolated/missing support and compatibility version. A targeted
-   pilot overlay can ship alongside the existing city tiles; a complete city rebake
-   is not a prerequisite. This is a proposed consumer contract, not a shipped endpoint.
+   pilot overlay can ship alongside the existing city tiles. The
+   [Bay Bridge preview](#bay-bridge-preview-from-gerardus) uses this arrangement.
 6. **Add markings as data when available.** Export lane counts, directions, widths,
    crossings, stop lines and arrows keyed to the same surface ID, with source and
    observation dates. Preserve unknowns rather than deriving legal rules from width.
 
 ## Game engine work once the export exists
 
+### Bay Bridge preview from Gerardus
+
+[Gerardus #91](https://github.com/banshee-data/gerardus/pull/91) introduced the optional
+L13 overlay. Its real pilot covers the upper deck and the ground street near
+Embarcadero–Bryant. The lower deck, ramp joins and clearance still need evidence.
+
+On arrow-worker, generate a revision from the deployed release's
+`docs/roads/bay-bridge-approach.json` and the exact SF game `tiles/manifest.json`.
+Set `road-overlay --out` to the existing Gerardus city-tile directory's `epochs`
+directory. The command verifies the prepared source bundle and publishes the complete
+revision by directory rename. The same Gerardus listener serves it at
+`/city-tiles/<product_hash>/manifest.json` and `/city-tiles/<product_hash>/<l13>.json`.
+Use the hash URL to preserve the ordinary city tiles' current epoch.
+
+Run `make dev-docs` on Hydra and open `/sf/roads/` on `http://localhost:8090`.
+Paste the Gerardus manifest URL or pass it as the `overlay` query parameter.
+The browser reads the manifest and contact meshes from arrow-worker over HTTP and
+checks the base manifest and tile hashes before drawing. Use Above and Under the deck
+to inspect the two levels, drag to orbit, and toggle Game terrain to isolate the surfaces.
+Gold identifies triangles with interpolated support.
+
+### Driving the bounded pilot
+
+On Hydra, open `/sf/?at=bay-bridge-deck` or `/sf/?at=bay-bridge-street`.
+Both starts are also available in the game menu after loading the revision. The browser
+fetches the pinned product from arrow-worker and checks it against the game manifest.
+In **Map & game → Map sources**, set the Gerardus address or enter a full overlay
+manifest URL. The optional SF tile directory must serve the same planar tile pack as
+the bundled routes. The menu remains usable if a source fails, so either address can
+be changed or cleared before reloading.
+The two starts use the usual steering, throttle, cameras and crash recovery. The game
+checks contact on the selected mesh at the car centre and at all four wheel positions.
+At unsupported edges the car stops and can reverse. **R** returns to the start on that level.
+The upper deck and street remain separate throughout the XY crossing. The pilot has no
+supported join between them. Its free drive excludes rally pickups and records.
+
+The pinned base tile contains an inferred building that follows the bridge approach as
+solid prisms down to ground. The pilot replaces that one record with the verified contact
+meshes. The overlay carries no obstacle geometry for this clip. The view shows the deck
+top from both sides for orientation. It supplies no measured underside or clearance.
+
+### General driving integration
+
 - [ ] Load/validate the optional surface products and include their compressed bytes
       and hashes in asset accounting. Keep old city tiles readable. Show unsupported
       areas honestly rather than claiming the flattened fallback is structure-aware.
-- [ ] Select wheel contacts using current surface ID, 3D height, heading and explicit
-      connected transitions. Retain that surface through a crossing; nearest XY or
-      highest Z alone must not switch the car between a bridge and the road below.
-      Brake/wait when the required next surface has not loaded.
+- [ ] Extend the pilot's selected-surface contact to explicit connected ramps and portal
+      transitions across tiles. Brake when the required next surface has not loaded.
 - [ ] Render decks and ramps on their own supported surfaces, and openings at known
       tunnel portals without flattening the terrain globally. Project markings onto
       the selected surface. Camera cutaways, if added, affect presentation only.

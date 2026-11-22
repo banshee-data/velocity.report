@@ -345,8 +345,11 @@ private struct RunBrowserHeaderRow: View {
             // Col 8: Label rollup
             RunLabelRollupIcon(rollup: run.labelRollup).frame(
                 width: RunBrowserLayout.labelsWidth, alignment: .center)
-            Button("Following", action: { onReview?() }).buttonStyle(.borderless).disabled(
-                !run.hasVRLog || onReview == nil
+            Button("Following") {
+                guard run.hasVRLog else { return }
+                onReview?()
+            }.buttonStyle(.borderless).inert(
+                !run.hasVRLog || onReview == nil, hint: "Following review is unavailable"
             ).frame(width: RunBrowserLayout.reviewWidth).help(
                 "Open this recording's following evidence and saved review")
         }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(

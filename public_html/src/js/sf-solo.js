@@ -1,6 +1,6 @@
 // World: deliberately authored practice course, NOT a surveyed SF street or limit.
 // Coordinates are local metres. The smooth crest has radius ~63.3 m at its top.
-import { carStep } from "./sf-drive-core.js";
+export { contactStep } from "./sf-drive-core.js";
 export const SOLO = Object.freeze({
   id: "crest-practice-v1",
   start: -150,
@@ -48,98 +48,6 @@ export function soloCar() {
     grounded: true,
     steering: 0,
   };
-}
-
-/** Physics: contact follows supplied geometry; missing geometry freezes rather than inventing a landing.
- * A support acceleration below -g releases contact. Airborne velocity has no tyre/input forces.
- * Fixed 120 Hz caller; point support is a game approximation, not a suspension model.
- */
-export function contactStep(car, input, dt, surfaceAt) {
-  if (!(dt > 0) || dt > 0.05)
-    throw new RangeError("contact step must be in (0, .05]");
-  const here = surfaceAt(car.x, car.y);
-  if (here.height === null) return { ...car, blocked: true };
-  const z = car.z ?? here.height;
-  let next;
-  if (car.grounded !== false) {
-    const a = surfaceAt(
-      car.x + Math.cos(car.heading) * 0.1,
-      car.y + Math.sin(car.heading) * 0.1,
-    );
-    const b = surfaceAt(
-      car.x - Math.cos(car.heading) * 0.1,
-      car.y - Math.sin(car.heading) * 0.1,
-    );
-    if (a.height === null || b.height === null)
-      return { ...car, blocked: true };
-    next = carStep(car, input, dt, {
-      slope: (a.height - b.height) / 0.2,
-      offroad: here.drivable === false,
-    });
-  } else {
-    next = {
-      ...car,
-      x: car.x + car.vx * dt,
-      y: car.y + car.vy * dt,
-      lateralAcceleration: 0,
-    };
-  }
-  const there = surfaceAt(next.x, next.y);
-  if (there.height === null) return { ...car, blocked: true };
-  const ballisticZ = z + (car.vz || 0) * dt - 0.5 * 9.81 * dt * dt;
-  if (car.grounded !== false && there.height >= ballisticZ - 1e-7) {
-    return {
-      ...next,
-      z: there.height,
-      // Use the endpoint tangent, not a backward secant (which would release
-      // contact at half gravity on a curved surface).
-      vz:
-        (((surfaceAt(
-          next.x + Math.cos(next.heading) * 0.1,
-          next.y + Math.sin(next.heading) * 0.1,
-        ).height ?? there.height) -
-          (surfaceAt(
-            next.x - Math.cos(next.heading) * 0.1,
-            next.y - Math.sin(next.heading) * 0.1,
-          ).height ?? there.height)) /
-          0.2) *
-        next.v,
-      grounded: true,
-      blocked: false,
-    };
-  }
-  if (car.grounded !== false) {
-    // Recompute the launch interval from existing momentum: no launch-frame steering/braking.
-    next = {
-      ...car,
-      x: car.x + Math.cos(car.heading) * car.v * dt,
-      y: car.y + Math.sin(car.heading) * car.v * dt,
-      vx: Math.cos(car.heading) * car.v,
-      vy: Math.sin(car.heading) * car.v,
-      lateralAcceleration: 0,
-    };
-  }
-  const landing = surfaceAt(next.x, next.y);
-  if (landing.height === null) return { ...car, blocked: true };
-  const vz = (car.vz || 0) - 9.81 * dt;
-  if (ballisticZ <= landing.height) {
-    const ahead = surfaceAt(
-      next.x + Math.cos(next.heading) * 0.1,
-      next.y + Math.sin(next.heading) * 0.1,
-    );
-    const tangent =
-      ahead.height === null
-        ? 0
-        : ((ahead.height - landing.height) / 0.1) * next.v;
-    return {
-      ...next,
-      z: landing.height,
-      vz: tangent,
-      grounded: true,
-      blocked: false,
-    };
-  }
-  return { ...next, z: ballisticZ, vz, grounded: false, blocked: false };
 }
 
 /** Data: simulation seconds, explicit unknown coverage, run-local traces. No score weights. */
