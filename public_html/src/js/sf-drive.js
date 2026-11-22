@@ -57,26 +57,41 @@ import { mountSurveyReplay } from "./sf-survey-replay.js";
 import {
   fetchJsonGz,
   loadRoadOverlay,
+  openCityRoadLayers,
   openRoadRegion,
   readGameManifest,
 } from "./sf-drive-assets.js";
 import {
   BAY_BRIDGE_OVERLAY,
+  CITY_ROAD_LAYERS,
   REGIONAL_ROAD_CATALOG,
   mapSources,
 } from "./sf-drive-settings.js";
 import {
+  BAY_BRIDGE_CITY_DRIVE,
+  applyCityDriveScenery,
+  buildCityGameDrive,
+  cityDriveControls,
+  cityRoadPreview,
+} from "./sf-city-road-drive.js";
+import {
   BAY_BRIDGE_BASE,
   bayBridgeStarts,
   contactGeometry,
+  driveOnStreetContact,
   driveOnRoadSurface,
   indexRoadContact,
 } from "./sf-road-contact.js";
 import {
+  SIXTH_RAMP_DRIVE,
+  SIXTH_RAMP_NAME,
+  SIXTH_RAMP_OWNER,
+  crossRampEntrance,
   driveOnRoadNetwork,
   indexRoadNetwork,
   regionalDrives,
   regionalStart,
+  sixthBrannanRamp,
 } from "./sf-road-network.js";
 import { buildingWalls, validBuildingFace } from "./sf-building-walls.js";
 import { createAirtimeHud } from "./sf-airtime.js";
@@ -85,10 +100,15 @@ import {
   highwayRailSegments,
   leaveRoadSide,
   roadBoundary,
+  roadLandingAt,
+  strikeHighwayRail,
 } from "./sf-highway-edge.js";
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// Downtown, the waterfront and the neighbouring SoMa skyline in the SF base.
+const BAY_SKYLINE_TILES = ["80858064", "80858074", "8085807c", "8085808c"];
 const col = (n) => new THREE.Color(css(n));
 
 function mapPath(lines, close = false) {
@@ -258,7 +278,7 @@ function appendBuildingWallCorners(outlines, edges) {
   }
 }
 
-function addBuildings(group, tile, C, reveal) {
+function addBuildings(group, tile, C, reveal, distant = false) {
   const [ox, oy] = tile.o;
   // Keep each building whole, but batch nearby buildings so the camera
   // rejects distant blocks before submitting their triangles and outlines.
@@ -268,6 +288,15 @@ function addBuildings(group, tile, C, reveal) {
     const validFaces = b[1].filter(validBuildingFace);
     const firstRing = validFaces[0]?.[0];
     if (!firstRing?.length) continue;
+    if (
+      distant &&
+      !validFaces.some((face) =>
+        face.some((ring) =>
+          ring.some((z, index) => index % 3 === 2 && z - b[0] >= 420),
+        ),
+      )
+    )
+      continue;
     const key = `${Math.floor(firstRing[0] / batchSize)},${Math.floor(firstRing[1] / batchSize)}`;
     let batch = batches.get(key);
     if (!batch) {
@@ -310,6 +339,7 @@ function addBuildings(group, tile, C, reveal) {
           colours.push(roof.r, roof.g, roof.b);
         }
       }
+      if (distant) continue;
       for (const r of rings) {
         for (let i = 0; i < r.length; i++) {
           const a = r[i];
@@ -329,27 +359,38 @@ function addBuildings(group, tile, C, reveal) {
         positions.push(...V(...point));
         colours.push(wall.r, wall.g, wall.b);
       }
-      exposedWalls.push({ a, b, za, zb });
+      if (!distant) exposedWalls.push({ a, b, za, zb });
     });
-    appendBuildingWallCorners(outlines, exposedWalls);
+    if (!distant) appendBuildingWallCorners(outlines, exposedWalls);
   }
   if (!batches.size) return;
-  const facesMaterial = new THREE.MeshLambertMaterial({
-    vertexColors: true,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0.28,
-    depthWrite: false,
-    forceSinglePass: true,
-  });
-  const outlineMaterial = new THREE.LineBasicMaterial({
-    color: SCENE_COLOURS.buildingOutline,
-    opacity: 0.36,
-    transparent: true,
-    depthWrite: false,
-  });
-  reveal.enableOn(facesMaterial);
-  reveal.enableOn(outlineMaterial);
+  const facesMaterial = distant
+    ? new THREE.MeshBasicMaterial({
+        vertexColors: true,
+        side: THREE.DoubleSide,
+        transparent: true,
+        forceSinglePass: true,
+      })
+    : new THREE.MeshLambertMaterial({
+        vertexColors: true,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.28,
+        depthWrite: false,
+        forceSinglePass: true,
+      });
+  const outlineMaterial = distant
+    ? null
+    : new THREE.LineBasicMaterial({
+        color: SCENE_COLOURS.buildingOutline,
+        opacity: 0.36,
+        transparent: true,
+        depthWrite: false,
+      });
+  if (!distant) {
+    reveal.enableOn(facesMaterial);
+    reveal.enableOn(outlineMaterial);
+  }
   for (const { positions, colours, outlines } of batches.values()) {
     if (!positions.length) continue;
     const faces = new THREE.BufferGeometry();
@@ -358,9 +399,13 @@ function addBuildings(group, tile, C, reveal) {
       new THREE.Float32BufferAttribute(positions, 3),
     );
     faces.setAttribute("color", new THREE.Float32BufferAttribute(colours, 3));
-    faces.computeVertexNormals();
+    if (!distant) faces.computeVertexNormals();
     const buildings = new THREE.Mesh(faces, facesMaterial);
     buildings.renderOrder = -2;
+    if (distant) {
+      group.add(buildings);
+      continue;
+    }
     const edges = new THREE.BufferGeometry();
     edges.setAttribute(
       "position",
@@ -370,6 +415,7 @@ function addBuildings(group, tile, C, reveal) {
     lines.renderOrder = -1;
     group.add(buildings, lines);
   }
+  return facesMaterial;
 }
 
 function buildTile(tile, C, region, reveal) {
@@ -654,23 +700,27 @@ export async function startDrive({
 }) {
   const params = new URLSearchParams(location.search);
   const at = params.get("at");
-  const region = params.get("region");
+  const cityMode = params.get("city");
+  const region = cityMode ? null : params.get("region");
   const reviewDrive = params.get("review");
   const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(
     location.hostname,
   );
   const pilotRequested = ["bay-bridge-deck", "bay-bridge-street"].includes(at);
   const settings = mapSources(sources);
+  const cityUrl = settings.city || (loopback ? CITY_ROAD_LAYERS : null);
   const tileBase = settings.tiles || base;
   const manifestUrl = new URL(`${tileBase}manifest.json`, location.href);
-  const overlayUrl = region
-    ? null
-    : settings.overlay ||
-      (loopback && pilotRequested ? BAY_BRIDGE_OVERLAY : null);
+  const overlayUrl =
+    region || cityMode
+      ? null
+      : settings.overlay ||
+        (loopback && pilotRequested ? BAY_BRIDGE_OVERLAY : null);
   const catalogUrl =
     settings.catalog || (loopback ? REGIONAL_ROAD_CATALOG : null);
   let overlayError = "";
-  const [product, route, coverage] = await Promise.all([
+  let cityError = "";
+  const [product, route, coverage, cityLayers] = await Promise.all([
     overlayUrl || (region && catalogUrl)
       ? Promise.resolve()
           .then(() => {
@@ -686,7 +736,23 @@ export async function startDrive({
       : null,
     fetchJsonGz(`${base}../quest-route.json`),
     fetchJsonGz(`${base}../coverage.json`),
+    cityMode && cityUrl
+      ? openCityRoadLayers(
+          new URL(cityUrl),
+          manifestUrl,
+          AbortSignal.timeout(12000),
+          cityMode === "bay-bridge" ? BAY_BRIDGE_CITY_DRIVE : null,
+        ).catch((error) => {
+          cityError = error.message;
+          return null;
+        })
+      : null,
   ]);
+  if (
+    cityLayers &&
+    cityLayers.manifest.base_manifest_sha256 !== route.manifestSha256
+  )
+    throw new Error("The city layers need the bundled map revision.");
   if (product && product.overlay.base_manifest_sha256 !== route.manifestSha256)
     throw new Error(
       "This tile server needs a manifest matching the game's bundled routes.",
@@ -772,17 +838,36 @@ export async function startDrive({
   const reveal = createCarReveal();
   const carMesh = makeCar();
   scene.add(carMesh);
-  const airtime = createAirtimeHud(
-    hud.airtime,
-    hud.airtimeReadout,
-    hud.airtimePlot,
-  );
+  const airtime = createAirtimeHud(hud.airtime, hud.airtimeCard);
 
   const roadSurfaces = new Map();
   const roadMeshes = new THREE.Group();
   scene.add(roadMeshes);
   const review = product?.review;
-  const network = review && indexRoadNetwork(review.confirmed_connections);
+  const gameDrive =
+    cityLayers?.drive &&
+    buildCityGameDrive(cityLayers.drive, (x, y) =>
+      groundAtWorld(
+        [...loaded.values()].map((entry) => entry.tile),
+        x,
+        y,
+        true,
+      ),
+    );
+  const skylineScene = new THREE.Scene();
+  skylineScene.background = C.sky;
+  skylineScene.fog = new THREE.Fog(C.sky, 1200, 5800);
+  const skylineCamera = camera.clone();
+  skylineCamera.near = 30;
+  skylineCamera.far = 6000;
+  skylineCamera.updateProjectionMatrix();
+  const skylineTiles = new Map();
+  const skylineRequests = new Map();
+  const shoreline =
+    gameDrive?.points[gameDrive.spans.get("bay-bridge-westbound")?.end];
+  const network = gameDrive
+    ? indexRoadNetwork(gameDrive.topology.transitions)
+    : review && indexRoadNetwork(review.confirmed_connections);
   const ownerLoads = new Map();
   const roadMaterial = new THREE.MeshLambertMaterial({
     color: C.asphalt,
@@ -791,23 +876,66 @@ export async function startDrive({
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
   });
+  const deckMaterial = roadMaterial.clone();
+  deckMaterial.color.lerp(C.kerb, 0.33);
+  const hasRampReview =
+    region === "6th-brannan" &&
+    product?.overlay.base_manifest_sha256 === BAY_BRIDGE_BASE &&
+    !!product.overlay.tiles[SIXTH_RAMP_OWNER];
+  let ramp = null;
   function addRoadTile(tile) {
     for (const surface of tile.surfaces) {
       if (!surface.contact || roadSurfaces.has(surface.id)) continue;
       const driveSurface = {
         ...surface,
-        heightAt: indexRoadContact(surface.contact),
-        boundary: roadBoundary(surface.contact.vertices),
-        // This visual and physical rail is authored for the highway pilot.
-        highwayRails:
-          product.overlay.base_manifest_sha256 === BAY_BRIDGE_BASE &&
-          surface.id === "gms:4YJKKX79HSSS0CF5P5H165ERHB",
+        heightAt: surface.heightAt || indexRoadContact(surface.contact),
+        boundary:
+          surface.kind === "ground" ? [] : roadBoundary(surface.contact),
+        // Only the pinned pilot has a game-authored roadside rail.
+        highwayRailHalfWidth:
+          surface.highwayRailHalfWidth ||
+          (product?.overlay.base_manifest_sha256 === BAY_BRIDGE_BASE &&
+          surface.id === "gms:4YJKKX79HSSS0CF5P5H165ERHB"
+            ? 5.5
+            : 0),
+        streetPavement:
+          product?.overlay.base_manifest_sha256 === BAY_BRIDGE_BASE &&
+          surface.id === "gms:22C0W9MAFNP7265MHJ4ETVF46P",
       };
       driveSurface.railSegments = highwayRailSegments(driveSurface);
       roadSurfaces.set(surface.id, driveSurface);
-      roadMeshes.add(
-        new THREE.Mesh(contactGeometry(surface.contact, false), roadMaterial),
-      );
+      if (!gameDrive || surface.kind !== "ground")
+        roadMeshes.add(
+          new THREE.Mesh(
+            contactGeometry(surface.contact, false),
+            surface.kind === "ground" ? roadMaterial : deckMaterial,
+          ),
+        );
+      if (gameDrive) {
+        const points = surface.profile.flatMap(({ position: [x, y, z] }) =>
+          V(x, y, z + 0.06),
+        );
+        const line = new THREE.BufferGeometry();
+        line.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(points, 3),
+        );
+        roadMeshes.add(
+          new THREE.Line(
+            line,
+            new THREE.LineBasicMaterial({ color: 0xffd072 }),
+          ),
+        );
+      }
+      if (hasRampReview && !ramp) {
+        ramp = sixthBrannanRamp(driveSurface);
+        if (ramp) {
+          driveSurface.heightAt = ramp.heightAt;
+          roadMeshes.add(
+            new THREE.Mesh(contactGeometry(ramp.contact, false), deckMaterial),
+          );
+        }
+      }
       if (driveSurface.railSegments.length) {
         const vertices = driveSurface.railSegments.flatMap(({ a, b }) => [
           ...V(...a),
@@ -836,6 +964,7 @@ export async function startDrive({
     }
     network?.add(tile);
   }
+  if (gameDrive) addRoadTile(gameDrive.topology);
   function requestRoadOwner(owner) {
     if (!product?.overlay.tiles[owner]) return false;
     if (!ownerLoads.has(owner)) {
@@ -863,9 +992,16 @@ export async function startDrive({
     await ownerLoads.get(owner)?.done;
   }
   const bridgeStarts =
-    !region || bridgeRegion ? bayBridgeStarts(roadSurfaces) : [];
+    !gameDrive && (!region || bridgeRegion)
+      ? bayBridgeStarts(roadSurfaces)
+      : [];
   let reviewStart = bridgeStarts.find((p) => p.id === reviewDrive);
   let reviewError = "";
+  if (hasRampReview && reviewDrive === SIXTH_RAMP_DRIVE) {
+    requestRoadOwner(SIXTH_RAMP_OWNER);
+    await ownerLoads.get(SIXTH_RAMP_OWNER)?.done;
+    reviewStart = ramp?.start;
+  }
   if (review && !reviewStart) {
     const choices = reviewDrive
       ? drives.filter((drive) => drive.id === reviewDrive)
@@ -883,9 +1019,18 @@ export async function startDrive({
         "This review drive has no verified start that fits the car.";
   }
   const places = [...(manifest.places || []), ...bridgeStarts];
+  if (gameDrive) {
+    places.push(gameDrive.start);
+    if (gameDrive.exitStart) places.push(gameDrive.exitStart);
+  }
   if (reviewStart && !places.some((p) => p.id === reviewStart.id))
     places.push(reviewStart);
-  const start = places.find((p) => p.id === at) || reviewStart || places[0];
+  const start =
+    (at && at === gameDrive?.exitStart?.id ? gameDrive.exitStart : null) ||
+    gameDrive?.start ||
+    places.find((p) => p.id === at) ||
+    reviewStart ||
+    places[0];
   hud.regionalLink.hidden = !catalogUrl || !!review;
   if (review) {
     const leaveReview = (region, drive) => {
@@ -911,6 +1056,7 @@ export async function startDrive({
       leaveReview(hud.roadRegion.value),
     );
     hud.roadReviewDrive.replaceChildren(
+      ...(hasRampReview ? [new Option(SIXTH_RAMP_NAME, SIXTH_RAMP_DRIVE)] : []),
       ...[...bridgeStarts, ...drives].map(
         (drive) => new Option(drive.name, drive.id),
       ),
@@ -935,6 +1081,9 @@ export async function startDrive({
   // The car waits until the ground under it has loaded, so it never starts in empty space.
   let grounded = false;
   const loaded = new Map(); // token -> {tile, grp}
+  let followCityDrive = false;
+  let completedCityDrive = false;
+  const cityRoadOwners = new Set();
   const loading = new Set();
   let surveyTerrain = [];
   const surveyReplay = mountSurveyReplay({
@@ -1032,18 +1181,47 @@ export async function startDrive({
     hud.status.textContent = text;
     messageUntil = performance.now() + seconds * 1000;
   }
+  const isRoadReview = (point) => !!(point.surfaceId || point.rampApproach);
   function updateBridgeMode() {
-    const active = !!selectedStart.surfaceId;
+    const active = isRoadReview(selectedStart);
     document.body.dataset.bridge = String(active);
     hud.restartBtn.textContent = active ? "Restart drive" : "New trial";
     if (active) {
-      hud.timer.textContent = review ? "Review" : "Pilot";
-      hud.progress.textContent = review ? "Regional road" : "Measured approach";
+      hud.timer.textContent = gameDrive
+        ? "Game route"
+        : review
+          ? "Review"
+          : "Pilot";
+      hud.progress.textContent = gameDrive
+        ? "Authored connections"
+        : review
+          ? "Regional road"
+          : "Measured approach";
     }
   }
   updateBridgeMode();
   hud.bridgeLink.hidden = !loopback || bridgeStarts.length > 0 || !!region;
-  if (overlayError || reviewError || (region && !catalogUrl))
+  hud.cityLayersLink.hidden = !cityUrl;
+  hud.cityDriveLink.hidden = !cityUrl;
+  for (const link of [hud.cityLayersLink, hud.cityDriveLink]) {
+    const url = new URL(link.href);
+    for (const key of ["tiles", "overlay"])
+      if (params.has(key)) url.searchParams.set(key, params.get(key));
+    link.href = url.href;
+  }
+  hud.cityStatus.hidden = !cityLayers && !cityError;
+  if (cityError)
+    hud.cityStatus.textContent = `City road layers unavailable · ${cityError}`;
+  else if (cityLayers)
+    hud.cityStatus.textContent =
+      "City road layers · provisional spans in cyan and gold";
+  hud.followCityDrive.hidden = !gameDrive;
+  if (cityError) announce(`City drive unavailable · ${cityError}`, 10);
+  if (
+    overlayError ||
+    reviewError ||
+    (region ? !catalogUrl : pilotRequested && !overlayUrl)
+  )
     announce(
       reviewError ||
         `${region ? "Road review" : "Bay Bridge"} unavailable · ${overlayError || "Set a Gerardus server in Map sources"}`,
@@ -1135,13 +1313,15 @@ export async function startDrive({
       if (loaded.has(t) || loading.has(t) || loading.size >= 3) continue;
       if ((failures.get(t) || 0) > performance.now()) continue;
       loading.add(t);
-      fetchJsonGz(`${tileBase}${t}.json.gz`)
-        .then((tile) => {
+      (skylineRequests.get(t) || fetchJsonGz(`${tileBase}${t}.json.gz`))
+        .then((data) => {
+          const tile = { ...data };
+          applyCityDriveScenery(tile, gameDrive?.sceneExclusions?.[t]);
           // The pinned base classified this bridge approach as one solid 3DEP-only building.
           // Gerardus supplies both road levels in its place; keep all other buildings.
           if (
-            bridgeStarts.length &&
             t === "80858074" &&
+            bridgeStarts.length &&
             product.overlay.base_manifest_sha256 === BAY_BRIDGE_BASE
           ) {
             const inferredBridge = tile.b[42];
@@ -1175,6 +1355,21 @@ export async function startDrive({
             intersections: intersectionsForTile(tile),
           };
           loaded.set(t, entry);
+          const roadTile = cityLayers?.manifest.tiles[t];
+          if (
+            roadTile &&
+            (roadTile.counts.bridge || roadTile.counts.overpass)
+          ) {
+            cityLayers
+              .loadTile(t, AbortSignal.timeout(15000))
+              .then((layers) => {
+                if (loaded.get(t) !== entry) return;
+                grp.add(cityRoadPreview(layers, gameDrive?.references));
+                cityRoadOwners.add(t);
+                canvas.dataset.cityRoadTiles = String(cityRoadOwners.size);
+              })
+              .catch((error) => console.warn("City road tile", t, error));
+          }
           const target = route.targets.find((q) => q.t === t);
           if (target) {
             entry.marker = markerFor(target);
@@ -1264,13 +1459,16 @@ export async function startDrive({
     setView(
       DRIVE_VIEWS[(DRIVE_VIEWS.indexOf(state.view) + 1) % DRIVE_VIEWS.length],
     );
-  const reset = (p = selectedStart) => {
+  const reset = (p = selectedStart, keepAirtime = false) => {
     car = startingCar(p);
     grounded = false;
     camInit = false;
     accumulator = 0;
     crash = null;
-    airtime.reset();
+    followCityDrive = false;
+    completedCityDrive = false;
+    hud.followCityDrive.textContent = "Follow the route";
+    airtime.reset(keepAirtime);
     updateBridgeMode();
     releaseInputs();
   };
@@ -1293,8 +1491,8 @@ export async function startDrive({
     }
     if (crash && !afterCrash) return;
     const kind = crash?.kind;
-    if (selectedStart.surfaceId) {
-      reset();
+    if (isRoadReview(selectedStart)) {
+      reset(selectedStart, afterCrash);
       crashUntil = performance.now() + (afterCrash ? 0 : 750);
       announce("Back at the start of this surface");
       return;
@@ -1317,7 +1515,7 @@ export async function startDrive({
     }
     let heading = point.heading;
     if (Math.cos(car.heading - heading) < 0) heading += Math.PI;
-    reset({ ...point, heading });
+    reset({ ...point, heading }, afterCrash);
     checkpoint = { ...point, heading };
     crashUntil = performance.now() + (afterCrash ? 0 : 750);
     announce(
@@ -1328,9 +1526,15 @@ export async function startDrive({
   }
   function startCrash(kind, now) {
     if (crash) return;
-    airtime.reset();
+    airtime.finish(now, "Impact");
     crash = beginCrash(car, kind, now / 1000);
-    car = { ...car, v: 0, steering: 0, lateralAcceleration: 0 };
+    car = {
+      ...car,
+      v: 0,
+      steering: 0,
+      steeringRate: 0,
+      lateralAcceleration: 0,
+    };
     accumulator = 0;
     releaseInputs();
     if (trial.status === "running") trial.crashes++;
@@ -1353,7 +1557,7 @@ export async function startDrive({
     crashUntil = 0;
     reset(p);
     announce(
-      p.surfaceId
+      isRoadReview(p)
         ? "Drive the supported approach · R resets this level"
         : `Collect every marked emoji${activeDistrict ? ` in ${activeDistrict.name}` : ""}. Drive to start the clock.`,
       4,
@@ -1373,6 +1577,13 @@ export async function startDrive({
     hud.viewMode.blur();
   });
   hud.menuBtn.addEventListener("click", releaseInputs);
+  hud.followCityDrive.addEventListener("click", () => {
+    followCityDrive = !followCityDrive;
+    hud.followCityDrive.textContent = followCityDrive
+      ? "Drive manually"
+      : "Follow the route";
+    hud.menu.close();
+  });
   hud.restartBtn.addEventListener("click", (e) => {
     newTrial();
     releaseFocus(e);
@@ -1485,7 +1696,54 @@ export async function startDrive({
     if (carMesh.visible)
       reveal.update(camera, carMesh.position, car.heading, W, H, pr);
     else reveal.disable();
-    renderer.render(scene, camera);
+    let drawSkyline = false;
+    if (
+      skylineTiles.size &&
+      !solo &&
+      state.view !== "overhead" &&
+      ["bay-bridge-westbound", "city-approach"].includes(car.surfaceId)
+    ) {
+      const shoreDistance = shoreline
+        ? Math.hypot(car.x - shoreline[0], car.y - shoreline[1])
+        : Infinity;
+      const distantOpacity =
+        car.surfaceId === "bay-bridge-westbound"
+          ? THREE.MathUtils.smoothstep(shoreDistance, 190, 650)
+          : 0;
+      let local = 0,
+        distant = 0;
+      for (const [token, { buildings, material }] of skylineTiles) {
+        const ready = loaded.has(token);
+        local += Number(ready);
+        material.opacity = ready ? distantOpacity : 1;
+        buildings.visible = material.opacity > 0.01;
+        distant += Number(buildings.visible);
+      }
+      if (canvas.dataset.skylineLocalTiles !== String(local))
+        canvas.dataset.skylineLocalTiles = String(local);
+      if (canvas.dataset.skylineFarTiles !== String(distant))
+        canvas.dataset.skylineFarTiles = String(distant);
+      drawSkyline = distant > 0;
+    }
+    if (drawSkyline) {
+      skylineCamera.position.copy(camera.position);
+      skylineCamera.quaternion.copy(camera.quaternion);
+      if (skylineCamera.aspect !== camera.aspect) {
+        skylineCamera.aspect = camera.aspect;
+        skylineCamera.updateProjectionMatrix();
+      }
+      renderer.render(skylineScene, skylineCamera);
+      // Reuse the colour buffer but start a fresh depth buffer for local
+      // roads and buildings, which still use their normal clip and fog range.
+      scene.background = null;
+      renderer.autoClear = false;
+      renderer.clearDepth();
+      renderer.render(scene, camera);
+      renderer.autoClear = true;
+      scene.background = C.sky;
+    } else {
+      renderer.render(scene, camera);
+    }
     carMesh.visible = true;
     const showMirror = view.mirror && state.mirror;
     hud.mirrorFrame.hidden = !showMirror;
@@ -1531,19 +1789,16 @@ export async function startDrive({
       if (!car.blocked && (!car.grounded || !before.grounded)) {
         const min = SOLO.start - 20,
           max = SOLO.end + 40;
-        airtime.step(
-          before,
-          car,
-          1 / 120,
-          {
+        airtime.step(before, car, 1 / 120, now, {
+          road: {
             centreline: [min * 10, 0, max * 10, 0],
             origin: [0, 0],
             segment: 0,
             fraction: (before.x - min) / (max - min),
             heading: 0,
           },
-          soloHeight,
-        );
+          heightAt: soloHeight,
+        });
       }
       accountSolo(
         soloRun,
@@ -1878,27 +2133,22 @@ export async function startDrive({
       respawn(true);
     hud.respawnBtn.disabled = !!crash;
     const input = drivingInput(state.keys, state.touch);
+    if (followCityDrive && (input.throttle || input.steer || input.brake)) {
+      followCityDrive = false;
+      hud.followCityDrive.textContent = "Follow the route";
+    }
     const tiles = [...loaded.values()].map((e) => e.tile);
     const indexes = [...loaded.values()].map((e) => e.collisions);
     let surface = roadSurfaces.get(car.surfaceId);
-    const roadDrive = !!selectedStart.surfaceId;
+    const roadDrive = isRoadReview(selectedStart);
     const terrainHeight = (x, y) => groundAtWorld(tiles, x, y, true);
     const heightAt = surface?.heightAt || terrainHeight;
-    const landingBelow = (x, y, below) => {
-      const terrain = terrainHeight(x, y);
-      let landing =
-        terrain !== null && terrain <= below ? { z: terrain } : null;
-      for (const entry of roadSurfaces.values()) {
-        const z = entry.heightAt(x, y);
-        if (z !== null && z <= below && (!landing || z > landing.z))
-          landing = { z, surfaceId: entry.id };
-      }
-      return landing;
-    };
+    const landingBelow = (x, y, below) =>
+      roadLandingAt(x, y, below, terrainHeight, roadSurfaces.values());
     if (!grounded) {
       const z0 = heightAt(car.x, car.y);
       const settled =
-        review && surface
+        (review || gameDrive) && roadDrive
           ? loaded.has(tileAt(manifest.tiles, car.x, car.y).t) &&
             tilesAround(manifest.tiles, car.x, car.y, 120).want.every((t) =>
               loaded.has(t),
@@ -1910,7 +2160,7 @@ export async function startDrive({
             );
       if (z0 !== null && settled) {
         grounded = true;
-        if (!surface && !checkpoint) {
+        if (!roadDrive && !checkpoint) {
           const nearest = safeIntersections().sort(
             (a, b) =>
               Math.hypot(a.x - car.x, a.y - car.y) -
@@ -1942,14 +2192,46 @@ export async function startDrive({
       accumulator += dt;
       while (accumulator >= 1 / 120) {
         accumulator -= 1 / 120;
+        const assisted =
+          followCityDrive && gameDrive
+            ? cityDriveControls(gameDrive, car)
+            : null;
+        if (assisted?.finished) {
+          completedCityDrive = true;
+          followCityDrive = false;
+          hud.followCityDrive.textContent = "Follow the route";
+        }
         const controls =
-          (surface ? !car.v : trial.status === "ready") && input.throttle === 0
+          assisted ||
+          ((surface ? !car.v : trial.status === "ready") && input.throttle === 0
             ? { ...input, brake: true }
-            : input;
-        let candidate = car.leavingRoad
-          ? fallFromRoad(car, 1 / 120, landingBelow)
-          : surface
-            ? network
+            : input);
+        let candidate;
+        if (car.leavingRoad) {
+          candidate = fallFromRoad(car, 1 / 120, landingBelow);
+        } else if (!surface) {
+          candidate = contactStep(
+            car,
+            controls,
+            1 / 120,
+            (x, y) => ({
+              height: terrainHeight(x, y),
+              drivable: !!road && road.distance <= road.width,
+            }),
+            1.35,
+          );
+        } else if (surface.streetPavement) {
+          candidate = driveOnStreetContact(
+            car,
+            controls,
+            1 / 120,
+            surface,
+            terrainHeight,
+          );
+        } else {
+          candidate =
+            strikeHighwayRail(car, controls, 1 / 120, surface) ||
+            (network
               ? driveOnRoadNetwork(
                   car,
                   controls,
@@ -1959,22 +2241,25 @@ export async function startDrive({
                   network,
                   requestRoadOwner,
                 )
-              : driveOnRoadSurface(car, controls, 1 / 120, surface)
-            : contactStep(
-                car,
-                controls,
-                1 / 120,
-                (x, y) => ({
-                  height: terrainHeight(x, y),
-                  drivable: !!road && road.distance <= road.width,
-                }),
-                1.35,
-              );
-        if (surface && candidate.blocked && !candidate.waiting)
+              : driveOnRoadSurface(car, controls, 1 / 120, surface));
+        }
+        if (
+          surface &&
+          surface.kind !== "ground" &&
+          candidate.blocked &&
+          !candidate.waiting
+        )
           candidate =
             leaveRoadSide(car, controls, 1 / 120, surface) || candidate;
+        candidate = crossRampEntrance(car, candidate, ramp, terrainHeight);
         const owner = tileAt(manifest.tiles, candidate.x, candidate.y);
-        if (candidate.blocked || (!car.leavingRoad && !loaded.has(owner.t))) {
+        if (!loaded.has(owner.t) && car.grounded === false) {
+          waitingForRoad = true;
+          accumulator = 0;
+          announce("Waiting for ground below to load…", 1);
+          break;
+        }
+        if (candidate.blocked || !loaded.has(owner.t)) {
           car = { ...car, v: 0, vx: 0, vy: 0, vz: 0, lateralAcceleration: 0 };
           blocked = true;
           waitingForRoad =
@@ -1992,6 +2277,21 @@ export async function startDrive({
           );
           break;
         }
+        if (candidate.grounded === false || car.grounded === false) {
+          const takeoffRoad =
+            car.grounded !== false && (!surface || surface.kind === "ground")
+              ? nearestRoad(tiles, car.x, car.y)
+              : null;
+          airtime.step(car, candidate, 1 / 120, now, {
+            road:
+              takeoffRoad && takeoffRoad.distance <= takeoffRoad.width
+                ? takeoffRoad
+                : null,
+            heightAt: terrainHeight,
+            deckAt: surface?.kind === "ground" ? null : surface?.heightAt,
+            tiles,
+          });
+        }
         if (candidate.roadImpact) {
           car = { ...candidate, roadImpact: null };
           startCrash(candidate.roadImpact, now);
@@ -2002,16 +2302,6 @@ export async function startDrive({
           startCrash(hit, now);
           break;
         }
-        if (candidate.grounded === false || car.grounded === false)
-          airtime.step(
-            car,
-            candidate,
-            1 / 120,
-            !roadDrive && road && road.distance <= road.width ? road : null,
-            roadDrive
-              ? (x, y) => landingBelow(x, y, car.z)?.z ?? null
-              : terrainHeight,
-          );
         car = candidate;
         surface = roadSurfaces.get(car.surfaceId);
         if (candidate.edgeContact) {
@@ -2078,13 +2368,14 @@ export async function startDrive({
       }
     surveyTerrain = tiles;
     surveyReplay.update(car, wallDt);
-    const z = car.z ?? heightAt(car.x, car.y);
+    const currentHeightAt = surface?.heightAt || terrainHeight;
+    const z = car.z ?? currentHeightAt(car.x, car.y);
     if (z !== null) carZ = z;
     // Pitch the car with the ground under its axles, so it does not sink into steep hills.
     const ax = Math.cos(car.heading) * 1.5;
     const ay = Math.sin(car.heading) * 1.5;
-    const zf = heightAt(car.x + ax, car.y + ay) ?? carZ;
-    const zr = heightAt(car.x - ax, car.y - ay) ?? carZ;
+    const zf = currentHeightAt(car.x + ax, car.y + ay) ?? carZ;
+    const zr = currentHeightAt(car.x - ax, car.y - ay) ?? carZ;
     const pose = crash ? crashPose(crash, now / 1000) : null;
     carMesh.position.set(...V(car.x, car.y, carZ + (pose?.lift || 0)));
     carMesh.rotation.set(
@@ -2112,7 +2403,21 @@ export async function startDrive({
       state.view === "incar" && camInit && !reducedMotion.matches
         ? incarRoll(cameraRoll, car.lateralAcceleration || 0, dt)
         : 0;
-    const view = driveCameraPose(state.view, car, carZ, heightAt, cameraRoll);
+    const view = driveCameraPose(
+      state.view,
+      car,
+      carZ,
+      currentHeightAt,
+      cameraRoll,
+      shoreline && skylineTiles.size && surface?.id === "bay-bridge-westbound"
+        ? 8 *
+            THREE.MathUtils.smoothstep(
+              Math.hypot(car.x - shoreline[0], car.y - shoreline[1]),
+              350,
+              1150,
+            )
+        : 0,
+    );
     const target = new THREE.Vector3(...V(...view.position));
     const look = new THREE.Vector3(...V(...view.look));
     // Snap rather than glide after a jump, before the ground loads, or when far behind (a slow frame rate
@@ -2145,13 +2450,24 @@ export async function startDrive({
       hudAt = now;
       const street = streetAt(tiles, car.x, car.y, car.heading);
       const next = nextCrossing(tiles, car.x, car.y, car.heading, street);
+      const gameApproach =
+        ramp && surface?.id === ramp.surfaceId && ramp.along(car) < 0;
       hud.street.textContent = roadDrive
-        ? selectedStart.name
+        ? car.leavingRoad
+          ? "Airborne · road edge"
+          : !surface
+            ? selectedStart.rampApproach
+              ? selectedStart.name
+              : "City terrain"
+            : surface.label ||
+              (surface.id === selectedStart.surfaceId
+                ? selectedStart.name
+                : surface.kind.replaceAll("_", " "))
         : street
           ? street.replace(/^Unnamed \d+$/, "Unnamed street")
           : "Off street";
       hud.next.textContent = roadDrive
-        ? `${carZ.toFixed(1)} m NAVD88 · Gerardus ${review ? "review" : "approach"}`
+        ? `${carZ.toFixed(1)} m NAVD88 · ${car.leavingRoad ? "Airborne" : gameApproach ? "Game approach" : surface && gameDrive ? "Game route" : surface ? "Gerardus" : "Base map"}`
         : next
           ? `${next.names.join(" · ")} in ${Math.round(next.distance / 10) * 10} m`
           : "";
@@ -2159,6 +2475,8 @@ export async function startDrive({
         hud.next.textContent = `Crash · reset in ${crashPose(crash, now / 1000).remaining.toFixed(1)} s`;
       else if (trial.status === "finished")
         hud.next.textContent = `Finished! ${trial.crashes} crashes`;
+      else if (completedCityDrive)
+        hud.next.textContent = "Route complete · back on I-80";
       else if (now < messageUntil)
         hud.next.textContent = hud.status.textContent;
       hud.next.title = hud.next.textContent;
@@ -2179,9 +2497,37 @@ export async function startDrive({
       canvas.dataset.altitude = carZ.toFixed(3);
       canvas.dataset.surface = surface?.kind || "city";
       canvas.dataset.surfaceId = surface?.id || "";
+      canvas.dataset.routeComplete = String(completedCityDrive);
       canvas.dataset.roadWait = String(waitingForRoad);
       canvas.dataset.east = car.x.toFixed(3);
       canvas.dataset.north = car.y.toFixed(3);
+    }
+  }
+  if (gameDrive) {
+    for (const token of BAY_SKYLINE_TILES) {
+      if (!byToken.has(token)) continue;
+      const request = fetchJsonGz(`${tileBase}${token}.json.gz`);
+      skylineRequests.set(token, request);
+      request
+        .then((tile) => {
+          // Match the local route's structure exceptions without mutating a
+          // decoded tile that may already be shared with the local streamer.
+          const displayTile = { ...tile };
+          applyCityDriveScenery(
+            displayTile,
+            gameDrive.sceneExclusions?.[token],
+          );
+          const buildings = new THREE.Group();
+          const material = addBuildings(buildings, displayTile, C, null, true);
+          if (!buildings.children.length) return;
+          skylineScene.add(buildings);
+          skylineTiles.set(token, { buildings, material });
+          canvas.dataset.skylineTiles = String(skylineTiles.size);
+        })
+        .catch((error) => {
+          skylineRequests.delete(token);
+          console.warn("Skyline tile", token, error);
+        });
     }
   }
   stream();

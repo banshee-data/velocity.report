@@ -1,8 +1,111 @@
-import { driveOnRoadSurface, roadSupportsCar } from "./sf-road-contact.js";
+import {
+  driveOnRoadSurface,
+  indexRoadContact,
+  roadSupportsCar,
+} from "./sf-road-contact.js";
 
 const supported = (value) => ["observed", "interpolated"].includes(value);
 const seamReachM = 4;
 const ownerPreloadM = 12;
+
+export const SIXTH_RAMP_DRIVE = "sixth-brannan-ramp-approach";
+export const SIXTH_RAMP_NAME = "6th–Brannan · game ramp approach";
+export const SIXTH_RAMP_OWNER = "808f7fd4";
+export const SIXTH_RAMP_SURFACE = "gms:55M0AW4H11A0P40ZHJBKQ76ZX7";
+
+export function sixthBrannanRamp(surface) {
+  if (
+    surface.id !== SIXTH_RAMP_SURFACE ||
+    surface.contact.geometry_hash !==
+      "86661eb9ac609d680fc67daceb4e143e1765d84d9e658cfa744c424201644f77"
+  )
+    return null;
+  const [east, north] = surface.profile[0].position;
+  const [aheadEast, aheadNorth] = surface.profile[3].position;
+  const heading = Math.atan2(aheadNorth - north, aheadEast - east);
+  const measuredHeight = surface.heightAt;
+  const hx = Math.cos(heading);
+  const hy = Math.sin(heading);
+  const at = (station, offset) => [
+    east + hx * station - hy * offset,
+    north + hy * station + hx * offset,
+  ];
+  const halfWidth = 1.7;
+  const entrance = -9.5;
+  const [x, y] = at(-16, 0);
+  const [left, right] = [-halfWidth, halfWidth].map((offset) => {
+    const [ex, ey] = at(0, offset);
+    const z = measuredHeight(...at(0.01, offset));
+    return [ex, ey, z];
+  });
+  if (left[2] === null || right[2] === null) return null;
+  // Authored pavement between the baked street and the low end of this
+  // exact Arrow strip. Keep the measured strip's contact over the join.
+  const contact = {
+    vertices: [
+      [...at(-12, -halfWidth), 3.93],
+      [...at(-12, halfWidth), 4.02],
+      left,
+      right,
+    ],
+    triangles: [
+      [0, 2, 1],
+      [1, 2, 3],
+    ],
+    support: Array(4).fill("interpolated"),
+  };
+  const approachHeight = indexRoadContact(contact);
+  return {
+    contact,
+    entrance,
+    along: (car) => (car.x - east) * hx + (car.y - north) * hy,
+    heading,
+    surfaceId: surface.id,
+    heightAt: (x, y) => measuredHeight(x, y) ?? approachHeight(x, y),
+    start: {
+      id: SIXTH_RAMP_DRIVE,
+      name: SIXTH_RAMP_NAME,
+      x,
+      y,
+      heading,
+      rampApproach: true,
+    },
+  };
+}
+
+export function crossRampEntrance(car, next, ramp, terrainHeight) {
+  if (!ramp || !car.grounded || !next.grounded || next.blocked) return next;
+  const leaving = car.surfaceId === ramp.surfaceId;
+  if (car.surfaceId && !leaving) return next;
+  const direction = leaving ? -1 : 1;
+  if (
+    (ramp.along(car) - ramp.entrance) * direction >= 0 ||
+    (ramp.along(next) - ramp.entrance) * direction < 0 ||
+    Math.cos(car.heading - ramp.heading) * Math.sign(next.v) * direction < 0.7
+  )
+    return next;
+  const z = (leaving ? terrainHeight : ramp.heightAt)(next.x, next.y);
+  const bothSurfaces = (x, y) => {
+    const raised = ramp.heightAt(x, y);
+    const base = terrainHeight(x, y);
+    return raised !== null && base !== null && Math.abs(raised - base) <= 0.22
+      ? raised
+      : null;
+  };
+  if (
+    z === null ||
+    Math.abs(next.z - z) > 0.22 ||
+    !roadSupportsCar(bothSurfaces, next)
+  )
+    return next;
+  return {
+    ...next,
+    z,
+    vz: 0,
+    surfaceId: leaving ? undefined : ramp.surfaceId,
+    seam: null,
+  };
+}
 
 export function regionalDrives(review) {
   return [
@@ -14,7 +117,10 @@ export function regionalDrives(review) {
     ...review.geometry_replays
       .map((strip) => ({
         id: strip.id,
-        name: `${strip.kind.replaceAll("_", " ")} · CNN ${strip.cnn} · ${strip.profile_replay.status.replaceAll("_", " ")} · ${strip.id.slice(-5)}`,
+        name:
+          strip.id === "gms:40FXJKCA78QRCR5YNVX5TV8TVN"
+            ? "6th–Brannan · open deck edge"
+            : `${strip.kind.replaceAll("_", " ")} · CNN ${strip.cnn} · ${strip.profile_replay.status.replaceAll("_", " ")} · ${strip.id.slice(-5)}`,
         start: strip.reproducible_start,
       }))
       .filter((drive) => drive.start),
@@ -97,12 +203,13 @@ function terminals(surface) {
     const dx = point[0] - other[0];
     const dy = point[1] - other[1];
     const length = Math.hypot(dx, dy);
+    const bearing = surface.terminalBearings?.[end];
     return {
       id: surface.end_ids[end],
       owner: surface.end_tiles[end],
       point,
-      dx: dx / length,
-      dy: dy / length,
+      dx: bearing === undefined ? dx / length : Math.cos(bearing),
+      dy: bearing === undefined ? dy / length : Math.sin(bearing),
     };
   });
 }

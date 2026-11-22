@@ -4,9 +4,10 @@ This is the handoff between the existing SF game tiles and Gerardus's layered
 road export. It separates improvements possible with the published data from the World
 and Physics work needed to drive above and below the same horizontal position.
 
-- **Status:** the SF road surface explorer reads the Bay Bridge pilot directly from Gerardus.
-  The SF game also reads the ten regional review revisions on Hydra. Citywide coverage and
-  acceptance of the ramp and freeway connections remain pending.
+- **Status:** the SF game reads the citywide Gerardus road layers directly from Arrow on
+  Hydra. The Bay Bridge west span, Fremont Street exit and Fourth Street westbound entrance
+  have a playable route. The ten regional reviews still record their surveyed connections
+  and gaps.
 - **Anchors:** World and Physics for road levels; UI for visibility and markings; Traffic,
   Goals and Data where connectivity, pickups and provenance depend on the selected level.
 - **Consumer:** [SF driving view](../ui/sf-driving-view.md).
@@ -143,8 +144,17 @@ The car waits on the current mesh if required contact has not arrived. A missing
 strip or unresolved transition stops the car at the edge of supported contact.
 The review menu lists the number of unresolved connections per region.
 
+Select **6th–Brannan · game ramp approach** to start on city pavement and drive
+onto the fitted strip for CNN 19338000. A 12 m game-authored approach spans the
+step at the foot of the strip. It is scoped to the exact Arrow contact geometry
+and baked terrain used in this review. The car enters only at the approach line
+with pavement and ramp contact agreeing at all four wheels. At the top of the
+strip, the game stops at the unresolved freeway connection.
+
 The Bay Bridge pilot has an authored game rail along the sides of its deck. A shallow
 strike slows the car and lets it move along the rail. A larger strike rebounds it.
+The car body meets the same finite rail segments drawn in the game while its tyres
+are still on the deck.
 The game crashes at 12 m/s into the rail, or at 5.5 m/s into the rail when the car
 is travelling at least 28 m/s. Where the game has no rail, driving beyond the side
 of a fitted strip releases the car into free fall. It can land on a lower loaded
@@ -152,11 +162,16 @@ surface. Profile ends and holes in contact
 still stop the car. These are game rules. The review revisions carry no guardrail
 inventory or measured clearance.
 
+Under the Bay Bridge, the game uses city pavement where the fitted street and
+baked terrain agree within 0.45 m. That allows the tyres to cross small holes in
+the street contact and lets the drive continue onto the city map at the end of
+the clip. The deck stays separate.
+
 The catalog is revision
 `sf-road-index-80faea50f62a8c6b81f1d73340041af9281f5f576b7638bf489b98c839fd19a8`.
 Arrow's review reports ten confirmed ground joins. The eastbound Harrison–Essex
 lower-deck merge and the paired freeway moves at 6th–Brannan still lack supported joins.
-Keep the citywide bake gated on the regional findings. A compatible road sidecar
+Regional findings gate promotion of these connections. A compatible road sidecar
 can reuse the pinned base tiles. If fixes change the base terrain or obstacle records,
 publish a new base manifest and regenerate the game assets keyed to it, including the
 quest route and coverage manifest. A lane inventory and recorded survey replays have
@@ -176,6 +191,100 @@ side released the car at 6.675 m and the browser observed at least 0.5 m of fall
 Driving straight on the same strip stopped at the contact gap at 4.808 m.
 These checks exercise the game and the exact Arrow revision. Regional acceptance
 also needs evidence for the unresolved freeway moves and coverage gaps.
+
+### Citywide bake and Bay Bridge game route
+
+The [published Arrow revision](http://arrow-worker:50061/city-tiles/sf-city-roads-779e77b50e6a60b69dea006945be591f73caeab96c850635e4fc7b25ccd8327c/manifest.json)
+contains 15,491 ground profiles, 9,875 ground continuations, 273 provisional overpass spans
+and 17 provisional bridge spans across 157 tiles. Arrow verified all 161 files and 13 regional
+references over HTTP. The browser checks the base map and coordinate frame, then verifies the
+checksums of the road and route files it reads. **Explore city road layers** shows the
+provisional overpass and bridge profiles in cyan and gold and retains gaps in their drawing.
+
+**Drive the Bay Bridge and I-80** starts westbound near Yerba Buena Island. Drive manually
+or select **Follow the route** in **Map & game**. Steering, acceleration or braking cancels
+the assist. The route follows the west span to the city approach, takes the Fremont Street
+exit, follows Fremont, Howard, Second and Harrison, and rejoins westbound I-80 at the
+Fourth Street entrance. The named route is 6.22 km.
+
+The [route baker](../../tools/sf-drive/bake-city-drive.py) adds one checksummed game
+asset to the immutable Gerardus city revision. It uses the fitted west-span profiles and
+directed streets, with authored lane widths, rails, and interpolation through gaps on
+the city approach and ramps. It adjusts five intersecting scenery records only in the
+route mode and only when their pinned base signatures match. The published measured
+layers retain their original support and routing status. The eastbound Essex lower-deck
+merge and the Bay Bridge east span towards Oakland remain outside the playable route.
+
+The bake smooths the authored path before cutting it into road sections. It
+samples the result in the existing vector format, gives neighbouring sections
+the same position at their join, and blends ramp grades into the ground pavement.
+On the new bake, the largest change of bearing between adjacent stations fell
+from 58.7° to 17.5°. The Fourth Street entrance join fell from 43.0° to 12.3°.
+The car's steering angle and rate now carry across key presses and releases.
+At 45 mph, the current tyre model needs roughly 54 m of radius, well above
+what the Fremont and city turns provide.
+
+If an analytic alignment becomes a shared Gerardus product, add optional
+stationed line and cubic curve segments to the alignment contract. Give each
+segment an owner and a stable ID, carry its station bounds and endpoint tangents,
+and sample the same curve on both sides of a tile boundary. Keep the elevation
+profile and support keyed to that station axis and to the selected road level.
+The existing sampled profile can stay as the fallback for older clients.
+
+The bridge view preloads four waterfront and downtown L13 tiles. A distant
+pass draws their tall buildings during the crossing and fades as the normal
+city tiles become visible at the San Francisco landing.
+
+The Fremont exit has an open left edge in the westbound direction and a rail
+on the right. **Start from → Fremont Street exit** places the car near the
+lower end of the ramp. Steering over the open edge releases the car into a
+fall, with the normal impact rules applied at the first lower surface.
+
+#### Airtime replay checks
+
+The earlier graph reprojected airborne positions onto the nearest centreline
+segment, which could move the trace backwards around a bend. Its road sample
+also ended at the first centreline record, even when terrain farther ahead was
+loaded. The graph now uses travelled horizontal distance, joins compatible
+sections of the same street, and draws dashed terrain where the road profile
+ends. An airborne card becomes a touchdown card for two seconds. Flights that
+overlap in display time stack, with an independent expiry for each touchdown.
+
+Run `node tools/sf-drive/replay-airtime.mjs --examples` against the Hydra
+preview to repeat the 50 scripted flights. The replay pins the Arrow revision
+and verifies the local base tile hashes before sampling. The 120 Hz runs check
+the trace order, the final height, a usable elevation profile, and the exact
+expiry time.
+
+| Replay group   | Flights | Used dashed terrain | Had a road or deck trace | Hard landings |
+| -------------- | ------: | ------------------: | -----------------------: | ------------: |
+| Practice crest |      10 |                   0 |                       10 |             0 |
+| SF streets     |      20 |                   9 |                       15 |             0 |
+| Fremont exit   |      20 |                  20 |                       19 |            13 |
+
+Chrome also showed a grounded landing on pavement about 0.4 seconds after
+driving off the lower ramp. The scripted results describe game contact on the
+pinned geometry and controlled inputs.
+
+For the stacked HUD check, copy `tools/sf-drive/airtime-browser.html` to
+`public_html/_site/sf-airtime-check/index.html` once the dev server is running,
+then open `/sf-airtime-check/`. **Run timing check** plays two scripted jumps
+through the game HUD. Chrome removed the charts 2,000 ms and 2,004 ms after
+their respective touchdowns. The same check advances the clock to 1,999 ms and
+2,000 ms after each touchdown to verify the exact expiry boundaries.
+**Show both charts** pauses the replay with both touchdown cards visible.
+
+Run `node tools/sf-drive/replay-city-drive.mjs` with the Hydra preview running on
+port 8090 to repeat the physics check against the published route and matching local
+tiles. The check asserts continuous contact and collision-free progression across all
+six sections. It reaches the westbound continuation at 11.08 m NAVD88 after dropping
+to 7.31 m at the Fremont street join and ascending from 4.72 m at Fourth Street.
+
+On Hydra, one uninterrupted Chrome drive finished grounded on westbound I-80 at
+12.59 m NAVD88, after streaming 13 elevated layer tiles from Arrow. A separate
+drive stayed on the Embarcadero street beneath the deck at 3.32 m. The 6th–Brannan
+approach reached its deck at 5.47 m, and Geary–Masonic crossed its ground owner
+seam before reaching the end of the published contact.
 
 ### General driving integration
 

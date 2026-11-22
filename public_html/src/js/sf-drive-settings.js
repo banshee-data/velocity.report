@@ -5,6 +5,9 @@ export const BAY_BRIDGE_OVERLAY = `http://arrow-worker:50061/${overlayPath}`;
 const regionalCatalogPath =
   "city-tiles/sf-road-index-80faea50f62a8c6b81f1d73340041af9281f5f576b7638bf489b98c839fd19a8/manifest.json";
 export const REGIONAL_ROAD_CATALOG = `http://arrow-worker:50061/${regionalCatalogPath}`;
+const cityRoadLayersPath =
+  "city-tiles/sf-city-roads-779e77b50e6a60b69dea006945be591f73caeab96c850635e4fc7b25ccd8327c/manifest.json";
+export const CITY_ROAD_LAYERS = `http://arrow-worker:50061/${cityRoadLayersPath}`;
 
 function httpUrl(value) {
   const url = new URL(value);
@@ -29,6 +32,8 @@ export function mapSources({ tiles = "", gerardus = "" }) {
   const source = gerardus.trim() ? httpUrl(gerardus.trim()) : null;
   const catalogManifest =
     source && /\/sf-road-index-[^/]+\/manifest\.json$/.test(source.pathname);
+  const cityManifest =
+    source && /\/sf-city-roads-[^/]+\/manifest\.json$/.test(source.pathname);
   return {
     tiles: map
       ? map.pathname.endsWith("/manifest.json")
@@ -36,16 +41,22 @@ export function mapSources({ tiles = "", gerardus = "" }) {
         : directory(map)
       : "",
     overlay:
-      source && !catalogManifest
+      source && !catalogManifest && !cityManifest
         ? source.pathname.endsWith("/manifest.json")
           ? source.href
           : new URL(overlayPath, directory(source)).href
         : "",
-    catalog: source
-      ? source.pathname.endsWith("/manifest.json")
-        ? source.href
-        : new URL(regionalCatalogPath, directory(source)).href
-      : "",
+    catalog:
+      source && !cityManifest
+        ? source.pathname.endsWith("/manifest.json")
+          ? source.href
+          : new URL(regionalCatalogPath, directory(source)).href
+        : "",
+    city: cityManifest
+      ? source.href
+      : source && !source.pathname.endsWith("/manifest.json")
+        ? new URL(cityRoadLayersPath, directory(source)).href
+        : "",
   };
 }
 

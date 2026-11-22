@@ -1,5 +1,6 @@
 // Run with Playwright available via NODE_PATH and Chromium on the Hydra dev host.
 const assert = require("node:assert/strict");
+const { gunzipSync } = require("node:zlib");
 const { chromium } = require("playwright");
 
 const host = process.env.SF_BASE_URL || "http://localhost:8090";
@@ -101,33 +102,35 @@ async function delayedJoin(page, { region, join, token, from, to }) {
 }
 
 async function checkHighwayEdges(page) {
-  const deck = await visit(page, "embarcadero-bryant", "bay-bridge-deck");
-  await page.keyboard.down("ArrowUp");
-  try {
-    await page.waitForFunction(accelerationReady, null, { timeout: 45000 });
-    await page.keyboard.down("ArrowRight");
-    await page.waitForFunction(
-      () =>
-        /Bounced off|Scraping highway barrier/.test(
-          document.querySelector("#next").textContent,
-        ),
-      null,
-      { timeout: 60000 },
-    );
-    const onDeck = await page.evaluate(state);
-    assert.equal(onDeck.id, deck.id);
-    assert.equal(onDeck.contact, "grounded");
-    assert.equal(
-      await page.locator("#driveBar").getAttribute("data-crash"),
-      "false",
-    );
-    console.log(`Bay Bridge: ${onDeck.status} at ${onDeck.z} m`);
-  } finally {
-    await page.keyboard.up("ArrowRight");
-    await page.keyboard.up("ArrowUp");
+  for (const steer of ["ArrowLeft", "ArrowRight"]) {
+    const start = await visit(page, "embarcadero-bryant", "bay-bridge-deck");
+    await page.keyboard.down("ArrowUp");
+    try {
+      await page.waitForFunction(accelerationReady, null, { timeout: 45000 });
+      await page.keyboard.down(steer);
+      await page.waitForFunction(
+        () =>
+          /Bounced off|Scraping highway barrier/.test(
+            document.querySelector("#next").textContent,
+          ),
+        null,
+        { timeout: 60000 },
+      );
+      const onDeck = await page.evaluate(state);
+      assert.equal(onDeck.id, start.id);
+      assert.equal(onDeck.contact, "grounded");
+      assert.equal(
+        await page.locator("#driveBar").getAttribute("data-crash"),
+        "false",
+      );
+      console.log(`Bay Bridge ${steer}: ${onDeck.status} at ${onDeck.z} m`);
+    } finally {
+      await page.keyboard.up(steer);
+      await page.keyboard.up("ArrowUp");
+    }
   }
 
-  await visit(page, "embarcadero-bryant", "bay-bridge-deck");
+  const deck = await visit(page, "embarcadero-bryant", "bay-bridge-deck");
   await page.keyboard.down("ArrowUp");
   try {
     await page.waitForFunction(
@@ -138,7 +141,7 @@ async function checkHighwayEdges(page) {
       deck,
       { timeout: 90000 },
     );
-    await page.keyboard.down("ArrowRight");
+    await page.keyboard.down("ArrowLeft");
     await page.waitForFunction(
       () =>
         document.querySelector("#driveBar").dataset.crash === "true" &&
@@ -150,38 +153,59 @@ async function checkHighwayEdges(page) {
     );
     console.log("Bay Bridge: higher-speed strike triggered crash recovery");
   } finally {
-    await page.keyboard.up("ArrowRight");
+    await page.keyboard.up("ArrowLeft");
     await page.keyboard.up("ArrowUp");
   }
 
-  const openDeck = await visit(
-    page,
-    "6th-brannan",
-    "gms:40FXJKCA78QRCR5YNVX5TV8TVN",
+  const { groundAtWorld } =
+    await import("../../public_html/src/js/sf-drive-core.js");
+  const reply = await page.request.get(`${host}/sf/tiles/808f7fd4.json.gz`);
+  assert.ok(reply.ok());
+  const bytes = await reply.body();
+  const pavement = JSON.parse(
+    bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes,
   );
-  await page.keyboard.down("ArrowUp");
-  try {
-    await page.waitForFunction(accelerationReady, null, { timeout: 45000 });
-    await page.keyboard.down("ArrowLeft");
-    await page.waitForFunction(
-      () => document.querySelector("#drive").dataset.contact === "airborne",
-      null,
-      { timeout: 60000 },
+  for (const steer of ["ArrowLeft", "ArrowRight"]) {
+    const openDeck = await visit(
+      page,
+      "6th-brannan",
+      "gms:40FXJKCA78QRCR5YNVX5TV8TVN",
     );
-    const airborne = await page.evaluate(state);
-    assert.equal(airborne.id, openDeck.id);
-    await page.waitForFunction(
-      (z) =>
-        Number(document.querySelector("#drive").dataset.altitude) < z - 0.5,
-      airborne.z,
-      { timeout: 30000 },
-    );
-    console.log(
-      `6th–Brannan: left the unguarded side at ${airborne.z} m and fell`,
-    );
-  } finally {
-    await page.keyboard.up("ArrowLeft");
-    await page.keyboard.up("ArrowUp");
+    await page.keyboard.down("ArrowUp");
+    try {
+      await page.waitForFunction(accelerationReady, null, { timeout: 45000 });
+      await page.keyboard.down(steer);
+      await page.waitForFunction(
+        () => document.querySelector("#drive").dataset.contact === "airborne",
+        null,
+        { timeout: 60000 },
+      );
+      const airborne = await page.evaluate(state);
+      assert.equal(airborne.id, openDeck.id);
+      await page.keyboard.up(steer);
+      await page.waitForFunction(
+        () => {
+          const { contact, surface } = document.querySelector("#drive").dataset;
+          return contact === "grounded" && surface === "city";
+        },
+        null,
+        { timeout: 45000 },
+      );
+      const landing = await page.evaluate(state);
+      const terrain = groundAtWorld([pavement], landing.x, landing.y, true);
+      assert.ok(airborne.z - landing.z > 0.5);
+      assert.ok(terrain !== null && Math.abs(terrain - landing.z) < 0.02);
+      assert.equal(
+        await page.locator("#driveBar").getAttribute("data-crash"),
+        "false",
+      );
+      console.log(
+        `6th–Brannan ${steer}: fell from ${airborne.z} m and landed on terrain at ${landing.z} m`,
+      );
+    } finally {
+      await page.keyboard.up(steer);
+      await page.keyboard.up("ArrowUp");
+    }
   }
 }
 
@@ -219,6 +243,67 @@ async function checkLongitudinalGap(page) {
   }
 }
 
+async function checkRampApproach(page) {
+  const params = new URLSearchParams({
+    region: "6th-brannan",
+    review: "sixth-brannan-ramp-approach",
+  });
+  await page.goto(`${host}/sf/?${params}`);
+  await page
+    .locator('#drive[data-contact="grounded"][data-surface="city"]')
+    .waitFor({ timeout: 30000 });
+  const street = await page.evaluate(state);
+  assert.equal(street.id, "");
+  await page.keyboard.down("ArrowUp");
+  try {
+    const target = "gms:55M0AW4H11A0P40ZHJBKQ76ZX7";
+    await page.waitForFunction(
+      (id) => {
+        const data = document.querySelector("#drive").dataset;
+        return data.surfaceId === id && data.contact === "grounded";
+      },
+      target,
+      { timeout: 60000 },
+    );
+    const joined = await page.evaluate(state);
+    assert.ok(joined.z - street.z < 0.6);
+    await page.waitForFunction(
+      ({ id, z }) => {
+        const data = document.querySelector("#drive").dataset;
+        return (
+          data.surfaceId === id &&
+          data.contact === "grounded" &&
+          Number(data.altitude) > z + 1.5
+        );
+      },
+      { id: target, z: street.z },
+      { timeout: 60000 },
+    );
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector("#next")
+          .textContent.includes("End of supported surface"),
+      null,
+      { timeout: 60000 },
+    );
+    const stopped = await page.evaluate(state);
+    assert.equal(stopped.id, target);
+    assert.equal(stopped.contact, "grounded");
+    assert.ok(stopped.z > 5.8 && stopped.z < 6.2);
+    console.log(
+      `6th–Brannan: climbed from city terrain at ${street.z} m via ${joined.z} m onto the strip and stopped at ${stopped.z} m`,
+    );
+  } catch (error) {
+    throw new Error(
+      `6th–Brannan ramp: ${JSON.stringify(await page.evaluate(state))}`,
+      { cause: error },
+    );
+  } finally {
+    await page.keyboard.up("ArrowUp");
+  }
+}
+
 (async () => {
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH,
@@ -231,6 +316,11 @@ async function checkLongitudinalGap(page) {
     await page.route("**/.11ty/reload-client.js", (route) => route.abort());
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    if (process.argv.includes("--ramp")) {
+      await checkRampApproach(page);
+      assert.deepEqual(errors, []);
+      return;
+    }
     if (process.argv.includes("--edges")) {
       await checkHighwayEdges(page);
       assert.deepEqual(errors, []);
@@ -271,6 +361,7 @@ async function checkLongitudinalGap(page) {
       to: "gms:16Y7WN0QZHATVJMP02XXGQBKDQ",
     });
     await checkLongitudinalGap(page);
+    await checkRampApproach(page);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

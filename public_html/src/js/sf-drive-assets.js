@@ -52,6 +52,71 @@ async function verifiedBytes(url, info, signal) {
   return bytes;
 }
 
+export async function openCityRoadLayers(url, baseUrl, signal, driveId) {
+  const decoder = new TextDecoder();
+  const parse = (raw) => JSON.parse(decoder.decode(raw));
+  const [bytes, baseBytes] = await Promise.all([
+    readBytes(url, signal),
+    readBytes(baseUrl, signal),
+  ]);
+  const manifest = parse(bytes);
+  const base = parse(baseBytes);
+  if (
+    manifest.format !== "gerardus-sf-city-road-layers" ||
+    manifest.compatibility_version !== 2 ||
+    manifest.state !== "citywide_review" ||
+    manifest.horizontal_crs !== "EPSG:7131" ||
+    manifest.vertical_crs !== "EPSG:5703" ||
+    manifest.units !== "m" ||
+    manifest.base_manifest_sha256 !== (await sha256(baseBytes)) ||
+    manifest.origin_epsg7131?.length !== 2 ||
+    !manifest.origin_epsg7131.every(
+      (value, i) => value === base.origin_epsg7131[i],
+    )
+  )
+    throw new Error(
+      "The city road layers do not match the game's map and coordinate frame.",
+    );
+  let drive;
+  if (driveId) {
+    const drives = parse(
+      await verifiedBytes(
+        new URL("gamedrives.json", url),
+        manifest.files["gamedrives.json"],
+        signal,
+      ),
+    );
+    if (
+      drives.format !== "sf-city-game-drives" ||
+      drives.base_manifest_sha256 !== manifest.base_manifest_sha256
+    )
+      throw new Error("The game drive belongs to a different city map.");
+    drive = drives.drives.find(
+      (record) =>
+        record.id === driveId && record.status === "authored_game_drive",
+    );
+    if (!drive) throw new Error("The city revision has no such game drive.");
+  }
+  return {
+    manifest,
+    drive,
+    async loadTile(token, requestSignal) {
+      if (!/^[0-9a-f]{8}$/.test(token))
+        throw new Error("Invalid city road tile token.");
+      const data = parse(
+        await verifiedBytes(
+          new URL(`${token}.json`, url),
+          manifest.tiles[token],
+          requestSignal,
+        ),
+      );
+      if (data.l13 !== token)
+        throw new Error("The city road tile has a different owner.");
+      return data;
+    },
+  };
+}
+
 async function openRoadOverlay(url, baseUrl, signal, info, baseInput) {
   if (!["http:", "https:"].includes(url.protocol)) {
     throw new Error("Enter an HTTP or HTTPS manifest URL.");

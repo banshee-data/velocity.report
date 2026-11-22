@@ -111,12 +111,19 @@ export function carStep(car, input, dt, surface = {}) {
   const brake = Math.min(1, Math.max(0, Number(input.brake) || 0));
   const moveToward = (a, b, max) => a + Math.max(-max, Math.min(max, b - a));
   const previousSteering = car.steering || 0;
-  const steering = moveToward(
-    previousSteering,
+  const previousSteeringRate = car.steeringRate || 0;
+  const targetSteering =
     Math.max(-1, Math.min(1, input.steer || 0)) *
-      (0.58 / (1 + Math.abs(v) / 20)),
-    1.65 * dt,
-  );
+    (0.58 / (1 + Math.abs(v) / 20));
+  // The wheel angle and its rate both carry through a key press or release.
+  // Integrate the critically damped response with a constant target per step.
+  const response = 12;
+  const error = previousSteering - targetSteering;
+  const transient = previousSteeringRate + response * error;
+  const decay = Math.exp(-response * dt);
+  const steering = targetSteering + (error + transient * dt) * decay;
+  const steeringRate =
+    (previousSteeringRate - response * transient * dt) * decay;
   // Down/S brakes before engaging reverse; braking never jumps through zero.
   const opposing = throttle * v < 0;
   const { mass, power, torque, driveRatio, efficiency, tyreRadius, topSpeed } =
@@ -157,6 +164,7 @@ export function carStep(car, input, dt, surface = {}) {
     heading,
     v,
     steering,
+    steeringRate,
     lateralAcceleration: v * yawRate,
   };
 }
@@ -418,6 +426,7 @@ export function nearestRoad(tiles, x, y, names = null) {
           distance,
           width: side >= 0 ? left : right,
           centreline: p,
+          name: tile.n[r[0]],
           origin: tile.o,
           segment: i,
           fraction: u,
@@ -537,12 +546,15 @@ function insideRing(x, y, ring) {
   return inside;
 }
 
+export const CAR_HALF_LENGTH = 2.23;
+export const CAR_HALF_WIDTH = 0.96;
+
 /** Oriented car rectangle against trunk circles and building polygons, including holes. */
 export function collisionAt(indexes, car, z = 0) {
   const hx = Math.cos(car.heading),
     hy = Math.sin(car.heading),
-    length = 2.23,
-    width = 0.96;
+    length = CAR_HALF_LENGTH,
+    width = CAR_HALF_WIDTH;
   const local = ([x, y]) => [
     (x - car.x) * hx + (y - car.y) * hy,
     -(x - car.x) * hy + (y - car.y) * hx,

@@ -1,0 +1,3 @@
+- Loaded the citywide Gerardus road layers directly from Arrow and added a [playable Bay Bridge west-span route](../../plans/ui-sf-layered-roads-plan.md#citywide-bake-and-bay-bridge-game-route) through the Fremont exit and Fourth Street entrance, with authored connections identified separately from the provisional road profiles.
+- Smoothed the authored bridge and ramp joins, eased keyboard steering inputs, and loaded the waterfront skyline at the start of the westbound crossing.
+- Opened the left side of the Fremont exit, made airtime cards stack for two seconds after touchdown, and checked the graph across [50 scripted flights](../../plans/ui-sf-layered-roads-plan.md#airtime-replay-checks).

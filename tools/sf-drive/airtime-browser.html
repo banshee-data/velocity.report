@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SF airtime browser check</title>
+  <iframe
+    id="scene"
+    title="Fremont exit game scene"
+    src="/sf/?city=bay-bridge&amp;at=fremont-exit"
+  ></iframe>
+  <section class="panel" id="check">
+    <h1>Airtime replay</h1>
+    <button id="run" disabled>Run timing check</button>
+    <button id="overlap" disabled>Show both charts</button>
+    <p id="status" role="status">Loading game HUD…</p>
+    <ol id="results"></ol>
+  </section>
+  <script type="module">
+    const get = (id) => document.getElementById(id);
+    const status = get("status");
+
+    async function loadHud() {
+      const response = await fetch("/sf/");
+      if (!response.ok) throw new Error(`Game page HTTP ${response.status}`);
+      const html = await response.text();
+      const game = new DOMParser().parseFromString(html, "text/html");
+      for (const style of game.head.querySelectorAll(
+        "style, link[rel=stylesheet]",
+      ))
+        document.head.append(style.cloneNode(true));
+      document.head.append(get("check-style"));
+      const panel = game.getElementById("airtime");
+      const template = game.getElementById("airtimeCard");
+      document.body.append(panel, template);
+      const driveModule = html.match(/import\("([^"]+\/sf-drive\.js)"\)/)?.[1];
+      if (!driveModule) throw new Error("Could not find the game module.");
+      const { createAirtimeHud } = await import(
+        new URL("sf-airtime.js", new URL(driveModule, location.href))
+      );
+      return { panel, hud: createAirtimeHud(panel, template) };
+    }
+
+    const flights = [
+      {
+        start: 0,
+        duration: 600,
+        height: 11,
+        grade: -0.15,
+        clearance: 2.1,
+        v: 24,
+      },
+      {
+        start: 900,
+        duration: 800,
+        height: 19,
+        grade: -0.03,
+        clearance: 3.6,
+        v: 37,
+      },
+    ];
+
+    function advance(hud, time, useFrameTime = false) {
+      for (const flight of flights) {
+        const { start, duration, height, grade, clearance, v } = flight;
+        const heightAt = (x) => height + grade * x;
+        const road = {
+          heading: 0,
+          centreline: [-280, 0, 1100, 0],
+          origin: [0, 0],
+          segment: 0,
+          fraction: 28 / 138,
+        };
+        const samples = 20;
+        while (flight.sample < samples) {
+          const i = flight.sample + 1;
+          const elapsed = start + (i * duration) / samples;
+          if (elapsed > time) break;
+          const pose = (j) => {
+            const t = j / samples;
+            const x = (v * duration * t) / 1000;
+            return {
+              x,
+              y: 0,
+              z: heightAt(x) + clearance * 4 * t * (1 - t),
+              heading: 0,
+              v,
+              grounded: j === 0 || j === samples,
+            };
+          };
+          hud.step(
+            pose(i - 1),
+            pose(i),
+            duration / samples / 1000,
+            useFrameTime ? time : elapsed,
+            { road, heightAt },
+          );
+          flight.sample = i;
+        }
+      }
+      hud.draw(time);
+    }
+
+    async function init() {
+      const { panel, hud } = await loadHud();
+      const cards = () => Array.from(panel.children);
+      let frame;
+      function reset() {
+        cancelAnimationFrame(frame);
+        hud.reset();
+        hud.draw(0);
+        for (const flight of flights) flight.sample = 0;
+      }
+
+      function verifyBoundaries() {
+        reset();
+        advance(hud, 2599);
+        const [first, second] = cards();
+        if (
+          !first ||
+          !second ||
+          first.getBoundingClientRect().bottom >
+            second.getBoundingClientRect().top
+        )
+          throw new Error("Expected two stacked cards at 2599 ms");
+        advance(hud, 2600);
+        if (cards().length !== 1 || cards()[0] !== second)
+          throw new Error("The first card must expire at 2600 ms");
+        advance(hud, 3699);
+        if (cards()[0] !== second)
+          throw new Error("The second card disappeared early");
+        advance(hud, 3700);
+        if (!panel.hidden || cards().length)
+          throw new Error("The second card must expire at 3700 ms");
+      }
+
+      get("overlap").addEventListener("click", () => {
+        reset();
+        advance(hud, 1850);
+        status.textContent = "Paused after both touchdowns.";
+      });
+      get("run").addEventListener("click", () => {
+        verifyBoundaries();
+        reset();
+        const results = get("results");
+        results.replaceChildren();
+        status.textContent = "Replaying two scripted jumps…";
+        const touchdowns = [];
+        const start = performance.now();
+        function tick(now) {
+          const time = now - start;
+          advance(hud, time, true);
+          const landed = cards().filter((card) =>
+            card
+              .querySelector(".airtime-readout")
+              .textContent.startsWith("Touchdown"),
+          );
+          for (const card of landed)
+            if (!touchdowns.some((entry) => entry.card === card))
+              touchdowns.push({ card, time });
+          for (const [index, entry] of touchdowns.entries()) {
+            if (entry.removed || entry.card.isConnected) continue;
+            entry.removed = true;
+            const result = document.createElement("li");
+            result.textContent = `Chart ${index + 1} visible for ${Math.round(time - entry.time)} ms after touchdown`;
+            results.append(result);
+          }
+          if (results.childElementCount === flights.length)
+            status.textContent =
+              "Both cards passed the exact 2,000 ms boundary checks.";
+          else if (time < 5500) frame = requestAnimationFrame(tick);
+          else
+            status.textContent =
+              "Some transitions fell between rendered frames. Run again.";
+        }
+        frame = requestAnimationFrame(tick);
+      });
+      verifyBoundaries();
+      status.textContent =
+        "Exact expiry checks passed. Run or pause the replay.";
+      get("run").disabled = false;
+      get("overlap").disabled = false;
+    }
+
+    init().catch((error) => {
+      status.textContent = error.message;
+      throw error;
+    });
+  </script>
+  <style id="check-style">
+    #scene {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      pointer-events: none;
+    }
+    #check {
+      position: fixed;
+      left: 12px;
+      top: 68px;
+      max-width: calc(100vw - 24px);
+      padding: 12px;
+    }
+    #check h1 {
+      font-size: 16px;
+      margin: 0 0 8px;
+    }
+    #check p,
+    #check ol {
+      margin: 8px 0 0;
+    }
+    #check ol {
+      padding-left: 24px;
+    }
+  </style>
+</html>

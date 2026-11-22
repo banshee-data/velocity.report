@@ -19,6 +19,7 @@ function sfDownloadAssets(root = __dirname) {
       "sf-drive.js",
       "sf-drive-assets.js",
       "sf-drive-settings.js",
+      "sf-city-road-drive.js",
       "sf-road-contact.js",
       "sf-road-network.js",
       "sf-highway-edge.js",
