@@ -261,13 +261,25 @@ The ordinary city game uses one ground surface at a horizontal position. On Hydr
 connections published by Gerardus. See the
 [regional review controls and scope](../plans/ui-sf-layered-roads-plan.md#regional-review-in-the-game).
 
+The default **SoMa survey deliveries** drive goes through 1st at Mission, 3rd at Folsom
+and Howard at 6th using the bundled street tiles. Each delivery is registered within
+40 m of the survey on the street level. Survey cylinders show the locations of all
+placed replay sites, even beyond the local tile draw distance.
+
+Delivery drives begin in **Self-driving**. Driving input opens a confirmation for
+**Meat mode**, which starts a clock at $0.12 per second in game. **Resume self-driving**
+stops the clock and preserves the spend. On the first visit to a survey, the driver
+earns either ten free seconds or twenty half-rate seconds. Credits count down during
+manual driving and free seconds are used first. The HUD tracks deliveries, spend and
+crash infractions. These rates are game tuning values.
+
 In **Map & game**, **Explore city road layers** draws Arrow's provisional elevated
-profiles as the map loads. With compatible Gerardus layers available, the game opens
-at **Bay Bridge approach** at 50 mph. Use **Start from** to return to the approach or
+profiles as the map loads. With compatible Gerardus layers available, **Bay Bridge
+approach** starts at 50 mph. Use **Start from** to return to the approach or
 choose a stationary start at Fremont Street exit or a city intersection. The westbound
 route crosses the bridge, takes the Fremont exit and rejoins I-80 from Fourth Street.
 Both Fourth Street entrance rails deflect the car and slow it down on contact.
-Drive with the usual controls or choose **Follow the route**. Map sources accepts a
+Use the same self-driving and manual controls. Map sources accepts a
 Gerardus server or a version-2 city road manifest URL. See the
 [citywide bake and game route](../plans/ui-sf-layered-roads-plan.md#citywide-bake-and-bay-bridge-game-route)
 for the supported extent and authored connections.
@@ -275,6 +287,11 @@ for the supported extent and authored connections.
 The westbound bridge view loads the waterfront skyline before the car starts
 across the span. As the car approaches San Francisco, the local city tiles take
 over and restore the usual draw distance.
+
+GitHub Pages requires a public HTTPS manifest URL and read access from the game origin
+to the companion files. The deploy workflow reads `SF_CITY_ROADS_MANIFEST`. Hydra
+continues to use Arrow's private HTTP endpoint. Updating the public URL is independent
+of fitting and baking the road data.
 
 ## What it shows
 

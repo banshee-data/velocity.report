@@ -2,6 +2,7 @@
 const assert = require("node:assert/strict");
 const { gunzipSync } = require("node:zlib");
 const { chromium } = require("playwright");
+const { confirmManualTakeover } = require("./manual-takeover.cjs");
 
 const host = process.env.SF_BASE_URL || "http://localhost:8090";
 const state = () => {
@@ -39,6 +40,7 @@ async function visit(page, region, review) {
   }
   const car = await page.evaluate(state);
   assert.ok(car.id, JSON.stringify({ region, review, car }));
+  await confirmManualTakeover(page);
   return car;
 }
 
@@ -298,6 +300,7 @@ async function checkRampApproach(page) {
     .waitFor({ timeout: 30000 });
   const street = await page.evaluate(state);
   assert.equal(street.id, "");
+  await confirmManualTakeover(page);
   await page.keyboard.down("ArrowUp");
   try {
     const target = "gms:55M0AW4H11A0P40ZHJBKQ76ZX7";

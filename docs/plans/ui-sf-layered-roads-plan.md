@@ -201,13 +201,21 @@ references over HTTP. The browser checks the base map and coordinate frame, then
 checksums of the road and route files it reads. **Explore city road layers** shows the
 provisional overpass and bridge profiles in cyan and gold and retains gaps in their drawing.
 
-**Bay Bridge approach** is the default in **Start from** when the game can load the Arrow
-route. It starts westbound near Yerba Buena Island at 50 mph. Fremont Street exit and the
-city intersections start at rest in the same picker. Drive manually or select **Follow
-the route** in **Map & game**. Steering, acceleration or braking cancels the assist.
+**Bay Bridge approach** is available in **Start from** when the game can load the Arrow
+route. It starts westbound near Yerba Buena Island at 50 mph in self-driving mode.
+Fremont Street exit and the city intersections start at rest in the same picker.
+Driving input opens the Meat mode confirmation.
 The route follows the west span to the city approach, takes the Fremont Street exit,
 follows Fremont, Howard, Second and Harrison, and rejoins westbound I-80 at Fourth Street.
 The named route is 6.22 km.
+
+For a public release, publish the immutable city manifest, owner tiles and checksummed
+`gamedrives.json` through an HTTPS URL that the production origin can read. Keep the
+base-game manifest hash and the per-tile hashes aligned. A rebake can add rendered
+spans citywide, while playable ramps and overpasses need continuous supported contact,
+directed same-level joins across owners, shoulder and rail metadata, and drive checks
+for both traversal directions where they are allowed. Preserve the gaps and the
+review status for unsupported or unverified spans.
 
 Both rails at the Fourth Street entrance use a rebound for side impacts at any speed.
 The car loses speed and stays on the ramp. The replay checks a 50 mph strike on each

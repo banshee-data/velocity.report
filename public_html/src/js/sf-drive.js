@@ -54,6 +54,19 @@ import { roadDashPolygons } from "./sf-road-markings.js";
 import { createTerrainPainter } from "./sf-terrain-painter.js";
 import { SCENE_COLOURS } from "./scene-colours.js";
 import { mountSurveyReplay } from "./sf-survey-replay.js";
+import { surveyBeacons } from "./sf-survey-beacons.js";
+import {
+  advanceInsurance,
+  createInsurance,
+  insuranceRate,
+  visitSurvey,
+} from "./sf-insurance.js";
+import {
+  SOMA_SURVEY_DRIVE,
+  SOMA_SURVEY_NAME,
+  SOMA_SURVEY_STOPS,
+  somaSurveyDrive,
+} from "./sf-soma-drive.js";
 import {
   fetchJsonGz,
   loadRoadOverlay,
@@ -695,6 +708,7 @@ export async function startDrive({
   canvas,
   base,
   sources = {},
+  publicRoadManifest = "",
   hud,
   downloadAssets,
   surveySites = [],
@@ -702,7 +716,7 @@ export async function startDrive({
   const params = new URLSearchParams(location.search);
   const at = params.get("at");
   const requestedCity = params.get("city");
-  const region = ["layers", "bay-bridge"].includes(requestedCity)
+  const region = ["layers", "bay-bridge", "soma"].includes(requestedCity)
     ? null
     : params.get("region");
   const reviewDrive = params.get("review");
@@ -711,9 +725,9 @@ export async function startDrive({
   );
   const pilotRequested = ["bay-bridge-deck", "bay-bridge-street"].includes(at);
   const settings = mapSources(sources);
-  const cityUrl = settings.city || (loopback ? CITY_ROAD_LAYERS : null);
-  const cityMode =
-    requestedCity || (!at && !region && cityUrl ? "bay-bridge" : null);
+  const cityUrl =
+    settings.city || (loopback ? CITY_ROAD_LAYERS : publicRoadManifest);
+  const cityMode = requestedCity || (!at && !region ? "soma" : null);
   const tileBase = settings.tiles || base;
   const manifestUrl = new URL(`${tileBase}manifest.json`, location.href);
   const overlayUrl =
@@ -852,9 +866,14 @@ export async function startDrive({
   const reviewSummary = review
     ? `Acceptance pending · ${review.confirmed_connections.length} confirmed · ${review.unresolved_connections.length} unresolved`
     : "";
+  const selectedDrive =
+    cityLayers?.drive ||
+    (cityMode === "soma" || (cityMode === "bay-bridge" && !cityLayers)
+      ? somaSurveyDrive()
+      : null);
   const gameDrive =
-    cityLayers?.drive &&
-    buildCityGameDrive(cityLayers.drive, (x, y) =>
+    selectedDrive &&
+    buildCityGameDrive(selectedDrive, (x, y) =>
       groundAtWorld(
         [...loaded.values()].map((entry) => entry.tile),
         x,
@@ -865,6 +884,14 @@ export async function startDrive({
   const skylineScene = new THREE.Scene();
   skylineScene.background = C.sky;
   skylineScene.fog = new THREE.Fog(C.sky, 1200, 5800);
+  const skylineBuildings = new THREE.Group();
+  const beacons = surveyBeacons(surveySites);
+  skylineScene.add(skylineBuildings);
+  const beaconScene = new THREE.Scene();
+  const beaconCamera = camera.clone();
+  beaconCamera.far = 6500;
+  beaconCamera.updateProjectionMatrix();
+  beaconScene.add(beacons);
   const skylineCamera = camera.clone();
   skylineCamera.near = 30;
   skylineCamera.far = 6000;
@@ -1042,11 +1069,24 @@ export async function startDrive({
   if (gameDrive) places.unshift(gameDrive.start);
   if (reviewStart && !places.some((p) => p.id === reviewStart.id))
     places.push(reviewStart);
-  const bridgeChoice =
-    cityUrl && !gameDrive && !region
-      ? { id: BAY_BRIDGE_CITY_DRIVE, name: BAY_BRIDGE_APPROACH }
-      : null;
-  const startChoices = bridgeChoice ? [bridgeChoice, ...places] : places;
+  const remoteStarts = [
+    { id: SOMA_SURVEY_DRIVE, name: SOMA_SURVEY_NAME, city: "soma" },
+    ...(cityUrl
+      ? [
+          {
+            id: BAY_BRIDGE_CITY_DRIVE,
+            name: BAY_BRIDGE_APPROACH,
+            city: "bay-bridge",
+          },
+        ]
+      : []),
+  ];
+  const startChoices = region
+    ? places
+    : [
+        ...places,
+        ...remoteStarts.filter(({ id }) => id !== gameDrive?.start.id),
+      ];
   const start =
     (at && at === gameDrive?.exitStart?.id ? gameDrive.exitStart : null) ||
     gameDrive?.start ||
@@ -1106,7 +1146,6 @@ export async function startDrive({
   // The car waits until the ground under it has loaded, so it never starts in empty space.
   let grounded = false;
   const loaded = new Map(); // token -> {tile, grp}
-  let followCityDrive = false;
   let completedCityDrive = false;
   const cityRoadOwners = new Set();
   const loading = new Set();
@@ -1173,6 +1212,13 @@ export async function startDrive({
   }
   let trial = createTrial(route.targets);
   let selectedStart = start;
+  const insuranceFor = (point) =>
+    createInsurance(
+      gameDrive?.spans.has(point.surfaceId) === true,
+      point.id === SOMA_SURVEY_DRIVE ? SOMA_SURVEY_STOPS : [],
+    );
+  let insurance = insuranceFor(start);
+  let insuranceAt = performance.now();
   let cityStart = start;
   let checkpoint = null;
   let crash = null;
@@ -1210,20 +1256,37 @@ export async function startDrive({
   function updateBridgeMode() {
     const active = isRoadReview(selectedStart);
     document.body.dataset.bridge = String(active);
-    hud.followCityDrive.hidden = !gameDrive?.spans.has(selectedStart.surfaceId);
+    updateDriveMode();
     hud.restartBtn.textContent = active ? "Restart drive" : "New trial";
     if (active) {
       hud.timer.textContent = gameDrive
-        ? "Game route"
+        ? selectedStart.id === SOMA_SURVEY_DRIVE
+          ? "Delivery run"
+          : "Game route"
         : review
           ? "Review"
           : "Pilot";
       hud.progress.textContent = gameDrive
-        ? "Authored connections"
+        ? selectedStart.id === SOMA_SURVEY_DRIVE
+          ? ""
+          : "Authored connections"
         : review
           ? "Regional road"
           : "Measured approach";
     }
+  }
+  function updateDriveMode() {
+    hud.followCityDrive.hidden = !gameDrive?.spans.has(selectedStart.surfaceId);
+    hud.followCityDrive.textContent =
+      insurance.mode === "automatic"
+        ? "Take manual control"
+        : "Resume self-driving";
+    hud.insuranceMode.textContent =
+      insurance.mode === "automatic"
+        ? "Self-driving"
+        : insurance.mode === "manual"
+          ? "Meat mode"
+          : "Manual ready";
   }
   updateBridgeMode();
   hud.cityLayersLink.hidden = !cityUrl;
@@ -1432,11 +1495,12 @@ export async function startDrive({
     Space: "brake",
   };
   window.addEventListener("keydown", (e) => {
-    if (hud.menu.open) return;
+    if (hud.menu.open || hud.takeover.open) return;
     if (e.target.closest?.("select, input, textarea")) return;
     if (e.target.closest?.("button, a") && ["Space", "Enter"].includes(e.code))
       return;
     if (keyMap[e.code]) {
+      if (e.repeat && insurance.mode !== "manual" && !solo) return;
       state.keys.add(keyMap[e.code]);
       e.preventDefault();
     }
@@ -1458,6 +1522,7 @@ export async function startDrive({
   };
   window.addEventListener("blur", releaseInputs);
   document.addEventListener("visibilitychange", () => {
+    insuranceAt = performance.now();
     if (document.hidden) releaseInputs();
   });
   const toggleMirror = () => {
@@ -1488,9 +1553,7 @@ export async function startDrive({
     camInit = false;
     accumulator = 0;
     crash = null;
-    followCityDrive = false;
     completedCityDrive = false;
-    hud.followCityDrive.textContent = "Follow the route";
     airtime.reset(keepAirtime);
     updateBridgeMode();
     releaseInputs();
@@ -1549,6 +1612,7 @@ export async function startDrive({
   }
   function startCrash(kind, now) {
     if (crash) return;
+    insurance.infractions++;
     airtime.finish(now, "Impact");
     crash = beginCrash(car, kind, now / 1000);
     car = {
@@ -1575,6 +1639,7 @@ export async function startDrive({
       return;
     }
     selectedStart = p;
+    insurance = insuranceFor(p);
     trial = createTrial(activeDistrict?.targets || route.targets);
     checkpoint = null;
     crashUntil = 0;
@@ -1600,12 +1665,29 @@ export async function startDrive({
     hud.viewMode.blur();
   });
   hud.menuBtn.addEventListener("click", releaseInputs);
+  function requestTakeover() {
+    if (insurance.mode === "manual" || hud.takeover.open) return;
+    releaseInputs();
+    if (hud.menu.open) hud.menu.close();
+    hud.takeover.returnValue = "";
+    hud.takeover.showModal();
+  }
+  hud.takeover.addEventListener("close", () => {
+    releaseInputs();
+    if (hud.takeover.returnValue === "manual") {
+      insuranceAt = performance.now();
+      insurance.mode = "manual";
+    }
+    updateDriveMode();
+  });
   hud.followCityDrive.addEventListener("click", () => {
-    followCityDrive = !followCityDrive;
-    hud.followCityDrive.textContent = followCityDrive
-      ? "Drive manually"
-      : "Follow the route";
-    hud.menu.close();
+    if (insurance.mode === "automatic") requestTakeover();
+    else {
+      insurance.mode = "automatic";
+      releaseInputs();
+      updateDriveMode();
+      hud.menu.close();
+    }
   });
   hud.restartBtn.addEventListener("click", (e) => {
     newTrial();
@@ -1623,8 +1705,8 @@ export async function startDrive({
     const p = startChoices.find((q) => q.id === hud.places.value);
     if (p) {
       params.set("at", p.id);
-      if (p === bridgeChoice) {
-        params.set("city", "bay-bridge");
+      if (p.city) {
+        params.set("city", p.city);
         location.assign(`?${params}`);
         return;
       }
@@ -1633,7 +1715,11 @@ export async function startDrive({
         location.assign(`?${params}`);
         return;
       }
-      if (gameDrive) params.set("city", "bay-bridge");
+      if (gameDrive)
+        params.set(
+          "city",
+          gameDrive.start.id === SOMA_SURVEY_DRIVE ? "soma" : "bay-bridge",
+        );
       cityStart = p;
       newTrial(p);
       if (overlayUrl) params.set("overlay", overlayUrl);
@@ -1690,6 +1776,7 @@ export async function startDrive({
     releaseInputs();
     airtime.reset();
     solo = hud.gameMode.value === "solo";
+    hud.insuranceHud.hidden = solo;
     document.body.dataset.solo = String(solo);
     practice.visible = solo;
     roadMeshes.visible = !solo;
@@ -1761,6 +1848,7 @@ export async function startDrive({
         canvas.dataset.skylineFarTiles = String(distant);
       drawSkyline = distant > 0;
     }
+    skylineBuildings.visible = drawSkyline;
     if (drawSkyline) {
       skylineCamera.position.copy(camera.position);
       skylineCamera.quaternion.copy(camera.quaternion);
@@ -1779,6 +1867,19 @@ export async function startDrive({
       scene.background = C.sky;
     } else {
       renderer.render(scene, camera);
+    }
+    if (!solo && beacons.count) {
+      beaconCamera.position.copy(camera.position);
+      beaconCamera.quaternion.copy(camera.quaternion);
+      if (beaconCamera.aspect !== camera.aspect) {
+        beaconCamera.aspect = camera.aspect;
+        beaconCamera.updateProjectionMatrix();
+      }
+      // Keep the local depth buffer so buildings can obscure the nearby
+      // columns. The larger far plane covers surveys beyond streamed tiles.
+      renderer.autoClear = false;
+      renderer.render(beaconScene, beaconCamera);
+      renderer.autoClear = true;
     }
     carMesh.visible = true;
     const showMirror = view.mirror && state.mirror;
@@ -2159,6 +2260,8 @@ export async function startDrive({
   function frame(now) {
     requestAnimationFrame(frame);
     const wallDt = Math.max(0, (now - last) / 1000);
+    const insuranceDt = Math.max(0, (now - insuranceAt) / 1000);
+    insuranceAt = now;
     const dt = Math.min(0.05, wallDt);
     last = now;
     if (solo) {
@@ -2168,11 +2271,13 @@ export async function startDrive({
     if (crash && crashPose(crash, now / 1000).done && now >= crashUntil)
       respawn(true);
     hud.respawnBtn.disabled = !!crash;
-    const input = drivingInput(state.keys, state.touch);
-    if (followCityDrive && (input.throttle || input.steer || input.brake)) {
-      followCityDrive = false;
-      hud.followCityDrive.textContent = "Follow the route";
+    let input = drivingInput(state.keys, state.touch);
+    if (insurance.mode !== "manual") {
+      if (input.throttle || input.steer || input.brake) requestTakeover();
+      input = { throttle: 0, steer: 0, brake: false };
     }
+    if (grounded && !document.hidden && !hud.takeover.open)
+      advanceInsurance(insurance, insuranceDt);
     const tiles = [...loaded.values()].map((e) => e.tile);
     const indexes = [...loaded.values()].map((e) => e.collisions);
     let surface = roadSurfaces.get(car.surfaceId);
@@ -2229,13 +2334,11 @@ export async function startDrive({
       while (accumulator >= 1 / 120) {
         accumulator -= 1 / 120;
         const assisted =
-          followCityDrive && gameDrive
+          insurance.mode === "automatic" && gameDrive
             ? cityDriveControls(gameDrive, car)
             : null;
         if (assisted?.finished) {
           completedCityDrive = true;
-          followCityDrive = false;
-          hud.followCityDrive.textContent = "Follow the route";
         }
         const controls =
           assisted ||
@@ -2404,6 +2507,16 @@ export async function startDrive({
       }
     surveyTerrain = tiles;
     surveyReplay.update(car, wallDt);
+    beacons.material.uniforms.time.value = reducedMotion.matches
+      ? 0
+      : now / 1000;
+    if (grounded && !crash && !document.hidden) {
+      const streetHeight = terrainHeight(car.x, car.y);
+      for (const [index, site] of surveySites.entries()) {
+        const message = visitSurvey(insurance, site, car, streetHeight, index);
+        if (message) announce(message, 3);
+      }
+    }
     const currentHeightAt = surface?.heightAt || terrainHeight;
     const z = car.z ?? currentHeightAt(car.x, car.y);
     if (z !== null) carZ = z;
@@ -2512,7 +2625,10 @@ export async function startDrive({
       else if (trial.status === "finished")
         hud.next.textContent = `Finished! ${trial.crashes} crashes`;
       else if (completedCityDrive)
-        hud.next.textContent = "Route complete · back on I-80";
+        hud.next.textContent =
+          selectedStart.id === SOMA_SURVEY_DRIVE
+            ? `Route complete · ${insurance.delivered}/${insurance.stops.length} deliveries`
+            : "Route complete · back on I-80";
       else if (now < messageUntil)
         hud.next.textContent = hud.status.textContent;
       hud.next.title = hud.next.textContent;
@@ -2520,6 +2636,24 @@ export async function startDrive({
       hud.speed.textContent = grounded
         ? Math.round(Math.abs(car.v) * 2.23694)
         : 0;
+      hud.insuranceHud.hidden = false;
+      hud.insuranceCost.textContent = `$${insurance.spent.toFixed(2)}`;
+      hud.insuranceRate.textContent =
+        insurance.mode === "manual"
+          ? `$${insuranceRate(insurance).toFixed(2)}/s · ${insurance.manualSeconds.toFixed(1)} s`
+          : "Meter off";
+      const nextBonus = insurance.free || insurance.discount;
+      const activeBonus = insurance.free > 0 ? "Free" : "Half rate";
+      hud.insuranceBonus.textContent = nextBonus
+        ? `${activeBonus} · ${Math.ceil(nextBonus)} s left`
+        : "";
+      const nextStop = surveySites.find(
+        (site) => site.id === insurance.stops[insurance.delivered],
+      );
+      hud.insuranceDeliveries.textContent = insurance.stops.length
+        ? `${insurance.delivered}/${insurance.stops.length} deliveries${nextStop ? ` · ${nextStop.title}` : ""}`
+        : "";
+      hud.insuranceInfractions.textContent = `${insurance.infractions} infractions`;
       const deg = (((90 - (car.heading * 180) / Math.PI) % 360) + 360) % 360;
       hud.compass.textContent = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][
         Math.round(deg / 45) % 8
@@ -2558,7 +2692,7 @@ export async function startDrive({
           const buildings = new THREE.Group();
           const material = addBuildings(buildings, displayTile, C, null, true);
           if (!buildings.children.length) return;
-          skylineScene.add(buildings);
+          skylineBuildings.add(buildings);
           skylineTiles.set(token, { buildings, material });
           canvas.dataset.skylineTiles = String(skylineTiles.size);
         })

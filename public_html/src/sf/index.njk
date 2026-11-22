@@ -46,6 +46,14 @@ eleventyExcludeFromCollections: true
   .speed small { font-size: 10px; font-weight: 600; }
   .run { text-align: right; white-space: nowrap; font-size: 10px; color: var(--muted); }
   .timer { display: block; color: var(--ink); font: 700 14px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+  .insurance { position: fixed; right: max(8px, env(safe-area-inset-right, 0px)); top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); width: min(210px, calc(100vw - 110px)); padding: 8px 10px; font-size: 11px; color: var(--muted); }
+  .insurance-head { display: flex; justify-content: space-between; gap: 8px; color: var(--ink); }
+  #insuranceCost { font: 700 14px/1.4 var(--mono); }
+  #insuranceBonus { color: var(--accent); }
+  #insuranceDeliveries { color: var(--ink); }
+  #takeoverDialog { max-width: min(330px, calc(100vw - 24px)); color: var(--ink); padding: 16px; }
+  #takeoverDialog h2 { margin: 0; font-size: 18px; }
+  #takeoverDialog button { padding: 6px 10px; }
   button, select { font: inherit; color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
   button { cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   button:disabled { opacity: 0.5; cursor: default; }
@@ -139,7 +147,7 @@ eleventyExcludeFromCollections: true
 </style>
 </head>
 <body>
-<canvas id="drive" aria-label="Zoomed-out 3D view of San Francisco"></canvas>
+<canvas id="drive" data-road-manifest="{{ sfRoadManifest | escape }}" aria-label="Zoomed-out 3D view of San Francisco"></canvas>
 <div class="mirror" id="mirrorFrame" aria-hidden="true" hidden></div>
 <header class="panel drive-bar" id="driveBar" aria-label="Driving status">
   <div class="where">
@@ -153,6 +161,21 @@ eleventyExcludeFromCollections: true
   </div>
   <button type="button" class="icon-button" id="menuBtn" aria-label="Map and game settings" aria-haspopup="dialog" aria-controls="gameMenu" aria-expanded="false">☰</button>
 </header>
+<section class="panel insurance" id="insuranceHud" aria-label="Delivery insurance" hidden>
+  <div class="insurance-head"><strong id="insuranceMode"></strong><span id="insuranceCost" aria-label="Insurance spend">$0.00</span></div>
+  <div id="insuranceRate" role="timer" aria-label="Manual driving time and insurance rate"></div>
+  <div id="insuranceBonus"></div>
+  <div id="insuranceDeliveries"></div>
+  <div id="insuranceInfractions"></div>
+</section>
+<dialog id="takeoverDialog" class="panel" aria-labelledby="takeoverTitle">
+  <h2 id="takeoverTitle">Switch to Meat mode?</h2>
+  <p>Manual driving costs $0.12 per second in game. Survey bonuses can lower your rate.</p>
+  <form method="dialog" class="row">
+    <button value="cancel" autofocus>Cancel</button>
+    <button value="manual">Take manual control</button>
+  </form>
+</dialog>
 <div class="seeker" aria-label="Direction to next emoji">
   <canvas id="seekerCompass" width="144" height="144" role="img" aria-label="Direction to the next emoji, relative to the car"></canvas>
   <div class="seeker-copy">
@@ -206,7 +229,7 @@ eleventyExcludeFromCollections: true
     <a href="?region=embarcadero-bryant" id="regionalLink" hidden>Open regional road review</a>
     <a href="?city=layers" id="cityLayersLink" hidden>Explore city road layers</a>
     <p class="detail" id="cityStatus" role="status" hidden></p>
-    <button type="button" id="followCityDrive" hidden>Follow the route</button>
+    <button type="button" id="followCityDrive" hidden>Take manual control</button>
     <div id="regionalReview" class="tools" hidden>
       <label for="roadRegion">Road review region</label>
       <select id="roadRegion"></select>
@@ -282,6 +305,7 @@ eleventyExcludeFromCollections: true
   import("{{ (modulesBase + '/js/sf-drive.js') | url }}").then(({ startDrive }) => startDrive({
     canvas: $("drive"),
     base: "{{ '/sf/tiles/' | url }}",
+    publicRoadManifest: $("drive").dataset.roadManifest,
     sources,
     downloadAssets: {{ sfDownloadAssets | safe }},
     surveySites: JSON.parse($("surveySites").textContent),
@@ -299,6 +323,9 @@ eleventyExcludeFromCollections: true
       regionalLink: $("regionalLink"), regionalReview: $("regionalReview"), roadRegion: $("roadRegion"),
       cityLayersLink: $("cityLayersLink"),
       cityStatus: $("cityStatus"), followCityDrive: $("followCityDrive"),
+      takeover: $("takeoverDialog"), insuranceHud: $("insuranceHud"), insuranceMode: $("insuranceMode"),
+      insuranceCost: $("insuranceCost"), insuranceRate: $("insuranceRate"), insuranceBonus: $("insuranceBonus"),
+      insuranceDeliveries: $("insuranceDeliveries"), insuranceInfractions: $("insuranceInfractions"),
       roadReviewDrive: $("roadReviewDrive"), roadReviewStatus: $("roadReviewStatus"),
       touchButtons: document.querySelectorAll(".pad button"),
       survey: {

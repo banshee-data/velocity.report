@@ -122,6 +122,7 @@ export function buildCityGameDrive(drive, groundHeight) {
       }
       speed[i] = Math.min(
         speed[i],
+        span.speed_mps ?? Infinity,
         kind === "ground" ? 20 : kind === "ramp" ? 26 : 52,
       );
     }
@@ -211,12 +212,13 @@ export function buildCityGameDrive(drive, groundHeight) {
     exitStart,
     start: {
       id: drive.id,
-      name: BAY_BRIDGE_APPROACH,
+      name:
+        drive.id === BAY_BRIDGE_CITY_DRIVE ? BAY_BRIDGE_APPROACH : drive.label,
       surfaceId: entries[0].id,
       x,
       y,
       heading: tangents[start],
-      initialSpeed: 50 * 0.44704,
+      initialSpeed: drive.id === BAY_BRIDGE_CITY_DRIVE ? 50 * 0.44704 : 0,
     },
   };
 }

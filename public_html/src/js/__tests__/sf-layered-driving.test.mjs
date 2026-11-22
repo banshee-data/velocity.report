@@ -6,6 +6,7 @@ import { buildingWalls, validBuildingFace } from "../sf-building-walls.js";
 import { createCarReveal } from "../sf-car-reveal.js";
 import {
   applyCityDriveScenery,
+  BAY_BRIDGE_CITY_DRIVE,
   buildCityGameDrive,
   cityDriveControls,
 } from "../sf-city-road-drive.js";
@@ -92,7 +93,7 @@ test("the city drive crosses from a deck to street terrain and rejoins the highw
   });
   const drive = buildCityGameDrive(
     {
-      id: "drive",
+      id: BAY_BRIDGE_CITY_DRIVE,
       sections: [
         section("deck", "bridge_deck", 0, 0),
         section("exit", "ramp", 50, -8),

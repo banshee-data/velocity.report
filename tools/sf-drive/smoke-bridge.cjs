@@ -2,6 +2,7 @@
 const assert = require("node:assert/strict");
 const { gunzipSync } = require("node:zlib");
 const { chromium } = require("playwright");
+const { confirmManualTakeover } = require("./manual-takeover.cjs");
 
 (async () => {
   const { driveOnStreetContact, indexRoadContact, roadSupportsCar } =
@@ -44,14 +45,15 @@ const { chromium } = require("playwright");
               document.querySelector("#places").value === id &&
               drive.contact === "grounded" &&
               (drive.surfaceId || "") === surface &&
-              document.querySelector("#speed").textContent === speed
+              (speed === null ||
+                document.querySelector("#speed").textContent === speed)
             );
           },
           { id, surface, speed },
           { timeout: 60000 },
         );
       const bridge = "bay-bridge-highway-drive";
-      await page.goto(`${host}/sf/`);
+      await page.goto(`${host}/sf/?city=bay-bridge`);
       await waitForStart(bridge, "bay-bridge-westbound", "50");
       await page.locator("#menuBtn").click();
       const picker = page.getByLabel("Start from", { exact: true });
@@ -64,7 +66,7 @@ const { chromium } = require("playwright");
         0,
       );
       await picker.selectOption("fremont-exit");
-      await waitForStart("fremont-exit", "fremont-exit", "0");
+      await waitForStart("fremont-exit", "fremont-exit", null);
       assert.equal(new URL(page.url()).searchParams.get("city"), "bay-bridge");
       const intersection = await picker
         .locator(`option:not([value="${bridge}"]):not([value="fremont-exit"])`)
@@ -76,8 +78,8 @@ const { chromium } = require("playwright");
       await picker.selectOption(bridge);
       await waitForStart(bridge, "bay-bridge-westbound", "50");
       await page.route("**/gamedrives.json", (route) => route.abort());
-      await page.goto(`${host}/sf/`);
-      await waitForStart(intersection, "", "0");
+      await page.goto(`${host}/sf/?city=bay-bridge`);
+      await waitForStart("soma-survey-drive", "soma-east", null);
       assert.match(
         await page.locator("#cityStatus").textContent(),
         /unavailable/,
@@ -138,6 +140,7 @@ const { chromium } = require("playwright");
       let exited = false;
       let min = start.z,
         max = start.z;
+      await confirmManualTakeover(page);
       await page.keyboard.down("ArrowUp");
       const deadline = Date.now() + 120000;
       try {
@@ -318,13 +321,17 @@ const { chromium } = require("playwright");
       .getByLabel("SF tile directory or manifest URL")
       .fill(`${host}/sf/tiles`);
     await page.getByLabel(/Gerardus server/).fill("http://arrow-worker:50061");
+    await page.getByRole("button", { name: "Apply map sources" }).click();
+    await page.locator("#menuBtn").click();
     const manifest = page.waitForResponse(
       (res) =>
         new URL(res.url()).hostname === "arrow-worker" &&
         res.url().endsWith("/manifest.json") &&
         res.ok(),
     );
-    await page.getByRole("button", { name: "Apply map sources" }).click();
+    await page
+      .getByLabel("Start from", { exact: true })
+      .selectOption("bay-bridge-highway-drive");
     await manifest;
     await page.waitForFunction(() =>
       [...document.querySelector("#places").options].some(
