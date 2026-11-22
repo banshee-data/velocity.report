@@ -6,6 +6,8 @@
 // fixed origin): x east, y north. Tile payloads store their own positions in
 // decimetres from the tile origin `o`.
 
+import { validBuildingFace } from "./sf-building-walls.js";
+
 export const GROUND_MISSING = -32768;
 
 /** Tiles to load and to drop around (x, y). `tiles` are manifest rows {t, x, y, half}. */
@@ -157,6 +159,100 @@ export function carStep(car, input, dt, surface = {}) {
     steering,
     lateralAcceleration: v * yawRate,
   };
+}
+
+/** Physics: contact follows supplied geometry; missing geometry freezes rather than inventing a landing.
+ * A support acceleration below -g releases contact. Airborne velocity has no tyre/input forces.
+ * Fixed 120 Hz caller; point support is a game approximation, not a suspension model.
+ */
+export function contactStep(car, input, dt, surfaceAt, halfAxle = 0.1) {
+  if (!(dt > 0) || dt > 0.05)
+    throw new RangeError("contact step must be in (0, .05]");
+  const here = surfaceAt(car.x, car.y);
+  if (here.height === null) return { ...car, blocked: true };
+  const z = car.z ?? here.height;
+  let next;
+  if (car.grounded !== false) {
+    const a = surfaceAt(
+      car.x + Math.cos(car.heading) * halfAxle,
+      car.y + Math.sin(car.heading) * halfAxle,
+    );
+    const b = surfaceAt(
+      car.x - Math.cos(car.heading) * halfAxle,
+      car.y - Math.sin(car.heading) * halfAxle,
+    );
+    next = carStep(car, input, dt, {
+      slope:
+        ((a.height ?? here.height) - (b.height ?? here.height)) /
+        (2 * halfAxle),
+      offroad: here.drivable === false,
+    });
+  } else {
+    next = {
+      ...car,
+      x: car.x + car.vx * dt,
+      y: car.y + car.vy * dt,
+      lateralAcceleration: 0,
+    };
+  }
+  const there = surfaceAt(next.x, next.y);
+  if (there.height === null) return { ...car, blocked: true };
+  const ballisticZ = z + (car.vz || 0) * dt - 0.5 * 9.81 * dt * dt;
+  if (car.grounded !== false && there.height >= ballisticZ - 1e-7) {
+    return {
+      ...car,
+      ...next,
+      z: there.height,
+      // Use the endpoint tangent, not a backward secant (which would release
+      // contact at half gravity on a curved surface).
+      vz:
+        (((surfaceAt(
+          next.x + Math.cos(next.heading) * halfAxle,
+          next.y + Math.sin(next.heading) * halfAxle,
+        ).height ?? there.height) -
+          (surfaceAt(
+            next.x - Math.cos(next.heading) * halfAxle,
+            next.y - Math.sin(next.heading) * halfAxle,
+          ).height ?? there.height)) /
+          (2 * halfAxle)) *
+        next.v,
+      grounded: true,
+      blocked: false,
+    };
+  }
+  if (car.grounded !== false) {
+    // Recompute the launch interval from existing momentum: no launch-frame steering/braking.
+    next = {
+      ...car,
+      x: car.x + Math.cos(car.heading) * car.v * dt,
+      y: car.y + Math.sin(car.heading) * car.v * dt,
+      vx: Math.cos(car.heading) * car.v,
+      vy: Math.sin(car.heading) * car.v,
+      lateralAcceleration: 0,
+    };
+  }
+  const landing = surfaceAt(next.x, next.y);
+  if (landing.height === null) return { ...car, blocked: true };
+  const vz = (car.vz || 0) - 9.81 * dt;
+  if (ballisticZ <= landing.height) {
+    const ahead = surfaceAt(
+      next.x + Math.cos(next.heading) * halfAxle,
+      next.y + Math.sin(next.heading) * halfAxle,
+    );
+    const tangent =
+      ahead.height === null
+        ? 0
+        : ((ahead.height - landing.height) / halfAxle) * next.v;
+    return {
+      ...car,
+      ...next,
+      z: landing.height,
+      vz: tangent,
+      grounded: true,
+      blocked: false,
+    };
+  }
+  return { ...next, z: ballisticZ, vz, grounded: false, blocked: false };
 }
 
 export const CRASH_SECONDS = 2;
@@ -321,6 +417,10 @@ export function nearestRoad(tiles, x, y, names = null) {
           heading: Math.atan2(dy, dx),
           distance,
           width: side >= 0 ? left : right,
+          centreline: p,
+          origin: tile.o,
+          segment: i,
+          fraction: u,
         };
       }
     }
@@ -378,12 +478,22 @@ export function buildCollisionIndex(tile) {
         cells.get(k).push(shape);
       }
   };
-  for (const [x, y, h] of tile.tr) {
+  for (const [x, y, h, r = 0] of tile.tr) {
     const wx = tile.o[0] + x / 10,
       wy = tile.o[1] + y / 10,
       radius = Math.max(0.12, 0.04 * h);
+    const base =
+      (tile.g && groundAt(tile.g, x / 10, y / 10)) ?? tile.zfill ?? 0;
+    const crown = Math.max(1.5, Math.min(h * 0.6, 2.2 * r));
     add(
-      { kind: "tree", x: wx, y: wy, radius },
+      {
+        kind: "tree",
+        x: wx,
+        y: wy,
+        radius,
+        base,
+        top: base + Math.max(0.8, h - crown),
+      },
       wx - radius,
       wy - radius,
       wx + radius,
@@ -392,6 +502,7 @@ export function buildCollisionIndex(tile) {
   }
   for (const b of tile.b)
     for (const face of b[1]) {
+      if (!validBuildingFace(face)) continue;
       const rings = face.map((r) => {
         const points = [];
         for (let i = 0; i < r.length; i += 3)
@@ -480,6 +591,7 @@ export function collisionAt(indexes, car, z = 0) {
           if (seen.has(shape)) continue;
           seen.add(shape);
           if (shape.kind === "tree") {
+            if (z > shape.top || z + 1.6 < shape.base) continue;
             const [x, y] = local([shape.x, shape.y]);
             if (
               Math.hypot(

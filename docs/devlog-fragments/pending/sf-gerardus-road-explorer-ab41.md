@@ -1,0 +1,5 @@
+- Added a [road surface explorer](../../plans/ui-sf-layered-roads-plan.md#bay-bridge-preview-from-gerardus) that reads the Bay Bridge approach revision from Gerardus, checks its game manifest and tile hashes, and draws the deck and street over the SF game's terrain.
+- Added two playable Bay Bridge approach starts using live Gerardus contact meshes. The car retained its selected level across the crossing and returned to the same level on reset.
+- Restricted the car reveal to occluders behind the car, rendered exposed walls between adjacent roof tiers, and added a road-profile airtime panel for city and practice driving.
+- Added tile and Gerardus addresses to the game's Map sources menu and kept the controls available while a map source is unavailable.
+- Kept the macOS run browser’s Following button inert while its recording or review action is unavailable, avoiding the AppKit enabled-state update caught by the native regression test.

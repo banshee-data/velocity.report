@@ -6,6 +6,7 @@ export function createDownloadSizeTracker({
   tiles,
   assets,
   tileBase,
+  assetBase = tileBase,
   moduleBase = import.meta.url,
 }) {
   const files = new Map();
@@ -18,7 +19,7 @@ export function createDownloadSizeTracker({
   }
   for (const asset of assets) {
     files.set(
-      new URL(asset.url, asset.base === "tiles" ? tileBase : moduleBase).href,
+      new URL(asset.url, asset.base === "tiles" ? assetBase : moduleBase).href,
       {
         bytes: asset.bytes,
         estimated: true,
