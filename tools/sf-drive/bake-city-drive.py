@@ -248,6 +248,103 @@ def smooth_route(sections, pavement):
         ]
 
 
+def interpolate_cubic(a, b, tangent_a, tangent_b, t):
+    return (
+        (2 * t**3 - 3 * t**2 + 1) * a
+        + (t**3 - 2 * t**2 + t) * tangent_a
+        + (-2 * t**3 + 3 * t**2) * b
+        + (t**3 - t**2) * tangent_b
+    )
+
+
+def smooth_ramp_join(left, right, pavement):
+    """Round the authored ramp/street join with matched heading and grade."""
+    before, after = left["positions"], right["positions"]
+    # Use roughly eight metres on each side of the baseline two-metre stations.
+    count = 4
+    old = before[-count - 1 :] + after[1 : count + 1]
+    arc = chainage(old)
+    length = arc[-1]
+    a, b = old[0], old[-1]
+    outer_a, outer_b = before[-count - 2], after[count + 1]
+    scale_a = length / distance(outer_a, a)
+    scale_b = length / distance(b, outer_b)
+
+    def xy_at(s):
+        return [
+            interpolate_cubic(
+                a[i],
+                b[i],
+                (a[i] - outer_a[i]) * scale_a,
+                (outer_b[i] - b[i]) * scale_b,
+                s / length,
+            )
+            for i in range(2)
+        ]
+
+    if any(distance(point, xy_at(s)) > 0.65 for point, s in zip(old, arc)):
+        raise ValueError(f"Ramp join exceeds its authored corridor at {left['id']}")
+
+    def sample_xy(first, last):
+        count = math.ceil(last - first)
+        return [xy_at(first + i * (last - first) / count) for i in range(count + 1)]
+
+    join = arc[count]
+    left_xy = sample_xy(0, join)
+    right_xy = sample_xy(join, length)
+
+    def match_ramp(mesh, start_z, end_z, start_grade, end_grade):
+        stations = chainage(mesh)
+        length = stations[-1]
+        return [
+            [
+                x,
+                y,
+                interpolate_cubic(
+                    start_z,
+                    end_z,
+                    start_grade * length,
+                    end_grade * length,
+                    s / length,
+                ),
+            ]
+            for (x, y), s in zip(mesh, stations)
+        ]
+
+    if left["kind"] == "ground":
+        left_patch = [[x, y, pavement.height(x, y)] for x, y in left_xy]
+        left_patch[0] = a
+        first, end = left_patch[-2:]
+        grade = (end[2] - first[2]) / distance(first, end)
+        right_patch = match_ramp(
+            right_xy,
+            end[2],
+            b[2],
+            grade,
+            (outer_b[2] - b[2]) / distance(b, outer_b),
+        )
+        right_patch[0], right_patch[-1] = end, b
+    else:
+        right_patch = [[x, y, pavement.height(x, y)] for x, y in right_xy]
+        right_patch[-1] = b
+        start, next_point = right_patch[:2]
+        grade = (next_point[2] - start[2]) / distance(start, next_point)
+        left_patch = match_ramp(
+            left_xy,
+            a[2],
+            start[2],
+            (a[2] - outer_a[2]) / distance(outer_a, a),
+            grade,
+        )
+        left_patch[0], left_patch[-1] = a, start
+    left["positions"] = before[: -count - 1] + [
+        [round(value, 4) for value in point] for point in left_patch
+    ]
+    right["positions"] = [
+        [round(value, 4) for value in point] for point in right_patch
+    ] + after[count + 1 :]
+
+
 def bake(source, base):
     manifest = json.loads((source / "manifest.json").read_bytes())
     if (
@@ -348,6 +445,9 @@ def bake(source, base):
             }
         )
     smooth_route(sections, pavement)
+    by_id = {section["id"]: section for section in sections}
+    smooth_ramp_join(by_id[EXIT], by_id[STREETS], pavement)
+    smooth_ramp_join(by_id[STREETS], by_id[ENTRANCE], pavement)
     return manifest, {
         "format": "sf-city-game-drives",
         "source_revision": manifest["revision"],

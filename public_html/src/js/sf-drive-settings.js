@@ -6,7 +6,7 @@ const regionalCatalogPath =
   "city-tiles/sf-road-index-80faea50f62a8c6b81f1d73340041af9281f5f576b7638bf489b98c839fd19a8/manifest.json";
 export const REGIONAL_ROAD_CATALOG = `http://arrow-worker:50061/${regionalCatalogPath}`;
 const cityRoadLayersPath =
-  "city-tiles/sf-city-roads-779e77b50e6a60b69dea006945be591f73caeab96c850635e4fc7b25ccd8327c/manifest.json";
+  "city-tiles/sf-city-roads-34248382d964cdeb67b7ea6698f262b86a5f05602499d0f1de1e71c92490d2c6/manifest.json";
 export const CITY_ROAD_LAYERS = `http://arrow-worker:50061/${cityRoadLayersPath}`;
 
 function httpUrl(value) {

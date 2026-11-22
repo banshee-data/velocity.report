@@ -194,7 +194,7 @@ also needs evidence for the unresolved freeway moves and coverage gaps.
 
 ### Citywide bake and Bay Bridge game route
 
-The [published Arrow revision](http://arrow-worker:50061/city-tiles/sf-city-roads-779e77b50e6a60b69dea006945be591f73caeab96c850635e4fc7b25ccd8327c/manifest.json)
+The [published Arrow revision](http://arrow-worker:50061/city-tiles/sf-city-roads-34248382d964cdeb67b7ea6698f262b86a5f05602499d0f1de1e71c92490d2c6/manifest.json)
 contains 15,491 ground profiles, 9,875 ground continuations, 273 provisional overpass spans
 and 17 provisional bridge spans across 157 tiles. Arrow verified all 161 files and 13 regional
 references over HTTP. The browser checks the base map and coordinate frame, then verifies the
@@ -224,8 +224,13 @@ merge and the Bay Bridge east span towards Oakland remain outside the playable r
 The bake smooths the authored path before cutting it into road sections. It
 samples the result in the existing vector format, gives neighbouring sections
 the same position at their join, and blends ramp grades into the ground pavement.
-On the new bake, the largest change of bearing between adjacent stations fell
-from 58.7° to 17.5°. The Fourth Street entrance join fell from 43.0° to 12.3°.
+The first smoothing pass reduced the largest change of bearing between adjacent
+stations from 58.7° to 17.5°. The ramp-join pass samples pavement heights at
+about one-metre intervals and matches the ramp to the street heading and grade
+at each join. The Fremont exit join now changes bearing by 3.74° (previously
+17.53°) and grade by 0.43 percentage points (previously 1.00). The Fourth Street
+entrance join changes bearing by 2.57° (previously 12.29°) and grade by 0.05
+percentage points (previously 0.34). Both joins share a single elevation.
 The car's steering angle and rate now carry across key presses and releases.
 At 45 mph, the current tyre model needs roughly 54 m of radius, well above
 what the Fremont and city turns provide.

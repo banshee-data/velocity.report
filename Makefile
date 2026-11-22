@@ -1143,6 +1143,7 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_clone_labels.py \
 	tools/s2-archive/test_verify_corpus.py \
 	tools/s2-archive/test_merge_clip_sites.py \
+	tools/sf-drive/test_bake_city_drive.py \
 	tools/podcast-transcribe/test_podcast_transcribe.py
 install-python:
 	@echo "Setting up Python environment..."
