@@ -18,6 +18,8 @@ The [empty-frame lifecycle validation](operations/empty-frame-lifecycle-cloud-va
 
 ## Quick links
 
+The [survey trail inventory](operations/survey-trail-inventory-2026-11.md) counts every indexed trail sample in the available scenes without a radius cutoff; the original full-resolution survey evidence remains to be read.
+
 The [motion-capture operations runbook](operations/motion-capture-following-operations.md)
 tracks existing capture coverage, scalable following/DRAC processing, operator review,
 and the separate physical-qualification gates.
