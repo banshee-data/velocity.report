@@ -1092,7 +1092,10 @@ export async function startDrive({
     const active = isRoadReview(selectedStart);
     document.body.dataset.bridge = String(active);
     updateDriveMode();
-    hud.restartBtn.hidden = !active;
+    hud.restartBtn.hidden = !active && trial.status !== "finished";
+    hud.restartBtn.textContent = active
+      ? "Restart drive"
+      : "Start a new emoji trial";
     if (active) {
       hud.timer.textContent =
         selectedStart.id === SOMA_SURVEY_DRIVE ? "Delivery run" : "Game route";
@@ -1261,7 +1264,8 @@ export async function startDrive({
         .catch((e) => {
           const offline = !navigator.onLine;
           failures.set(t, offline ? Infinity : performance.now() + 5000);
-          if (!offline) announce("A city tile could not load. Retrying…");
+          if (!offline && tileAt(manifest.tiles, car.x, car.y).t === t)
+            announce("A city tile could not load. Retrying…");
           console.warn("tile", t, e);
         })
         .finally(() => loading.delete(t));
@@ -1435,19 +1439,22 @@ export async function startDrive({
           : `Hit a ${kind}`;
     announce(`${impact} · spinning before reset`, 2);
   }
-  function newTrial(p = selectedStart) {
+  function newTrial(p, fresh = false) {
     if (solo) {
       restartSolo();
       return;
     }
-    saveTrialProgress();
+    if (!fresh) saveTrialProgress();
     selectedStart = p;
     insurance = insuranceFor(p);
     trial = createTrial(activeDistrict?.targets || route.targets);
     checkpoint = null;
     crashUntil = 0;
     reset(p);
-    if (!isRoadReview(p)) checkpoint = loadTrialProgress();
+    if (!isRoadReview(p)) {
+      if (fresh) writeProgress(progressKey(), null);
+      else checkpoint = loadTrialProgress();
+    }
     announce(
       isRoadReview(p)
         ? "Drive the supported approach · R resets this level"
@@ -1496,7 +1503,8 @@ export async function startDrive({
     }
   });
   hud.restartBtn.addEventListener("click", (e) => {
-    newTrial();
+    newTrial(selectedStart, true);
+    hud.menu.close();
     releaseFocus(e);
   });
   hud.respawnBtn.addEventListener("click", (e) => {
@@ -2035,6 +2043,7 @@ export async function startDrive({
       ? "Compressed network payload: gzip estimates where browser response sizes are unavailable. Excludes HTTP headers and on-demand survey recordings."
       : "Network payload using encoded response-body sizes, including compressed responses. Excludes HTTP headers; cached assets count at their download size. Excludes on-demand survey recordings.";
     hud.coverage.textContent = `${manifest.tiles.length} L13 tiles · ${route.skipped.length} without a playable intersection`;
+    hud.restartBtn.hidden = trial.status !== "finished";
     hud.progress.textContent = `${trial.collected.size}/${trial.targets.length} emojis`;
     hud.progressBar.max = trial.targets.length;
     hud.progressBar.value = trial.collected.size;
@@ -2095,18 +2104,18 @@ export async function startDrive({
       roadLandingAt(x, y, below, terrainHeight, roadSurfaces.values());
     if (!grounded) {
       const z0 = heightAt(car.x, car.y);
-      const settled = !navigator.onLine
-        ? loaded.has(tileAt(manifest.tiles, car.x, car.y).t)
-        : gameDrive && roadDrive
-          ? loaded.has(tileAt(manifest.tiles, car.x, car.y).t) &&
-            tilesAround(manifest.tiles, car.x, car.y, 120).want.every((t) =>
-              loaded.has(t),
-            )
-          : loaded.size > 0 &&
-            !loading.size &&
-            tilesAround(manifest.tiles, car.x, car.y).want.every((t) =>
-              loaded.has(t),
-            );
+      const owner = tileAt(manifest.tiles, car.x, car.y).t;
+      const nearby = tilesAround(
+        manifest.tiles,
+        car.x,
+        car.y,
+        gameDrive && roadDrive ? 120 : undefined,
+      ).want;
+      const settled =
+        loaded.has(owner) &&
+        (!navigator.onLine ||
+          nearby.some((token) => failures.has(token)) ||
+          nearby.every((token) => loaded.has(token)));
       if (z0 !== null && settled) {
         grounded = true;
         if (!roadDrive && !checkpoint) {
@@ -2204,8 +2213,8 @@ export async function startDrive({
             !!candidate.waiting || (!!surface && !loaded.has(owner.t));
           accumulator = 0;
           announce(
-            !navigator.onLine && !loaded.has(owner.t)
-              ? "This tile is not cached · turn back or reconnect"
+            (!navigator.onLine || failures.has(owner.t)) && !loaded.has(owner.t)
+              ? "This tile is unavailable · turn back or reconnect"
               : waitingForRoad
                 ? "Waiting for the road ahead to load…"
                 : surface
@@ -2217,6 +2226,8 @@ export async function startDrive({
           );
           break;
         }
+        const impact =
+          candidate.roadImpact || collisionAt(indexes, candidate, candidate.z);
         if (candidate.grounded === false || car.grounded === false) {
           const takeoffRoad =
             car.grounded !== false && (!surface || surface.kind === "ground")
@@ -2229,17 +2240,13 @@ export async function startDrive({
                 : null,
             heightAt: terrainHeight,
             deckAt: surface?.kind === "ground" ? null : surface?.heightAt,
+            impact,
             tiles,
           });
         }
-        if (candidate.roadImpact) {
-          car = { ...candidate, roadImpact: null };
-          startCrash(candidate.roadImpact, now);
-          break;
-        }
-        const hit = collisionAt(indexes, candidate, candidate.z);
-        if (hit) {
-          startCrash(hit, now);
+        if (impact) {
+          if (candidate.roadImpact) car = { ...candidate, roadImpact: null };
+          startCrash(impact, now);
           break;
         }
         car = candidate;
@@ -2480,6 +2487,8 @@ export async function startDrive({
       if (!grounded) hud.street.textContent = "Loading the city around you…";
       if (!grounded && !navigator.onLine)
         hud.next.textContent = "Offline · only downloaded tiles are available";
+      else if (!grounded && failures.size)
+        hud.next.textContent = "Waiting for an unavailable city tile";
       if (
         !roadDrive &&
         trial.status === "running" &&

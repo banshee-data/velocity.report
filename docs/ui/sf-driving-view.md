@@ -126,7 +126,7 @@ The car holds its brake before the first driving input, which starts the clock. 
 recovery, loading and background time. Collected emojis survive respawns and tile unloading.
 Completing the fixed target set stops the clock and saves the five fastest personal times
 on this device, separately for each starting place, map manifest and driving tune. The GTI
-tune starts a fresh set of times. Earlier records stay in browser storage. Choosing a starting place or reloading the page resets the entire run; Reset car keeps the clock running.
+tune starts a fresh set of times. Earlier records stay in browser storage. The game restores your trial when you return to a starting place or reload. After finishing, choose **Start a new emoji trial** to try for a faster time. Reset car keeps the clock running.
 There is no shared leaderboard. When browser storage is unavailable, records last for the session.
 
 `public_html/src/sf/quest-route.json` is a small gameplay index alongside the unchanged

@@ -108,6 +108,49 @@ const { targets } = require("../../public_html/src/sf/quest-route.json");
         "1.40 s · 1.0 m clearance",
       ],
     );
+    // Restore a completed trial while offline, then explicitly start another.
+    await page.addInitScript(
+      ({ key, tokens }) => {
+        const url = new URL(location.href);
+        if (!url.searchParams.has("completedTrial")) return;
+        const saved = JSON.parse(localStorage.getItem(key));
+        localStorage.setItem(
+          key,
+          JSON.stringify({ ...saved, collected: tokens }),
+        );
+        url.searchParams.delete("completedTrial");
+        history.replaceState(null, "", url);
+      },
+      { key, tokens: targets.map(({ t }) => t) },
+    );
+    await page.goto(`${url}&completedTrial=1`);
+    await grounded();
+    await page.locator("#menuBtn").click();
+    await page.getByRole("button", { name: "Start a new emoji trial" }).click();
+    await grounded();
+    await page.waitForFunction(() =>
+      document.querySelector("#progress").textContent.startsWith("0/"),
+    );
+    await page.reload();
+    await grounded();
+    assert.match(await page.locator("#progress").textContent(), /^0\//);
+
+    // Emulate Wi-Fi with no internet. The browser still reports online, but
+    // uncached adjacent tiles fail. Columbus can use its cached owner tile.
+    const unavailable = [];
+    page.on("requestfailed", (request) => {
+      if (request.url().endsWith(".json.gz")) unavailable.push(request.url());
+    });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "onLine", { value: true });
+    });
+    await page.goto(`${origin}/sf/?at=columbus`);
+    await grounded();
+    assert.equal(await page.evaluate(() => navigator.onLine), true);
+    assert.ok(unavailable.length);
+    console.log(
+      "Chrome restarted a completed trial offline and opened a cached start with its online flag set and neighbouring tile requests failing.",
+    );
     assert.deepEqual(external, []);
     assert.deepEqual(errors, []);
     console.log(

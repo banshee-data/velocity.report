@@ -756,6 +756,25 @@ test("airtime trace remains ordered and completed cards expire independently", (
   assert.equal(timeline.visible(3700).length, 0);
 });
 
+test("an impact on the landing frame ends the trace without saving a record", () => {
+  const records = [];
+  const timeline = createFlightTimeline((record) => records.push(record));
+  const start = { x: 0, y: 0, z: 0, v: 20, heading: 0, grounded: true };
+  const flying = { ...start, x: 8, z: 4, grounded: false };
+  const landed = { ...start, x: 18 };
+  const env = { heightAt: () => 0 };
+  timeline.step(start, flying, 0.4, 400, env);
+  timeline.step(flying, landed, 0.5, 900, { ...env, impact: "ground" });
+  const [impact] = timeline.visible(900);
+  assert.equal(impact.label, "Impact");
+  assert.deepEqual(impact.trace.at(-1), { s: 18, z: 0 });
+  assert.deepEqual(records, []);
+
+  timeline.step(start, flying, 0.4, 1400, env);
+  timeline.step(flying, landed, 0.5, 1900, env);
+  assert.deepEqual(records, [{ seconds: 0.9, peak: 4 }]);
+});
+
 test("reveal shader uses a car-relative rear plane for trees and walls", () => {
   const reveal = createCarReveal();
   const material = new THREE.MeshLambertMaterial();

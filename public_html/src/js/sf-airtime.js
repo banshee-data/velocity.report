@@ -154,7 +154,8 @@ export function createFlightTimeline(onLanding) {
       }
       flight.refreshedAt = now;
     }
-    if (car.grounded !== false) finish(now);
+    if (environment.impact) finish(now, "Impact");
+    else if (car.grounded !== false) finish(now);
   }
   function visible(now) {
     cards = cards.filter((card) => now < card.until);

@@ -68,7 +68,8 @@ function replay(
   prepare,
   accept = () => true,
 ) {
-  const timeline = createFlightTimeline();
+  const records = [];
+  const timeline = createFlightTimeline((record) => records.push(record));
   let env, takeoff;
   for (let tick = 1; tick <= steps; tick++) {
     const next = advance(car, tick);
@@ -78,16 +79,19 @@ function replay(
       env = prepare(car);
       takeoff = car;
     }
-    if (env) timeline.step(car, next, dt, now, env);
+    if (env)
+      timeline.step(car, next, dt, now, { ...env, impact: next.roadImpact });
     car = next;
     if (!env || !car.grounded) continue;
     const card = timeline.visible(now)[0];
     if (!card || !accept(car, takeoff)) {
       timeline.reset();
+      records.length = 0;
       env = null;
       continue;
     }
-    assert.equal(card.label, "Touchdown");
+    assert.equal(card.label, car.roadImpact ? "Impact" : "Touchdown");
+    assert.equal(records.length, car.roadImpact ? 0 : 1);
     assert.equal(timeline.visible(now + 1999)[0], card);
     assert.equal(timeline.visible(now + 2000).length, 0);
     assert.ok(
