@@ -106,7 +106,8 @@ eleventyExcludeFromCollections: true
   .tools input[type="range"] { padding: 0; margin: 0; accent-color: var(--accent); }
   #cameraName { float: right; color: var(--ink); font-weight: 700; }
   .camera-stops { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-  #emojiFocus { position: fixed; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -50%); border: 2px solid #fbbf24; border-radius: 50%; font-size: 24px; line-height: 1; }
+  .drive-bar, .pad, .survey-card { z-index: 2; }
+  #emojiFocus { position: fixed; z-index: 1; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -50%); border: 2px solid #fbbf24; border-radius: 50%; font-size: 24px; line-height: 1; }
   #emojiFocus[aria-pressed="true"] { border-color: var(--accent); }
   .tools .row { display: flex; gap: 8px; }
   .tools button { min-height: 44px; padding: 8px 12px; flex: 1; }

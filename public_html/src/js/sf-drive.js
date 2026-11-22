@@ -2348,7 +2348,8 @@ export async function startDrive({
           !trial.collected.has(t);
         e.marker.userData.sprite.visible = true;
         e.marker.userData.sprite.position.y =
-          e.marker.userData.baseZ + Math.sin(now / 450) * 0.4;
+          e.marker.userData.baseZ +
+          (e.marker === emojiMarker ? 0 : Math.sin(now / 450) * 0.4);
       }
     surveyTerrain = tiles;
     surveyReplay.update(car, wallDt);
