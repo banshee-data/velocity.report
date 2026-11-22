@@ -82,7 +82,6 @@ function sfSurveyData(surveys, cityIndex, driveManifest) {
         transform,
         manifest: `${scene.assets.slice(1)}manifest.json`,
         page: `${scene.page.slice(1)}?recording=${encodeURIComponent(recording.id)}`,
-        date: recording.when.date,
         limit: surveys.byId[site.id].speedLimitMph,
         speed: { count, bins, p50, p85, p98, max },
       },

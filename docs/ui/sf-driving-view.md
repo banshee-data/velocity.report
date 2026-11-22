@@ -160,8 +160,9 @@ can therefore report more. No extra requests or full-city download are needed to
 
 ## Survey traffic replay
 
-**Data, World, UI.** Drive within 115 m of a survey's placed sensor to start its recording
-at normal speed and open its speed card. The nearest eligible survey takes priority, with
+**Data, World, UI.** The lower-left cue shows the name and straight-line distance of
+the nearest survey ahead within 250 m. Drive within 115 m of a survey's placed sensor
+to replace the cue with its speed card and start its recording at normal speed. The nearest eligible survey takes priority, with
 a 15 m margin before switching between overlapping approaches. The replay closes beyond
 145 m or when switching to solo safety practice. Each visit starts the recording again,
 and the recording loops at its end. The red
@@ -174,9 +175,10 @@ timestamps. They are visual observations with no collisions or response to drivi
 The game starts each intersection independently and uses the survey's stationary coverage
 when the export defines it. Broken replay assets leave the card and survey link available.
 
-The card shows the distribution of peak speed per vehicle track, the P85 and the number
-of vehicle tracks for the replayed recording. It uses the survey's published bins and posted
-limit, and opens that recording in a new tab to keep the drive in progress.
+The compact lower-left card sits above the touch steering controls and shows the
+distribution of peak speed per vehicle track and the P85 for the replayed recording.
+It uses the survey's published bins and posted limit, and opens that recording in a new tab
+to keep the drive in progress.
 
 At build time, [the survey data join](../../public_html/sf-survey-data.cjs) pairs the placed
 export in [the city index](city-view.md#citysitesjson-the-city-site-index) with its histogram.
@@ -191,6 +193,13 @@ vehicles, hero-green pedestrians and blue cyclists. Grey and tan buildings have
 translucent faces and restrained outlines. Trees use dark emerald and brown. The
 [game-design skill](../../.claude/skills/game-design/SKILL.md#public-scene-design)
 describes how to carry these roles into future changes.
+
+## View distance
+
+**UI, World.** In the main view the city fades from 155 m to 320 m of camera depth and
+clips at 360 m. The mirror fades from 55 m to 140 m and clips at 160 m. Buildings are
+batched in 160 m groups so the renderer can cull distant blocks. The renderer still
+uses the existing tile streaming and collision data.
 
 ## Road rendering
 

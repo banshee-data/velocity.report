@@ -1,0 +1,1 @@
+- Shortened the SF game's main and mirror view distances, and batched buildings in smaller groups so distant blocks can be culled. Added an advance survey cue and moved the compact speed histogram to the lower left above the steering controls. See the [driving view](../../ui/sf-driving-view.md#survey-traffic-replay).

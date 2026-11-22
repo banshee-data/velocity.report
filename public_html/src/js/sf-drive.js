@@ -43,7 +43,13 @@ import { terrainTriangles, tileRegion } from "./sf-drive-surface.js";
 import { createDownloadSizeTracker } from "./sf-download-size.js";
 import { bindDrivingPad, drivingInput } from "./sf-touch-controls.js";
 import { districtTrials, seekerDirection } from "./sf-district-trials.js";
-import { DRIVE_VIEWS, driveCameraPose, incarRoll } from "./sf-drive-camera.js";
+import {
+  DRIVE_VIEWS,
+  DRIVE_VIEW_RANGE,
+  MIRROR_VIEW_RANGE,
+  driveCameraPose,
+  incarRoll,
+} from "./sf-drive-camera.js";
 import { createCarReveal } from "./sf-car-reveal.js";
 import { roadDashPolygons } from "./sf-road-markings.js";
 import { createTerrainPainter } from "./sf-terrain-painter.js";
@@ -90,20 +96,6 @@ function groundFn(tile) {
       Math.max(tile.g.x0, Math.min(tile.g.x0 + (tile.g.n - 1) * tile.g.s, lx)),
       Math.max(tile.g.y0, Math.min(tile.g.y0 + (tile.g.n - 1) * tile.g.s, ly)),
     ) ?? tile.zfill;
-}
-
-function mesh(positions, colour, opts = {}) {
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  if (opts.colours)
-    g.setAttribute("color", new THREE.Float32BufferAttribute(opts.colours, 3));
-  g.computeVertexNormals();
-  const m = new THREE.MeshLambertMaterial({
-    color: opts.colours ? 0xffffff : colour,
-    vertexColors: !!opts.colours,
-    side: THREE.DoubleSide,
-  });
-  return new THREE.Mesh(g, m);
 }
 
 function roadShapes(tile) {
@@ -253,6 +245,119 @@ function appendBuildingOutlines(outlines, edges, base) {
   }
 }
 
+function addBuildings(group, tile, C, reveal) {
+  const [ox, oy] = tile.o;
+  // Keep each building whole, but batch nearby buildings so the camera
+  // rejects distant blocks before submitting their triangles and outlines.
+  const batchSize = 1600; // decimetres; tile coordinates are local
+  const batches = new Map();
+  for (const b of tile.b) {
+    const firstRing = b[1][0]?.[0];
+    if (!firstRing?.length) continue;
+    const key = `${Math.floor(firstRing[0] / batchSize)},${Math.floor(firstRing[1] / batchSize)}`;
+    let batch = batches.get(key);
+    if (!batch) {
+      batch = { positions: [], colours: [], outlines: [] };
+      batches.set(key, batch);
+    }
+    const { positions, colours, outlines } = batch;
+    const zb = b[0] / 10;
+    const roof = b[2] ? C.extra : C.roof;
+    const wall = b[2] ? C.extra : C.wall;
+    const roofEdges = new Map();
+    for (const face of b[1]) {
+      const rings = face.map((r) => {
+        const a = [];
+        for (let i = 0; i < r.length; i += 3)
+          a.push([ox + r[i] / 10, oy + r[i + 1] / 10, r[i + 2] / 10]);
+        // Drop a closing point that repeats the first: the triangulator drops it
+        // too, and its indices must address the same vertices as `all` below.
+        const f = a[0];
+        const l = a.at(-1);
+        if (a.length > 3 && f[0] === l[0] && f[1] === l[1]) a.pop();
+        return a;
+      });
+      const outer = rings[0].map((v) => new THREE.Vector2(v[0], v[1]));
+      const holes = rings
+        .slice(1)
+        .map((h) => h.map((v) => new THREE.Vector2(v[0], v[1])));
+      let tris = [];
+      try {
+        tris = THREE.ShapeUtils.triangulateShape(outer, holes);
+      } catch {
+        tris = [];
+      }
+      const all = [].concat(...rings);
+      for (const t of tris) {
+        for (const k of t) {
+          positions.push(...V(all[k][0], all[k][1], all[k][2]));
+          colours.push(roof.r, roof.g, roof.b);
+        }
+      }
+      for (const r of rings) {
+        for (let i = 0; i < r.length; i++) {
+          const a = r[i];
+          const c = r[(i + 1) % r.length];
+          const edge = [a.join(","), c.join(",")].sort().join("|");
+          const existing = roofEdges.get(edge);
+          if (existing) existing.shared = true;
+          else roofEdges.set(edge, { a, b: c, shared: false });
+          const q = [
+            [a[0], a[1], zb],
+            [c[0], c[1], zb],
+            [c[0], c[1], c[2]],
+            [a[0], a[1], zb],
+            [c[0], c[1], c[2]],
+            [a[0], a[1], a[2]],
+          ];
+          for (const v of q) {
+            positions.push(...V(v[0], v[1], v[2]));
+            colours.push(wall.r, wall.g, wall.b);
+          }
+        }
+      }
+    }
+    appendBuildingOutlines(outlines, roofEdges, zb);
+  }
+  if (!batches.size) return;
+  const facesMaterial = new THREE.MeshLambertMaterial({
+    vertexColors: true,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false,
+    forceSinglePass: true,
+  });
+  const outlineMaterial = new THREE.LineBasicMaterial({
+    color: SCENE_COLOURS.buildingOutline,
+    opacity: 0.36,
+    transparent: true,
+    depthWrite: false,
+  });
+  reveal.enableOn(facesMaterial);
+  reveal.enableOn(outlineMaterial);
+  for (const { positions, colours, outlines } of batches.values()) {
+    if (!positions.length) continue;
+    const faces = new THREE.BufferGeometry();
+    faces.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(positions, 3),
+    );
+    faces.setAttribute("color", new THREE.Float32BufferAttribute(colours, 3));
+    faces.computeVertexNormals();
+    const buildings = new THREE.Mesh(faces, facesMaterial);
+    buildings.renderOrder = -2;
+    const edges = new THREE.BufferGeometry();
+    edges.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(outlines, 3),
+    );
+    const lines = new THREE.LineSegments(edges, outlineMaterial);
+    lines.renderOrder = -1;
+    group.add(buildings, lines);
+  }
+}
+
 function buildTile(tile, C, region, reveal) {
   const ox = tile.o[0];
   const oy = tile.o[1];
@@ -287,97 +392,7 @@ function buildTile(tile, C, region, reveal) {
   grp.userData.terrain = terrain;
   grp.add(terrain);
 
-  // buildings: each roof face a prism from the building base to its plane
-  const P = [];
-  const CL = [];
-  const outlines = [];
-  for (const b of tile.b) {
-    const zb = b[0] / 10;
-    const roof = b[2] ? C.extra : C.roof;
-    const wall = b[2] ? C.extra : C.wall;
-    const roofEdges = new Map();
-    for (const face of b[1]) {
-      const rings = face.map((r) => {
-        const a = [];
-        for (let i = 0; i < r.length; i += 3)
-          a.push([ox + r[i] / 10, oy + r[i + 1] / 10, r[i + 2] / 10]);
-        // Drop a closing point that repeats the first: the triangulator drops it
-        // too, and its indices must address the same vertices as `all` below.
-        const f = a[0];
-        const l = a.at(-1);
-        if (a.length > 3 && f[0] === l[0] && f[1] === l[1]) a.pop();
-        return a;
-      });
-      const outer = rings[0].map((v) => new THREE.Vector2(v[0], v[1]));
-      const holes = rings
-        .slice(1)
-        .map((h) => h.map((v) => new THREE.Vector2(v[0], v[1])));
-      let tris = [];
-      try {
-        tris = THREE.ShapeUtils.triangulateShape(outer, holes);
-      } catch {
-        tris = [];
-      }
-      const all = [].concat(...rings);
-      for (const t of tris) {
-        for (const k of t) {
-          P.push(...V(all[k][0], all[k][1], all[k][2]));
-          CL.push(roof.r, roof.g, roof.b);
-        }
-      }
-      for (const r of rings) {
-        for (let i = 0; i < r.length; i++) {
-          const a = r[i];
-          const c = r[(i + 1) % r.length];
-          const edge = [a.join(","), c.join(",")].sort().join("|");
-          const existing = roofEdges.get(edge);
-          if (existing) existing.shared = true;
-          else roofEdges.set(edge, { a, b: c, shared: false });
-          const q = [
-            [a[0], a[1], zb],
-            [c[0], c[1], zb],
-            [c[0], c[1], c[2]],
-            [a[0], a[1], zb],
-            [c[0], c[1], c[2]],
-            [a[0], a[1], a[2]],
-          ];
-          for (const v of q) {
-            P.push(...V(v[0], v[1], v[2]));
-            CL.push(wall.r, wall.g, wall.b);
-          }
-        }
-      }
-    }
-    appendBuildingOutlines(outlines, roofEdges, zb);
-  }
-  if (P.length) {
-    const buildings = mesh(P, null, { colours: CL });
-    // One translucent surface mesh and one edge batch per tile. Skip the
-    // triangulation diagonals so the eaves and roof ridges read clearly.
-    buildings.material.transparent = true;
-    buildings.material.opacity = 0.28;
-    buildings.material.depthWrite = false;
-    buildings.material.forceSinglePass = true;
-    buildings.renderOrder = -2;
-    const edges = new THREE.BufferGeometry();
-    edges.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(outlines, 3),
-    );
-    const lines = new THREE.LineSegments(
-      edges,
-      new THREE.LineBasicMaterial({
-        color: SCENE_COLOURS.buildingOutline,
-        opacity: 0.36,
-        transparent: true,
-        depthWrite: false,
-      }),
-    );
-    lines.renderOrder = -1;
-    reveal.enableOn(buildings.material);
-    reveal.enableOn(lines.material);
-    grp.add(buildings, lines);
-  }
+  addBuildings(grp, tile, C, reveal);
 
   // trees: crown and trunk, instanced
   const nt = tile.tr.length;
@@ -668,13 +683,33 @@ export async function startDrive({
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   const scene = new THREE.Scene();
   scene.background = C.sky;
-  scene.fog = new THREE.Fog(C.sky, 350, 1300);
+  const driveFog = new THREE.Fog(
+    C.sky,
+    DRIVE_VIEW_RANGE.fogNear,
+    DRIVE_VIEW_RANGE.fogFar,
+  );
+  const mirrorFog = new THREE.Fog(
+    C.sky,
+    MIRROR_VIEW_RANGE.fogNear,
+    MIRROR_VIEW_RANGE.fogFar,
+  );
+  scene.fog = driveFog;
   scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f80, 1.9));
   const sun = new THREE.DirectionalLight(0xffffff, 1.7);
   sun.position.set(-0.4, 1, 0.3);
   scene.add(sun);
-  const camera = new THREE.PerspectiveCamera(62, 1, 0.3, 2500);
-  const mirrorCam = new THREE.PerspectiveCamera(48, 3.2, 0.3, 900);
+  const camera = new THREE.PerspectiveCamera(
+    62,
+    1,
+    DRIVE_VIEW_RANGE.near,
+    DRIVE_VIEW_RANGE.far,
+  );
+  const mirrorCam = new THREE.PerspectiveCamera(
+    48,
+    3.2,
+    MIRROR_VIEW_RANGE.near,
+    MIRROR_VIEW_RANGE.far,
+  );
   const reveal = createCarReveal();
   const carMesh = makeCar();
   scene.add(carMesh);
@@ -857,13 +892,15 @@ export async function startDrive({
       if (!e) continue;
       terrainPainter.remove(t);
       scene.remove(e.grp);
+      const materials = new Set();
       e.grp.traverse((o) => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) {
-          if (o.material.map) o.material.map.dispose(); // the tile's sign atlas
-          o.material.dispose();
-        }
+        o.geometry?.dispose();
+        if (o.material) materials.add(o.material);
       });
+      for (const material of materials) {
+        material.map?.dispose();
+        material.dispose();
+      }
       loaded.delete(t);
     }
     for (const t of want) {
@@ -1212,7 +1249,9 @@ export async function startDrive({
       renderer.setScissor(mx / pr, my / pr, mw / pr, mh / pr);
       renderer.setViewport(mx / pr, my / pr, mw / pr, mh / pr);
       carMesh.visible = false; // the view behind, not the inside of the cabin
+      scene.fog = mirrorFog;
       renderer.render(scene, mirrorCam);
+      scene.fog = driveFog;
       carMesh.visible = true;
       renderer.setScissorTest(false);
     }
