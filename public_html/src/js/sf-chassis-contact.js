@@ -3,6 +3,55 @@ export const CAR_HALF_LENGTH = 2.23;
 export const CAR_HALF_WIDTH = 0.96;
 export const COM_HEIGHT = 0.78;
 
+// Derivatives are sampled on a single support surface. At its boundary use
+// the available one-sided difference; another deck can be many metres below.
+export function roadGradient(heightAt, x, y, z) {
+  const d = 0.35;
+  function slope(a, b) {
+    if (a !== null && b !== null) return (b - a) / (2 * d);
+    if (a !== null) return (z - a) / d;
+    return b !== null ? (b - z) / d : 0;
+  }
+  return {
+    east: slope(heightAt(x - d, y), heightAt(x + d, y)),
+    north: slope(heightAt(x, y - d), heightAt(x, y + d)),
+  };
+}
+
+export function chassisAttitude(heading, { east, north }) {
+  const hx = Math.cos(heading),
+    hy = Math.sin(heading);
+  const pitch = Math.atan(east * hx + north * hy);
+  return {
+    pitch,
+    roll: Math.atan((-east * hy + north * hx) * Math.cos(pitch)),
+  };
+}
+
+// Look back along the supported approach for pitch. A forward sample may
+// already be below a cliff or beyond the end of a ramp during the launch tick.
+export function launchAttitude(car, heightAt, z) {
+  const hx = Math.cos(car.heading),
+    hy = Math.sin(car.heading);
+  const back = car.v < 0 ? -0.35 : 0.35;
+  const behind = heightAt(car.x - back * hx, car.y - back * hy);
+  const pitch =
+    behind === null
+      ? Math.atan((car.vz || 0) / (car.v || 1))
+      : Math.atan((z - behind) / back);
+  const left = heightAt(car.x - 0.35 * hy, car.y + 0.35 * hx);
+  const right = heightAt(car.x + 0.35 * hy, car.y - 0.35 * hx);
+  const across =
+    left !== null && right !== null
+      ? (left - right) / 0.7
+      : left !== null
+        ? (left - z) / 0.35
+        : right !== null
+          ? (z - right) / 0.35
+          : 0;
+  return { pitch, roll: Math.atan(across * Math.cos(pitch)) };
+}
+
 export function drivingHull(car, z = car.z ?? 0) {
   const hx = Math.cos(car.heading),
     hy = Math.sin(car.heading);

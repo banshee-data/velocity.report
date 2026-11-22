@@ -25,7 +25,8 @@ const { confirmManualTakeover } = require("./manual-takeover.cjs");
       page.on("pageerror", (err) => errors.push(err.message));
       await page.route("**/sf-drive.js", async (route) => {
         const response = await route.fetch();
-        const hook = "    const landingBelow = (x, y, below) =>";
+        const hook =
+          "    const crashSupport = crashRoadSupport(terrainHeight, roadSurfaces);";
         const trace = "        stepCrash(";
         const source = await response.text();
         assert.ok(source.includes(hook) && source.includes(trace));

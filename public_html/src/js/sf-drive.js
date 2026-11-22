@@ -113,7 +113,8 @@ import {
   highwayRailSegments,
   leaveRoadSide,
   roadBoundary,
-  roadLandingAt,
+  crashRoadSupport,
+  indexCrashRails,
 } from "./sf-highway-edge.js";
 
 const css = (n) =>
@@ -940,6 +941,7 @@ export async function startDrive({
     network?.add(tile);
   }
   if (gameDrive) addRoadTile(gameDrive.topology);
+  const crashRails = indexCrashRails(roadSurfaces.values());
   const places = [...(manifest.places || [])];
   if (gameDrive?.exitStart) places.unshift(gameDrive.exitStart);
   if (gameDrive) places.unshift(gameDrive.start);
@@ -1815,7 +1817,12 @@ export async function startDrive({
     for (const e of loaded.values()) e.grp.visible = false;
     carZ = car.z;
     carMesh.position.set(...V(car.x, car.y, car.z));
-    carMesh.rotation.set(0, car.heading, soloPitch(car), "YZX");
+    carMesh.rotation.set(
+      car.grounded === false ? car.airAttitude?.roll || 0 : 0,
+      car.heading,
+      soloPitch(car),
+      "YZX",
+    );
     carMesh.visible = state.view !== "incar";
     carMesh.userData.brakeMaterial.color.setHex(
       brakeLightsOn(car, input, soloRun.status !== "running")
@@ -2149,8 +2156,7 @@ export async function startDrive({
     const roadDrive = isRoadReview(selectedStart);
     const terrainHeight = (x, y) => groundAtWorld(tiles, x, y, true);
     const heightAt = surface?.heightAt || terrainHeight;
-    const landingBelow = (x, y, below) =>
-      roadLandingAt(x, y, below, terrainHeight, roadSurfaces.values());
+    const crashSupport = crashRoadSupport(terrainHeight, roadSurfaces);
     if (!grounded) {
       const z0 = heightAt(car.x, car.y);
       const owner = tileAt(manifest.tiles, car.x, car.y).t;
@@ -2197,11 +2203,9 @@ export async function startDrive({
     let waitingForRoad = false;
     if (crash && crashRemaining(crash) > 0) {
       accumulator += dt;
-      const support = (x, y) =>
-        landingBelow(x, y, crash.position.z + 0.2)?.z ?? null;
       while (accumulator >= 1 / 120 && crashRemaining(crash) > 0) {
         accumulator -= 1 / 120;
-        stepCrash(crash, support, indexes, surface?.railSegments);
+        stepCrash(crash, crashSupport, indexes, crashRails);
       }
       car = crashCar(crash, car);
     } else if (grounded && !crash && now >= crashUntil) {
@@ -2232,7 +2236,9 @@ export async function startDrive({
             : input);
         let candidate;
         if (car.leavingRoad) {
-          candidate = fallFromRoad(car, 1 / 120, landingBelow);
+          candidate = fallFromRoad(car, 1 / 120, (x, y) =>
+            crashSupport(x, y, car),
+          );
         } else if (!surface) {
           candidate = contactStep(
             car,
@@ -2279,7 +2285,15 @@ export async function startDrive({
           // A streaming pause holds the last supported pose and momentum.
           // Only a confirmed end of support stops the car.
           if (!waitingForRoad)
-            car = { ...car, v: 0, vx: 0, vy: 0, vz: 0, lateralAcceleration: 0 };
+            car = {
+              ...car,
+              v: 0,
+              slip: 0,
+              vx: 0,
+              vy: 0,
+              vz: 0,
+              lateralAcceleration: 0,
+            };
           accumulator = 0;
           announce(
             (!navigator.onLine || failures.has(owner.t)) && !loaded.has(owner.t)
@@ -2298,12 +2312,7 @@ export async function startDrive({
         const contactHeight =
           roadSurfaces.get(candidate.surfaceId)?.heightAt || terrainHeight;
         const landing =
-          car.grounded === false &&
-          hardLanding(
-            car,
-            candidate,
-            (x, y) => landingBelow(x, y, car.z + 0.2)?.z ?? null,
-          );
+          car.grounded === false && hardLanding(car, candidate, crashSupport);
         const hit =
           candidate.hit ||
           obstacleContact(
@@ -2478,19 +2487,21 @@ export async function startDrive({
       carMesh.quaternion.set(q.x, q.z, -q.y, q.w);
     } else {
       carMesh.rotation.set(
-        0,
+        car.grounded === false ? car.airAttitude?.roll || 0 : 0,
         car.heading,
         car.grounded === false
-          ? Math.atan2(car.vz, Math.max(0.1, Math.abs(car.v)))
+          ? car.airAttitude?.pitch || 0
           : Math.atan2(zf - zr, 3),
         "YZX",
       );
     }
-    const braking = brakeLightsOn(
-      car,
-      input,
-      !!crash || now < crashUntil || (!surface && trial.status === "ready"),
-    );
+    const braking =
+      !crash &&
+      brakeLightsOn(
+        car,
+        input,
+        now < crashUntil || (!surface && trial.status === "ready"),
+      );
     carMesh.userData.brakeMaterial.color.setHex(braking ? 0xff3038 : 0x661018);
     for (const wheel of carMesh.userData.wheels) {
       wheel.pivot.rotation.y = wheel.front ? car.steering || 0 : 0;

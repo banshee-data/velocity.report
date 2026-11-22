@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "../../vendor/three/three.core.js";
-import { buildCollisionIndex, carStep } from "../sf-drive-core.js";
+import { buildCollisionIndex, carStep, contactStep } from "../sf-drive-core.js";
+import { crashRoadSupport, indexCrashRails } from "../sf-highway-edge.js";
 import { drivingHull, obstacleContact } from "../sf-chassis-contact.js";
 import {
   beginCrash,
@@ -14,6 +15,10 @@ import {
 } from "../sf-crash.js";
 
 const flat = () => 0;
+const supportOn = (heightAt) => (x, y) => {
+  const z = heightAt(x, y);
+  return z === null ? null : { z, heightAt };
+};
 const car = { x: 0, y: 0, z: 0, heading: 0, v: 35, grounded: true };
 const dt = 1 / 120;
 const near = (a, b, tolerance = 1e-7) =>
@@ -36,7 +41,7 @@ function simulate(car, indexes, terrain = flat, hz = 60) {
     maxSpeed = 0;
   for (let frame = 0; frame < 2 * hz; frame++)
     for (let tick = 0; tick < 120 / hz; tick++) {
-      stepCrash(body, terrain, indexes);
+      stepCrash(body, supportOn(terrain), indexes);
       const up = new Vector3(0, 0, 1).applyQuaternion(body.rotation);
       assert.ok(body.position.toArray().every(Number.isFinite));
       minUp = Math.min(minUp, up.z);
@@ -102,7 +107,7 @@ test("one side can strike a raised bank first and roll past vertical, mirrored w
   const airborne = {
     ...car,
     grounded: false,
-    z: 1.55,
+    z: 1.1,
     v: 20,
     vx: 20,
     vy: 0,
@@ -110,14 +115,21 @@ test("one side can strike a raised bank first and roll past vertical, mirrored w
   };
   const crashOn = (side) => {
     const bank = (x, y) => (side * y > 0.45 ? 1 : 0);
-    const incoming = hardLanding(airborne, { ...airborne, x: 20 * dt }, bank);
+    const incoming = hardLanding(
+      airborne,
+      { ...airborne, x: 20 * dt },
+      supportOn(bank),
+    );
     assert.ok(
       incoming.z > bank(incoming.x, incoming.y),
       "centre is still airborne",
     );
     return simulate(incoming, [], bank);
   };
-  assert.equal(hardLanding(airborne, { ...airborne, x: 20 * dt }, flat), null);
+  assert.equal(
+    hardLanding(airborne, { ...airborne, x: 20 * dt }, supportOn(flat)),
+    null,
+  );
   const left = crashOn(1),
     right = crashOn(-1);
   assert.ok(left.minUp < -0.2 && right.minUp < -0.2);
@@ -154,4 +166,77 @@ test("overlapping horizontal footprints are separated by height; a descending ro
   );
   assert.equal(hit.nz, 1);
   near(hit.depth, 0.1);
+});
+
+test("gravity changes a level drop's velocity without rotating the chassis or inventing horizontal travel", () => {
+  const drop = { ...car, grounded: false, z: 1.3, v: 0, vx: 0, vy: 0, vz: -15 };
+  const support = supportOn(flat);
+  assert.equal(hardLanding(drop, drop, support), null);
+  const landing = hardLanding({ ...drop, z: 0.08 }, drop, support);
+  assert.ok(landing);
+  const { body, minUp } = simulate(landing, [], flat);
+  near(minUp, 1);
+  near(body.position.x, 0);
+  near(body.position.y, 0);
+});
+
+test("take-off pitch and bank survive ballistic motion and are used at impact", () => {
+  const surface = (x, y) => ({
+    height: (x <= 0 ? 0.15 * x : -2) + 0.12 * y,
+    drivable: true,
+  });
+  const c = { ...car, x: -0.02, z: -0.003, v: 25, vz: 0.15 * 25 };
+  const launched = contactStep(c, {}, dt, surface);
+  assert.equal(launched.grounded, false);
+  const next = contactStep(launched, { throttle: 1, steer: 1 }, dt, surface);
+  assert.deepEqual(next.airAttitude, launched.airAttitude);
+  const body = beginCrash(next, "tree", null, flat);
+  const axis = new Vector3(1, 0, 0).applyQuaternion(body.rotation);
+  near(Math.asin(axis.z), launched.airAttitude.pitch);
+  near(launched.airAttitude.pitch, Math.atan(0.15));
+  near(
+    launched.airAttitude.roll,
+    Math.atan(0.12 * Math.cos(launched.airAttitude.pitch)),
+  );
+});
+
+test("a supported chassis at a deck edge stays level above a 30 m drop; slopes use the same deck's tangent", () => {
+  const terrain = () => -10;
+  for (const slope of [0, 0.12]) {
+    const heightAt = (x, y) => (y >= 0 ? 20 + slope * y : null);
+    const surfaces = new Map([["upper", { id: "upper", heightAt }]]);
+    const source = { ...car, x: 0, y: 1, z: heightAt(0, 1), v: 0 };
+    const body = beginCrash(source, "ground", null, heightAt);
+    const support = crashRoadSupport(terrain, surfaces);
+    for (let i = 0; i < 240; i++) stepCrash(body, support);
+    near(body.position.x, 0);
+    near(crashCar(body, source).y, 1, 0.02);
+    near(body.position.z, source.z + 0.78 / Math.hypot(1, slope), 0.01);
+    const up = new Vector3(0, 0, 1).applyQuaternion(body.rotation);
+    near(up.y, -slope / Math.hypot(1, slope), 0.015);
+    assert.equal(support(0, -1, { x: 0, y: 1, z: 20 }).z, -10);
+  }
+});
+
+test("secondary rails are spatially selected across route sections, in either direction and only at matching height", () => {
+  function collide(base, v) {
+    const rail = { a: [5, 20, base], b: [5, -20, base], nx: -1, ny: 0 };
+    const rails = indexCrashRails([
+      { id: "initial", railSegments: [] },
+      { id: "adjacent", railSegments: [rail] },
+    ]);
+    const start = {
+      ...car,
+      x: v > 0 ? 0 : 10,
+      heading: v > 0 ? 0 : Math.PI,
+      v: Math.abs(v),
+      surfaceId: "initial",
+    };
+    const body = beginCrash(start, "tree", null, flat);
+    for (let i = 0; i < 45; i++) stepCrash(body, supportOn(flat), [], rails);
+    return body;
+  }
+  assert.ok(collide(0, 30).position.x < 5);
+  assert.ok(collide(0, -30).position.x > 5);
+  assert.ok(collide(12, 30).position.x > 8);
 });

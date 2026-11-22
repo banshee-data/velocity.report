@@ -10,6 +10,7 @@ import { validBuildingFace } from "./sf-building-walls.js";
 
 import {
   drivingHull,
+  launchAttitude,
   obstacleContact,
   wallRings,
 } from "./sf-chassis-contact.js";
@@ -274,6 +275,7 @@ export function contactStep(car, input, dt, surfaceAt, halfAxle = 0.1) {
     // Recompute the launch interval from existing momentum: no launch-frame steering/braking.
     next = {
       ...car,
+      airAttitude: launchAttitude(car, (x, y) => surfaceAt(x, y).height, z),
       vx:
         Math.cos(car.heading) * car.v - Math.sin(car.heading) * (car.slip || 0),
       vy:

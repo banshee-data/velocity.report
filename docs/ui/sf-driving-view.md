@@ -90,7 +90,8 @@ A scrape sheds speed across the wall and preserves motion along it. The tyres gr
 catch the slide. A hard strike disconnects steering, throttle and braking for two seconds
 of simulation. Momentum carries the chassis through follow-up contacts with walls, trunks,
 rails and the ground. A square hit can rebound, a corner strike can yaw, and a hard
-landing on one side can roll the car. The camera holds its approach direction during
+landing on one side can roll the car. In flight, the chassis keeps its take-off pitch
+and bank. Each ground contact takes its slope from the road or terrain it touches. The camera holds its approach direction during
 recovery and shows the chassis from outside if the driver was in the cabin.
 
 The trial clock continues and pickups pause until the car returns to its last clear

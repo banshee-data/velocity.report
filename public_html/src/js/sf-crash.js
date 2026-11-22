@@ -1,12 +1,14 @@
 // Passive rigid chassis in east/north/up metres, stepped on the driving clock.
 // Impulses and angular momentum are per unit mass (the obstacle is stationary).
-import { Matrix4, Quaternion, Vector3 } from "../vendor/three/three.core.js";
+import { Euler, Quaternion, Vector3 } from "../vendor/three/three.core.js";
 import {
   CAR_HALF_LENGTH,
   CAR_HALF_WIDTH,
   COM_HEIGHT,
   obstacleContact,
   wallContact,
+  roadGradient,
+  chassisAttitude,
 } from "./sf-chassis-contact.js";
 
 const DT = 1 / 120;
@@ -80,18 +82,20 @@ export function scrapeObstacle(car, hit) {
   };
 }
 
-function groundNormal(heightAt, x, y, z) {
-  const d = 0.35;
-  const east = heightAt(x + d, y) ?? z,
-    west = heightAt(x - d, y) ?? z;
-  const north = heightAt(x, y + d) ?? z,
-    south = heightAt(x, y - d) ?? z;
-  return vec(west - east, south - north, 2 * d).normalize();
+function groundNormal(support, x, y) {
+  const { east, north } = roadGradient(support.heightAt, x, y, support.z);
+  return vec(-east, -north, 1).normalize();
+}
+
+function orientation(heading, attitude) {
+  return new Quaternion().setFromEuler(
+    new Euler(attitude?.roll || 0, -(attitude?.pitch || 0), heading, "ZYX"),
+  );
 }
 
 // Sample both sides during flight. A fast wheel strike on a bank can start
 // the passive chassis before the centre point reaches the lower pavement.
-export function hardLanding(before, next, heightAt) {
+export function hardLanding(before, next, supportAt) {
   if (before.grounded !== false) return null;
   const incoming = {
     ...before,
@@ -102,18 +106,21 @@ export function hardLanding(before, next, heightAt) {
     surfaceId: next.surfaceId,
   };
   const v = motion(incoming);
-  const hx = Math.cos(before.heading),
-    hy = Math.sin(before.heading);
-  const pitch = Math.atan2(v.z, Math.max(0.1, Math.abs(before.v)));
+  const rotation = orientation(before.heading, before.airAttitude);
   for (const along of [-1.35, 1.35, 0])
     for (const left of along === 0 ? [0] : [-0.91, 0.91]) {
-      const x = incoming.x + along * Math.cos(pitch) * hx - left * hy;
-      const y = incoming.y + along * Math.cos(pitch) * hy + left * hx;
-      const z = heightAt(x, y);
+      const offset = vec(along, left, 0).applyQuaternion(rotation);
+      const x = incoming.x + offset.x,
+        y = incoming.y + offset.y;
+      const support = supportAt(x, y, {
+        x: before.x + offset.x,
+        y: before.y + offset.y,
+        z: before.z + offset.z,
+      });
       if (
-        z !== null &&
-        incoming.z + along * Math.sin(pitch) <= z &&
-        v.dot(groundNormal(heightAt, x, y, z)) < -10
+        support &&
+        incoming.z + offset.z <= support.z &&
+        v.dot(groundNormal(support, x, y)) < -10
       )
         return incoming;
     }
@@ -170,35 +177,34 @@ function resolveObstacle(crash, hit) {
 }
 
 export function beginCrash(car, kind, hit, heightAt) {
-  const normal =
-    car.grounded === false ? up : groundNormal(heightAt, car.x, car.y, car.z);
-  const forward = vec(Math.cos(car.heading), Math.sin(car.heading), 0);
-  if (car.grounded === false)
-    forward.z = (car.vz || 0) / Math.max(0.1, Math.abs(car.v));
-  else forward.z = -(forward.x * normal.x + forward.y * normal.y) / normal.z;
-  forward.normalize();
-  const left = normal.clone().cross(forward).normalize();
-  const bodyUp = forward.clone().cross(left);
-  const rotation = new Quaternion().setFromRotationMatrix(
-    new Matrix4().makeBasis(forward, left, bodyUp),
-  );
+  const attitude =
+    car.grounded === false
+      ? car.airAttitude
+      : chassisAttitude(
+          car.heading,
+          roadGradient(heightAt, car.x, car.y, car.z),
+        );
+  const rotation = orientation(car.heading, attitude);
+  const bodyUp = up.clone().applyQuaternion(rotation);
   const crash = {
     kind,
     rotation,
     ticks: 0,
     initialHeading: car.heading,
+    grounded: car.grounded !== false,
     position: vec(car.x, car.y, car.z).addScaledVector(bodyUp, COM_HEIGHT),
     velocity: motion(car),
     momentum: vec(),
   };
   if (car.grounded !== false) {
     crash.velocity.z =
-      -(crash.velocity.x * normal.x + crash.velocity.y * normal.y) / normal.z;
+      -(crash.velocity.x * bodyUp.x + crash.velocity.y * bodyUp.y) / bodyUp.z;
     const yaw = car.v ? (car.lateralAcceleration || 0) / car.v : 0;
     crash.momentum.copy(bodyUp).multiplyScalar(yaw / invInertia.z);
   }
   if (hit) resolveObstacle(crash, hit);
-  crash.bounds = bodyBounds(bodyPoints(crash));
+  crash.points = bodyPoints(crash);
+  crash.bounds = bodyBounds(crash.points);
   return crash;
 }
 
@@ -255,7 +261,7 @@ function projectedHull(points, centreZ) {
   return { polygon, ...bodyBounds(points), centreZ };
 }
 
-function railContact(hull, rails) {
+function railContact(hull, rails, previousX, previousY) {
   let best = null;
   for (const { a, b, nx, ny } of rails) {
     if (
@@ -263,14 +269,31 @@ function railContact(hull, rails) {
       Math.min(a[2], b[2]) > hull.high
     )
       continue;
-    const nearby = wallContact(hull, a, b, -nx, -ny, "highway barrier", 0);
+    const side = (previousX - a[0]) * nx + (previousY - a[1]) * ny > 0 ? 1 : -1;
+    const nearby = wallContact(
+      hull,
+      a,
+      b,
+      side * nx,
+      side * ny,
+      "highway barrier",
+      0,
+    );
     if (!nearby) continue;
     const section = hull.section(
       Math.min(a[2], b[2]),
       Math.max(a[2], b[2]) + 0.65,
     );
     if (!section) continue;
-    const hit = wallContact(section, a, b, -nx, -ny, "highway barrier", 0);
+    const hit = wallContact(
+      section,
+      a,
+      b,
+      side * nx,
+      side * ny,
+      "highway barrier",
+      0,
+    );
     if (!hit) continue;
     const t =
       Math.hypot(hit.x - a[0], hit.y - a[1]) /
@@ -295,9 +318,10 @@ export function crashRemaining(crash) {
 }
 
 // No controls parameter: both manual and automatic drivers are disconnected.
-export function stepCrash(crash, heightAt, indexes = [], rails = []) {
+export function stepCrash(crash, supportAt, indexes = [], railsAt) {
   if (crash.ticks >= CRASH_TICKS) return;
   crash.ticks++;
+  const { x: previousX, y: previousY } = crash.position;
   crash.velocity.z -= 9.81 * DT;
   crash.position.addScaledVector(crash.velocity, DT);
   const omega = inverseInertia(crash, crash.momentum);
@@ -315,7 +339,14 @@ export function stepCrash(crash, heightAt, indexes = [], rails = []) {
   const hull = projectedHull(points, crash.position.z);
   hull.section = (low, high) => sliceHull(points, low, high, crash.position.z);
   const hit =
-    obstacleContact(indexes, hull, crash.bounds) || railContact(hull, rails);
+    obstacleContact(indexes, hull, crash.bounds) ||
+    (railsAt &&
+      railContact(
+        hull,
+        railsAt(crash.position.x, crash.position.y),
+        previousX,
+        previousY,
+      ));
   if (hit) {
     resolveObstacle(crash, hit);
     for (const p of points) {
@@ -328,22 +359,24 @@ export function stepCrash(crash, heightAt, indexes = [], rails = []) {
   // share the load; a single low corner applies torque without a scripted flip.
   const contacts = [];
   let deepest = -Infinity;
-  for (const point of points) {
-    const z = heightAt(point.x, point.y);
-    if (z === null || point.z > z + 0.001) continue;
-    const depth = z - point.z;
-    contacts.push({ point, depth, z });
+  for (const [index, point] of points.entries()) {
+    const support = supportAt(point.x, point.y, crash.points[index]);
+    if (!support || point.z > support.z + 0.001) continue;
+    const depth = support.z - point.z;
+    contacts.push({ point, depth, support });
     deepest = Math.max(deepest, depth);
   }
+  crash.grounded = contacts.length > 0 || hit?.nz === 1;
+  crash.points = points;
   crash.bounds = bodyBounds(points);
   if (!contacts.length) return;
   const patch = vec(),
     normal = vec();
   let count = 0;
-  for (const { point, depth, z } of contacts) {
+  for (const { point, depth, support } of contacts) {
     if (depth < deepest - 0.003) continue;
     patch.add(point);
-    normal.add(groundNormal(heightAt, point.x, point.y, z));
+    normal.add(groundNormal(support, point.x, point.y));
     count++;
   }
   patch.divideScalar(count);
@@ -354,6 +387,7 @@ export function stepCrash(crash, heightAt, indexes = [], rails = []) {
   );
   resolve(crash, patch, normal.normalize(), 0.65, radius);
   const correction = Math.max(0, deepest);
+  for (const p of points) p.z += correction;
   crash.position.z += correction;
   crash.bounds.low += correction;
   crash.bounds.high += correction;
@@ -371,6 +405,11 @@ export function crashCar(crash, car) {
     z: root.z,
     heading: Math.atan2(forward.y, forward.x),
     v: Math.hypot(crash.velocity.x, crash.velocity.y),
+    vx: crash.velocity.x,
+    vy: crash.velocity.y,
+    vz: crash.velocity.z,
+    grounded: crash.grounded,
+    leavingRoad: false,
     steering: 0,
     steeringRate: 0,
     lateralAcceleration: 0,
