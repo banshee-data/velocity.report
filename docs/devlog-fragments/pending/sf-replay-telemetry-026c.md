@@ -1,0 +1,1 @@
+- Slowed SF replays around impact, added vehicle speed, deceleration and jerk graphs, and located replay events by their nearest emoji. Moved the manual insurance meter to the bottom centre, added a purple self-driving indicator, and outlined offline tiles in light blue.

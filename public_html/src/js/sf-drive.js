@@ -70,6 +70,7 @@ import {
   createInsurance,
   insuranceRate,
   formatInsuranceCents,
+  formatInsuranceDollars,
   visitSurvey,
 } from "./sf-insurance.js";
 import {
@@ -105,10 +106,16 @@ import {
   encodeReplay,
   replayLibrary,
   replayPose,
-  REPLAY_HZ,
   REPLAY_POSITION_SCALE,
   CRASH_HOLD_TICKS,
 } from "./sf-replay.js";
+import {
+  advanceReplay,
+  replayRate,
+  replayLandmark,
+  replayTelemetry,
+  replayCharts,
+} from "./sf-replay-telemetry.js";
 import { createAirtimeHud } from "./sf-airtime.js";
 import {
   bestAirtimes,
@@ -716,6 +723,7 @@ export async function startDrive({
   base,
   hud,
   downloadAssets,
+  tileCacheName,
   surveySites = [],
 }) {
   const params = new URLSearchParams(location.search);
@@ -842,7 +850,12 @@ export async function startDrive({
       airtimeRecords = bestAirtimes(airtimeRecords, landing);
       writeProgress(airtimeKey, airtimeRecords);
       showAirtimeRecords();
-      if (poses?.length > 1) saveReplay({ ...encodeReplay(poses), ...landing });
+      if (poses?.length > 1)
+        saveReplay({
+          ...encodeReplay(poses),
+          ...landing,
+          telemetry: replayTelemetry(poses),
+        });
     },
   );
 
@@ -1151,6 +1164,13 @@ export async function startDrive({
       hud.progress.textContent = deliveryDrive() ? "" : "Authored connections";
     }
   }
+  function updateInsuranceMeter() {
+    hud.insuranceCost.textContent = formatInsuranceDollars(insurance.spent);
+    hud.insuranceRate.textContent =
+      insurance.mode === "manual"
+        ? `${formatInsuranceCents(insuranceRate(insurance))}/s · ${insurance.manualSeconds.toFixed(1)} s`
+        : "Meter off";
+  }
   function updateDriveMode() {
     hud.followCityDrive.hidden = !gameDrive?.spans.has(selectedStart.surfaceId);
     hud.followCityDrive.textContent = completedCityDrive
@@ -1158,6 +1178,10 @@ export async function startDrive({
       : insurance.mode === "automatic"
         ? "Take manual control"
         : "Resume self-driving";
+    hud.insuranceHud.dataset.mode = insurance.mode;
+    hud.insuranceMeter.hidden = insurance.mode !== "manual";
+    hud.selfDrivingIcon.hidden = insurance.mode !== "automatic";
+    updateInsuranceMeter();
     hud.insuranceMode.textContent =
       insurance.mode === "automatic"
         ? "Self-driving"
@@ -1349,7 +1373,7 @@ export async function startDrive({
       if (e.code === "Escape") {
         e.preventDefault();
         finishPlayback(performance.now());
-      } else if (keyMap[e.code] && !e.target.closest?.("button, a"))
+      } else if (keyMap[e.code] && !e.target.closest?.("button, a, summary"))
         e.preventDefault();
       return;
     }
@@ -1520,6 +1544,7 @@ export async function startDrive({
         z: car.z,
         q: [q.x, q.z, -q.y, q.w],
         heading: crash.initialHeading,
+        velocity: crash.velocity.toArray(),
       });
       if (crash.outcome) break;
       stepCrash(crash, supportAt, indexes, crashRails);
@@ -1532,6 +1557,11 @@ export async function startDrive({
       ),
       kind,
       outcome: crash.outcome,
+      telemetry: replayTelemetry(
+        poses,
+        impactTick,
+        capturePose(incoming, heightAt).velocity,
+      ),
     });
     if (hud.takeover.open) hud.takeover.close("cancel");
     startPlayback(clip, true);
@@ -1735,6 +1765,17 @@ export async function startDrive({
     button.style.left = `${x}px`;
     button.style.top = `${y}px`;
   }
+  function vehicleVelocity(source, pitch) {
+    if (source.grounded === false) return [source.vx, source.vy, source.vz];
+    const h = source.heading,
+      slip = source.slip || 0;
+    return [
+      Math.cos(h) * source.v - Math.sin(h) * slip,
+      Math.sin(h) * source.v + Math.cos(h) * slip,
+      Math.tan(pitch) * source.v,
+    ];
+  }
+
   function capturePose(source, heightAt, soloPitchValue) {
     const { x, y, z, heading } = source;
     const airborne = source.grounded === false;
@@ -1759,6 +1800,7 @@ export async function startDrive({
       z,
       heading,
       q: poseRotation.setFromEuler(poseEuler).toArray(),
+      velocity: vehicleVelocity(source, pitch),
     };
   }
 
@@ -1780,6 +1822,14 @@ export async function startDrive({
     else if (clip.mode === "city") query.set("at", "embarcadero");
     else query.set("city", clip.mode);
     return `?${query}`;
+  }
+
+  function replayLocation(clip) {
+    const targets =
+      clip.mode === "practice"
+        ? [{ x: SOLO.end, y: 0, emoji: "🏁", names: ["Practice finish"] }]
+        : route.targets;
+    return replayLandmark(clip, targets);
   }
 
   function showReplayLibrary() {
@@ -1807,7 +1857,9 @@ export async function startDrive({
             action.rel = "noopener";
             action.setAttribute("aria-label", `Play ${label} in a new tab`);
           }
-          row.append(action);
+          const location = document.createElement("small");
+          location.textContent = replayLocation(clip);
+          row.append(action, location);
           return row;
         }),
       );
@@ -1842,8 +1894,18 @@ export async function startDrive({
     releaseInputs();
     clearEmojiFocus();
     if (hud.menu.open) hud.menu.close();
-    playback = { clip, automatic, required, tick: 0, streamAt: -Infinity };
+    playback = {
+      clip,
+      automatic,
+      required,
+      tick: 0,
+      streamAt: -Infinity,
+      charts: replayCharts(hud.replayGraphs, clip),
+    };
+    hud.replayLocation.textContent = replayLocation(clip);
     hud.replayPanel.hidden = false;
+    hud.replayGraphs.hidden = false;
+    hud.replayRate.textContent = `${replayRate(clip, 0)}×`;
     hud.menuBtn.disabled = true;
     hud.respawnBtn.disabled = true;
     hud.replayStatus.textContent =
@@ -1856,6 +1918,7 @@ export async function startDrive({
     const { automatic } = playback;
     playback = null;
     hud.replayPanel.hidden = true;
+    hud.replayGraphs.hidden = true;
     hud.menuBtn.disabled = false;
     hud.respawnBtn.disabled = false;
     delete canvas.dataset.replay;
@@ -1881,6 +1944,7 @@ export async function startDrive({
         hud.timer.textContent = formatTime(trial.elapsed);
       }
       if (!document.hidden) advanceInsurance(insurance, wallDt);
+      updateInsuranceMeter();
     }
     if (
       now - playback.streamAt >= 400 &&
@@ -1898,7 +1962,11 @@ export async function startDrive({
     }
     if (!playback.started) playback.started = true;
     else if (!document.hidden)
-      playback.tick = Math.min(clip.end, playback.tick + wallDt * REPLAY_HZ);
+      playback.tick = advanceReplay(clip, playback.tick, wallDt);
+    const rateText = `${replayRate(clip, playback.tick)}×`;
+    if (hud.replayRate.textContent !== rateText)
+      hud.replayRate.textContent = rateText;
+    if (hud.replayGraphs.open) playback.charts(playback.tick);
     const pose = replayPose(clip, playback.tick);
     canvas.dataset.replay = clip.impact === null ? "airtime" : "crash";
     let status = clip.impact === null ? "Airtime replay" : "Crash replay";
@@ -2157,6 +2225,9 @@ export async function startDrive({
 
   let last = performance.now();
   let hudAt = 0;
+  let offlineTiles = new Set();
+  let coverageReadAt = -Infinity;
+  let coverageReading = false;
   let streamAt = 0;
   const camPos = new THREE.Vector3();
   const camLook = new THREE.Vector3();
@@ -2251,11 +2322,45 @@ export async function startDrive({
       `Heading ${seeker.cardinal}, ${Math.round(seeker.heading) % 360} degrees. ${seeker.target ? `${seeker.target.emoji}, ${seeker.onTile ? "this tile" : "next tile"}, ${Math.round(seeker.distance)} metres away, bearing ${Math.round(seeker.bearing) % 360} degrees.` : "All emojis collected."}`,
     );
   }
+  async function refreshOfflineCoverage(now) {
+    if (
+      coverageReading ||
+      now - coverageReadAt < 2000 ||
+      !window.caches ||
+      !tileCacheName
+    )
+      return;
+    coverageReadAt = now;
+    coverageReading = true;
+    try {
+      const entries = (await caches.has(tileCacheName))
+        ? await (await caches.open(tileCacheName)).keys()
+        : [];
+      const prefix = new URL(tileBase, location.href).href;
+      offlineTiles = new Set(
+        entries.flatMap(({ url }) => {
+          if (!url.startsWith(prefix)) return [];
+          const match = /^([a-f0-9]{8})\.json\.gz$/.exec(
+            url.slice(prefix.length),
+          );
+          return match && byToken.has(match[1]) ? [match[1]] : [];
+        }),
+      );
+      hud.offlineTileCount.textContent = `${offlineTiles.size}/${manifest.tiles.length} tiles available offline`;
+    } catch {
+      offlineTiles = new Set();
+      hud.offlineTileCount.textContent = "Offline coverage unavailable";
+    } finally {
+      coverageReading = false;
+    }
+  }
+
   function drawMinimap(cv) {
     const w = cv.clientWidth,
       h = cv.clientHeight,
       dpr = Math.min(2, devicePixelRatio || 1);
     if (!w || !h) return; // The gameplay map is hidden on touch layouts.
+    refreshOfflineCoverage(performance.now());
     const ctx = cv.getContext("2d");
     if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
       cv.width = Math.round(w * dpr);
@@ -2310,6 +2415,9 @@ export async function startDrive({
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     ctx.stroke(arterialPath);
+    ctx.strokeStyle = colour("--map-offline");
+    ctx.lineWidth = 1.35 / scale;
+    for (const token of offlineTiles) ctx.stroke(cellPaths.get(token));
     ctx.restore();
     if (activeDistrict) {
       for (const polygon of activeDistrict.polygons) {
@@ -2877,11 +2985,7 @@ export async function startDrive({
         ? Math.round(Math.abs(car.v) * 2.23694)
         : 0;
       hud.insuranceHud.hidden = false;
-      hud.insuranceCost.textContent = formatInsuranceCents(insurance.spent);
-      hud.insuranceRate.textContent =
-        insurance.mode === "manual"
-          ? `${formatInsuranceCents(insuranceRate(insurance))}/s · ${insurance.manualSeconds.toFixed(1)} s`
-          : "Meter off";
+      updateInsuranceMeter();
       const nextBonus = insurance.free || insurance.discount;
       const activeBonus = insurance.free > 0 ? "Free" : "Half rate";
       hud.insuranceBonus.textContent = nextBonus

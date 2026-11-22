@@ -26,6 +26,9 @@ eleventyExcludeFromCollections: true
     --map-park: #39725eaa; --map-arterial: #b2a594a6;
     --hud-bottom: max(12px, env(safe-area-inset-bottom, 0px));
     --pad-size: 56px;
+    --pad-gap: 8px;
+    --steering-inset: max(12px, env(safe-area-inset-left, 0px));
+    --pedal-inset: max(12px, env(safe-area-inset-right, 0px));
     --sans: "Geist", system-ui, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, monospace;
   }
@@ -46,9 +49,15 @@ eleventyExcludeFromCollections: true
   .speed small { font-size: 10px; font-weight: 600; }
   .run { text-align: right; white-space: nowrap; font-size: 10px; color: var(--muted); }
   .timer { display: block; color: var(--ink); font: 700 14px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
-  .insurance { position: fixed; right: max(8px, env(safe-area-inset-right, 0px)); top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); width: min(210px, calc(100vw - 110px)); padding: 8px 10px; font-size: 11px; color: var(--muted); }
-  .insurance-head { display: flex; justify-content: space-between; gap: 8px; color: var(--ink); }
-  #insuranceCost { font: 700 14px/1.4 var(--mono); }
+  .insurance { position: fixed; bottom: var(--hud-bottom); left: 50%; transform: translateX(-50%); width: min(220px, calc(100vw - 4 * var(--pad-size) - 2 * var(--pad-gap) - 2 * max(var(--steering-inset), var(--pedal-inset)) - 12px)); box-sizing: border-box; padding: 5px 8px; font-size: 11px; text-align: center; color: var(--muted); pointer-events: none; }
+  .insurance[data-mode="automatic"] { border-color: #c4b5fd; }
+  .insurance[data-mode="manual"] { border-color: #fdba74; }
+  .insurance-head { color: var(--ink); }
+  #selfDrivingIcon { color: #c4b5fd; font-size: 16px; line-height: 1; vertical-align: -1px; }
+  #insuranceMeter { color: #fdba74; }
+  #insuranceCost { display: block; font: 800 17px/1.25 var(--mono); font-variant-numeric: tabular-nums; }
+  #insuranceRate { font-variant-numeric: tabular-nums; }
+  @media (max-width: 360px) { .insurance { bottom: calc(var(--hud-bottom) + var(--pad-size) + 4px); width: min(180px, 50vw); } }
   #insuranceBonus { color: var(--accent); }
   #insuranceDeliveries { color: var(--ink); }
   #takeoverDialog { max-width: min(330px, calc(100vw - 24px)); color: var(--ink); padding: 16px; }
@@ -88,9 +97,9 @@ eleventyExcludeFromCollections: true
     .seeker { left: auto; right: max(8px, env(safe-area-inset-right, 0px)); }
   }
   .mirror { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: 50%; transform: translateX(-50%); width: min(220px, calc(25vw - 8px)); aspect-ratio: 3.2; border: 2px solid #111; border-radius: 8px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
-  .pad { position: fixed; bottom: var(--hud-bottom); display: none; gap: 8px; }
-  .steering { left: max(12px, env(safe-area-inset-left, 0px)); }
-  .pedals { right: max(12px, env(safe-area-inset-right, 0px)); }
+  .pad { position: fixed; bottom: var(--hud-bottom); display: none; gap: var(--pad-gap); }
+  .steering { left: var(--steering-inset); }
+  .pedals { right: var(--pedal-inset); }
   .pad, .pad button { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   .pad button { width: var(--pad-size); height: var(--pad-size); padding: 0; font-size: 28px; font-weight: 750; -webkit-tap-highlight-color: transparent; box-shadow: 0 2px 12px #0003; }
   .pedals [data-act="up"] { border-color: var(--accent); }
@@ -123,18 +132,19 @@ eleventyExcludeFromCollections: true
   #tileDownloadStatus { margin: 6px 0 0; }
   #desktopMap { display: none; position: fixed; right: 12px; bottom: 12px; width: min(260px, 34vw); height: min(193px, 35vh); pointer-events: none; }
   @media (pointer: fine) { #desktopMap { display: block; } }
+  :root { --map-offline: #7dd3fc; }
+  .offline-swatch { color: var(--map-offline); }
   .map .loaded { color: var(--accent); } .map .collected { color: #fbbf24; } .map .survey-dot { color: var(--scene-vehicle); }
   .help p { margin: 0 0 8px; }
   .help a { color: var(--accent); }
   kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
   @media (pointer: coarse), (max-width: 760px) { .pad { display: flex; } }
   @media (max-height: 600px) {
-    :root { --pad-size: 48px; }
+    :root { --pad-size: 48px; --pad-gap: 6px; }
     .seeker { width: min(76px, calc(25vw - 8px)); height: 128px; padding: 3px 2px; gap: 3px; }
     #seekerCompass { width: 56px; height: 56px; }
     #seekerDistance { font-size: 11px; }
     #seekerTurn { font-size: 10px; }
-    .pad { gap: 6px; }
     .pad button { font-size: 25px; }
   }
   body[data-solo="true"] .seeker, body[data-solo="true"] .map,
@@ -145,6 +155,15 @@ eleventyExcludeFromCollections: true
   body[data-bridge="true"] .seeker, body[data-bridge="true"] .details { display: none; }
   #replayPanel { position: fixed; z-index: 3; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: 50%; transform: translateX(-50%); align-items: center; gap: 12px; padding: 6px 10px; width: max-content; max-width: calc(100vw - 24px); }
   #replayPanel:not([hidden]) { display: flex; }
+  #replayRate { color: #7dd3fc; font: 700 12px var(--mono); }
+  #replayLocation { display: block; color: var(--muted); font-size: 11px; }
+  #replayGraphs { position: fixed; z-index: 3; right: 10px; bottom: var(--hud-bottom); box-sizing: border-box; width: min(280px, calc(100vw - 20px)); max-height: 45dvh; overflow: auto; padding: 6px 10px; }
+  #replayGraphs figure { margin: 3px 0; }
+  #replayGraphs figcaption { font-size: 10px; display: flex; justify-content: space-between; gap: 4px; }
+  #replayGraphs canvas { display: block; width: 100%; height: 22px; }
+  #replayGraphs p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+  .replay-library li small { display: block; color: var(--muted); margin-bottom: 5px; }
+  body:has(#replayPanel:not([hidden])) .insurance { visibility: hidden; }
   #skipReplay, .replay-library li button, .replay-library li a { min-height: 44px; padding: 6px 10px; }
   .replay-library li a { display: inline-flex; align-items: center; }
   body:has(#replayPanel:not([hidden])) .pad { visibility: hidden; }
@@ -175,8 +194,11 @@ eleventyExcludeFromCollections: true
   <button type="button" class="icon-button" id="menuBtn" aria-label="Map and game settings" aria-haspopup="dialog" aria-controls="gameMenu" aria-expanded="false">☰</button>
 </header>
 <section class="panel insurance" id="insuranceHud" aria-label="Delivery insurance" hidden>
-  <div class="insurance-head"><strong id="insuranceMode"></strong><span id="insuranceCost" aria-label="Insurance spend">0.00¢</span></div>
-  <div id="insuranceRate" role="timer" aria-label="Manual driving time and insurance rate"></div>
+  <div id="insuranceMeter" hidden>
+    <strong id="insuranceCost" aria-label="Insurance spend">$0.0000</strong>
+    <div id="insuranceRate" role="timer" aria-label="Manual driving time and insurance rate"></div>
+  </div>
+  <div class="insurance-head"><span id="selfDrivingIcon" aria-hidden="true" hidden>⚙</span> <strong id="insuranceMode"></strong></div>
   <div id="insuranceBonus"></div>
   <div id="insuranceDeliveries"></div>
   <div id="insuranceInfractions"></div>
@@ -214,9 +236,21 @@ eleventyExcludeFromCollections: true
 </aside>
 <canvas class="panel" id="desktopMap" role="img" aria-label="City coverage showing the coastline, parks, major roads, S2 tiles and your car."></canvas>
 <section class="panel" id="replayPanel" aria-label="Replay controls" hidden>
-  <span id="replayStatus" role="status"></span>
+  <div>
+    <span id="replayStatus" role="status"></span> <span id="replayRate"></span>
+    <span id="replayLocation"></span>
+  </div>
   <button type="button" id="skipReplay">Skip replay</button>
 </section>
+<details class="panel" id="replayGraphs" open hidden>
+  <summary>Replay graphs</summary>
+  <p class="telemetry-missing">Vehicle telemetry was unavailable for this replay.</p>
+  <figure><figcaption>Speed <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Speed" data-unit="mph"></canvas></figure>
+  <figure><figcaption>Vehicle deceleration <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Vehicle deceleration" data-unit="m/s²"></canvas></figure>
+  <figure><figcaption>Vehicle jerk <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Vehicle jerk" data-unit="m/s³"></canvas></figure>
+  <p>Peak per 100 ms · orange marks impact</p>
+  <p>Human survival threshold unavailable. The game simulates the car, with no occupant model.</p>
+</details>
 <section class="airtime" id="airtime" aria-label="Airtime and road elevation" hidden></section>
 <template id="airtimeCard">
   <article class="panel airtime-card">
@@ -263,11 +297,12 @@ eleventyExcludeFromCollections: true
   </div>
   <div class="map" aria-label="City minimap and assets">
     <div class="title">City coverage</div>
-    <canvas id="minimap" role="img" aria-label="North-up S2 level-13 coverage map with coastline, parks and major roads. Loaded tiles are teal, collected tiles are gold, survey sites are red diamonds and your car is white."></canvas>
-    <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span><span class="survey-dot">◆ Survey</span></div>
+    <canvas id="minimap" role="img" aria-label="North-up S2 level-13 coverage map with coastline, parks and major roads. Loaded tiles are teal, collected tiles are gold, light blue outlines mark tiles available offline, survey sites are red diamonds and your car is white."></canvas>
+    <div class="legend"><span class="loaded">■ Loaded</span><span class="collected">■ Collected</span><span class="survey-dot">◆ Survey</span> <span><span class="offline-swatch">□</span> Available offline</span></div>
     <div class="detail" id="assets"></div>
     <div class="detail" id="gameSize"></div>
     <div class="detail" id="coverage"></div>
+    <div class="detail" id="offlineTileCount"></div>
     <button type="button" id="downloadTiles" aria-describedby="tileDownloadStatus" disabled>Download all tiles</button>
     <p class="detail" id="tileDownloadStatus" role="status">Preparing offline storage…</p>
   </div>
@@ -387,6 +422,7 @@ eleventyExcludeFromCollections: true
     canvas: $("drive"),
     base: "{{ '/sf/tiles/' | url }}",
     downloadAssets: {{ sfDownloadAssets | safe }},
+    tileCacheName: `sf-tiles-${new URL("{{ '/sf/' | url }}", location.href).pathname}-{{ sfTileVersion }}`,
     surveySites: JSON.parse($("surveySites").textContent),
     hud: {
       emojiFocus: $("emojiFocus"), cameraName: $("cameraName"), soloSummary: $("soloSummary"), soloTrace: $("soloTrace"), soloPrevious: $("soloPrevious"),
@@ -399,10 +435,12 @@ eleventyExcludeFromCollections: true
       seekerTurn: $("seekerTurn"), trialTitle: $("trialTitle"),
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
       replayPanel: $("replayPanel"), replayStatus: $("replayStatus"), skipReplay: $("skipReplay"),
+      replayRate: $("replayRate"), replayLocation: $("replayLocation"), replayGraphs: $("replayGraphs"), offlineTileCount: $("offlineTileCount"),
       crashReplays: $("crashReplays"), airtimeReplays: $("airtimeReplays"), replayStorage: $("replayStorage"),
       airtime: $("airtime"), airtimeCard: $("airtimeCard"), airtimeRecords: $("airtimeRecords"),
       followCityDrive: $("followCityDrive"),
       takeover: $("takeoverDialog"), insuranceHud: $("insuranceHud"), insuranceMode: $("insuranceMode"),
+      selfDrivingIcon: $("selfDrivingIcon"), insuranceMeter: $("insuranceMeter"),
       insuranceCost: $("insuranceCost"), insuranceRate: $("insuranceRate"), insuranceBonus: $("insuranceBonus"),
       insuranceDeliveries: $("insuranceDeliveries"), insuranceInfractions: $("insuranceInfractions"),
       touchButtons: document.querySelectorAll(".pad button"),
