@@ -1,0 +1,1 @@
+- Rounded the Fremont Street exit and Fourth Street entrance joins in the Bay Bridge game route, sampling the base pavement and blending ramp grades to it. The bearing changes at the two joins fell to 3.74° and 2.57° respectively, and each joined at a shared elevation. Published the rebaked route as an immutable Arrow revision pinned to the same game tile manifest.
