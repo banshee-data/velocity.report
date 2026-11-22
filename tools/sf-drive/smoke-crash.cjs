@@ -84,6 +84,17 @@ ${hook}`,
         await page.keyboard.down("ArrowUp");
         await page.keyboard.press("KeyR");
         await page.getByText("0.5×", { exact: true }).waitFor();
+        const graphs = page.locator("#replayGraphs summary");
+        await graphs.press("Space");
+        assert.equal(
+          await page.locator("#replayGraphs").getAttribute("open"),
+          null,
+        );
+        await graphs.press("Space");
+        assert.notEqual(
+          await page.locator("#replayGraphs").getAttribute("open"),
+          null,
+        );
         await page.waitForFunction(() => {
           const { tick, clip, mesh } = window.crashFixture.read();
           return (

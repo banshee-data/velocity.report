@@ -1373,7 +1373,7 @@ export async function startDrive({
       if (e.code === "Escape") {
         e.preventDefault();
         finishPlayback(performance.now());
-      } else if (keyMap[e.code] && !e.target.closest?.("button, a"))
+      } else if (keyMap[e.code] && !e.target.closest?.("button, a, summary"))
         e.preventDefault();
       return;
     }
