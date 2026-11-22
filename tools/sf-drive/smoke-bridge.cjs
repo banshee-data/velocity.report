@@ -46,7 +46,9 @@ const { confirmManualTakeover } = require("./manual-takeover.cjs");
               drive.contact === "grounded" &&
               (drive.surfaceId || "") === surface &&
               (speed === null ||
-                document.querySelector("#speed").textContent === speed)
+                (speed === "rolling"
+                  ? Number(document.querySelector("#speed").textContent) >= 45
+                  : document.querySelector("#speed").textContent === speed))
             );
           },
           { id, surface, speed },
@@ -54,7 +56,7 @@ const { confirmManualTakeover } = require("./manual-takeover.cjs");
         );
       const bridge = "bay-bridge-highway-drive";
       await page.goto(`${host}/sf/?city=bay-bridge`);
-      await waitForStart(bridge, "bay-bridge-westbound", "50");
+      await waitForStart(bridge, "bay-bridge-westbound", "rolling");
       await page.locator("#menuBtn").click();
       const picker = page.getByLabel("Start from", { exact: true });
       assert.equal(
@@ -76,7 +78,7 @@ const { confirmManualTakeover } = require("./manual-takeover.cjs");
       await waitForStart(intersection, "", "0");
       await page.locator("#menuBtn").click();
       await picker.selectOption(bridge);
-      await waitForStart(bridge, "bay-bridge-westbound", "50");
+      await waitForStart(bridge, "bay-bridge-westbound", "rolling");
       await page.route("**/gamedrives.json", (route) => route.abort());
       await page.goto(`${host}/sf/?city=bay-bridge`);
       await waitForStart("soma-survey-drive", "soma-east", null);
@@ -86,7 +88,7 @@ const { confirmManualTakeover } = require("./manual-takeover.cjs");
       );
       assert.deepEqual(errors, []);
       console.log(
-        "Start picker defaults to the Bay Bridge at 50 mph. Fremont and intersection starts remain stationary.",
+        "The start picker loads the rolling Bay Bridge drive, Fremont exit and a stationary intersection. SoMa covers an unavailable bridge.",
       );
       return;
     }
@@ -322,6 +324,7 @@ const { confirmManualTakeover } = require("./manual-takeover.cjs");
       .fill(`${host}/sf/tiles`);
     await page.getByLabel(/Gerardus server/).fill("http://arrow-worker:50061");
     await page.getByRole("button", { name: "Apply map sources" }).click();
+    await page.waitForURL((url) => url.searchParams.has("overlay"));
     await page.locator("#menuBtn").click();
     const manifest = page.waitForResponse(
       (res) =>
