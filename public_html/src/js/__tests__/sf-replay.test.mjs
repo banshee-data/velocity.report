@@ -159,3 +159,51 @@ test("playable airtime clips preserve an impact outcome across reload", () => {
   assert.equal(hard.end, 2);
   assert.equal(replayPose(hard, 2).x, end.x);
 });
+
+test("favourites survive the recent limit and confirmed deletions stay deleted across tabs", () => {
+  const storage = storageFixture();
+  const first = replayLibrary(storage),
+    second = replayLibrary(storage);
+  const crash = (i) => ({
+    id: `c${i}`,
+    created: i,
+    mode: "city",
+    kind: "tree",
+    ...encodeReplay([pose(i), pose(i + 1)], 1),
+  });
+  for (let i = 0; i < 8; i++) first.save(crash(i));
+  assert.equal(first.setFavourite("c0", true), true);
+  for (let i = 8; i < 12; i++) first.save(crash(i));
+  assert.equal(second.read().crashes.length, 9);
+  assert.equal(second.read().crashes[0].id, "c0");
+  assert.equal(second.read().crashes[0].favourite, true);
+  for (let i = 11; i >= 5; i--)
+    assert.equal(first.setFavourite(`c${i}`, true), true);
+  assert.equal(first.setFavourite("c4", true), null);
+  assert.equal(first.remove("c0"), true);
+  second.save(crash(12));
+  assert.ok(!first.read().crashes.some((clip) => clip.id === "c0"));
+  assert.equal(
+    second.setFavourite("c4", true),
+    null,
+    "an evicted clip cannot be restored via a stale action",
+  );
+});
+
+test("airtime lead-in is separated from the ranked flight duration", () => {
+  const pre = Array.from({ length: 240 }, (_, i) => pose(i - 240));
+  const timeline = createFlightTimeline((landing, poses, takeoff) => {
+    assert.equal(takeoff, 240);
+    assert.equal(landing.seconds, 2 / 120);
+    assert.equal(poses[0].x, -240);
+    assert.equal(poses[takeoff].x, 0);
+    assert.equal(poses.at(-1).x, 2);
+  });
+  const start = { ...pose(0), grounded: true, v: 20 };
+  const flying = { ...start, x: 1, z: 2, grounded: false };
+  const end = { ...start, x: 2 };
+  const env = { heightAt: () => 0, pose: (car) => car, leadIn: () => pre };
+  timeline.step(start, flying, 1 / 120, 1, env);
+  timeline.step(flying, end, 1 / 120, 2, env);
+  assert.equal(timeline.visible(2)[0].label, "Touchdown");
+});

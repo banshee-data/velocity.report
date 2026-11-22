@@ -24,6 +24,7 @@ const { chromium } = require("playwright");
       const body = text.replace(
         hook,
         `
+    window.airtimeHistory = leadIn.read().length;
     window.airtimeFixture = () => {
       const floor = surface.heightAt(car.x,car.y);
       if (!Number.isFinite(floor)) throw Error("Missing fixture deck");
@@ -37,6 +38,7 @@ ${hook}`,
     await page.goto(`${origin}/sf/`);
     const grounded = page.locator('#drive[data-contact="grounded"]');
     await grounded.waitFor();
+    await page.waitForFunction(() => window.airtimeHistory === 240);
     await page.evaluate(() => window.airtimeFixture());
     const skip = page.getByRole("button", { name: "Skip replay" });
     await skip.waitFor();
@@ -49,9 +51,14 @@ ${hook}`,
     const flight = airtimes[0];
     assert.equal(flight.ending, "impact");
     assert.ok(flight.seconds > 3.5 && flight.seconds < 3.8);
-    assert.equal(flight.end, Math.round(flight.seconds * 120));
+    assert.equal(flight.takeoff, 240);
+    assert.equal(
+      flight.touchdown - flight.takeoff,
+      Math.round(flight.seconds * 120),
+    );
+    assert.equal(flight.end - flight.touchdown, 240);
     assert.equal(flight.frames[0][0], 0);
-    assert.equal(flight.frames.at(-1)[0], flight.end);
+    assert.equal(flight.frames.at(-1)[0], flight.touchdown);
     const [score] = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("sf-best-airtimes-v1")),
     );
@@ -64,9 +71,11 @@ ${hook}`,
     await page.getByText("Saved replays", { exact: true }).click();
     await page
       .locator("#airtimeReplays")
-      .getByRole("button", { name: /Impact ending/ })
+      .getByRole("button", { name: /^Play .*Impact ending/ })
       .click();
     await page.locator('#drive[data-replay="airtime"]').waitFor();
+    await page.getByText("Before take-off", { exact: true }).waitFor();
+    await page.getByText("0.5×", { exact: true }).waitFor();
     assert.equal(
       await page.getByRole("img", { name: /Vehicle deceleration/ }).isVisible(),
       true,

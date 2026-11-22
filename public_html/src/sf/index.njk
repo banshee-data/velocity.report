@@ -162,6 +162,8 @@ eleventyExcludeFromCollections: true
   #replayGraphs figcaption { font-size: 10px; display: flex; justify-content: space-between; gap: 4px; }
   #replayGraphs canvas { display: block; width: 100%; height: 22px; }
   #replayGraphs p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+  .replay-actions { display: flex; gap: 6px; margin: 4px 0 12px; }
+  .replay-actions [aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
   .replay-library li small { display: block; color: var(--muted); margin-bottom: 5px; }
   body:has(#replayPanel:not([hidden])) .insurance { visibility: hidden; }
   #skipReplay, .replay-library li button, .replay-library li a { min-height: 44px; padding: 6px 10px; }
@@ -248,7 +250,7 @@ eleventyExcludeFromCollections: true
   <figure><figcaption>Speed <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Speed" data-unit="mph"></canvas></figure>
   <figure><figcaption>Vehicle deceleration <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Vehicle deceleration" data-unit="m/s²"></canvas></figure>
   <figure><figcaption>Vehicle jerk <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Vehicle jerk" data-unit="m/s³"></canvas></figure>
-  <p>Peak per 100 ms · orange marks impact</p>
+  <p>Peak per 100 ms · purple take-off · green touchdown · orange impact</p>
   <p>Human survival threshold unavailable. The game simulates the car, with no occupant model.</p>
 </details>
 <section class="airtime" id="airtime" aria-label="Airtime and road elevation" hidden></section>
@@ -311,9 +313,9 @@ eleventyExcludeFromCollections: true
     <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive/reverse, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror in car, <kbd>V</kbd> cycle cameras, <kbd>R</kbd> return to an intersection. A crash replay starts up to two seconds before impact and holds for two seconds after the car stops. Skip replay returns you to driving. The trial clock keeps running. The game saves progress for each start. Finish the trial to start another attempt. The clock continues while this menu is open.</p>
     <p>Measured geometry as context, not a survey or a plan: building outlines and 2010 heights from DataSF (PDDL), roofs fitted to USGS 3DEP lidar flown April 2023 (public domain), street trees from DataSF's Street Tree List with lidar canopy, streets, kerbs (2016) and street names from DataSF. Buildings 3DEP sees that the City's 2010 outlines lack use a warmer tan. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">About this data</a>.</p>
   </div>
-  <details class="replay-library">
+  <details class="replay-library" id="replayLibrary">
     <summary>Saved replays</summary>
-    <h2>Recent crashes</h2>
+    <h2>Favourites and recent crashes</h2>
     <ol id="crashReplays"></ol>
     <h2>Longest airtime replays</h2>
     <ol id="airtimeReplays"></ol>
@@ -436,7 +438,7 @@ eleventyExcludeFromCollections: true
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
       replayPanel: $("replayPanel"), replayStatus: $("replayStatus"), skipReplay: $("skipReplay"),
       replayRate: $("replayRate"), replayLocation: $("replayLocation"), replayGraphs: $("replayGraphs"), offlineTileCount: $("offlineTileCount"),
-      crashReplays: $("crashReplays"), airtimeReplays: $("airtimeReplays"), replayStorage: $("replayStorage"),
+      replayLibrary: $("replayLibrary"), crashReplays: $("crashReplays"), airtimeReplays: $("airtimeReplays"), replayStorage: $("replayStorage"),
       airtime: $("airtime"), airtimeCard: $("airtimeCard"), airtimeRecords: $("airtimeRecords"),
       followCityDrive: $("followCityDrive"),
       takeover: $("takeoverDialog"), insuranceHud: $("insuranceHud"), insuranceMode: $("insuranceMode"),

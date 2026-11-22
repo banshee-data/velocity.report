@@ -107,6 +107,7 @@ export const DRIVE_CAR = Object.freeze({
   driveRatio: 8,
   efficiency: 0.88,
   tyreRadius: 0.36, // m
+  brakeDeceleration: 1.25 * 9.81, // m/s² on level pavement
   topSpeed: 250 / 3.6, // m/s, 250 km/h limiter
 });
 
@@ -144,13 +145,18 @@ export function carStep(car, input, dt, surface = {}) {
   let acceleration = 0;
   if (!opposing && !brake)
     acceleration = throttle * (throttle > 0 ? driveForce / mass : 2.6);
-  const braking = (opposing ? 8 : brake * 10) * grip;
-  const longitudinalDemand =
-    Math.max(
-      Math.abs(acceleration),
-      Math.min(braking, Math.abs(v) / Math.max(dt, 1e-9)),
-    ) /
-    (10 * grip);
+  const brakeLimit = DRIVE_CAR.brakeDeceleration * grip;
+  // Include rolling resistance and drag in the straight-line braking target.
+  const resistanceAt = (speed) =>
+    (surface.offroad ? 1.8 : 0.15) +
+    (0.5 * 1.225 * 0.74 * speed * speed) / mass;
+  const brakeDemand = Math.max(brake, opposing ? Math.abs(throttle) : 0);
+  const brakingAt = (speed) =>
+    brakeDemand * Math.max(0, brakeLimit - resistanceAt(speed));
+  const longitudinalDemand = Math.max(
+    Math.abs(acceleration) / (10 * grip),
+    Math.min(brakingAt(v), Math.abs(v) / Math.max(dt, 1e-9)) / brakeLimit,
+  );
   const steerCurvature = Math.tan((previousSteering + steering) / 2) / 2.7;
   const slip = car.slip || 0;
   const cornerDemand = Math.min(
@@ -168,14 +174,11 @@ export function carStep(car, input, dt, surface = {}) {
   const slope = surface.slope || 0;
   acceleration -= (9.81 * slope) / Math.hypot(1, slope);
   v += acceleration * dt;
-  // Air density 1.225 kg/m³ and an assumed drag area of 0.74 m².
-  const drag = (0.5 * 1.225 * 0.74 * v * v) / mass;
-  const resistance = (surface.offroad ? 1.8 : 0.15) + drag;
-  v = moveToward(v, 0, (resistance + braking * traction) * dt);
+  v = moveToward(v, 0, (resistanceAt(v) + brakingAt(v) * traction) * dt);
   if (
     brake &&
     Math.abs(car.v) < 0.05 &&
-    Math.abs(acceleration) < brake * 10 * grip
+    Math.abs(acceleration) < brake * brakeLimit
   )
     v = 0;
   v = Math.max(-6, Math.min(topSpeed, v));

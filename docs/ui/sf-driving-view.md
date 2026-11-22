@@ -74,7 +74,9 @@ page or recovering the car clears held input. Viewport zoom is not disabled glob
 Steering travels gradually and returns to centre. A bicycle model runs at 120 Hz, with
 speed-dependent steering, a shared grip budget for braking, acceleration and cornering, rolling resistance, aerodynamic drag,
 and gravity along the measured hill slope. Down/S brakes before engaging reverse; space
-brakes and holds the car on a hill. Off-road ground reduces grip and adds resistance.
+brakes and holds the car on a hill. Full straight-line braking on level pavement
+targets 1.25 g, including drag and rolling resistance. Steering and braking share
+the grip budget. Off-road ground reduces grip and adds resistance.
 The GTI-inspired tune uses 350 hp, 420 N·m and a mass of 1,280 kg. Wheel force is
 limited by torque at low speed, available power at high speed, and traction. The model
 uses an idealised transmission, 88% drivetrain efficiency and a 250 km/h limiter.
@@ -91,7 +93,10 @@ A scrape sheds speed across the wall and preserves motion along it. The tyres gr
 catch the slide. A hard strike disconnects steering, throttle and braking during the crash replay. Momentum carries the chassis through follow-up contacts with walls, trunks,
 rails and the ground. A square hit can rebound, a corner strike can yaw, and a hard
 landing on one side can roll the car. In flight, the chassis keeps its take-off pitch
-and bank. Each ground contact takes its slope from the road or terrain it touches. The camera holds its approach direction during
+and bank. Each ground contact takes its slope from the road or terrain it touches.
+Hard contacts dissipate closing speed over multiple physics ticks through a damped
+crush response. The contact zone allows up to 55 cm of frontal or 30 cm of side
+compression. The body still uses the existing chassis mesh. The camera holds its approach direction during
 recovery and shows the chassis from outside if the driver was in the cabin.
 
 The trial clock continues and pickups pause until the car returns to its last clear
@@ -105,7 +110,9 @@ a wreck still moving after 15 simulation seconds ends the clip at the recovery l
 **Data:** **Saved replays** in the menu keeps the last eight crashes and eight longest
 completed airtime clips in this browser. A flight that ends in a crash still
 counts and is labelled **Impact ending**. A fall out of the map lacks a
-completed flight. Older airtime records retain their scores.
+completed flight. Up to eight favourites stay in the archive as newer crashes
+arrive. Deleting a saved replay requires confirmation. Older airtime records
+retain their scores.
 Archive playback leaves the live drive paused. A clip from a different drive or practice
 course opens its matching scene in another tab. City replays use the map tiles in that
 browser's offline cache or available over the network. The clip stores quantised position
@@ -118,7 +125,10 @@ do not trigger city crashes.
 The car waits at a missing ground surface or an unloaded tile boundary.
 
 Replays use 0.99× speed, with 0.5× from 300 ms before to 300 ms after a crash
-impact. An airtime replay ending at impact slows over its last 300 ms. The stationary hold takes two real seconds. The replay and library locate
+impact. Airtime replays include up to two seconds before take-off, use the same
+slow-motion window around take-off and touchdown, and hold the touchdown view
+for two real seconds. The ranked duration counts the flight itself. The
+stationary crash hold also takes two real seconds. The replay and library locate
 a crash by its impact and a jump by its take-off, using the nearest city emoji
 and the compass bearing and distance from the event to the emoji. The authored
 practice course uses its finish flag.

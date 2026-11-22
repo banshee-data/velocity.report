@@ -1,0 +1,2 @@
+- Added take-off lead-in, slow-motion touchdown and chart markers to SF airtime replays. Crash favourites survive the recent-record limit, and deleting a replay asks for confirmation.
+- Added a damped crush response to hard SF contacts and set level-pavement braking to a 1.25 g straight-line target.

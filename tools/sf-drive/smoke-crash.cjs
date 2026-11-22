@@ -54,7 +54,18 @@ ${hook}`,
         () => window.crashFixture?.read().history === 240,
       );
       await confirmManualTakeover(page);
-      await page.evaluate(() => window.crashFixture.strike());
+      await page.evaluate(() => {
+        const rate = document.querySelector("#replayRate");
+        window.replayRates = [];
+        new MutationObserver(() =>
+          window.replayRates.push(rate.textContent),
+        ).observe(rate, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+        window.crashFixture.strike();
+      });
       const skip = page.getByRole("button", { name: "Skip replay" });
       await skip.waitFor();
       const read = () => page.evaluate(() => window.crashFixture.read());
@@ -76,14 +87,14 @@ ${hook}`,
         await page.getByRole("img", { name: /Vehicle jerk/ }).isVisible(),
         true,
       );
-      assert.equal(await page.locator("#replayRate").textContent(), "0.99×");
+      assert.equal(await page.evaluate(() => window.replayRates[0]), "0.99×");
       if (mobile) {
         await skip.tap();
       } else {
         await page.keyboard.down("ArrowLeft");
         await page.keyboard.down("ArrowUp");
         await page.keyboard.press("KeyR");
-        await page.getByText("0.5×", { exact: true }).waitFor();
+        await page.waitForFunction(() => window.replayRates.includes("0.5×"));
         const graphs = page.locator("#replayGraphs summary");
         await graphs.press("Space");
         assert.equal(
@@ -135,6 +146,42 @@ ${hook}`,
       if (mobile) await skip.tap();
       else await page.keyboard.press("Escape");
       await skip.waitFor({ state: "hidden" });
+      if (!mobile) {
+        const openLibrary = async () => {
+          await page
+            .getByRole("button", { name: "Map and game settings" })
+            .click();
+          const details = page.locator("#replayLibrary");
+          if ((await details.getAttribute("open")) === null)
+            await details.locator("summary").click();
+        };
+        await openLibrary();
+        const favourite = page.getByRole("button", {
+          name: /Favourite highway barrier/,
+        });
+        const remove = page.getByRole("button", {
+          name: /Delete highway barrier/,
+        });
+        await favourite.click();
+        assert.equal(await favourite.getAttribute("aria-pressed"), "true");
+        page.once("dialog", (dialog) => dialog.dismiss());
+        await remove.click();
+        assert.equal(await favourite.getAttribute("aria-pressed"), "true");
+        await page.reload();
+        await page.locator('#drive[data-contact="grounded"]').waitFor();
+        await openLibrary();
+        assert.equal(await favourite.getAttribute("aria-pressed"), "true");
+        page.once("dialog", (dialog) => dialog.accept());
+        await remove.click();
+        assert.equal(await favourite.count(), 0);
+        assert.equal(
+          await page.evaluate(
+            () =>
+              JSON.parse(localStorage.getItem("sf-replays-v1")).crashes.length,
+          ),
+          0,
+        );
+      }
       assert.deepEqual(errors, []);
       await page.close();
     }

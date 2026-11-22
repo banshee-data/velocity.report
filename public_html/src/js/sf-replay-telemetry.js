@@ -5,20 +5,33 @@ const binTicks = REPLAY_HZ / 10;
 const headings = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 
 function impactTick(clip) {
-  return clip.impact ?? (clip.ending === "impact" ? clip.end : null);
+  return (
+    clip.impact ??
+    (clip.ending === "impact" ? (clip.touchdown ?? clip.end) : null)
+  );
 }
 
 function playbackSegments(clip) {
   const hold =
-    clip.outcome === "stopped" ? clip.end - CRASH_HOLD_TICKS : clip.end;
-  const impact = impactTick(clip);
-  if (impact === null) return [[clip.end, 0.99]];
-  return [
-    [Math.max(0, impact - impactWindow), 0.99],
-    [Math.min(hold, impact + impactWindow), 0.5],
-    [hold, 0.99],
-    [clip.end, 1],
-  ];
+    clip.touchdown ??
+    (clip.outcome === "stopped" ? clip.end - CRASH_HOLD_TICKS : clip.end);
+  const events =
+    clip.takeoff === undefined
+      ? [impactTick(clip)]
+      : [clip.takeoff, clip.touchdown];
+  const segments = [];
+  let covered = 0;
+  for (const tick of events) {
+    if (tick == null) continue;
+    const start = Math.max(covered, tick - impactWindow);
+    const end = Math.min(hold, tick + impactWindow);
+    if (start > covered) segments.push([start, 0.99]);
+    if (end > start) segments.push([end, 0.5]);
+    covered = Math.max(start, end);
+  }
+  if (hold > covered) segments.push([hold, 0.99]);
+  if (clip.end > hold) segments.push([clip.end, 1]);
+  return segments;
 }
 
 export function replayRate(clip, tick) {
@@ -38,7 +51,7 @@ export function advanceReplay(clip, tick, wallSeconds) {
 }
 
 export function replayLandmark(clip, targets) {
-  const pose = replayPose(clip, clip.impact ?? 0);
+  const pose = replayPose(clip, clip.impact ?? clip.takeoff ?? 0);
   let nearest,
     distance = Infinity;
   for (const target of targets) {
@@ -135,6 +148,14 @@ export function replayCharts(panel, clip) {
         ctx.lineTo(x(Math.min(clip.end, (i + 1) * binTicks)), y);
       }
       ctx.stroke();
+      if (clip.takeoff !== undefined) {
+        ctx.fillStyle = "#a78bfa";
+        ctx.fillRect(x(clip.takeoff), 0, 1, h);
+      }
+      if (clip.touchdown !== undefined && impact === null) {
+        ctx.fillStyle = "#86efac";
+        ctx.fillRect(x(clip.touchdown), 0, 1, h);
+      }
       if (impact !== null) {
         ctx.fillStyle = "#fb923c";
         ctx.fillRect(x(impact), 0, 1, h);

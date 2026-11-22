@@ -1,4 +1,4 @@
-import { MAX_REPLAY_TICKS } from "./sf-replay.js";
+import { MAX_FLIGHT_TICKS } from "./sf-replay.js";
 
 const minimumClearance = 0.18;
 const holdMs = 2000;
@@ -122,21 +122,23 @@ export function createFlightTimeline(onLanding) {
     completed.label = label;
     completed.until = now + holdMs;
     cards.push(completed);
-    const { seconds, peak, poses } = completed;
+    const { seconds, peak, poses, takeoff } = completed;
     delete completed.poses;
-    if (label === "Touchdown") onLanding?.({ seconds, peak }, poses);
+    if (label === "Touchdown") onLanding?.({ seconds, peak }, poses, takeoff);
     if (label === "Impact")
-      onLanding?.({ seconds, peak, ending: "impact" }, poses);
+      onLanding?.({ seconds, peak, ending: "impact" }, poses, takeoff);
   }
   function step(before, car, dt, now, environment) {
     if (car.grounded !== false && !flight) return;
     const { heightAt } = environment;
     if (!flight) {
-      const { road, deckAt, tiles } = environment;
+      const { road, deckAt, tiles, pose } = environment;
+      const leadIn = pose ? (environment.leadIn?.() ?? []) : [];
       flight = {
         ...sampleFlightProfile(before, road, heightAt, deckAt, tiles),
         trace: [{ s: 0, z: before.z }],
-        poses: environment.pose ? [environment.pose(before)] : undefined,
+        poses: pose ? [...leadIn, pose(before)] : undefined,
+        takeoff: leadIn.length,
         seconds: 0,
         peak: 0,
         label: "Airborne",
@@ -151,7 +153,7 @@ export function createFlightTimeline(onLanding) {
     const s = flight.trace.at(-1).s + distance(before, car);
     flight.trace.push({ s, z: car.z });
     flight.seconds += dt;
-    if (flight.poses?.length < MAX_REPLAY_TICKS)
+    if (flight.poses?.length <= MAX_FLIGHT_TICKS + flight.takeoff)
       flight.poses.push(environment.pose(car));
     else flight.poses = undefined;
     flight.right = Math.max(flight.right, s + 12);
