@@ -308,6 +308,21 @@ export function tileAt(tiles, x, y) {
   return nearest;
 }
 
+/** The closest uncollected target, independent of the tile-prioritised compass. */
+export function nearestQuestTarget(trial, car) {
+  let nearest = null;
+  let bestDistance = Infinity;
+  for (const target of trial.targets) {
+    if (trial.collected.has(target.t)) continue;
+    const distance = Math.hypot(target.x - car.x, target.y - car.y);
+    if (distance < bestDistance) {
+      nearest = target;
+      bestDistance = distance;
+    }
+  }
+  return nearest;
+}
+
 /** Prefer this tile's emoji even when another tile's target is nearer. */
 export function questSeeker(trial, tiles, car) {
   const tile = tileAt(tiles, car.x, car.y);

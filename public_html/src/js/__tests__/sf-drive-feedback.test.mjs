@@ -7,6 +7,7 @@ import {
   crashPose,
   createTrial,
   questSeeker,
+  nearestQuestTarget,
   tileAt,
 } from "../sf-drive-core.js";
 
@@ -104,4 +105,14 @@ test("a tile with no quest seeks the next emoji and a complete rally has no targ
   assert.equal(finished.target, null);
   assert.equal(finished.relative, null);
   assert.equal(finished.distance, null);
+});
+
+test("the through-building cue chooses the nearest uncollected emoji across tile boundaries", () => {
+  const trial = createTrial(targets);
+  const car = { x: 4, y: 0 };
+  assert.equal(nearestQuestTarget(trial, car), targets[1]);
+  trial.collected.add("b");
+  assert.equal(nearestQuestTarget(trial, car), targets[0]);
+  trial.collected.add("a");
+  assert.equal(nearestQuestTarget(trial, car), null);
 });
