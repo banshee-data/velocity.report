@@ -8,6 +8,7 @@ import {
   buildCityGameDrive,
   applyCityDriveScenery,
   cityDriveControls,
+  driveOnCityRoute,
 } from "../sf-city-road-drive.js";
 import {
   buildCollisionIndex,
@@ -24,7 +25,7 @@ import {
   visitSurvey,
 } from "../sf-insurance.js";
 import { highwayRailSegments, strikeHighwayRail } from "../sf-highway-edge.js";
-import { driveOnRoadNetwork, indexRoadNetwork } from "../sf-road-network.js";
+import { indexRoadNetwork } from "../sf-road-network.js";
 import { bridgeSurveyDrive, SOMA_SURVEY_STOPS } from "../sf-soma-drive.js";
 
 test("insurance charges only manual time and accounts for both credit boundaries", () => {
@@ -121,17 +122,14 @@ test("the default Bay Bridge route completes every named delivery on the bundled
       break;
     }
     const surface = surfaces.get(car.surfaceId);
-    const nextCar =
-      strikeHighwayRail(car, controls, 1 / 120, surface) ||
-      driveOnRoadNetwork(
-        car,
-        controls,
-        1 / 120,
-        surface,
-        surfaces,
-        graph,
-        () => false,
-      );
+    const nextCar = driveOnCityRoute(
+      car,
+      controls,
+      1 / 120,
+      surface,
+      surfaces,
+      graph,
+    );
     if (nextCar.surfaceId !== car.surfaceId) spans.push(nextCar.surfaceId);
     car = nextCar;
     assert.ok(

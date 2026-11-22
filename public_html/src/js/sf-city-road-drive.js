@@ -1,5 +1,11 @@
 import * as THREE from "../vendor/three/three.module.js";
-import { indexRoadContact } from "./sf-road-contact.js";
+import {
+  driveOnRoadSurface,
+  indexRoadContact,
+  roadSupportsCar,
+} from "./sf-road-contact.js";
+import { driveOnRoadNetwork } from "./sf-road-network.js";
+import { leaveRoadSide, strikeHighwayRail } from "./sf-highway-edge.js";
 
 export const BAY_BRIDGE_CITY_DRIVE = "bay-bridge-highway-drive";
 export const BAY_BRIDGE_APPROACH = "Bay Bridge approach";
@@ -199,7 +205,8 @@ export function buildCityGameDrive(drive, groundHeight) {
         id: `${previous.id}:${id}`,
         from: `${previous.id}:end`,
         to: end_ids[0],
-        direction: "forward",
+        // The driving controller routes forward. Manual driving may back across the same join.
+        direction: "both",
         support: "interpolated",
         status: "joined",
       });
@@ -257,10 +264,10 @@ export function buildCityGameDrive(drive, groundHeight) {
   };
 }
 
-export function cityDriveControls(drive, car) {
+function cityRouteProjection(drive, car) {
   const span = drive.spans.get(car.surfaceId);
   if (!span || car.grounded === false) return null;
-  const { points, stations, speed } = drive;
+  const { points, stations } = drive;
   let best = Infinity;
   let s = stations[span.start];
   let at = span.start;
@@ -281,6 +288,51 @@ export function cityDriveControls(drive, car) {
     s = stations[i] + u * length;
     at = i;
   }
+  return { at, s, distance: best };
+}
+
+export function cityDriveCanResume(drive, car) {
+  const projection = cityRouteProjection(drive, car);
+  if (!projection || car.leavingRoad) return false;
+  const { at, distance } = projection;
+  const heading = bearing(drive.points[at], drive.points[at + 1]);
+  return distance <= 24 && Math.cos(heading - car.heading) > -0.25;
+}
+
+/** Road guide contact takes priority at joins. Ground driving may use the
+ * surrounding terrain at the same level. Elevated surfaces never use it. */
+export function driveOnCityRoute(
+  car,
+  input,
+  dt,
+  surface,
+  surfaces,
+  network,
+  pavement,
+) {
+  const next =
+    strikeHighwayRail(car, input, dt, surface) ||
+    driveOnRoadNetwork(car, input, dt, surface, surfaces, network, () => false);
+  if (!next.blocked || next.waiting) return next;
+  if (surface.kind !== "ground")
+    return leaveRoadSide(car, input, dt, surface) || next;
+  const base = pavement?.(car.x, car.y);
+  if (!Number.isFinite(base) || Math.abs(car.z - base) > 0.45) return next;
+  const street = driveOnRoadSurface(car, input, dt, { heightAt: pavement });
+  // Keep the route span ID on adjacent pavement so resume uses the same leg,
+  // even where a later leg passes through the same intersection.
+  return street.blocked ? next : street;
+}
+
+export function cityDriveOnRoute(surface, car) {
+  return !!surface && car.grounded && roadSupportsCar(surface.heightAt, car);
+}
+
+export function cityDriveControls(drive, car) {
+  const projection = cityRouteProjection(drive, car);
+  if (!projection) return null;
+  const { at, s } = projection;
+  const { points, stations, speed } = drive;
   const ahead = s + clamp(4 + Math.abs(car.v) * 0.45, 5, 21);
   let p = at + 1;
   while (p + 1 < points.length && stations[p] < ahead) p++;

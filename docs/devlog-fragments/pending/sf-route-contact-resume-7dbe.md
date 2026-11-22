@@ -1,0 +1,1 @@
+- Let manual drivers use the street beside the survey route guide and cross verified ramp seams in reverse. Made self-driving rejoin from a stop or resume from a route checkpoint when blocked, with delivery and insurance progress preserved.

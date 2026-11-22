@@ -238,7 +238,10 @@ export function driveOnRoadNetwork(
       next = straddling;
   }
   const travel =
-    car.v < 0 || (!car.v && input.brake && !input.throttle) ? -1 : 1;
+    car.v < 0 ||
+    (!car.v && (input.throttle < 0 || (input.brake && !input.throttle)))
+      ? -1
+      : 1;
   const hx = Math.cos(car.heading) * travel;
   const hy = Math.sin(car.heading) * travel;
   let waiting = false;
