@@ -1,4 +1,4 @@
-import { CRASH_HOLD_TICKS, MAX_REPLAY_TICKS } from "./sf-replay.js";
+import { MAX_FLIGHT_TICKS } from "./sf-replay.js";
 
 const minimumClearance = 0.18;
 const holdMs = 2000;
@@ -153,7 +153,7 @@ export function createFlightTimeline(onLanding) {
     const s = flight.trace.at(-1).s + distance(before, car);
     flight.trace.push({ s, z: car.z });
     flight.seconds += dt;
-    if (flight.poses?.length <= MAX_REPLAY_TICKS - CRASH_HOLD_TICKS)
+    if (flight.poses?.length <= MAX_FLIGHT_TICKS + flight.takeoff)
       flight.poses.push(environment.pose(car));
     else flight.poses = undefined;
     flight.right = Math.max(flight.right, s + 12);

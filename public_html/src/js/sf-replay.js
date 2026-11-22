@@ -3,7 +3,8 @@ import { Quaternion } from "../vendor/three/three.core.js";
 export const REPLAY_HZ = 120;
 export const CRASH_LEAD_TICKS = 2 * REPLAY_HZ;
 export const CRASH_HOLD_TICKS = 2 * REPLAY_HZ;
-export const MAX_REPLAY_TICKS = 30 * REPLAY_HZ;
+export const MAX_FLIGHT_TICKS = 30 * REPLAY_HZ;
+const MAX_REPLAY_TICKS = MAX_FLIGHT_TICKS + CRASH_LEAD_TICKS + CRASH_HOLD_TICKS;
 const KEY = "sf-replays-v1";
 export const REPLAY_POSITION_SCALE = 100; // centimetres
 const ROT = 10000;

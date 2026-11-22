@@ -147,16 +147,16 @@ export function carStep(car, input, dt, surface = {}) {
     acceleration = throttle * (throttle > 0 ? driveForce / mass : 2.6);
   const brakeLimit = DRIVE_CAR.brakeDeceleration * grip;
   // Include rolling resistance and drag in the straight-line braking target.
-  const resistance =
-    (surface.offroad ? 1.8 : 0.15) + (0.5 * 1.225 * 0.74 * v * v) / mass;
-  const braking =
-    Math.max(brake, opposing ? Math.abs(throttle) : 0) *
-    Math.max(0, brakeLimit - resistance);
-  const longitudinalDemand =
-    Math.max(
-      Math.abs(acceleration),
-      Math.min(braking, Math.abs(v) / Math.max(dt, 1e-9)),
-    ) / brakeLimit;
+  const resistanceAt = (speed) =>
+    (surface.offroad ? 1.8 : 0.15) +
+    (0.5 * 1.225 * 0.74 * speed * speed) / mass;
+  const brakeDemand = Math.max(brake, opposing ? Math.abs(throttle) : 0);
+  const brakingAt = (speed) =>
+    brakeDemand * Math.max(0, brakeLimit - resistanceAt(speed));
+  const longitudinalDemand = Math.max(
+    Math.abs(acceleration) / (10 * grip),
+    Math.min(brakingAt(v), Math.abs(v) / Math.max(dt, 1e-9)) / brakeLimit,
+  );
   const steerCurvature = Math.tan((previousSteering + steering) / 2) / 2.7;
   const slip = car.slip || 0;
   const cornerDemand = Math.min(
@@ -174,7 +174,7 @@ export function carStep(car, input, dt, surface = {}) {
   const slope = surface.slope || 0;
   acceleration -= (9.81 * slope) / Math.hypot(1, slope);
   v += acceleration * dt;
-  v = moveToward(v, 0, (resistance + braking * traction) * dt);
+  v = moveToward(v, 0, (resistanceAt(v) + brakingAt(v) * traction) * dt);
   if (
     brake &&
     Math.abs(car.v) < 0.05 &&
