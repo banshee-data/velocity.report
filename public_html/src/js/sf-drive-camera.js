@@ -2,6 +2,21 @@
 // car's forward direction at the top, matching the relative emoji seeker.
 export const DRIVE_VIEWS = ["zoomed", "overhead", "incar"];
 
+// View-space metres. Complete the fade before the far plane so geometry
+// disappears into the same sky colour before it is clipped.
+export const DRIVE_VIEW_RANGE = {
+  near: 0.4,
+  far: 360,
+  fogNear: 155,
+  fogFar: 320,
+};
+export const MIRROR_VIEW_RANGE = {
+  near: 0.4,
+  far: 160,
+  fogNear: 55,
+  fogFar: 140,
+};
+
 // Body roll leans outward from the turn. Damp the response so changing the
 // steering input or crossing onto dirt does not snap the horizon.
 export function incarRoll(previous, lateralAcceleration, dt) {

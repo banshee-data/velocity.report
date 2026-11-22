@@ -71,6 +71,43 @@ test("keeps one nearby recording, with hysteresis both at the edge and between s
   assert.equal(nearbySurvey([a, b], point(101), a), b);
 });
 
+test("shows the nearest survey ahead before playback, then clears the cue on entry or exit from city mode", () => {
+  const surveyed = [];
+  const notices = [];
+  const replay = createSurveyReplay({
+    sites: [{ id: "between", x: 80, y: 0 }, a, b],
+    open(site) {
+      surveyed.push(site);
+      return session([], site.id);
+    },
+    onSite() {},
+    onStatus() {},
+    onFrame() {},
+    onApproach(notice) {
+      notices.push(notice);
+    },
+  });
+  const facingEast = (x) => ({ ...point(x), heading: 0 });
+  replay.update(facingEast(-251), 0);
+  assert.equal(notices.at(-1), null);
+  replay.update({ ...facingEast(-180), heading: Math.PI }, 0);
+  assert.equal(notices.at(-1), null);
+  replay.update(facingEast(-180), 0);
+  assert.deepEqual(notices.at(-1), { site: a, distance: 180 });
+  assert.deepEqual(surveyed, []);
+  replay.update(facingEast(-120), 0);
+  assert.deepEqual(notices.at(-1), { site: a, distance: 120 });
+  replay.update(facingEast(-115), 0);
+  assert.equal(notices.at(-1), null);
+  assert.deepEqual(surveyed, [a]);
+  replay.update(facingEast(-150), 0);
+  assert.deepEqual(notices.at(-1), { site: a, distance: 150 });
+  replay.update(facingEast(-241), 0);
+  assert.deepEqual(notices.at(-1), { site: a, distance: 241 });
+  replay.update(null, 0);
+  assert.equal(notices.at(-1), null);
+});
+
 test("projects the measured box centre and rotates the recorded heading into the city grid", () => {
   const transform = [
     [0, -1, 0, 25],

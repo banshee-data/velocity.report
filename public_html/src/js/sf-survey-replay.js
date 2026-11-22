@@ -13,6 +13,7 @@ import {
 } from "./scene-track-box.js";
 import { histogramSvg } from "./survey-charts.js";
 
+const NOTICE_M = 250;
 const APPROACH_M = 115;
 const LEAVE_M = 145;
 const SWITCH_MARGIN_M = 15;
@@ -40,6 +41,24 @@ export function nearbySurvey(sites, car, current) {
   return nearest;
 }
 
+/** The closest site in front of the car, using straight-line distance. */
+function surveyAhead(sites, car) {
+  const east = Math.cos(car.heading);
+  const north = Math.sin(car.heading);
+  let result = null;
+  let distance = NOTICE_M;
+  for (const site of sites) {
+    const dx = site.x - car.x;
+    const dy = site.y - car.y;
+    if (dx * east + dy * north <= 0) continue;
+    const metres = Math.hypot(dx, dy);
+    if (metres > distance) continue;
+    result = { site, distance: metres };
+    distance = metres;
+  }
+  return result;
+}
+
 export function projectSurveyTrack(transform, track) {
   const [x, y] = trackBoxAnchor(track);
   const z = track.z;
@@ -61,7 +80,14 @@ export function projectSurveyTrack(transform, track) {
  * pauses the clock. Requests from an old approach can finish without updating
  * the current intersection's card or scene.
  */
-export function createSurveyReplay({ sites, open, onSite, onFrame, onStatus }) {
+export function createSurveyReplay({
+  sites,
+  open,
+  onSite,
+  onFrame,
+  onStatus,
+  onApproach,
+}) {
   let active = null;
 
   async function sample(replay, seconds) {
@@ -128,6 +154,7 @@ export function createSurveyReplay({ sites, open, onSite, onFrame, onStatus }) {
           void start(active);
         }
       }
+      onApproach?.(car && !active ? surveyAhead(sites, car) : null);
       if (!active?.session || active.busy) return;
       const { seconds, wrapped } = advanceSceneClock(
         active.seconds,
@@ -186,8 +213,22 @@ export function mountSurveyReplay({ sites, root, scene, hud, groundAt }) {
     for (let i = used; i < boxes.length; i++) boxes[i].visible = false;
   }
 
+  let approachSite = null;
   return createSurveyReplay({
     sites,
+    onApproach(approach) {
+      const site = approach?.site ?? null;
+      if (site !== approachSite) {
+        approachSite = site;
+        hud.approach.hidden = !site;
+        if (site) hud.approachTitle.textContent = site.title;
+      }
+      if (!site) return;
+      // Round to 10 m so the readout is steady while driving.
+      const distance = `${Math.round(approach.distance / 10) * 10} m`;
+      if (hud.approachDistance.textContent !== distance)
+        hud.approachDistance.textContent = distance;
+    },
     open: (site) => new SceneSession(new URL(site.manifest, root).href).open(),
     onFrame: showTracks,
     onStatus(text) {
@@ -197,13 +238,12 @@ export function mountSurveyReplay({ sites, root, scene, hud, groundAt }) {
       hud.card.hidden = !site;
       if (!site) return;
       hud.title.textContent = site.title;
-      hud.details.textContent = `${site.date} · ${site.speed.count.toLocaleString("en-US")} vehicle tracks`;
       hud.p85.textContent = Number.isFinite(site.speed.p85)
         ? `P85 ${site.speed.p85.toFixed(1)} mph`
         : "";
       hud.chart.innerHTML = histogramSvg(site.speed, {
-        width: 300,
-        height: 103,
+        width: 188,
+        height: 62,
         compact: true,
         showMph: true,
         limit: site.limit,

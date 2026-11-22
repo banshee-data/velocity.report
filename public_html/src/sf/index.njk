@@ -24,6 +24,8 @@ eleventyExcludeFromCollections: true
     --sky: #0b141f; --land: #182925; --dash: #e5cc80; --pole: #91a5b0; --sign: #185541;
     --map-water: #101e2a; --map-land: #293539; --map-coast: #7397aa; --map-grid: #b0c4cb66;
     --map-park: #39725eaa; --map-arterial: #b2a594a6;
+    --hud-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    --pad-size: 56px;
     --sans: "Geist", system-ui, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, monospace;
   }
@@ -56,40 +58,33 @@ eleventyExcludeFromCollections: true
   #seekerTurn { color: #fde68a; font-size: 11px; }
   #seekerScope { font-size: 10px; font-weight: 400; color: #d4dce2; }
   #seekerHeading { display: none; }
-  .survey-card {
+  .survey-overlay {
     position: fixed; left: max(12px, env(safe-area-inset-left, 0px));
-    bottom: max(12px, env(safe-area-inset-bottom, 0px));
-    width: min(280px, calc(100vw - 24px)); padding: 10px 12px; border-radius: 8px;
-    border-top: 2px solid var(--scene-vehicle); box-shadow: 0 12px 28px #0008;
+    bottom: calc(var(--hud-bottom) + var(--survey-clearance, 0px));
+    width: min(204px, calc(100vw - 24px)); padding: 6px 8px; border-radius: 8px;
+    border-left: 2px solid var(--scene-vehicle); box-shadow: 0 8px 20px #0008;
   }
-  .survey-card h2 { margin: 1px 0 2px; font-size: 15px; line-height: 1.2; }
-  .survey-status, .survey-details, .survey-metric { color: var(--muted); font: 11px/1.35 var(--mono); }
-  .survey-status { color: var(--accent); }
-  .survey-metric { margin-top: 8px; display: flex; justify-content: space-between; gap: 5px; }
-  #surveyP85 { color: var(--ink); }
+  .survey-card h2, .survey-approach strong { margin: 2px 0 3px; font-size: 13px; line-height: 1.2; }
+  .survey-status, .survey-metric, .survey-approach-label, #surveyApproachDistance { font: 10px/1.3 var(--mono); }
+  .survey-status, .survey-approach-label { color: var(--accent); }
+  .survey-metric, .survey-approach-line { display: flex; justify-content: space-between; gap: 4px; }
+  .survey-metric { color: var(--muted); }
+  #surveyP85, #surveyApproachDistance { white-space: nowrap; color: var(--ink); }
+  .survey-approach strong { display: block; margin-bottom: 0; }
   .survey-chart svg { display: block; width: 100%; height: auto; }
-  .survey-card a { color: var(--accent); font-size: 13px; font-weight: 600; }
+  .survey-card a { display: flex; width: fit-content; align-items: center; gap: 3px; min-height: 24px; color: var(--accent); font-size: 12px; font-weight: 600; }
   @media (pointer: coarse), (max-width: 760px) {
-    .survey-card { left: auto; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(max(12px, env(safe-area-inset-bottom, 0px)) + 64px); }
+    :root { --survey-clearance: calc(var(--pad-size) + 8px); }
   }
-  @media (orientation: portrait) and (max-width: 760px) {
-    .survey-card {
-      top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); bottom: auto;
-      width: min(258px, calc(100vw - 104px));
-    }
-    body:has(#mirrorFrame:not([hidden])) .survey-card { top: calc(max(8px, env(safe-area-inset-top, 0px)) + 96px); }
-  }
-  @media (max-height: 430px) {
-    .survey-card { width: min(234px, calc(100vw - 24px)); padding: 6px 9px; }
-    .survey-chart svg { max-height: 68px; }
-    .survey-metric { margin-top: 4px; }
+  @media (orientation: landscape) and (max-height: 390px) {
+    .seeker { left: auto; right: max(8px, env(safe-area-inset-right, 0px)); }
   }
   .mirror { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: 50%; transform: translateX(-50%); width: min(220px, calc(25vw - 8px)); aspect-ratio: 3.2; border: 2px solid #111; border-radius: 8px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
-  .pad { position: fixed; bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: none; gap: 8px; }
+  .pad { position: fixed; bottom: var(--hud-bottom); display: none; gap: 8px; }
   .steering { left: max(12px, env(safe-area-inset-left, 0px)); }
   .pedals { right: max(12px, env(safe-area-inset-right, 0px)); }
   .pad, .pad button { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-  .pad button { width: 56px; height: 56px; padding: 0; font-size: 28px; font-weight: 750; -webkit-tap-highlight-color: transparent; box-shadow: 0 2px 12px #0003; }
+  .pad button { width: var(--pad-size); height: var(--pad-size); padding: 0; font-size: 28px; font-weight: 750; -webkit-tap-highlight-color: transparent; box-shadow: 0 2px 12px #0003; }
   .pedals [data-act="up"] { border-color: var(--accent); }
   .pad button.held { background: var(--accent); color: var(--scene-primary-ink); border-color: var(--accent); transform: translateY(2px); }
   dialog { width: min(380px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 16px; color: var(--ink); overscroll-behavior: contain; overflow-y: auto; }
@@ -117,12 +112,13 @@ eleventyExcludeFromCollections: true
   kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
   @media (pointer: coarse), (max-width: 760px) { .pad { display: flex; } }
   @media (max-height: 600px) {
+    :root { --pad-size: 48px; }
     .seeker { width: min(76px, calc(25vw - 8px)); height: 128px; padding: 3px 2px; gap: 3px; }
     #seekerCompass { width: 56px; height: 56px; }
     #seekerDistance { font-size: 11px; }
     #seekerTurn { font-size: 10px; }
     .pad { gap: 6px; }
-    .pad button { width: 48px; height: 48px; font-size: 25px; }
+    .pad button { font-size: 25px; }
   }
   body[data-solo="true"] .seeker, body[data-solo="true"] .map,
   body[data-solo="true"] #desktopMap, body[data-solo="true"] .details,
@@ -156,13 +152,19 @@ eleventyExcludeFromCollections: true
     <span id="seekerHeading"></span>
   </div>
 </div>
-<aside class="panel survey-card" id="surveyCard" aria-labelledby="surveyTitle" hidden>
+<div class="panel survey-overlay survey-approach" id="surveyApproach" hidden>
+  <div class="survey-approach-line">
+    <span class="survey-approach-label"><span aria-hidden="true">◆</span> Survey ahead</span>
+    <span id="surveyApproachDistance"></span>
+  </div>
+  <strong id="surveyApproachTitle" role="status" aria-label="Survey ahead"></strong>
+</div>
+<aside class="panel survey-overlay survey-card" id="surveyCard" aria-labelledby="surveyTitle" hidden>
   <div class="survey-status" id="surveyStatus" role="status"></div>
   <h2 id="surveyTitle"></h2>
-  <div class="survey-details" id="surveyDetails"></div>
-  <div class="survey-metric"><span>Peak speed per vehicle</span><strong id="surveyP85"></strong></div>
+  <div class="survey-metric"><span>Peak speeds</span><strong id="surveyP85"></strong></div>
   <div class="survey-chart" id="surveyChart"></div>
-  <a id="surveyLink" target="_blank" rel="noopener" aria-label="View this survey (opens in a new tab)">View this survey <span aria-hidden="true">→</span></a>
+  <a id="surveyLink" target="_blank" rel="noopener" aria-label="View survey (opens in a new tab)">View survey <span aria-hidden="true">→</span></a>
 </aside>
 <canvas class="panel" id="desktopMap" role="img" aria-label="City coverage showing the coastline, parks, major roads, S2 tiles and your car."></canvas>
 <dialog class="panel" id="gameMenu" aria-labelledby="menuTitle">
@@ -250,8 +252,9 @@ eleventyExcludeFromCollections: true
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
       touchButtons: document.querySelectorAll(".pad button"),
       survey: {
+        approach: $("surveyApproach"), approachTitle: $("surveyApproachTitle"), approachDistance: $("surveyApproachDistance"),
         card: $("surveyCard"), status: $("surveyStatus"), title: $("surveyTitle"),
-        details: $("surveyDetails"), p85: $("surveyP85"), chart: $("surveyChart"), link: $("surveyLink"),
+        p85: $("surveyP85"), chart: $("surveyChart"), link: $("surveyLink"),
       },
     },
   }).catch((e) => {

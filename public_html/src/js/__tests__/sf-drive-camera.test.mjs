@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DRIVE_VIEWS, driveCameraPose, incarRoll } from "../sf-drive-camera.js";
+import {
+  DRIVE_VIEWS,
+  DRIVE_VIEW_RANGE,
+  MIRROR_VIEW_RANGE,
+  driveCameraPose,
+  incarRoll,
+} from "../sf-drive-camera.js";
 
 const car = { x: 100, y: 200, heading: 0 };
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
@@ -67,4 +73,15 @@ test("in-car roll builds with lateral acceleration and returns smoothly to level
   const tilted = driveCameraPose("incar", car, 10, undefined, fast);
   assert.ok(tilted.up[1] < 0, "left turn leans right");
   assert.deepEqual(tilted.look, driveCameraPose("incar", car, 10).look);
+});
+
+test("both camera views finish their distance fade before clipping", () => {
+  for (const range of [DRIVE_VIEW_RANGE, MIRROR_VIEW_RANGE]) {
+    assert.ok(range.near < range.fogNear);
+    assert.ok(range.fogNear < range.fogFar);
+    assert.ok(range.fogFar < range.far && range.far < 400);
+  }
+  const overhead = driveCameraPose("overhead", car, 10);
+  assert.ok(DRIVE_VIEW_RANGE.fogNear > overhead.position[2] - 10);
+  assert.ok(MIRROR_VIEW_RANGE.far < DRIVE_VIEW_RANGE.far);
 });
