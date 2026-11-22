@@ -42,15 +42,22 @@ async function visit(page, region, review) {
   return car;
 }
 
-async function delayedJoin(page, { region, join, token, from, to }) {
+async function delayedJoin(page, { region, join, token, from, to, retry }) {
   const path = `**/geometry/${token}.json`;
   let release;
   const hold = new Promise((resolve) => {
     release = resolve;
   });
-  let requested = false;
+  let requests = 0;
   await page.route(path, async (route) => {
-    requested = true;
+    requests++;
+    if (retry && requests === 1) {
+      await route.fulfill({
+        status: 503,
+        headers: { "Access-Control-Allow-Origin": "*" },
+      });
+      return;
+    }
     await hold;
     await route.continue();
   });
@@ -58,14 +65,18 @@ async function delayedJoin(page, { region, join, token, from, to }) {
   try {
     const start = await visit(page, region, join);
     assert.equal(start.id, from);
-    assert.equal(requested, false);
+    assert.equal(requests, 0);
     await page.keyboard.down("ArrowUp");
+    if (retry)
+      await page.waitForFunction(() =>
+        document.querySelector("#roadReviewStatus").textContent.includes("503"),
+      );
     await page.waitForFunction(
       () => document.querySelector("#drive").dataset.roadWait === "true",
       null,
       { timeout: 90000 },
     );
-    assert.ok(requested);
+    assert.ok(requests > 0);
     const stopped = await page.evaluate(state);
     assert.equal(stopped.id, from);
     assert.equal(stopped.contact, "grounded");
@@ -83,6 +94,12 @@ async function delayedJoin(page, { region, join, token, from, to }) {
       { timeout: 60000 },
     );
     const crossed = await page.evaluate(state);
+    assert.equal(requests, retry ? 2 : 1);
+    if (retry)
+      assert.match(
+        await page.locator("#roadReviewStatus").textContent(),
+        /Acceptance pending/,
+      );
     assert.equal(crossed.kind, start.kind);
     assert.equal(crossed.contact, "grounded");
     assert.ok(Math.abs(crossed.z - stopped.z) < 0.5);
@@ -100,6 +117,33 @@ async function delayedJoin(page, { region, join, token, from, to }) {
     await page.unroute(path);
   }
 }
+
+async function checkReviewLink(page) {
+  const { REGIONAL_ROAD_CATALOG } =
+    await import("../../public_html/src/js/sf-drive-settings.js");
+  const sources = new URLSearchParams({
+    overlay: REGIONAL_ROAD_CATALOG,
+    tiles: new URL("/sf/tiles/", host).href,
+  });
+  await page.goto(`${host}/sf/?${sources}`);
+  await page.locator("#menuBtn").click();
+  await page.getByRole("link", { name: "Open regional road review" }).click();
+  await page.waitForFunction(
+    () => document.querySelector("#roadRegion").options.length === 11,
+  );
+  const { searchParams } = new URL(page.url());
+  for (const [key, value] of sources)
+    assert.equal(searchParams.get(key), value);
+}
+
+const sixthBrannanJoin = {
+  region: "6th-brannan",
+  join: "gms:5SXB9CCZQT47D11VRWG0K43QS2",
+  token: "808f7fd4",
+  from: "gms:21R41RZ4Q8HAHQA50TVGD0ZQZ3",
+  to: "gms:4AGWQJGFG2Z4RJ1M6VP9CJFW85",
+  retry: true,
+};
 
 async function checkHighwayEdges(page) {
   for (const steer of ["ArrowLeft", "ArrowRight"]) {
@@ -331,12 +375,12 @@ async function checkRampApproach(page) {
       assert.deepEqual(errors, []);
       return;
     }
-    await page.goto(`${host}/sf/`);
-    await page.locator("#menuBtn").click();
-    await page.getByRole("link", { name: "Open regional road review" }).click();
-    await page.waitForFunction(
-      () => document.querySelector("#roadRegion").options.length === 11,
-    );
+    await checkReviewLink(page);
+    if (process.argv.includes("--review-fixes")) {
+      await delayedJoin(page, sixthBrannanJoin);
+      assert.deepEqual(errors, []);
+      return;
+    }
     const regions = await page
       .locator("#roadRegion option")
       .evaluateAll((options) =>
@@ -346,13 +390,7 @@ async function checkRampApproach(page) {
       const car = await visit(page, region);
       console.log(`${region}: ${car.kind} start at ${car.z} m`);
     }
-    await delayedJoin(page, {
-      region: "6th-brannan",
-      join: "gms:5SXB9CCZQT47D11VRWG0K43QS2",
-      token: "808f7fd4",
-      from: "gms:21R41RZ4Q8HAHQA50TVGD0ZQZ3",
-      to: "gms:4AGWQJGFG2Z4RJ1M6VP9CJFW85",
-    });
+    await delayedJoin(page, sixthBrannanJoin);
     await delayedJoin(page, {
       region: "geary-masonic",
       join: "gms:2RFR8G9NH7E5JTW81PWJ5J6CY3",

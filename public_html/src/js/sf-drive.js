@@ -844,6 +844,9 @@ export async function startDrive({
   const roadMeshes = new THREE.Group();
   scene.add(roadMeshes);
   const review = product?.review;
+  const reviewSummary = review
+    ? `Acceptance pending · ${review.confirmed_connections.length} confirmed · ${review.unresolved_connections.length} unresolved`
+    : "";
   const gameDrive =
     cityLayers?.drive &&
     buildCityGameDrive(cityLayers.drive, (x, y) =>
@@ -967,20 +970,31 @@ export async function startDrive({
   if (gameDrive) addRoadTile(gameDrive.topology);
   function requestRoadOwner(owner) {
     if (!product?.overlay.tiles[owner]) return false;
-    if (!ownerLoads.has(owner)) {
+    const previous = ownerLoads.get(owner);
+    if (
+      !previous ||
+      (previous.retryAt !== undefined && performance.now() >= previous.retryAt)
+    ) {
       const state = { pending: true };
       ownerLoads.set(owner, state);
       state.done = product
         .loadOwner(owner, AbortSignal.timeout(30000))
-        .then(addRoadTile)
+        .then((tile) => {
+          addRoadTile(tile);
+          if (hud.roadReviewStatus.textContent === previous?.error)
+            hud.roadReviewStatus.textContent = reviewSummary;
+        })
         .catch((error) => {
-          hud.roadReviewStatus.textContent = `Road tile ${owner} unavailable · ${error.message}`;
+          state.retryAt = performance.now() + 1000;
+          state.error = `Road tile ${owner} unavailable · ${error.message}`;
+          hud.roadReviewStatus.textContent = state.error;
         })
         .finally(() => {
           state.pending = false;
         });
     }
-    return ownerLoads.get(owner).pending;
+    const state = ownerLoads.get(owner);
+    return state.pending || state.retryAt !== undefined;
   }
   if (!review && product?.overlay.pilot === "bay-bridge-approach")
     for (const tile of product.tiles.values()) addRoadTile(tile);
@@ -1065,9 +1079,7 @@ export async function startDrive({
     hud.roadReviewDrive.addEventListener("change", () =>
       leaveReview(region, hud.roadReviewDrive.value),
     );
-    hud.roadReviewStatus.textContent =
-      reviewError ||
-      `Acceptance pending · ${review.confirmed_connections.length} confirmed · ${review.unresolved_connections.length} unresolved`;
+    hud.roadReviewStatus.textContent = reviewError || reviewSummary;
   }
   const startingCar = ({ x, y, heading, surfaceId }) => ({
     x,
@@ -1203,7 +1215,11 @@ export async function startDrive({
   hud.bridgeLink.hidden = !loopback || bridgeStarts.length > 0 || !!region;
   hud.cityLayersLink.hidden = !cityUrl;
   hud.cityDriveLink.hidden = !cityUrl;
-  for (const link of [hud.cityLayersLink, hud.cityDriveLink]) {
+  for (const link of [
+    hud.regionalLink,
+    hud.cityLayersLink,
+    hud.cityDriveLink,
+  ]) {
     const url = new URL(link.href);
     for (const key of ["tiles", "overlay"])
       if (params.has(key)) url.searchParams.set(key, params.get(key));
