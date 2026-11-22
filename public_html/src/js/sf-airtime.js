@@ -1,3 +1,5 @@
+import { MAX_REPLAY_TICKS } from "./sf-replay.js";
+
 const minimumClearance = 0.18;
 const holdMs = 2000;
 
@@ -120,7 +122,11 @@ export function createFlightTimeline(onLanding) {
       flight.until = now + holdMs;
       cards.push(flight);
       if (label === "Touchdown")
-        onLanding?.({ seconds: flight.seconds, peak: flight.peak });
+        onLanding?.(
+          { seconds: flight.seconds, peak: flight.peak },
+          flight.poses,
+        );
+      delete flight.poses;
     }
     flight = undefined;
   }
@@ -132,6 +138,7 @@ export function createFlightTimeline(onLanding) {
       flight = {
         ...sampleFlightProfile(before, road, heightAt, deckAt, tiles),
         trace: [{ s: 0, z: before.z }],
+        poses: environment.pose ? [environment.pose(before)] : undefined,
         seconds: 0,
         peak: 0,
         label: "Airborne",
@@ -146,6 +153,9 @@ export function createFlightTimeline(onLanding) {
     const s = flight.trace.at(-1).s + distance(before, car);
     flight.trace.push({ s, z: car.z });
     flight.seconds += dt;
+    if (flight.poses?.length < MAX_REPLAY_TICKS)
+      flight.poses.push(environment.pose(car));
+    else flight.poses = undefined;
     flight.right = Math.max(flight.right, s + 12);
     if (now - flight.refreshedAt >= 120 || car.grounded !== false) {
       for (const point of flight.profile) {

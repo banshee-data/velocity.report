@@ -1,0 +1,1 @@
+- Added an automatic, skippable SF crash replay with up to two seconds before impact and a two-second hold after the chassis settled. Saved the eight latest crashes and eight longest landed flights as compact keyframes for replay across browser sessions.

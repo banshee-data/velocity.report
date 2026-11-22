@@ -12,7 +12,8 @@ import {
 } from "./sf-chassis-contact.js";
 
 const DT = 1 / 120;
-const CRASH_TICKS = 240;
+const REST_TICKS = 30;
+const MAX_CRASH_TICKS = 15 * 120;
 const vec = (x = 0, y = 0, z = 0) => new Vector3(x, y, z);
 const up = vec(0, 0, 1);
 const halfHeight = 0.86;
@@ -190,6 +191,8 @@ export function beginCrash(car, kind, hit, heightAt, landing) {
     kind,
     rotation,
     ticks: 0,
+    restTicks: 0,
+    outcome: null,
     initialHeading: car.heading,
     grounded: car.grounded !== false,
     position: vec(car.x, car.y, car.z).addScaledVector(bodyUp, COM_HEIGHT),
@@ -325,13 +328,9 @@ function railContact(hull, rails, previousX, previousY) {
   return best;
 }
 
-export function crashRemaining(crash) {
-  return (CRASH_TICKS - crash.ticks) * DT;
-}
-
 // No controls parameter: both manual and automatic drivers are disconnected.
 export function stepCrash(crash, supportAt, indexes = [], railsAt) {
-  if (crash.ticks >= CRASH_TICKS) return;
+  if (crash.outcome) return;
   crash.ticks++;
   const { x: previousX, y: previousY } = crash.position;
   crash.velocity.z -= 9.81 * DT;
@@ -369,6 +368,22 @@ export function stepCrash(crash, supportAt, indexes = [], railsAt) {
   }
   resolveSupport(crash, points, supportAt);
   if (hit?.nz === 1) crash.grounded = true;
+  // Require sustained contact and low linear and angular speed. A momentary
+  // zero at the top of a bounce or in the middle of a rollover is still moving.
+  if (
+    crash.grounded &&
+    crash.velocity.lengthSq() < 0.18 ** 2 &&
+    inverseInertia(crash, crash.momentum).lengthSq() < 0.18 ** 2
+  )
+    crash.restTicks++;
+  else crash.restTicks = 0;
+  if (crash.restTicks >= REST_TICKS) {
+    crash.outcome = "stopped";
+    crash.velocity.set(0, 0, 0);
+    crash.momentum.set(0, 0, 0);
+  } else if (!crash.grounded && crash.position.z < -45)
+    crash.outcome = "lost ground";
+  else if (crash.ticks >= MAX_CRASH_TICKS) crash.outcome = "recovery limit";
 }
 
 function resolveSupport(crash, points, supportAt) {

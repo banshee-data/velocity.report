@@ -41,7 +41,6 @@ import { drivingHull, obstacleContact } from "./sf-chassis-contact.js";
 import {
   beginCrash,
   crashCar,
-  crashRemaining,
   seriousImpact,
   scrapeObstacle,
   stepCrash,
@@ -101,6 +100,15 @@ import {
 } from "./sf-road-contact.js";
 import { indexRoadNetwork } from "./sf-road-network.js";
 import { buildingWalls, validBuildingFace } from "./sf-building-walls.js";
+import {
+  crashHistory,
+  encodeReplay,
+  replayLibrary,
+  replayPose,
+  REPLAY_HZ,
+  REPLAY_POSITION_SCALE,
+  CRASH_HOLD_TICKS,
+} from "./sf-replay.js";
 import { createAirtimeHud } from "./sf-airtime.js";
 import {
   bestAirtimes,
@@ -827,11 +835,16 @@ export async function startDrive({
     }
   }
   showAirtimeRecords();
-  const airtime = createAirtimeHud(hud.airtime, hud.airtimeCard, (landing) => {
-    airtimeRecords = bestAirtimes(airtimeRecords, landing);
-    writeProgress(airtimeKey, airtimeRecords);
-    showAirtimeRecords();
-  });
+  const airtime = createAirtimeHud(
+    hud.airtime,
+    hud.airtimeCard,
+    (landing, poses) => {
+      airtimeRecords = bestAirtimes(airtimeRecords, landing);
+      writeProgress(airtimeKey, airtimeRecords);
+      showAirtimeRecords();
+      if (poses?.length > 1) saveReplay({ ...encodeReplay(poses), ...landing });
+    },
+  );
 
   const roadSurfaces = new Map();
   const roadMeshes = new THREE.Group();
@@ -1062,6 +1075,18 @@ export async function startDrive({
   const emojiScreen = new THREE.Vector3();
   let checkpoint = null;
   let crash = null;
+  let playback = null;
+  let replayId = 0;
+  const library = replayLibrary();
+  const leadIn = crashHistory();
+  const poseEuler = new THREE.Euler();
+  const poseRotation = new THREE.Quaternion();
+  const replayMode = () => (solo ? "practice" : gameDrive ? cityMode : "city");
+  const replayDay = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "short",
+    timeStyle: "medium",
+  });
+  let replaySaved = true;
   let crashUntil = 0;
   let accumulator = 0;
   let messageUntil = 0;
@@ -1206,8 +1231,10 @@ export async function startDrive({
       ),
   });
 
-  function stream() {
-    const { want, drop } = tilesAround(manifest.tiles, car.x, car.y);
+  function stream(position = car, required) {
+    const { want, drop } = required
+      ? { want: required, drop: [] }
+      : tilesAround(manifest.tiles, position.x, position.y);
     for (const t of drop) {
       const e = loaded.get(t);
       if (!e) continue;
@@ -1318,6 +1345,14 @@ export async function startDrive({
     Space: "brake",
   };
   window.addEventListener("keydown", (e) => {
+    if (playback) {
+      if (e.code === "Escape") {
+        e.preventDefault();
+        finishPlayback(performance.now());
+      } else if (keyMap[e.code] && !e.target.closest?.("button, a"))
+        e.preventDefault();
+      return;
+    }
     if (hud.menu.open) return;
     // A held key that opened the dialog is not a new driving command.
     if (e.repeat && keyMap[e.code]) {
@@ -1350,7 +1385,7 @@ export async function startDrive({
   };
   window.addEventListener("blur", releaseInputs);
   document.addEventListener("visibilitychange", () => {
-    insuranceAt = performance.now();
+    last = insuranceAt = performance.now();
     if (document.hidden) releaseInputs();
   });
   const toggleMirror = () => {
@@ -1387,6 +1422,7 @@ export async function startDrive({
     camInit = false;
     accumulator = 0;
     crash = null;
+    leadIn.clear();
     completedCityDrive = false;
     resumeRecovery = false;
     routeCheckpoint = null;
@@ -1462,7 +1498,7 @@ export async function startDrive({
         : "Back at the intersection · clock continues",
     );
   }
-  function startCrash(kind, incoming, hit, heightAt, now, supportAt) {
+  function startCrash(kind, incoming, hit, heightAt, now, supportAt, indexes) {
     if (crash) return;
     insurance.infractions++;
     airtime.finish(now, "Impact");
@@ -1473,7 +1509,32 @@ export async function startDrive({
       heightAt,
       kind === "ground" ? { previous: car, supportAt } : null,
     );
-    car = crashCar(crash, incoming);
+    const poses = leadIn.read();
+    const impactTick = poses.length;
+    do {
+      car = crashCar(crash, incoming);
+      const q = crash.rotation;
+      poses.push({
+        x: car.x,
+        y: car.y,
+        z: car.z,
+        q: [q.x, q.z, -q.y, q.w],
+        heading: crash.initialHeading,
+      });
+      if (crash.outcome) break;
+      stepCrash(crash, supportAt, indexes, crashRails);
+    } while (true);
+    const clip = saveReplay({
+      ...encodeReplay(
+        poses,
+        impactTick,
+        crash.outcome === "stopped" ? CRASH_HOLD_TICKS : 0,
+      ),
+      kind,
+      outcome: crash.outcome,
+    });
+    if (hud.takeover.open) hud.takeover.close("cancel");
+    startPlayback(clip, true);
     clearEmojiFocus();
     releaseInputs();
     if (trial.status === "running") trial.crashes++;
@@ -1483,7 +1544,7 @@ export async function startDrive({
         : kind === "fall"
           ? "Fell off the road"
           : `Hit a ${kind}`;
-    announce(`${impact} · controls locked until reset`, 2);
+    announce(`${impact} · crash replay`, 2);
   }
   function newTrial(p, fresh = false) {
     if (solo) {
@@ -1521,6 +1582,7 @@ export async function startDrive({
     setView(DRIVE_VIEWS[hud.viewMode.valueAsNumber]);
   });
   hud.menuBtn.addEventListener("click", () => {
+    showReplayLibrary();
     releaseInputs();
     clearEmojiFocus();
   });
@@ -1599,7 +1661,7 @@ export async function startDrive({
     hud.places.blur();
   });
   drivingPad = bindDrivingPad(hud.touchButtons, (input) => {
-    state.touch = input;
+    if (!playback) state.touch = input;
   });
 
   function restartSolo() {
@@ -1673,9 +1735,210 @@ export async function startDrive({
     button.style.left = `${x}px`;
     button.style.top = `${y}px`;
   }
-  function renderView(view) {
-    const hx = Math.cos(car.heading),
-      hy = Math.sin(car.heading);
+  function capturePose(source, heightAt, soloPitchValue) {
+    const { x, y, z, heading } = source;
+    const airborne = source.grounded === false;
+    const ax = Math.cos(heading) * 1.5,
+      ay = Math.sin(heading) * 1.5;
+    const pitch = airborne
+      ? source.airAttitude?.pitch || 0
+      : (soloPitchValue ??
+        Math.atan2(
+          (heightAt(x + ax, y + ay) ?? z) - (heightAt(x - ax, y - ay) ?? z),
+          3,
+        ));
+    poseEuler.set(
+      airborne ? source.airAttitude?.roll || 0 : 0,
+      heading,
+      pitch,
+      "YZX",
+    );
+    return {
+      x,
+      y,
+      z,
+      heading,
+      q: poseRotation.setFromEuler(poseEuler).toArray(),
+    };
+  }
+
+  function saveReplay(data) {
+    const created = Date.now();
+    const clip = {
+      ...data,
+      mode: replayMode(),
+      created,
+      id: `${created.toString(36)}-${performance.timeOrigin.toString(36)}-${++replayId}`,
+    };
+    replaySaved = library.save(clip);
+    return clip;
+  }
+
+  function replayUrl(clip) {
+    const query = new URLSearchParams({ replay: clip.id });
+    if (clip.mode === "practice") query.set("mode", "solo");
+    else if (clip.mode === "city") query.set("at", "embarcadero");
+    else query.set("city", clip.mode);
+    return `?${query}`;
+  }
+
+  function showReplayLibrary() {
+    const { crashes, airtimes } = library.read();
+    for (const [list, clips] of [
+      [hud.crashReplays, crashes],
+      [hud.airtimeReplays, airtimes],
+    ]) {
+      list.replaceChildren(
+        ...clips.map((clip) => {
+          const row = document.createElement("li");
+          const label =
+            clip.impact === null
+              ? `${clip.seconds.toFixed(2)} s · ${clip.peak.toFixed(1)} m · ${clip.mode === "practice" ? "Practice" : "City"}`
+              : `${clip.kind} · ${replayDay.format(clip.created)}`;
+          const sameMode = clip.mode === replayMode();
+          const action = document.createElement(sameMode ? "button" : "a");
+          action.textContent = `Play ${label}`;
+          if (sameMode) {
+            action.type = "button";
+            action.addEventListener("click", () => startPlayback(clip, false));
+          } else {
+            action.href = replayUrl(clip);
+            action.target = "_blank";
+            action.rel = "noopener";
+            action.setAttribute("aria-label", `Play ${label} in a new tab`);
+          }
+          row.append(action);
+          return row;
+        }),
+      );
+      if (!clips.length) {
+        const empty = document.createElement("li");
+        empty.textContent = "No saved replays yet";
+        list.append(empty);
+      }
+    }
+    hud.replayStorage.textContent = replaySaved
+      ? ""
+      : "Browser storage is unavailable. New replays may only be available in this session.";
+  }
+
+  function startPlayback(clip, automatic) {
+    if (playback) return;
+    const required =
+      clip.mode === "practice"
+        ? []
+        : [
+            ...new Set(
+              clip.frames.map(
+                ([, x, y]) =>
+                  tileAt(
+                    manifest.tiles,
+                    x / REPLAY_POSITION_SCALE,
+                    y / REPLAY_POSITION_SCALE,
+                  ).t,
+              ),
+            ),
+          ];
+    releaseInputs();
+    clearEmojiFocus();
+    if (hud.menu.open) hud.menu.close();
+    playback = { clip, automatic, required, tick: 0, streamAt: -Infinity };
+    hud.replayPanel.hidden = false;
+    hud.menuBtn.disabled = true;
+    hud.respawnBtn.disabled = true;
+    hud.replayStatus.textContent =
+      clip.impact === null ? "Airtime replay" : "Crash replay";
+    hud.skipReplay.focus({ preventScroll: true });
+  }
+
+  function finishPlayback(now) {
+    if (!playback) return;
+    const { automatic } = playback;
+    playback = null;
+    hud.replayPanel.hidden = true;
+    hud.menuBtn.disabled = false;
+    hud.respawnBtn.disabled = false;
+    delete canvas.dataset.replay;
+    releaseInputs();
+    camInit = false;
+    accumulator = 0;
+    if (automatic) respawn(true);
+    else if (!solo) stream();
+    if (automatic) canvas.focus({ preventScroll: true });
+    else hud.menuBtn.focus({ preventScroll: true });
+    insuranceAt = now;
+  }
+
+  hud.skipReplay.addEventListener("click", () =>
+    finishPlayback(performance.now()),
+  );
+
+  function replayFrame(wallDt, now) {
+    const { clip, automatic, required } = playback;
+    if (automatic) {
+      if (!isRoadReview(selectedStart)) {
+        advanceTrial(trial, wallDt, car, false, false);
+        hud.timer.textContent = formatTime(trial.elapsed);
+      }
+      if (!document.hidden) advanceInsurance(insurance, wallDt);
+    }
+    if (
+      now - playback.streamAt >= 400 &&
+      required.some((t) => !loaded.has(t))
+    ) {
+      playback.streamAt = now;
+      stream(car, required);
+    }
+    if (required.some((t) => !loaded.has(t))) {
+      const failed = required.some((t) => failures.has(t) && !loaded.has(t));
+      hud.replayStatus.textContent = failed
+        ? "Some replay tiles are unavailable"
+        : "Loading replay tiles…";
+      return;
+    }
+    if (!playback.started) playback.started = true;
+    else if (!document.hidden)
+      playback.tick = Math.min(clip.end, playback.tick + wallDt * REPLAY_HZ);
+    const pose = replayPose(clip, playback.tick);
+    canvas.dataset.replay = clip.impact === null ? "airtime" : "crash";
+    let status = clip.impact === null ? "Airtime replay" : "Crash replay";
+    if (
+      clip.outcome === "stopped" &&
+      playback.tick >= clip.end - CRASH_HOLD_TICKS
+    )
+      status = "Car stopped";
+    else if (clip.impact !== null && playback.tick < clip.impact)
+      status = "Before impact";
+    else if (playback.tick === clip.end && clip.outcome !== "stopped")
+      status = "Recovery";
+    if (status !== hud.replayStatus.textContent)
+      hud.replayStatus.textContent = status;
+    hud.emojiFocus.hidden = true;
+    hud.airtime.hidden = true;
+    carMesh.position.set(...V(pose.x, pose.y, pose.z));
+    carMesh.quaternion.fromArray(pose.q);
+    carMesh.userData.brakeMaterial.color.setHex(0x661018);
+    for (const wheel of carMesh.userData.wheels) wheel.pivot.rotation.y = 0;
+    const tiles = [...loaded.values()].map((e) => e.tile);
+    const ground = solo
+      ? soloHeight
+      : (x, y) => groundAtWorld(tiles, x, y, true);
+    const view = driveCameraPose(
+      state.view === "overhead" ? "overhead" : "zoomed",
+      pose,
+      pose.z,
+      ground,
+    );
+    camera.position.set(...V(...view.position));
+    camera.up.set(...V(...view.up));
+    camera.lookAt(...V(...view.look));
+    renderView(view, pose);
+    if (playback.tick >= clip.end) finishPlayback(now);
+  }
+
+  function renderView(view, subject = car) {
+    const hx = Math.cos(subject.heading),
+      hy = Math.sin(subject.heading);
     const W = renderer.domElement.width;
     const H = renderer.domElement.height;
     const pr = renderer.getPixelRatio();
@@ -1683,7 +1946,7 @@ export async function startDrive({
     renderer.setViewport(0, 0, W / pr, H / pr);
     carMesh.visible = !view.hideCar;
     if (carMesh.visible)
-      reveal.update(camera, carMesh.position, car.heading, W, H, pr);
+      reveal.update(camera, carMesh.position, subject.heading, W, H, pr);
     else reveal.disable();
     let drawSkyline = false;
     if (
@@ -1801,6 +2064,7 @@ export async function startDrive({
             heading: 0,
           },
           heightAt: soloHeight,
+          pose: (source) => capturePose(source, soloHeight, soloPitch(source)),
         });
       }
       accountSolo(
@@ -1814,6 +2078,7 @@ export async function startDrive({
         car.grounded
       ) {
         endSoloRun(soloRun);
+        showReplayLibrary();
         releaseInputs();
         hud.menu.showModal();
         hud.menuBtn.setAttribute("aria-expanded", "true");
@@ -2120,8 +2385,7 @@ export async function startDrive({
     hud.records.textContent = best
       .map((r, i) => `${i + 1}. ${formatTime(r.seconds)}`)
       .join("   ");
-    if (crash)
-      hud.status.textContent = `Hit a ${crash.kind} · reset in ${crashRemaining(crash).toFixed(1)} s`;
+    if (crash) hud.status.textContent = `Hit a ${crash.kind} · recovering`;
     else if (performance.now() > messageUntil)
       hud.status.textContent =
         trial.status === "ready"
@@ -2137,12 +2401,15 @@ export async function startDrive({
     insuranceAt = now;
     const dt = Math.min(0.05, wallDt);
     last = now;
+    if (playback) {
+      replayFrame(wallDt, now);
+      return;
+    }
     if (solo) {
       soloFrame(dt, now);
       return;
     }
-    if (crash && crashRemaining(crash) === 0 && now >= crashUntil)
-      respawn(true);
+    if (crash && now >= crashUntil) respawn(true);
     hud.respawnBtn.disabled = !!crash;
     let input = drivingInput(state.keys, state.touch);
     if (
@@ -2207,14 +2474,7 @@ export async function startDrive({
     }
     let blocked = false;
     let waitingForRoad = false;
-    if (crash && crashRemaining(crash) > 0) {
-      accumulator += dt;
-      while (accumulator >= 1 / 120 && crashRemaining(crash) > 0) {
-        accumulator -= 1 / 120;
-        stepCrash(crash, crashSupport, indexes, crashRails);
-      }
-      car = crashCar(crash, car);
-    } else if (grounded && !crash && now >= crashUntil) {
+    if (grounded && !crash && now >= crashUntil) {
       if (
         resumeRecovery &&
         car.grounded &&
@@ -2240,6 +2500,7 @@ export async function startDrive({
           ((surface ? !car.v : trial.status === "ready") && input.throttle === 0
             ? { ...input, brake: true }
             : input);
+        leadIn.push(capturePose(car, surface?.heightAt || terrainHeight));
         let candidate;
         if (car.leavingRoad) {
           candidate = fallFromRoad(car, 1 / 120, (x, y) =>
@@ -2345,6 +2606,11 @@ export async function startDrive({
             deckAt: surface?.kind === "ground" ? null : surface?.heightAt,
             impact,
             tiles,
+            pose: (source) =>
+              capturePose(
+                source,
+                roadSurfaces.get(source.surfaceId)?.heightAt || terrainHeight,
+              ),
           });
         }
         if (impact) {
@@ -2367,8 +2633,11 @@ export async function startDrive({
             contactHeight,
             now,
             crashSupport,
+            indexes,
           );
-          break;
+          // Freeze the live state while the recorded trajectory is shown.
+          if (!roadDrive) advanceTrial(trial, wallDt, car, false, false);
+          return;
         }
         car = hit ? scrapeObstacle(candidate, hit) : candidate;
         if (hit) announce(`Scraped a ${hit.kind}`, 1);
@@ -2593,8 +2862,7 @@ export async function startDrive({
         : next
           ? `${next.names.join(" · ")} in ${Math.round(next.distance / 10) * 10} m`
           : "";
-      if (crash)
-        hud.next.textContent = `Crash · reset in ${crashRemaining(crash).toFixed(1)} s`;
+      if (crash) hud.next.textContent = "Crash · recovering";
       else if (trial.status === "finished")
         hud.next.textContent = `Finished! ${trial.crashes} crashes`;
       else if (completedCityDrive)
@@ -2687,6 +2955,20 @@ export async function startDrive({
         });
     }
   }
-  if (!solo) stream();
+  const pendingReplay = params.get("replay");
+  if (pendingReplay) {
+    const { crashes, airtimes } = library.read();
+    const clip = [...crashes, ...airtimes].find(
+      (row) => row.id === pendingReplay && row.mode === replayMode(),
+    );
+    params.delete("replay");
+    history.replaceState(
+      null,
+      "",
+      params.size ? `?${params}` : location.pathname,
+    );
+    if (clip) startPlayback(clip, false);
+  }
+  if (!solo && !playback) stream();
   requestAnimationFrame(frame);
 }

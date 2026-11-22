@@ -41,7 +41,7 @@ a scrollable modal starting with a three-stop camera slider, followed by startin
 the full minimap, compressed download sizes, records and help. Map sources is last. Opening it releases held
 controls and keeps keyboard driving inactive until it closes. The trial clock continues.
 Desktop layouts also show City coverage in the bottom right during play.
-Crash countdown and completion messages stay visible in the status strip.
+Crash replay controls and completion messages stay visible during play.
 
 The closed-menu mobile layout targets less than 25% of the viewport for visible UI,
 including the control groups and the in-car mirror. Count the bounding rectangles of the
@@ -87,8 +87,7 @@ Building roof-face outlines (including courtyard holes) and tree trunks have col
 checks in 32 m spatial buckets. An oriented rectangle covers the car body and bumpers;
 the velocity into the contact normal distinguishes a glancing scrape from a hard strike.
 A scrape sheds speed across the wall and preserves motion along it. The tyres gradually
-catch the slide. A hard strike disconnects steering, throttle and braking for two seconds
-of simulation. Momentum carries the chassis through follow-up contacts with walls, trunks,
+catch the slide. A hard strike disconnects steering, throttle and braking during the crash replay. Momentum carries the chassis through follow-up contacts with walls, trunks,
 rails and the ground. A square hit can rebound, a corner strike can yaw, and a hard
 landing on one side can roll the car. In flight, the chassis keeps its take-off pitch
 and bank. Each ground contact takes its slope from the road or terrain it touches. The camera holds its approach direction during
@@ -96,7 +95,20 @@ recovery and shows the chassis from outside if the driver was in the cabin.
 
 The trial clock continues and pickups pause until the car returns to its last clear
 intersection, or the nearest clear loaded intersection if the checkpoint has streamed out.
-The road drives retain their route recovery. R / Reset car cannot skip a crash.
+The road drives retain their route recovery. **Skip replay** or Escape goes straight
+to recovery. The automatic clip starts two simulation seconds before impact when that
+much driving is available. It holds the final view for two seconds after ground contact,
+linear speed and angular speed confirm rest. A fall out of the supported world or
+a wreck still moving after 15 simulation seconds ends the clip at the recovery limit.
+
+**Data:** **Saved replays** in the menu keeps the last eight crashes and eight longest
+completed airtime clips in this browser. Older airtime records retain their scores.
+Archive playback leaves the live drive paused. A clip from a different drive or practice
+course opens its matching scene in another tab. City replays use the map tiles in that
+browser's offline cache or available over the network. The clip stores quantised position
+and quaternion keyframes chosen from 120 Hz simulation states. Playback interpolates
+between keys and keeps the impact boundary and stationary hold explicit, so it does not
+re-run contacts against the currently loaded map.
 Inputs are released on impact, recovery and lost focus. The contact dimensions,
 friction, restitution and thresholds are gameplay approximations. Kerbs and tree crowns
 do not trigger city crashes.
@@ -321,7 +333,7 @@ interrupted, try again and the game will reuse saved tiles. Return to the same o
 in the same browser to play offline. The browser can evict cached data.
 An uncached area needs a connection before the game can load its tiles. Emoji
 collections and the trial checkpoint are saved per start and district in local
-storage. **Best airtimes** lists the three longest landed jumps across starts.
+storage. **Saved replays** plays the eight longest landed jumps across starts.
 
 ## What it shows
 

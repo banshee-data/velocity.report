@@ -7,7 +7,6 @@ import { drivingHull, obstacleContact } from "../sf-chassis-contact.js";
 import {
   beginCrash,
   crashCar,
-  crashRemaining,
   hardLanding,
   scrapeObstacle,
   seriousImpact,
@@ -137,23 +136,13 @@ test("one side can strike a raised bank first and roll past vertical, mirrored w
   assert.ok(Math.abs(left.maxLateralTilt) > 0.5);
 });
 
-test("recovery clock advances once per passive tick; controls and render batching cannot change the trajectory", () => {
+test("controls and render batching cannot change the passive trajectory", () => {
   const result = simulate({ ...car, steering: -1 }, trunk(0.7), flat, 30).body;
   for (const hz of [60, 120]) {
     const other = simulate({ ...car, steering: 1 }, trunk(0.7), flat, hz).body;
     assert.deepEqual(other.position, result.position);
     assert.deepEqual(other.rotation, result.rotation);
   }
-  const body = beginCrash(car, "fall", null, () => null);
-  for (let i = 0; i < 239; i++) stepCrash(body, () => null);
-  near(crashRemaining(body), dt);
-  near(body.velocity.x, car.v);
-  near(body.velocity.z, -9.81 * 239 * dt);
-  stepCrash(body, () => null);
-  const end = crashCar(body, car);
-  stepCrash(body, () => null);
-  assert.deepEqual(crashCar(body, car), end);
-  assert.equal(crashRemaining(body), 0);
 });
 
 test("overlapping horizontal footprints are separated by height; a descending roof contact points upwards", () => {
@@ -266,4 +255,37 @@ test("a hard touchdown resolves the first crossed deck during handoff and cannot
   near(crashCar(body, before).z, 20, 0.002);
   near(body.rotation.w, 1);
   assert.equal(hardLanding({ ...before, z: 18 }, before, support), null);
+});
+
+test("settling requires sustained supported rest and falling ends with a separate outcome", () => {
+  const stopped = beginCrash({ ...car, v: 0 }, "tree", null, flat);
+  for (let i = 0; i < 29; i++) stepCrash(stopped, supportOn(flat));
+  assert.equal(stopped.outcome, null);
+  stepCrash(stopped, supportOn(flat));
+  assert.equal(stopped.outcome, "stopped");
+  assert.equal(stopped.velocity.length(), 0);
+  assert.equal(stopped.momentum.length(), 0);
+  const end = crashCar(stopped, car);
+  stepCrash(stopped, supportOn(flat));
+  assert.deepEqual(crashCar(stopped, car), end);
+
+  const moving = beginCrash(car, "tree", null, flat);
+  for (let i = 0; i < 240; i++) stepCrash(moving, supportOn(flat));
+  assert.equal(
+    moving.outcome,
+    null,
+    "a moving chassis continues beyond the old two-second limit",
+  );
+
+  const falling = beginCrash(
+    { ...car, v: 0, grounded: false, vx: 0, vy: 0, vz: 0 },
+    "fall",
+    null,
+    flat,
+  );
+  for (let i = 0; i < 29; i++) stepCrash(falling, () => null);
+  assert.equal(falling.restTicks, 0);
+  for (let i = 0; i < 600 && !falling.outcome; i++)
+    stepCrash(falling, () => null);
+  assert.equal(falling.outcome, "lost ground");
 });

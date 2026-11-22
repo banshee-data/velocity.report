@@ -29,6 +29,7 @@ function sfDownloadAssets(root = __dirname) {
       "sf-building-walls.js",
       "sf-airtime.js",
       "sf-progress.js",
+      "sf-replay.js",
       "sf-solo.js",
       "sf-survey-replay.js",
       "scene-colours.js",
