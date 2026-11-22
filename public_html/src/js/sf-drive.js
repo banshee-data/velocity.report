@@ -31,6 +31,7 @@ import {
   intersectionsForTile,
   nearestRoad,
   questSeeker,
+  nearestQuestTarget,
   tileAt,
   groundAtWorld,
   nextCrossing,
@@ -793,7 +794,10 @@ export async function startDrive({
   } catch (e) {
     console.warn("District trials unavailable", e);
   }
-  let activeDistrict = null;
+  const activeDistrict =
+    !params.has("city") && !params.has("region")
+      ? districts.find((d) => d.id === params.get("district"))
+      : null;
   const C = {
     sky: col("--sky"),
     land: col("--land"),
@@ -1050,6 +1054,7 @@ export async function startDrive({
   const start =
     (at && at === gameDrive?.exitStart?.id ? gameDrive.exitStart : null) ||
     gameDrive?.start ||
+    activeDistrict?.start ||
     places.find((p) => p.id === at) ||
     reviewStart ||
     places[0];
@@ -1124,8 +1129,6 @@ export async function startDrive({
   );
   let solo = false;
   let soloRun = createSoloRun();
-  let cityCar = null;
-  let cityPauseAt = 0;
   let soloHudAt = 0;
   const practice = new THREE.Group();
   practice.visible = false;
@@ -1171,9 +1174,11 @@ export async function startDrive({
     marker.position.set(...V(x, 0, soloHeight(x) + 0.02));
     practice.add(marker);
   }
-  let trial = createTrial(route.targets);
+  let trial = createTrial(activeDistrict?.targets || route.targets);
   let selectedStart = start;
-  let cityStart = start;
+  let emojiTarget = null;
+  let emojiLocked = false;
+  const emojiScreen = new THREE.Vector3();
   let checkpoint = null;
   let crash = null;
   let crashUntil = 0;
@@ -1211,7 +1216,7 @@ export async function startDrive({
     const active = isRoadReview(selectedStart);
     document.body.dataset.bridge = String(active);
     hud.followCityDrive.hidden = !gameDrive?.spans.has(selectedStart.surfaceId);
-    hud.restartBtn.textContent = active ? "Restart drive" : "New trial";
+    hud.restartBtn.hidden = !active;
     if (active) {
       hud.timer.textContent = gameDrive
         ? "Game route"
@@ -1469,13 +1474,18 @@ export async function startDrive({
   const setView = (view) => {
     state.view = view;
     camInit = false;
-    hud.viewMode.value = view;
+    clearEmojiFocus();
+    const index = DRIVE_VIEWS.indexOf(view);
+    const name = ["Zoomed out", "Overhead", "In car"][index];
+    hud.viewMode.value = index;
+    hud.viewMode.setAttribute("aria-valuetext", name);
+    hud.cameraName.value = name;
     hud.mirrorBtn.hidden = view !== "incar";
     hud.mirrorFrame.hidden = view !== "incar" || !state.mirror;
     canvas.dataset.view = view;
     canvas.setAttribute(
       "aria-label",
-      `${hud.viewMode.selectedOptions[0].textContent} 3D view of ${solo ? "the authored practice course" : "San Francisco"}`,
+      `${name} 3D view of ${solo ? "the authored practice course" : "San Francisco"}`,
     );
   };
   const toggleView = () =>
@@ -1483,6 +1493,7 @@ export async function startDrive({
       DRIVE_VIEWS[(DRIVE_VIEWS.indexOf(state.view) + 1) % DRIVE_VIEWS.length],
     );
   const reset = (p = selectedStart, keepAirtime = false) => {
+    clearEmojiFocus();
     car = startingCar(p);
     grounded = false;
     camInit = false;
@@ -1595,11 +1606,13 @@ export async function startDrive({
     toggleMirror();
     releaseFocus(e);
   });
-  hud.viewMode.addEventListener("change", () => {
-    setView(hud.viewMode.value);
-    hud.viewMode.blur();
+  hud.viewMode.addEventListener("input", () => {
+    setView(DRIVE_VIEWS[hud.viewMode.valueAsNumber]);
   });
-  hud.menuBtn.addEventListener("click", releaseInputs);
+  hud.menuBtn.addEventListener("click", () => {
+    releaseInputs();
+    clearEmojiFocus();
+  });
   hud.followCityDrive.addEventListener("click", () => {
     followCityDrive = !followCityDrive;
     hud.followCityDrive.textContent = followCityDrive
@@ -1616,9 +1629,14 @@ export async function startDrive({
     releaseFocus(e);
   });
   hud.places.replaceChildren(
-    ...startChoices.map((p) => new Option(p.name, p.id)),
+    ...(activeDistrict ? [activeDistrict.start] : startChoices).map(
+      (p) => new Option(p.name, p.id),
+    ),
   );
   hud.places.value = start.id;
+  hud.places.disabled = !!activeDistrict;
+  if (activeDistrict)
+    hud.trialTitle.textContent = `${activeDistrict.name} emoji rally`;
   hud.places.addEventListener("change", () => {
     const p = startChoices.find((q) => q.id === hud.places.value);
     if (p) {
@@ -1634,41 +1652,11 @@ export async function startDrive({
         return;
       }
       if (gameDrive) params.set("city", "bay-bridge");
-      cityStart = p;
       newTrial(p);
       if (overlayUrl) params.set("overlay", overlayUrl);
       history.replaceState(null, "", `?${params}`);
     }
     hud.places.blur();
-  });
-  hud.trialArea.replaceChildren(
-    new Option("Whole city", "city"),
-    ...districts.map((d) => new Option(d.name, d.id)),
-  );
-  if (!districts.length) {
-    const unavailable = new Option(
-      "District runs unavailable for this map",
-      "unavailable",
-    );
-    unavailable.disabled = true;
-    hud.trialArea.add(unavailable);
-  }
-  hud.trialArea.addEventListener("change", () => {
-    activeDistrict =
-      districts.find((d) => d.id === hud.trialArea.value) || null;
-    hud.places.disabled = !!activeDistrict;
-    hud.places.replaceChildren(
-      ...(activeDistrict ? [activeDistrict.start] : startChoices).map(
-        (p) => new Option(p.name, p.id),
-      ),
-    );
-    const p = activeDistrict?.start || cityStart;
-    hud.places.value = p.id;
-    hud.trialTitle.textContent = activeDistrict
-      ? `${activeDistrict.name} emoji rally`
-      : "San Francisco emoji rally";
-    newTrial(p);
-    hud.trialArea.blur();
   });
   drivingPad = bindDrivingPad(hud.touchButtons, (input) => {
     state.touch = input;
@@ -1686,40 +1674,60 @@ export async function startDrive({
     camInit = false;
     hud.soloSummary.textContent = soloSummary(soloRun);
   }
-  hud.gameMode.addEventListener("change", () => {
-    releaseInputs();
-    airtime.reset();
-    solo = hud.gameMode.value === "solo";
-    document.body.dataset.solo = String(solo);
-    practice.visible = solo;
-    roadMeshes.visible = !solo;
-    if (solo) {
-      surveyReplay.update(null, 0);
-      cityCar = { car, carZ, grounded };
-      cityPauseAt = performance.now();
-      restartSolo();
-    } else {
-      endSoloRun(soloRun, "aborted");
-      ({ car, carZ, grounded } = cityCar);
-      if (trial.status === "running")
-        trial.elapsed += (performance.now() - cityPauseAt) / 1000;
-      for (const e of loaded.values()) e.grp.visible = true;
-      accumulator = 0;
-      camInit = false;
-      updateBridgeMode();
-    }
-    if (solo) hud.restartBtn.textContent = "New solo run";
-    hud.respawnBtn.textContent = solo ? "Restart solo route" : "Reset car";
-    hud.respawnBtn.disabled = false;
-    hud.mirrorFrame.hidden = state.view !== "incar" || !state.mirror;
+  function enterSolo() {
+    solo = true;
+    document.body.dataset.solo = "true";
+    practice.visible = true;
+    roadMeshes.visible = false;
+    surveyReplay.update(null, 0);
+    restartSolo();
+    hud.restartBtn.hidden = true;
+    hud.respawnBtn.textContent = "Restart solo route";
     hud.timer.setAttribute(
       "aria-label",
-      solo ? "Elapsed simulation time, no time reward" : "Elapsed trial time",
+      "Elapsed simulation time, no time reward",
     );
-    setView(state.view);
-    soloHudAt = 0;
-    hud.gameMode.blur();
+  }
+
+  function clearEmojiFocus() {
+    emojiLocked = false;
+    hud.emojiFocus.setAttribute("aria-pressed", "false");
+  }
+  hud.emojiFocus.addEventListener("click", (event) => {
+    if (
+      !emojiTarget ||
+      state.keys.size ||
+      state.touch.throttle ||
+      state.touch.steer ||
+      state.touch.brake
+    )
+      return;
+    emojiLocked = !emojiLocked;
+    hud.emojiFocus.setAttribute("aria-pressed", String(emojiLocked));
+    releaseFocus(event);
   });
+  function drawEmojiFocus(marker) {
+    const button = hud.emojiFocus;
+    button.hidden = !marker;
+    if (!marker) return;
+    camera.updateMatrixWorld();
+    emojiScreen.copy(marker.userData.sprite.position).project(camera);
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    const x = ((emojiScreen.x + 1) * width) / 2;
+    const y = ((1 - emojiScreen.y) * height) / 2;
+    // Keep the button clear of the status bar, safe-area edges and driving pads.
+    const visible =
+      emojiScreen.z >= -1 &&
+      emojiScreen.z <= 1 &&
+      x >= 32 &&
+      x <= width - 32 &&
+      y >= 105 &&
+      y <= height - 100;
+    button.toggleAttribute("data-offscreen", !visible);
+    button.style.left = `${visible ? x : width / 2}px`;
+    button.style.top = `${visible ? y : height / 2}px`;
+  }
   function renderView(view) {
     const hx = Math.cos(car.heading),
       hy = Math.sin(car.heading);
@@ -1926,6 +1934,7 @@ export async function startDrive({
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   let cameraRoll = 0;
   let camInit = false;
+  if (params.get("mode") === "solo") enterSolo();
   setView(state.view);
   let roadAt = 0,
     road = null;
@@ -2169,7 +2178,9 @@ export async function startDrive({
       respawn(true);
     hud.respawnBtn.disabled = !!crash;
     const input = drivingInput(state.keys, state.touch);
-    if (followCityDrive && (input.throttle || input.steer || input.brake)) {
+    const driving = input.throttle || input.steer || input.brake;
+    if (emojiLocked && (driving || crash || hud.menu.open)) clearEmojiFocus();
+    if (followCityDrive && driving) {
       followCityDrive = false;
       hud.followCityDrive.textContent = "Follow the route";
     }
@@ -2393,12 +2404,28 @@ export async function startDrive({
       hud.timer.textContent = formatTime(trial.elapsed);
       drawSeeker();
     }
+    const nearest =
+      roadDrive || crash || !grounded ? null : nearestQuestTarget(trial, car);
+    const nextEmoji = nearest && loaded.get(nearest.t)?.marker ? nearest : null;
+    if (nextEmoji !== emojiTarget) {
+      emojiTarget = nextEmoji;
+      clearEmojiFocus();
+      if (emojiTarget) {
+        hud.emojiFocus.textContent = emojiTarget.emoji;
+        hud.emojiFocus.setAttribute(
+          "aria-label",
+          `Centre emoji at ${emojiTarget.names.join(" and ")}`,
+        );
+      }
+    }
+    const emojiMarker = emojiTarget ? loaded.get(emojiTarget.t).marker : null;
     for (const [t, e] of loaded)
       if (e.marker) {
         e.marker.visible =
           !roadDrive &&
           trial.targets.some((target) => target.t === t) &&
           !trial.collected.has(t);
+        e.marker.userData.sprite.visible = e.marker !== emojiMarker;
         e.marker.userData.sprite.position.y =
           e.marker.userData.baseZ + Math.sin(now / 450) * 0.4;
       }
@@ -2473,7 +2500,12 @@ export async function startDrive({
     }
     camera.position.copy(camPos);
     camera.up.set(...V(...view.up));
-    camera.lookAt(camLook);
+    camera.lookAt(
+      emojiLocked && emojiMarker
+        ? emojiMarker.userData.sprite.position
+        : camLook,
+    );
+    drawEmojiFocus(emojiMarker);
 
     renderView(view);
     airtime.draw(now);
@@ -2568,6 +2600,6 @@ export async function startDrive({
         });
     }
   }
-  stream();
+  if (!solo) stream();
   requestAnimationFrame(frame);
 }

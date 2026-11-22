@@ -280,15 +280,10 @@ const { chromium } = require("playwright");
       assert.deepEqual(errors, []);
       return;
     }
-    await page.goto(
-      `${process.env.SF_BASE_URL || "http://localhost:8090"}/sf/`,
-    );
+    await page.goto(`${host}/sf/?mode=solo`);
     await page.waitForFunction(
-      () => document.querySelector("#trialArea").options.length > 0,
+      () => document.querySelector("#drive").dataset.soloStatus === "ready",
     );
-    await page.locator("#menuBtn").click();
-    await page.locator("#gameMode").selectOption("solo");
-    await page.getByRole("button", { name: "Close settings" }).click();
     await page.keyboard.down("ArrowUp");
     try {
       await page.waitForFunction(

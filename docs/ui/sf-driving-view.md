@@ -37,8 +37,8 @@ The speed numeral is 26 px with a smaller mph unit. Below the strip, the compass
 in the left quarter and the in-car mirror sits at the top centre.
 Steer left/right with the left thumb and brake/accelerate with the right. Keep holding
 the brake to reverse after stopping. Both pedals together hold the brake. Map & game opens
-a scrollable modal containing camera choices, trial area, starting place, reset/new trial,
-the full minimap, compressed download sizes, records and help. Opening it releases held
+a scrollable modal starting with a three-stop camera slider, followed by starting place, reset,
+the full minimap, compressed download sizes, records and help. Map sources is last. Opening it releases held
 controls and keeps keyboard driving inactive until it closes. The trial clock continues.
 Desktop layouts also show City coverage in the bottom right during play.
 Crash countdown and completion messages stay visible in the status strip.
@@ -109,7 +109,14 @@ a quest also seek the next target, and a completed rally clears the target arrow
 The dial uses an explicit turn instruction such as
 Straight ahead, Bear left, Turn right or Turn around.
 
-The Time trial selector supports Whole city and optional district-only runs. District runs
+The nearest uncollected emoji with a loaded marker has a gold button drawn above the
+scene, including in front of intervening buildings. A dashed outline indicates the
+marker is outside the playable view. Click, tap or activate the button with the keyboard
+to centre the camera on the emoji. Activate it again or use a driving control to return
+to the normal camera. A camera change, opening the menu, reset, crash or a change of
+target ends the lock. Steering and tile loading still follow the car.
+
+The whole city is the default. Open `/sf/?district=<id>` to load an optional district-only run. District runs
 appear when the map includes authoritative district boundaries and quest membership; they
 are unavailable in the current map. The frontend includes selection, a fixed district start,
 filtered beacons/seeker/completion, a boundary overlay and separate best times. See the
@@ -119,8 +126,7 @@ The car holds its brake before the first driving input, which starts the clock. 
 recovery, loading and background time. Collected emojis survive respawns and tile unloading.
 Completing the fixed target set stops the clock and saves the five fastest personal times
 on this device, separately for each starting place, map manifest and driving tune. The GTI
-tune starts a fresh set of times. Earlier records stay in browser storage. New trial or choosing
-a different starting place resets the entire run; Reset car keeps the clock running.
+tune starts a fresh set of times. Earlier records stay in browser storage. Choosing a starting place or reloading the page resets the entire run; Reset car keeps the clock running.
 There is no shared leaderboard. When browser storage is unavailable, records last for the session.
 
 `public_html/src/sf/quest-route.json` is a small gameplay index alongside the unchanged

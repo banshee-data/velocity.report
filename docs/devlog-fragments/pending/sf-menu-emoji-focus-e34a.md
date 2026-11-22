@@ -1,0 +1,1 @@
+- Put the camera slider first and Map sources last in the SF driving menu, and gave the nearest emoji a tappable through-building cue that centres the camera until the driver resumes control.
