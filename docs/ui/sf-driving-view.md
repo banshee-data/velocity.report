@@ -280,6 +280,12 @@ Delivery drives begin in **Self-driving**. Driving input opens a confirmation fo
 and transfers control with neutral inputs. Release any held control and press again
 to drive or brake. The meter charges 0.12¢ per second ($0.0012/s), with a half rate of
 0.06¢ per second. **Resume self-driving** stops the meter and preserves the spend.
+Manual driving on the delivery route can cross from the guide onto continuous street
+pavement. Verified ramp joins support reversing across the seam. The controller
+rejoins from nearby street pavement and can start again at rest. If the car is facing
+away, too far from its route, or blocked when trying to resume, the game announces a
+return to its last moving route checkpoint and continues from there. The delivery
+count and insurance spend carry through that recovery.
 Insurance lasts for the session. Saved trial checkpoints contain no insurance amounts. On the first visit to a survey, the driver
 earns either ten free seconds or twenty half-rate seconds. Credits count down during
 manual driving and free seconds are used first. The HUD tracks deliveries, spend and

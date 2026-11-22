@@ -80,6 +80,9 @@ import {
   applyCityDriveScenery,
   buildCityGameDrive,
   cityDriveControls,
+  cityDriveCanResume,
+  cityDriveOnRoute,
+  driveOnCityRoute,
   buildRaisedRoad,
 } from "./sf-city-road-drive.js";
 import {
@@ -87,7 +90,7 @@ import {
   driveOnRoadSurface,
   indexRoadContact,
 } from "./sf-road-contact.js";
-import { driveOnRoadNetwork, indexRoadNetwork } from "./sf-road-network.js";
+import { indexRoadNetwork } from "./sf-road-network.js";
 import { buildingWalls, validBuildingFace } from "./sf-building-walls.js";
 import { createAirtimeHud } from "./sf-airtime.js";
 import {
@@ -102,7 +105,6 @@ import {
   leaveRoadSide,
   roadBoundary,
   roadLandingAt,
-  strikeHighwayRail,
 } from "./sf-highway-edge.js";
 
 const css = (n) =>
@@ -968,6 +970,8 @@ export async function startDrive({
   let grounded = false;
   const loaded = new Map(); // token -> {tile, grp}
   let completedCityDrive = false;
+  let routeCheckpoint = null;
+  let resumeRecovery = false;
   const cityRoadOwners = new Set();
   const loading = new Set();
   let surveyTerrain = [];
@@ -1113,8 +1117,9 @@ export async function startDrive({
   }
   function updateDriveMode() {
     hud.followCityDrive.hidden = !gameDrive?.spans.has(selectedStart.surfaceId);
-    hud.followCityDrive.textContent =
-      insurance.mode === "automatic"
+    hud.followCityDrive.textContent = completedCityDrive
+      ? "Restart self-driving"
+      : insurance.mode === "automatic"
         ? "Take manual control"
         : "Resume self-driving";
     hud.insuranceMode.textContent =
@@ -1372,6 +1377,8 @@ export async function startDrive({
     accumulator = 0;
     crash = null;
     completedCityDrive = false;
+    resumeRecovery = false;
+    routeCheckpoint = null;
     airtime.reset(keepAirtime);
     updateBridgeMode();
     releaseInputs();
@@ -1389,6 +1396,17 @@ export async function startDrive({
       return z !== null && !collisionAt(indexes, p, z);
     });
   }
+  function recoverCityDrive() {
+    const saved = routeCheckpoint;
+    reset(selectedStart, true);
+    if (saved) car = { ...saved.car };
+    announce(
+      saved
+        ? "Self-driving resumed from the last route checkpoint"
+        : "Self-driving resumed from the route start",
+      6,
+    );
+  }
   function respawn(afterCrash = false) {
     if (solo) {
       restartSolo();
@@ -1397,6 +1415,10 @@ export async function startDrive({
     if (crash && !afterCrash) return;
     const kind = crash?.kind;
     if (isRoadReview(selectedStart)) {
+      if (afterCrash && resumeRecovery) {
+        recoverCityDrive();
+        return;
+      }
       reset(selectedStart, afterCrash);
       crashUntil = performance.now() + (afterCrash ? 0 : 750);
       announce("Back at the start of this surface");
@@ -1507,18 +1529,24 @@ export async function startDrive({
       releaseInputs();
       insuranceAt = performance.now();
       insurance.mode = "manual";
+      resumeRecovery = false;
       updateDriveMode();
     }
     hud.takeover.close(decision || "cancel");
     if (decision === "manual") canvas.focus({ preventScroll: true });
   });
   hud.followCityDrive.addEventListener("click", () => {
-    if (insurance.mode === "automatic") requestTakeover();
+    if (completedCityDrive) {
+      newTrial(selectedStart, true);
+      hud.menu.close();
+    } else if (insurance.mode === "automatic") requestTakeover();
     else {
       insurance.mode = "automatic";
+      resumeRecovery = true;
       releaseInputs();
       updateDriveMode();
       hud.menu.close();
+      canvas.focus({ preventScroll: true });
     }
   });
   hud.restartBtn.addEventListener("click", (e) => {
@@ -2165,6 +2193,14 @@ export async function startDrive({
     let blocked = false;
     let waitingForRoad = false;
     if (grounded && !crash && now >= crashUntil) {
+      if (
+        resumeRecovery &&
+        car.grounded &&
+        !cityDriveCanResume(gameDrive, car)
+      ) {
+        recoverCityDrive();
+        return;
+      }
       accumulator += dt;
       while (accumulator >= 1 / 120) {
         accumulator -= 1 / 120;
@@ -2172,8 +2208,10 @@ export async function startDrive({
           insurance.mode === "automatic" && gameDrive
             ? cityDriveControls(gameDrive, car)
             : null;
-        if (assisted?.finished) {
+        if (assisted?.finished && !completedCityDrive) {
           completedCityDrive = true;
+          resumeRecovery = false;
+          updateDriveMode();
         }
         const controls =
           assisted ||
@@ -2194,29 +2232,24 @@ export async function startDrive({
             }),
             1.35,
           );
+        } else if (network) {
+          candidate = driveOnCityRoute(
+            car,
+            controls,
+            1 / 120,
+            surface,
+            roadSurfaces,
+            network,
+            insurance.mode === "manual" || resumeRecovery
+              ? terrainHeight
+              : undefined,
+          );
         } else {
-          candidate =
-            strikeHighwayRail(car, controls, 1 / 120, surface) ||
-            (network
-              ? driveOnRoadNetwork(
-                  car,
-                  controls,
-                  1 / 120,
-                  surface,
-                  roadSurfaces,
-                  network,
-                  () => false,
-                )
-              : driveOnRoadSurface(car, controls, 1 / 120, surface));
+          candidate = driveOnRoadSurface(car, controls, 1 / 120, surface);
+          if (candidate.blocked && surface.kind !== "ground")
+            candidate =
+              leaveRoadSide(car, controls, 1 / 120, surface) || candidate;
         }
-        if (
-          surface &&
-          surface.kind !== "ground" &&
-          candidate.blocked &&
-          !candidate.waiting
-        )
-          candidate =
-            leaveRoadSide(car, controls, 1 / 120, surface) || candidate;
         const owner = tileAt(manifest.tiles, candidate.x, candidate.y);
         if (!loaded.has(owner.t) && car.grounded === false) {
           waitingForRoad = true;
@@ -2227,6 +2260,10 @@ export async function startDrive({
         if (candidate.blocked || !loaded.has(owner.t)) {
           blocked = true;
           waitingForRoad = !!candidate.waiting || !loaded.has(owner.t);
+          if (resumeRecovery && !waitingForRoad && !completedCityDrive) {
+            recoverCityDrive();
+            return;
+          }
           // A streaming pause holds the last supported pose and momentum.
           // Only a confirmed end of support stops the car.
           if (!waitingForRoad)
@@ -2271,6 +2308,14 @@ export async function startDrive({
         }
         car = candidate;
         surface = roadSurfaces.get(car.surfaceId);
+        if (
+          assisted &&
+          !completedCityDrive &&
+          car.v > 2 &&
+          (!routeCheckpoint || now - routeCheckpoint.at >= 3000) &&
+          cityDriveOnRoute(surface, car)
+        )
+          routeCheckpoint = { car: { ...car }, at: now };
         if (candidate.edgeContact) {
           announce(
             candidate.edgeContact === "bounce"
@@ -2537,6 +2582,7 @@ export async function startDrive({
       canvas.dataset.roadWait = String(waitingForRoad);
       canvas.dataset.speedMps = car.v.toFixed(3);
       canvas.dataset.heading = car.heading.toFixed(4);
+      canvas.dataset.roadBlocked = String(blocked && !waitingForRoad);
       canvas.dataset.east = car.x.toFixed(3);
       canvas.dataset.north = car.y.toFixed(3);
     }

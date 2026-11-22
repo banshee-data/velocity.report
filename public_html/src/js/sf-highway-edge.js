@@ -85,7 +85,6 @@ function roadStation(profile, x, y) {
         hx,
         hy,
         distance,
-        station: a.s_m + ((b.s_m - a.s_m) * along) / length,
       };
   }
   return nearest;
@@ -289,12 +288,7 @@ export function leaveRoadSide(car, input, dt, surface) {
   if (!surface.boundary?.length) return null;
   const next = roadMotion(car, input, dt, surface.heightAt);
   const station = roadStation(surface.profile, next.x, next.y);
-  if (
-    !station ||
-    station.station < surface.profile[0].s_m + sideClearance ||
-    station.station > surface.profile.at(-1).s_m - sideClearance
-  )
-    return null;
+  if (!station) return null;
   const hx = Math.cos(next.heading);
   const hy = Math.sin(next.heading);
   const z = surface.heightAt(next.x, next.y);

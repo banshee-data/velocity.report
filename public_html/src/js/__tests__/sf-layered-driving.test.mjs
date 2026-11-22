@@ -9,6 +9,9 @@ import {
   BAY_BRIDGE_CITY_DRIVE,
   buildCityGameDrive,
   cityDriveControls,
+  cityDriveCanResume,
+  cityDriveOnRoute,
+  driveOnCityRoute,
 } from "../sf-city-road-drive.js";
 import { CAR_HALF_LENGTH, contactStep } from "../sf-drive-core.js";
 import {
@@ -166,6 +169,93 @@ test("the city drive crosses from a deck to street terrain and rejoins the highw
       .map(({ id }) => id),
     ["fourth-street-entrance"],
   );
+});
+
+test("manual pavement can leave the guide, brake to rest, and self-driving rejoins without a reset", () => {
+  const ground = () => 2;
+  const section = (id, kind, start) => ({
+    id,
+    kind,
+    width_m: 7,
+    sources: [],
+    positions: Array.from({ length: 26 }, (_, i) => [start + 2 * i, 0, 2]),
+  });
+  const drive = buildCityGameDrive(
+    { sections: [section("street", "ground", 0), section("ramp", "ramp", 50)] },
+    ground,
+  );
+  const network = indexRoadNetwork(drive.topology.transitions);
+  network.add(drive.topology);
+  const surfaces = new Map(drive.surfaces.map((s) => [s.id, s]));
+  const step = (car, input, pavement) =>
+    driveOnCityRoute(
+      car,
+      input,
+      1 / 120,
+      surfaces.get(car.surfaceId),
+      surfaces,
+      network,
+      pavement,
+    );
+  let car = {
+    x: 12,
+    y: 2.5,
+    heading: 0.35,
+    z: 2,
+    v: 7,
+    grounded: true,
+    surfaceId: "street",
+  };
+  assert.equal(
+    step(car, {}, undefined).blocked,
+    true,
+    "the old guide contact rejects an otherwise open street",
+  );
+  for (let i = 0; i < 100; i++) {
+    car = step(car, {}, ground);
+    assert.equal(car.blocked, false);
+  }
+  assert.ok(car.y > 4 && car.v > 6);
+  for (let i = 0; i < 120; i++) car = step(car, { brake: true }, ground);
+  assert.equal(car.v, 0);
+  assert.equal(cityDriveOnRoute(surfaces.get(car.surfaceId), car), false);
+  assert.ok(cityDriveCanResume(drive, car));
+  assert.equal(cityDriveCanResume(drive, { ...car, y: 30 }), false);
+  assert.equal(cityDriveCanResume(drive, { ...car, heading: Math.PI }), false);
+  const parked = { ...car };
+  let joined = false;
+  for (let i = 0; i < 480; i++) {
+    const next = step(car, cityDriveControls(drive, car), ground);
+    assert.ok(!next.blocked && next.grounded && next.z === 2);
+    assert.ok(
+      Math.hypot(next.x - car.x, next.y - car.y) < 0.3,
+      "physical movement only",
+    );
+    car = next;
+    if (cityDriveOnRoute(surfaces.get(car.surfaceId), car)) {
+      joined = true;
+      break;
+    }
+  }
+  assert.ok(joined && car.v > 0 && car.x > parked.x);
+  const backwards = {
+    x: 50.2,
+    y: 0,
+    z: 2,
+    v: 0,
+    heading: 0,
+    grounded: true,
+    surfaceId: "ramp",
+  };
+  let reversing = backwards;
+  for (let i = 0; i < 120 && reversing.surfaceId === "ramp"; i++)
+    reversing = step(reversing, { throttle: -1 }, ground);
+  assert.equal(
+    reversing.surfaceId,
+    "street",
+    "manual reverse traverses the verified seam",
+  );
+  assert.ok(reversing.x < 50 && reversing.v < 0);
 });
 
 test("the city drive adjusts only the specified scenery records in its pinned base", () => {
@@ -503,6 +593,11 @@ test("open sides release contact, but missing contact and road end caps stay blo
   const falling = leaveRoadSide(car, { throttle: 1 }, dt, surface);
   assert.equal(falling.leavingRoad, true);
   assert.equal(falling.z, 10);
+  assert.equal(
+    leaveRoadSide({ ...car, x: 2 }, {}, dt, surface).leavingRoad,
+    true,
+    "unrailed side beside a join is open",
+  );
   assert.ok(falling.y > 3);
   assert.equal(
     leaveRoadSide(
