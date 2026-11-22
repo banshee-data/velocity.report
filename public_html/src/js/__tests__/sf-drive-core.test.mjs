@@ -55,6 +55,22 @@ test("carStep accelerates, brakes to rest and turns with steer", () => {
   assert.equal(car.v, 0);
 });
 
+test("keyboard steering builds and releases steering rate smoothly", () => {
+  const neutral = { x: 0, y: 0, heading: 0, v: 0 };
+  const dt = 1 / 120;
+  const first = carStep(neutral, { steer: 1 }, dt);
+  assert.ok(first.steering > 0 && first.steering < 0.005);
+  assert.ok(first.steeringRate > 0);
+  let car = neutral;
+  for (let tick = 0; tick < 20; tick++) car = carStep(car, { steer: 1 }, dt);
+  const released = carStep(car, {}, dt);
+  assert.ok(released.steeringRate > 0);
+  assert.ok(released.steeringRate < car.steeringRate);
+  car = released;
+  for (let tick = 0; tick < 120; tick++) car = carStep(car, {}, dt);
+  assert.ok(Math.abs(car.steering) < 0.001);
+});
+
 test("carStep never exceeds its speed limits", () => {
   let car = { x: 0, y: 0, heading: 0, v: 0 };
   for (let i = 0; i < 3000; i++)

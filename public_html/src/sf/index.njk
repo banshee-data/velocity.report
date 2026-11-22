@@ -128,11 +128,13 @@ eleventyExcludeFromCollections: true
   body:not([data-solo="true"]) #soloDetails { display: none; }
   #soloTrace { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
   body[data-bridge="true"] .seeker, body[data-bridge="true"] .details { display: none; }
-  .airtime { position: fixed; right: 12px; bottom: 12px; width: min(280px, 64vw); padding: 7px 9px; pointer-events: none; }
-  .airtime canvas { display: block; width: 100%; height: auto; }
+  .airtime { position: fixed; right: 12px; bottom: 12px; width: min(280px, 64vw); max-height: calc(100dvh - 76px); pointer-events: none; }
+  .airtime:not([hidden]) { display: flex; flex-direction: column; gap: 4px; }
+  .airtime-card { display: flex; flex-direction: column; padding: 7px 9px; min-height: 0; }
+  .airtime canvas { display: block; width: 100%; height: auto; min-height: 0; object-fit: contain; }
   body:has(.airtime:not([hidden])) #desktopMap { display: none; }
   @media (pointer: coarse), (max-width: 760px) {
-    .airtime { right: 8px; bottom: 82px; }
+    .airtime { right: 8px; bottom: 82px; max-height: calc(100dvh - 150px); }
   }
 </style>
 </head>
@@ -175,10 +177,13 @@ eleventyExcludeFromCollections: true
   <a id="surveyLink" target="_blank" rel="noopener" aria-label="View survey (opens in a new tab)">View survey <span aria-hidden="true">→</span></a>
 </aside>
 <canvas class="panel" id="desktopMap" role="img" aria-label="City coverage showing the coastline, parks, major roads, S2 tiles and your car."></canvas>
-<section class="panel airtime" id="airtime" aria-label="Airtime and road elevation" hidden>
-  <strong id="airtimeReadout"></strong>
-  <canvas id="airtimePlot" width="520" height="208" aria-label="Road centreline elevation, flight path and current car altitude"></canvas>
-</section>
+<section class="airtime" id="airtime" aria-label="Airtime and road elevation" hidden></section>
+<template id="airtimeCard">
+  <article class="panel airtime-card">
+    <strong class="airtime-readout"></strong>
+    <canvas width="520" height="208" aria-label="Road elevation, dashed terrain profile and car altitude"></canvas>
+  </article>
+</template>
 <dialog class="panel" id="gameMenu" aria-labelledby="menuTitle">
   <div class="menu-heading">
     <h1 id="menuTitle">Map &amp; game</h1>
@@ -198,7 +203,17 @@ eleventyExcludeFromCollections: true
     <select id="trialArea" aria-label="Time trial area"></select>
     <label for="places">Start from</label>
     <select id="places"></select>
-    <a href="?at=bay-bridge-deck" id="bridgeLink" hidden>Drive the Bay Bridge approach</a>
+    <a href="?region=embarcadero-bryant" id="regionalLink" hidden>Open regional road review</a>
+    <a href="?city=layers" id="cityLayersLink" hidden>Explore city road layers</a>
+    <p class="detail" id="cityStatus" role="status" hidden></p>
+    <button type="button" id="followCityDrive" hidden>Follow the route</button>
+    <div id="regionalReview" class="tools" hidden>
+      <label for="roadRegion">Road review region</label>
+      <select id="roadRegion"></select>
+      <label for="roadReviewDrive">Published review drive</label>
+      <select id="roadReviewDrive"></select>
+      <p class="detail" id="roadReviewStatus" role="status"></p>
+    </div>
     <div class="row">
       <button type="button" id="restartBtn">New trial</button>
       <button type="button" id="respawnBtn">Reset car</button>
@@ -209,7 +224,7 @@ eleventyExcludeFromCollections: true
     <form id="sourceForm" class="tools" aria-label="Map sources">
       <label for="tileServer">SF tile directory or manifest URL</label>
       <input type="text" id="tileServer" inputmode="url" placeholder="Bundled SF tiles" spellcheck="false" autocomplete="off">
-      <label for="gerardusServer">Gerardus address or overlay manifest URL</label>
+      <label for="gerardusServer">Gerardus server or road manifest URL</label>
       <input type="text" id="gerardusServer" inputmode="url" placeholder="Optional road surfaces" spellcheck="false" autocomplete="off">
       <p class="detail">Use a compatible planar SF tile pack. Leave the fields blank for the bundled map.</p>
       <button type="submit">Apply map sources</button>
@@ -280,7 +295,11 @@ eleventyExcludeFromCollections: true
       seekerCompass: $("seekerCompass"), seekerScope: $("seekerScope"), seekerDistance: $("seekerDistance"), seekerHeading: $("seekerHeading"),
       seekerTurn: $("seekerTurn"), trialArea: $("trialArea"), trialTitle: $("trialTitle"),
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
-      bridgeLink: $("bridgeLink"), airtime: $("airtime"), airtimeReadout: $("airtimeReadout"), airtimePlot: $("airtimePlot"),
+      airtime: $("airtime"), airtimeCard: $("airtimeCard"),
+      regionalLink: $("regionalLink"), regionalReview: $("regionalReview"), roadRegion: $("roadRegion"),
+      cityLayersLink: $("cityLayersLink"),
+      cityStatus: $("cityStatus"), followCityDrive: $("followCityDrive"),
+      roadReviewDrive: $("roadReviewDrive"), roadReviewStatus: $("roadReviewStatus"),
       touchButtons: document.querySelectorAll(".pad button"),
       survey: {
         approach: $("surveyApproach"), approachTitle: $("surveyApproachTitle"), approachDistance: $("surveyApproachDistance"),

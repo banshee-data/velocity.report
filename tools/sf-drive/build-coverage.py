@@ -22,7 +22,10 @@ def outline(file, projection, extent, min_area):
     ]
     clipped = union_all(polygons).intersection(extent).simplify(16)
     return [
-        [[[round(x), round(y)] for x, y in r.coords] for r in [p.exterior, *p.interiors]]
+        [
+            [[round(x), round(y)] for x, y in r.coords]
+            for r in [p.exterior, *p.interiors]
+        ]
         for p in get_parts(clipped)
         if p.geom_type == "Polygon" and p.area >= min_area
     ]
@@ -37,9 +40,13 @@ def major_streets(tiles_dir, tiles):
         for _, road_class, _, xy, _ in data["r"]:
             # The Gerardus city view also uses DataSF classes 1–3 at L10.
             if road_class in (1, 2, 3) and len(xy) >= 4:
-                lines.append([(ox + x / 10, oy + y / 10) for x, y in zip(xy[::2], xy[1::2])])
+                lines.append(
+                    [(ox + x / 10, oy + y / 10) for x, y in zip(xy[::2], xy[1::2])]
+                )
     simplified = line_merge(MultiLineString(lines)).simplify(12)
-    return [[[round(x), round(y)] for x, y in l.coords] for l in get_parts(simplified)]
+    return [
+        [[round(x), round(y)] for x, y in part.coords] for part in get_parts(simplified)
+    ]
 
 
 def main():
@@ -78,10 +85,14 @@ def main():
         "parks": outline(args.parks, local_project, extent, 5000),
         "arterials": major_streets(sf / "tiles", manifest["tiles"]),
     }
-    cell_rows = ",\n".join(f"    {json.dumps(k)}: {json.dumps(v)}" for k, v in cells.items())
+    cell_rows = ",\n".join(
+        f"    {json.dumps(k)}: {json.dumps(v)}" for k, v in cells.items()
+    )
     layer_rows = []
     for name, features in layers.items():
-        rows = ",\n".join(f"    {json.dumps(f, separators=(',', ':'))}" for f in features)
+        rows = ",\n".join(
+            f"    {json.dumps(f, separators=(',', ':'))}" for f in features
+        )
         layer_rows.append(f'  "{name}": [\n{rows}\n  ]')
     (sf / "coverage.json").write_text(
         '{\n  "cells": {\n' + cell_rows + "\n  },\n" + ",\n".join(layer_rows) + "\n}\n"

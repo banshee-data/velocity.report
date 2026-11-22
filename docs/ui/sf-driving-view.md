@@ -256,9 +256,25 @@ Observed callback maxima were 5.8 ms for texture paint, 0.7 ms for mesh replacem
 8.4 ms for adding/sending a source. These headless measurements are not mobile-device
 frame-rate guarantees; physical-device validation remains outstanding.
 
-All current roads still share one ground surface at a horizontal position. Proper bridge
-decks, overpasses and tunnels need separate supported surfaces and connectivity. See the
-[current-tile capabilities and Gerardus handoff](../plans/ui-sf-layered-roads-plan.md).
+The ordinary city game uses one ground surface at a horizontal position. On Hydra,
+**Map & game → Open regional road review** opens the separate road surfaces and confirmed
+connections published by Gerardus. See the
+[regional review controls and scope](../plans/ui-sf-layered-roads-plan.md#regional-review-in-the-game).
+
+In **Map & game**, **Explore city road layers** draws Arrow's provisional elevated
+profiles as the map loads. With compatible Gerardus layers available, the game opens
+at **Bay Bridge approach** at 50 mph. Use **Start from** to return to the approach or
+choose a stationary start at Fremont Street exit or a city intersection. The westbound
+route crosses the bridge, takes the Fremont exit and rejoins I-80 from Fourth Street.
+Both Fourth Street entrance rails deflect the car and slow it down on contact.
+Drive with the usual controls or choose **Follow the route**. Map sources accepts a
+Gerardus server or a version-2 city road manifest URL. See the
+[citywide bake and game route](../plans/ui-sf-layered-roads-plan.md#citywide-bake-and-bay-bridge-game-route)
+for the supported extent and authored connections.
+
+The westbound bridge view loads the waterfront skyline before the car starts
+across the span. As the car approaches San Francisco, the local city tiles take
+over and restore the usual draw distance.
 
 ## What it shows
 
@@ -300,7 +316,8 @@ and drops tiles more than 1.6 km past their edge.
   See the [Bay Bridge driving pilot](../plans/ui-sf-layered-roads-plan.md#driving-the-bounded-pilot).
 - The city car can leave the road when its momentum carries it over a crest. In flight it
   keeps horizontal momentum and falls under gravity until it meets supported ground.
-  The airtime panel follows the takeoff road's centreline and shows altitude through touchdown.
+  Airtime cards show the road profile, dashed terrain where the road profile ends, and the
+  car's altitude. Each completed card stays for two seconds, and overlapping cards stack.
   The vehicle uses point support as a gameplay approximation.
 - Roof shapes come from the April 2023 lidar and the City's 2010 outlines; buildings changed since are
   shown as the lidar saw them, or not at all.

@@ -10,7 +10,11 @@ export function* contactTriangles(contact) {
       support.some((value) => value !== "observed" && value !== "interpolated")
     )
       continue;
-    yield { vertices, interpolated: support.includes("interpolated") };
+    yield {
+      indices: triangle,
+      vertices,
+      interpolated: support.includes("interpolated"),
+    };
   }
 }
 
@@ -137,15 +141,19 @@ export function bayBridgeStarts(surfaces) {
   });
 }
 
-export function driveOnRoadSurface(car, input, dt, surface) {
-  const { heightAt } = surface;
+export function roadMotion(car, input, dt, heightAt) {
   const h = Math.cos(car.heading) * 1.35,
     n = Math.sin(car.heading) * 1.35;
   const front = heightAt(car.x + h, car.y + n),
     rear = heightAt(car.x - h, car.y - n);
-  const next = carStep(car, input, dt, {
+  return carStep(car, input, dt, {
     slope: front !== null && rear !== null ? (front - rear) / 2.7 : 0,
   });
+}
+
+export function driveOnRoadSurface(car, input, dt, surface) {
+  const { heightAt } = surface;
+  const next = roadMotion(car, input, dt, heightAt);
   const z = heightAt(next.x, next.y);
   if (z === null || !roadSupportsCar(heightAt, next))
     return { ...car, blocked: true };
@@ -156,4 +164,27 @@ export function driveOnRoadSurface(car, input, dt, surface) {
     grounded: true,
     blocked: false,
   };
+}
+
+// Use the existing city pavement where this verified street contact agrees
+// with it. Keep other levels and unrelated gaps out of the hand-off.
+export function driveOnStreetContact(car, input, dt, surface, terrainHeight) {
+  const base = terrainHeight(car.x, car.y);
+  const height = surface.heightAt(car.x, car.y);
+  const tolerance = 0.45;
+  if (base === null || height === null || Math.abs(base - height) > tolerance)
+    return driveOnRoadSurface(car, input, dt, surface);
+  const next = driveOnRoadSurface(car, input, dt, {
+    heightAt(x, y) {
+      const z = surface.heightAt(x, y);
+      if (z !== null) return z;
+      const pavement = terrainHeight(x, y);
+      return pavement !== null && Math.abs(pavement - height) <= tolerance
+        ? pavement
+        : null;
+    },
+  });
+  if (!next.blocked && surface.heightAt(next.x, next.y) === null)
+    next.surfaceId = undefined;
+  return next;
 }

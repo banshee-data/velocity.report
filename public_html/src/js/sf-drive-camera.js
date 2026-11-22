@@ -25,7 +25,14 @@ export function incarRoll(previous, lateralAcceleration, dt) {
   return previous + (target - previous) * (1 - Math.exp(-dt / 0.16));
 }
 
-export function driveCameraPose(view, car, z, ground = () => z, roll = 0) {
+export function driveCameraPose(
+  view,
+  car,
+  z,
+  ground = () => z,
+  roll = 0,
+  skylineLift = 0,
+) {
   const hx = Math.cos(car.heading),
     hy = Math.sin(car.heading);
   if (view === "overhead") {
@@ -61,7 +68,7 @@ export function driveCameraPose(view, car, z, ground = () => z, roll = 0) {
     y = car.y - hy * 34;
   return {
     position: [x, y, Math.max(ground(x, y) ?? z, z) + 26],
-    look: [car.x + hx * 14, car.y + hy * 14, z + 1.4],
+    look: [car.x + hx * 14, car.y + hy * 14, z + 1.4 + skylineLift],
     up: [0, 0, 1],
     attached: false,
     hideCar: false,
