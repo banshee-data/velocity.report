@@ -158,6 +158,7 @@ const { chromium } = require("playwright");
               p.left >= meter.x + meter.width ||
               p.top >= meter.y + meter.height,
           ),
+          JSON.stringify({ meter, pads }),
         );
       }
       const coast = await snapshot();

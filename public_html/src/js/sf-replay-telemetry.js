@@ -67,11 +67,14 @@ export function replayTelemetry(poses, impact = null, inbound = null) {
     if (approach) {
       const delta = v.map((value, i) => (value - approach[i]) * REPLAY_HZ);
       const decel = (Math.hypot(...approach) - speed) * REPLAY_HZ;
-      const baseline = lastAcceleration ?? [0, 0, 0];
-      const jerk =
-        Math.hypot(...delta.map((value, i) => value - baseline[i])) * REPLAY_HZ;
+      const baseline = lastAcceleration ?? (tick === impact ? [0, 0, 0] : null);
       bin[1] = Math.max(bin[1], Math.round(decel));
-      bin[2] = Math.max(bin[2], Math.round(jerk));
+      if (baseline) {
+        const jerk =
+          Math.hypot(...delta.map((value, i) => value - baseline[i])) *
+          REPLAY_HZ;
+        bin[2] = Math.max(bin[2], Math.round(jerk));
+      }
       lastAcceleration = delta;
     }
     previous = v;

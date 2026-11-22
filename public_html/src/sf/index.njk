@@ -26,6 +26,9 @@ eleventyExcludeFromCollections: true
     --map-park: #39725eaa; --map-arterial: #b2a594a6;
     --hud-bottom: max(12px, env(safe-area-inset-bottom, 0px));
     --pad-size: 56px;
+    --pad-gap: 8px;
+    --steering-inset: max(12px, env(safe-area-inset-left, 0px));
+    --pedal-inset: max(12px, env(safe-area-inset-right, 0px));
     --sans: "Geist", system-ui, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, monospace;
   }
@@ -46,7 +49,7 @@ eleventyExcludeFromCollections: true
   .speed small { font-size: 10px; font-weight: 600; }
   .run { text-align: right; white-space: nowrap; font-size: 10px; color: var(--muted); }
   .timer { display: block; color: var(--ink); font: 700 14px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
-  .insurance { position: fixed; bottom: var(--hud-bottom); left: 50%; transform: translateX(-50%); width: min(220px, calc(100vw - 230px)); box-sizing: border-box; padding: 5px 8px; font-size: 11px; text-align: center; color: var(--muted); pointer-events: none; }
+  .insurance { position: fixed; bottom: var(--hud-bottom); left: 50%; transform: translateX(-50%); width: min(220px, calc(100vw - 4 * var(--pad-size) - 2 * var(--pad-gap) - 2 * max(var(--steering-inset), var(--pedal-inset)) - 12px)); box-sizing: border-box; padding: 5px 8px; font-size: 11px; text-align: center; color: var(--muted); pointer-events: none; }
   .insurance[data-mode="automatic"] { border-color: #c4b5fd; }
   .insurance[data-mode="manual"] { border-color: #fdba74; }
   .insurance-head { color: var(--ink); }
@@ -94,9 +97,9 @@ eleventyExcludeFromCollections: true
     .seeker { left: auto; right: max(8px, env(safe-area-inset-right, 0px)); }
   }
   .mirror { position: fixed; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: 50%; transform: translateX(-50%); width: min(220px, calc(25vw - 8px)); aspect-ratio: 3.2; border: 2px solid #111; border-radius: 8px; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
-  .pad { position: fixed; bottom: var(--hud-bottom); display: none; gap: 8px; }
-  .steering { left: max(12px, env(safe-area-inset-left, 0px)); }
-  .pedals { right: max(12px, env(safe-area-inset-right, 0px)); }
+  .pad { position: fixed; bottom: var(--hud-bottom); display: none; gap: var(--pad-gap); }
+  .steering { left: var(--steering-inset); }
+  .pedals { right: var(--pedal-inset); }
   .pad, .pad button { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   .pad button { width: var(--pad-size); height: var(--pad-size); padding: 0; font-size: 28px; font-weight: 750; -webkit-tap-highlight-color: transparent; box-shadow: 0 2px 12px #0003; }
   .pedals [data-act="up"] { border-color: var(--accent); }
@@ -137,12 +140,11 @@ eleventyExcludeFromCollections: true
   kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; }
   @media (pointer: coarse), (max-width: 760px) { .pad { display: flex; } }
   @media (max-height: 600px) {
-    :root { --pad-size: 48px; }
+    :root { --pad-size: 48px; --pad-gap: 6px; }
     .seeker { width: min(76px, calc(25vw - 8px)); height: 128px; padding: 3px 2px; gap: 3px; }
     #seekerCompass { width: 56px; height: 56px; }
     #seekerDistance { font-size: 11px; }
     #seekerTurn { font-size: 10px; }
-    .pad { gap: 6px; }
     .pad button { font-size: 25px; }
   }
   body[data-solo="true"] .seeker, body[data-solo="true"] .map,

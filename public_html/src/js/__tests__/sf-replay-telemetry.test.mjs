@@ -44,6 +44,11 @@ test("a one-tick tree impact remains visible in aggregated deceleration and jerk
     [45, 0, 407294],
   ]);
   assert.equal(replayTelemetry([{}]), null);
+  assert.deepEqual(
+    replayTelemetry([0, 1, 2].map((value) => ({ velocity: [value, 0, 0] }))),
+    [[4, 0, 0]],
+    "the first measured acceleration has no earlier sample for comparison",
+  );
 });
 
 test("crash labels locate the impact and airtime labels locate the take-off", () => {
