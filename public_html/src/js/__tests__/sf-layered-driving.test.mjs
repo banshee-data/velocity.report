@@ -851,23 +851,37 @@ test("airtime trace remains ordered and completed cards expire independently", (
   assert.equal(timeline.visible(3700).length, 0);
 });
 
-test("an impact on the landing frame ends the trace without saving a record", () => {
+test("an impact on the landing frame saves the full flight exactly once", () => {
   const records = [];
   const timeline = createFlightTimeline((record) => records.push(record));
   const start = { x: 0, y: 0, z: 0, v: 20, heading: 0, grounded: true };
   const flying = { ...start, x: 8, z: 4, grounded: false };
   const landed = { ...start, x: 18 };
   const env = { heightAt: () => 0 };
-  timeline.step(start, flying, 0.4, 400, env);
-  timeline.step(flying, landed, 0.5, 900, { ...env, impact: "ground" });
-  const [impact] = timeline.visible(900);
+  timeline.step(start, flying, 1.4, 1400, env);
+  timeline.step(flying, landed, 1.5, 2900, { ...env, impact: "ground" });
+  const [impact] = timeline.visible(2900);
   assert.equal(impact.label, "Impact");
   assert.deepEqual(impact.trace.at(-1), { s: 18, z: 0 });
-  assert.deepEqual(records, []);
+  assert.deepEqual(records, [{ seconds: 2.9, peak: 4, ending: "impact" }]);
+  timeline.finish(2900, "Impact");
+  assert.equal(records.length, 1);
 
-  timeline.step(start, flying, 0.4, 1400, env);
-  timeline.step(flying, landed, 0.5, 1900, env);
-  assert.deepEqual(records, [{ seconds: 0.9, peak: 4 }]);
+  timeline.step(start, flying, 0.4, 3400, env);
+  timeline.step(flying, landed, 0.5, 3900, env);
+  assert.deepEqual(records[1], { seconds: 0.9, peak: 4 });
+
+  timeline.step(start, flying, 1.4, 5400, env);
+  timeline.step(flying, { ...flying, z: -31 }, 1.5, 6900, {
+    ...env,
+    impact: "fall",
+  });
+  assert.equal(timeline.visible(6900)[0].label, "Out of map");
+  assert.equal(
+    records.length,
+    2,
+    "loss of map support does not complete a flight",
+  );
 });
 
 test("reveal shader uses a car-relative rear plane for trees and walls", () => {

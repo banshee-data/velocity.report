@@ -1,0 +1,1 @@
+- Saved SF airtime replays and scores when flights ended on a hard impact. The finished flight stayed in the airtime list with an impact label alongside its separate crash replay.

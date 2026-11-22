@@ -92,8 +92,21 @@ function replay(
       env = null;
       continue;
     }
-    assert.equal(card.label, car.roadImpact ? "Impact" : "Touchdown");
-    assert.equal(records.length, car.roadImpact ? 0 : 1);
+    const ending =
+      car.roadImpact === "fall"
+        ? "Out of map"
+        : car.roadImpact
+          ? "Impact"
+          : "Touchdown";
+    assert.equal(card.label, ending);
+    assert.equal(records.length, ending === "Out of map" ? 0 : 1);
+    if (records.length) {
+      assert.equal(records[0].seconds, card.seconds);
+      assert.equal(
+        records[0].ending,
+        ending === "Impact" ? "impact" : undefined,
+      );
+    }
     assert.equal(timeline.visible(now + 1999)[0], card);
     assert.equal(timeline.visible(now + 2000).length, 0);
     assert.ok(

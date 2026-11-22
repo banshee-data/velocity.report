@@ -103,7 +103,9 @@ linear speed and angular speed confirm rest. A fall out of the supported world o
 a wreck still moving after 15 simulation seconds ends the clip at the recovery limit.
 
 **Data:** **Saved replays** in the menu keeps the last eight crashes and eight longest
-completed airtime clips in this browser. Older airtime records retain their scores.
+completed airtime clips in this browser. A flight that ends in a crash still
+counts and is labelled **Impact ending**. A fall out of the map lacks a
+completed flight. Older airtime records retain their scores.
 Archive playback leaves the live drive paused. A clip from a different drive or practice
 course opens its matching scene in another tab. City replays use the map tiles in that
 browser's offline cache or available over the network. The clip stores quantised position
@@ -116,7 +118,7 @@ do not trigger city crashes.
 The car waits at a missing ground surface or an unloaded tile boundary.
 
 Replays use 0.99× speed, with 0.5× from 300 ms before to 300 ms after a crash
-impact. The stationary hold takes two real seconds. The replay and library locate
+impact. An airtime replay ending at impact slows over its last 300 ms. The stationary hold takes two real seconds. The replay and library locate
 a crash by its impact and a jump by its take-off, using the nearest city emoji
 and the compass bearing and distance from the event to the emoji. The authored
 practice course uses its finish flag.
@@ -350,7 +352,7 @@ interrupted, try again and the game will reuse saved tiles. Return to the same o
 in the same browser to play offline. The browser can evict cached data.
 An uncached area needs a connection before the game can load its tiles. Emoji
 collections and the trial checkpoint are saved per start and district in local
-storage. **Saved replays** plays the eight longest landed jumps across starts.
+storage. **Saved replays** plays the eight longest completed flights across starts.
 
 ## What it shows
 

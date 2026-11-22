@@ -41,9 +41,10 @@ export function bestAirtimes(entries, landing) {
   if (landing) records.push(landing);
   return records
     .filter((record) => Number.isFinite(record?.seconds) && record.seconds > 0)
-    .map(({ seconds, peak }) => ({
+    .map(({ seconds, peak, ending }) => ({
       seconds,
       peak: Number.isFinite(peak) ? peak : 0,
+      ...(ending === "impact" ? { ending } : {}),
     }))
     .sort((a, b) => b.seconds - a.seconds || b.peak - a.peak)
     .slice(0, 3);

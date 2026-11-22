@@ -26,6 +26,10 @@ test("an impact slows from 300 ms before to 300 ms after, independent of render 
   assert.ok(Math.abs(bulk - tick) < 1e-8);
   assert.equal(advanceReplay({ impact: null, end: 360 }, 0, 1), 118.8);
   assert.equal(replayRate({ ...clip, impact: 10 }, 0), 0.5);
+  const hardLanding = { impact: null, end: 360, ending: "impact" };
+  assert.equal(replayRate(hardLanding, 323), 0.99);
+  assert.equal(replayRate(hardLanding, 324), 0.5);
+  assert.equal(advanceReplay(hardLanding, 324, 0.6), 360);
 });
 
 test("a one-tick tree impact remains visible in aggregated deceleration and jerk", () => {

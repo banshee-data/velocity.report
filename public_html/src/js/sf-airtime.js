@@ -116,19 +116,17 @@ export function createFlightTimeline(onLanding) {
     if (!keepCompleted) cards = [];
   }
   function finish(now, label = "Touchdown") {
-    if (!flight) return;
-    if (flight.peak >= minimumClearance) {
-      flight.label = label;
-      flight.until = now + holdMs;
-      cards.push(flight);
-      if (label === "Touchdown")
-        onLanding?.(
-          { seconds: flight.seconds, peak: flight.peak },
-          flight.poses,
-        );
-      delete flight.poses;
-    }
+    const completed = flight;
     flight = undefined;
+    if (!(completed?.peak >= minimumClearance)) return;
+    completed.label = label;
+    completed.until = now + holdMs;
+    cards.push(completed);
+    const { seconds, peak, poses } = completed;
+    delete completed.poses;
+    if (label === "Touchdown") onLanding?.({ seconds, peak }, poses);
+    if (label === "Impact")
+      onLanding?.({ seconds, peak, ending: "impact" }, poses);
   }
   function step(before, car, dt, now, environment) {
     if (car.grounded !== false && !flight) return;
@@ -164,7 +162,8 @@ export function createFlightTimeline(onLanding) {
       }
       flight.refreshedAt = now;
     }
-    if (environment.impact) finish(now, "Impact");
+    if (environment.impact)
+      finish(now, environment.impact === "fall" ? "Out of map" : "Impact");
     else if (car.grounded !== false) finish(now);
   }
   function visible(now) {

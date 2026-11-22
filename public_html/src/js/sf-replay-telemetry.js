@@ -4,13 +4,18 @@ const impactWindow = 0.3 * REPLAY_HZ;
 const binTicks = REPLAY_HZ / 10;
 const headings = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 
+function impactTick(clip) {
+  return clip.impact ?? (clip.ending === "impact" ? clip.end : null);
+}
+
 function playbackSegments(clip) {
   const hold =
     clip.outcome === "stopped" ? clip.end - CRASH_HOLD_TICKS : clip.end;
-  if (clip.impact === null) return [[clip.end, 0.99]];
+  const impact = impactTick(clip);
+  if (impact === null) return [[clip.end, 0.99]];
   return [
-    [Math.max(0, clip.impact - impactWindow), 0.99],
-    [Math.min(hold, clip.impact + impactWindow), 0.5],
+    [Math.max(0, impact - impactWindow), 0.99],
+    [Math.min(hold, impact + impactWindow), 0.5],
     [hold, 0.99],
     [clip.end, 1],
   ];
@@ -84,6 +89,7 @@ export function replayTelemetry(poses, impact = null, inbound = null) {
 
 export function replayCharts(panel, clip) {
   const charts = [...panel.querySelectorAll("canvas")];
+  const impact = impactTick(clip);
   const data = clip.telemetry;
   const available =
     Array.isArray(data) &&
@@ -129,9 +135,9 @@ export function replayCharts(panel, clip) {
         ctx.lineTo(x(Math.min(clip.end, (i + 1) * binTicks)), y);
       }
       ctx.stroke();
-      if (clip.impact !== null) {
+      if (impact !== null) {
         ctx.fillStyle = "#fb923c";
-        ctx.fillRect(x(clip.impact), 0, 1, h);
+        ctx.fillRect(x(impact), 0, 1, h);
       }
       ctx.fillStyle = "#fff";
       ctx.fillRect(x(tick), 0, 1, h);
