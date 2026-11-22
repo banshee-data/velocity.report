@@ -71,7 +71,7 @@ ${hook}`,
     await page.getByText("Saved replays", { exact: true }).click();
     await page
       .locator("#airtimeReplays")
-      .getByRole("button", { name: /Impact ending/ })
+      .getByRole("button", { name: /^Play .*Impact ending/ })
       .click();
     await page.locator('#drive[data-replay="airtime"]').waitFor();
     await page.getByText("Before take-off", { exact: true }).waitFor();
