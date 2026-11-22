@@ -267,14 +267,20 @@ The ordinary city game uses one ground surface at a horizontal position. On Hydr
 connections published by Gerardus. See the
 [regional review controls and scope](../plans/ui-sf-layered-roads-plan.md#regional-review-in-the-game).
 
-The default **SoMa survey deliveries** drive goes through 1st at Mission, 3rd at Folsom
-and Howard at 6th using the bundled street tiles. Each delivery is registered within
-40 m of the survey on the street level. Survey cylinders show the locations of all
+The default **Bay Bridge · SoMa survey deliveries** drive starts rolling at 50 mph on
+the west span, exits at Fremont Street, visits 1st at Mission, 3rd at Folsom and Howard
+at 6th in that order, then takes the Fourth Street entrance and ends on I-80. Its
+authored street itinerary preserves the bundled ramp joins. Each delivery requires
+grounded contact within 40 m horizontally and 2 m vertically of terrain sampled at
+the survey location. The street-only route remains available at `/sf/?city=soma`. Survey cylinders show the locations of all
 placed replay sites, even beyond the local tile draw distance.
 
 Delivery drives begin in **Self-driving**. Driving input opens a confirmation for
-**Meat mode**, which starts a clock at $0.12 per second in game. **Resume self-driving**
-stops the clock and preserves the spend. On the first visit to a survey, the driver
+**Meat mode** while the car continues in self-driving. Confirming preserves car motion
+and transfers control with neutral inputs. Release any held control and press again
+to drive or brake. The meter charges 0.12¢ per second ($0.0012/s), with a half rate of
+0.06¢ per second. **Resume self-driving** stops the meter and preserves the spend.
+Insurance lasts for the session. Saved trial checkpoints contain no insurance amounts. On the first visit to a survey, the driver
 earns either ten free seconds or twenty half-rate seconds. Credits count down during
 manual driving and free seconds are used first. The HUD tracks deliveries, spend and
 crash infractions. These rates are game tuning values.
@@ -291,7 +297,8 @@ The westbound bridge view loads the waterfront skyline before the car starts
 across the span. As the car approaches San Francisco, the local city tiles take
 over and restore the usual draw distance.
 
-The game loads its tiles and the bridge route from its own origin. On HTTPS and
+The last menu section, **Map Sources**, links to read-only map provenance. The game
+loads its tiles and the bridge route from its own origin. On HTTPS and
 localhost, a service worker stores the game shell and downloaded tiles in browser
 Cache Storage. Return to the same origin to keep playing offline in cached areas.
 An uncached area needs a connection before the game can load its tiles. Emoji

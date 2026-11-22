@@ -1,3 +1,5 @@
+export const BRIDGE_SURVEY_DRIVE = "bridge-survey-drive";
+export const BRIDGE_SURVEY_NAME = "Bay Bridge · SoMa survey deliveries";
 export const SOMA_SURVEY_DRIVE = "soma-survey-drive";
 export const SOMA_SURVEY_NAME = "SoMa survey deliveries";
 
@@ -22,7 +24,7 @@ const junctions = [
 const mix = (a, b, t) => a.map((value, i) => value + (b[i] - value) * t);
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
-export function somaSurveyDrive() {
+function roundedStreet(junctions) {
   const points = [];
   const append = (point) => {
     const previous = points.at(-1);
@@ -47,14 +49,21 @@ export function somaSurveyDrive() {
     }
   }
   append(junctions.at(-1));
+  return points;
+}
+
+const surveyScenery = {
+  80858084: { b: { 954: [62, 60, 1], 962: [71, 71, 1] } },
+};
+
+export function somaSurveyDrive() {
+  const points = roundedStreet(junctions);
   const seam = Math.floor(points.length / 2);
   return {
     id: SOMA_SURVEY_DRIVE,
     label: SOMA_SURVEY_NAME,
     // These inferred footprints span the carriageways by Fifth and Howard.
-    scene_exclusions: {
-      80858084: { b: { 954: [62, 60, 1], 962: [71, 71, 1] } },
-    },
+    scene_exclusions: surveyScenery,
     sections: [points.slice(0, seam + 1), points.slice(seam)].map(
       (line, i) => ({
         id: i ? "soma-west" : "soma-east",
@@ -65,6 +74,70 @@ export function somaSurveyDrive() {
         positions: line.map(([x, y]) => [x, y, 0]),
         sources: [],
       }),
+    ),
+  };
+}
+
+/** Authored street itinerary between the same verified Fremont and Fourth Street joins. */
+export function bridgeSurveyDrive(bridge) {
+  const street = bridge.sections.find(({ id }) => id === "city-streets");
+  // Find the validated straight approach stations by position, rather than
+  // by array index, so a changed bake cannot silently splice another block.
+  const station = (anchor) =>
+    street?.positions.findIndex((p) => distance(p, anchor) < 0.01) ?? -1;
+  const from = station([3972.2164, 3224.0635]);
+  const to = station([3893.087, 2643.4133]);
+  if (from < 1 || to <= from || to >= street.positions.length - 1)
+    throw new Error(
+      "Survey connectors require the supported Fremont and Fourth Street route.",
+    );
+  const points = roundedStreet([
+    street.positions[from].slice(0, 2),
+    [3814.4, 3382.2], // Fremont / Mission
+    [3541.0, 3109.8], // Mission past 1st to 2nd
+    [3813.7, 2836.5], // 2nd / Folsom
+    [3029.1, 2054.9], // Folsom past 3rd to 6th
+    [2892.8, 2191.6], // 6th / Howard
+    [3089.0, 2387.1], // Howard / 5th
+    [3225.0, 2250.3], // 5th / Folsom
+    [3813.7, 2836.5], // Folsom / 2nd
+    [3949.8, 2699.9], // 2nd / Harrison
+    street.positions[to].slice(0, 2),
+  ]).map(([x, y]) => [x, y, 0]);
+  // Separate outbound and return street spans so a crossing cannot select a later leg.
+  const split = points.findIndex(
+    ([x, y], i) => i > points.length / 2 && x < 2960 && y > 2140,
+  );
+  if (split < 1) throw new Error("Survey street handoff is missing.");
+  const first = [
+    ...street.positions.slice(0, from + 1),
+    ...points.slice(1, split + 1),
+  ];
+  const last = [...points.slice(split, -1), ...street.positions.slice(to)];
+  const streets = [first, last].map((positions, i) => ({
+    ...street,
+    id: i ? "survey-streets-return" : "survey-streets-outbound",
+    label: i ? "SoMa · back to Fourth Street" : "SoMa · survey deliveries",
+    speed_mps: 11.18,
+    sources: [],
+    positions,
+  }));
+  return {
+    ...bridge,
+    id: BRIDGE_SURVEY_DRIVE,
+    label: BRIDGE_SURVEY_NAME,
+    initial_speed_mps: 50 * 0.44704,
+    scene_exclusions: {
+      ...bridge.scene_exclusions,
+      80858084: {
+        b: {
+          ...bridge.scene_exclusions[80858084].b,
+          ...surveyScenery[80858084].b,
+        },
+      },
+    },
+    sections: bridge.sections.flatMap((span) =>
+      span === street ? streets : [span],
     ),
   };
 }

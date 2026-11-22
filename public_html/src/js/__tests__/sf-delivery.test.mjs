@@ -14,15 +14,18 @@ import {
   collisionAt,
   groundAtWorld,
   tileAt,
+  tilesAround,
 } from "../sf-drive-core.js";
 import {
   createInsurance,
   advanceInsurance,
   insuranceRate,
+  formatInsuranceCents,
   visitSurvey,
 } from "../sf-insurance.js";
+import { highwayRailSegments, strikeHighwayRail } from "../sf-highway-edge.js";
 import { driveOnRoadNetwork, indexRoadNetwork } from "../sf-road-network.js";
-import { somaSurveyDrive, SOMA_SURVEY_STOPS } from "../sf-soma-drive.js";
+import { bridgeSurveyDrive, SOMA_SURVEY_STOPS } from "../sf-soma-drive.js";
 
 test("insurance charges only manual time and accounts for both credit boundaries", () => {
   const run = createInsurance(true, ["a", "b"]);
@@ -30,6 +33,8 @@ test("insurance charges only manual time and accounts for both credit boundaries
   const a = { id: "a", x: 0, y: 0 };
   const b = { ...a, id: "b" };
   assert.equal(visitSurvey(run, a, { ...car, z: 16 }, 7, 0), null);
+  assert.equal(run.delivered, 0);
+  assert.equal(run.collected.size, 0);
   assert.equal(visitSurvey(run, a, { ...car, grounded: false }, 7, 0), null);
   assert.match(visitSurvey(run, a, car, 7, 0), /Free insurance/);
   assert.equal(visitSurvey(run, a, car, 7, 0), null);
@@ -41,73 +46,127 @@ test("insurance charges only manual time and accounts for both credit boundaries
   assert.equal(run.discount, 20);
   run.mode = "manual";
   advanceInsurance(run, 11);
-  assert.equal(insuranceRate(run), 0.06);
+  assert.equal(formatInsuranceCents(insuranceRate(run)), "0.06¢");
   assert.equal(run.spent, 0.06);
   advanceInsurance(run, 20);
-  assert.equal(insuranceRate(run), 0.12);
+  assert.equal(formatInsuranceCents(insuranceRate(run)), "0.12¢");
   assert.ok(Math.abs(run.spent - 1.32) < 1e-9);
+  assert.equal(formatInsuranceCents(run.spent), "1.32¢");
+  assert.equal(formatInsuranceCents(0), "0.00¢");
   run.mode = "automatic";
   advanceInsurance(run, 100);
   assert.equal(run.manualSeconds, 31);
   assert.equal(insuranceRate(run), 0);
 });
 
-test("the default SoMa route completes every named delivery on the bundled city tiles", async () => {
+test("the default Bay Bridge route completes every named delivery on the bundled city tiles", async () => {
   const files = new URL("../../sf/tiles/", import.meta.url);
   const manifest = JSON.parse(readFileSync(new URL("manifest.json", files)));
   const city = JSON.parse(
     readFileSync(new URL("../../city/sites.json", import.meta.url)),
   );
   const sites = sfSurveyData(await loadSurveys(), city, manifest);
-  const published = somaSurveyDrive();
+  const published = bridgeSurveyDrive(
+    JSON.parse(readFileSync(new URL("../gamedrives.json", files))).drives[0],
+  );
   const cached = new Map();
-  function tile(x, y) {
-    const token = tileAt(manifest.tiles, x, y).t;
+  function tile(token) {
     if (!cached.has(token)) {
       const world = JSON.parse(
         gunzipSync(readFileSync(new URL(`${token}.json.gz`, files))),
       );
-      applyCityDriveScenery(world, published.scene_exclusions[token]);
+      applyCityDriveScenery(world, published.scene_exclusions?.[token]);
       cached.set(token, { world, index: buildCollisionIndex(world) });
     }
     return cached.get(token);
   }
-  const height = (x, y) => groundAtWorld([tile(x, y).world], x, y, true);
+  const height = (x, y) =>
+    groundAtWorld([tile(tileAt(manifest.tiles, x, y).t).world], x, y, true);
   const drive = buildCityGameDrive(published, height);
   const graph = indexRoadNetwork(drive.topology.transitions);
   graph.add(drive.topology);
   const surfaces = new Map(
-    drive.surfaces.map((surface) => [surface.id, surface]),
+    drive.surfaces.map((surface) => [
+      surface.id,
+      { ...surface, railSegments: highwayRailSegments(surface) },
+    ]),
   );
   const run = createInsurance(true, SOMA_SURVEY_STOPS);
   let car = {
     ...drive.start,
-    v: 0,
+    v: drive.start.initialSpeed,
     grounded: true,
-    z: height(drive.start.x, drive.start.y),
+    z: surfaces
+      .get(drive.start.surfaceId)
+      .heightAt(drive.start.x, drive.start.y),
   };
+  const spans = [car.surfaceId];
+  const deliveries = [];
+  assert.ok(car.v >= 22);
   let finished = false;
-  for (let i = 0; i < 360 * 120; i++) {
+  let finishTick = 0;
+  let collisionIndexes = [];
+  const surveyHeights = new Map(
+    sites.map((site) => [site.id, height(site.x, site.y)]),
+  );
+  for (let i = 0; i < 600 * 120; i++) {
+    if (i % 25 === 0)
+      collisionIndexes = tilesAround(manifest.tiles, car.x, car.y, 50).want.map(
+        (token) => tile(token).index,
+      );
     const controls = cityDriveControls(drive, car);
     if (controls.finished) {
       finished = true;
+      finishTick = i;
       break;
     }
-    car = driveOnRoadNetwork(
-      car,
-      controls,
-      1 / 120,
-      surfaces.get(car.surfaceId),
-      surfaces,
-      graph,
-      () => false,
+    const surface = surfaces.get(car.surfaceId);
+    const nextCar =
+      strikeHighwayRail(car, controls, 1 / 120, surface) ||
+      driveOnRoadNetwork(
+        car,
+        controls,
+        1 / 120,
+        surface,
+        surfaces,
+        graph,
+        () => false,
+      );
+    if (nextCar.surfaceId !== car.surfaceId) spans.push(nextCar.surfaceId);
+    car = nextCar;
+    assert.ok(
+      car.grounded && !car.blocked && !car.roadImpact,
+      `Contact at ${car.surfaceId} ${car.x},${car.y} at tick ${i}`,
     );
-    assert.ok(car.grounded && !car.blocked);
-    assert.equal(collisionAt([tile(car.x, car.y).index], car, car.z), null);
-    const next = sites.find(({ id }) => run.stops[run.delivered] === id);
-    if (next) visitSurvey(run, next, car, car.z, sites.indexOf(next));
+    assert.equal(
+      collisionAt(collisionIndexes, car, car.z),
+      null,
+      `Collision at ${car.surfaceId} ${car.x},${car.y} at tick ${i}`,
+    );
+    for (const [index, site] of sites.entries()) {
+      const before = run.delivered;
+      visitSurvey(run, site, car, surveyHeights.get(site.id), index);
+      if (run.delivered > before) {
+        assert.equal(surfaces.get(car.surfaceId).kind, "ground");
+        deliveries.push(site.id);
+      }
+    }
   }
-  assert.ok(finished);
+  assert.ok(finished, JSON.stringify({ car, spans, deliveries }));
+  assert.deepEqual(spans, [
+    "bay-bridge-westbound",
+    "city-approach",
+    "fremont-exit",
+    "survey-streets-outbound",
+    "survey-streets-return",
+    "fourth-street-entrance",
+    "westbound-i80",
+  ]);
+  assert.deepEqual(deliveries, SOMA_SURVEY_STOPS);
   assert.equal(run.delivered, SOMA_SURVEY_STOPS.length);
   assert.equal(run.spent, 0);
+  assert.equal(surfaces.get(car.surfaceId).kind, "bridge_deck");
+  console.log(
+    `Bridge survey replay ${(finishTick / 120).toFixed(2)} s: ${deliveries.join(" → ")} → ${car.surfaceId}`,
+  );
 });
