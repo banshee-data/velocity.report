@@ -64,6 +64,7 @@ ${hook}`,
         await page.locator("#insuranceMode").textContent(),
         "Self-driving",
       );
+      return (await read()).spent;
     };
     const start = await page.evaluate(() => {
       window.streetFixture.place(false);
@@ -85,7 +86,7 @@ ${hook}`,
     const stopped = await read();
     assert.equal(stopped.onGuide, false);
     assert.equal(stopped.crash, false);
-    await resume();
+    const spendAtResume = await resume();
     await page.waitForFunction(() => {
       const car = window.streetFixture.read();
       return car.onGuide && car.speed > 2;
@@ -97,9 +98,8 @@ ${hook}`,
       Math.hypot(resumed.x - stopped.x, resumed.y - stopped.y) < 25,
       "nearby rejoin stays on the same street",
     );
-    assert.ok(
-      resumed.spent >= stopped.spent && resumed.spent - stopped.spent < 0.4,
-    );
+    assert.ok(spendAtResume >= stopped.spent);
+    assert.equal(resumed.spent, spendAtResume);
     console.log(
       "Street: manual coast crosses the guide edge, brakes to rest, and auto rejoins the same street",
     );
@@ -110,7 +110,7 @@ ${hook}`,
       return window.streetFixture.read();
     });
     assert.ok(stranded.checkpoint);
-    await resume();
+    const spendAtRecovery = await resume();
     await page
       .getByText("Self-driving resumed from the last route checkpoint", {
         exact: true,
@@ -125,10 +125,8 @@ ${hook}`,
     }, stranded.checkpoint);
     const recovered = await read();
     assert.equal(recovered.progress, stranded.progress);
-    assert.ok(
-      recovered.spent >= stranded.spent &&
-        recovered.spent - stranded.spent < 0.4,
-    );
+    assert.ok(spendAtRecovery >= stranded.spent);
+    assert.equal(recovered.spent, spendAtRecovery);
     assert.deepEqual(errors, []);
     console.log(
       "Stranded car: self-driving announces checkpoint recovery and moves with progress preserved",
