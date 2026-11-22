@@ -127,7 +127,7 @@ test("invalid saved frames are ignored and denied storage keeps the session play
   assert.equal(lib.read().airtimes[0].id, "ok");
 });
 
-test("airtime clips finish at touchdown and an impact never earns an airtime replay", () => {
+test("playable airtime clips preserve an impact outcome across reload", () => {
   let saved = [];
   const timeline = createFlightTimeline((landing, poses) =>
     saved.push({ landing, poses }),
@@ -141,5 +141,21 @@ test("airtime clips finish at touchdown and an impact never earns an airtime rep
   assert.deepEqual(saved[0].poses, [start, flight, end]);
   timeline.step(start, flight, 1 / 120, 3, env);
   timeline.step(flight, end, 1 / 120, 4, { ...env, impact: "ground" });
-  assert.equal(saved.length, 1);
+  const storage = storageFixture();
+  const lib = replayLibrary(storage);
+  for (const [index, { landing, poses }] of saved.entries())
+    lib.save({
+      ...encodeReplay(poses),
+      ...landing,
+      id: `flight-${index}`,
+      created: index,
+      mode: "city",
+    });
+  const { airtimes, crashes } = replayLibrary(storage).read();
+  assert.equal(crashes.length, 0);
+  assert.equal(airtimes.length, 2);
+  const hard = airtimes.find((clip) => clip.ending === "impact");
+  assert.equal(hard.impact, null);
+  assert.equal(hard.end, 2);
+  assert.equal(replayPose(hard, 2).x, end.x);
 });

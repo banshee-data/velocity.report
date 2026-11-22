@@ -832,7 +832,7 @@ export async function startDrive({
     hud.airtimeRecords.replaceChildren(
       ...airtimeRecords.map((entry) => {
         const row = document.createElement("li");
-        row.textContent = `${entry.seconds.toFixed(2)} s · ${entry.peak.toFixed(1)} m clearance`;
+        row.textContent = `${entry.seconds.toFixed(2)} s · ${entry.peak.toFixed(1)} m clearance${entry.ending === "impact" ? " · Impact ending" : ""}`;
         return row;
       }),
     );
@@ -1525,7 +1525,7 @@ export async function startDrive({
   function startCrash(kind, incoming, hit, heightAt, now, supportAt, indexes) {
     if (crash) return;
     insurance.infractions++;
-    airtime.finish(now, "Impact");
+    airtime.finish(now, kind === "fall" ? "Out of map" : "Impact");
     crash = beginCrash(
       incoming,
       kind,
@@ -1843,7 +1843,7 @@ export async function startDrive({
           const row = document.createElement("li");
           const label =
             clip.impact === null
-              ? `${clip.seconds.toFixed(2)} s · ${clip.peak.toFixed(1)} m · ${clip.mode === "practice" ? "Practice" : "City"}`
+              ? `${clip.seconds.toFixed(2)} s · ${clip.peak.toFixed(1)} m · ${clip.mode === "practice" ? "Practice" : "City"}${clip.ending === "impact" ? " · Impact ending" : ""}`
               : `${clip.kind} · ${replayDay.format(clip.created)}`;
           const sameMode = clip.mode === replayMode();
           const action = document.createElement(sameMode ? "button" : "a");
@@ -2705,7 +2705,7 @@ export async function startDrive({
             car.grounded !== false && (!surface || surface.kind === "ground")
               ? nearestRoad(tiles, car.x, car.y)
               : null;
-          airtime.step(car, candidate, 1 / 120, now, {
+          airtime.step(car, landing || candidate, 1 / 120, now, {
             road:
               takeoffRoad && takeoffRoad.distance <= takeoffRoad.width
                 ? takeoffRoad
