@@ -71,7 +71,7 @@ zoom on the controls. Held buttons have a visible pressed state. Losing focus, h
 page or recovering the car clears held input. Viewport zoom is not disabled globally.
 
 Steering travels gradually and returns to centre. A bicycle model runs at 120 Hz, with
-speed-dependent steering, a lateral tyre-grip limit, rolling resistance, aerodynamic drag,
+speed-dependent steering, a shared grip budget for braking, acceleration and cornering, rolling resistance, aerodynamic drag,
 and gravity along the measured hill slope. Down/S brakes before engaging reverse; space
 brakes and holds the car on a hill. Off-road ground reduces grip and adds resistance.
 The GTI-inspired tune uses 350 hp, 420 N·m and a mass of 1,280 kg. Wheel force is
@@ -85,12 +85,20 @@ or recovery holds its brake.
 
 Building roof-face outlines (including courtyard holes) and tree trunks have collision
 checks in 32 m spatial buckets. An oriented rectangle covers the car body and bumpers;
-short physics steps prevent it jumping through a trunk. A crash stops driving and plays
-a two-second spin at the impact position before returning the car to its last reached
-clear intersection, or the nearest clear loaded intersection if that checkpoint has
-streamed out. The clock continues, pickups are paused, and R / Reset car cannot skip the
-spin. Outside a crash, R / Reset car returns directly to the intersection. Inputs are
-released on impact, recovery and lost focus. Kerbs and tree crowns do not cause a crash.
+the velocity into the contact normal distinguishes a glancing scrape from a hard strike.
+A scrape sheds speed across the wall and preserves motion along it. The tyres gradually
+catch the slide. A hard strike disconnects steering, throttle and braking for two seconds
+of simulation. Momentum carries the chassis through follow-up contacts with walls, trunks,
+rails and the ground. A square hit can rebound, a corner strike can yaw, and a hard
+landing on one side can roll the car. The camera holds its approach direction during
+recovery and shows the chassis from outside if the driver was in the cabin.
+
+The trial clock continues and pickups pause until the car returns to its last clear
+intersection, or the nearest clear loaded intersection if the checkpoint has streamed out.
+The road drives retain their route recovery. R / Reset car cannot skip a crash.
+Inputs are released on impact, recovery and lost focus. The contact dimensions,
+friction, restitution and thresholds are gameplay approximations. Kerbs and tree crowns
+do not trigger city crashes.
 The car waits at a missing ground surface or an unloaded tile boundary.
 
 Collect a different emoji at one intersection in each of the 137 tiles with signposted

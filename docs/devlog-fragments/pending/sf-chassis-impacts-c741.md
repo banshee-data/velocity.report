@@ -1,0 +1,1 @@
+- Replaced the SF driving game's canned crash spin with a passive 3-D chassis. Contact position and angle determined rebound and rotation, glancing scrapes retained tangential motion, and ground contact could roll the car on a one-sided landing. Added mirrored-impact, grip and recovery regressions for the [driving engine](../../ui/sf-driving-view.md).

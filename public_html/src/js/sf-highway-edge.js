@@ -1,6 +1,8 @@
 import { contactTriangles, roadMotion } from "./sf-road-contact.js";
 import { CAR_HALF_LENGTH, CAR_HALF_WIDTH } from "./sf-drive-core.js";
 
+import { drivingHull, wallContact } from "./sf-chassis-contact.js";
+
 const gravity = 9.81;
 const sideClearance = 4;
 
@@ -166,8 +168,10 @@ export function barrierImpact(
   cornerSpeed = 0,
   bounceOnly = false,
 ) {
-  const vx = Math.cos(next.heading) * next.v;
-  const vy = Math.sin(next.heading) * next.v;
+  const vx =
+    Math.cos(next.heading) * next.v - Math.sin(next.heading) * (next.slip || 0);
+  const vy =
+    Math.sin(next.heading) * next.v + Math.cos(next.heading) * (next.slip || 0);
   const normal = vx * nx + vy * ny;
   const approach = Math.max(normal, cornerSpeed);
   if (approach <= 0) return null;
@@ -195,6 +199,7 @@ export function barrierImpact(
     steering: 0,
     steeringRate: 0,
     lateralAcceleration: 0,
+    slip: 0,
     edgeContact: rebound ? "bounce" : "scrape",
   };
 }
@@ -263,7 +268,26 @@ export function strikeHighwayRail(car, input, dt, surface) {
     surface.railBounceOnly,
   );
   if (!impact) return null;
-  if (impact.roadImpact) return { ...car, ...impact, blocked: false };
+  if (impact.roadImpact) {
+    const z = surface.heightAt(next.x, next.y) ?? car.z;
+    const hull = drivingHull(next, z);
+    // Choose the actual incident feature across neighbouring short rail spans.
+    let hit = null;
+    for (const { a, b, nx, ny } of surface.railSegments) {
+      const candidate = wallContact(
+        hull,
+        a,
+        b,
+        -nx,
+        -ny,
+        impact.roadImpact,
+        z + 0.33,
+      );
+      if (candidate && (!hit || candidate.arm < hit.arm)) hit = candidate;
+    }
+    if (hit) return { ...car, ...next, ...impact, hit, z, blocked: false };
+    return null;
+  }
   const { a, nx, ny } = edge;
   const inset = Math.max(
     0,
@@ -316,8 +340,8 @@ export function leaveRoadSide(car, input, dt, surface) {
     ...car,
     ...next,
     z: startZ,
-    vx: next.v * hx,
-    vy: next.v * hy,
+    vx: next.v * hx - (next.slip || 0) * hy,
+    vy: next.v * hy + (next.slip || 0) * hx,
     vz: 0,
     grounded: false,
     leavingRoad: true,

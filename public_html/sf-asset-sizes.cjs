@@ -41,6 +41,8 @@ function sfDownloadAssets(root = __dirname) {
       "survey-charts.js",
       "survey-model.js",
       "sf-drive-core.js",
+      "sf-chassis-contact.js",
+      "sf-crash.js",
       "sf-drive-surface.js",
       "sf-download-size.js",
       "sf-touch-controls.js",

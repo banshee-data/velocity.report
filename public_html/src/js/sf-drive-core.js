@@ -8,6 +8,13 @@
 
 import { validBuildingFace } from "./sf-building-walls.js";
 
+import {
+  drivingHull,
+  obstacleContact,
+  wallRings,
+} from "./sf-chassis-contact.js";
+export { CAR_HALF_LENGTH, CAR_HALF_WIDTH } from "./sf-chassis-contact.js";
+
 export const GROUND_MISSING = -32768;
 
 /** Tiles to load and to drop around (x, y). `tiles` are manifest rows {t, x, y, half}. */
@@ -136,13 +143,34 @@ export function carStep(car, input, dt, surface = {}) {
   let acceleration = 0;
   if (!opposing && !brake)
     acceleration = throttle * (throttle > 0 ? driveForce / mass : 2.6);
+  const braking = (opposing ? 8 : brake * 10) * grip;
+  const longitudinalDemand =
+    Math.max(
+      Math.abs(acceleration),
+      Math.min(braking, Math.abs(v) / Math.max(dt, 1e-9)),
+    ) /
+    (10 * grip);
+  const steerCurvature = Math.tan((previousSteering + steering) / 2) / 2.7;
+  const slip = car.slip || 0;
+  const cornerDemand = Math.min(
+    1,
+    Math.abs(v * v * steerCurvature) / (7.5 * grip),
+  );
+  const slideDemand = Math.min(
+    1,
+    Math.abs(slip) / (Math.max(dt, 1e-9) * 7.5 * grip),
+  );
+  const lateralDemand = Math.min(1, cornerDemand + slideDemand);
+  const traction =
+    1 / Math.max(1, Math.hypot(longitudinalDemand, lateralDemand));
+  acceleration *= traction;
   const slope = surface.slope || 0;
   acceleration -= (9.81 * slope) / Math.hypot(1, slope);
   v += acceleration * dt;
   // Air density 1.225 kg/m³ and an assumed drag area of 0.74 m².
   const drag = (0.5 * 1.225 * 0.74 * v * v) / mass;
   const resistance = (surface.offroad ? 1.8 : 0.15) + drag;
-  v = moveToward(v, 0, (resistance + (opposing ? 8 : brake * 10) * grip) * dt);
+  v = moveToward(v, 0, (resistance + braking * traction) * dt);
   if (
     brake &&
     Math.abs(car.v) < 0.05 &&
@@ -151,16 +179,30 @@ export function carStep(car, input, dt, surface = {}) {
     v = 0;
   v = Math.max(-6, Math.min(topSpeed, v));
   const speed = (car.v + v) / 2;
-  const desiredYaw =
-    (speed / 2.7) * Math.tan((previousSteering + steering) / 2);
+  const desiredYaw = speed * steerCurvature;
   // Limit lateral acceleration to available tyre grip; speed affects turning radius.
-  const limit = (7.5 * grip) / Math.max(1, Math.abs(v), Math.abs(speed));
+  // Friction ellipse: cornering and catching a slide share the grip left by the pedals.
+  const lateralGrip =
+    7.5 *
+    grip *
+    Math.sqrt(Math.max(0, 1 - (longitudinalDemand * traction) ** 2));
+  const slideShare = slideDemand / (cornerDemand + slideDemand || 1);
+  const limit =
+    (lateralGrip * (1 - slideShare)) /
+    Math.max(1, Math.abs(v), Math.abs(speed));
   const yawRate = Math.max(-limit, Math.min(limit, desiredYaw));
   const heading = car.heading + yawRate * dt;
   const mid = car.heading + (yawRate * dt) / 2;
+  const nextSlip = moveToward(
+    slip,
+    0,
+    Math.max(0, lateralGrip - Math.abs(speed * yawRate)) * dt,
+  );
+  const sideways = (slip + nextSlip) / 2;
   return {
-    x: car.x + Math.cos(mid) * speed * dt,
-    y: car.y + Math.sin(mid) * speed * dt,
+    slip: nextSlip,
+    x: car.x - Math.sin(mid) * sideways * dt + Math.cos(mid) * speed * dt,
+    y: car.y + Math.cos(mid) * sideways * dt + Math.sin(mid) * speed * dt,
     heading,
     v,
     steering,
@@ -232,13 +274,15 @@ export function contactStep(car, input, dt, surfaceAt, halfAxle = 0.1) {
     // Recompute the launch interval from existing momentum: no launch-frame steering/braking.
     next = {
       ...car,
-      x: car.x + Math.cos(car.heading) * car.v * dt,
-      y: car.y + Math.sin(car.heading) * car.v * dt,
-      vx: Math.cos(car.heading) * car.v,
-      vy: Math.sin(car.heading) * car.v,
+      vx:
+        Math.cos(car.heading) * car.v - Math.sin(car.heading) * (car.slip || 0),
+      vy:
+        Math.sin(car.heading) * car.v + Math.cos(car.heading) * (car.slip || 0),
       lateralAcceleration: 0,
     };
   }
+  next.x = car.x + next.vx * dt;
+  next.y = car.y + next.vy * dt;
   const landing = surfaceAt(next.x, next.y);
   if (landing.height === null) return { ...car, blocked: true };
   const vz = (car.vz || 0) - 9.81 * dt;
@@ -261,32 +305,6 @@ export function contactStep(car, input, dt, surfaceAt, halfAxle = 0.1) {
     };
   }
   return { ...next, z: ballisticZ, vz, grounded: false, blocked: false };
-}
-
-export const CRASH_SECONDS = 2;
-
-/** A crash is visual feedback; physics and pickups stay paused until recovery. */
-export function beginCrash(car, kind, now) {
-  return {
-    x: car.x,
-    y: car.y,
-    heading: car.heading,
-    kind,
-    started: now,
-    direction: car.steering < 0 ? -1 : 1,
-  };
-}
-
-export function crashPose(crash, now) {
-  const elapsed = Math.max(0, now - crash.started);
-  const t = Math.min(1, elapsed / CRASH_SECONDS);
-  return {
-    heading: crash.heading + crash.direction * Math.PI * 4 * (1 - (1 - t) ** 2),
-    roll: Math.sin(t * Math.PI * 4) * 0.16 * (1 - t),
-    lift: Math.sin(t * Math.PI) * 0.15,
-    remaining: Math.max(0, CRASH_SECONDS - elapsed),
-    done: elapsed >= CRASH_SECONDS,
-  };
 }
 
 /** Space, reversing against motion, and a held brake illuminate the rear lamps. */
@@ -540,7 +558,13 @@ export function buildCollisionIndex(tile) {
         for (let i = 2; i < ring.length; i += 3)
           top = Math.max(top, ring[i] / 10);
       add(
-        { kind: "building", rings, base: b[0] / 10, top },
+        {
+          kind: "building",
+          rings,
+          walls: wallRings(rings),
+          base: b[0] / 10,
+          top,
+        },
         Math.min(...xs),
         Math.min(...ys),
         Math.max(...xs),
@@ -550,99 +574,8 @@ export function buildCollisionIndex(tile) {
   return cells;
 }
 
-function insideRing(x, y, ring) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [ax, ay] = ring[i],
-      [bx, by] = ring[j];
-    if (ay > y !== by > y && x < ((bx - ax) * (y - ay)) / (by - ay) + ax)
-      inside = !inside;
-  }
-  return inside;
-}
-
-export const CAR_HALF_LENGTH = 2.23;
-export const CAR_HALF_WIDTH = 0.96;
-
-/** Oriented car rectangle against trunk circles and building polygons, including holes. */
 export function collisionAt(indexes, car, z = 0) {
-  const hx = Math.cos(car.heading),
-    hy = Math.sin(car.heading),
-    length = CAR_HALF_LENGTH,
-    width = CAR_HALF_WIDTH;
-  const local = ([x, y]) => [
-    (x - car.x) * hx + (y - car.y) * hy,
-    -(x - car.x) * hy + (y - car.y) * hx,
-  ];
-  const corners = [
-    [-length, -width],
-    [length, -width],
-    [length, width],
-    [-length, width],
-  ].map(([x, y]) => [car.x + x * hx - y * hy, car.y + x * hy + y * hx]);
-  const dx = Math.abs(hx) * length + Math.abs(hy) * width,
-    dy = Math.abs(hy) * length + Math.abs(hx) * width;
-  const seen = new Set();
-  // Slab clipping detects an edge crossing the rectangle, even with both ends outside.
-  const crosses = ([ax, ay], [bx, by]) => {
-    let lo = 0,
-      hi = 1;
-    for (const [a, d, h] of [
-      [ax, bx - ax, length],
-      [ay, by - ay, width],
-    ]) {
-      if (Math.abs(d) < 1e-10) {
-        if (Math.abs(a) > h) return false;
-      } else {
-        const t0 = (-h - a) / d,
-          t1 = (h - a) / d;
-        lo = Math.max(lo, Math.min(t0, t1));
-        hi = Math.min(hi, Math.max(t0, t1));
-      }
-      if (lo > hi) return false;
-    }
-    return true;
-  };
-  for (const cells of indexes)
-    for (
-      let bx = Math.floor((car.x - dx) / 32);
-      bx <= Math.floor((car.x + dx) / 32);
-      bx++
-    )
-      for (
-        let by = Math.floor((car.y - dy) / 32);
-        by <= Math.floor((car.y + dy) / 32);
-        by++
-      )
-        for (const shape of cells.get(`${bx},${by}`) || []) {
-          if (seen.has(shape)) continue;
-          seen.add(shape);
-          if (shape.kind === "tree") {
-            if (z > shape.top || z + 1.6 < shape.base) continue;
-            const [x, y] = local([shape.x, shape.y]);
-            if (
-              Math.hypot(
-                Math.max(0, Math.abs(x) - length),
-                Math.max(0, Math.abs(y) - width),
-              ) < shape.radius
-            )
-              return shape.kind;
-          } else if (z + 1.6 >= shape.base && z <= shape.top) {
-            if (
-              corners.some(
-                ([x, y]) =>
-                  insideRing(x, y, shape.rings[0]) &&
-                  !shape.rings.slice(1).some((r) => insideRing(x, y, r)),
-              )
-            )
-              return shape.kind;
-            for (const ring of shape.rings)
-              for (let i = 0; i < ring.length; i++)
-                if (crosses(local(ring[i]), local(ring[(i + 1) % ring.length])))
-                  return shape.kind;
-          }
-        }
-  return null;
+  return obstacleContact(indexes, drivingHull(car, z))?.kind ?? null;
 }
 
 function segDistance(px, py, ax, ay, bx, by) {

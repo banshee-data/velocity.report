@@ -1,43 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  CRASH_SECONDS,
-  beginCrash,
   brakeLightsOn,
-  crashPose,
   createTrial,
   questSeeker,
   nearestQuestTarget,
   tileAt,
 } from "../sf-drive-core.js";
-
-test("a crash spins for two seconds before becoming ready to reset", () => {
-  const car = { x: 12, y: 34, heading: 0.3, steering: 0.2 };
-  const crash = beginCrash(car, "tree", 10);
-  assert.equal(CRASH_SECONDS, 2);
-  assert.equal(crash.kind, "tree");
-  assert.equal(crashPose(crash, 10).heading, car.heading);
-  assert.equal(crashPose(crash, 10).remaining, 2);
-  const middle = crashPose(crash, 11);
-  assert.ok(middle.heading > car.heading + Math.PI * 2);
-  assert.ok(middle.lift > 0);
-  assert.equal(middle.done, false);
-  assert.equal(crashPose(crash, 11.999).done, false);
-  const end = crashPose(crash, 12);
-  assert.equal(end.done, true);
-  assert.equal(end.remaining, 0);
-  assert.ok(Math.abs(end.heading - car.heading - Math.PI * 4) < 1e-10);
-  assert.ok(Math.abs(end.lift) < 1e-10);
-  assert.deepEqual(
-    [crash.x, crash.y],
-    [12, 34],
-    "spin stays at the impact position",
-  );
-  assert.ok(
-    crashPose(beginCrash({ ...car, steering: -1 }, "building", 0), 1).heading <
-      car.heading,
-  );
-});
 
 test("brake lamps light for the brake pedal, opposing throttle and recovery hold", () => {
   assert.equal(brakeLightsOn({ v: 10 }, { brake: true }), true);
