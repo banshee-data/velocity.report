@@ -75,8 +75,10 @@ async function downloadTiles(report) {
             try {
               await cache.put(url, tile);
               saved++;
-            } catch {
-              storageError = true;
+            } catch (error) {
+              // Cache.put also consumes the network response body. A dropped
+              // transfer is retryable, even after fetch has resolved.
+              if (error.name === "QuotaExceededError") storageError = true;
             }
           }
         }

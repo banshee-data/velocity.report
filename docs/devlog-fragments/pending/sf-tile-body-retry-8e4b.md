@@ -1,0 +1,1 @@
+- Kept the SF offline tile download running when a response body failed after HTTP headers arrived. The downloader retained completed tiles for retry and reserved the browser storage message for quota errors.
