@@ -1,0 +1,1 @@
+- Added a Download all tiles button beneath the SF map with offline cache progress and retry support for a partially downloaded city.

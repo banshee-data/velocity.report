@@ -44,6 +44,75 @@ async function tileResponse(request) {
   return response;
 }
 
+// Both passive streaming and bulk downloads use the active map revision's cache.
+let bulkDownload = null;
+
+async function downloadTiles(report) {
+  const shell = await caches.open(shellCache);
+  const response = await shell.match(new URL("manifest.json", tiles));
+  const manifest = await response?.json();
+  if (!manifest?.tiles?.length || !manifest.tiles.every(({ t }) => /^[0-9a-f]{8}$/.test(t)))
+    throw new Error("The offline tile list is unavailable.");
+  const tokens = [...new Set(manifest.tiles.map(({ t }) => t))];
+  const cache = await caches.open(tileCache);
+  let next = 0;
+  let checked = 0;
+  let saved = 0;
+  let storageError = false;
+  const progress = () => ({ saved, total: tokens.length, storageError });
+  report({ type: "progress", ...progress() });
+
+  async function fill() {
+    while (next < tokens.length) {
+      const url = new URL(`${tokens[next++]}.json.gz`, tiles);
+      try {
+        const cached = await cache.match(url);
+        if (cached?.ok) {
+          saved++;
+        } else if (!storageError) {
+          const tile = await fetch(url, { signal: AbortSignal.timeout(15000) });
+          if (tile.ok) {
+            try {
+              await cache.put(url, tile);
+              saved++;
+            } catch {
+              storageError = true;
+            }
+          }
+        }
+      } catch {
+        // Other tiles can still be saved. A retry reuses the successful ones.
+      }
+      if (++checked % 4 === 0) report({ type: "progress", ...progress() });
+    }
+  }
+
+  await Promise.all(Array.from({ length: 4 }, fill));
+  report({ type: "complete", ...progress() });
+}
+
+self.addEventListener("message", (event) => {
+  const port = event.ports[0];
+  if (event.data?.type !== "download-all-tiles" || !port) return;
+  if (!bulkDownload) {
+    const job = { ports: new Set(), latest: { type: "progress" } };
+    const report = (message) => {
+      job.latest = message;
+      for (const subscriber of job.ports) subscriber.postMessage(message);
+    };
+    bulkDownload = job;
+    job.done = downloadTiles(report)
+      .catch(() => report({ type: "error" }))
+      .finally(() => {
+        for (const subscriber of job.ports) subscriber.close();
+        bulkDownload = null;
+      });
+  }
+  bulkDownload.ports.add(port);
+  port.postMessage(bulkDownload.latest);
+  event.waitUntil(bulkDownload.done);
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);

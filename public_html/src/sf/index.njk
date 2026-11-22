@@ -119,6 +119,8 @@ eleventyExcludeFromCollections: true
   .details { display: grid; gap: 6px; }
   .details progress { width: 100%; height: 7px; accent-color: var(--accent); }
   #minimap { display: block; width: 100%; height: 220px; }
+  #downloadTiles { min-height: 44px; padding: 8px 12px; margin-top: 8px; }
+  #tileDownloadStatus { margin: 6px 0 0; }
   #desktopMap { display: none; position: fixed; right: 12px; bottom: 12px; width: min(260px, 34vw); height: min(193px, 35vh); pointer-events: none; }
   @media (pointer: fine) { #desktopMap { display: block; } }
   .map .loaded { color: var(--accent); } .map .collected { color: #fbbf24; } .map .survey-dot { color: var(--scene-vehicle); }
@@ -257,6 +259,8 @@ eleventyExcludeFromCollections: true
     <div class="detail" id="assets"></div>
     <div class="detail" id="gameSize"></div>
     <div class="detail" id="coverage"></div>
+    <button type="button" id="downloadTiles" aria-describedby="tileDownloadStatus" disabled>Download all tiles</button>
+    <p class="detail" id="tileDownloadStatus" role="status">Preparing offline storage…</p>
   </div>
   <div class="help">
     <p>Steer with the left thumb. Use the right thumb to accelerate or brake. Keep holding the brake to reverse after stopping. Follow the gold arrow for guidance. Tap the outlined emoji to centre it, then drive to return to the road view. Camera choices are Zoomed out, Overhead and In car. The mirror is available only in car view.</p>
@@ -290,6 +294,61 @@ eleventyExcludeFromCollections: true
     menuButton.setAttribute("aria-expanded", "true");
   });
   menu.addEventListener("close", () => menuButton.setAttribute("aria-expanded", "false"));
+  const downloadTiles = $("downloadTiles"), downloadStatus = $("tileDownloadStatus");
+  let downloading = false;
+  function updateDownloadAvailability() {
+    const ready = !!navigator.serviceWorker?.controller;
+    downloadTiles.disabled = downloading || !ready;
+    if (!downloading) downloadStatus.textContent = ready
+      ? "Save the entire city in this browser for offline play."
+      : "Offline storage is unavailable in this browser.";
+  }
+  downloadTiles.addEventListener("click", () => {
+    const worker = navigator.serviceWorker?.controller;
+    if (!worker || downloading) return;
+    downloading = true;
+    downloadTiles.disabled = true;
+    downloadStatus.textContent = "Checking saved tiles…";
+    const channel = new MessageChannel();
+    let timer;
+    function finish(message) {
+      clearTimeout(timer);
+      channel.port1.close();
+      downloading = false;
+      downloadTiles.disabled = !navigator.serviceWorker?.controller;
+      downloadStatus.textContent = message;
+    }
+    const armTimeout = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => finish("Download stopped responding. Reload or try again."), 45000);
+    };
+    channel.port1.onmessage = ({ data }) => {
+      if (navigator.serviceWorker.controller !== worker) {
+        finish("The offline map has updated. Download tiles again.");
+        return;
+      }
+      if (data.type === "progress") {
+        armTimeout();
+        if (data.total) downloadStatus.textContent = `${data.saved} of ${data.total} tiles saved…`;
+      } else if (data.type === "complete") {
+        finish(data.saved === data.total
+          ? `All ${data.total} tiles saved. Ready for offline play on this browser.`
+          : `${data.saved} of ${data.total} tiles saved. ${data.storageError
+            ? "Free some browser storage, then try again."
+            : "Check your connection, then try again."}`);
+      } else {
+        finish("Could not access offline tiles. Reload or try again.");
+      }
+    };
+    armTimeout();
+    try {
+      worker.postMessage({ type: "download-all-tiles" }, [channel.port2]);
+    } catch {
+      channel.port2.close();
+      finish("Could not start the download. Reload or try again.");
+    }
+  });
+  navigator.serviceWorker?.addEventListener("controllerchange", updateDownloadAvailability);
   if ("serviceWorker" in navigator) {
     try {
       await navigator.serviceWorker.register("{{ '/sf/offline.js' | url }}");
@@ -306,6 +365,7 @@ eleventyExcludeFromCollections: true
       console.warn("Offline game storage unavailable", error);
     }
   }
+  updateDownloadAvailability();
   import("{{ (modulesBase + '/js/sf-drive.js') | url }}").then(({ startDrive }) => startDrive({
     canvas: $("drive"),
     base: "{{ '/sf/tiles/' | url }}",
