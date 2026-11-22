@@ -1302,12 +1302,13 @@ export async function startDrive({
     Space: "brake",
   };
   window.addEventListener("keydown", (e) => {
+    if (hud.menu.open) return;
     // A held key that opened the dialog is not a new driving command.
     if (e.repeat && keyMap[e.code]) {
       e.preventDefault();
       return;
     }
-    if (hud.menu.open || hud.takeover.open) return;
+    if (hud.takeover.open) return;
     if (e.target.closest?.("select, input, textarea")) return;
     if (e.target.closest?.("button, a") && ["Space", "Enter"].includes(e.code))
       return;
