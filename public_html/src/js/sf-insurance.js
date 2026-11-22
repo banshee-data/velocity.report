@@ -4,6 +4,10 @@ export const MANUAL_RATE = 0.12;
 export function formatInsuranceCents(cents) {
   return `${cents.toFixed(2)}¢`;
 }
+export function formatInsuranceDollars(cents) {
+  return `$${(cents / 100).toFixed(4)}`;
+}
+
 export const BONUS_RADIUS = 40;
 
 const bonuses = {

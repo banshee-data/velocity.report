@@ -38,7 +38,8 @@ in the left quarter and the in-car mirror sits at the top centre.
 Steer left/right with the left thumb and brake/accelerate with the right. Keep holding
 the brake to reverse after stopping. Both pedals together hold the brake. Map & game opens
 a scrollable modal starting with a three-stop camera slider, followed by starting place, reset,
-the full minimap, compressed download sizes, records and help. Map sources is last. Opening it releases held
+the full minimap, compressed download sizes, records and help. Light blue tile outlines
+indicate the saved offline coverage for the current map revision. Map sources is last. Opening it releases held
 controls and keeps keyboard driving inactive until it closes. The trial clock continues.
 Desktop layouts also show City coverage in the bottom right during play.
 Crash replay controls and completion messages stay visible during play.
@@ -113,6 +114,20 @@ Inputs are released on impact, recovery and lost focus. The contact dimensions,
 friction, restitution and thresholds are gameplay approximations. Kerbs and tree crowns
 do not trigger city crashes.
 The car waits at a missing ground surface or an unloaded tile boundary.
+
+Replays use 0.99× speed, with 0.5× from 300 ms before to 300 ms after a crash
+impact. The stationary hold takes two real seconds. The replay and library locate
+a crash by its impact and a jump by its take-off, using the nearest city emoji
+and the compass bearing and distance from the event to the emoji. The authored
+practice course uses its finish flag.
+
+Replay graphs store peak speed, deceleration and jerk in 100 ms bins from the
+120 Hz simulated vehicle velocity. Deceleration is the positive drop in speed
+per second. Jerk is the magnitude of the change in the acceleration vector per
+second. The graphs keep short impact spikes visible and mark the impact with an
+orange line. Older clips retain their trajectories. Vehicle telemetry is available
+for clips captured with this version. A survival threshold needs occupant loads,
+restraints and injury criteria. The game models the chassis. [NHTSA test procedure for occupant crash protection](https://www.nhtsa.gov/sites/nhtsa.gov/files/documents/tp-208-14_tag.pdf)
 
 Collect a different emoji at one intersection in each of the 137 tiles with signposted
 intersections, in any order. The other 20 of the 157 tiles have no signposted intersection;
@@ -300,7 +315,9 @@ Delivery drives begin in **Self-driving**. Driving input opens a confirmation fo
 **Meat mode** while the car continues in self-driving. Confirming preserves car motion
 and transfers control with neutral inputs. Release any held control and press again
 to drive or brake. The meter charges 0.12¢ per second ($0.0012/s), with a half rate of
-0.06¢ per second. **Resume self-driving** stops the meter and preserves the spend.
+0.06¢ per second. The bottom-centre orange meter shows the running total in
+dollars and the current rate in cents. **Resume self-driving** stops the meter,
+preserves the spend and shows the purple self-driving indicator.
 Manual driving on the delivery route can cross from the guide onto continuous street
 pavement. Verified ramp joins support reversing across the seam. The controller
 rejoins from nearby street pavement and can start again at rest. If the car is facing

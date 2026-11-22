@@ -76,6 +76,8 @@ const { chromium } = require("playwright");
           await page.locator("#insuranceRate").textContent(),
           /Meter off/,
         );
+        assert.equal(await page.locator("#insuranceMeter").isVisible(), false);
+        assert.equal(await page.locator("#selfDrivingIcon").isVisible(), true);
         const action = takeControl ? confirm : cancel;
         if (mobile) {
           // The modal clears the pedal even before the opening finger lifts.
@@ -118,7 +120,7 @@ const { chromium } = require("playwright");
           );
           assert.equal(
             await page.locator("#insuranceCost").textContent(),
-            "0.00¢",
+            "$0.0000",
           );
         }
       }
@@ -127,8 +129,37 @@ const { chromium } = require("playwright");
           document
             .querySelector("#insuranceRate")
             .textContent.startsWith("0.12¢/s") &&
-          document.querySelector("#insuranceCost").textContent !== "0.00¢",
+          document.querySelector("#insuranceCost").textContent !== "$0.0000",
       );
+      assert.equal(await page.locator("#insuranceMeter").isVisible(), true);
+      assert.equal(await page.locator("#selfDrivingIcon").isVisible(), false);
+      assert.equal(
+        await page.locator("#insuranceHud").getAttribute("data-mode"),
+        "manual",
+      );
+      const meter = await page.locator("#insuranceHud").boundingBox();
+      assert.ok(
+        Math.abs(
+          meter.x +
+            meter.width / 2 -
+            (await page.evaluate(() => innerWidth)) / 2,
+        ) < 2,
+      );
+      if (mobile) {
+        const pads = await page
+          .locator(".pad")
+          .evaluateAll((pads) =>
+            pads.map((x) => x.getBoundingClientRect().toJSON()),
+          );
+        assert.ok(
+          pads.every(
+            (p) =>
+              p.right <= meter.x ||
+              p.left >= meter.x + meter.width ||
+              p.top >= meter.y + meter.height,
+          ),
+        );
+      }
       const coast = await snapshot();
       await startBrake();
       await page.waitForFunction(

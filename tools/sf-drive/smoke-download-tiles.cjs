@@ -35,6 +35,11 @@ const { tiles } = require("../../public_html/src/sf/tiles/manifest.json");
       });
     const before = await cached();
     assert.ok(before.length > 0 && before.length < tiles.length);
+    await page.waitForFunction((total) => {
+      const count = document.querySelector("#offlineTileCount").textContent;
+      const saved = Number(count.split("/")[0]);
+      return saved > 0 && saved < total;
+    }, tiles.length);
 
     await context.setOffline(true);
     await button.tap();
@@ -48,6 +53,11 @@ const { tiles } = require("../../public_html/src/sf/tiles/manifest.json");
     await button.tap();
     await status
       .filter({ hasText: `All ${tiles.length} tiles saved.` })
+      .waitFor();
+    await page
+      .getByText(`${tiles.length}/${tiles.length} tiles available offline`, {
+        exact: true,
+      })
       .waitFor();
     const saved = new Set(await cached());
     for (const { t } of tiles)

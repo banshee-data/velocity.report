@@ -65,12 +65,25 @@ ${hook}`,
       assert.equal(active.clip.end - active.clip.frames.at(-1)[0], 240);
       assert.equal(active.inf, 1);
       assert.equal(active.steering, 0);
+      assert.ok(
+        active.clip.telemetry.some(([, decel, jerk]) => decel > 0 && jerk > 0),
+      );
+      assert.match(
+        await page.locator("#replayLocation").textContent(),
+        /\d+(?:\.\d+)? (?:km|m) [NSEW]{1,2}$/,
+      );
+      assert.equal(
+        await page.getByRole("img", { name: /Vehicle jerk/ }).isVisible(),
+        true,
+      );
+      assert.equal(await page.locator("#replayRate").textContent(), "0.99×");
       if (mobile) {
         await skip.tap();
       } else {
         await page.keyboard.down("ArrowLeft");
         await page.keyboard.down("ArrowUp");
         await page.keyboard.press("KeyR");
+        await page.getByText("0.5×", { exact: true }).waitFor();
         await page.waitForFunction(() => {
           const { tick, clip, mesh } = window.crashFixture.read();
           return (

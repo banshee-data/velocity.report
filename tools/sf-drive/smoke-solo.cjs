@@ -144,6 +144,17 @@ const { chromium } = require("playwright");
         assert.equal(await replay.getAttribute("target"), "_blank");
         await page.goto(new URL(href, page.url()).href);
         await page.locator('#drive[data-replay="airtime"]').waitFor();
+        assert.match(
+          await page.locator("#replayLocation").textContent(),
+          /🏁 Practice finish · [\d.]+ m E/,
+        );
+        assert.equal(await page.locator("#replayRate").textContent(), "0.99×");
+        assert.equal(
+          await page
+            .getByRole("img", { name: /Vehicle deceleration/ })
+            .isVisible(),
+          true,
+        );
         await page.getByRole("button", { name: "Skip replay" }).click();
         await page.locator('#drive[data-solo-status="ready"]').waitFor();
       }
