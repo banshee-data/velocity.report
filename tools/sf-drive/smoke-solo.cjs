@@ -113,7 +113,7 @@ const { chromium } = require("playwright");
         await page.waitForFunction(
           () => document.querySelector("#drive").dataset.soloStatus === "ready",
         );
-        await page.goto(url);
+        await page.goto(`${url}?at=embarcadero`);
         await page.waitForFunction(() =>
           document.querySelector("#progress").textContent.includes("emojis"),
         );

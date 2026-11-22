@@ -1,4 +1,9 @@
+// The session ledger and rates are in cents. Trial checkpoints never store this ledger.
 export const MANUAL_RATE = 0.12;
+
+export function formatInsuranceCents(cents) {
+  return `${cents.toFixed(2)}¢`;
+}
 export const BONUS_RADIUS = 40;
 
 const bonuses = {

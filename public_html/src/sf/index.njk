@@ -106,7 +106,8 @@ eleventyExcludeFromCollections: true
   .tools input[type="range"] { padding: 0; margin: 0; accent-color: var(--accent); }
   #cameraName { float: right; color: var(--ink); font-weight: 700; }
   .camera-stops { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-  #emojiFocus { position: fixed; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -50%); border: 2px solid #fbbf24; border-radius: 50%; font-size: 24px; line-height: 1; background: transparent; }
+  .drive-bar, .pad, .survey-card { z-index: 2; }
+  #emojiFocus { position: fixed; z-index: 1; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -50%); border: 2px solid #fbbf24; border-radius: 50%; font-size: 24px; line-height: 1; }
   #emojiFocus[aria-pressed="true"] { border-color: var(--accent); }
   .tools .row { display: flex; gap: 8px; }
   .tools button { min-height: 44px; padding: 8px 12px; flex: 1; }
@@ -151,7 +152,7 @@ eleventyExcludeFromCollections: true
 </style>
 </head>
 <body>
-<canvas id="drive" aria-label="Zoomed-out 3D view of San Francisco"></canvas>
+<canvas id="drive" tabindex="-1" aria-label="Zoomed-out 3D view of San Francisco"></canvas>
 <button type="button" id="emojiFocus" aria-pressed="false" hidden></button>
 <div class="mirror" id="mirrorFrame" aria-hidden="true" hidden></div>
 <header class="panel drive-bar" id="driveBar" aria-label="Driving status">
@@ -167,7 +168,7 @@ eleventyExcludeFromCollections: true
   <button type="button" class="icon-button" id="menuBtn" aria-label="Map and game settings" aria-haspopup="dialog" aria-controls="gameMenu" aria-expanded="false">☰</button>
 </header>
 <section class="panel insurance" id="insuranceHud" aria-label="Delivery insurance" hidden>
-  <div class="insurance-head"><strong id="insuranceMode"></strong><span id="insuranceCost" aria-label="Insurance spend">$0.00</span></div>
+  <div class="insurance-head"><strong id="insuranceMode"></strong><span id="insuranceCost" aria-label="Insurance spend">0.00¢</span></div>
   <div id="insuranceRate" role="timer" aria-label="Manual driving time and insurance rate"></div>
   <div id="insuranceBonus"></div>
   <div id="insuranceDeliveries"></div>
@@ -175,7 +176,7 @@ eleventyExcludeFromCollections: true
 </section>
 <dialog id="takeoverDialog" class="panel" aria-labelledby="takeoverTitle">
   <h2 id="takeoverTitle">Switch to Meat mode?</h2>
-  <p>Manual driving costs $0.12 per second in game. Survey bonuses can lower your rate.</p>
+  <p>Manual driving costs 0.12¢ per second in game. Survey bonuses can lower your rate.</p>
   <form method="dialog" class="row">
     <button value="cancel" autofocus>Cancel</button>
     <button value="manual">Take manual control</button>
@@ -224,6 +225,7 @@ eleventyExcludeFromCollections: true
     <button type="button" id="mirrorBtn" aria-pressed="true" hidden>Rear-view mirror</button>
     <label for="places">Start from</label>
     <select id="places"></select>
+    <a href="?at=embarcadero" id="recoveryStart" hidden>Try the Embarcadero start</a>
     <button type="button" id="followCityDrive" hidden>Take manual control</button>
     <div class="row">
       <button type="button" id="restartBtn" hidden>Restart drive</button>
@@ -265,6 +267,11 @@ eleventyExcludeFromCollections: true
     <div class="title">Longest airtimes</div>
     <ol id="airtimeRecords"></ol>
   </section>
+  <details class="sources" id="mapSources">
+    <summary>Map Sources</summary>
+    <p class="detail">Bundled DataSF streets, kerbs and buildings, USGS 3DEP terrain and roofs, and Gerardus road layers. The game uses its own origin and caches downloaded tiles for offline driving.</p>
+    <a href="{{ '/sf/tiles/manifest.json' | url }}">Bundled map manifest and provenance</a>
+  </details>
 </dialog>
 <div class="pad steering" role="group" aria-label="Steering controls">
   <button type="button" data-act="left" aria-label="Steer left">←</button>
@@ -328,7 +335,8 @@ eleventyExcludeFromCollections: true
     },
   })).catch((e) => {
     $("street").textContent = "The city tiles could not be loaded.";
-    $("next").textContent = "Reconnect to download this part of the city.";
+    $("next").textContent = "Reconnect and reload, or choose another start in Map & game.";
+    $("recoveryStart").hidden = false;
     console.error(e);
   });
 </script>

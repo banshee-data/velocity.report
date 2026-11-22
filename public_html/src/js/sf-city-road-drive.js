@@ -250,7 +250,9 @@ export function buildCityGameDrive(drive, groundHeight) {
       x,
       y,
       heading: tangents[start],
-      initialSpeed: drive.id === BAY_BRIDGE_CITY_DRIVE ? 50 * 0.44704 : 0,
+      initialSpeed:
+        drive.initial_speed_mps ??
+        (drive.id === BAY_BRIDGE_CITY_DRIVE ? 50 * 0.44704 : 0),
     },
   };
 }
