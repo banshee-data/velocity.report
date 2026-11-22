@@ -4,6 +4,38 @@ import { indexRoadContact } from "./sf-road-contact.js";
 export const BAY_BRIDGE_CITY_DRIVE = "bay-bridge-highway-drive";
 export const BAY_BRIDGE_APPROACH = "Bay Bridge approach";
 
+export function buildRaisedRoad(road, routeReferences) {
+  if (road.profiles.every((id) => routeReferences?.has(id))) return null;
+  const width = road.kind === "bridge" ? 3.5 : 2.5;
+  const positions = [];
+  const index = [];
+  for (const [i, [x, y, z]] of road.points.entries()) {
+    const a = road.points[Math.max(0, i - 1)];
+    const b = road.points[Math.min(road.points.length - 1, i + 1)];
+    const length = hypot(a, b) || 1;
+    const dx = ((b[1] - a[1]) * width) / length;
+    const dy = ((b[0] - a[0]) * width) / length;
+    positions.push(x + dx, z, -y + dy, x - dx, z, -y - dy);
+    if (i) {
+      const start = 2 * i - 2;
+      index.push(start, start + 1, start + 2, start + 1, start + 3, start + 2);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  geometry.setIndex(index);
+  return new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: road.kind === "bridge" ? 0x647584 : 0x475461,
+      side: THREE.DoubleSide,
+    }),
+  );
+}
+
 const hypot = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const bearing = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
 const angle = (value) => Math.atan2(Math.sin(value), Math.cos(value));
@@ -122,6 +154,7 @@ export function buildCityGameDrive(drive, groundHeight) {
       }
       speed[i] = Math.min(
         speed[i],
+        span.speed_mps ?? Infinity,
         kind === "ground" ? 20 : kind === "ramp" ? 26 : 52,
       );
     }
@@ -211,12 +244,13 @@ export function buildCityGameDrive(drive, groundHeight) {
     exitStart,
     start: {
       id: drive.id,
-      name: BAY_BRIDGE_APPROACH,
+      name:
+        drive.id === BAY_BRIDGE_CITY_DRIVE ? BAY_BRIDGE_APPROACH : drive.label,
       surfaceId: entries[0].id,
       x,
       y,
       heading: tangents[start],
-      initialSpeed: 50 * 0.44704,
+      initialSpeed: drive.id === BAY_BRIDGE_CITY_DRIVE ? 50 * 0.44704 : 0,
     },
   };
 }

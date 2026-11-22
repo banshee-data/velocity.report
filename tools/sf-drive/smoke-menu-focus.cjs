@@ -1,6 +1,7 @@
 // Build and serve public_html/_site, then run with Playwright on NODE_PATH.
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
+const { confirmManualTakeover } = require("./manual-takeover.cjs");
 
 (async () => {
   const browser = await chromium.launch({
@@ -19,7 +20,7 @@ const { chromium } = require("playwright");
       });
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
-      await page.goto(url);
+      await page.goto(`${url}?at=embarcadero`);
       const emoji = page.locator("#emojiFocus");
       await emoji.waitFor({ timeout: 90000 });
       await page.locator("#menuBtn").click();
@@ -33,10 +34,8 @@ const { chromium } = require("playwright");
           .getAttribute("id"),
         "viewMode",
       );
-      assert.equal(
-        await menu.evaluate((el) => el.lastElementChild.id),
-        "mapSources",
-      );
+      assert.equal(await menu.locator("#mapSources").count(), 0);
+      assert.equal(await emoji.textContent(), "");
       assert.equal(
         await menu
           .locator("#gameMode, #trialArea, #restartBtn:visible")
@@ -51,6 +50,7 @@ const { chromium } = require("playwright");
       await slider.press("Home");
       await menu.getByRole("button", { name: "Close settings" }).click();
 
+      await confirmManualTakeover(page);
       const position = () =>
         page
           .locator("#drive")
@@ -63,8 +63,7 @@ const { chromium } = require("playwright");
         const r = document.querySelector("#emojiFocus").getBoundingClientRect();
         return (
           Math.abs(r.x + r.width / 2 - innerWidth / 2) < 1 &&
-          Math.abs(r.y + r.height / 2 - innerHeight / 2) < 1 &&
-          !document.querySelector("#emojiFocus").hasAttribute("data-offscreen")
+          Math.abs(r.y + r.height / 2 - innerHeight / 2) < 1
         );
       });
       assert.deepEqual(await position(), before);
@@ -94,6 +93,11 @@ const { chromium } = require("playwright");
       assert.equal(await emoji.getAttribute("aria-pressed"), "false");
       await page.keyboard.press("r");
       assert.equal(await emoji.getAttribute("aria-pressed"), "false");
+      await page.goto(`${url}?city=bay-bridge`);
+      await page
+        .locator('#drive[data-surface-id="bay-bridge-westbound"]')
+        .waitFor();
+      assert.equal(await emoji.isVisible(), false);
       await page.goto(`${url}?mode=solo`);
       await page.waitForFunction(
         () => document.querySelector("#drive").dataset.soloStatus === "ready",

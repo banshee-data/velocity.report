@@ -126,7 +126,7 @@ The car holds its brake before the first driving input, which starts the clock. 
 recovery, loading and background time. Collected emojis survive respawns and tile unloading.
 Completing the fixed target set stops the clock and saves the five fastest personal times
 on this device, separately for each starting place, map manifest and driving tune. The GTI
-tune starts a fresh set of times. Earlier records stay in browser storage. Choosing a starting place or reloading the page resets the entire run; Reset car keeps the clock running.
+tune starts a fresh set of times. Earlier records stay in browser storage. The game restores your trial when you return to a starting place or reload. After finishing, choose **Start a new emoji trial** to try for a faster time. Reset car keeps the clock running.
 There is no shared leaderboard. When browser storage is unavailable, records last for the session.
 
 `public_html/src/sf/quest-route.json` is a small gameplay index alongside the unchanged
@@ -267,20 +267,36 @@ The ordinary city game uses one ground surface at a horizontal position. On Hydr
 connections published by Gerardus. See the
 [regional review controls and scope](../plans/ui-sf-layered-roads-plan.md#regional-review-in-the-game).
 
-In **Map & game**, **Explore city road layers** draws Arrow's provisional elevated
-profiles as the map loads. With compatible Gerardus layers available, the game opens
-at **Bay Bridge approach** at 50 mph. Use **Start from** to return to the approach or
-choose a stationary start at Fremont Street exit or a city intersection. The westbound
-route crosses the bridge, takes the Fremont exit and rejoins I-80 from Fourth Street.
-Both Fourth Street entrance rails deflect the car and slow it down on contact.
-Drive with the usual controls or choose **Follow the route**. Map sources accepts a
-Gerardus server or a version-2 city road manifest URL. See the
-[citywide bake and game route](../plans/ui-sf-layered-roads-plan.md#citywide-bake-and-bay-bridge-game-route)
-for the supported extent and authored connections.
+The default **SoMa survey deliveries** drive goes through 1st at Mission, 3rd at Folsom
+and Howard at 6th using the bundled street tiles. Each delivery is registered within
+40 m of the survey on the street level. Survey cylinders show the locations of all
+placed replay sites, even beyond the local tile draw distance.
+
+Delivery drives begin in **Self-driving**. Driving input opens a confirmation for
+**Meat mode**, which starts a clock at $0.12 per second in game. **Resume self-driving**
+stops the clock and preserves the spend. On the first visit to a survey, the driver
+earns either ten free seconds or twenty half-rate seconds. Credits count down during
+manual driving and free seconds are used first. The HUD tracks deliveries, spend and
+crash infractions. These rates are game tuning values.
+
+Choose **Bay Bridge approach** in **Start from** for the westbound drive at 50 mph.
+The route crosses the bridge, takes the Fremont exit and rejoins I-80 from Fourth
+Street. The picker also includes Fremont Street exit and city intersection starts.
+Both Fourth Street entrance rails deflect the car and slow it down on contact. The
+same self-driving and manual controls apply. The game draws the baked overpasses
+in the city tiles. See the [citywide bake and game route](../plans/ui-sf-layered-roads-plan.md#citywide-bake-and-bay-bridge-game-route)
+for supported geometry and authored connections.
 
 The westbound bridge view loads the waterfront skyline before the car starts
 across the span. As the car approaches San Francisco, the local city tiles take
 over and restore the usual draw distance.
+
+The game loads its tiles and the bridge route from its own origin. On HTTPS and
+localhost, a service worker stores the game shell and downloaded tiles in browser
+Cache Storage. Return to the same origin to keep playing offline in cached areas.
+An uncached area needs a connection before the game can load its tiles. Emoji
+collections and the trial checkpoint are saved per start and district in local
+storage. **Best airtimes** lists the three longest landed jumps across starts.
 
 ## What it shows
 

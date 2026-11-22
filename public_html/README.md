@@ -139,7 +139,12 @@ See the [scene export guide](../tools/s2-archive/README.md#street-geometry-from-
 
 ## San Francisco driving game
 
-`/sf/` streams the existing S2 L13 city tiles and runs an emoji collection time trial.
+`/sf/` streams the existing S2 L13 city tiles. The default self-driving delivery route
+visits three SoMa survey intersections. The city emoji time trial is available from
+an intersection start. The Bay Bridge approach and baked overpasses load from the
+same origin as the game. After an online visit, the browser can reopen the game and
+play on previously downloaded tiles. Collected emojis and the three longest
+landed jumps are saved on the device.
 The engine includes a 350 hp GTI-inspired tune, a two-second crash spin before building/trunk
 collision recovery, brake lamps, an emoji compass seeker for the current tile, a minimap
 with S2 cell boundaries, the shoreline, parks and major roads, and personal best times saved on the device.

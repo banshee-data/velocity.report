@@ -1,0 +1,4 @@
+- Added a default self-driving SoMa delivery route through three survey intersections, with visible survey beacons throughout the mapped city.
+- Added confirmed manual takeover, an in-game insurance meter, crash infractions and timed survey credits. Self-driving preserves the accumulated spend.
+- Baked bridge and overpass runs into game tiles with shared run IDs across tile edges. The game serves its assets from its own origin.
+- Cached downloaded tiles for offline play and saved emoji trial progress and the three best airtimes on the device. The emoji focus control follows the world marker when it is in view.

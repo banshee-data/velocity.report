@@ -46,6 +46,14 @@ eleventyExcludeFromCollections: true
   .speed small { font-size: 10px; font-weight: 600; }
   .run { text-align: right; white-space: nowrap; font-size: 10px; color: var(--muted); }
   .timer { display: block; color: var(--ink); font: 700 14px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+  .insurance { position: fixed; right: max(8px, env(safe-area-inset-right, 0px)); top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); width: min(210px, calc(100vw - 110px)); padding: 8px 10px; font-size: 11px; color: var(--muted); }
+  .insurance-head { display: flex; justify-content: space-between; gap: 8px; color: var(--ink); }
+  #insuranceCost { font: 700 14px/1.4 var(--mono); }
+  #insuranceBonus { color: var(--accent); }
+  #insuranceDeliveries { color: var(--ink); }
+  #takeoverDialog { max-width: min(330px, calc(100vw - 24px)); color: var(--ink); padding: 16px; }
+  #takeoverDialog h2 { margin: 0; font-size: 18px; }
+  #takeoverDialog button { padding: 6px 10px; }
   button, select { font: inherit; color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
   button { cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   button:disabled { opacity: 0.5; cursor: default; }
@@ -98,9 +106,8 @@ eleventyExcludeFromCollections: true
   .tools input[type="range"] { padding: 0; margin: 0; accent-color: var(--accent); }
   #cameraName { float: right; color: var(--ink); font-weight: 700; }
   .camera-stops { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-  #emojiFocus { position: fixed; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -50%); border: 2px solid #fbbf24; border-radius: 50%; font-size: 24px; line-height: 1; }
-  #emojiFocus[data-offscreen] { border-style: dashed; }
-  #emojiFocus[aria-pressed="true"] { background: var(--panel); border-color: var(--accent); }
+  #emojiFocus { position: fixed; width: 44px; height: 44px; padding: 0; transform: translate(-50%, -50%); border: 2px solid #fbbf24; border-radius: 50%; font-size: 24px; line-height: 1; background: transparent; }
+  #emojiFocus[aria-pressed="true"] { border-color: var(--accent); }
   .tools .row { display: flex; gap: 8px; }
   .tools button { min-height: 44px; padding: 8px 12px; flex: 1; }
   .tools button[aria-pressed="true"] { border-color: var(--accent); }
@@ -159,6 +166,21 @@ eleventyExcludeFromCollections: true
   </div>
   <button type="button" class="icon-button" id="menuBtn" aria-label="Map and game settings" aria-haspopup="dialog" aria-controls="gameMenu" aria-expanded="false">☰</button>
 </header>
+<section class="panel insurance" id="insuranceHud" aria-label="Delivery insurance" hidden>
+  <div class="insurance-head"><strong id="insuranceMode"></strong><span id="insuranceCost" aria-label="Insurance spend">$0.00</span></div>
+  <div id="insuranceRate" role="timer" aria-label="Manual driving time and insurance rate"></div>
+  <div id="insuranceBonus"></div>
+  <div id="insuranceDeliveries"></div>
+  <div id="insuranceInfractions"></div>
+</section>
+<dialog id="takeoverDialog" class="panel" aria-labelledby="takeoverTitle">
+  <h2 id="takeoverTitle">Switch to Meat mode?</h2>
+  <p>Manual driving costs $0.12 per second in game. Survey bonuses can lower your rate.</p>
+  <form method="dialog" class="row">
+    <button value="cancel" autofocus>Cancel</button>
+    <button value="manual">Take manual control</button>
+  </form>
+</dialog>
 <div class="seeker" aria-label="Direction to next emoji">
   <canvas id="seekerCompass" width="144" height="144" role="img" aria-label="Direction to the next emoji, relative to the car"></canvas>
   <div class="seeker-copy">
@@ -202,17 +224,7 @@ eleventyExcludeFromCollections: true
     <button type="button" id="mirrorBtn" aria-pressed="true" hidden>Rear-view mirror</button>
     <label for="places">Start from</label>
     <select id="places"></select>
-    <a href="?region=embarcadero-bryant" id="regionalLink" hidden>Open regional road review</a>
-    <a href="?city=layers" id="cityLayersLink" hidden>Explore city road layers</a>
-    <p class="detail" id="cityStatus" role="status" hidden></p>
-    <button type="button" id="followCityDrive" hidden>Follow the route</button>
-    <div id="regionalReview" class="tools" hidden>
-      <label for="roadRegion">Road review region</label>
-      <select id="roadRegion"></select>
-      <label for="roadReviewDrive">Published review drive</label>
-      <select id="roadReviewDrive"></select>
-      <p class="detail" id="roadReviewStatus" role="status"></p>
-    </div>
+    <button type="button" id="followCityDrive" hidden>Take manual control</button>
     <div class="row">
       <button type="button" id="restartBtn" hidden>Restart drive</button>
       <button type="button" id="respawnBtn">Reset car</button>
@@ -246,21 +258,13 @@ eleventyExcludeFromCollections: true
   </div>
   <div class="help">
     <p>Steer with the left thumb. Use the right thumb to accelerate or brake. Keep holding the brake to reverse after stopping. Follow the gold arrow for guidance. Tap the outlined emoji to centre it, then drive to return to the road view. Camera choices are Zoomed out, Overhead and In car. The mirror is available only in car view.</p>
-    <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive/reverse, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror in car, <kbd>V</kbd> cycle cameras, <kbd>R</kbd> return to an intersection. A crash spins the car for 2 seconds, then resets it; the clock keeps running. Choosing a start resets the run. The clock also continues while this menu is open.</p>
+    <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive/reverse, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror in car, <kbd>V</kbd> cycle cameras, <kbd>R</kbd> return to an intersection. A crash spins the car for 2 seconds, then resets it; the clock keeps running. The game saves progress for each start. Finish the trial to start another attempt. The clock continues while this menu is open.</p>
     <p>Measured geometry as context, not a survey or a plan: building outlines and 2010 heights from DataSF (PDDL), roofs fitted to USGS 3DEP lidar flown April 2023 (public domain), street trees from DataSF's Street Tree List with lidar canopy, streets, kerbs (2016) and street names from DataSF. Buildings 3DEP sees that the City's 2010 outlines lack use a warmer tan. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">About this data</a>.</p>
   </div>
-  <details class="sources" id="mapSources">
-    <summary>Map sources</summary>
-    <form id="sourceForm" class="tools" aria-label="Map sources">
-      <label for="tileServer">SF tile directory or manifest URL</label>
-      <input type="text" id="tileServer" inputmode="url" placeholder="Bundled SF tiles" spellcheck="false" autocomplete="off">
-      <label for="gerardusServer">Gerardus server or road manifest URL</label>
-      <input type="text" id="gerardusServer" inputmode="url" placeholder="Optional road surfaces" spellcheck="false" autocomplete="off">
-      <p class="detail">Use a compatible planar SF tile pack. Leave the fields blank for the bundled map.</p>
-      <button type="submit">Apply map sources</button>
-      <p id="sourceError" class="detail" role="status"></p>
-    </form>
-  </details>
+  <section class="details" aria-label="Airtime records">
+    <div class="title">Longest airtimes</div>
+    <ol id="airtimeRecords"></ol>
+  </section>
 </dialog>
 <div class="pad steering" role="group" aria-label="Steering controls">
   <button type="button" data-act="left" aria-label="Steer left">←</button>
@@ -272,16 +276,32 @@ eleventyExcludeFromCollections: true
 </div>
 <script type="application/json" id="surveySites">{{ surveys | sfSurveyData | safe }}</script>
 <script type="module">
-  import { mountDriveSettings } from "{{ (modulesBase + '/js/sf-drive-settings.js') | url }}";
   const $ = (id) => document.getElementById(id);
-  const sources = mountDriveSettings({
-    menu: $("gameMenu"), menuButton: $("menuBtn"), form: $("sourceForm"),
-    tiles: $("tileServer"), gerardus: $("gerardusServer"), error: $("sourceError"),
+  const menu = $("gameMenu"), menuButton = $("menuBtn");
+  menuButton.addEventListener("click", () => {
+    menu.showModal();
+    menuButton.setAttribute("aria-expanded", "true");
   });
+  menu.addEventListener("close", () => menuButton.setAttribute("aria-expanded", "false"));
+  if ("serviceWorker" in navigator) {
+    try {
+      await navigator.serviceWorker.register("{{ '/sf/offline.js' | url }}");
+      if (!navigator.serviceWorker.controller) {
+        await new Promise((resolve) => {
+          const timer = setTimeout(resolve, 8000);
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            clearTimeout(timer);
+            resolve();
+          }, { once: true });
+        });
+      }
+    } catch (error) {
+      console.warn("Offline game storage unavailable", error);
+    }
+  }
   import("{{ (modulesBase + '/js/sf-drive.js') | url }}").then(({ startDrive }) => startDrive({
     canvas: $("drive"),
     base: "{{ '/sf/tiles/' | url }}",
-    sources,
     downloadAssets: {{ sfDownloadAssets | safe }},
     surveySites: JSON.parse($("surveySites").textContent),
     hud: {
@@ -294,11 +314,11 @@ eleventyExcludeFromCollections: true
       seekerCompass: $("seekerCompass"), seekerScope: $("seekerScope"), seekerDistance: $("seekerDistance"), seekerHeading: $("seekerHeading"),
       seekerTurn: $("seekerTurn"), trialTitle: $("trialTitle"),
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
-      airtime: $("airtime"), airtimeCard: $("airtimeCard"),
-      regionalLink: $("regionalLink"), regionalReview: $("regionalReview"), roadRegion: $("roadRegion"),
-      cityLayersLink: $("cityLayersLink"),
-      cityStatus: $("cityStatus"), followCityDrive: $("followCityDrive"),
-      roadReviewDrive: $("roadReviewDrive"), roadReviewStatus: $("roadReviewStatus"),
+      airtime: $("airtime"), airtimeCard: $("airtimeCard"), airtimeRecords: $("airtimeRecords"),
+      followCityDrive: $("followCityDrive"),
+      takeover: $("takeoverDialog"), insuranceHud: $("insuranceHud"), insuranceMode: $("insuranceMode"),
+      insuranceCost: $("insuranceCost"), insuranceRate: $("insuranceRate"), insuranceBonus: $("insuranceBonus"),
+      insuranceDeliveries: $("insuranceDeliveries"), insuranceInfractions: $("insuranceInfractions"),
       touchButtons: document.querySelectorAll(".pad button"),
       survey: {
         approach: $("surveyApproach"), approachTitle: $("surveyApproachTitle"), approachDistance: $("surveyApproachDistance"),
@@ -308,8 +328,7 @@ eleventyExcludeFromCollections: true
     },
   })).catch((e) => {
     $("street").textContent = "The city tiles could not be loaded.";
-    $("next").textContent = "Open Map & game to change map sources.";
-    $("mapSources").open = true;
+    $("next").textContent = "Reconnect to download this part of the city.";
     console.error(e);
   });
 </script>

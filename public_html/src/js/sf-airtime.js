@@ -106,7 +106,7 @@ export function sampleFlightProfile(car, road, heightAt, deckAt, tiles = []) {
   return { profile, basis: road ? "Road centreline" : "Takeoff heading" };
 }
 
-export function createFlightTimeline() {
+export function createFlightTimeline(onLanding) {
   let flight;
   let cards = [];
   function reset(keepCompleted = false) {
@@ -119,6 +119,8 @@ export function createFlightTimeline() {
       flight.label = label;
       flight.until = now + holdMs;
       cards.push(flight);
+      if (label === "Touchdown")
+        onLanding?.({ seconds: flight.seconds, peak: flight.peak });
     }
     flight = undefined;
   }
@@ -152,7 +154,8 @@ export function createFlightTimeline() {
       }
       flight.refreshedAt = now;
     }
-    if (car.grounded !== false) finish(now);
+    if (environment.impact) finish(now, "Impact");
+    else if (car.grounded !== false) finish(now);
   }
   function visible(now) {
     cards = cards.filter((card) => now < card.until);
@@ -161,8 +164,8 @@ export function createFlightTimeline() {
   return { step, finish, reset, visible };
 }
 
-export function createAirtimeHud(panel, template) {
-  const timeline = createFlightTimeline();
+export function createAirtimeHud(panel, template, onLanding) {
+  const timeline = createFlightTimeline(onLanding);
   const elements = new Map();
   function draw(now) {
     const visible = timeline.visible(now);

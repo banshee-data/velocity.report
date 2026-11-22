@@ -1,4 +1,5 @@
 const fs = require("fs");
+const { createHash } = require("node:crypto");
 const syntaxHighlight = require("@11ty/eleventy-plugin-syntaxhighlight");
 const markdownIt = require("markdown-it");
 const markdownItAnchor = require("markdown-it-anchor");
@@ -177,6 +178,16 @@ module.exports = async function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy({
     "src/sf/quest-route.json": "sf/quest-route.json",
   });
+  eleventyConfig.addPassthroughCopy({
+    "src/sf/gamedrives.json": "sf/gamedrives.json",
+  });
+  eleventyConfig.addGlobalData(
+    "sfTileVersion",
+    createHash("sha256")
+      .update(fs.readFileSync("src/sf/tiles/manifest.json"))
+      .digest("hex")
+      .slice(0, 16),
+  );
   // Compressed payload estimates are replaced by actual response sizes in the browser.
   eleventyConfig.addGlobalData(
     "sfDownloadAssets",
