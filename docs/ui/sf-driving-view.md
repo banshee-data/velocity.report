@@ -262,9 +262,12 @@ connections published by Gerardus. See the
 [regional review controls and scope](../plans/ui-sf-layered-roads-plan.md#regional-review-in-the-game).
 
 In **Map & game**, **Explore city road layers** draws Arrow's provisional elevated
-profiles as the map loads. **Drive the Bay Bridge and I-80** starts a westbound drive
-across the bridge, down the Fremont Street exit and back onto I-80 from Fourth Street.
-Drive with the usual controls or choose **Follow the route**. The settings accept a
+profiles as the map loads. With compatible Gerardus layers available, the game opens
+at **Bay Bridge approach** at 50 mph. Use **Start from** to return to the approach or
+choose a stationary start at Fremont Street exit or a city intersection. The westbound
+route crosses the bridge, takes the Fremont exit and rejoins I-80 from Fourth Street.
+Both Fourth Street entrance rails deflect the car and slow it down on contact.
+Drive with the usual controls or choose **Follow the route**. Map sources accepts a
 Gerardus server or a version-2 city road manifest URL. See the
 [citywide bake and game route](../plans/ui-sf-layered-roads-plan.md#citywide-bake-and-bay-bridge-game-route)
 for the supported extent and authored connections.

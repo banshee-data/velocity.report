@@ -2,6 +2,7 @@ import * as THREE from "../vendor/three/three.module.js";
 import { indexRoadContact } from "./sf-road-contact.js";
 
 export const BAY_BRIDGE_CITY_DRIVE = "bay-bridge-highway-drive";
+export const BAY_BRIDGE_APPROACH = "Bay Bridge approach";
 
 const hypot = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const bearing = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
@@ -142,6 +143,7 @@ export function buildCityGameDrive(drive, groundHeight) {
       terminalBearings: [tangents[start] + Math.PI, tangents[end]],
       rail: span.rail,
       railSides: span.rail_sides,
+      railBounceOnly: id === "fourth-street-entrance",
       highwayRailHalfWidth: span.rail
         ? Math.min(fromWidth, toWidth) / 2 - 0.35
         : 0,
@@ -209,11 +211,12 @@ export function buildCityGameDrive(drive, groundHeight) {
     exitStart,
     start: {
       id: drive.id,
-      name: drive.label,
+      name: BAY_BRIDGE_APPROACH,
       surfaceId: entries[0].id,
       x,
       y,
       heading: tangents[start],
+      initialSpeed: 50 * 0.44704,
     },
   };
 }

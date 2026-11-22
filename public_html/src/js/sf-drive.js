@@ -68,6 +68,7 @@ import {
   mapSources,
 } from "./sf-drive-settings.js";
 import {
+  BAY_BRIDGE_APPROACH,
   BAY_BRIDGE_CITY_DRIVE,
   applyCityDriveScenery,
   buildCityGameDrive,
@@ -700,8 +701,10 @@ export async function startDrive({
 }) {
   const params = new URLSearchParams(location.search);
   const at = params.get("at");
-  const cityMode = params.get("city");
-  const region = cityMode ? null : params.get("region");
+  const requestedCity = params.get("city");
+  const region = ["layers", "bay-bridge"].includes(requestedCity)
+    ? null
+    : params.get("region");
   const reviewDrive = params.get("review");
   const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(
     location.hostname,
@@ -709,6 +712,8 @@ export async function startDrive({
   const pilotRequested = ["bay-bridge-deck", "bay-bridge-street"].includes(at);
   const settings = mapSources(sources);
   const cityUrl = settings.city || (loopback ? CITY_ROAD_LAYERS : null);
+  const cityMode =
+    requestedCity || (!at && !region && cityUrl ? "bay-bridge" : null);
   const tileBase = settings.tiles || base;
   const manifestUrl = new URL(`${tileBase}manifest.json`, location.href);
   const overlayUrl =
@@ -736,7 +741,7 @@ export async function startDrive({
       : null,
     fetchJsonGz(`${base}../quest-route.json`),
     fetchJsonGz(`${base}../coverage.json`),
-    cityMode && cityUrl
+    ["bay-bridge", "layers"].includes(cityMode) && cityUrl
       ? openCityRoadLayers(
           new URL(cityUrl),
           manifestUrl,
@@ -1033,12 +1038,15 @@ export async function startDrive({
         "This review drive has no verified start that fits the car.";
   }
   const places = [...(manifest.places || []), ...bridgeStarts];
-  if (gameDrive) {
-    places.push(gameDrive.start);
-    if (gameDrive.exitStart) places.push(gameDrive.exitStart);
-  }
+  if (gameDrive?.exitStart) places.unshift(gameDrive.exitStart);
+  if (gameDrive) places.unshift(gameDrive.start);
   if (reviewStart && !places.some((p) => p.id === reviewStart.id))
     places.push(reviewStart);
+  const bridgeChoice =
+    cityUrl && !gameDrive && !region
+      ? { id: BAY_BRIDGE_CITY_DRIVE, name: BAY_BRIDGE_APPROACH }
+      : null;
+  const startChoices = bridgeChoice ? [bridgeChoice, ...places] : places;
   const start =
     (at && at === gameDrive?.exitStart?.id ? gameDrive.exitStart : null) ||
     gameDrive?.start ||
@@ -1048,8 +1056,13 @@ export async function startDrive({
   hud.regionalLink.hidden = !catalogUrl || !!review;
   if (review) {
     const leaveReview = (region, drive) => {
-      if (region) params.set("region", region);
-      else params.delete("region");
+      if (region) {
+        params.set("region", region);
+        params.delete("city");
+      } else {
+        params.delete("region");
+        params.set("city", "map");
+      }
       if (drive) params.set("review", drive);
       else params.delete("review");
       params.delete("at");
@@ -1081,12 +1094,12 @@ export async function startDrive({
     );
     hud.roadReviewStatus.textContent = reviewError || reviewSummary;
   }
-  const startingCar = ({ x, y, heading, surfaceId }) => ({
+  const startingCar = ({ x, y, heading, surfaceId, initialSpeed = 0 }) => ({
     x,
     y,
     heading,
     surfaceId,
-    v: 0,
+    v: initialSpeed,
   });
   let car = startingCar(start);
   let carZ = 0;
@@ -1197,6 +1210,7 @@ export async function startDrive({
   function updateBridgeMode() {
     const active = isRoadReview(selectedStart);
     document.body.dataset.bridge = String(active);
+    hud.followCityDrive.hidden = !gameDrive?.spans.has(selectedStart.surfaceId);
     hud.restartBtn.textContent = active ? "Restart drive" : "New trial";
     if (active) {
       hud.timer.textContent = gameDrive
@@ -1212,14 +1226,8 @@ export async function startDrive({
     }
   }
   updateBridgeMode();
-  hud.bridgeLink.hidden = !loopback || bridgeStarts.length > 0 || !!region;
   hud.cityLayersLink.hidden = !cityUrl;
-  hud.cityDriveLink.hidden = !cityUrl;
-  for (const link of [
-    hud.regionalLink,
-    hud.cityLayersLink,
-    hud.cityDriveLink,
-  ]) {
+  for (const link of [hud.regionalLink, hud.cityLayersLink]) {
     const url = new URL(link.href);
     for (const key of ["tiles", "overlay"])
       if (params.has(key)) url.searchParams.set(key, params.get(key));
@@ -1231,7 +1239,6 @@ export async function startDrive({
   else if (cityLayers)
     hud.cityStatus.textContent =
       "City road layers · provisional spans in cyan and gold";
-  hud.followCityDrive.hidden = !gameDrive;
   if (cityError) announce(`City drive unavailable · ${cityError}`, 10);
   if (
     overlayError ||
@@ -1608,14 +1615,27 @@ export async function startDrive({
     respawn();
     releaseFocus(e);
   });
-  hud.places.replaceChildren(...places.map((p) => new Option(p.name, p.id)));
+  hud.places.replaceChildren(
+    ...startChoices.map((p) => new Option(p.name, p.id)),
+  );
   hud.places.value = start.id;
   hud.places.addEventListener("change", () => {
-    const p = places.find((q) => q.id === hud.places.value);
+    const p = startChoices.find((q) => q.id === hud.places.value);
     if (p) {
+      params.set("at", p.id);
+      if (p === bridgeChoice) {
+        params.set("city", "bay-bridge");
+        location.assign(`?${params}`);
+        return;
+      }
+      if (gameDrive && !p.surfaceId) {
+        params.delete("city");
+        location.assign(`?${params}`);
+        return;
+      }
+      if (gameDrive) params.set("city", "bay-bridge");
       cityStart = p;
       newTrial(p);
-      params.set("at", p.id);
       if (overlayUrl) params.set("overlay", overlayUrl);
       history.replaceState(null, "", `?${params}`);
     }
@@ -1638,7 +1658,7 @@ export async function startDrive({
       districts.find((d) => d.id === hud.trialArea.value) || null;
     hud.places.disabled = !!activeDistrict;
     hud.places.replaceChildren(
-      ...(activeDistrict ? [activeDistrict.start] : places).map(
+      ...(activeDistrict ? [activeDistrict.start] : startChoices).map(
         (p) => new Option(p.name, p.id),
       ),
     );
@@ -2497,7 +2517,9 @@ export async function startDrive({
         hud.next.textContent = hud.status.textContent;
       hud.next.title = hud.next.textContent;
       hud.driveBar.dataset.crash = String(!!crash);
-      hud.speed.textContent = Math.round(Math.abs(car.v) * 2.23694);
+      hud.speed.textContent = grounded
+        ? Math.round(Math.abs(car.v) * 2.23694)
+        : 0;
       const deg = (((90 - (car.heading * 180) / Math.PI) % 360) + 360) % 360;
       hud.compass.textContent = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][
         Math.round(deg / 45) % 8

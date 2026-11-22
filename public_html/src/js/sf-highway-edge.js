@@ -160,18 +160,31 @@ function outsideEdge(boundary, x, y) {
 
 // Resolve a low-energy strike as a slide or rebound. Severity follows the
 // velocity into the rail, so a fast shallow scrape can remain controllable.
-export function barrierImpact(next, { nx, ny }, dt, cornerSpeed = 0) {
+export function barrierImpact(
+  next,
+  { nx, ny },
+  dt,
+  cornerSpeed = 0,
+  bounceOnly = false,
+) {
   const vx = Math.cos(next.heading) * next.v;
   const vy = Math.sin(next.heading) * next.v;
   const normal = vx * nx + vy * ny;
   const approach = Math.max(normal, cornerSpeed);
   if (approach <= 0) return null;
-  if (normal >= 12 || (Math.abs(next.v) >= 28 && normal >= 5.5))
+  if (
+    !bounceOnly &&
+    (normal >= 12 || (Math.abs(next.v) >= 28 && normal >= 5.5))
+  )
     return { roadImpact: "highway barrier" };
   const tangent = vx * -ny + vy * nx;
   const drag = 0.35 * approach + 2 * dt;
   const slide = Math.sign(tangent) * Math.max(0, Math.abs(tangent) - drag);
-  const rebound = normal >= 2.5 ? 0.18 * normal : 0;
+  const rebound = bounceOnly
+    ? 0.18 * approach
+    : normal >= 2.5
+      ? 0.18 * normal
+      : 0;
   const outX = -ny * slide - nx * rebound;
   const outY = nx * slide - ny * rebound;
   const speed = Math.hypot(outX, outY);
@@ -243,7 +256,13 @@ export function strikeHighwayRail(car, input, dt, surface) {
   }
   if (!contact) return null;
   const { edge, cornerSpeed } = contact;
-  const impact = barrierImpact(next, edge, dt, cornerSpeed);
+  const impact = barrierImpact(
+    next,
+    edge,
+    dt,
+    cornerSpeed,
+    surface.railBounceOnly,
+  );
   if (!impact) return null;
   if (impact.roadImpact) return { ...car, ...impact, blocked: false };
   const { a, nx, ny } = edge;

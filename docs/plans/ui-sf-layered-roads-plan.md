@@ -201,11 +201,17 @@ references over HTTP. The browser checks the base map and coordinate frame, then
 checksums of the road and route files it reads. **Explore city road layers** shows the
 provisional overpass and bridge profiles in cyan and gold and retains gaps in their drawing.
 
-**Drive the Bay Bridge and I-80** starts westbound near Yerba Buena Island. Drive manually
-or select **Follow the route** in **Map & game**. Steering, acceleration or braking cancels
-the assist. The route follows the west span to the city approach, takes the Fremont Street
-exit, follows Fremont, Howard, Second and Harrison, and rejoins westbound I-80 at the
-Fourth Street entrance. The named route is 6.22 km.
+**Bay Bridge approach** is the default in **Start from** when the game can load the Arrow
+route. It starts westbound near Yerba Buena Island at 50 mph. Fremont Street exit and the
+city intersections start at rest in the same picker. Drive manually or select **Follow
+the route** in **Map & game**. Steering, acceleration or braking cancels the assist.
+The route follows the west span to the city approach, takes the Fremont Street exit,
+follows Fremont, Howard, Second and Harrison, and rejoins westbound I-80 at Fourth Street.
+The named route is 6.22 km.
+
+Both rails at the Fourth Street entrance use a rebound for side impacts at any speed.
+The car loses speed and stays on the ramp. The replay checks a 50 mph strike on each
+rail before driving the six connected sections from the rolling bridge start.
 
 The [route baker](../../tools/sf-drive/bake-city-drive.py) adds one checksummed game
 asset to the immutable Gerardus city revision. It uses the fitted west-span profiles and

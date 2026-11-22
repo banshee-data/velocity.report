@@ -203,10 +203,8 @@ eleventyExcludeFromCollections: true
     <select id="trialArea" aria-label="Time trial area"></select>
     <label for="places">Start from</label>
     <select id="places"></select>
-    <a href="?at=bay-bridge-deck" id="bridgeLink" hidden>Drive the Bay Bridge approach</a>
     <a href="?region=embarcadero-bryant" id="regionalLink" hidden>Open regional road review</a>
     <a href="?city=layers" id="cityLayersLink" hidden>Explore city road layers</a>
-    <a href="?city=bay-bridge" id="cityDriveLink" hidden>Drive the Bay Bridge and I-80</a>
     <p class="detail" id="cityStatus" role="status" hidden></p>
     <button type="button" id="followCityDrive" hidden>Follow the route</button>
     <div id="regionalReview" class="tools" hidden>
@@ -297,9 +295,9 @@ eleventyExcludeFromCollections: true
       seekerCompass: $("seekerCompass"), seekerScope: $("seekerScope"), seekerDistance: $("seekerDistance"), seekerHeading: $("seekerHeading"),
       seekerTurn: $("seekerTurn"), trialArea: $("trialArea"), trialTitle: $("trialTitle"),
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
-      bridgeLink: $("bridgeLink"), airtime: $("airtime"), airtimeCard: $("airtimeCard"),
+      airtime: $("airtime"), airtimeCard: $("airtimeCard"),
       regionalLink: $("regionalLink"), regionalReview: $("regionalReview"), roadRegion: $("roadRegion"),
-      cityLayersLink: $("cityLayersLink"), cityDriveLink: $("cityDriveLink"),
+      cityLayersLink: $("cityLayersLink"),
       cityStatus: $("cityStatus"), followCityDrive: $("followCityDrive"),
       roadReviewDrive: $("roadReviewDrive"), roadReviewStatus: $("roadReviewStatus"),
       touchButtons: document.querySelectorAll(".pad button"),

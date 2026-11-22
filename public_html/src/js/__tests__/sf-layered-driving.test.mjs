@@ -9,7 +9,7 @@ import {
   buildCityGameDrive,
   cityDriveControls,
 } from "../sf-city-road-drive.js";
-import { contactStep } from "../sf-drive-core.js";
+import { CAR_HALF_LENGTH, contactStep } from "../sf-drive-core.js";
 import {
   BAY_BRIDGE_OVERLAY,
   CITY_ROAD_LAYERS,
@@ -97,7 +97,7 @@ test("the city drive crosses from a deck to street terrain and rejoins the highw
         section("deck", "bridge_deck", 0, 0),
         section("exit", "ramp", 50, -8),
         section("street", "ground", 100, 0),
-        section("entrance", "ramp", 150, 8),
+        section("fourth-street-entrance", "ramp", 150, 8),
         section("highway", "bridge_deck", 200, 0),
       ],
     },
@@ -128,9 +128,43 @@ test("the city drive crosses from a deck to street terrain and rejoins the highw
     if (next.surfaceId !== car.surfaceId) seen.push(next.surfaceId);
     car = next;
   }
-  assert.deepEqual(seen, ["deck", "exit", "street", "entrance", "highway"]);
+  assert.deepEqual(seen, [
+    "deck",
+    "exit",
+    "street",
+    "fourth-street-entrance",
+    "highway",
+  ]);
   assert.equal(car.z, 10);
   assert.ok(cityDriveControls(drive, car).finished);
+  assert.ok(Math.abs(drive.start.initialSpeed * MPH - 50) < 1e-6);
+  const entrance = surfaces.get("fourth-street-entrance");
+  entrance.railSegments = highwayRailSegments(entrance);
+  for (const side of [-1, 1]) {
+    const x = 175;
+    const y = (entrance.highwayRailHalfWidth - CAR_HALF_LENGTH - 0.06) * side;
+    const heading = (side * Math.PI) / 2;
+    const hard = {
+      x,
+      y,
+      z: entrance.heightAt(x, y),
+      v: 24,
+      heading,
+      grounded: true,
+    };
+    const hit = strikeHighwayRail(hard, {}, 1 / 120, entrance);
+    assert.equal(hit.edgeContact, "bounce");
+    assert.equal(hit.roadImpact, undefined);
+    assert.equal(hit.grounded, true);
+    assert.ok(Math.sin(hit.heading) * hit.v * side < 0);
+    assert.ok(Math.abs(hit.v) < hard.v);
+  }
+  assert.deepEqual(
+    drive.surfaces
+      .filter((surface) => surface.railBounceOnly)
+      .map(({ id }) => id),
+    ["fourth-street-entrance"],
+  );
 });
 
 test("the city drive adjusts only the specified scenery records in its pinned base", () => {

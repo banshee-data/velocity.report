@@ -35,6 +35,59 @@ const { chromium } = require("playwright");
         kind: dataset.surface,
         contact: dataset.contact,
       }));
+    if (process.argv.includes("--starts")) {
+      const waitForStart = (id, surface, speed) =>
+        page.waitForFunction(
+          ({ id, surface, speed }) => {
+            const drive = document.querySelector("#drive").dataset;
+            return (
+              document.querySelector("#places").value === id &&
+              drive.contact === "grounded" &&
+              (drive.surfaceId || "") === surface &&
+              document.querySelector("#speed").textContent === speed
+            );
+          },
+          { id, surface, speed },
+          { timeout: 60000 },
+        );
+      const bridge = "bay-bridge-highway-drive";
+      await page.goto(`${host}/sf/`);
+      await waitForStart(bridge, "bay-bridge-westbound", "50");
+      await page.locator("#menuBtn").click();
+      const picker = page.getByLabel("Start from", { exact: true });
+      assert.equal(
+        await picker.locator(`option[value="${bridge}"]`).count(),
+        1,
+      );
+      assert.equal(
+        await page.locator("#bridgeLink, #cityDriveLink").count(),
+        0,
+      );
+      await picker.selectOption("fremont-exit");
+      await waitForStart("fremont-exit", "fremont-exit", "0");
+      assert.equal(new URL(page.url()).searchParams.get("city"), "bay-bridge");
+      const intersection = await picker
+        .locator(`option:not([value="${bridge}"]):not([value="fremont-exit"])`)
+        .first()
+        .getAttribute("value");
+      await picker.selectOption(intersection);
+      await waitForStart(intersection, "", "0");
+      await page.locator("#menuBtn").click();
+      await picker.selectOption(bridge);
+      await waitForStart(bridge, "bay-bridge-westbound", "50");
+      await page.route("**/gamedrives.json", (route) => route.abort());
+      await page.goto(`${host}/sf/`);
+      await waitForStart(intersection, "", "0");
+      assert.match(
+        await page.locator("#cityStatus").textContent(),
+        /unavailable/,
+      );
+      assert.deepEqual(errors, []);
+      console.log(
+        "Start picker defaults to the Bay Bridge at 50 mph. Fremont and intersection starts remain stationary.",
+      );
+      return;
+    }
     const drives = [
       ["bay-bridge-deck", "bridge_deck"],
       ["bay-bridge-street", "ground"],
@@ -264,7 +317,7 @@ const { chromium } = require("playwright");
     await page
       .getByLabel("SF tile directory or manifest URL")
       .fill(`${host}/sf/tiles`);
-    await page.getByLabel(/Gerardus address/).fill("http://arrow-worker:50061");
+    await page.getByLabel(/Gerardus server/).fill("http://arrow-worker:50061");
     const manifest = page.waitForResponse(
       (res) =>
         new URL(res.url()).hostname === "arrow-worker" &&
@@ -275,7 +328,7 @@ const { chromium } = require("playwright");
     await manifest;
     await page.waitForFunction(() =>
       [...document.querySelector("#places").options].some(
-        (option) => option.value === "bay-bridge-deck",
+        (option) => option.value === "bay-bridge-highway-drive",
       ),
     );
     await page.locator("#menuBtn").click();
@@ -283,7 +336,7 @@ const { chromium } = require("playwright");
       details.open = true;
     });
     assert.equal(
-      await page.getByLabel(/Gerardus address/).inputValue(),
+      await page.getByLabel(/Gerardus server/).inputValue(),
       "http://arrow-worker:50061",
     );
     console.log(
