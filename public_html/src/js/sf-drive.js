@@ -1109,8 +1109,11 @@ export async function startDrive({
   const failures = new Map();
   window.addEventListener("online", () => failures.clear());
   const baseRevision = manifest.roadBake?.baseSha256 || route.manifestSha256;
+  const placementRevision = route.placementSha256
+    ? `:${route.placementSha256}`
+    : "";
   const recordKey = () =>
-    `sf-trial-v2:${baseRevision}:${selectedStart.id}${activeDistrict ? `:district:${activeDistrict.recordScope}` : ""}`;
+    `sf-trial-v2:${baseRevision}${placementRevision}:${selectedStart.id}${activeDistrict ? `:district:${activeDistrict.recordScope}` : ""}`;
   const progressKey = () => `sf-progress-v1:${recordKey()}`;
   function loadTrialProgress() {
     const saved = readProgress(progressKey());
