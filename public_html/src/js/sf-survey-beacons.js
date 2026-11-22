@@ -1,32 +1,43 @@
 import * as THREE from "../vendor/three/three.module.js";
 import { SCENE_COLOURS } from "./scene-colours.js";
 
-export function surveyBeacons(sites) {
+export function surveyBeacons(sites, localCamera) {
   const height = 720;
   const material = new THREE.ShaderMaterial({
     uniforms: {
       time: { value: 0 },
       colour: { value: new THREE.Color(SCENE_COLOURS.cycle) },
+      localNear: { value: localCamera.near },
+      localFar: { value: localCamera.far },
     },
     transparent: true,
     depthWrite: false,
     side: THREE.BackSide,
     vertexShader: `
       varying vec2 beaconUv;
+      varying float beaconViewZ;
       void main() {
         beaconUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+        vec4 viewPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+        beaconViewZ = viewPosition.z;
+        gl_Position = projectionMatrix * viewPosition;
       }
     `,
     fragmentShader: `
       uniform float time;
       uniform vec3 colour;
+      uniform float localNear;
+      uniform float localFar;
       varying vec2 beaconUv;
+      varying float beaconViewZ;
+      #include <packing>
       void main() {
         float filament = pow(max(0.0, cos(beaconUv.x * 113.0973)), 12.0);
         float flow = 0.55 + 0.45 * sin(beaconUv.y * 36.0 - time * 0.8 + beaconUv.x * 12.5664);
         float fade = 1.0 - smoothstep(0.48, 1.0, beaconUv.y);
         gl_FragColor = vec4(colour, fade * (0.065 + 0.38 * filament * flow));
+        // Beyond the local far plane, draw only against its cleared sky.
+        gl_FragDepth = clamp(viewZToPerspectiveDepth(beaconViewZ, localNear, localFar), 0.0, 1.0);
         #include <colorspace_fragment>
       }
     `,

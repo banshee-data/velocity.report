@@ -885,7 +885,7 @@ export async function startDrive({
   skylineScene.background = C.sky;
   skylineScene.fog = new THREE.Fog(C.sky, 1200, 5800);
   const skylineBuildings = new THREE.Group();
-  const beacons = surveyBeacons(surveySites);
+  const beacons = surveyBeacons(surveySites, camera);
   skylineScene.add(skylineBuildings);
   const beaconScene = new THREE.Scene();
   const beaconCamera = camera.clone();
