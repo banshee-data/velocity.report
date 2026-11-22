@@ -240,3 +240,30 @@ test("secondary rails are spatially selected across route sections, in either di
   assert.ok(collide(0, -30).position.x > 5);
   assert.ok(collide(12, 30).position.x > 8);
 });
+
+test("a hard touchdown resolves the first crossed deck during handoff and cannot snap up from below", () => {
+  const deck = { id: "upper", heightAt: () => 20 };
+  const support = crashRoadSupport(() => -10, new Map([[deck.id, deck]]));
+  const before = {
+    ...car,
+    z: 20.08,
+    grounded: false,
+    v: 0,
+    vx: 0,
+    vy: 0,
+    vz: -15,
+  };
+  const incoming = hardLanding(before, before, support);
+  assert.ok(incoming.z < 20);
+  const body = beginCrash(incoming, "ground", null, deck.heightAt, {
+    previous: before,
+    supportAt: support,
+  });
+  for (let i = 0; i < 240; i++) {
+    assert.ok(body.bounds.low >= 20 - 1e-6);
+    stepCrash(body, support);
+  }
+  near(crashCar(body, before).z, 20, 0.002);
+  near(body.rotation.w, 1);
+  assert.equal(hardLanding({ ...before, z: 18 }, before, support), null);
+});

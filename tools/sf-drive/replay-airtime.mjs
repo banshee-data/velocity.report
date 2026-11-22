@@ -23,10 +23,11 @@ import {
   highwayRailSegments,
   leaveRoadSide,
   roadBoundary,
-  roadLandingAt,
+  crashRoadSupport,
   strikeHighwayRail,
 } from "../../public_html/src/js/sf-highway-edge.js";
 import { driveOnRoadSurface } from "../../public_html/src/js/sf-road-contact.js";
+import { hardLanding } from "../../public_html/src/js/sf-crash.js";
 import { soloSurface } from "../../public_html/src/js/sf-solo.js";
 
 const directory = new URL("../../public_html/src/sf/tiles/", import.meta.url);
@@ -82,9 +83,10 @@ function replay(
     if (env)
       timeline.step(car, next, dt, now, { ...env, impact: next.roadImpact });
     car = next;
-    if (!env || !car.grounded) continue;
+    if (!env || (!car.grounded && !car.roadImpact)) continue;
     const card = timeline.visible(now)[0];
     if (!card || !accept(car, takeoff)) {
+      if (car.roadImpact) return;
       timeline.reset();
       records.length = 0;
       env = null;
@@ -152,6 +154,13 @@ for (const sign of [-1, 1]) {
   }
 }
 
+function withLandingImpact(before, next, support) {
+  if (next && !next.blocked && hardLanding(before, next, support))
+    return { ...next, roadImpact: "ground" };
+  return next;
+}
+
+const streetSupport = crashRoadSupport(ground, new Map());
 for (const place of ["castro", "lombard", "columbus", "downtown", "mission"]) {
   const origin = map.places.find(({ id }) => id === place);
   const cells = local(origin, 350);
@@ -202,7 +211,12 @@ for (const place of ["castro", "lombard", "columbus", "downtown", "mission"]) {
             `${place}:${x.toFixed(1)},${y.toFixed(1)}`,
             start,
             840,
-            (car) => contactStep(car, { throttle: 1 }, dt, sample, 1.35),
+            (car) =>
+              withLandingImpact(
+                car,
+                contactStep(car, { throttle: 1 }, dt, sample, 1.35),
+                streetSupport,
+              ),
             (car) => {
               const road = nearestRoad(tiles, car.x, car.y);
               return {
@@ -225,6 +239,10 @@ for (const place of ["castro", "lombard", "columbus", "downtown", "mission"]) {
 }
 
 const { surfaces, exitStart } = buildCityGameDrive(drive, ground);
+const rampSupport = crashRoadSupport(
+  ground,
+  new Map(surfaces.map((s) => [s.id, s])),
+);
 const exit = surfaces.find(({ id }) => id === "fremont-exit");
 exit.boundary = roadBoundary(exit.contact);
 exit.railSegments = highwayRailSegments(exit);
@@ -255,8 +273,10 @@ const ramp = ({ index, speed, start = null, straightTicks = 0 }) => {
       const input = { throttle: 1, steer: tick > straightTicks ? 1 : 0 };
       let next;
       if (car.leavingRoad) {
-        next = fallFromRoad(car, dt, (x, y, z) =>
-          roadLandingAt(x, y, z, ground, surfaces),
+        next = withLandingImpact(
+          car,
+          fallFromRoad(car, dt, (x, y) => rampSupport(x, y, car)),
+          rampSupport,
         );
       } else {
         next =
@@ -292,7 +312,7 @@ for (const index of [
   9, 13, 31, 53, 71, 93, 115, 137, 161, 187, 211, 237, 261, 285, 295, 339, 343,
   345, 347, 349,
 ]) {
-  for (const speed of [5, 10, 15]) {
+  for (const speed of [5, 10, 15, 7.5, 12.5]) {
     if (count >= 20) break;
     const row = ramp({ index, speed });
     if (row) {

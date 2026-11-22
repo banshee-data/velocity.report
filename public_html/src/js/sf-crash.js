@@ -176,7 +176,7 @@ function resolveObstacle(crash, hit) {
   crash.position.addScaledVector(n, hit.depth + 0.001);
 }
 
-export function beginCrash(car, kind, hit, heightAt) {
+export function beginCrash(car, kind, hit, heightAt, landing) {
   const attitude =
     car.grounded === false
       ? car.airAttitude
@@ -204,7 +204,19 @@ export function beginCrash(car, kind, hit, heightAt) {
   }
   if (hit) resolveObstacle(crash, hit);
   crash.points = bodyPoints(crash);
-  crash.bounds = bodyBounds(crash.points);
+  if (landing) {
+    // The driving step already crossed the surface. Resolve that contact now
+    // with the start-of-step vertices, while they still identify the top deck.
+    const { previous, supportAt } = landing;
+    const back = vec(
+      previous.x - car.x,
+      previous.y - car.y,
+      previous.z - car.z,
+    );
+    const points = crash.points;
+    crash.points = points.map((p) => p.clone().add(back));
+    resolveSupport(crash, points, supportAt);
+  } else crash.bounds = bodyBounds(crash.points);
   return crash;
 }
 
@@ -355,6 +367,11 @@ export function stepCrash(crash, supportAt, indexes = [], railsAt) {
       p.z += (hit.nz || 0) * (hit.depth + 0.001);
     }
   }
+  resolveSupport(crash, points, supportAt);
+  if (hit?.nz === 1) crash.grounded = true;
+}
+
+function resolveSupport(crash, points, supportAt) {
   // Deepest support determines the current contact patch. Symmetric landings
   // share the load; a single low corner applies torque without a scripted flip.
   const contacts = [];
@@ -366,7 +383,7 @@ export function stepCrash(crash, supportAt, indexes = [], railsAt) {
     contacts.push({ point, depth, support });
     deepest = Math.max(deepest, depth);
   }
-  crash.grounded = contacts.length > 0 || hit?.nz === 1;
+  crash.grounded = contacts.length > 0;
   crash.points = points;
   crash.bounds = bodyBounds(points);
   if (!contacts.length) return;

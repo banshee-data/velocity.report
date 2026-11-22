@@ -1462,11 +1462,17 @@ export async function startDrive({
         : "Back at the intersection · clock continues",
     );
   }
-  function startCrash(kind, incoming, hit, heightAt, now) {
+  function startCrash(kind, incoming, hit, heightAt, now, supportAt) {
     if (crash) return;
     insurance.infractions++;
     airtime.finish(now, "Impact");
-    crash = beginCrash(incoming, kind, hit, heightAt);
+    crash = beginCrash(
+      incoming,
+      kind,
+      hit,
+      heightAt,
+      kind === "ground" ? { previous: car, supportAt } : null,
+    );
     car = crashCar(crash, incoming);
     clearEmojiFocus();
     releaseInputs();
@@ -2360,6 +2366,7 @@ export async function startDrive({
             impact === "ground" ? null : hit,
             contactHeight,
             now,
+            crashSupport,
           );
           break;
         }
