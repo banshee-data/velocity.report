@@ -97,9 +97,15 @@ const { chromium } = require("playwright");
           /finished.*unknown 1.2 s.*No weighted score/,
         );
         const afterLanding = await page.evaluate(() => ({ ...localStorage }));
-        const { "sf-best-airtimes-v1": flights, ...otherRecords } =
-          afterLanding;
+        const {
+          "sf-best-airtimes-v1": flights,
+          "sf-replays-v1": savedReplays,
+          ...otherRecords
+        } = afterLanding;
         const [airtime] = JSON.parse(flights);
+        const [clip] = JSON.parse(savedReplays).airtimes;
+        assert.equal(clip.mode, "practice");
+        assert.ok(clip.frames.length < clip.end / 2);
         assert.ok(
           airtime.seconds > 0 && airtime.peak > 0,
           "practice crest records a completed flight",
@@ -131,6 +137,15 @@ const { chromium } = require("playwright");
           afterLanding,
         );
         assert.equal(await page.locator(".seeker").isVisible(), true);
+        await page.locator("#menuBtn").click();
+        await page.getByText("Saved replays", { exact: true }).click();
+        const replay = page.locator("#airtimeReplays a");
+        const href = await replay.getAttribute("href");
+        assert.equal(await replay.getAttribute("target"), "_blank");
+        await page.goto(new URL(href, page.url()).href);
+        await page.locator('#drive[data-replay="airtime"]').waitFor();
+        await page.getByRole("button", { name: "Skip replay" }).click();
+        await page.locator('#drive[data-solo-status="ready"]').waitFor();
       }
       assert.deepEqual(errors, []);
       await context.close();

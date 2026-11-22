@@ -112,7 +112,7 @@ eleventyExcludeFromCollections: true
   .tools .row { display: flex; gap: 8px; }
   .tools button { min-height: 44px; padding: 8px 12px; flex: 1; }
   .tools button[aria-pressed="true"] { border-color: var(--accent); }
-  .details, .map, .sources, .help { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--rule); }
+  .details, .map, .sources, .help, .replay-library { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--rule); }
   .title { font-weight: 700; }
   .detail, .legend, .meta, .help { font-size: 11px; color: var(--muted); }
   .meta, .legend { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -143,6 +143,11 @@ eleventyExcludeFromCollections: true
   body:not([data-solo="true"]) #soloDetails { display: none; }
   #soloTrace { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
   body[data-bridge="true"] .seeker, body[data-bridge="true"] .details { display: none; }
+  #replayPanel { position: fixed; z-index: 3; top: calc(max(8px, env(safe-area-inset-top, 0px)) + 56px); left: 50%; transform: translateX(-50%); align-items: center; gap: 12px; padding: 6px 10px; width: max-content; max-width: calc(100vw - 24px); }
+  #replayPanel:not([hidden]) { display: flex; }
+  #skipReplay, .replay-library li button, .replay-library li a { min-height: 44px; padding: 6px 10px; }
+  .replay-library li a { display: inline-flex; align-items: center; }
+  body:has(#replayPanel:not([hidden])) .pad { visibility: hidden; }
   .airtime { position: fixed; right: 12px; bottom: 12px; width: min(280px, 64vw); max-height: calc(100dvh - 76px); pointer-events: none; }
   .airtime:not([hidden]) { display: flex; flex-direction: column; gap: 4px; }
   .airtime-card { display: flex; flex-direction: column; padding: 7px 9px; min-height: 0; }
@@ -208,6 +213,10 @@ eleventyExcludeFromCollections: true
   <a id="surveyLink" target="_blank" rel="noopener" aria-label="View survey (opens in a new tab)">View survey <span aria-hidden="true">→</span></a>
 </aside>
 <canvas class="panel" id="desktopMap" role="img" aria-label="City coverage showing the coastline, parks, major roads, S2 tiles and your car."></canvas>
+<section class="panel" id="replayPanel" aria-label="Replay controls" hidden>
+  <span id="replayStatus" role="status"></span>
+  <button type="button" id="skipReplay">Skip replay</button>
+</section>
 <section class="airtime" id="airtime" aria-label="Airtime and road elevation" hidden></section>
 <template id="airtimeCard">
   <article class="panel airtime-card">
@@ -264,11 +273,19 @@ eleventyExcludeFromCollections: true
   </div>
   <div class="help">
     <p>Steer with the left thumb. Use the right thumb to accelerate or brake. Keep holding the brake to reverse after stopping. Follow the gold arrow for guidance. Tap the outlined emoji to centre it, then drive to return to the road view. Camera choices are Zoomed out, Overhead and In car. The mirror is available only in car view.</p>
-    <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive/reverse, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror in car, <kbd>V</kbd> cycle cameras, <kbd>R</kbd> return to an intersection. A crash spins the car for 2 seconds, then resets it; the clock keeps running. The game saves progress for each start. Finish the trial to start another attempt. The clock continues while this menu is open.</p>
+    <p><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd> <kbd>S</kbd> drive/reverse, <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> steer, <kbd>space</kbd> brake, <kbd>M</kbd> mirror in car, <kbd>V</kbd> cycle cameras, <kbd>R</kbd> return to an intersection. A crash replay starts up to two seconds before impact and holds for two seconds after the car stops. Skip replay returns you to driving. The trial clock keeps running. The game saves progress for each start. Finish the trial to start another attempt. The clock continues while this menu is open.</p>
     <p>Measured geometry as context, not a survey or a plan: building outlines and 2010 heights from DataSF (PDDL), roofs fitted to USGS 3DEP lidar flown April 2023 (public domain), street trees from DataSF's Street Tree List with lidar canopy, streets, kerbs (2016) and street names from DataSF. Buildings 3DEP sees that the City's 2010 outlines lack use a warmer tan. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">About this data</a>.</p>
   </div>
+  <details class="replay-library">
+    <summary>Saved replays</summary>
+    <h2>Recent crashes</h2>
+    <ol id="crashReplays"></ol>
+    <h2>Longest airtime replays</h2>
+    <ol id="airtimeReplays"></ol>
+    <p id="replayStorage" role="status"></p>
+  </details>
   <section class="details" aria-label="Airtime records">
-    <div class="title">Longest airtimes</div>
+    <div class="title">Airtime scores</div>
     <ol id="airtimeRecords"></ol>
   </section>
   <details class="sources" id="mapSources">
@@ -381,6 +398,8 @@ eleventyExcludeFromCollections: true
       seekerCompass: $("seekerCompass"), seekerScope: $("seekerScope"), seekerDistance: $("seekerDistance"), seekerHeading: $("seekerHeading"),
       seekerTurn: $("seekerTurn"), trialTitle: $("trialTitle"),
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
+      replayPanel: $("replayPanel"), replayStatus: $("replayStatus"), skipReplay: $("skipReplay"),
+      crashReplays: $("crashReplays"), airtimeReplays: $("airtimeReplays"), replayStorage: $("replayStorage"),
       airtime: $("airtime"), airtimeCard: $("airtimeCard"), airtimeRecords: $("airtimeRecords"),
       followCityDrive: $("followCityDrive"),
       takeover: $("takeoverDialog"), insuranceHud: $("insuranceHud"), insuranceMode: $("insuranceMode"),
