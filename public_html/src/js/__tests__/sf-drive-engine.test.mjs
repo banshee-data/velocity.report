@@ -15,6 +15,7 @@ import {
   groundAtWorld,
   intersectionsForTile,
   nearestRoad,
+  tileAt,
 } from "../sf-drive-core.js";
 import { terrainTriangles, tileRegion } from "../sf-drive-surface.js";
 
@@ -221,8 +222,22 @@ test("the fixed route accounts for every unchanged tile and uses unique emoji at
     route.manifestSha256,
     createHash("sha256").update(raw).digest("hex"),
   );
+  const assignments = JSON.parse(
+    fs.readFileSync(
+      new URL(
+        "../../../../tools/sf-drive/quest-assignments.json",
+        import.meta.url,
+      ),
+    ),
+  );
   assert.equal(route.targets.length, 137);
   assert.equal(route.skipped.length, 20);
+  assert.equal(
+    route.placementSha256,
+    createHash("sha256")
+      .update(JSON.stringify(route.targets.map(({ t, x, y }) => [t, x, y])))
+      .digest("hex"),
+  );
   assert.equal(
     new Set(route.targets.map((t) => t.emoji)).size,
     route.targets.length,
@@ -231,20 +246,34 @@ test("the fixed route accounts for every unchanged tile and uses unique emoji at
     [...route.targets, ...route.skipped].map((t) => [t.t, t]),
   );
   assert.equal(byToken.size, manifest.tiles.length);
-  for (const row of manifest.tiles) {
-    const tile = JSON.parse(
-      gunzipSync(fs.readFileSync(new URL(`tiles/${row.t}.json.gz`, base))),
+  const readTile = (token) =>
+    JSON.parse(
+      gunzipSync(fs.readFileSync(new URL(`tiles/${token}.json.gz`, base))),
     );
+  for (const row of manifest.tiles) {
+    const tile = readTile(row.t);
     const target = byToken.get(row.t);
     assert.ok(target);
     if (target.emoji) {
-      assert.ok(tile.s.length >= 2);
+      const assignment = assignments[row.t];
+      assert.equal(target.emoji, assignment.emoji);
+      if (assignment.intersection) {
+        assert.deepEqual(
+          [...target.names].sort(),
+          [...assignment.intersection].sort(),
+        );
+        assert.equal(tileAt(manifest.tiles, target.x, target.y).t, row.t);
+      }
+      const signTile = assignment.signTile
+        ? readTile(assignment.signTile)
+        : tile;
+      assert.ok(signTile.s.length >= 2);
       assert.ok(
-        tile.s.some(
+        signTile.s.some(
           (s) =>
             Math.hypot(
-              tile.o[0] + s[0] / 10 - target.x,
-              tile.o[1] + s[1] / 10 - target.y,
+              signTile.o[0] + s[0] / 10 - target.x,
+              signTile.o[1] + s[1] / 10 - target.y,
             ) < 45,
         ),
       );

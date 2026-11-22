@@ -1,0 +1,351 @@
+---
+permalink: /sf/debug/
+title: SF emoji checkpoint inspector
+eleventyExcludeFromCollections: true
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="dark" />
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ '/css/scene-colours.css' | url }}" />
+    <link rel="stylesheet" href="{{ '/css/fonts.css' | url }}" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --water: #0e1a24;
+        --land: #28393a;
+        --park: #31594c;
+        --road: #a39b83;
+        --gold: #e5cc80;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--scene-canvas, #0b141f);
+        color: var(--scene-text, #edf4f5);
+        font:
+          15px/1.45 Geist,
+          system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1536px;
+        margin: auto;
+        padding: 22px clamp(14px, 3vw, 44px) 30px;
+      }
+      header {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: clamp(23px, 4vw, 36px);
+        letter-spacing: -0.045em;
+      }
+      h2 {
+        font-size: 15px;
+      }
+      a {
+        color: var(--gold);
+      }
+      header a {
+        margin-top: 8px;
+        white-space: nowrap;
+      }
+      #counts,
+      .muted,
+      .meta {
+        color: var(--scene-text-soft, #a7b9c4);
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(290px, 350px);
+        gap: 16px;
+      }
+      .map-panel,
+      .sidebar {
+        overflow: hidden;
+        background: var(--scene-panel, #111e2a);
+        border: 1px solid var(--scene-panel-border, #40505a);
+        border-radius: 12px;
+      }
+      .map-panel {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+      }
+      .toolbar,
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 12px;
+      }
+      .toolbar span {
+        margin-inline-end: auto;
+      }
+      button,
+      input,
+      select {
+        min-height: 36px;
+        padding: 6px 10px;
+        border: 1px solid #526372;
+        border-radius: 6px;
+        background: var(--scene-canvas, #0b141f);
+        color: inherit;
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      :focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: -2px;
+      }
+      #city-map {
+        display: block;
+        width: 100%;
+        height: clamp(360px, 71vh, 850px);
+        background: var(--water);
+        cursor: grab;
+        touch-action: none;
+      }
+      #city-map.dragging {
+        cursor: grabbing;
+      }
+      #land {
+        fill: var(--land);
+        stroke: #5a7b8d;
+        stroke-width: 1px;
+        vector-effect: non-scaling-stroke;
+      }
+      #parks {
+        fill: var(--park);
+      }
+      #roads {
+        fill: none;
+        stroke: var(--road);
+        opacity: 0.42;
+        stroke-width: 1px;
+        vector-effect: non-scaling-stroke;
+      }
+      .cell {
+        fill: transparent;
+        stroke: #acc4cd66;
+        stroke-width: 0.8px;
+        vector-effect: non-scaling-stroke;
+        cursor: pointer;
+      }
+      .cell.skipped {
+        fill: #81909b24;
+        stroke-dasharray: 3 3;
+      }
+      .cell:hover,
+      .cell.selected {
+        fill: #e5cc8025;
+        stroke: var(--gold);
+        stroke-width: 1.6px;
+      }
+      .cell.dim {
+        opacity: 0.3;
+      }
+      .marker {
+        cursor: pointer;
+      }
+      .marker.dim {
+        display: none;
+      }
+      .marker circle {
+        r: calc(var(--marker-size) * 0.63);
+        fill: #13232d;
+        stroke: #81909b;
+        stroke-width: 1px;
+        vector-effect: non-scaling-stroke;
+      }
+      .marker text {
+        text-anchor: middle;
+        dominant-baseline: central;
+        font:
+          var(--marker-size) system-ui,
+          sans-serif;
+        pointer-events: none;
+      }
+      .marker:hover circle,
+      .marker.selected circle {
+        fill: #38404a;
+        stroke: var(--gold);
+        stroke-width: 2px;
+      }
+      .filters {
+        align-items: flex-end;
+      }
+      .filters label {
+        display: grid;
+        gap: 4px;
+        font-size: 12px;
+      }
+      .filters label:first-child {
+        flex: 1;
+        min-width: 130px;
+      }
+      .filters input {
+        width: 100%;
+      }
+      #details {
+        min-height: 108px;
+        padding: 12px;
+        border-block: 1px solid var(--scene-panel-border, #40505a);
+      }
+      #details p {
+        margin-top: 5px;
+      }
+      .meta {
+        font:
+          12px/1.55 "JetBrains Mono",
+          ui-monospace,
+          monospace;
+      }
+      #tiles {
+        display: grid;
+        max-height: clamp(190px, calc(71vh - 130px), 700px);
+        overflow: auto;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      #tiles li[hidden] {
+        display: none;
+      }
+      #tiles button {
+        display: grid;
+        grid-template-columns: 32px 1fr;
+        width: 100%;
+        min-height: 45px;
+        align-items: center;
+        text-align: left;
+        border: 0;
+        border-radius: 0;
+        border-bottom: 1px solid #9cb3c120;
+        background: transparent;
+      }
+      #tiles button:hover,
+      #tiles button[aria-current="true"] {
+        background: #e5cc8020;
+      }
+      .glyph {
+        font-size: 18px;
+      }
+      #empty {
+        padding: 15px;
+      }
+      @media (max-width: 760px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        #city-map {
+          height: clamp(315px, 56vh, 520px);
+        }
+        #tiles {
+          max-height: 360px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>SF emoji checkpoint inspector</h1>
+          <p id="counts" role="status">Loading city tiles…</p>
+        </div>
+        <a href="{{ '/sf/' | url }}">Drive San Francisco</a>
+      </header>
+      <div class="layout">
+        <figure class="map-panel">
+          <figcaption class="toolbar">
+            <span class="muted"
+              >Select a tile or emoji · Drag the map to pan</span
+            >
+            <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+            <button type="button" id="fit">Fit city</button>
+          </figcaption>
+          <svg
+            id="city-map"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-labelledby="map-title"
+          >
+            <title id="map-title">
+              San Francisco tile and emoji checkpoint map
+            </title>
+            <path id="land"></path>
+            <path id="parks"></path>
+            <path id="roads"></path>
+            <g id="cells"></g>
+            <g id="markers"></g>
+          </svg>
+        </figure>
+        <aside class="sidebar" aria-label="Tile inspector">
+          <div class="filters">
+            <label
+              >Find a tile or street
+              <input id="query" type="search" autocomplete="off"
+            /></label>
+            <label
+              >Show
+              <select id="filter">
+                <option value="all">All tiles</option>
+                <option value="pickup">Pickups</option>
+                <option value="skipped">Skipped</option>
+              </select></label
+            >
+          </div>
+          <section id="details" aria-live="polite">
+            <h2>Tile details</h2>
+            <p id="intersection">Select a tile to see its checkpoint.</p>
+            <p id="coordinates" class="meta"></p>
+          </section>
+          <ul id="tiles" aria-label="City tiles"></ul>
+          <p id="empty" hidden>No matching tiles.</p>
+        </aside>
+      </div>
+      <noscript>This map requires JavaScript.</noscript>
+    </main>
+    <script type="module">
+      import { showQuestDebug } from "{{ (modulesBase + '/js/sf-quest-debug.js') | url }}";
+
+      async function read(name) {
+        const response = await fetch(new URL(name, location.href));
+        if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
+        return response.json();
+      }
+
+      Promise.all([
+        read("../tiles/manifest.json"),
+        read("../quest-route.json"),
+        read("../coverage.json"),
+      ])
+        .then((data) => showQuestDebug(document, ...data))
+        .catch((error) => {
+          document.getElementById("counts").textContent =
+            "The city map could not be loaded.";
+          console.error(error);
+        });
+    </script>
+  </body>
+</html>

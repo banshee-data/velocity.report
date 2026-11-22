@@ -9,53 +9,82 @@ import {
   collisionAt,
   groundAtWorld,
   intersectionsForTile,
+  tileAt,
 } from "../../public_html/src/js/sf-drive-core.js";
+
 const dir = new URL("../../public_html/src/sf/", import.meta.url);
 const raw = fs.readFileSync(new URL("tiles/manifest.json", dir));
 const manifest = JSON.parse(raw);
-const emoji = Array.from(
-  "🍎🍊🍋🍉🍇🍓🍒🍑🥭🍍🥝🍅🥥🥑🍆🥔🥕🌽🌶🥒🥬🥦🧄🧅🍄🥜🌰🍞🥐🥖🥨🥯🥞🧇🧀🍖🍗🥩🥓🍔🍟🍕🌭🥪🌮🌯🥙🧆🥚🍳🥘🍲🥣🥗🍿🧈🧂🥫🍱🍘🍙🍚🍛🍜🍝🍠🍢🍣🍤🍥🥮🍡🥟🥠🥡🍦🍧🍨🍩🍪🎂🍰🧁🥧🍫🍬🍭🍮🍯🍼🥛☕🍵🍶🍾🍷🍸🍹🍺🍻🥂🥃🥤🧃🧉🧊🥄🍴🥢🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🐦🐤🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🦗🕷🦂🐢🐍🦎🦖🦕🐙🦑🦐🦞🦀🐡🐠🐟🐬🐳🐋🦈🐊🐅🐆🦓🦍🦧🐘🦛🦏🐪🐫🦒🦘🐃🐂🐄🐎🐖🐏🐑🦙🐐🦌🐕🐩🦮🐈🐓🦃🦚🦜🦢🦩🕊🐇🦝🦨🦡🦦🦥🐁🐀🐿🦔",
+const assignments = JSON.parse(
+  fs.readFileSync(new URL("quest-assignments.json", import.meta.url), "utf8"),
 );
-const targets = [],
-  skipped = [];
-const tiles = manifest.tiles.map((row) =>
-  JSON.parse(
-    gunzipSync(fs.readFileSync(new URL(`tiles/${row.t}.json.gz`, dir))),
-  ),
+const tiles = new Map(
+  manifest.tiles.map(({ t }) => [
+    t,
+    JSON.parse(gunzipSync(fs.readFileSync(new URL(`tiles/${t}.json.gz`, dir)))),
+  ]),
 );
 const indexes = new Map();
+const targets = [];
+const skipped = [];
+
 for (const row of manifest.tiles) {
-  const tile = tiles.find((t) => t.t === row.t);
-  const neighbours = tiles.filter(
+  const tile = tiles.get(row.t);
+  const assignment = assignments[row.t];
+  const signTile = assignment?.signTile ? tiles.get(assignment.signTile) : tile;
+  if (!signTile) throw new Error(`Unknown sign source for ${row.t}`);
+  const neighbours = [...tiles.values()].filter(
     (t) => Math.hypot(t.o[0] - row.x, t.o[1] - row.y) < 2200,
   );
   const collisionIndexes = neighbours.map((t) => {
     if (!indexes.has(t.t)) indexes.set(t.t, buildCollisionIndex(t));
     return indexes.get(t.t);
   });
-  const candidates = intersectionsForTile(tile, neighbours).sort(
+  const candidates = intersectionsForTile(signTile, neighbours).sort(
     (a, b) =>
       Math.hypot(a.x - row.x, a.y - row.y) -
       Math.hypot(b.x - row.x, b.y - row.y),
   );
   const target = candidates.find((p) => {
+    if (
+      assignment?.intersection &&
+      (p.names.length !== assignment.intersection.length ||
+        !assignment.intersection.every((name) => p.names.includes(name)) ||
+        tileAt(manifest.tiles, p.x, p.y).t !== row.t)
+    )
+      return false;
     const z = groundAtWorld(neighbours, p.x, p.y, true);
     return z !== null && !collisionAt(collisionIndexes, p, z);
   });
   if (target) {
-    if (!emoji[targets.length]) throw new Error("Need more unique emoji");
-    targets.push({ t: row.t, emoji: emoji[targets.length], ...target });
-  } else
+    if (!assignment?.emoji)
+      throw new Error(`Missing emoji assignment for ${row.t}`);
+    targets.push({ t: row.t, emoji: assignment.emoji, ...target });
+  } else {
+    if (assignment)
+      throw new Error(`No clear intersection for emoji assignment ${row.t}`);
     skipped.push({
       t: row.t,
       reason: tile.s.length
         ? "No clear, grounded intersection"
         : "No signposted intersection",
     });
+  }
 }
+const glyphs = new Set(
+  targets.map(({ emoji }) => emoji.replaceAll("\uFE0F", "")),
+);
+if (glyphs.size !== targets.length)
+  throw new Error("Duplicate emoji assignments");
+if (Object.keys(assignments).length !== targets.length)
+  throw new Error("Emoji assignments include tiles outside the route");
 const route = {
   version: 1,
   manifestSha256: createHash("sha256").update(raw).digest("hex"),
+  // Coordinate changes start a fresh set of trial records and saved progress.
+  placementSha256: createHash("sha256")
+    .update(JSON.stringify(targets.map(({ t, x, y }) => [t, x, y])))
+    .digest("hex"),
   targets,
   skipped,
 };

@@ -177,12 +177,19 @@ on this device, separately for each starting place, map manifest and driving tun
 tune starts a fresh set of times. Earlier records stay in browser storage. The game restores your trial when you return to a starting place or reload. After finishing, choose **Start a new emoji trial** to try for a faster time. Reset car keeps the clock running.
 There is no shared leaderboard. When browser storage is unavailable, records last for the session.
 
-`public_html/src/sf/quest-route.json` is a small gameplay index alongside the unchanged
-city tiles. Rebuild it from the repository root with
-`node tools/sf-drive/build-quest-route.mjs`. It pairs opposite-corner street signs,
-projects their midpoint onto a named carriageway (including roads owned by a neighboring
-tile), and chooses a grounded intersection clear of buildings and trunks. Its manifest
-hash scopes saved records. The engine tests check complete tile coverage and unique emoji.
+`public_html/src/sf/quest-route.json` is the gameplay index for the city pickups.
+Edit the tile-keyed [emoji assignments](../../tools/sf-drive/quest-assignments.json)
+and rebuild it with `node tools/sf-drive/build-quest-route.mjs` from the repository root.
+The generator pairs opposite-corner street signs, projects their midpoint onto a named
+carriageway and checks ground and clearance. A named intersection must also belong to the
+assigned tile in the game. Haight and Ashbury uses signs stored in the neighbouring tile.
+The placement hash scopes personal times and saved progress to a layout. Changing an emoji
+without moving its pickup preserves the placement hash.
+
+Open **Inspect all emoji checkpoints** under **City coverage** in the game menu, or visit
+`/sf/debug/`. The read-only map shows all 157 tiles, 137 checkpoint markers and the 20 skipped
+tiles. Search by street, tile ID or emoji, then select a marker or tile to see its intersection
+and game coordinates. The map uses the same route and coverage files as the game.
 
 City coverage draws the four S2 level-13 corners of each manifest token in the game's
 EPSG:7131 frame. The projected cell boundaries share corners across tiles. The map shows
