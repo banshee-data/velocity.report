@@ -13,6 +13,10 @@ import {
 
 const DT = 1 / 120;
 const REST_TICKS = 30;
+const CRUSH_TIME = 0.045; // seconds, effective loading time constant
+const CRUSH_FRONT = 0.55; // m, maximum contact-zone compression
+const CRUSH_SIDE = 0.3;
+const CRUSH_FRACTION = 1 - Math.exp(-DT / CRUSH_TIME);
 const MAX_CRASH_TICKS = 15 * 120;
 const vec = (x = 0, y = 0, z = 0) => new Vector3(x, y, z);
 const up = vec(0, 0, 1);
@@ -146,8 +150,12 @@ function resolve(crash, point, n, friction, patchRadius = 0) {
   const r = point.clone().sub(crash.position);
   const speed = pointVelocity(crash, r).dot(n);
   if (speed >= 0) return;
-  const restitution = speed < -2 ? 0.12 : 0;
-  const j = -(1 + restitution) * speed * effectiveMass(crash, r, n);
+  // Hard contact yields over several ticks. The fractional impulse dissipates
+  // closing motion while keeping the contact normal, friction and yaw torque.
+  const crush = Math.max(0, Math.min(1, (-speed - 2) / 3));
+  const restitution = speed < -2 ? 0.12 * (1 - crush) : 0;
+  const fraction = 1 - crush * (1 - CRUSH_FRACTION);
+  const j = -(1 + restitution) * speed * effectiveMass(crash, r, n) * fraction;
   applyImpulse(crash, r, n, j);
   const tangent = pointVelocity(crash, r);
   tangent.addScaledVector(n, -tangent.dot(n));
@@ -174,7 +182,13 @@ function resolve(crash, point, n, friction, patchRadius = 0) {
 function resolveObstacle(crash, hit) {
   const n = vec(hit.nx, hit.ny, hit.nz || 0);
   resolve(crash, vec(hit.x, hit.y, hit.z), n, 0.32);
-  crash.position.addScaledVector(n, hit.depth + 0.001);
+  const forward = vec(1, 0, 0).applyQuaternion(crash.rotation);
+  const crushDepth = hit.nz
+    ? 0
+    : CRUSH_SIDE + (CRUSH_FRONT - CRUSH_SIDE) * Math.abs(forward.dot(n));
+  const correction = Math.max(0, hit.depth - crushDepth + 0.001);
+  crash.position.addScaledVector(n, correction);
+  return correction;
 }
 
 export function beginCrash(car, kind, hit, heightAt, landing) {
@@ -359,11 +373,11 @@ export function stepCrash(crash, supportAt, indexes = [], railsAt) {
         previousY,
       ));
   if (hit) {
-    resolveObstacle(crash, hit);
+    const correction = resolveObstacle(crash, hit);
     for (const p of points) {
-      p.x += hit.nx * (hit.depth + 0.001);
-      p.y += hit.ny * (hit.depth + 0.001);
-      p.z += (hit.nz || 0) * (hit.depth + 0.001);
+      p.x += hit.nx * correction;
+      p.y += hit.ny * correction;
+      p.z += (hit.nz || 0) * correction;
     }
   }
   resolveSupport(crash, points, supportAt);

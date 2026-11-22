@@ -135,6 +135,42 @@ ${hook}`,
       if (mobile) await skip.tap();
       else await page.keyboard.press("Escape");
       await skip.waitFor({ state: "hidden" });
+      if (!mobile) {
+        const openLibrary = async () => {
+          await page
+            .getByRole("button", { name: "Map and game settings" })
+            .click();
+          const details = page.locator("#replayLibrary");
+          if ((await details.getAttribute("open")) === null)
+            await details.locator("summary").click();
+        };
+        await openLibrary();
+        const favourite = page.getByRole("button", {
+          name: /Favourite highway barrier/,
+        });
+        const remove = page.getByRole("button", {
+          name: /Delete highway barrier/,
+        });
+        await favourite.click();
+        assert.equal(await favourite.getAttribute("aria-pressed"), "true");
+        page.once("dialog", (dialog) => dialog.dismiss());
+        await remove.click();
+        assert.equal(await favourite.getAttribute("aria-pressed"), "true");
+        await page.reload();
+        await page.locator('#drive[data-contact="grounded"]').waitFor();
+        await openLibrary();
+        assert.equal(await favourite.getAttribute("aria-pressed"), "true");
+        page.once("dialog", (dialog) => dialog.accept());
+        await remove.click();
+        assert.equal(await favourite.count(), 0);
+        assert.equal(
+          await page.evaluate(
+            () =>
+              JSON.parse(localStorage.getItem("sf-replays-v1")).crashes.length,
+          ),
+          0,
+        );
+      }
       assert.deepEqual(errors, []);
       await page.close();
     }

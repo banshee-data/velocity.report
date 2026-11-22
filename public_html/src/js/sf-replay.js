@@ -8,6 +8,7 @@ const KEY = "sf-replays-v1";
 export const REPLAY_POSITION_SCALE = 100; // centimetres
 const ROT = 10000;
 const LIMIT = 8;
+export const FAVOURITE_LIMIT = 8;
 const modes = ["city", "survey", "soma", "bay-bridge", "practice"];
 const before = new Quaternion(),
   after = new Quaternion();
@@ -165,6 +166,17 @@ function validReplay(record, crash) {
         record.peak < 0
   )
     return false;
+  if (
+    !crash &&
+    (record.takeoff !== undefined || record.touchdown !== undefined) &&
+    (!Number.isInteger(record.takeoff) ||
+      record.takeoff < 0 ||
+      record.takeoff > CRASH_LEAD_TICKS ||
+      !Number.isInteger(record.touchdown) ||
+      record.touchdown <= record.takeoff ||
+      record.touchdown + CRASH_HOLD_TICKS !== record.end)
+  )
+    return false;
   let last = -1;
   for (const frame of record.frames) {
     if (
@@ -188,52 +200,88 @@ function keepRecords(records, crash) {
     ? records.filter((row) => validReplay(row, crash))
     : [];
   const unique = [...new Map(valid.map((row) => [row.id, row])).values()];
-  return unique
-    .sort((a, b) =>
-      crash
-        ? b.created - a.created
-        : b.seconds - a.seconds || b.peak - a.peak || b.created - a.created,
-    )
-    .slice(0, LIMIT);
+  const ranked = unique.sort((a, b) =>
+    crash
+      ? b.created - a.created
+      : b.seconds - a.seconds || b.peak - a.peak || b.created - a.created,
+  );
+  if (!crash) return ranked.slice(0, LIMIT);
+  const favourites = ranked
+    .filter((record) => record.favourite === true)
+    .slice(0, FAVOURITE_LIMIT);
+  return [
+    ...new Map(
+      [...favourites, ...ranked.slice(0, LIMIT)].map((record) => [
+        record.id,
+        record,
+      ]),
+    ).values(),
+  ];
 }
 
 export function replayLibrary(storage) {
   let crashes = [],
     airtimes = [];
+  let sessionOnly = false;
+  const store = () => storage ?? globalThis.localStorage;
   function read() {
-    try {
-      const data = JSON.parse(
-        (storage ?? globalThis.localStorage).getItem(KEY),
-      );
-      if (data) {
-        crashes = keepRecords(
-          [...crashes, ...(Array.isArray(data.crashes) ? data.crashes : [])],
-          true,
-        );
-        airtimes = keepRecords(
-          [...airtimes, ...(Array.isArray(data.airtimes) ? data.airtimes : [])],
-          false,
-        );
+    // Disk is authoritative between successful writes. An open tab should
+    // not reinsert a replay that another tab deleted.
+    if (!sessionOnly) {
+      try {
+        const data = JSON.parse(store().getItem(KEY));
+        crashes = keepRecords(data?.crashes, true);
+        airtimes = keepRecords(data?.airtimes, false);
+      } catch {
+        // Corrupt or inaccessible storage leaves the last valid view intact.
       }
-    } catch {
-      // Invalid or unavailable storage leaves the current session intact.
     }
     return { crashes, airtimes };
   }
+
+  function write() {
+    try {
+      store().setItem(KEY, JSON.stringify({ crashes, airtimes }));
+      sessionOnly = false;
+      return true;
+    } catch {
+      sessionOnly = true;
+      return false;
+    }
+  }
+
   function save(record) {
     read();
     if (record.impact === null)
       airtimes = keepRecords([record, ...airtimes], false);
     else crashes = keepRecords([record, ...crashes], true);
-    try {
-      (storage ?? globalThis.localStorage).setItem(
-        KEY,
-        JSON.stringify({ crashes, airtimes }),
-      );
-      return true;
-    } catch {
-      return false;
-    }
+    return write();
   }
-  return { read, save };
+
+  function setFavourite(id, favourite) {
+    read();
+    const record = crashes.find((row) => row.id === id);
+    if (
+      !record ||
+      (favourite &&
+        !record.favourite &&
+        crashes.filter((row) => row.favourite === true).length >=
+          FAVOURITE_LIMIT)
+    )
+      return null;
+    crashes = keepRecords(
+      crashes.map((row) => (row.id === id ? { ...row, favourite } : row)),
+      true,
+    );
+    return write();
+  }
+
+  function remove(id) {
+    read();
+    crashes = crashes.filter((row) => row.id !== id);
+    airtimes = airtimes.filter((row) => row.id !== id);
+    return write();
+  }
+
+  return { read, save, setFavourite, remove };
 }

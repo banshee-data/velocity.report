@@ -82,3 +82,16 @@ test("meter dollars retain the precision of the cent-based ledger", () => {
   assert.equal(formatInsuranceDollars(0.06), "$0.0006");
   assert.equal(formatInsuranceDollars(100), "$1.0000");
 });
+
+test("airtime slows on both event markers and holds for two real seconds", () => {
+  const flight = { impact: null, takeoff: 240, touchdown: 600, end: 840 };
+  assert.equal(replayRate(flight, 203), 0.99);
+  assert.equal(replayRate(flight, 204), 0.5);
+  assert.equal(replayRate(flight, 276), 0.99);
+  assert.equal(replayRate(flight, 564), 0.5);
+  assert.equal(advanceReplay(flight, 564, 0.6), 600);
+  assert.equal(replayRate(flight, 600), 1);
+  assert.equal(advanceReplay(flight, 600, 2), 840);
+  const short = { impact: null, takeoff: 0, touchdown: 24, end: 264 };
+  assert.equal(advanceReplay(short, 0, 0.4), 24);
+});

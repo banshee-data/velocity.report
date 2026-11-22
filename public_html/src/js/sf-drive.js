@@ -105,6 +105,7 @@ import {
   crashHistory,
   encodeReplay,
   replayLibrary,
+  FAVOURITE_LIMIT,
   replayPose,
   REPLAY_POSITION_SCALE,
   CRASH_HOLD_TICKS,
@@ -846,13 +847,15 @@ export async function startDrive({
   const airtime = createAirtimeHud(
     hud.airtime,
     hud.airtimeCard,
-    (landing, poses) => {
+    (landing, poses, takeoff) => {
       airtimeRecords = bestAirtimes(airtimeRecords, landing);
       writeProgress(airtimeKey, airtimeRecords);
       showAirtimeRecords();
       if (poses?.length > 1)
         saveReplay({
-          ...encodeReplay(poses),
+          ...encodeReplay(poses, null, CRASH_HOLD_TICKS),
+          takeoff,
+          touchdown: poses.length - 1,
           ...landing,
           telemetry: replayTelemetry(poses),
         });
@@ -1700,6 +1703,7 @@ export async function startDrive({
     soloRun = createSoloRun();
     car = soloCar();
     airtime.reset();
+    leadIn.clear();
     carZ = car.z;
     accumulator = 0;
     releaseInputs();
@@ -1860,6 +1864,48 @@ export async function startDrive({
           const location = document.createElement("small");
           location.textContent = replayLocation(clip);
           row.append(action, location);
+          const controls = document.createElement("div");
+          controls.className = "replay-actions";
+          const button = (name, handle) => {
+            const control = document.createElement("button");
+            control.type = "button";
+            control.textContent = name;
+            control.addEventListener("click", handle);
+            controls.append(control);
+            return control;
+          };
+          if (clip.impact !== null) {
+            const favourite = button("Favourite", () => {
+              const updated = library.setFavourite(
+                clip.id,
+                clip.favourite !== true,
+              );
+              if (updated !== null) replaySaved = updated;
+              showReplayLibrary();
+              hud.replayLibrary.querySelector("summary").focus();
+            });
+            favourite.setAttribute("aria-label", `Favourite ${label}`);
+            favourite.setAttribute(
+              "aria-pressed",
+              String(clip.favourite === true),
+            );
+            if (
+              !clip.favourite &&
+              crashes.filter((record) => record.favourite === true).length >=
+                FAVOURITE_LIMIT
+            ) {
+              favourite.disabled = true;
+              favourite.title = "Remove a favourite to save another";
+            }
+          }
+          const remove = button("Delete", () => {
+            if (!window.confirm(`Delete the replay “${label}”?`)) return;
+            replaySaved = library.remove(clip.id);
+            showReplayLibrary();
+            hud.replayLibrary.querySelector("summary").focus();
+          });
+          remove.setAttribute("aria-label", `Delete ${label}`);
+          row.append(controls);
           return row;
         }),
       );
@@ -1977,6 +2023,10 @@ export async function startDrive({
       status = "Car stopped";
     else if (clip.impact !== null && playback.tick < clip.impact)
       status = "Before impact";
+    else if (clip.takeoff !== undefined && playback.tick < clip.takeoff)
+      status = "Before take-off";
+    else if (clip.touchdown !== undefined && playback.tick >= clip.touchdown)
+      status = clip.ending === "impact" ? "Impact ending" : "Touchdown";
     else if (playback.tick === clip.end && clip.outcome !== "stopped")
       status = "Recovery";
     if (status !== hud.replayStatus.textContent)
@@ -2132,9 +2182,12 @@ export async function startDrive({
             heading: 0,
           },
           heightAt: soloHeight,
+          leadIn: leadIn.read,
           pose: (source) => capturePose(source, soloHeight, soloPitch(source)),
         });
       }
+      if (!car.blocked)
+        leadIn.push(capturePose(before, soloHeight, soloPitch(before)));
       accountSolo(
         soloRun,
         1 / 120,
@@ -2608,7 +2661,6 @@ export async function startDrive({
           ((surface ? !car.v : trial.status === "ready") && input.throttle === 0
             ? { ...input, brake: true }
             : input);
-        leadIn.push(capturePose(car, surface?.heightAt || terrainHeight));
         let candidate;
         if (car.leavingRoad) {
           candidate = fallFromRoad(car, 1 / 120, (x, y) =>
@@ -2714,6 +2766,7 @@ export async function startDrive({
             deckAt: surface?.kind === "ground" ? null : surface?.heightAt,
             impact,
             tiles,
+            leadIn: leadIn.read,
             pose: (source) =>
               capturePose(
                 source,
@@ -2721,6 +2774,7 @@ export async function startDrive({
               ),
           });
         }
+        leadIn.push(capturePose(car, surface?.heightAt || terrainHeight));
         if (impact) {
           // A landing candidate has already discarded its inbound vertical velocity.
           const incoming =

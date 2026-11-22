@@ -55,13 +55,37 @@ test("square bumper stops or rebounds along the wall normal; opposite corners of
   const square = simulate(car, wall);
   near(crashCar(square.body, car).heading, 0);
   near(square.body.position.y, 0);
-  assert.ok(square.body.position.x < 0 && square.maxSpeed < car.v);
+  assert.ok(square.body.position.x < 0.55 && square.maxSpeed < car.v);
   const left = simulate(car, trunk(0.7)),
     right = simulate(car, trunk(-0.7));
   const bearing = crashCar(left.body, car).heading;
   assert.ok(Math.abs(bearing) > 0.5 && Math.abs(left.body.position.y) > 2);
   near(bearing, -crashCar(right.body, car).heading, 1e-5);
   near(left.body.position.y, -right.body.position.y, 1e-5);
+});
+
+test("a hard wall strike dissipates closing speed over a bounded crush distance", () => {
+  const hit = obstacleContact(wall, drivingHull(car));
+  const crash = beginCrash(car, "building", hit, flat);
+  assert.ok(crash.velocity.x > car.v / 2 && crash.velocity.x < car.v);
+  let speed = car.v,
+    lastAcceleration = 0,
+    peakJerk = 0;
+  for (let tick = 0; tick < 100; tick++) {
+    if (tick > 0) stepCrash(crash, supportOn(flat), wall);
+    const acceleration = (crash.velocity.x - speed) / dt;
+    peakJerk = Math.max(
+      peakJerk,
+      Math.abs(acceleration - lastAcceleration) / dt,
+    );
+    lastAcceleration = acceleration;
+    speed = crash.velocity.x;
+    // The wall is at x=2.1, and only the leading crush zone can cross it.
+    assert.ok(crash.position.x + 2.23 <= 2.1 + 0.55 + 1e-4);
+  }
+  assert.ok(peakJerk < (0.25 * car.v) / (dt * dt));
+  assert.equal(crash.outcome, "stopped");
+  assert.equal(crash.velocity.length(), 0);
 });
 
 test("a fast shallow graze removes the closing component, scrubs tangent speed and leaves reverse available", () => {

@@ -47,6 +47,19 @@ test("the GTI tune reaches 60 mph in under five seconds and 155 mph on level asp
   assert.equal(drive(car(), { throttle: 1, brake: true }, 1).v, 0);
 });
 
+test("full braking, including the reverse pedal, reaches 1.25 g on level pavement", () => {
+  const dt = 1 / 120;
+  for (const v of [5, 25, 60, -5]) {
+    for (const input of [{ brake: true }, { throttle: -Math.sign(v) }]) {
+      const source = { x: 0, y: 0, v, heading: 0 };
+      const next = carStep(source, input, dt);
+      const dirt = carStep(source, input, dt, { offroad: true });
+      const decel = (Math.abs(v) - Math.abs(next.v)) / dt;
+      assert.ok(Math.abs(decel - 1.25 * 9.81) < 1e-9);
+      assert.ok(Math.abs(dirt.v) > Math.abs(next.v));
+    }
+  }
+});
 test("braking stops without reversing; reverse engages after braking", () => {
   assert.equal(drive(car(10), { brake: true }, 4).v, 0);
   const braking = drive(car(10), { throttle: -1 }, 0.5);
