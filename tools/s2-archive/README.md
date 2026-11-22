@@ -12,26 +12,32 @@ running, so a day is one continuous recording and the sites are the stretches
 within it where the platform was stationary. `site-index.json` is the output;
 everything else here produces or feeds it.
 
-| File                  | What it is                                                                         |
-| --------------------- | ---------------------------------------------------------------------------------- |
-| `site-index.json`     | The index. Generated — edit `map-marks.json` and run `make render-scene-data`.     |
-| `map-marks.json`      | Operator-named positions and optional orientation measurements.                    |
-| `site-joins.json`     | Operator assertions that separated static fragments belong to one visit.           |
-| `analysis-overrides/` | Checked-in reanalyses of archived capture spans.                                   |
-| `build-site-index.py` | Stitches the segment analysis and attaches positions.                              |
-| `deployments.py`      | Reconstructs recording blocks from capture filenames alone.                        |
-| `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                             |
-| `scene-vectors.py`    | Places Gerardus's street geometry in a scene, where the site's pose is accepted.   |
-| `city_frame.py`       | The city frame of Gerardus's city tiles, and each site's transform into it.        |
-| `verify-corpus.py`    | Checks the trimmed corpus against the sizes and digests it published.              |
-| `stage-label-sets.py` | Publishes label sets into the dataset, joined to captures by digest.               |
-| `clone-labels.sh`     | Clones one capture's labels from the dataset, for labelling, without the captures. |
+| File                       | What it is                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| `site-index.json`          | The index. Generated — edit `map-marks.json` and run `make render-scene-data`.     |
+| `map-marks.json`           | Operator-named positions and optional orientation measurements.                    |
+| `site-joins.json`          | Operator assertions that separated static fragments belong to one visit.           |
+| `analysis-overrides/`      | Checked-in reanalyses of archived capture spans.                                   |
+| `build-site-index.py`      | Stitches the segment analysis and attaches positions.                              |
+| `deployments.py`           | Reconstructs recording blocks from capture filenames alone.                        |
+| `publish-scenes.py`        | Rebuilds the web scene assets from the trimmed corpus.                             |
+| `scene-vectors.py`         | Places Gerardus's street geometry in a scene, where the site's pose is accepted.   |
+| `scene-trail-inventory.py` | Counts every indexed trail sample without a radius cutoff; prints aggregates only. |
+| `city_frame.py`            | The city frame of Gerardus's city tiles, and each site's transform into it.        |
+| `verify-corpus.py`         | Checks the trimmed corpus against the sizes and digests it published.              |
+| `stage-label-sets.py`      | Publishes label sets into the dataset, joined to captures by digest.               |
+| `clone-labels.sh`          | Clones one capture's labels from the dataset, for labelling, without the captures. |
 
 The corpus replays also read `state-estimation-phase01-corpus.json`, the cases, and
 `continuity-coverage.json`, each case's sensor coverage for the continuity experiments.
 `lidar-state-estimation-baseline -survey-coverage` measures and appends each declaration, with its
 statistics in `continuity-coverage.survey.json`; kirk0's is the first. See the
 [coverage survey](../../docs/lidar/operations/state-estimation-phase01-corpus-baseline.md#sensor-coverage-survey).
+
+`python3 tools/s2-archive/scene-trail-inventory.py` inventories all indexed scene tracks without
+filtering by range, class or support. It verifies counts and prints aggregate extents, never
+individual track IDs or coordinates. It reads the exported frames, which may be sampled and may
+lack observation-support metadata; see the [trail inventory](../../docs/lidar/operations/survey-trail-inventory-2026-11.md).
 
 The scene catalogue being developed in [PR #569](https://github.com/banshee-data/velocity.report/pull/569) reads this index. Its map generator and `make render-scene-map` target are part of a later extraction, not this archive-tooling change. Each scene export is joined to a site
 by the wall clock in its header and inherits that site's position, so a mark
