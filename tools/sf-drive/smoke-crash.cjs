@@ -54,7 +54,18 @@ ${hook}`,
         () => window.crashFixture?.read().history === 240,
       );
       await confirmManualTakeover(page);
-      await page.evaluate(() => window.crashFixture.strike());
+      await page.evaluate(() => {
+        const rate = document.querySelector("#replayRate");
+        window.replayRates = [];
+        new MutationObserver(() =>
+          window.replayRates.push(rate.textContent),
+        ).observe(rate, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+        window.crashFixture.strike();
+      });
       const skip = page.getByRole("button", { name: "Skip replay" });
       await skip.waitFor();
       const read = () => page.evaluate(() => window.crashFixture.read());
@@ -76,14 +87,14 @@ ${hook}`,
         await page.getByRole("img", { name: /Vehicle jerk/ }).isVisible(),
         true,
       );
-      assert.equal(await page.locator("#replayRate").textContent(), "0.99×");
+      assert.equal(await page.evaluate(() => window.replayRates[0]), "0.99×");
       if (mobile) {
         await skip.tap();
       } else {
         await page.keyboard.down("ArrowLeft");
         await page.keyboard.down("ArrowUp");
         await page.keyboard.press("KeyR");
-        await page.getByText("0.5×", { exact: true }).waitFor();
+        await page.waitForFunction(() => window.replayRates.includes("0.5×"));
         const graphs = page.locator("#replayGraphs summary");
         await graphs.press("Space");
         assert.equal(
