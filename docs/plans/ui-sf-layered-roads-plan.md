@@ -4,8 +4,9 @@ This is the handoff between the existing SF game tiles and Gerardus's layered
 road export. It separates improvements possible with the published data from the World
 and Physics work needed to drive above and below the same horizontal position.
 
-- **Status:** the SF road surface explorer and two driving starts read the bounded Bay Bridge
-  approach pilot directly from Gerardus. General multilevel routing remains planned.
+- **Status:** the SF road surface explorer reads the Bay Bridge pilot directly from Gerardus.
+  The SF game also reads the ten regional review revisions on Hydra. Citywide coverage and
+  acceptance of the ramp and freeway connections remain pending.
 - **Anchors:** World and Physics for road levels; UI for visibility and markings; Traffic,
   Goals and Data where connectivity, pickups and provenance depend on the selected level.
 - **Consumer:** [SF driving view](../ui/sf-driving-view.md).
@@ -124,6 +125,57 @@ The pinned base tile contains an inferred building that follows the bridge appro
 solid prisms down to ground. The pilot replaces that one record with the verified contact
 meshes. The overlay carries no obstacle geometry for this clip. The view shows the deck
 top from both sides for orientation. It supplies no measured underside or clearance.
+
+### Regional review in the game
+
+On Hydra, open **Map & game → Open regional road review**. The **Road review region**
+and **Published review drive** selectors list the ten regions and their pinned starts.
+For example, `/sf/?region=embarcadero-bryant&review=bay-bridge-street` opens the Embarcadero
+underpass. For a different deployment, enter the regional catalog manifest URL under
+**Map sources**. Use **Road review region → City map** to return to the ordinary game.
+
+The browser fetches the catalog, region manifest and review report from arrow-worker.
+The game verifies the base frame and the checksums of the selected revision, report
+and contact tiles. The starting profile station may move by up to six metres to fit
+all four wheels. A drive without a supported footprint is marked unavailable.
+Approaching a confirmed junction preloads its endpoint and destination owners.
+The car waits on the current mesh if required contact has not arrived. A missing
+strip or unresolved transition stops the car at the edge of supported contact.
+The review menu lists the number of unresolved connections per region.
+
+The Bay Bridge pilot has an authored game rail along the sides of its deck. A shallow
+strike slows the car and lets it move along the rail. A larger strike rebounds it.
+The game crashes at 12 m/s into the rail, or at 5.5 m/s into the rail when the car
+is travelling at least 28 m/s. Where the game has no rail, driving beyond the side
+of a fitted strip releases the car into free fall. It can land on a lower loaded
+surface. Profile ends and holes in contact
+still stop the car. These are game rules. The review revisions carry no guardrail
+inventory or measured clearance.
+
+The catalog is revision
+`sf-road-index-80faea50f62a8c6b81f1d73340041af9281f5f576b7638bf489b98c839fd19a8`.
+Arrow's review reports ten confirmed ground joins. The eastbound Harrison–Essex
+lower-deck merge and the paired freeway moves at 6th–Brannan still lack supported joins.
+Keep the citywide bake gated on the regional findings. A compatible road sidecar
+can reuse the pinned base tiles. If fixes change the base terrain or obstacle records,
+publish a new base manifest and regenerate the game assets keyed to it, including the
+quest route and coverage manifest. A lane inventory and recorded survey replays have
+their own data requirements.
+
+#### Hydra browser checks
+
+Chromium loaded one published drive in each of the ten regions. In the delayed
+cross-tile checks, 6th–Brannan held at 3.446 m NAVD88 and entered the next strip at
+3.451 m. Geary–Masonic held at 84.469 m and entered the next strip at 84.400 m.
+The Bay Bridge crossing stayed on its chosen level through the vertical overlap
+and reset on that level. The upper drive ranged from 52.12 to 55.39 m and the
+underpass from 3.19 to 3.29 m. The pilot rebounded from its rail at 52.333 m during
+the slower run.
+The faster run triggered crash recovery. At 6th–Brannan, steering off the open
+side released the car at 6.675 m and the browser observed at least 0.5 m of fall.
+Driving straight on the same strip stopped at the contact gap at 4.808 m.
+These checks exercise the game and the exact Arrow revision. Regional acceptance
+also needs evidence for the unresolved freeway moves and coverage gaps.
 
 ### General driving integration
 

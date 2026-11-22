@@ -256,9 +256,10 @@ Observed callback maxima were 5.8 ms for texture paint, 0.7 ms for mesh replacem
 8.4 ms for adding/sending a source. These headless measurements are not mobile-device
 frame-rate guarantees; physical-device validation remains outstanding.
 
-All current roads still share one ground surface at a horizontal position. Proper bridge
-decks, overpasses and tunnels need separate supported surfaces and connectivity. See the
-[current-tile capabilities and Gerardus handoff](../plans/ui-sf-layered-roads-plan.md).
+The ordinary city game uses one ground surface at a horizontal position. On Hydra,
+**Map & game → Open regional road review** opens the separate road surfaces and confirmed
+connections published by Gerardus. See the
+[regional review controls and scope](../plans/ui-sf-layered-roads-plan.md#regional-review-in-the-game).
 
 ## What it shows
 

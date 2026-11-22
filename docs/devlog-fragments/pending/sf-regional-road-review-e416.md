@@ -1,0 +1,2 @@
+- Added a Hydra review mode that drives the ten published Gerardus regions from arrow-worker, waits for the owners of confirmed joins and stops at unsupported contact. Recorded the controls and the [remaining regional acceptance work](../../plans/ui-sf-layered-roads-plan.md#regional-review-in-the-game).
+- Added an authored Bay Bridge side rail that slows, deflects or crashes the car according to the speed into the rail. Open sides release the car into free fall while gaps and unsupported joins still stop it.

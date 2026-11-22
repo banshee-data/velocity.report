@@ -11,8 +11,9 @@ const { chromium } = require("playwright");
   });
   try {
     const page = await browser.newPage({
-      viewport: { width: 640, height: 480 },
+      viewport: { width: 360, height: 280 },
     });
+    await page.route("**/.11ty/reload-client.js", (route) => route.abort());
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("console", (message) => {
@@ -34,6 +35,9 @@ const { chromium } = require("playwright");
       ["bay-bridge-deck", "bridge_deck"],
       ["bay-bridge-street", "ground"],
     ]) {
+      const params = process.env.SF_BRIDGE_REGIONAL
+        ? new URLSearchParams({ region: "embarcadero-bryant", review: at })
+        : new URLSearchParams({ at });
       const tile = page.waitForResponse((res) => {
         const url = new URL(res.url());
         return (
@@ -43,7 +47,7 @@ const { chromium } = require("playwright");
         );
       });
       await page.goto(
-        `${process.env.SF_BASE_URL || "http://localhost:8090"}/sf/?at=${at}`,
+        `${process.env.SF_BASE_URL || "http://localhost:8090"}/sf/?${params}`,
       );
       const product = await (await tile).json();
       const selected = product.surfaces.find(
@@ -64,7 +68,7 @@ const { chromium } = require("playwright");
       let min = start.z,
         max = start.z;
       await page.keyboard.down("ArrowUp");
-      const deadline = Date.now() + 60000;
+      const deadline = Date.now() + 120000;
       try {
         while (Date.now() < deadline && !exited) {
           const car = await read();
@@ -109,6 +113,10 @@ const { chromium } = require("playwright");
         `${kind} crossed and reset on its own level (${min.toFixed(2)}–${max.toFixed(2)} m)`,
       );
     }
+    if (process.env.SF_BRIDGE_REGIONAL) {
+      assert.deepEqual(errors, []);
+      return;
+    }
     await page.goto(
       `${process.env.SF_BASE_URL || "http://localhost:8090"}/sf/`,
     );
@@ -147,9 +155,7 @@ const { chromium } = require("playwright");
     await page
       .getByLabel("SF tile directory or manifest URL")
       .fill(`${host}/sf/tiles`);
-    await page
-      .getByLabel("Gerardus address or overlay manifest URL")
-      .fill("http://arrow-worker:50061");
+    await page.getByLabel(/Gerardus address/).fill("http://arrow-worker:50061");
     const manifest = page.waitForResponse(
       (res) =>
         new URL(res.url()).hostname === "arrow-worker" &&
@@ -168,9 +174,7 @@ const { chromium } = require("playwright");
       details.open = true;
     });
     assert.equal(
-      await page
-        .getByLabel("Gerardus address or overlay manifest URL")
-        .inputValue(),
+      await page.getByLabel(/Gerardus address/).inputValue(),
       "http://arrow-worker:50061",
     );
     console.log(

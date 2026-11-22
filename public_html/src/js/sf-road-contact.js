@@ -137,15 +137,19 @@ export function bayBridgeStarts(surfaces) {
   });
 }
 
-export function driveOnRoadSurface(car, input, dt, surface) {
-  const { heightAt } = surface;
+export function roadMotion(car, input, dt, heightAt) {
   const h = Math.cos(car.heading) * 1.35,
     n = Math.sin(car.heading) * 1.35;
   const front = heightAt(car.x + h, car.y + n),
     rear = heightAt(car.x - h, car.y - n);
-  const next = carStep(car, input, dt, {
+  return carStep(car, input, dt, {
     slope: front !== null && rear !== null ? (front - rear) / 2.7 : 0,
   });
+}
+
+export function driveOnRoadSurface(car, input, dt, surface) {
+  const { heightAt } = surface;
+  const next = roadMotion(car, input, dt, heightAt);
   const z = heightAt(next.x, next.y);
   if (z === null || !roadSupportsCar(heightAt, next))
     return { ...car, blocked: true };

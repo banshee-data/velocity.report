@@ -2,6 +2,9 @@ const storageKey = "sf-map-sources-v1";
 const overlayPath =
   "city-tiles/abc3640983c94385554836af876f5498b963001b801830172ccf3165a1a78594/manifest.json";
 export const BAY_BRIDGE_OVERLAY = `http://arrow-worker:50061/${overlayPath}`;
+const regionalCatalogPath =
+  "city-tiles/sf-road-index-80faea50f62a8c6b81f1d73340041af9281f5f576b7638bf489b98c839fd19a8/manifest.json";
+export const REGIONAL_ROAD_CATALOG = `http://arrow-worker:50061/${regionalCatalogPath}`;
 
 function httpUrl(value) {
   const url = new URL(value);
@@ -24,16 +27,24 @@ function directory(url) {
 export function mapSources({ tiles = "", gerardus = "" }) {
   const map = tiles.trim() ? httpUrl(tiles.trim()) : null;
   const source = gerardus.trim() ? httpUrl(gerardus.trim()) : null;
+  const catalogManifest =
+    source && /\/sf-road-index-[^/]+\/manifest\.json$/.test(source.pathname);
   return {
     tiles: map
       ? map.pathname.endsWith("/manifest.json")
         ? new URL(".", map).href
         : directory(map)
       : "",
-    overlay: source
+    overlay:
+      source && !catalogManifest
+        ? source.pathname.endsWith("/manifest.json")
+          ? source.href
+          : new URL(overlayPath, directory(source)).href
+        : "",
+    catalog: source
       ? source.pathname.endsWith("/manifest.json")
         ? source.href
-        : new URL(overlayPath, directory(source)).href
+        : new URL(regionalCatalogPath, directory(source)).href
       : "",
   };
 }

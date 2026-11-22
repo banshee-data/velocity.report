@@ -199,6 +199,14 @@ eleventyExcludeFromCollections: true
     <label for="places">Start from</label>
     <select id="places"></select>
     <a href="?at=bay-bridge-deck" id="bridgeLink" hidden>Drive the Bay Bridge approach</a>
+    <a href="?region=embarcadero-bryant" id="regionalLink" hidden>Open regional road review</a>
+    <div id="regionalReview" class="tools" hidden>
+      <label for="roadRegion">Road review region</label>
+      <select id="roadRegion"></select>
+      <label for="roadReviewDrive">Published review drive</label>
+      <select id="roadReviewDrive"></select>
+      <p class="detail" id="roadReviewStatus" role="status"></p>
+    </div>
     <div class="row">
       <button type="button" id="restartBtn">New trial</button>
       <button type="button" id="respawnBtn">Reset car</button>
@@ -209,7 +217,7 @@ eleventyExcludeFromCollections: true
     <form id="sourceForm" class="tools" aria-label="Map sources">
       <label for="tileServer">SF tile directory or manifest URL</label>
       <input type="text" id="tileServer" inputmode="url" placeholder="Bundled SF tiles" spellcheck="false" autocomplete="off">
-      <label for="gerardusServer">Gerardus address or overlay manifest URL</label>
+      <label for="gerardusServer">Gerardus address, road overlay or review catalog URL</label>
       <input type="text" id="gerardusServer" inputmode="url" placeholder="Optional road surfaces" spellcheck="false" autocomplete="off">
       <p class="detail">Use a compatible planar SF tile pack. Leave the fields blank for the bundled map.</p>
       <button type="submit">Apply map sources</button>
@@ -281,6 +289,8 @@ eleventyExcludeFromCollections: true
       seekerTurn: $("seekerTurn"), trialArea: $("trialArea"), trialTitle: $("trialTitle"),
       status: $("status"), best: $("best"), records: $("records"), assets: $("assets"), gameSize: $("gameSize"), coverage: $("coverage"),
       bridgeLink: $("bridgeLink"), airtime: $("airtime"), airtimeReadout: $("airtimeReadout"), airtimePlot: $("airtimePlot"),
+      regionalLink: $("regionalLink"), regionalReview: $("regionalReview"), roadRegion: $("roadRegion"),
+      roadReviewDrive: $("roadReviewDrive"), roadReviewStatus: $("roadReviewStatus"),
       touchButtons: document.querySelectorAll(".pad button"),
       survey: {
         approach: $("surveyApproach"), approachTitle: $("surveyApproachTitle"), approachDistance: $("surveyApproachDistance"),
