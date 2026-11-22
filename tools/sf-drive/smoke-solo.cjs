@@ -23,7 +23,7 @@ const { chromium } = require("playwright");
       page.on("pageerror", (e) => errors.push(e.message));
       const url = `${process.env.SF_BASE_URL || "http://127.0.0.1:8090"}/sf/`;
       await page.goto(`${url}?mode=solo`);
-      const storage = await page.evaluate(() => JSON.stringify(localStorage));
+      const storage = await page.evaluate(() => ({ ...localStorage }));
       await page.waitForFunction(
         () => document.querySelector("#drive").dataset.soloStatus === "ready",
       );
@@ -96,9 +96,18 @@ const { chromium } = require("playwright");
           await page.locator("#soloSummary").innerText(),
           /finished.*unknown 1.2 s.*No weighted score/,
         );
-        assert.equal(
-          await page.evaluate(() => JSON.stringify(localStorage)),
+        const afterLanding = await page.evaluate(() => ({ ...localStorage }));
+        const { "sf-best-airtimes-v1": flights, ...otherRecords } =
+          afterLanding;
+        const [airtime] = JSON.parse(flights);
+        assert.ok(
+          airtime.seconds > 0 && airtime.peak > 0,
+          "practice crest records a completed flight",
+        );
+        assert.deepEqual(
+          otherRecords,
           storage,
+          "solo leaves trial records and checkpoints intact",
         );
         console.log("desktop:", await page.locator("#soloSummary").innerText());
         await page.locator("#respawnBtn").click();
@@ -117,9 +126,9 @@ const { chromium } = require("playwright");
         await page.waitForFunction(() =>
           document.querySelector("#progress").textContent.includes("emojis"),
         );
-        assert.equal(
-          await page.evaluate(() => JSON.stringify(localStorage)),
-          storage,
+        assert.deepEqual(
+          await page.evaluate(() => ({ ...localStorage })),
+          afterLanding,
         );
         assert.equal(await page.locator(".seeker").isVisible(), true);
       }

@@ -1,6 +1,13 @@
 import { contactTriangles, roadMotion } from "./sf-road-contact.js";
 import { CAR_HALF_LENGTH, CAR_HALF_WIDTH } from "./sf-drive-core.js";
 
+import {
+  drivingHull,
+  wallContact,
+  roadGradient,
+  launchAttitude,
+} from "./sf-chassis-contact.js";
+
 const gravity = 9.81;
 const sideClearance = 4;
 
@@ -166,8 +173,10 @@ export function barrierImpact(
   cornerSpeed = 0,
   bounceOnly = false,
 ) {
-  const vx = Math.cos(next.heading) * next.v;
-  const vy = Math.sin(next.heading) * next.v;
+  const vx =
+    Math.cos(next.heading) * next.v - Math.sin(next.heading) * (next.slip || 0);
+  const vy =
+    Math.sin(next.heading) * next.v + Math.cos(next.heading) * (next.slip || 0);
   const normal = vx * nx + vy * ny;
   const approach = Math.max(normal, cornerSpeed);
   if (approach <= 0) return null;
@@ -195,6 +204,7 @@ export function barrierImpact(
     steering: 0,
     steeringRate: 0,
     lateralAcceleration: 0,
+    slip: 0,
     edgeContact: rebound ? "bounce" : "scrape",
   };
 }
@@ -263,7 +273,26 @@ export function strikeHighwayRail(car, input, dt, surface) {
     surface.railBounceOnly,
   );
   if (!impact) return null;
-  if (impact.roadImpact) return { ...car, ...impact, blocked: false };
+  if (impact.roadImpact) {
+    const z = surface.heightAt(next.x, next.y) ?? car.z;
+    const hull = drivingHull(next, z);
+    // Choose the actual incident feature across neighbouring short rail spans.
+    let hit = null;
+    for (const { a, b, nx, ny } of surface.railSegments) {
+      const candidate = wallContact(
+        hull,
+        a,
+        b,
+        -nx,
+        -ny,
+        impact.roadImpact,
+        z + 0.33,
+      );
+      if (candidate && (!hit || candidate.arm < hit.arm)) hit = candidate;
+    }
+    if (hit) return { ...car, ...next, ...impact, hit, z, blocked: false };
+    return null;
+  }
   const { a, nx, ny } = edge;
   const inset = Math.max(
     0,
@@ -312,15 +341,19 @@ export function leaveRoadSide(car, input, dt, surface) {
   if ((next.x - car.x) * side.nx + (next.y - car.y) * side.ny <= 0) return null;
   const startZ = car.z ?? surface.heightAt(car.x, car.y);
   if (startZ === null) return null;
+  const attitude = launchAttitude(car, surface.heightAt, startZ);
   return {
     ...car,
     ...next,
     z: startZ,
-    vx: next.v * hx,
-    vy: next.v * hy,
-    vz: 0,
+    vx: next.v * hx - (next.slip || 0) * hy,
+    vy: next.v * hy + (next.slip || 0) * hx,
+    vz:
+      Math.tan(attitude.pitch) * next.v +
+      (Math.tan(attitude.roll) / Math.cos(attitude.pitch)) * (next.slip || 0),
     grounded: false,
     leavingRoad: true,
+    airAttitude: attitude,
     seam: null,
     blocked: false,
     edgeContact: "",
@@ -333,7 +366,12 @@ export function fallFromRoad(car, dt, landingBelow) {
   const z = car.z + car.vz * dt - 0.5 * gravity * dt * dt;
   const vz = car.vz - gravity * dt;
   const landing = landingBelow(x, y, car.z);
-  if (landing && z <= landing.z)
+  if (landing && z <= landing.z) {
+    const { east, north } = landing.heightAt
+      ? roadGradient(landing.heightAt, x, y, landing.z)
+      : { east: 0, north: 0 };
+    const closing =
+      (car.vx * east + car.vy * north - vz) / Math.hypot(east, north, 1);
     return {
       ...car,
       x,
@@ -344,20 +382,80 @@ export function fallFromRoad(car, dt, landingBelow) {
       leavingRoad: false,
       seam: null,
       vz: 0,
-      roadImpact: -vz > 10 || landing.z - car.z > 0.25 ? "ground" : null,
+      roadImpact: closing > 10 || landing.z - car.z > 0.25 ? "ground" : null,
     };
+  }
   return { ...car, x, y, z, vz, roadImpact: z < -30 ? "fall" : null };
 }
 
-export function roadLandingAt(x, y, previousZ, terrainHeight, surfaces) {
+export function roadLandingAt(
+  x,
+  y,
+  previousZ,
+  terrainHeight,
+  surfaces,
+  previousPoint,
+) {
   const terrain = terrainHeight(x, y);
   // Terrain is solid. A rising ground plane can intersect the car's horizontal
   // sweep even when the point under the previous pose was lower or missing.
   let landing = terrain === null ? null : { z: terrain };
   for (const surface of surfaces) {
     const z = surface.heightAt(x, y);
-    if (z !== null && z <= previousZ && (!landing || z > landing.z))
-      landing = { z, surfaceId: surface.id };
+    if (z === null || (landing && z <= landing.z)) continue;
+    if (z > previousZ) {
+      // A point already on/above a rising deck can sweep into its top face.
+      const prior =
+        previousPoint && surface.heightAt(previousPoint.x, previousPoint.y);
+      if (prior == null || prior > previousZ) continue;
+    }
+    landing = { z, surfaceId: surface.id };
   }
   return landing;
+}
+
+export function crashRoadSupport(terrainHeight, surfaces) {
+  return (x, y, previous) => {
+    const hit = roadLandingAt(
+      x,
+      y,
+      previous.z + 0.002,
+      terrainHeight,
+      surfaces.values(),
+      previous,
+    );
+    return (
+      hit && {
+        ...hit,
+        heightAt: surfaces.get(hit.surfaceId)?.heightAt || terrainHeight,
+      }
+    );
+  };
+}
+
+// Expand each rail's bucket coverage by the chassis bounding radius, so
+// one lookup at its centre covers the tipped body on either side of a seam.
+export function indexCrashRails(surfaces) {
+  const cells = new Map();
+  const bucket = (v) => Math.floor(v / 32);
+  const radius = Math.hypot(CAR_HALF_LENGTH, CAR_HALF_WIDTH, 1.8);
+  for (const surface of surfaces)
+    for (const rail of surface.railSegments || []) {
+      const { a, b } = rail;
+      for (
+        let x = bucket(Math.min(a[0], b[0]) - radius);
+        x <= bucket(Math.max(a[0], b[0]) + radius);
+        x++
+      )
+        for (
+          let y = bucket(Math.min(a[1], b[1]) - radius);
+          y <= bucket(Math.max(a[1], b[1]) + radius);
+          y++
+        ) {
+          const key = `${x},${y}`;
+          if (!cells.has(key)) cells.set(key, []);
+          cells.get(key).push(rail);
+        }
+    }
+  return (x, y) => cells.get(`${bucket(x)},${bucket(y)}`) || [];
 }

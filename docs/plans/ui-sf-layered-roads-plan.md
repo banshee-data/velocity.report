@@ -271,8 +271,8 @@ sections of the same street, and draws dashed terrain where the road profile
 ends. An airborne card becomes a touchdown card for two seconds. Flights that
 overlap in display time stack, with an independent expiry for each touchdown.
 
-Run `node tools/sf-drive/replay-airtime.mjs --examples` against the Hydra
-preview to repeat the 50 scripted flights. The replay pins the Arrow revision
+Run `node tools/sf-drive/replay-airtime.mjs --examples` from the repository
+root to repeat the 50 scripted flights. The replay pins the Arrow revision
 and verifies the local base tile hashes before sampling. The 120 Hz runs check
 the trace order, the final height, a usable elevation profile, and the exact
 expiry time.
@@ -280,8 +280,13 @@ expiry time.
 | Replay group   | Flights | Used dashed terrain | Had a road or deck trace | Hard landings |
 | -------------- | ------: | ------------------: | -----------------------: | ------------: |
 | Practice crest |      10 |                   0 |                       10 |             0 |
-| SF streets     |      20 |                   9 |                       15 |             0 |
-| Fremont exit   |      20 |                  20 |                       19 |            13 |
+| SF streets     |      20 |                   9 |                       15 |             2 |
+| Fremont exit   |      20 |                  20 |                       20 |            19 |
+
+The table uses the passive chassis and the normal closing speed at wheel contact.
+The Fremont sweep includes 7.5 and 12.5 m/s approaches to cover 20 qualifying
+flights with the shared tyre grip model. The earlier point-contact run recorded
+zero hard landings on SF streets and 13 on the Fremont exit.
 
 Chrome also showed a grounded landing on pavement about 0.4 seconds after
 driving off the lower ramp. The scripted results describe game contact on the

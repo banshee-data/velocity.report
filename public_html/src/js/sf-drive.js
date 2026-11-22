@@ -19,12 +19,10 @@ import {
 import * as THREE from "../vendor/three/three.module.js";
 import {
   advanceTrial,
-  beginCrash,
   brakeLightsOn,
   buildCollisionIndex,
   collisionAt,
   createTrial,
-  crashPose,
   formatBytes,
   formatTime,
   groundAt,
@@ -38,6 +36,17 @@ import {
   streetAt,
   tilesAround,
 } from "./sf-drive-core.js";
+
+import { drivingHull, obstacleContact } from "./sf-chassis-contact.js";
+import {
+  beginCrash,
+  crashCar,
+  crashRemaining,
+  seriousImpact,
+  scrapeObstacle,
+  stepCrash,
+  hardLanding,
+} from "./sf-crash.js";
 
 import { terrainTriangles, tileRegion } from "./sf-drive-surface.js";
 import { createDownloadSizeTracker } from "./sf-download-size.js";
@@ -104,7 +113,8 @@ import {
   highwayRailSegments,
   leaveRoadSide,
   roadBoundary,
-  roadLandingAt,
+  crashRoadSupport,
+  indexCrashRails,
 } from "./sf-highway-edge.js";
 
 const css = (n) =>
@@ -931,6 +941,7 @@ export async function startDrive({
     network?.add(tile);
   }
   if (gameDrive) addRoadTile(gameDrive.topology);
+  const crashRails = indexCrashRails(roadSurfaces.values());
   const places = [...(manifest.places || [])];
   if (gameDrive?.exitStart) places.unshift(gameDrive.exitStart);
   if (gameDrive) places.unshift(gameDrive.start);
@@ -1451,19 +1462,19 @@ export async function startDrive({
         : "Back at the intersection · clock continues",
     );
   }
-  function startCrash(kind, now) {
+  function startCrash(kind, incoming, hit, heightAt, now, supportAt) {
     if (crash) return;
     insurance.infractions++;
     airtime.finish(now, "Impact");
-    crash = beginCrash(car, kind, now / 1000);
-    car = {
-      ...car,
-      v: 0,
-      steering: 0,
-      steeringRate: 0,
-      lateralAcceleration: 0,
-    };
-    accumulator = 0;
+    crash = beginCrash(
+      incoming,
+      kind,
+      hit,
+      heightAt,
+      kind === "ground" ? { previous: car, supportAt } : null,
+    );
+    car = crashCar(crash, incoming);
+    clearEmojiFocus();
     releaseInputs();
     if (trial.status === "running") trial.crashes++;
     const impact =
@@ -1472,7 +1483,7 @@ export async function startDrive({
         : kind === "fall"
           ? "Fell off the road"
           : `Hit a ${kind}`;
-    announce(`${impact} · spinning before reset`, 2);
+    announce(`${impact} · controls locked until reset`, 2);
   }
   function newTrial(p, fresh = false) {
     if (solo) {
@@ -1514,7 +1525,7 @@ export async function startDrive({
     clearEmojiFocus();
   });
   function requestTakeover() {
-    if (insurance.mode === "manual" || hud.takeover.open) return;
+    if (crash || insurance.mode === "manual" || hud.takeover.open) return;
     releaseInputs();
     if (hud.menu.open) hud.menu.close();
     hud.takeover.returnValue = "";
@@ -1812,7 +1823,12 @@ export async function startDrive({
     for (const e of loaded.values()) e.grp.visible = false;
     carZ = car.z;
     carMesh.position.set(...V(car.x, car.y, car.z));
-    carMesh.rotation.set(0, car.heading, soloPitch(car), "YZX");
+    carMesh.rotation.set(
+      car.grounded === false ? car.airAttitude?.roll || 0 : 0,
+      car.heading,
+      soloPitch(car),
+      "YZX",
+    );
     carMesh.visible = state.view !== "incar";
     carMesh.userData.brakeMaterial.color.setHex(
       brakeLightsOn(car, input, soloRun.status !== "running")
@@ -2105,7 +2121,7 @@ export async function startDrive({
       .map((r, i) => `${i + 1}. ${formatTime(r.seconds)}`)
       .join("   ");
     if (crash)
-      hud.status.textContent = `Hit a ${crash.kind} · reset in ${crashPose(crash, performance.now() / 1000).remaining.toFixed(1)} s`;
+      hud.status.textContent = `Hit a ${crash.kind} · reset in ${crashRemaining(crash).toFixed(1)} s`;
     else if (performance.now() > messageUntil)
       hud.status.textContent =
         trial.status === "ready"
@@ -2125,7 +2141,7 @@ export async function startDrive({
       soloFrame(dt, now);
       return;
     }
-    if (crash && crashPose(crash, now / 1000).done && now >= crashUntil)
+    if (crash && crashRemaining(crash) === 0 && now >= crashUntil)
       respawn(true);
     hud.respawnBtn.disabled = !!crash;
     let input = drivingInput(state.keys, state.touch);
@@ -2146,8 +2162,7 @@ export async function startDrive({
     const roadDrive = isRoadReview(selectedStart);
     const terrainHeight = (x, y) => groundAtWorld(tiles, x, y, true);
     const heightAt = surface?.heightAt || terrainHeight;
-    const landingBelow = (x, y, below) =>
-      roadLandingAt(x, y, below, terrainHeight, roadSurfaces.values());
+    const crashSupport = crashRoadSupport(terrainHeight, roadSurfaces);
     if (!grounded) {
       const z0 = heightAt(car.x, car.y);
       const owner = tileAt(manifest.tiles, car.x, car.y).t;
@@ -2192,7 +2207,14 @@ export async function startDrive({
     }
     let blocked = false;
     let waitingForRoad = false;
-    if (grounded && !crash && now >= crashUntil) {
+    if (crash && crashRemaining(crash) > 0) {
+      accumulator += dt;
+      while (accumulator >= 1 / 120 && crashRemaining(crash) > 0) {
+        accumulator -= 1 / 120;
+        stepCrash(crash, crashSupport, indexes, crashRails);
+      }
+      car = crashCar(crash, car);
+    } else if (grounded && !crash && now >= crashUntil) {
       if (
         resumeRecovery &&
         car.grounded &&
@@ -2220,7 +2242,9 @@ export async function startDrive({
             : input);
         let candidate;
         if (car.leavingRoad) {
-          candidate = fallFromRoad(car, 1 / 120, landingBelow);
+          candidate = fallFromRoad(car, 1 / 120, (x, y) =>
+            crashSupport(x, y, car),
+          );
         } else if (!surface) {
           candidate = contactStep(
             car,
@@ -2267,7 +2291,15 @@ export async function startDrive({
           // A streaming pause holds the last supported pose and momentum.
           // Only a confirmed end of support stops the car.
           if (!waitingForRoad)
-            car = { ...car, v: 0, vx: 0, vy: 0, vz: 0, lateralAcceleration: 0 };
+            car = {
+              ...car,
+              v: 0,
+              slip: 0,
+              vx: 0,
+              vy: 0,
+              vz: 0,
+              lateralAcceleration: 0,
+            };
           accumulator = 0;
           announce(
             (!navigator.onLine || failures.has(owner.t)) && !loaded.has(owner.t)
@@ -2283,8 +2315,22 @@ export async function startDrive({
           );
           break;
         }
+        const contactHeight =
+          roadSurfaces.get(candidate.surfaceId)?.heightAt || terrainHeight;
+        const landing =
+          car.grounded === false && hardLanding(car, candidate, crashSupport);
+        const hit =
+          candidate.hit ||
+          obstacleContact(
+            indexes,
+            drivingHull(candidate),
+            car.grounded === false ? drivingHull(car) : undefined,
+          );
         const impact =
-          candidate.roadImpact || collisionAt(indexes, candidate, candidate.z);
+          candidate.roadImpact ||
+          (landing && "ground") ||
+          (hit && (hit.nz || seriousImpact(candidate, hit)) && hit.kind);
+
         if (candidate.grounded === false || car.grounded === false) {
           const takeoffRoad =
             car.grounded !== false && (!surface || surface.kind === "ground")
@@ -2302,11 +2348,30 @@ export async function startDrive({
           });
         }
         if (impact) {
-          if (candidate.roadImpact) car = { ...candidate, roadImpact: null };
-          startCrash(impact, now);
+          // A landing candidate has already discarded its inbound vertical velocity.
+          const incoming =
+            impact === "ground"
+              ? landing || {
+                  ...car,
+                  x: candidate.x,
+                  y: candidate.y,
+                  z: candidate.z,
+                  surfaceId: candidate.surfaceId,
+                  vz: car.vz - 9.81 / 120,
+                }
+              : candidate;
+          startCrash(
+            impact,
+            incoming,
+            impact === "ground" ? null : hit,
+            contactHeight,
+            now,
+            crashSupport,
+          );
           break;
         }
-        car = candidate;
+        car = hit ? scrapeObstacle(candidate, hit) : candidate;
+        if (hit) announce(`Scraped a ${hit.kind}`, 1);
         surface = roadSurfaces.get(car.surfaceId);
         if (
           assisted &&
@@ -2422,21 +2487,28 @@ export async function startDrive({
     const ay = Math.sin(car.heading) * 1.5;
     const zf = currentHeightAt(car.x + ax, car.y + ay) ?? carZ;
     const zr = currentHeightAt(car.x - ax, car.y - ay) ?? carZ;
-    const pose = crash ? crashPose(crash, now / 1000) : null;
-    carMesh.position.set(...V(car.x, car.y, carZ + (pose?.lift || 0)));
-    carMesh.rotation.set(
-      pose?.roll || 0,
-      pose?.heading ?? car.heading,
-      car.grounded === false
-        ? Math.atan2(car.vz, Math.max(0.1, Math.abs(car.v)))
-        : Math.atan2(zf - zr, 3),
-      "YZX",
-    );
-    const braking = brakeLightsOn(
-      car,
-      input,
-      !!crash || now < crashUntil || (!surface && trial.status === "ready"),
-    );
+    carMesh.position.set(...V(car.x, car.y, carZ));
+    if (crash) {
+      // Conjugating ENU by the world-to-scene basis maps the quaternion axis.
+      const q = crash.rotation;
+      carMesh.quaternion.set(q.x, q.z, -q.y, q.w);
+    } else {
+      carMesh.rotation.set(
+        car.grounded === false ? car.airAttitude?.roll || 0 : 0,
+        car.heading,
+        car.grounded === false
+          ? car.airAttitude?.pitch || 0
+          : Math.atan2(zf - zr, 3),
+        "YZX",
+      );
+    }
+    const braking =
+      !crash &&
+      brakeLightsOn(
+        car,
+        input,
+        now < crashUntil || (!surface && trial.status === "ready"),
+      );
     carMesh.userData.brakeMaterial.color.setHex(braking ? 0xff3038 : 0x661018);
     for (const wheel of carMesh.userData.wheels) {
       wheel.pivot.rotation.y = wheel.front ? car.steering || 0 : 0;
@@ -2449,9 +2521,10 @@ export async function startDrive({
       state.view === "incar" && camInit && !reducedMotion.matches
         ? incarRoll(cameraRoll, car.lateralAcceleration || 0, dt)
         : 0;
+    // Keep the horizon and view direction steady while the chassis tumbles.
     const view = driveCameraPose(
-      state.view,
-      car,
+      crash && state.view === "incar" ? "zoomed" : state.view,
+      crash ? { ...car, heading: crash.initialHeading } : car,
       carZ,
       currentHeightAt,
       cameraRoll,
@@ -2521,7 +2594,7 @@ export async function startDrive({
           ? `${next.names.join(" · ")} in ${Math.round(next.distance / 10) * 10} m`
           : "";
       if (crash)
-        hud.next.textContent = `Crash · reset in ${crashPose(crash, now / 1000).remaining.toFixed(1)} s`;
+        hud.next.textContent = `Crash · reset in ${crashRemaining(crash).toFixed(1)} s`;
       else if (trial.status === "finished")
         hud.next.textContent = `Finished! ${trial.crashes} crashes`;
       else if (completedCityDrive)

@@ -14,7 +14,7 @@ export function soloHeight(x) {
 }
 /** Body pitch in radians, measured along the car's forward axis. */
 export function soloPitch(car) {
-  if (!car.grounded) return Math.atan2(car.vz, Math.max(0.1, Math.abs(car.v)));
+  if (!car.grounded) return car.airAttitude?.pitch || 0;
   const forwardX = Math.cos(car.heading) * 0.1;
   // The authored profile varies only with x; facing across it gives zero pitch.
   return Math.atan2(
