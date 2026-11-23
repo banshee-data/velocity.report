@@ -90,7 +90,9 @@ Building roof-face outlines (including courtyard holes) and tree trunks have col
 checks in 32 m spatial buckets. An oriented rectangle covers the car body and bumpers;
 the velocity into the contact normal distinguishes a glancing scrape from a hard strike.
 A scrape sheds speed across the wall and preserves motion along it. The tyres gradually
-catch the slide. A hard strike disconnects steering, throttle and braking during the crash replay. Momentum carries the chassis through follow-up contacts with walls, trunks,
+catch the slide. Object strikes trigger a crash at 9.5 m/s into the surface, highway
+rails at 13 m/s, and landings at 16 m/s into the local ground or deck. A recoverable
+landing keeps horizontal momentum and returns steering and throttle to the tyres. A hard strike disconnects steering, throttle and braking during the crash replay. Momentum carries the chassis through follow-up contacts with walls, trunks,
 rails and the ground. A square hit can rebound, a corner strike can yaw, and a hard
 landing on one side can roll the car. In flight, the chassis keeps its take-off pitch
 and bank. Each ground contact takes its slope from the road or terrain it touches.
@@ -98,6 +100,19 @@ Hard contacts dissipate closing speed over multiple physics ticks through a damp
 crush response. The contact zone allows up to 55 cm of frontal or 30 cm of side
 compression. The body still uses the existing chassis mesh. The camera holds its approach direction during
 recovery and shows the chassis from outside if the driver was in the cabin.
+
+Trunk diameter is inferred from baked tree height at 8% of height, with a minimum
+diameter of 24 cm. The displayed trunk and collider use the same estimate.
+**World and Physics.** For each crash into a trunk, 28% of the car's energy along
+the contact normal goes towards a game break threshold of
+`12 kJ × (diameter / 30 cm)³`. A 24 cm trunk breaks at about 6 kJ of transferred
+energy, a 30 cm trunk at 12 kJ, and a 60 cm trunk at 96 kJ. At 42% of that
+threshold a trunk cracks and leans. Further crashes can build on the crack.
+A broken trunk yields, falls away from the impact, and loses its upright
+collider for the session. Fallen debris is visual. Replays store the damage
+event so the tree animates again when the saved clip is opened. The cubic
+scaling follows the bending capacity of a solid circular section. The energy
+thresholds and transfer fraction are game tuning. [Trunk bending model](https://pmc.ncbi.nlm.nih.gov/articles/PMC7137967/)
 
 The trial clock continues and pickups pause until the car returns to its last clear
 intersection, or the nearest clear loaded intersection if the checkpoint has streamed out.
@@ -333,9 +348,13 @@ placed replay sites, even beyond the local tile draw distance.
 Delivery drives begin in **Self-driving**. Driving input opens a confirmation for
 **Meat mode** while the car continues in self-driving. Confirming preserves car motion
 and transfers control with neutral inputs. Release any held control and press again
-to drive or brake. The meter charges 0.12¢ per second ($0.0012/s), with a half rate of
-0.06¢ per second. The bottom-centre orange meter shows the running total in
-dollars and the current rate in cents. **Resume self-driving** stops the meter,
+to drive or brake. The base rate is 0.001¢ per simulation second. The
+bottom-centre orange meter shows the total in dollars and the current rate
+in cents, with the game limit and multiplier. The game sets limits of
+50 mph on highway decks, 30 mph on ramps and 25 mph on city ground. Each
+started 5 mph band above the limit doubles the rate. Exactly 5, 10, 15 and
+20 mph over cost 2×, 4×, 8× and 16× respectively. Airborne travel is
+charged at the base rate and displays an unavailable limit. **Resume self-driving** stops the meter,
 preserves the spend and shows the purple self-driving indicator.
 Manual driving on the delivery route can cross from the guide onto continuous street
 pavement. Verified ramp joins support reversing across the seam. The controller
@@ -345,8 +364,11 @@ return to its last moving route checkpoint and continues from there. The deliver
 count and insurance spend carry through that recovery.
 Insurance lasts for the session. Saved trial checkpoints contain no insurance amounts. On the first visit to a survey, the driver
 earns either ten free seconds or twenty half-rate seconds. Credits count down during
-manual driving and free seconds are used first. The HUD tracks deliveries, spend and
-crash infractions. These rates are game tuning values.
+manual driving and free seconds are used first. Half-rate credit applies
+to the current rate including any speeding multiplier. A manual crash adds
+a one-time charge of 0.01¢ per 1,000 m/s³ of peak simulated vehicle jerk from
+impact through recovery. The crash replay shows that charge. The HUD tracks
+deliveries, spend and crash infractions. These rates are game tuning values.
 
 Choose **Bay Bridge approach** in **Start from** for the westbound drive at 50 mph.
 The route crosses the bridge, takes the Fremont exit and rejoins I-80 from Fourth

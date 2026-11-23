@@ -23,6 +23,7 @@ import {
   buildCollisionIndex,
   collisionAt,
   createTrial,
+  DRIVE_CAR,
   formatBytes,
   formatTime,
   groundAt,
@@ -42,6 +43,7 @@ import {
   beginCrash,
   crashCar,
   seriousImpact,
+  closingSpeed,
   scrapeObstacle,
   stepCrash,
   hardLanding,
@@ -67,6 +69,8 @@ import { surveyBeacons } from "./sf-survey-beacons.js";
 import {
   BONUS_RADIUS,
   advanceInsurance,
+  gameInsuranceLimit,
+  recordCrash,
   createInsurance,
   insuranceRate,
   formatInsuranceCents,
@@ -117,6 +121,13 @@ import {
   replayTelemetry,
   replayCharts,
 } from "./sf-replay-telemetry.js";
+import {
+  treeRadius,
+  treeDamageForImpact,
+  treeFallAngle,
+  treeFallProgress,
+  replayTreeIndex,
+} from "./sf-tree-damage.js";
 import { createAirtimeHud } from "./sf-airtime.js";
 import {
   bestAirtimes,
@@ -502,21 +513,48 @@ function buildTile(tile, C, region, reveal) {
     const qn = new THREE.Quaternion();
     const s = new THREE.Vector3();
     const p = new THREE.Vector3();
-    tile.tr.forEach(([x, y, h, r], i) => {
-      const wx = ox + x / 10;
-      const wy = oy + y / 10;
-      const z = gz(x / 10, y / 10);
+    const axis = new THREE.Vector3();
+    const prior = new THREE.Quaternion();
+    const base = new THREE.Vector3();
+    function setTreePose(i, event, elapsed = 1) {
+      const [x, y, h, r] = tile.tr[i];
+      base.set(...V(ox + x / 10, oy + y / 10, gz(x / 10, y / 10)));
+      qn.identity();
+      if (event) {
+        // Rotate the trunk and canopy about the same ground anchor, away from impact.
+        axis.set(-event.north, 0, -event.east).normalize();
+        if (event.priorLean) {
+          qn.setFromAxisAngle(axis, treeFallAngle(event, 1));
+          const [east, north] = event.priorLean;
+          axis.set(-north, 0, -east).normalize();
+          prior.setFromAxisAngle(axis, treeFallAngle({ stage: "cracked" }, 1));
+          qn.copy(prior.slerp(qn, treeFallProgress(elapsed)));
+        } else {
+          qn.setFromAxisAngle(axis, treeFallAngle(event, elapsed));
+        }
+      }
       const ch = Math.max(1.5, Math.min(h * 0.6, 2.2 * r));
-      p.set(...V(wx, wy, z + h - ch / 2));
+      p.set(0, h - ch / 2, 0)
+        .applyQuaternion(qn)
+        .add(base);
       s.set(r, ch / 2, r);
       mtx.compose(p, qn, s);
       crown.setMatrixAt(i, mtx);
-      const tw = Math.max(0.12, 0.04 * h);
-      p.set(...V(wx, wy, z + (h - ch) / 2));
+      const tw = treeRadius(h);
+      p.set(0, (h - ch) / 2, 0)
+        .applyQuaternion(qn)
+        .add(base);
       s.set(tw, Math.max(0.5, h - ch), tw);
       mtx.compose(p, qn, s);
       trunk.setMatrixAt(i, mtx);
-    });
+    }
+    tile.tr.forEach((_, i) => setTreePose(i));
+    grp.userData.drawTree = (i, event, seconds) => {
+      if (!tile.tr[i]) return;
+      setTreePose(i, event, seconds);
+      crown.instanceMatrix.needsUpdate = true;
+      trunk.instanceMatrix.needsUpdate = true;
+    };
     grp.add(crown, trunk);
   }
 
@@ -1009,6 +1047,7 @@ export async function startDrive({
   // The car waits until the ground under it has loaded, so it never starts in empty space.
   let grounded = false;
   const loaded = new Map(); // token -> {tile, grp}
+  const treeDamage = new Map(); // token -> damage by baked tree row
   let completedCityDrive = false;
   let routeCheckpoint = null;
   let resumeRecovery = false;
@@ -1085,7 +1124,6 @@ export async function startDrive({
         : [],
     );
   let insurance = insuranceFor(start);
-  let insuranceAt = performance.now();
   let emojiTarget = null;
   let emojiLocked = false;
   const emojiScreen = new THREE.Vector3();
@@ -1172,6 +1210,12 @@ export async function startDrive({
   }
   function updateInsuranceMeter() {
     hud.insuranceCost.textContent = formatInsuranceDollars(insurance.spent);
+    hud.insuranceLimit.textContent =
+      insurance.mode === "manual"
+        ? insurance.limit == null
+          ? "Limit unavailable"
+          : `${insurance.limit} mph game limit · ${insurance.multiplier}×`
+        : "";
     hud.insuranceRate.textContent =
       insurance.mode === "manual"
         ? `${formatInsuranceCents(insuranceRate(insurance))}/s · ${insurance.manualSeconds.toFixed(1)} s`
@@ -1319,10 +1363,12 @@ export async function startDrive({
             }),
             region: regions.get(t),
             markings: roadDashPolygons(roads),
-            collisions: buildCollisionIndex(tile),
+            collisions: buildCollisionIndex(tile, t, treeDamage.get(t)),
             intersections: intersectionsForTile(tile),
           };
           loaded.set(t, entry);
+          for (const [index, damage] of treeDamage.get(t) || [])
+            grp.userData.drawTree?.(index, damage);
           for (const road of tile.raisedRoads || []) {
             const cached = raisedRoads.get(road.id);
             if (cached) {
@@ -1378,7 +1424,7 @@ export async function startDrive({
     if (playback) {
       if (e.code === "Escape") {
         e.preventDefault();
-        finishPlayback(performance.now());
+        finishPlayback();
       } else if (keyMap[e.code] && !e.target.closest?.("button, a, summary"))
         e.preventDefault();
       return;
@@ -1415,7 +1461,7 @@ export async function startDrive({
   };
   window.addEventListener("blur", releaseInputs);
   document.addEventListener("visibilitychange", () => {
-    last = insuranceAt = performance.now();
+    last = performance.now();
     if (document.hidden) releaseInputs();
   });
   const toggleMirror = () => {
@@ -1530,8 +1576,28 @@ export async function startDrive({
   }
   function startCrash(kind, incoming, hit, heightAt, now, supportAt, indexes) {
     if (crash) return;
-    insurance.infractions++;
     airtime.finish(now, kind === "fall" ? "Out of map" : "Impact");
+    let treeEvent;
+    if (hit?.tree && Math.hypot(hit.nx, hit.ny) > 0) {
+      const tree = hit.tree;
+      const damage = treeDamage.get(tree.tile) || new Map();
+      treeEvent = treeDamageForImpact(
+        tree,
+        DRIVE_CAR.mass,
+        closingSpeed(incoming, hit),
+        hit.nx,
+        hit.ny,
+        damage.get(tree.index),
+      );
+      if (treeEvent) {
+        damage.set(tree.index, treeEvent);
+        treeDamage.set(tree.tile, damage);
+        if (treeEvent.stage === "broken") {
+          tree.broken = true;
+          hit = { ...hit, yielded: treeEvent.absorbed };
+        }
+      }
+    }
     crash = beginCrash(
       incoming,
       kind,
@@ -1555,6 +1621,14 @@ export async function startDrive({
       if (crash.outcome) break;
       stepCrash(crash, supportAt, indexes, crashRails);
     } while (true);
+    const inbound = capturePose(incoming, heightAt).velocity;
+    const peakJerk = Math.max(
+      0,
+      ...(replayTelemetry(poses.slice(impactTick), 0, inbound) ?? []).map(
+        (bin) => bin[2],
+      ),
+    );
+    const fee = recordCrash(insurance, peakJerk);
     const clip = saveReplay({
       ...encodeReplay(
         poses,
@@ -1563,11 +1637,9 @@ export async function startDrive({
       ),
       kind,
       outcome: crash.outcome,
-      telemetry: replayTelemetry(
-        poses,
-        impactTick,
-        capturePose(incoming, heightAt).velocity,
-      ),
+      fee,
+      treeDamage: treeEvent,
+      telemetry: replayTelemetry(poses, impactTick, inbound),
     });
     if (hud.takeover.open) hud.takeover.close("cancel");
     startPlayback(clip, true);
@@ -1580,7 +1652,10 @@ export async function startDrive({
         : kind === "fall"
           ? "Fell off the road"
           : `Hit a ${kind}`;
-    announce(`${impact} · crash replay`, 2);
+    announce(
+      `${impact} · ${fee > 0 ? formatInsuranceCents(fee) + " crash charge" : "crash replay"}`,
+      2,
+    );
   }
   function newTrial(p, fresh = false) {
     if (solo) {
@@ -1636,7 +1711,6 @@ export async function startDrive({
       // Ownership changes on confirmation, without resetting vehicle state or
       // feeding the input used to open the modal into the physics loop.
       releaseInputs();
-      insuranceAt = performance.now();
       insurance.mode = "manual";
       resumeRecovery = false;
       updateDriveMode();
@@ -1940,6 +2014,9 @@ export async function startDrive({
               ),
             ),
           ];
+    const tree = clip.treeDamage;
+    if (tree && byToken.has(tree.tile) && !required.includes(tree.tile))
+      required.push(tree.tile);
     releaseInputs();
     clearEmojiFocus();
     if (hud.menu.open) hud.menu.close();
@@ -1951,7 +2028,15 @@ export async function startDrive({
       streamAt: -Infinity,
       charts: replayCharts(hud.replayGraphs, clip),
     };
-    hud.replayLocation.textContent = replayLocation(clip);
+    hud.replayLocation.textContent = [
+      replayLocation(clip),
+      clip.fee > 0 ? `${formatInsuranceCents(clip.fee)} crash charge` : "",
+      tree
+        ? `${Math.round(tree.diameter * 100)} cm trunk · tree ${tree.stage === "broken" ? "fell" : "cracked"}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
     hud.replayPanel.hidden = false;
     hud.replayGraphs.hidden = false;
     hud.replayRate.textContent = `${replayRate(clip, 0)}×`;
@@ -1962,9 +2047,19 @@ export async function startDrive({
     hud.skipReplay.focus({ preventScroll: true });
   }
 
-  function finishPlayback(now) {
+  function finishPlayback() {
     if (!playback) return;
-    const { automatic } = playback;
+    const { automatic, clip, treeIndex } = playback;
+    const tree = clip.treeDamage;
+    if (tree && treeIndex >= 0)
+      loaded
+        .get(tree.tile)
+        ?.grp.userData.drawTree?.(
+          treeIndex,
+          treeDamage.get(tree.tile)?.get(treeIndex),
+        );
+    else if (tree && automatic)
+      loaded.get(tree.tile)?.grp.userData.drawTree?.(tree.index, tree);
     playback = null;
     hud.replayPanel.hidden = true;
     hud.replayGraphs.hidden = true;
@@ -1978,12 +2073,9 @@ export async function startDrive({
     else if (!solo) stream();
     if (automatic) canvas.focus({ preventScroll: true });
     else hud.menuBtn.focus({ preventScroll: true });
-    insuranceAt = now;
   }
 
-  hud.skipReplay.addEventListener("click", () =>
-    finishPlayback(performance.now()),
-  );
+  hud.skipReplay.addEventListener("click", finishPlayback);
 
   function replayFrame(wallDt, now) {
     const { clip, automatic, required } = playback;
@@ -1992,7 +2084,6 @@ export async function startDrive({
         advanceTrial(trial, wallDt, car, false, false);
         hud.timer.textContent = formatTime(trial.elapsed);
       }
-      if (!document.hidden) advanceInsurance(insurance, wallDt);
       updateInsuranceMeter();
     }
     if (
@@ -2016,6 +2107,15 @@ export async function startDrive({
     if (hud.replayRate.textContent !== rateText)
       hud.replayRate.textContent = rateText;
     if (hud.replayGraphs.open) playback.charts(playback.tick);
+    const tree = clip.treeDamage;
+    const treeEntry = tree && loaded.get(tree.tile);
+    if (treeEntry && playback.treeIndex === undefined)
+      playback.treeIndex = replayTreeIndex(treeEntry.tile, tree);
+    if (playback.treeIndex >= 0 && !playback.treeFallen) {
+      const elapsed = Math.max(0, (playback.tick - clip.impact) / 120);
+      treeEntry.grp.userData.drawTree?.(playback.treeIndex, tree, elapsed);
+      playback.treeFallen = treeFallProgress(elapsed) === 1;
+    }
     const pose = replayPose(clip, playback.tick);
     canvas.dataset.replay = clip.impact === null ? "airtime" : "crash";
     let status = clip.impact === null ? "Airtime replay" : "Crash replay";
@@ -2054,7 +2154,7 @@ export async function startDrive({
     camera.up.set(...V(...view.up));
     camera.lookAt(...V(...view.look));
     renderView(view, pose);
-    if (playback.tick >= clip.end) finishPlayback(now);
+    if (playback.tick >= clip.end) finishPlayback();
   }
 
   function renderView(view, subject = car) {
@@ -2561,8 +2661,6 @@ export async function startDrive({
   function frame(now) {
     requestAnimationFrame(frame);
     const wallDt = Math.max(0, (now - last) / 1000);
-    const insuranceDt = Math.max(0, (now - insuranceAt) / 1000);
-    insuranceAt = now;
     const dt = Math.min(0.05, wallDt);
     last = now;
     if (playback) {
@@ -2585,8 +2683,6 @@ export async function startDrive({
       if (input.throttle || input.steer || input.brake) requestTakeover();
       input = { throttle: 0, steer: 0, brake: false };
     }
-    if (grounded && !document.hidden && !hud.takeover.open)
-      advanceInsurance(insurance, insuranceDt);
     const tiles = [...loaded.values()].map((e) => e.tile);
     const indexes = [...loaded.values()].map((e) => e.collisions);
     let surface = roadSurfaces.get(car.surfaceId);
@@ -2753,7 +2849,7 @@ export async function startDrive({
         const impact =
           candidate.roadImpact ||
           (landing && "ground") ||
-          (hit && (hit.nz || seriousImpact(candidate, hit)) && hit.kind);
+          (hit && seriousImpact(candidate, hit) && hit.kind);
 
         if (candidate.grounded === false || car.grounded === false) {
           const takeoffRoad =
@@ -2778,6 +2874,16 @@ export async function startDrive({
           });
         }
         leadIn.push(capturePose(car, surface?.heightAt || terrainHeight));
+        if (!document.hidden && !hud.takeover.open)
+          advanceInsurance(
+            insurance,
+            1 / 120,
+            Math.hypot(candidate.v, candidate.slip || 0),
+            gameInsuranceLimit(
+              candidate,
+              roadSurfaces.get(candidate.surfaceId),
+            ),
+          );
         if (impact) {
           // A landing candidate has already discarded its inbound vertical velocity.
           const incoming =

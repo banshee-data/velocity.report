@@ -2,6 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "../../vendor/three/three.core.js";
 import { buildCollisionIndex, carStep, contactStep } from "../sf-drive-core.js";
+import {
+  replayTreeIndex,
+  treeDamageForImpact,
+  treeFallAngle,
+} from "../sf-tree-damage.js";
 import { crashRoadSupport, indexCrashRails } from "../sf-highway-edge.js";
 import { drivingHull, obstacleContact } from "../sf-chassis-contact.js";
 import {
@@ -182,7 +187,7 @@ test("overlapping horizontal footprints are separated by height; a descending ro
 });
 
 test("gravity changes a level drop's velocity without rotating the chassis or inventing horizontal travel", () => {
-  const drop = { ...car, grounded: false, z: 1.3, v: 0, vx: 0, vy: 0, vz: -15 };
+  const drop = { ...car, grounded: false, z: 1.3, v: 0, vx: 0, vy: 0, vz: -18 };
   const support = supportOn(flat);
   assert.equal(hardLanding(drop, drop, support), null);
   const landing = hardLanding({ ...drop, z: 0.08 }, drop, support);
@@ -193,6 +198,89 @@ test("gravity changes a level drop's velocity without rotating the chassis or in
   near(body.position.y, 0);
 });
 
+test("recoverable touchdown keeps horizontal motion and the next input steers", () => {
+  const before = {
+    ...car,
+    v: 24,
+    vx: 24,
+    vy: 0,
+    vz: -12,
+    z: 0.08,
+    grounded: false,
+  };
+  const pavement = () => ({ height: 0, drivable: true });
+  const landed = contactStep(before, {}, dt, pavement);
+  assert.equal(hardLanding(before, landed, supportOn(flat)), null);
+  assert.equal(landed.grounded, true);
+  near(landed.v, 24);
+  const next = contactStep(landed, { throttle: 1, steer: 1 }, dt, pavement);
+  assert.ok(next.v > landed.v);
+  assert.ok(next.heading > landed.heading);
+});
+
+test("the same normal impact breaks a thin trunk, cracks a larger one and leaves a stout one standing", () => {
+  const tile = {
+    o: [0, 0],
+    b: [],
+    tr: [
+      [23, 0, 3.75, 1.5],
+      [23, 50, 5, 2],
+      [23, 100, 7.5, 3],
+    ],
+  };
+  const index = buildCollisionIndex(tile, "fixture");
+  const strike = (y, speed) =>
+    obstacleContact([index], drivingHull({ ...car, y, v: speed }));
+  const damaged = (hit, speed, previous) =>
+    treeDamageForImpact(hit.tree, 1280, speed, hit.nx, hit.ny, previous);
+  const front = strike(0, 10);
+  const light = damaged(front, 3);
+  const broken = damaged(front, 10);
+  const crack = damaged(strike(5, 10), 10);
+  assert.equal(light, null);
+  near(broken.diameter, 0.3);
+  assert.equal(broken.stage, "broken");
+  assert.equal(crack.stage, "cracked");
+  assert.equal(crack.diameter, 0.4);
+  assert.equal(damaged(strike(10, 10), 10), null);
+  const secondStrike = damaged(strike(5, 10), 10, crack);
+  assert.equal(secondStrike.stage, "broken");
+  assert.deepEqual(secondStrike.priorLean, [crack.east, crack.north]);
+  assert.equal(replayTreeIndex(tile, broken), 0);
+  assert.equal(
+    replayTreeIndex({ ...tile, tr: [...tile.tr].reverse() }, broken),
+    2,
+  );
+  assert.equal(replayTreeIndex({ ...tile, tr: tile.tr.slice(1) }, broken), -1);
+  assert.ok(broken.east > 0.99);
+  assert.equal(treeFallAngle(broken, 0), 0);
+  assert.ok(treeFallAngle(broken, 0.45) > 0);
+  assert.ok(treeFallAngle(broken, 0.9) > Math.PI / 2 - 0.1);
+  assert.ok(treeFallAngle(crack, 0.9) < 0.2);
+
+  // The trunk takes some energy, yields, and no longer blocks the path.
+  const incoming = { ...car, v: 10 };
+  const rigid = beginCrash(incoming, "tree", front, flat);
+  const yielded = beginCrash(
+    incoming,
+    "tree",
+    { ...front, yielded: broken.absorbed },
+    flat,
+  );
+  assert.ok(
+    yielded.velocity.x > rigid.velocity.x && yielded.velocity.x < incoming.v,
+  );
+  const damage = new Map([
+    [0, broken],
+    [1, crack],
+  ]);
+  const reloaded = buildCollisionIndex(tile, "fixture", damage);
+  assert.equal(obstacleContact([reloaded], drivingHull(incoming)), null);
+  assert.equal(
+    obstacleContact([reloaded], drivingHull({ ...incoming, y: 5 })).kind,
+    "tree",
+  );
+});
 test("take-off pitch and bank survive ballistic motion and are used at impact", () => {
   const surface = (x, y) => ({
     height: (x <= 0 ? 0.15 * x : -2) + 0.12 * y,
@@ -264,7 +352,7 @@ test("a hard touchdown resolves the first crossed deck during handoff and cannot
     v: 0,
     vx: 0,
     vy: 0,
-    vz: -15,
+    vz: -18,
   };
   const incoming = hardLanding(before, before, support);
   assert.ok(incoming.z < 20);

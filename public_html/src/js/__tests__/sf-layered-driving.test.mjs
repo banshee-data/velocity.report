@@ -487,10 +487,10 @@ test("a highway rail scrubs speed on a scrape, rebounds and crashes on a hard st
     barrierImpact({ v: 40, heading: 0.7 }, north, 1 / 120).roadImpact,
     "highway barrier",
   );
-  assert.equal(
-    barrierImpact({ v: 30, heading: 0.2 }, north, 1 / 120).roadImpact,
-    "highway barrier",
-  );
+  const fasterGraze = barrierImpact({ v: 30, heading: 0.2 }, north, 1 / 120);
+  assert.equal(fasterGraze.roadImpact, undefined);
+  assert.equal(fasterGraze.edgeContact, "bounce");
+  assert.ok(fasterGraze.v > 20);
 });
 
 test("the rendered rail stops the body while the wheels still have contact", () => {
@@ -624,7 +624,7 @@ test("open sides release contact, but missing contact and road end caps stay blo
   assert.equal(down.z, 7);
   assert.equal(down.surfaceId, "lower");
   assert.ok(down.y > 7);
-  const hard = fallFromRoad({ ...falling, z: 3.01, vz: -14 }, dt, () => ({
+  const hard = fallFromRoad({ ...falling, z: 3.01, vz: -18 }, dt, () => ({
     z: 3,
   }));
   assert.equal(hard.roadImpact, "ground");
@@ -700,7 +700,16 @@ test("a surveyed underpass uses matching street pavement through a hole and igno
 });
 test("a falling car hits rising terrain without snapping to a higher deck", () => {
   const roadSurfaces = [{ id: "overhead", heightAt: () => 12 }];
-  const fall = { x: 0, y: 0, z: 5, vx: 16, vy: 0, vz: -2, leavingRoad: true };
+  const fall = {
+    x: 0,
+    y: 0,
+    z: 5,
+    vx: 16,
+    vy: 0,
+    vz: -2,
+    heading: 0,
+    leavingRoad: true,
+  };
   const dt = 1 / 120;
   const next = fallFromRoad(fall, dt, (x, y, z) =>
     roadLandingAt(x, y, z, () => 5.4, roadSurfaces),
@@ -708,7 +717,9 @@ test("a falling car hits rising terrain without snapping to a higher deck", () =
   assert.equal(next.z, 5.4);
   assert.equal(next.surfaceId, undefined);
   assert.equal(next.grounded, true);
-  assert.equal(next.roadImpact, "ground");
+  assert.equal(next.roadImpact, null);
+  assert.equal(next.v, 16);
+  assert.equal(next.leavingRoad, false);
   const below = [{ id: "lower", heightAt: () => 4.99 }, ...roadSurfaces];
   assert.deepEqual(
     roadLandingAt(0, 0, 5, () => 3, below),

@@ -5,6 +5,7 @@ import {
   CAR_HALF_LENGTH,
   CAR_HALF_WIDTH,
   COM_HEIGHT,
+  HARD_LANDING_SPEED,
   obstacleContact,
   wallContact,
   roadGradient,
@@ -58,18 +59,27 @@ function motion(car) {
   );
 }
 
-export function seriousImpact(car, hit) {
+export function closingSpeed(car, hit) {
   const velocity = motion(car);
-  return -(velocity.x * hit.nx + velocity.y * hit.ny) >= 5.5;
+  return Math.max(
+    0,
+    -(velocity.x * hit.nx + velocity.y * hit.ny + velocity.z * (hit.nz || 0)),
+  );
+}
+
+export function seriousImpact(car, hit) {
+  return closingSpeed(car, hit) >= 9.5;
 }
 
 // Keep the tangential component of a graze. Tyres regain sideways grip over
 // subsequent ticks; the driver can steer or reverse out of a low-speed bump.
 export function scrapeObstacle(car, hit) {
   const v = motion(car);
-  const into = Math.min(0, v.x * hit.nx + v.y * hit.ny);
+  const nz = hit.nz || 0;
+  const into = -closingSpeed(car, hit);
   v.x -= into * hit.nx;
   v.y -= into * hit.ny;
+  v.z -= into * nz;
   const tangent = Math.hypot(v.x, v.y);
   const drag = tangent ? Math.max(0, 1 + (0.32 * into) / tangent) : 0;
   const vx = v.x * drag,
@@ -80,6 +90,8 @@ export function scrapeObstacle(car, hit) {
     ...car,
     x: car.x + hit.nx * (hit.depth + 0.001),
     y: car.y + hit.ny * (hit.depth + 0.001),
+    z: car.z == null ? car.z : car.z + nz * (hit.depth + 0.001),
+    vz: v.z,
     vx,
     vy,
     v: vx * hx + vy * hy,
@@ -125,7 +137,7 @@ export function hardLanding(before, next, supportAt) {
       if (
         support &&
         incoming.z + offset.z <= support.z &&
-        v.dot(groundNormal(support, x, y)) < -10
+        v.dot(groundNormal(support, x, y)) <= -HARD_LANDING_SPEED
       )
         return incoming;
     }
@@ -181,7 +193,20 @@ function resolve(crash, point, n, friction, patchRadius = 0) {
 
 function resolveObstacle(crash, hit) {
   const n = vec(hit.nx, hit.ny, hit.nz || 0);
-  resolve(crash, vec(hit.x, hit.y, hit.z), n, 0.32);
+  const point = vec(hit.x, hit.y, hit.z);
+  if (hit.yielded !== undefined) {
+    const arm = point.sub(crash.position);
+    const incoming = Math.min(0, pointVelocity(crash, arm).dot(n));
+    const fraction = 1 - Math.sqrt(1 - hit.yielded);
+    applyImpulse(
+      crash,
+      arm,
+      n,
+      -incoming * effectiveMass(crash, arm, n) * fraction,
+    );
+    return 0;
+  }
+  resolve(crash, point, n, 0.32);
   const forward = vec(1, 0, 0).applyQuaternion(crash.rotation);
   const crushDepth = hit.nz
     ? 0

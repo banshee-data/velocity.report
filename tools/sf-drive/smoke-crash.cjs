@@ -75,13 +75,14 @@ ${hook}`,
       assert.equal(active.clip.outcome, "stopped");
       assert.equal(active.clip.end - active.clip.frames.at(-1)[0], 240);
       assert.equal(active.inf, 1);
+      assert.ok(active.clip.fee > 0);
       assert.equal(active.steering, 0);
       assert.ok(
         active.clip.telemetry.some(([, decel, jerk]) => decel > 0 && jerk > 0),
       );
       assert.match(
         await page.locator("#replayLocation").textContent(),
-        /\d+(?:\.\d+)? (?:km|m) [NSEW]{1,2}$/,
+        /\d+(?:\.\d+)? (?:km|m) [NSEW]{1,2} · [\d.]+¢ crash charge$/,
       );
       assert.equal(
         await page.getByRole("img", { name: /Vehicle jerk/ }).isVisible(),

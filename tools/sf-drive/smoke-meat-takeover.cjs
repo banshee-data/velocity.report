@@ -76,6 +76,10 @@ const { chromium } = require("playwright");
           await page.locator("#insuranceRate").textContent(),
           /Meter off/,
         );
+        assert.match(
+          await page.locator("#insuranceLimit").textContent(),
+          /^50 mph game limit · (?:1|2|4|8)×$/,
+        );
         assert.equal(await page.locator("#insuranceMeter").isVisible(), false);
         assert.equal(await page.locator("#selfDrivingIcon").isVisible(), true);
         const action = takeControl ? confirm : cancel;
@@ -128,8 +132,12 @@ const { chromium } = require("playwright");
         () =>
           document
             .querySelector("#insuranceRate")
-            .textContent.startsWith("0.12¢/s") &&
+            .textContent.match(/^0\.00[1248]0¢\/s/) &&
           document.querySelector("#insuranceCost").textContent !== "$0.0000",
+      );
+      assert.match(
+        await page.locator("#insuranceLimit").textContent(),
+        /^50 mph game limit · (?:1|2|4|8)×$/,
       );
       assert.equal(await page.locator("#insuranceMeter").isVisible(), true);
       assert.equal(await page.locator("#selfDrivingIcon").isVisible(), false);
@@ -171,7 +179,7 @@ const { chromium } = require("playwright");
       await stopBrake();
       assert.deepEqual(errors, []);
       console.log(
-        `${mobile ? "Touch" : "Keyboard"}: bridge start, cancel, confirm, retained contact and speed, fresh brake, 0.12¢/s manual meter`,
+        `${mobile ? "Touch" : "Keyboard"}: bridge start, cancel, confirm, retained contact and speed, fresh brake, manual meter and authored highway limit`,
       );
       await page.close();
     }

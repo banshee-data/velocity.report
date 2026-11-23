@@ -6,6 +6,7 @@
 // fixed origin): x east, y north. Tile payloads store their own positions in
 // decimetres from the tile origin `o`.
 
+import { treeRadius } from "./sf-tree-damage.js";
 import { validBuildingFace } from "./sf-building-walls.js";
 
 import {
@@ -515,7 +516,7 @@ export function formatBytes(bytes) {
 }
 
 /** 32 m spatial buckets avoid testing the whole city's buildings on every physics tick. */
-export function buildCollisionIndex(tile) {
+export function buildCollisionIndex(tile, token, damage) {
   const cells = new Map();
   const add = (shape, minX, minY, maxX, maxY) => {
     for (let x = Math.floor(minX / 32); x <= Math.floor(maxX / 32); x++)
@@ -525,10 +526,10 @@ export function buildCollisionIndex(tile) {
         cells.get(k).push(shape);
       }
   };
-  for (const [x, y, h, r = 0] of tile.tr) {
+  for (const [index, [x, y, h, r = 0]] of tile.tr.entries()) {
     const wx = tile.o[0] + x / 10,
       wy = tile.o[1] + y / 10,
-      radius = Math.max(0.12, 0.04 * h);
+      radius = treeRadius(h);
     const base =
       (tile.g && groundAt(tile.g, x / 10, y / 10)) ?? tile.zfill ?? 0;
     const crown = Math.max(1.5, Math.min(h * 0.6, 2.2 * r));
@@ -538,6 +539,9 @@ export function buildCollisionIndex(tile) {
         x: wx,
         y: wy,
         radius,
+        index,
+        tile: token,
+        broken: damage?.get(index)?.stage === "broken",
         base,
         top: base + Math.max(0.8, h - crown),
       },
