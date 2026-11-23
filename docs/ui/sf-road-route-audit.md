@@ -196,3 +196,45 @@ and the 23rd Street contact gap at
 469 intervals over 50%, including the 125.1% maximum on Blanken Avenue. The planned
 profiles and observed car traces cover a subset of game contact. They describe game
 behaviour and route availability rather than field grades or clearance.
+
+## Follow-up on the Presidio and Toll Plaza bake
+
+The [20-course regression set](../../tools/sf-drive/road-audit-presidio-release-routes.json)
+uses candidate manifest `db80bd6d2ec42bf43da05e40a1ce8e29a6128c18fc46676b7a68014f59019031`.
+It reuses 18 courses from the Stockton and I-280 follow-up and re-routes Broadway
+to use the baked westbound bore and Toll Plaza to attempt the new eastbound
+contact. The course set SHA-256 is
+`95b177641d68ccbe4ec8d65f9447f33ca451bc79ee19ae4aa7d599cd5fe71633`.
+Run it with
+`node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-presidio-release-routes.json`.
+
+Twelve of the 20 fixed-step drives collected both emojis. There were no
+depressions over 0.5 m below the local eight-metre chord in the driven
+profiles. The largest tile-seam step was 0.061 m. Both Stockton directions
+and the Broadway drive used their lower surfaces. The eight unfinished
+courses stopped under the following conditions.
+
+| Course               | Stop                                                            | Peak driven grade |
+| -------------------- | --------------------------------------------------------------- | ----------------: |
+| Toll Plaza eastbound | Stalled on the upper approach and never selected the lower road |            27.05% |
+| Fremont under-deck   | Stalled on 2nd Street at 18.5 m                                 |            98.07% |
+| 5th Street I-280     | Reached the end of route contact before the destination         |             8.60% |
+| US 101 Bayview       | Hit a tree on the southbound highway alignment                  |            54.08% |
+| Dogpatch 23rd Street | Reached missing ground contact                                  |             6.40% |
+| Mission Creek        | Hit a tree on Terry A Francois Boulevard                        |             4.14% |
+| North Waterfront     | Stalled on The Embarcadero                                      |             4.09% |
+| Park West            | Hit a tree on John F Kennedy Drive                              |             7.74% |
+
+The largest grade flag occurred on Harrison Street at (4297.52, 3046.36)
+in tile `8085807c`, before the 2nd Street stop. The Bayview course flagged
+54.08% on Silver Avenue at (3047.17, −3048.00) in `808f7efc`. Both values
+refer to sampled game contact.
+
+Four separate Chrome corridor drives started on pavement immediately before
+the Presidio and Toll Plaza portals. Both US 101 runs traversed Battery and
+Main Post at peak speeds around 52 mph. Both Toll Plaza runs used the lower
+road, at peak speeds around 20 mph. Each run returned to exterior pavement.
+The Toll Plaza difference between the corridor and emoji runs identifies a
+remaining approach routing or alignment problem. Full emoji itineraries
+through the Presidio tunnels also remain unverified. See the
+[portal and roof evidence](../plans/ui-sf-layered-roads-plan.md#presidio-parkway-and-toll-plaza-contact).
