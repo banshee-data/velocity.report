@@ -125,6 +125,14 @@ for (const reverse of [false, true]) {
     // The open eastbound approach has planted islands beside the inner lane.
     laneGuides: { [geary]: { lane: reverse ? 2.5 : -4.5 } },
   };
+  const macarthur = "macarthur-tunnel";
+  cases[reverse ? "macarthur-southbound" : "macarthur-northbound"] = {
+    roads: [macarthur],
+    owners: ["80858724", "808586e4", "8085871c"],
+    speed: 16,
+    reverse,
+    laneGuides: { [macarthur]: { lane: reverse ? 4.2 : -4.2 } },
+  };
 }
 cases["branch-east-ramp"] = {
   roads: ["branch-east-off-ramp"],

@@ -1,0 +1,1 @@
+- Baked both approaches and a continuous bidirectional contact strip for the MacArthur Tunnel, removed the highway paint over the bore and verified both directions in Chrome. [Drive audit](../../ui/sf-road-route-audit.md#macarthur-tunnel-on-sr-1)
