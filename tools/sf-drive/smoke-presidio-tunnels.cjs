@@ -322,6 +322,42 @@ cases["upper-to-octavia"] = {
     },
   },
 };
+cases["dogpatch-to-sixth-northbound"] = {
+  roads: [
+    "i280-dogpatch-east-north-entry",
+    "i280-dogpatch-northbound",
+    "i280-south-of-eighteenth-northbound",
+    "i280-mariposa-northbound",
+    "i280-sixth-northbound",
+  ],
+  owners: ["808f7fb4", "808f7fbc", "808f7fcc", "808f7fd4", "808f7fac"],
+  speed: 17,
+  speedLimits: {
+    "i280-dogpatch-east-north-entry": 12,
+    "i280-sixth-northbound": 14,
+  },
+  laneGuides: {
+    "i280-dogpatch-east-north-entry": {
+      clearance: { offset: -1.6, station: 107, length: 26 },
+    },
+    "i280-dogpatch-northbound": {
+      clearance: { offset: 2.2, station: 89, length: 28 },
+    },
+    "i280-sixth-northbound": {
+      clearance: { offset: -1.8, station: 696, length: 32 },
+    },
+  },
+};
+for (const reverse of [false, true]) {
+  cases[
+    reverse ? "dogpatch-twentieth-eastbound" : "dogpatch-twentieth-westbound"
+  ] = {
+    roads: ["dogpatch-twentieth-viaduct"],
+    owners: ["808f7fb4"],
+    speed: 12,
+    reverse,
+  };
+}
 for (const direction of ["north", "south"]) {
   const north = direction === "north";
   const exit = `i280-dogpatch-pennsylvania-${direction}`;

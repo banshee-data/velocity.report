@@ -1,0 +1,1 @@
+- Connected the Dogpatch northbound I-280 entrance to Sixth Street and baked 20th Street's observed viaduct above the terrain that caused the previous dip. [Drive audit](../../ui/sf-road-route-audit.md#dogpatch-northbound-i-280-and-20th-street)
