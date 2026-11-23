@@ -70,7 +70,69 @@ def supported_runs(rows):
         yield points, sorted(owners), sorted(profiles)
 
 
-def bake(source, base, quest, output):
+def playable_product(path, sha256, base_hash, revision, manifest):
+    raw = path.read_bytes()
+    if digest(raw) != sha256:
+        raise ValueError("Playable road product checksum differs")
+    product = json.loads(raw)
+    if (
+        product["format"] != "sf-game-road-contact"
+        or product["version"] != 1
+        or product["base_sha256"] != base_hash
+        or product["road_revision"] != revision
+    ):
+        raise ValueError("Playable roads belong to a different bake")
+    tiles = manifest["tiles"]
+
+    def owner(point):
+        x, y, _ = point
+        return min(tiles, key=lambda t: (x - t["x"]) ** 2 + (y - t["y"]) ** 2)["t"]
+
+    endpoints = {}
+    by_tile = defaultdict(list)
+    replaced = set()
+    for road in product["roads"]:
+        points = road["points"]
+        if (
+            len(points) < 3
+            or any(
+                len(point) != 3 or not all(map(math.isfinite, point))
+                for point in points
+            )
+            or not 2.5 <= road["width"] <= 30
+            or road["kind"] not in {"ramp", "bridge_deck", "tunnel"}
+            or not set(road["groundEnds"]) <= {"start", "end"}
+            or road["owners"] != [owner(points[0]), owner(points[-1])]
+        ):
+            raise ValueError(f"Invalid playable road {road['id']}")
+        for label, point in (("start", points[0]), ("end", points[-1])):
+            terminal = f"{road['id']}:{label}"
+            if terminal in endpoints:
+                raise ValueError(f"Duplicate playable terminal {terminal}")
+            endpoints[terminal] = (point, road.get("seams", {}).get(label))
+        for token in sorted({owner(point) for point in points}):
+            by_tile[token].append(road)
+        replaced.update(road["profiles"])
+    for transition in product["transitions"]:
+        (start, seam_a), (end, seam_b) = (
+            endpoints[transition["from"]],
+            endpoints[transition["to"]],
+        )
+        if (
+            transition["status"] != "joined"
+            or math.dist(start, end) > 0.002
+            or seam_a is None
+            or seam_a != seam_b
+        ):
+            raise ValueError(f"Open playable join {transition['id']}")
+    return by_tile, {
+        "playableSha256": sha256,
+        "playableTransitions": product["transitions"],
+        "playableReplaces": sorted(replaced),
+    }
+
+
+def bake(source, base, quest, output, playable=None, playable_sha256=None):
     raw_base = (base / "manifest.json").read_bytes()
     manifest = json.loads(raw_base)
     roads = json.loads(read_source(source, "manifest.json"))
@@ -122,6 +184,11 @@ def bake(source, base, quest, output):
             for token in sorted(tokens):
                 by_tile[token].append(run)
             run_count += 1
+    playable_tiles, playable_index = ({}, {})
+    if playable is not None:
+        playable_tiles, playable_index = playable_product(
+            playable, playable_sha256, digest(raw_base), roads["revision"], manifest
+        )
     tiles_out = output / "tiles"
     tiles_out.mkdir(parents=True)
     for tile in manifest["tiles"]:
@@ -131,9 +198,15 @@ def bake(source, base, quest, output):
         if digest(raw) != roads["tiles"][token]["base_tile_gzip_sha256"]:
             raise ValueError(f"Base tile checksum differs for {token}")
         payload = raw
-        if token in by_tile:
+        if token in by_tile or token in playable_tiles:
             content = json.loads(gzip.decompress(raw))
-            content["raisedRoads"] = [*content.get("raisedRoads", []), *by_tile[token]]
+            if token in by_tile:
+                content["raisedRoads"] = [
+                    *content.get("raisedRoads", []),
+                    *by_tile[token],
+                ]
+            if token in playable_tiles:
+                content["playableRoads"] = playable_tiles[token]
             payload = gzip.compress(encoded(content), compresslevel=9, mtime=0)
         (tiles_out / name).write_bytes(payload)
         tile["bytes"] = len(payload)
@@ -147,6 +220,7 @@ def bake(source, base, quest, output):
         "driveSourceRevision": drive_data["source_revision"],
         "runs": run_count,
         **counts,
+        **playable_index,
     }
     bundled_manifest = encoded(manifest)
     (tiles_out / "manifest.json").write_bytes(bundled_manifest)
@@ -166,5 +240,16 @@ if __name__ == "__main__":
     cli.add_argument("--base", type=Path, required=True)
     cli.add_argument("--quest", type=Path, required=True)
     cli.add_argument("--output", type=Path, required=True)
+    cli.add_argument("--playable", type=Path)
+    cli.add_argument("--playable-sha256")
     args = cli.parse_args()
-    bake(args.source, args.base, args.quest, args.output)
+    if bool(args.playable) != bool(args.playable_sha256):
+        cli.error("--playable and --playable-sha256 must be provided together")
+    bake(
+        args.source,
+        args.base,
+        args.quest,
+        args.output,
+        args.playable,
+        args.playable_sha256,
+    )

@@ -68,3 +68,30 @@ test("the rebake keeps tunnel alignments off the aerial ground while retaining T
   }
   assert.ok(tunnelAvenue);
 });
+
+test("the playable I-280 parts keep identical contact across neighbouring owners", () => {
+  const { tiles, roadBake } = JSON.parse(file("tiles/manifest.json"));
+  assert.match(roadBake.playableSha256, /^[0-9a-f]{64}$/);
+  const roads = new Map();
+  const duplicated = new Set();
+  const terminals = new Map();
+  for (const { t } of tiles) {
+    const { playableRoads = [] } = JSON.parse(
+      gunzipSync(file(`tiles/${t}.json.gz`)),
+    );
+    for (const road of playableRoads) {
+      if (roads.has(road.id)) {
+        assert.deepEqual(road, roads.get(road.id), road.id);
+        duplicated.add(road.id);
+      }
+      roads.set(road.id, road);
+      terminals.set(`${road.id}:start`, [road.points[0], road.seams.start]);
+      terminals.set(`${road.id}:end`, [road.points.at(-1), road.seams.end]);
+    }
+  }
+  const entry = roads.get("sf-contact/i280-fifth-south-entry");
+  assert.deepEqual(entry.groundEnds, ["start"]);
+  assert.ok(duplicated.has(entry.id));
+  for (const { from, to } of roadBake.playableTransitions)
+    assert.deepEqual(terminals.get(from), terminals.get(to));
+});
