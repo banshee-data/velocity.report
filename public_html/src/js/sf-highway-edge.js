@@ -6,6 +6,7 @@ import {
   wallContact,
   roadGradient,
   launchAttitude,
+  HARD_LANDING_SPEED,
 } from "./sf-chassis-contact.js";
 
 const gravity = 9.81;
@@ -180,11 +181,7 @@ export function barrierImpact(
   const normal = vx * nx + vy * ny;
   const approach = Math.max(normal, cornerSpeed);
   if (approach <= 0) return null;
-  if (
-    !bounceOnly &&
-    (normal >= 12 || (Math.abs(next.v) >= 28 && normal >= 5.5))
-  )
-    return { roadImpact: "highway barrier" };
+  if (!bounceOnly && normal >= 13) return { roadImpact: "highway barrier" };
   const tangent = vx * -ny + vy * nx;
   const drag = 0.35 * approach + 2 * dt;
   const slide = Math.sign(tangent) * Math.max(0, Math.abs(tangent) - drag);
@@ -372,6 +369,8 @@ export function fallFromRoad(car, dt, landingBelow) {
       : { east: 0, north: 0 };
     const closing =
       (car.vx * east + car.vy * north - vz) / Math.hypot(east, north, 1);
+    const hx = Math.cos(car.heading),
+      hy = Math.sin(car.heading);
     return {
       ...car,
       x,
@@ -381,8 +380,10 @@ export function fallFromRoad(car, dt, landingBelow) {
       grounded: true,
       leavingRoad: false,
       seam: null,
+      v: hx * car.vx + hy * car.vy,
+      slip: hx * car.vy - hy * car.vx,
       vz: 0,
-      roadImpact: closing > 10 || landing.z - car.z > 0.25 ? "ground" : null,
+      roadImpact: closing >= HARD_LANDING_SPEED ? "ground" : null,
     };
   }
   return { ...car, x, y, z, vz, roadImpact: z < -30 ? "fall" : null };

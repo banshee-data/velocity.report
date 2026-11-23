@@ -1,6 +1,7 @@
 // Metres, east/north/up. Normals point from the obstacle into free space.
 export const CAR_HALF_LENGTH = 2.23;
 export const CAR_HALF_WIDTH = 0.96;
+export const HARD_LANDING_SPEED = 16; // m/s into the support normal
 export const COM_HEIGHT = 0.78;
 
 // Derivatives are sampled on a single support surface. At its boundary use
@@ -105,6 +106,7 @@ function treeContact(hull, tree) {
   const sign = inside ? -1 : 1;
   return {
     kind: "tree",
+    tree,
     x: nearest.x,
     y: nearest.y,
     z: Math.max(
@@ -249,7 +251,12 @@ export function obstacleContact(indexes, hull, previous) {
     )
       for (const cells of indexes)
         for (const shape of cells.get(`${bx},${by}`) || []) {
-          if (seen.has(shape) || hull.low > shape.top || hull.high < shape.base)
+          if (
+            shape.broken ||
+            seen.has(shape) ||
+            hull.low > shape.top ||
+            hull.high < shape.base
+          )
             continue;
           seen.add(shape);
           const section =
@@ -276,6 +283,7 @@ export function obstacleContact(indexes, hull, previous) {
             );
             hit = {
               kind: shape.kind,
+              tree: hit.tree,
               x: face.length
                 ? face.reduce((sum, p) => sum + p.x, 0) / face.length
                 : hit.x,

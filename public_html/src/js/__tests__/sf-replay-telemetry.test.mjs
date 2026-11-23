@@ -78,8 +78,9 @@ test("crash labels locate the impact and airtime labels locate the take-off", ()
 
 test("meter dollars retain the precision of the cent-based ledger", () => {
   assert.equal(formatInsuranceDollars(0), "$0.0000");
-  assert.equal(formatInsuranceDollars(0.12), "$0.0012");
-  assert.equal(formatInsuranceDollars(0.06), "$0.0006");
+  assert.equal(formatInsuranceDollars(0.001), "$0.000010");
+  assert.equal(formatInsuranceDollars(0.12), "$0.001200");
+  assert.equal(formatInsuranceDollars(0.06), "$0.000600");
   assert.equal(formatInsuranceDollars(100), "$1.0000");
 });
 

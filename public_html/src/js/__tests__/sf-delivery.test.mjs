@@ -22,6 +22,9 @@ import {
   advanceInsurance,
   insuranceRate,
   formatInsuranceCents,
+  gameInsuranceLimit,
+  recordCrash,
+  speedMultiplier,
   visitSurvey,
 } from "../sf-insurance.js";
 import { highwayRailSegments, strikeHighwayRail } from "../sf-highway-edge.js";
@@ -47,12 +50,12 @@ test("insurance charges only manual time and accounts for both credit boundaries
   assert.equal(run.discount, 20);
   run.mode = "manual";
   advanceInsurance(run, 11);
-  assert.equal(formatInsuranceCents(insuranceRate(run)), "0.06¢");
-  assert.equal(run.spent, 0.06);
+  assert.equal(formatInsuranceCents(insuranceRate(run)), "0.0005¢");
+  assert.equal(run.spent, 0.0005);
   advanceInsurance(run, 20);
-  assert.equal(formatInsuranceCents(insuranceRate(run)), "0.12¢");
-  assert.ok(Math.abs(run.spent - 1.32) < 1e-9);
-  assert.equal(formatInsuranceCents(run.spent), "1.32¢");
+  assert.equal(formatInsuranceCents(insuranceRate(run)), "0.0010¢");
+  assert.ok(Math.abs(run.spent - 0.011) < 1e-9);
+  assert.equal(formatInsuranceCents(run.spent), "0.0110¢");
   assert.equal(formatInsuranceCents(0), "0.00¢");
   run.mode = "automatic";
   advanceInsurance(run, 100);
@@ -60,6 +63,56 @@ test("insurance charges only manual time and accounts for both credit boundaries
   assert.equal(insuranceRate(run), 0);
 });
 
+test("speeding doubles the manual rate per five mph game band and unknown limits use base", () => {
+  const pavement = { grounded: true, z: 10 };
+  assert.equal(gameInsuranceLimit(pavement, { kind: "bridge_deck" }), 50);
+  assert.equal(gameInsuranceLimit(pavement, { kind: "ramp" }), 30);
+  assert.equal(gameInsuranceLimit(pavement, null), 25);
+  assert.equal(
+    gameInsuranceLimit({ ...pavement, grounded: false }, null),
+    null,
+  );
+  assert.equal(gameInsuranceLimit({ ...pavement, z: undefined }, null), null);
+  for (const [mph, expected] of [
+    [24, 1],
+    [25, 1],
+    [25.01, 2],
+    [30, 2],
+    [30.01, 4],
+    [35, 4],
+    [40, 8],
+    [45, 16],
+    [-45, 16],
+    [45.01, 32],
+  ])
+    assert.equal(speedMultiplier(mph, 25), expected, `${mph} mph`);
+  assert.equal(speedMultiplier(70, null), 1);
+
+  const run = createInsurance(false);
+  run.mode = "manual";
+  const speedMps = (45 * 1609.344) / 3600;
+  for (let tick = 0; tick < 120; tick++)
+    advanceInsurance(run, 1 / 120, speedMps, 25);
+  assert.ok(Math.abs(run.spent - 0.016) < 1e-10);
+  assert.equal(insuranceRate(run), 0.016);
+  assert.equal(formatInsuranceCents(insuranceRate(run)), "0.0160¢");
+  assert.equal(run.limit, 25);
+  advanceInsurance(run, 1, speedMps, null);
+  assert.ok(Math.abs(run.spent - 0.017) < 1e-10);
+  assert.equal(insuranceRate(run), 0.001);
+});
+
+test("one-off crash charges are proportional to jerk in manual mode", () => {
+  const run = createInsurance(true);
+  assert.equal(recordCrash(run, 2000), 0);
+  assert.equal(run.spent, 0);
+  run.mode = "manual";
+  assert.equal(recordCrash(run, 1000), 0.01);
+  assert.ok(Math.abs(recordCrash(run, 12000) - 0.12) < 1e-10);
+  assert.ok(Math.abs(run.spent - 0.13) < 1e-10);
+  assert.equal(run.infractions, 3);
+  assert.equal(recordCrash(run, Infinity), 0);
+});
 test("the default Bay Bridge route completes every named delivery on the bundled city tiles", async () => {
   const files = new URL("../../sf/tiles/", import.meta.url);
   const manifest = JSON.parse(readFileSync(new URL("manifest.json", files)));
