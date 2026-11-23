@@ -252,9 +252,29 @@ entry, the lower ramp and the merge using the bundled contacts and collision
 geometry. The [Chrome smoke test](../../tools/sf-drive/smoke-baked-structure.cjs)
 checks entry through manual controls and that the overlapping street remains
 at 3.13 m. In the replay, the car enters at 2.87 m and joins the mainline at
-18.15 m. The next exit and the three named tunnel structures still need
-playable contact. The [route audit](../ui/sf-road-route-audit.md) describes the
+18.15 m. The next exit still needs playable contact. The [route audit](../ui/sf-road-route-audit.md) describes the
 original wrong-level failure.
+
+### Stockton tunnel contact
+
+**World and Physics.** The Stockton trial bakes a distinct tunnel floor and both
+pavement joins into the same tile as the exterior street. The municipal portal
+positions and the lower pavement returns at the two mouths anchor the profile.
+The interior and its walls, lighting and ceiling are game geometry. The exported
+road measurements retain the original unobserved interior.
+
+**UI and Data.** The player follows the road into a tunnel camera and returns to
+their chosen view on exit. A crash uses the selected tunnel floor for contact.
+The local [Chrome smoke](../../tools/sf-drive/smoke-stockton-tunnel.cjs) traversed
+Stockton both ways and checked that the street above kept its 50.4 m ground
+altitude. The northbound and southbound exits returned to exterior pavement
+near 42.2 m and 28.1 m NAVD88 respectively.
+
+The [federal tunnel inventory](https://data.transportation.gov/Roadways-and-Bridges/National-Tunnel-Inventory/64m4-zwar)
+identifies additional structures with no current game tunnel contact, including
+Yerba Buena, the Battery and Main Post bores, and Geary Boulevard. The inventory
+has portal locations for candidate matching. Contact, direction, clearance and
+compatible joins still need their own evidence.
 
 Both rails at the Fourth Street entrance use a rebound for side impacts at any speed.
 The car loses speed and stays on the ramp. The replay checks a 50 mph strike on each

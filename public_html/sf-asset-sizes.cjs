@@ -26,6 +26,7 @@ function sfDownloadAssets(root = __dirname) {
       "sf-road-contact.js",
       "sf-baked-road-contact.js",
       "sf-road-portal.js",
+      "sf-tunnel-mesh.js",
       "sf-road-network.js",
       "sf-highway-edge.js",
       "sf-building-walls.js",

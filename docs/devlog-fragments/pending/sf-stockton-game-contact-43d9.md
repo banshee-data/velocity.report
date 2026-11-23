@@ -1,0 +1,1 @@
+- Added Stockton Street Tunnel to the bundled SF game tiles and verified both directions in Chrome, including the return to exterior pavement and the separate street above. The [layered roads plan](../../plans/ui-sf-layered-roads-plan.md#stockton-tunnel-contact) records the portal evidence and game approximation.
