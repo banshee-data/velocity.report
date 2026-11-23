@@ -473,3 +473,26 @@ checks are `branch-east-ramp`, `branch-east-upper` and
 `branch-east-san-jose` in `tools/sf-drive/smoke-presidio-tunnels.cjs`.
 The game manifest SHA-256 is
 `025e4d4a9f7a223e0070cc1fab406b25673671bdfb93a810625051c5a07740a9`.
+
+## Twenty-course replay on the Branch East bake
+
+The centreline steering pass completed 17 of 20 courses over 49.35 km. It
+hit trees on Terry A Francois Boulevard and John F Kennedy Drive and
+stalled after repeated scrapes on The Embarcadero. The lane replay
+completed all 20 courses over 52.45 km. It recorded zero driven depressions
+over 0.5 m, a maximum 0.061 m tile seam step and a maximum driven grade of
+26.18% on Ordway Street. The three adjusted courses collected both emojis.
+
+| Course           | Driven distance | Lane choices near the stopped poses                                                              |
+| ---------------- | --------------: | ------------------------------------------------------------------------------------------------ |
+| Mission Creek    |         1.09 km | Right at `(4648.379, 1440.285)`                                                                  |
+| North waterfront |         2.07 km | Right at `(3025.806, 5175.886)`                                                                  |
+| West park        |         3.38 km | Right at `(-4639.486, 1180.067)`, then left at `(-3842.138, 1131.472)` and `(-3258.29, 1277.75)` |
+
+The steering target moves 2.8 m to the specified side with a 22 m taper
+on either side of each detour. The car advances through the game physics
+at 120 steps per second. The tree collision geometry is still active.
+Run the exact plan with
+`node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-branch-east-routes.json`.
+The plan SHA-256 is
+`d53c3625514a7a2d31d28deab91ee1ba9abfaedaede3ae034083f569bf15757f`.
