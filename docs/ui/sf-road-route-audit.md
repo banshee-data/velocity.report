@@ -496,3 +496,21 @@ Run the exact plan with
 `node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-branch-east-routes.json`.
 The plan SHA-256 is
 `d53c3625514a7a2d31d28deab91ee1ba9abfaedaede3ae034083f569bf15757f`.
+
+## MacArthur Tunnel on SR 1
+
+The bake carries the full MacArthur contact strip in both owner tiles. The
+13.4 m strip joins the highway at both ends. The two highway paint rows
+stop at the portals and resume on the open approaches, leaving the
+Presidio terrain visible above the bore.
+
+The April 2023 USGS survey anchors the pavement at 65.82 m NAVD88 at the
+south portal and 74.30 m at the north portal. The covered 395 m profile
+interpolates between those approaches. The highest modelled grade on the
+complete strip is 6.2%. [Gerardus MacArthur source review](https://github.com/banshee-data/gerardus/pull/107)
+
+Chrome drove both directions through the bore and back onto the street.
+The 20-course regression on the preview repeated all 20 completions and
+52.45 km, with zero driven dips over 0.5 m and a largest seam of 6.1 cm.
+The immutable bake has manifest SHA-256
+`e3db8cbd5f858084738a7d77ab389c27a21b30518d16ab8699563f130d369b44`.

@@ -302,6 +302,44 @@ test("Geary's bidirectional tunnel joins the ground and stays below Masonic", ()
   assert.ok(length > 160 && length < 162);
 });
 
+test("MacArthur keeps one complete bore across tiles and only paints the open approaches", () => {
+  const readTile = (token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  const owners = ["80858724", "808586e4"];
+  const tiles = owners.map(readTile);
+  const roads = tiles.map(({ playableRoads }) =>
+    playableRoads.find(({ id }) => id === "sf-contact/macarthur-tunnel"),
+  );
+  assert.deepEqual(roads[0], roads[1]);
+  assert.deepEqual(roads[0].owners, owners);
+  const { surface, portals, appearance } = buildBakedRoadContact(roads[0]);
+  assert.equal(portals.length, 2);
+  for (const { x, y, z, halfWidth } of portals) {
+    assert.ok(Math.abs(halfWidth - 6.7) < 0.002);
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  }
+  const length = appearance.interior[1] - appearance.interior[0];
+  assert.ok(length > 394 && length < 397);
+  const centre = [-2602.5, 3800];
+  const pavement = surface.heightAt(...centre);
+  assert.ok(pavement > 69 && pavement < 74.3);
+  assert.ok(groundAtWorld(tiles, ...centre, true) > pavement + 13);
+
+  const source = readTile("8085871c");
+  for (const direction of ["Northbound", "Southbound"]) {
+    const rows = source.r.filter(
+      ([name]) => source.n[name] === `Hwy 1 ${direction}`,
+    );
+    assert.equal(rows.length, 2);
+    for (const row of rows) assert.equal(row[3].length, row[4].length);
+    const northing = rows.map((row) =>
+      row[3].filter((_, i) => i % 2).map((v) => source.o[1] + v / 10),
+    );
+    assert.ok(northing.some((stations) => Math.max(...stations) === 3617));
+    assert.ok(northing.some((stations) => Math.min(...stations) === 4012));
+  }
+});
+
 test("the Branch East exit and northbound I-280 keep their own road levels", () => {
   const tiles = ["808f7e7c", "808f7e64"].map((t) =>
     JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
