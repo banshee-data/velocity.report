@@ -1,0 +1,1 @@
+- Recorded lane guides that completed all 20 emoji courses over 52.45 km on the Branch East bake. The [route audit](../../ui/sf-road-route-audit.md#twenty-course-replay-on-the-branch-east-bake) records the tree contacts, steering offsets, dips and tile seam measurements.

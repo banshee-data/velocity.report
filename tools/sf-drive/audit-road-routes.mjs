@@ -348,6 +348,35 @@ function samplePath(route) {
   });
 }
 
+function applyLaneDetours(path, detours) {
+  const windows = detours.map(([x, y, lateralMetres]) => {
+    const obstacle = { x, y };
+    const nearest = path.reduce((best, point) =>
+      distance(point, obstacle) < distance(best, obstacle) ? point : best,
+    );
+    return { station: nearest.s + 2, lateralMetres };
+  });
+  const shifted = path.map((point, i) => {
+    const before = path[Math.max(0, i - 1)];
+    const after = path[Math.min(path.length - 1, i + 1)];
+    const direction = heading(before, after);
+    const offset = windows.reduce((total, { station, lateralMetres }) => {
+      const remaining = (point.s - station) / 22;
+      return total + lateralMetres * Math.max(0, 1 - remaining ** 2) ** 2;
+    }, 0);
+    return {
+      ...point,
+      x: point.x - offset * Math.sin(direction),
+      y: point.y + offset * Math.cos(direction),
+    };
+  });
+  let station = 0;
+  return shifted.map((point, i) => {
+    if (i) station += distance(shifted[i - 1], point);
+    return { ...point, s: station };
+  });
+}
+
 function profile(path) {
   // Inspect elevations at one-metre chainage, independent of digitisation and
   // of the distance the controller ultimately drives.
@@ -714,7 +743,10 @@ for (const spec of plan.routes) {
   assert.ok(from && to, spec.id);
   const route = routeFor(spec, from, to);
   assert.ok(route?.length, `No course found for ${spec.id}`);
-  const path = samplePath(route);
+  const sampled = samplePath(route);
+  const path = spec.laneDetours?.length
+    ? applyLaneDetours(sampled, spec.laneDetours)
+    : sampled;
   const metrics = profile(path);
   const result = drive(path, from, to);
   console.log(
@@ -728,6 +760,8 @@ for (const spec of plan.routes) {
       result,
     }),
   );
+  if (plan.expectCompletion)
+    assert.equal(result.status, "both emoji collected", spec.id);
   if (spec.expectContactExit) {
     assert.deepEqual(result.seenSurfaces, spec.contact.roads, spec.id);
     assert.ok(
