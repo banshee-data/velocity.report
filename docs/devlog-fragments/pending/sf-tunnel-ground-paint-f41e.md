@@ -1,0 +1,1 @@
+- Added checksum-verified replacements for ground paint over covered road spans, allowing the static tile bake to retain the approaches and remove the false pavement above a tunnel.
