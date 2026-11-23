@@ -1,0 +1,1 @@
+- Baked the upper West Span and Fremont exit into city tiles and joined the through lanes to westbound I-80. The Fremont right guard scrubs speed while the open left edge allows a drop to terrain. [Drive audit](../../ui/sf-road-route-audit.md#upper-bay-bridge-into-the-city)

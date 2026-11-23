@@ -264,6 +264,64 @@ cases["central-to-lower-bridge"] = {
     },
   },
 };
+const upperFromIsland = [
+  "yerba-buena-east-approach",
+  "yerba-buena-upper-tunnel",
+  "yerba-buena-west-approach",
+  "bay-bridge-westbound",
+  "city-approach",
+];
+const upperOwners = [
+  ...new Set([
+    ...centralOwners,
+    ...lowerBridgeOwners,
+    "8085801c",
+    "80858064",
+    "8085800c",
+    "8085805c",
+  ]),
+];
+cases["upper-to-fremont"] = {
+  roads: [...upperFromIsland, "fremont-exit"],
+  owners: upperOwners,
+  speed: 22,
+  rollingStart: true,
+  speedLimits: { "fremont-exit": 11.5 },
+  forks: [["city-approach", "fremont-exit", -1.2]],
+  laneGuides: {
+    "fremont-exit": {
+      clearance: { offset: 1.6, station: 456, length: 30 },
+    },
+  },
+};
+cases["upper-to-octavia"] = {
+  ...cases["central-from-fourth"],
+  roads: [
+    ...upperFromIsland,
+    "i80-westbound-fremont-split",
+    "i80-westbound-upper-soma",
+    "i80-westbound-fourth-merge",
+    ...cases["central-from-fourth"].roads.slice(1),
+  ],
+  owners: upperOwners,
+  speed: 22,
+  rollingStart: true,
+  maxDurationMs: 620_000,
+  speedLimits: {
+    ...cases["central-from-fourth"].speedLimits,
+    "i80-westbound-fourth-merge": 18,
+  },
+  forks: [
+    ["city-approach", "i80-westbound-fremont-split", 1.3],
+    ...cases["central-from-fourth"].forks,
+  ],
+  laneGuides: {
+    ...cases["central-from-fourth"].laneGuides,
+    "i80-westbound-upper-soma": {
+      clearance: { offset: 2.2, station: 40, length: 28 },
+    },
+  },
+};
 for (const direction of ["north", "south"]) {
   const north = direction === "north";
   const exit = `i280-dogpatch-pennsylvania-${direction}`;
@@ -628,6 +686,7 @@ async function main() {
         connectByGround = false,
         finishOnDeck = false,
         maxDurationMs = 460_000,
+        rollingStart = false,
         reverseRoads = [],
         laneGuides = {},
         speedLimits = {},
@@ -679,9 +738,11 @@ async function main() {
         );
         sections[i].positions = [previous, ...sections[i].positions.slice(1)];
       }
-      const [start, next] = sections[0].positions;
+      const [start, next] = rollingStart
+        ? sections[0].positions.slice(2, 4)
+        : sections[0].positions;
       const heading = Math.atan2(next[1] - start[1], next[0] - start[0]);
-      const approach = speed > 8 ? 11 : 7;
+      const approach = rollingStart ? 0 : speed > 8 ? 11 : 7;
       const checkpoint = {
         x: start[0] - approach * Math.cos(heading),
         y: start[1] - approach * Math.sin(heading),
@@ -694,12 +755,29 @@ async function main() {
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       try {
-        if (candidate)
+        const place = rollingStart
+          ? {
+              ...checkpoint,
+              id: "sample-upper-deck",
+              name: "Upper deck test start",
+              surfaceId: sections[0].id,
+              initialSpeed: 50 * 0.44704,
+            }
+          : null;
+        if (candidate || place)
           await page.route("**/sf/**", (route) => {
             const path = new URL(route.request().url()).pathname.slice(4);
             if (!snapshots.has(path)) return route.continue();
+            // Seed the baked surface with a temporary start and exercise its normal physics.
+            const body =
+              place && path === "tiles/manifest.json"
+                ? JSON.stringify({
+                    ...manifest,
+                    places: [place, ...manifest.places],
+                  })
+                : snapshots.get(path);
             return route.fulfill({
-              body: snapshots.get(path),
+              body,
               contentType: path.endsWith(".gz")
                 ? "application/gzip"
                 : "application/json",
@@ -717,7 +795,7 @@ async function main() {
             checkpoint,
           },
         );
-        await page.goto(`${origin}/sf/?at=downtown`);
+        await page.goto(`${origin}/sf/?at=${place?.id ?? "downtown"}`);
         const canvas = page.locator('#drive[data-contact="grounded"]');
         await canvas.waitFor({ timeout: 60_000 });
         const initial = await canvas.evaluate((el) => ({ ...el.dataset }));
@@ -725,8 +803,9 @@ async function main() {
           Math.hypot(
             +initial.east - checkpoint.x,
             +initial.north - checkpoint.y,
-          ) < 1,
+          ) < (place ? 24 : 1),
         );
+        if (place) assert.equal(initial.surfaceId, place.surfaceId);
         const contactHash = await page.evaluate(async () => {
           const response = await fetch("/sf/tiles/manifest.json");
           return (await response.json()).roadBake.playableSha256;

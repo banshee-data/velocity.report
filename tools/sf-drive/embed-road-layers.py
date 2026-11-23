@@ -114,6 +114,13 @@ def playable_product(path, sha256, base_hash, revision, manifest):
     replaced = set()
     for road in product["roads"]:
         points = road["points"]
+        rail_sides = road.get("railSides", [])
+        if (
+            not isinstance(rail_sides, list)
+            or any(side not in ("left", "right") for side in rail_sides)
+            or len(set(rail_sides)) != len(rail_sides)
+        ):
+            raise ValueError(f"Invalid playable road guard rails for {road['id']}")
         if (
             len(points) < 3
             or any(

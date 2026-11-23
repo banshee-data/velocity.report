@@ -4,7 +4,16 @@ import { roadPortals } from "./sf-road-portal.js";
 const kinds = new Set(["ramp", "bridge_deck", "tunnel"]);
 
 export function buildBakedRoadContact(road) {
-  const { id, kind, points, width, owners, groundEnds = [], seams = {} } = road;
+  const {
+    id,
+    kind,
+    points,
+    width,
+    owners,
+    groundEnds = [],
+    seams = {},
+    railSides = [],
+  } = road;
   if (
     typeof id !== "string" ||
     !kinds.has(kind) ||
@@ -24,6 +33,9 @@ export function buildBakedRoadContact(road) {
     !Array.isArray(groundEnds) ||
     new Set(groundEnds).size !== groundEnds.length ||
     groundEnds.some((end) => end !== "start" && end !== "end") ||
+    !Array.isArray(railSides) ||
+    new Set(railSides).size !== railSides.length ||
+    railSides.some((side) => side !== "left" && side !== "right") ||
     !Array.isArray(points) ||
     points.length < 3 ||
     points.some(
@@ -83,7 +95,8 @@ export function buildBakedRoadContact(road) {
     end_tiles: owners,
     terminalBearings: [tangents[0] + Math.PI, tangents.at(-1)],
     heightAt: indexRoadContact(contact),
-    highwayRailHalfWidth: 0,
+    railSides,
+    highwayRailHalfWidth: railSides.length ? width / 2 - 0.35 : 0,
   };
   const interior = road.interior_range_m;
   const clearance = road.game_clearance_m;
