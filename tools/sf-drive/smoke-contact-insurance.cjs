@@ -144,7 +144,8 @@ ${hook}`,
     const replaying = await read();
     assert.equal(replaying.elapsed, crash.elapsed);
     assert.equal(replaying.spent, crash.spent);
-    await skip.click();
+    await page.keyboard.press("Escape");
+    await skip.waitFor({ state: "hidden" });
     await page.reload();
     await page.waitForFunction(
       () => window.contactFixture?.read().history === 240,
@@ -158,7 +159,8 @@ ${hook}`,
     await skip.waitFor();
     await page.waitForFunction(() => window.contactFixture.treeUp() < 0.2);
     assert.equal((await read()).spent, 0);
-    await skip.click();
+    await page.keyboard.press("Escape");
+    await skip.waitFor({ state: "hidden" });
     assert.deepEqual(city.errors, []);
     console.log(
       "Chromium verified recoverable highway touchdown, continued acceleration, baked tree falling in live and archived replay, and a one-time crash charge.",
