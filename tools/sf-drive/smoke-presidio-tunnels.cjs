@@ -160,6 +160,75 @@ for (const [name, entry] of [
     finishOnDeck: true,
   };
 }
+const centralOwners = [
+  "8085807c",
+  "80858084",
+  "8085809c",
+  "808580a4",
+  "808f7e24",
+  "808f7e2c",
+];
+const fourth = ["fourth-street-entrance", "westbound-i80"];
+const centralNorth = [
+  ...fourth,
+  "i80-westbound-fifth",
+  "i80-westbound-interchange",
+  "i80-westbound-central-connector",
+  "central-freeway-east-northbound",
+];
+cases["central-from-fourth"] = {
+  roads: [...centralNorth, "central-freeway-octavia-exit"],
+  owners: centralOwners,
+  speed: 20,
+  speedLimits: {
+    "fourth-street-entrance": 11,
+    "i80-westbound-central-connector": 14,
+  },
+  forks: [["westbound-i80", "i80-westbound-fifth", 1.55]],
+};
+cases["central-thirteenth-exit"] = {
+  ...cases["central-from-fourth"],
+  roads: [...centralNorth, "central-freeway-13th-exit"],
+  forks: [
+    ...cases["central-from-fourth"].forks,
+    ["central-freeway-east-northbound", "central-freeway-13th-exit", -1.45],
+  ],
+};
+cases["central-fifth-exit"] = {
+  ...cases["central-from-fourth"],
+  roads: [...fourth, "i80-westbound-fifth-exit"],
+  forks: [],
+};
+const centralEast = [
+  "central-freeway-east-southbound",
+  "central-freeway-i80-east-connector",
+  "i80-eastbound-interchange",
+];
+cases["central-octavia-entry"] = {
+  roads: ["central-freeway-octavia-entry", ...centralEast],
+  owners: centralOwners,
+  speed: 19,
+  finishOnDeck: true,
+  laneGuides: {
+    "central-freeway-octavia-entry": {
+      clearance: { offset: 1.8, station: 103, length: 25 },
+    },
+  },
+};
+cases["central-van-ness-entry"] = {
+  ...cases["central-octavia-entry"],
+  roads: [
+    "central-freeway-van-ness-entry",
+    "central-freeway-van-ness-merge",
+    ...centralEast,
+  ],
+  speedLimits: { "central-freeway-van-ness-entry": 11 },
+  laneGuides: {
+    "central-freeway-van-ness-entry": {
+      clearance: { offset: 1.35, station: 204, length: 25 },
+    },
+  },
+};
 for (const direction of ["north", "south"]) {
   const north = direction === "north";
   const exit = `i280-dogpatch-pennsylvania-${direction}`;
@@ -513,11 +582,24 @@ async function main() {
         reverseRoads = [],
         laneGuides = {},
         speedLimits = {},
+        forks = [],
       } = cases[name];
+      const guides = { ...laneGuides };
+      for (const [outgoing, incoming, offset] of forks) {
+        const road = roads.get(prefix + outgoing) ?? roads.get(outgoing);
+        const [a, b] = road.points.slice(-2);
+        const heading = Math.atan2(b[1] - a[1], b[0] - a[0]);
+        guides[outgoing] = { approach: offset, holdApproach: true };
+        guides[incoming] = {
+          entranceEast: -offset * Math.sin(heading),
+          entranceNorth: offset * Math.cos(heading),
+          entranceMetres: 21,
+        };
+      }
       const contactSections = slugs.map((slug) => {
         const road = roads.get(prefix + slug) ?? roads.get(slug);
         assert.ok(road, slug);
-        const guide = laneGuides[slug];
+        const guide = guides[slug];
         const positions = guide
           ? steeringLine(road.points, guide)
           : driveLine(road, rampApproach);

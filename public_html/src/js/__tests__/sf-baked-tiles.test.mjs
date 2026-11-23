@@ -520,6 +520,56 @@ test("Sixth Street reaches both I-280 levels through continuous paved approaches
   assert.ok(buildBakedRoadContact(east).surface.heightAt(...indiana) > 21);
 });
 
+test("Central Freeway connects Fourth Street, 13th, Octavia and South Van Ness", () => {
+  const tokens = [
+    "8085807c",
+    "80858084",
+    "8085809c",
+    "808580a4",
+    "808f7e24",
+    "808f7e2c",
+  ];
+  const tiles = tokens.map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) =>
+      (tile.playableRoads ?? []).map((road) => [road.id, road]),
+    ),
+  );
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const west = "westbound-i80";
+  const north = "sf-contact/central-freeway-east-northbound";
+  const south = "sf-contact/central-freeway-east-southbound";
+  for (const [fromId, toId] of [
+    ["fourth-street-entrance", west],
+    [west, "sf-contact/i80-westbound-fifth"],
+    [west, "sf-contact/i80-westbound-fifth-exit"],
+    [north, "sf-contact/central-freeway-octavia-exit"],
+    [north, "sf-contact/central-freeway-13th-exit"],
+    ["sf-contact/central-freeway-octavia-entry", south],
+    ["sf-contact/central-freeway-van-ness-merge", south],
+    [south, "sf-contact/central-freeway-i80-east-connector"],
+  ]) {
+    const from = roads.get(fromId);
+    const to = roads.get(toId);
+    assert.ok(buildBakedRoadContact(from));
+    assert.ok(buildBakedRoadContact(to));
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) => edge.from === `${fromId}:end` && edge.to === `${toId}:start`,
+      ),
+    );
+  }
+  const exit = roads.get("sf-contact/central-freeway-octavia-exit");
+  const [x, y, z] = exit.points[Math.floor(exit.points.length / 2)];
+  assert.ok(z - groundAtWorld(tiles, x, y, true) > 4);
+  assert.equal(roadBake.overheadBuildingPatches["8085809c"], 1);
+  assert.ok(!tiles[2].playableRoads?.some(({ id }) => id === exit.id));
+});
+
 test("the Branch East exit and northbound I-280 keep their own road levels", () => {
   const tiles = ["808f7e7c", "808f7e64"].map((t) =>
     JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
