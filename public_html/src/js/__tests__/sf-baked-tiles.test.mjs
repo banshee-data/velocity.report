@@ -423,6 +423,49 @@ test("Ruckman keeps both SR 1 decks above the street and meets the northbound co
   }
 });
 
+test("Sixth Street reaches both I-280 levels through continuous paved approaches", () => {
+  const tiles = ["808f7fcc", "808f7fd4"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const road = (slug, tile = tiles[0]) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
+  const south = road("i280-sixth-southbound");
+  const north = road("i280-sixth-northbound");
+  const east = road("eighteenth-east-viaduct");
+  const west = road("eighteenth-west-viaduct");
+  const ramp = road("i280-eighteenth-north-entry");
+  const mariposa = road("i280-mariposa-northbound");
+  assert.deepEqual(south, road("i280-sixth-southbound", tiles[1]));
+  assert.deepEqual(north, road("i280-sixth-northbound", tiles[1]));
+  assert.equal(roadBake.coveredGroundRoadPatches["808f7fcc"], 3);
+  for (const [from, to] of [
+    [south, road("i280-king-to-mariposa")],
+    [east, west],
+    [east, ramp],
+    [ramp, mariposa],
+    [mariposa, north],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${from.id}:end` && edge.to === `${to.id}:start`,
+      ),
+    );
+  }
+  for (const deck of [north, south, east, west]) {
+    const { portals } = buildBakedRoadContact(deck);
+    assert.equal(portals.length, 1);
+    const [{ x, y, z }] = portals;
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  }
+  const indiana = [4259.48, 320.06];
+  assert.ok(groundAtWorld(tiles, ...indiana, true) < 12);
+  assert.ok(buildBakedRoadContact(east).surface.heightAt(...indiana) > 21);
+});
+
 test("the Branch East exit and northbound I-280 keep their own road levels", () => {
   const tiles = ["808f7e7c", "808f7e64"].map((t) =>
     JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),

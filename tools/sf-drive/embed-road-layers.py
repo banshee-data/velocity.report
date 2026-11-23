@@ -45,7 +45,7 @@ def patch_source_rows(rows, patches):
             or not 0 <= index < len(rows)
             or index in replacements
             or digest(encoded(rows[index])) != patch["sha256"]
-            or not patch["parts"]
+            or not isinstance(patch["parts"], list)
         ):
             raise ValueError(f"Tile patch does not match source row {index}")
         replacements[index] = patch["parts"]

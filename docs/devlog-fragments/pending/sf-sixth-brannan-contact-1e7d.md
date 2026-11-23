@@ -1,0 +1,1 @@
+- Baked both Sixth Street I-280 carriageways and the 18th Street viaduct. Verified the connections to the street, the separated lower roads and all twenty guided emoji courses. [Drive audit](../../ui/sf-road-route-audit.md#sixth-street-i-280-and-the-18th-street-viaduct)

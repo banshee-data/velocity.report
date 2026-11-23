@@ -74,6 +74,17 @@ def test_overhead_patches_use_original_row_indices_and_check_source_records():
         patch_buildings([last, untouched, first], patches)
 
 
+def test_tile_patch_can_remove_a_fully_covered_road_row():
+    encoded = road_layers["encoded"]
+    digest = road_layers["digest"]
+    patch_rows = road_layers["patch_source_rows"]
+    rows = [["approach"], ["covered"], ["exit"]]
+    patch = {"index": 1, "sha256": digest(encoded(rows[1])), "parts": []}
+    assert patch_rows(rows, [patch]) == [["approach"], ["exit"]]
+    with pytest.raises(ValueError, match="does not match source row 1"):
+        patch_rows(rows, [{**patch, "parts": None}])
+
+
 def test_covered_ground_roads_can_belong_to_a_different_tile_from_the_bore(tmp_path):
     encoded = road_layers["encoded"]
     digest = road_layers["digest"]
