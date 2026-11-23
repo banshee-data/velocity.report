@@ -109,6 +109,14 @@ for (const direction of ["north", "south"]) {
     laneGuides: { "i280-south-beyond-dogpatch": dogpatchClearance },
   };
 }
+for (const reverse of [false, true]) {
+  cases[reverse ? "alemany-eastbound" : "alemany-westbound"] = {
+    roads: ["alemany-i280-overpass"],
+    owners: ["808f7e64", "808f7ef4"],
+    speed: 10,
+    reverse,
+  };
+}
 
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));

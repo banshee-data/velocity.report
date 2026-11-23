@@ -389,3 +389,25 @@ to replay the 20 courses on game manifest
 The Chrome regression covers the through lane, both exits and both
 entrances with the named I-280 cases in
 `tools/sf-drive/smoke-presidio-tunnels.cjs`.
+
+Chrome also drove a continuous trip from 5th Street, off at Pennsylvania
+Avenue, along the street and onto southbound I-280 again. The car was
+grounded on the highway at 14.69 m after rejoining.
+
+## Alemany Boulevard over I-280
+
+The 2023 aerial sample shows Alemany pavement near 36.45 m and the
+northbound freeway from 28.63 to 28.90 m in the crossing area. The
+earlier game course crossed the lower ground triangles and measured
+a peak grade of 62.68% near Alemany. The new strip follows the upper
+band and reaches the existing pavement at both ends. Its peak grade
+is 2.94%. Both owners receive the same complete 156 m strip.
+
+Chrome crossed the upper street in both directions at up to 25.5 mph
+and drove the lower freeway within the 28.63–28.90 m band. The 5th
+Street to Sweeny and Barneveld replay collected both emojis again.
+The maximum driven grade on that course was 17.48% on Cambridge
+Street. No driven depression was greater than 0.5 m.
+
+The Alemany game manifest SHA-256 is
+`88617e9851bae2ab896d5c02ac28d40f828d8534ac054d984d9610df9bea844a`.
