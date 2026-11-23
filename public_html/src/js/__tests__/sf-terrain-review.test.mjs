@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
+import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
 import {
   buildCollisionIndex,
   collisionAt,
@@ -88,7 +89,7 @@ test("the 21st Street approaches keep the jog and omit the embankment crossing",
   assert.equal(obstacle(4826), "building");
 });
 
-test("23rd Street stops on the ground at the aerial gap instead of climbing or switching levels", () => {
+test("23rd Street keeps the aerial gap in its ground surface", () => {
   const world = tile("808f7fb4");
   const surface = (x, y) => ({
     height: groundAt(world.g, x - world.o[0], y - world.o[1], false),
@@ -125,6 +126,31 @@ test("23rd Street stops on the ground at the aerial gap instead of climbing or s
     car = next;
   }
   assert.ok(car.blocked && car.x >= 4165 && car.x <= 4168);
+});
+
+test("23rd Street bridges the gap with lower contact and two pavement handoffs", () => {
+  const world = tile("808f7fb4");
+  const ground = (x, y) =>
+    groundAt(world.g, x - world.o[0], y - world.o[1], false);
+  const road = world.playableRoads.find(
+    ({ id }) => id === "sf-contact/dogpatch-23rd-lower",
+  );
+  const { surface, portals } = buildBakedRoadContact(road);
+  assert.equal(surface.kind, "bridge_deck");
+  assert.equal(portals.length, 2);
+  for (const { x, y, z } of portals)
+    assert.ok(Math.abs(ground(x, y) - z) < 0.03);
+  assert.ok(Math.abs(surface.heightAt(4191, -539.9) - 15.09) < 0.01);
+  assert.equal(ground(4210, -538.45), null);
+  const hidden = surface.heightAt(4210, -538.45);
+  assert.ok(hidden > 12.5 && hidden < 14.5);
+  for (let i = 1; i < road.points.length; i++) {
+    const a = road.points[i - 1],
+      b = road.points[i];
+    assert.ok(
+      Math.abs(b[2] - a[2]) / Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.17,
+    );
+  }
 });
 
 test("the quest manifest pins the corrected game tiles", () => {

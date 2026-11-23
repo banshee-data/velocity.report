@@ -268,3 +268,34 @@ runs drove underneath on Beale and southbound US 101. They stayed on the
 lower surface at 4.99–8.27 m and 15.76–16.82 m, respectively. The upper
 deck bake retains the existing lower terrain. The Beale rise in the aerial
 shadow still needs lower-road support review.
+
+## Dogpatch 23rd Street lower deck
+
+A 2023 3DEP depth-12 crop separated the lower roadway at about 15.09 m
+NAVD88 from the I-280 band at 24.27–25.81 m. The lower returns continue
+to about (4194, −539.7), then disappear through roughly 44 m of aerial
+shadow before the east approach. Caltrain's project records confirm the
+23rd Street road bridge over the tracks. They give the track clearance
+below the bridge and leave the street grade in the freeway shadow
+undetermined. [Caltrain’s bridge project](https://www.caltrain.com/projects/san-francisco-roadway-bridges-project) ·
+[CPUC crossing record](https://docs.cpuc.ca.gov/PublishedDocs/Published/G000/M076/K494/76494704.PDF)
+
+The game fits continuous lower contact between the observed 15.09 m deck
+and the existing 9.90 m eastern pavement. The ground triangles still have
+the open aerial gap. The game contact replaces the old display preview
+and leaves the upper I-280 band separate. Its steepest sampled grade is
+16.46%, within the game interpolation. The shadowed grade remains
+unmeasured.
+
+The [20-course regression](../../tools/sf-drive/road-audit-dogpatch-release-routes.json)
+pins manifest `4efed0d53bfed9d295f158a3808e5620a6fc10f0381616578677bde2ab1c412a`.
+Its SHA-256 is
+`bd24039683ab893666fa2d45c7cf5c5f4817452aa188cd72e8960c32de6975b5`.
+Fifteen courses collected both emojis, compared with fourteen on the
+Harrison and Silver Avenue bake. The 23rd Street course used the lower
+surface and continued 910 m after leaving it. Chrome also cleared the
+two directions at peak speeds of 21.4 and 20.5 mph. The replay found no
+driven dips over 0.5 m and measured a maximum seam step of 0.061 m across
+the 20 courses. The five remaining stops were Toll Plaza's emoji approach,
+the end of the selected I-280 contact, a stall on The Embarcadero and two
+tree impacts on Terry A Francois Boulevard and John F Kennedy Drive.
