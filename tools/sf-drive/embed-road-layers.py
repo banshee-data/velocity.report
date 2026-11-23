@@ -148,9 +148,11 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             raise ValueError(f"Open playable join {transition['id']}")
     building_patches = product.get("overhead_building_patches", {})
     road_patches = product.get("covered_ground_road_patches", {})
-    if not building_patches.keys() <= by_tile.keys():
-        raise ValueError("Overhead building patches must belong to playable road tiles")
-    if not road_patches.keys() <= {tile["t"] for tile in tiles}:
+    base_tiles = {tile["t"] for tile in tiles}
+    # A footprint can reach the road from an adjacent tile.
+    if not building_patches.keys() <= base_tiles:
+        raise ValueError("Overhead building patches must name base tiles")
+    if not road_patches.keys() <= base_tiles:
         raise ValueError("Covered ground road patches must name base tiles")
     release = {
         "playableSha256": sha256,
@@ -275,7 +277,10 @@ def bake(
         if digest(raw) != roads["tiles"][token]["base_tile_gzip_sha256"]:
             raise ValueError(f"Base tile checksum differs for {token}")
         payload = raw
-        if token in by_tile or token in playable_tiles or token in road_patches:
+        if any(
+            token in group
+            for group in (by_tile, playable_tiles, overhead_patches, road_patches)
+        ):
             content = json.loads(gzip.decompress(raw))
             if token in by_tile:
                 content["raisedRoads"] = [

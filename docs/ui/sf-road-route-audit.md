@@ -645,3 +645,44 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 
 - Game manifest SHA-256 `072b63d8d7baf5596a583c3c1a50eb2666b4d4d5b361f9d6fdd2b83ac67e7f35`.
 - Tiled contact SHA-256 `c5b8dfdc033fb76c2de29ab1f255e83aee03de44a487b5a8b2a11c546dcb8740`.
+
+## Central Freeway and the I-80 interchange
+
+The new contact joins the existing Fourth Street on-ramp to westbound I-80,
+the US 101 connector and the Central Freeway. Drivers can return to city
+pavement at the westbound exit near Fifth, 13th Street or Octavia. Octavia
+and South Van Ness also have entries that join the eastbound I-80 approach.
+The section ends on I-80 at the interchange. Citywide eastbound continuity
+beyond that point still needs a verified connection.
+
+The fit uses 364 depth-12 EPT nodes from the April 2023 3DEP survey. The
+Central Freeway mainline peaks at 4.3% grade, the South Van Ness ramp at
+7.8%, and the westbound freeway connector at 8.2%. Junctions share the
+same endpoints at tile seams. The bake clears three overlapping inferred
+scenery volumes from the contact corridor, including one owned by an
+adjacent tile.
+
+| Drive                                          | Fixed step | Chrome on the preview |
+| ---------------------------------------------- | ---------: | --------------------: |
+| Fourth Street to Octavia                       |    230.1 s |               203.5 s |
+| Fourth Street to the westbound exit near Fifth |     81.2 s |                76.0 s |
+| Fourth Street to the 13th Street exit          |    195.1 s |                     — |
+| Octavia to eastbound I-80                      |    153.8 s |                     — |
+| South Van Ness to eastbound I-80               |    132.9 s |               124.0 s |
+
+The Chrome smoke tests send manual steering and throttle inputs. The first
+centreline attempt took the Fifth exit instead of following the mainline.
+The repeat selected the through lane, and local steering cues cleared the
+mapped trees on the Octavia and South Van Ness approaches. All 20 guided
+emoji courses again collected both endpoints, with 52.45 km driven, zero
+dips deeper than 0.5 m and a maximum driven tile-seam step of 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  central-from-fourth central-fifth-exit central-van-ness-entry \
+  central-thirteenth-exit central-octavia-entry
+```
+
+- Game manifest SHA-256 `acce98f2f1ff8528e988cda1b2452e3b3819f8d390013855d9fe7b8edf90e19f`.
+- Contact SHA-256 `4c535f963f6be0eb2a990925c6bf0e9b1bd53b560652695973cb0a6da4bd77f1`.
+- The bake changes six tile files and keeps the existing emoji placement revision.

@@ -85,7 +85,16 @@ def test_tile_patch_can_remove_a_fully_covered_road_row():
         patch_rows(rows, [{**patch, "parts": None}])
 
 
-def test_covered_ground_roads_can_belong_to_a_different_tile_from_the_bore(tmp_path):
+@pytest.mark.parametrize(
+    ("patch_key", "manifest_key", "output_index"),
+    [
+        ("covered_ground_road_patches", "coveredGroundRoadPatches", 2),
+        ("overhead_building_patches", "overheadBuildingPatches", 1),
+    ],
+)
+def test_scenery_patches_can_belong_to_a_neighbouring_tile(
+    tmp_path, patch_key, manifest_key, output_index
+):
     encoded = road_layers["encoded"]
     digest = road_layers["digest"]
     playable_product = road_layers["playable_product"]
@@ -97,17 +106,15 @@ def test_covered_ground_roads_can_belong_to_a_different_tile_from_the_bore(tmp_p
         "road_revision": "revision",
         "roads": [],
         "transitions": [],
-        "covered_ground_road_patches": {"8085871c": [patch]},
+        patch_key: {"8085871c": [patch]},
     }
     path = tmp_path / "structures.json"
     payload = encoded(product)
     path.write_bytes(payload)
     manifest = {"tiles": [{"t": "8085871c"}]}
-    _, _, roads, index = playable_product(
-        path, digest(payload), "base", "revision", manifest
-    )
-    assert roads == {"8085871c": [patch]}
-    assert index["coveredGroundRoadPatches"] == {"8085871c": 1}
+    outputs = playable_product(path, digest(payload), "base", "revision", manifest)
+    assert outputs[output_index] == {"8085871c": [patch]}
+    assert outputs[3][manifest_key] == {"8085871c": 1}
     with pytest.raises(ValueError, match="must name base tiles"):
         playable_product(path, digest(payload), "base", "revision", {"tiles": []})
 
