@@ -2595,7 +2595,7 @@ export async function startDrive({
     const heightAt = surface?.heightAt || terrainHeight;
     const crashSupport = crashRoadSupport(terrainHeight, roadSurfaces);
     if (!grounded) {
-      const z0 = heightAt(car.x, car.y);
+      let z0 = heightAt(car.x, car.y);
       const owner = tileAt(manifest.tiles, car.x, car.y).t;
       const nearby = tilesAround(
         manifest.tiles,
@@ -2608,27 +2608,34 @@ export async function startDrive({
         (!navigator.onLine ||
           nearby.some((token) => failures.has(token)) ||
           nearby.every((token) => loaded.has(token)));
+      if (settled && !roadDrive && (!checkpoint || z0 === null)) {
+        const nearest = safeIntersections().sort(
+          (a, b) =>
+            Math.hypot(a.x - car.x, a.y - car.y) -
+            Math.hypot(b.x - car.x, b.y - car.y),
+        )[0];
+        if (
+          nearest &&
+          (checkpoint || Math.hypot(nearest.x - car.x, nearest.y - car.y) < 200)
+        ) {
+          const heading =
+            nearest.heading +
+            (Math.cos(car.heading - nearest.heading) < 0 ? Math.PI : 0);
+          car = { ...nearest, heading, v: 0, steering: 0 };
+          checkpoint = { ...car };
+          camInit = false;
+          z0 = heightAt(car.x, car.y);
+        } else if (checkpoint && z0 === null) {
+          // A tile revision may remove contact at a saved intersection.
+          checkpoint = null;
+          car = startingCar(selectedStart);
+          camInit = false;
+          stream(car);
+        }
+      }
       if (z0 !== null && settled) {
         grounded = true;
-        if (!roadDrive && !checkpoint) {
-          const nearest = safeIntersections().sort(
-            (a, b) =>
-              Math.hypot(a.x - car.x, a.y - car.y) -
-              Math.hypot(b.x - car.x, b.y - car.y),
-          )[0];
-          if (
-            nearest &&
-            Math.hypot(nearest.x - car.x, nearest.y - car.y) < 200
-          ) {
-            const heading =
-              nearest.heading +
-              (Math.cos(car.heading - nearest.heading) < 0 ? Math.PI : 0);
-            car = { ...nearest, heading, v: 0, steering: 0 };
-            checkpoint = { ...car };
-            camInit = false;
-          }
-        }
-        car.z = heightAt(car.x, car.y) ?? z0;
+        car.z = z0;
         car.grounded = true;
       }
     }

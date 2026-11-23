@@ -294,6 +294,9 @@ same triangles and omit the same unsupported cells. The refinement edges agree w
 grid. The maximum observed game-centreline grade on the retained 21st Street road fell from
 33% to 17% across the reviewed approach. The supported west approach to 23rd Street stays
 below 8% and the physics replay stops before the gap.
+The game also rehomes saved checkpoints that lie inside the newly exposed gap to a supported
+intersection. The [Chromium smoke test](../../tools/sf-drive/smoke-terrain-review.cjs) exercises
+the two approaches and a save from before the fix at 23rd and Iowa.
 
 The [terrain review tool](../../tools/sf-drive/apply-terrain-review.py) pins the input manifest and
 both compressed tiles. Its input arrays contain world-plane XYZ in the manifest frame from the
