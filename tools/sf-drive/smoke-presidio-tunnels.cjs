@@ -149,6 +149,19 @@ cases["branch-east-san-jose"] = {
   owners: ["808f7e64"],
   speed: 15,
 };
+for (const direction of ["northbound", "southbound"]) {
+  const northbound = direction === "northbound";
+  const tunnel = "macarthur-tunnel";
+  const deck = `kobbe-viaduct-${direction}`;
+  cases[`macarthur-kobbe-${direction}`] = {
+    roads: northbound ? [tunnel, deck] : [deck, tunnel],
+    owners: ["808586e4", "80858724", "8085871c"],
+    speed: 15,
+    connectByGround: true,
+    reverseRoads: northbound ? [] : [tunnel],
+    laneGuides: { [tunnel]: { lane: northbound ? -4.2 : 4.2 } },
+  };
+}
 
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
@@ -195,9 +208,37 @@ function driveLine({ id, points }, rampApproach) {
   });
 }
 
-async function drive(page, sections, speed) {
+function withGroundConnections([first, second]) {
+  const extension = (from, toward, metres) => {
+    const distance = Math.hypot(toward[0] - from[0], toward[1] - from[1]);
+    return from.map(
+      (value, i) => value + ((toward[i] - value) * metres) / distance,
+    );
+  };
+  const ground = (id, from, to) => ({
+    id,
+    kind: "ground",
+    width_m: 9,
+    speed_mps: 13,
+    positions: Array.from({ length: 13 }, (_, i) =>
+      from.map((value, j) => value + ((to[j] - value) * i) / 12),
+    ),
+    sources: [],
+  });
+  const [start, next] = first.positions;
+  const [previous, end] = second.positions.slice(-2);
+  return [
+    ground("approach", extension(start, next, -14), start),
+    first,
+    ground("between", first.positions.at(-1), second.positions[0]),
+    second,
+    ground("departure", end, extension(end, previous, -16)),
+  ];
+}
+
+async function drive(page, sections, speed, connectByGround) {
   return page.evaluate(
-    async ({ sections, speed }) => {
+    async ({ sections, speed, connectByGround }) => {
       const driveModule = performance
         .getEntriesByType("resource")
         .find(({ name }) => name.endsWith("/sf-drive.js"));
@@ -205,7 +246,9 @@ async function drive(page, sections, speed) {
         new URL("sf-city-road-drive.js", driveModule.name).href
       );
       const canvas = document.querySelector("#drive");
-      const ids = sections.map(({ id }) => id);
+      const ids = sections
+        .filter(({ kind }) => kind !== "ground")
+        .map(({ id }) => id);
       const lastSection = sections.at(-1);
       const [before, end] = lastSection.positions.slice(-2);
       const heading = Math.atan2(end[1] - before[1], end[0] - before[0]);
@@ -282,9 +325,12 @@ async function drive(page, sections, speed) {
           if (surfaceId && pose.camera === "tunnel") enclosed.add(surfaceId);
           if (!seen.size && now - started > 20_000)
             return finish("missed entrance");
-          if (!surfaceId && seen.has(ids.at(-1)) && pose.grounded)
+          const atFinish =
+            !connectByGround ||
+            Math.hypot(pose.x - end[0], pose.y - end[1]) < 4;
+          if (!surfaceId && seen.has(ids.at(-1)) && pose.grounded && atFinish)
             return finish("left road");
-          if (!surfaceId && seen.size && pose.grounded)
+          if (!connectByGround && !surfaceId && seen.size && pose.grounded)
             return finish("lost intermediate contact");
           blocked = d.roadBlocked === "true" ? blocked + 1 : 0;
           if (blocked >= 10) return finish("blocked");
@@ -293,7 +339,9 @@ async function drive(page, sections, speed) {
           if (now - last >= 27) {
             const input = cityDriveControls(course, {
               ...pose,
-              surfaceId: surfaceId || ids[0],
+              surfaceId:
+                surfaceId ||
+                (connectByGround ? sections[seen.size * 2].id : ids[0]),
               // The steering guide keeps sending keys during short bounces.
               // Ground contact itself still comes from the browser's physics.
               grounded: true,
@@ -309,7 +357,7 @@ async function drive(page, sections, speed) {
             key(
               "ArrowUp",
               input.throttle > 0.15 &&
-                (seen.size > 0 || pose.v < approachLimit),
+                (connectByGround || seen.size > 0 || pose.v < approachLimit),
             );
             key(
               "Space",
@@ -322,7 +370,7 @@ async function drive(page, sections, speed) {
         requestAnimationFrame(tick);
       });
     },
-    { sections, speed },
+    { sections, speed, connectByGround },
   );
 }
 
@@ -363,10 +411,12 @@ async function main() {
         speed,
         reverse,
         rampApproach,
+        connectByGround = false,
+        reverseRoads = [],
         laneGuides = {},
         speedLimits = {},
       } = cases[name];
-      const sections = slugs.map((slug) => {
+      const contactSections = slugs.map((slug) => {
         const road = roads.get(prefix + slug);
         assert.ok(road, slug);
         const guide = laneGuides[slug];
@@ -377,12 +427,18 @@ async function main() {
           id: road.id,
           kind: road.kind,
           width_m: road.width,
-          positions: reverse ? positions.toReversed() : positions,
+          positions:
+            reverse || reverseRoads.includes(slug)
+              ? positions.toReversed()
+              : positions,
           speed_mps: speedLimits[slug] ?? speed,
           game_clearance_m: road.game_clearance_m,
           sources: [],
         };
       });
+      const sections = connectByGround
+        ? withGroundConnections(contactSections)
+        : contactSections;
       for (let i = 1; i < sections.length; i++) {
         const previous = sections[i - 1].positions.at(-1);
         const [x, y, z] = sections[i].positions[0];
@@ -448,12 +504,12 @@ async function main() {
         assert.equal(contactHash, manifest.roadBake.playableSha256);
         await canvas.focus();
         await confirmManualTakeover(page);
-        const result = await drive(page, sections, speed);
+        const result = await drive(page, sections, speed, connectByGround);
         console.log(JSON.stringify({ name, contactHash, ...result, errors }));
         assert.deepEqual(errors, []);
         assert.deepEqual(
           result.seen.map(({ surfaceId }) => surfaceId),
-          sections.map(({ id }) => id),
+          contactSections.map(({ id }) => id),
         );
         assert.ok(result.seen.every(({ grounded }) => grounded));
         assert.deepEqual(

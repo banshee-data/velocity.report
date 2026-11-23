@@ -514,3 +514,19 @@ The 20-course regression on the preview repeated all 20 completions and
 52.45 km, with zero driven dips over 0.5 m and a largest seam of 6.1 cm.
 The immutable bake has manifest SHA-256
 `e3db8cbd5f858084738a7d77ab389c27a21b30518d16ab8699563f130d369b44`.
+
+## SR 1 over Kobbe Avenue
+
+Two deck strips with independently supported elevations carry the highway
+across Kobbe Avenue north of MacArthur Tunnel. The game joins the strips
+to the highway at both ends. The northbound and southbound strips span
+about 246 m, with peak grades of 7.5% and 6.8%.
+
+Chrome drove both directions continuously through the tunnel, along the
+open segment and across the viaduct. The runs took 60.6 s northbound and
+61.4 s southbound. A separate drive on Kobbe Avenue stayed below both
+decks, at 56.48–57.84 m NAVD88 through the crossing. This pass used a
+neighbourhood speed, peaking at 20.3 mph.
+
+The immutable bake has manifest SHA-256
+`9a9db992d0cc8d16719e1f140d15ff6f54f496c77e45a0244c3b9e92fab9eba3`.
