@@ -323,20 +323,33 @@ using the eight-metre chord test. The remaining stops were the end of the
 selected I-280 route, a stall on The Embarcadero and tree impacts on Terry
 A Francois Boulevard and John F Kennedy Drive.
 
-## Southbound I-280 through-lane trial
+## Southbound I-280 through the 18th Street split
 
 The DataSF southbound mainline CNN `19340000` shares node `52165000`
 with the end of the existing 5th Street course and the existing 18th
 Street off-ramp. The 2023 aerial depth-12 sample follows the mainline near
 20.49 m at station 372 m and 20.36 m at station 396 m. At station 384 m
 it sees the crossing ramp near 26.99 m while the lower mainline is
-shadowed. The trial interpolated that lower interval, then matched game
-terrain at station 420 m near 20.38 m.
+shadowed. The bake interpolates that lower interval and matches game
+terrain at station 420 m near 20.38 m. The added strip has a peak grade
+of 3.27%.
 
-The trial went from the 5th Street entrance past the 18th Street split and
-under the separate ramp in Chrome. It reached 47.4 mph and returned to
-grounded contact on I-280. The Pennsylvania Avenue replay selected the
-new through branch instead of its intended off-ramp. A second Chrome
-drive reached the intended off-ramp and stopped before the Pennsylvania
-branch. The trial stays outside the game release while both exit routes
-still need to pass with the new branch available.
+Chrome drove from the 5th Street entrance through the split and under
+the separate ramp. The mainline run reached 47.4 mph and returned to
+grounded contact at 20.38 m. The Pennsylvania Avenue and 18th Street
+exit drives approached the split at ramp speed and steered into the
+exit lane before the fork. The geometry retains both connections.
+
+Run `node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-i280-through-routes.json`
+for the three fixed-step courses on the pinned manifest. The Pennsylvania
+course collected both emojis and drove 388 m after leaving the off-ramp.
+The westbound 18th Street course drove 1.73 km beyond its exit before
+the previously observed tree impact. The through course reached 811 m
+beyond the new strip. Its peak grade of 73.3% was on an existing I-280
+ground profile south of the strip near (4192, −173). It stopped at
+missing contact around (4198, −534) on the next off-ramp.
+
+The Chrome regression uses
+`tools/sf-drive/smoke-presidio-tunnels.cjs i280-mainline i280-pennsylvania i280-18th`.
+The new game manifest SHA-256 is
+`259d1ff5fc3faa6a32ff0bc68c7321546ff22834d15229c46d234f190754a2b5`.
