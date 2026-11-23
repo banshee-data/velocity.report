@@ -635,7 +635,7 @@ still reached Fremont, the city streets and Fourth Street in 261.91 s.
 
 Six tile payloads carry the lower route. Four carry the complete lower West
 Span record and two carry the complete bore. The bake clips three previously
-excluded bridge scenery records where their extrusions obstruct the deck
+excluded bridge scenery records where their inferred volumes obstruct the deck
 corridors. The city-mode game reads the road contacts from its static tiles.
 
 ```sh
