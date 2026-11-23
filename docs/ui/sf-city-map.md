@@ -284,6 +284,9 @@ To rebuild the game tiles from the work directory:
 The 8 m terrain grid had two different failures near Louisiana and 21st and Pennsylvania and 23rd.
 At 21st Street, an imported centreline crossed an embankment at the western approach.
 The game now keeps the Louisiana jog and separates the two approaches across the embankment.
+On the open western lane, the review clips only the part of two building prisms that intruded
+onto pavement. Dense class-2 ground and compatible class-1 observations support the clipped
+strip. The neighbouring building faces and the obstacle farther east remain.
 At 23rd Street, interpolated ground joined elevations on either side of an aerial shadow, creating
 a roughly 64% grade on the western approach. The ground now ends at the evidence gap. A separately
 rendered class-17 strip shows 24 m of the lower 23rd Street deck over the rail cutting. The far end,
@@ -302,10 +305,12 @@ The [terrain review tool](../../tools/sf-drive/apply-terrain-review.py) pins the
 both compressed tiles. Its input arrays contain world-plane XYZ in the manifest frame from the
 USGS 3DEP `CA_SanFrancisco_1_B23` EPT archive at depth 12. Extract class 2 over
 `[4684, -82, 4804, -38]` for 21st Street, and classes 2 and 17 separately over
-`[4128, -580, 4272, -500]` for 23rd Street. Use the Arrow work directory's `scripts/ept.py`,
+`[4128, -580, 4272, -500]` for 23rd Street. The lane review also reads class 1 from the
+western 21st Street crop and classes 1 and 2 from `[4771, -121, 4941, 39]`.
+Use the Arrow work directory's `scripts/ept.py`,
 transform the crop bounds to lon/lat, and convert the returned horizontal coordinates to EPSG:7131
 less the base manifest origin. Keep the original NAVD88 altitude. The output manifest records the
-three crop hashes, the source and corrected tile hashes, and the rendered deck ID.
+crop hashes, the source and corrected tile hashes, and the rendered deck ID.
 
 Against held-out 2 m blocks within 1.5 m of the reviewed 21st Street centreline, the ground fit
 reduced height RMSE from 0.152 m to 0.017 m over 987 returns. At the 23rd Street west approach,

@@ -5,12 +5,12 @@ import argparse
 import gzip
 from hashlib import sha256
 import json
-import math
 from pathlib import Path
 
 import numpy as np
 from scipy.spatial import cKDTree
-
+from shapely import get_parts
+from shapely.geometry import Polygon
 
 MISSING = -32768
 PARENT = "531f4e9789e9ec4e39713ae02adb50128d93e2ab3d5cd0f094be78bae65f41ac"
@@ -41,8 +41,10 @@ def sample_ground(grid, x, y):
     a, b, c, d = (grid["z"][k + di] for di in (0, 1, columns, columns + 1))
     if MISSING in (a, b, c, d):
         return MISSING
-    return a * (1 - u - v) + b * u + c * v if u + v <= 1 else (
-        b * (1 - v) + c * (1 - u) + d * (u + v - 1)
+    return (
+        a * (1 - u - v) + b * u + c * v
+        if u + v <= 1
+        else (b * (1 - v) + c * (1 - u) + d * (u + v - 1))
     )
 
 
@@ -81,6 +83,10 @@ def observations(path, extend=False):
 
 def pennsylvania_y(x):
     return -542.9 + 0.077 * (x - 4152.1)
+
+
+def louisiana_y(x):
+    return -65.5 + 0.077 * (x - 4729)
 
 
 def refine(tile, bounds, height, gap=None):
@@ -135,7 +141,8 @@ def trim_western_21st_street(tile):
             roads.append(row)
             continue
         retained = [
-            i for i in range(0, len(xy), 2)
+            i
+            for i in range(0, len(xy), 2)
             if not 4701.5 < tile["o"][0] + xy[i] / 10 < 4728.9
         ]
         if len(retained) < 2 or retained[-1] - retained[0] != 2 * (len(retained) - 1):
@@ -145,7 +152,74 @@ def trim_western_21st_street(tile):
     tile["r"] = roads
 
 
-def bake(source, output, louisiana_points, pennsylvania_points, deck_points):
+def clear_reviewed_lane(tile, west_ground, east_ground, west_returns, east_returns):
+    ground = np.concatenate(
+        [np.load(p, allow_pickle=False) for p in (west_ground, east_ground)]
+    )
+    returns = np.concatenate(
+        [np.load(p, allow_pickle=False) for p in (west_returns, east_returns)]
+    )
+    ground_index, return_index = (cKDTree(p[:, :2]) for p in (ground, returns))
+    start, end, half_width = 4750, 4817, 2.5
+    for x in range(start, end + 1):
+        for offset in (-2.5, -1.25, 0, 1.25, 2.5):
+            xy = (x, louisiana_y(x) + offset)
+            base = ground[ground_index.query_ball_point(xy, 0.7), 2]
+            raised = returns[return_index.query_ball_point(xy, 0.7), 2]
+            if len(base) < 20 or np.any(raised > np.median(base) + 0.4):
+                raise ValueError(f"Open pavement is unverified at {xy}")
+    ox, oy = tile["o"]
+    lane = Polygon(
+        [
+            (10 * (x - ox), 10 * (louisiana_y(x) + offset - oy))
+            for x, offset in [
+                (start, -half_width),
+                (end, -half_width),
+                (end, half_width),
+                (start, half_width),
+            ]
+        ]
+    )
+    # Only two reviewed prisms extend across this open lane. Retain the
+    # remaining roof faces and reconstruct their heights on the cut edge.
+    for index in (196, 383):
+        building = tile["b"][index]
+        kept = []
+        for face in building[1]:
+            rings = [np.asarray(ring).reshape(-1, 3) for ring in face]
+            shape = Polygon(rings[0][:, :2], [r[:, :2] for r in rings[1:]])
+            if not shape.intersects(lane):
+                kept.append(face)
+                continue
+            vertices = np.concatenate(rings)
+            matrix = np.column_stack((vertices[:, :2], np.ones(len(vertices))))
+            plane, _, rank, _ = np.linalg.lstsq(matrix, vertices[:, 2], rcond=None)
+            if rank < 3 or np.max(np.abs(matrix @ plane - vertices[:, 2])) > 1:
+                raise ValueError(f"Expected a planar roof face at {index}")
+            original_z = {(x, y): int(z) for x, y, z in vertices}
+            for part in get_parts(shape.difference(lane)):
+                if part.geom_type != "Polygon" or part.area < 1:
+                    continue
+                clipped = []
+                for ring in (part.exterior, *part.interiors):
+                    points = [
+                        (
+                            round(x),
+                            round(y),
+                            original_z.get((x, y), round(plane @ (x, y, 1))),
+                        )
+                        for x, y in ring.coords
+                    ]
+                    clipped.append([axis for point in points for axis in point])
+                kept.append(clipped)
+        if not kept:
+            raise ValueError(
+                f"The review should retain partial building geometry at {index}"
+            )
+        building[1] = kept
+
+
+def bake(source, output, louisiana_points, pennsylvania_points, deck_points, obstacles):
     manifest_bytes = (source / "tiles" / "manifest.json").read_bytes()
     if digest(manifest_bytes) != PARENT:
         raise ValueError("The terrain review was scoped to a specific bundled manifest")
@@ -162,9 +236,12 @@ def bake(source, output, louisiana_points, pennsylvania_points, deck_points):
         tile = json.loads(gzip.decompress(original))
         if token == LOUISIANA:
             tile["g"]["detail"] = refine(
-                tile, (4726, -85, 4766, -45), observations(louisiana_points, extend=True)
+                tile,
+                (4726, -85, 4766, -45),
+                observations(louisiana_points, extend=True),
             )
             trim_western_21st_street(tile)
+            clear_reviewed_lane(tile, louisiana_points, *obstacles)
         else:
             terrain_height = observations(pennsylvania_points)
 
@@ -191,7 +268,9 @@ def bake(source, output, louisiana_points, pennsylvania_points, deck_points):
                     if len(index.query_ball_point((x, y + offset), 0.5)) < 8:
                         raise ValueError(f"Unsupported lower deck at {x}, {y + offset}")
                 select = index.query_ball_point((x, y), 0.5)
-                positions.append([x, round(y, 4), round(float(np.median(lower[select, 2])), 4)])
+                positions.append(
+                    [x, round(y, 4), round(float(np.median(lower[select, 2])), 4)]
+                )
             tile["raisedRoads"].append(
                 {
                     "id": DECK_ID,
@@ -203,19 +282,28 @@ def bake(source, output, louisiana_points, pennsylvania_points, deck_points):
         raw = gzip.compress(encoded(tile), compresslevel=9, mtime=0)
         (output / "tiles" / name).write_bytes(raw)
         entry["bytes"] = len(raw)
-        corrected_hashes[token] = {"parentSha256": digest(original), "sha256": digest(raw)}
+        corrected_hashes[token] = {
+            "parentSha256": digest(original),
+            "sha256": digest(raw),
+        }
     manifest["terrainReview"] = {
         "parentManifestSha256": PARENT,
         "source": "USGS 3DEP CA_SanFrancisco_1_B23",
         "tiles": corrected_hashes,
         "addedRoads": [DECK_ID],
-        "groundCropsSha256": [digest(p.read_bytes()) for p in (louisiana_points, pennsylvania_points)],
+        "groundCropsSha256": [
+            digest(p.read_bytes()) for p in (louisiana_points, pennsylvania_points)
+        ],
         "lowerDeckCropSha256": digest(deck_points.read_bytes()),
+        "laneReviewCropsSha256": [digest(path.read_bytes()) for path in obstacles],
     }
     raw = encoded(manifest)
     (output / "tiles" / "manifest.json").write_bytes(raw)
     route = (source / "quest-route.json").read_bytes()
-    if json.loads(route)["manifestSha256"] != PARENT or route.count(PARENT.encode()) != 1:
+    if (
+        json.loads(route)["manifestSha256"] != PARENT
+        or route.count(PARENT.encode()) != 1
+    ):
         raise ValueError("The quest route must pin the reviewed parent manifest")
     (output / "quest-route.json").write_bytes(
         route.replace(PARENT.encode(), digest(raw).encode(), 1)
@@ -230,6 +318,13 @@ if __name__ == "__main__":
     cli.add_argument("--louisiana-ground", type=Path, required=True)
     cli.add_argument("--pennsylvania-ground", type=Path, required=True)
     cli.add_argument("--pennsylvania-deck", type=Path, required=True)
+    cli.add_argument(
+        "--lane-review-crops",
+        type=Path,
+        nargs=3,
+        required=True,
+        metavar=("EAST_GROUND", "WEST_RETURNS", "EAST_RETURNS"),
+    )
     args = cli.parse_args()
     (args.output / "tiles").mkdir(parents=True, exist_ok=True)
     bake(
@@ -238,4 +333,5 @@ if __name__ == "__main__":
         args.louisiana_ground,
         args.pennsylvania_ground,
         args.pennsylvania_deck,
+        args.lane_review_crops,
     )

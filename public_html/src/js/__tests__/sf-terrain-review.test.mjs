@@ -3,7 +3,12 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
-import { contactStep, groundAt } from "../sf-drive-core.js";
+import {
+  buildCollisionIndex,
+  collisionAt,
+  contactStep,
+  groundAt,
+} from "../sf-drive-core.js";
 import { GROUND_MISSING, terrainTriangles } from "../sf-drive-surface.js";
 import { roadMarkingTriangles } from "../sf-road-markings.js";
 
@@ -73,6 +78,14 @@ test("the 21st Street approaches keep the jog and omit the embankment crossing",
       `Crossfall at ${x}`,
     );
   }
+  const index = buildCollisionIndex(world);
+  const obstacle = (x) => {
+    const y = -65.5 + 0.077 * (x - 4729);
+    return collisionAt([index], { x, y, heading: 0.077 }, ground(x, y));
+  };
+  for (let x = 4754; x <= 4813; x++)
+    assert.equal(obstacle(x), null, `Clear pavement at ${x}`);
+  assert.equal(obstacle(4826), "building");
 });
 
 test("23rd Street stops on the ground at the aerial gap instead of climbing or switching levels", () => {

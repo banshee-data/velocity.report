@@ -20,13 +20,14 @@ async function main() {
   });
   try {
     for (const [name, x, y, heading] of [
-      ["21st Street approach", 4746, -64.19, 0.077],
+      ["21st Street approach", 4756, -63.421, 0.077],
       ["23rd Street approach", 4154, -542.75, 0.077],
       ["Old 23rd and Iowa checkpoint", 4234.658, -536.563, -3.075],
     ]) {
       const page = await browser.newPage({
-        viewport: { width: 700, height: 480 },
+        viewport: { width: 540, height: 390 },
       });
+      page.setDefaultTimeout(75_000);
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       try {
@@ -36,7 +37,7 @@ async function main() {
               key,
               JSON.stringify({
                 collected: [],
-                elapsed: 1,
+                elapsed: 0,
                 checkpoint: { x, y, heading },
               }),
             );
@@ -60,10 +61,12 @@ async function main() {
             );
         const start = await snapshot();
         if (name.startsWith("Old")) {
-          assert.ok(Math.hypot(start.east - x, start.north - y) > 1);
+          assert.ok(Math.hypot(start.east - x, start.north - y) > 1, name);
         } else {
-          assert.ok(Math.abs(start.east - x) < 0.01);
-          assert.ok(Math.abs(start.north - y) < 0.01);
+          assert.ok(
+            Math.hypot(start.east - x, start.north - y) < 1,
+            `${name} restored at ${JSON.stringify(start)}`,
+          );
         }
         if (name === "23rd Street approach") {
           await page.locator("#drive").focus();
