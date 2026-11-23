@@ -1,0 +1,1 @@
+- Baked the [23rd Street lower deck in Dogpatch](../../ui/sf-road-route-audit.md#dogpatch-23rd-street-lower-deck), retained the gap in the aerial terrain and verified ground handoffs in both directions.

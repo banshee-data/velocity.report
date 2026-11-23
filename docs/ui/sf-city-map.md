@@ -301,6 +301,10 @@ The game also rehomes saved checkpoints that lie inside the newly exposed gap to
 intersection. The [Chromium smoke test](../../tools/sf-drive/smoke-terrain-review.cjs) exercises
 the two approaches and a save from before the fix at 23rd and Iowa.
 
+A later [23rd Street game contact bake](sf-road-route-audit.md#dogpatch-23rd-street-lower-deck)
+joins the measured lower deck to the eastern pavement with an interpolated game
+surface. The underlying terrain refinement still retains the survey gap.
+
 The [terrain review tool](../../tools/sf-drive/apply-terrain-review.py) pins the input manifest and
 both compressed tiles. Its input arrays contain world-plane XYZ in the manifest frame from the
 USGS 3DEP `CA_SanFrancisco_1_B23` EPT archive at depth 12. Extract class 2 over

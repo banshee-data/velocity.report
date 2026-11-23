@@ -12,6 +12,10 @@ async function main() {
       return response.json();
     }),
   );
+  assert.ok(
+    manifest.roadBake?.playableReplaces?.includes("review/23rd-street-class17"),
+    "The server is not serving the baked 23rd Street deck",
+  );
   const id = manifest.places[0].id;
   const placement = route.placementSha256 ? `:${route.placementSha256}` : "";
   const progressBase =
@@ -29,6 +33,7 @@ async function main() {
     ]) {
       const page = await browser.newPage({
         viewport: { width: 540, height: 390 },
+        serviceWorkers: "block",
       });
       page.setDefaultTimeout(75_000);
       const errors = [];
@@ -76,21 +81,31 @@ async function main() {
           await confirmManualTakeover(page);
           await page.keyboard.down("ArrowUp");
           if (name === "23rd Street approach") {
-            await page.waitForFunction(
-              () =>
-                document.querySelector("#drive").dataset.roadBlocked === "true",
-            );
-            await page.keyboard.up("ArrowUp");
-            const stopped = await snapshot();
-            assert.ok(
-              stopped.east > 4165 && stopped.east <= 4168,
-              JSON.stringify(stopped),
-            );
-            assert.ok(
-              stopped.altitude > 14.7 && stopped.altitude < 15.4,
-              JSON.stringify(stopped),
-            );
-            console.log("23rd Street gap stop", stopped);
+            try {
+              await page.waitForFunction(() => {
+                const d = document.querySelector("#drive").dataset;
+                return (
+                  d.surfaceId === "sf-contact/dogpatch-23rd-lower" &&
+                  Number(d.east) > 4200
+                );
+              });
+              const onDeck = await snapshot();
+              assert.ok(
+                onDeck.altitude > 10 && onDeck.altitude < 15.2,
+                JSON.stringify(onDeck),
+              );
+              await page.waitForFunction(() => {
+                const d = document.querySelector("#drive").dataset;
+                return (
+                  !d.surfaceId &&
+                  d.contact === "grounded" &&
+                  Number(d.east) > 4245
+                );
+              });
+            } finally {
+              await page.keyboard.up("ArrowUp");
+            }
+            console.log("23rd Street cleared the lower deck", await snapshot());
           } else {
             await page.waitForFunction(
               () =>
