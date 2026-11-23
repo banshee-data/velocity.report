@@ -238,3 +238,33 @@ The Toll Plaza difference between the corridor and emoji runs identifies a
 remaining approach routing or alignment problem. Full emoji itineraries
 through the Presidio tunnels also remain unverified. See the
 [portal and roof evidence](../plans/ui-sf-layered-roads-plan.md#presidio-parkway-and-toll-plaza-contact).
+
+## Harrison and Silver Avenue crossing trials
+
+The class-17 returns follow an upper roadway where the ground reader dropped
+towards a different level. At Harrison and Beale, the sampled upper road is
+15.58 m NAVD88 above the 8.00 m ground mesh. On Silver Avenue above US 101
+the two game contacts are 22.69 m and 16.21 m. The April 2023 survey resolves
+the upper Silver Avenue deck through station 60 m, then sees other decks
+around 31 m and 38 m over the road. The game interpolates the lower street
+between that last supported band and the ground east of the crossing.
+
+The [two-course check](../../tools/sf-drive/road-audit-stacked-streets.json)
+pins candidate game manifest
+`895a62bdaaeb007844f5562d58e2cce5171d1a2d018c6baefd9e81e1bc8e1c9c`.
+Run it with
+`node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-stacked-streets.json`.
+
+| Crossing                  | Prior peak driven grade | Peak grade on the baked strip | Drive beyond exit |
+| ------------------------- | ----------------------: | ----------------------------: | ----------------: |
+| Harrison over Beale       |                  98.07% |                         6.99% |             536 m |
+| Silver Avenue over US 101 |                  54.08% |                         2.64% |           2.43 km |
+
+Both courses collected both emojis. The revised Silver Avenue course
+crosses westbound, then follows exterior streets to Rutland. The grade
+comparison is against the earlier itinerary, which continued along US 101.
+Chrome drove over each new strip in both directions. Two additional Chrome
+runs drove underneath on Beale and southbound US 101. They stayed on the
+lower surface at 4.99–8.27 m and 15.76–16.82 m, respectively. The upper
+deck bake retains the existing lower terrain. The Beale rise in the aerial
+shadow still needs lower-road support review.
