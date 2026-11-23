@@ -194,8 +194,8 @@ also needs evidence for the unresolved freeway moves and coverage gaps.
 
 ### Citywide bake and Bay Bridge game route
 
-The [published Arrow revision](http://arrow-worker:50061/city-tiles/sf-city-roads-34248382d964cdeb67b7ea6698f262b86a5f05602499d0f1de1e71c92490d2c6/manifest.json)
-contains 15,491 ground profiles, 9,875 ground continuations, 273 provisional overpass spans
+The [published Arrow revision](http://arrow-worker:50061/city-tiles/sf-city-roads-97993185300b116bf296169b1f0e88f7685e9fe18af57d696c3b89742813e3cc/manifest.json)
+contains 15,491 road profiles, 9,875 ground continuations, 273 provisional overpass spans
 and 17 provisional bridge spans across 157 tiles. Arrow verified all 161 files and 13 regional
 references over HTTP. The game bake embeds 248 supported continuous runs in
 34 of the 157 game tiles. Every owning tile carries the complete run so the display
@@ -212,12 +212,20 @@ The named route is 6.22 km.
 Run the [game tile embedder](../../tools/sf-drive/embed-road-layers.py) with
 `--source` set to the immutable Gerardus revision directory or URL,
 `--base` set to the matching original game tile directory, and
-`--quest` set to the game's quest route. It writes changed compressed tiles,
+`--quest` set to the game's quest route. It writes the full set of compressed tiles,
 the patched manifest and quest route, and the checksummed game drive under
 `--output`. Review and copy those files into `public_html/src/sf/`. Publish them
 with the game on its own origin. Playable ramps and overpasses need continuous
 supported contact, directed same-level joins, shoulder and rail metadata, and
 drive checks for each legal direction.
+
+The citywide road rebake samples the corrected Dogpatch terrain with the game's
+triangle split, leaves missing contact in the 23rd Street shadow and retains the
+reviewed display strip. It records four DataSF tunnel alignments as unresolved
+and leaves their interior profiles without heights. The game omits their aerial
+ground drapes. Tunnel Avenue remains a surface road. The rebake retains the
+existing regional references where the referenced base tiles are byte-identical.
+See the [rebake inputs and output hashes](../ui/sf-city-map.md#citywide-road-rebake).
 
 Both rails at the Fourth Street entrance use a rebound for side impacts at any speed.
 The car loses speed and stays on the ramp. The replay checks a 50 mph strike on each

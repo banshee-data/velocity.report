@@ -1146,7 +1146,10 @@ export async function startDrive({
   let messageUntil = 0;
   const failures = new Map();
   window.addEventListener("online", () => failures.clear());
-  const baseRevision = manifest.roadBake?.baseSha256 || route.manifestSha256;
+  const baseRevision =
+    manifest.terrainRebake?.progressBaseSha256 ||
+    manifest.roadBake?.baseSha256 ||
+    route.manifestSha256;
   const placementRevision = route.placementSha256
     ? `:${route.placementSha256}`
     : "";

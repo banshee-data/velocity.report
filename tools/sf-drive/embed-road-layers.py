@@ -126,17 +126,20 @@ def bake(source, base, quest, output):
     tiles_out.mkdir(parents=True)
     for tile in manifest["tiles"]:
         token = tile["t"]
-        if token not in by_tile:
-            continue
         name = f"{token}.json.gz"
         raw = (base / name).read_bytes()
         if digest(raw) != roads["tiles"][token]["base_tile_gzip_sha256"]:
             raise ValueError(f"Base tile checksum differs for {token}")
-        content = json.loads(gzip.decompress(raw))
-        content["raisedRoads"] = by_tile[token]
-        payload = gzip.compress(encoded(content), compresslevel=9, mtime=0)
+        payload = raw
+        if token in by_tile:
+            content = json.loads(gzip.decompress(raw))
+            content["raisedRoads"] = [*content.get("raisedRoads", []), *by_tile[token]]
+            payload = gzip.compress(encoded(content), compresslevel=9, mtime=0)
         (tiles_out / name).write_bytes(payload)
         tile["bytes"] = len(payload)
+        reviewed = manifest.get("terrainReview", {}).get("tiles", {}).get(token)
+        if reviewed:
+            reviewed["sha256"] = digest(payload)
     manifest["roadBake"] = {
         "revision": roads["revision"],
         "baseSha256": digest(raw_base),
