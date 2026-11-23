@@ -727,9 +727,12 @@ it descends to the shared Fourth Street seam.
 From the upper island approach, the fixed-step drive reached Fremont
 in 232.8 s and reached Octavia via the through branch in 418.9 s. The
 Chrome tests seed the existing surface at the island end and send
-manual steering and throttle. The route leaves the mapped trees in
-place. All 20 frozen emoji courses collected both endpoints, with
-zero dips deeper than 0.5 m and a maximum seam step of 6.1 cm.
+manual steering and throttle. Chrome reached Fremont in 237.7 s.
+Two full Octavia attempts crashed near the Fourth Street merge. The
+isolated merge drive and the next two full runs passed, reaching
+Octavia in 396.9 s and 396.3 s. The crash cause remains unconfirmed.
+All 20 frozen emoji courses collected both endpoints, with zero dips
+deeper than 0.5 m and a maximum seam step of 6.1 cm.
 
 The Fremont exit's right guard retards a slow collision. Chrome
 stayed grounded in the right-side scrape. A separate drive crossed the
