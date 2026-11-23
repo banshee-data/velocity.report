@@ -99,6 +99,71 @@ test("northbound I-280 keeps both city exits connected across tile owners", () =
   assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.1);
 });
 
+test("Alemany northbound stays on its own deck and clears the surveyed Dogpatch pavement", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = [
+    "808f7ef4",
+    "808f7efc",
+    "808f7f04",
+    "808f7fa4",
+    "808f7fac",
+    "808f7fb4",
+  ];
+  const tiles = tokens.map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const lookup = (name) => roads.get(`sf-contact/${name}`);
+  const chain = [
+    "i280-north-alemany-entry",
+    "i280-north-alemany-main",
+    "i280-north-alemany-climb",
+    "i280-north-lower-viaduct",
+    "i280-north-south-dogpatch",
+    "i280-dogpatch-northbound",
+  ].map(lookup);
+  assert.deepEqual(chain[0].groundEnds, ["start"]);
+  const [x, y, z] = chain[0].points[0];
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
+  for (const [index, next] of chain.slice(1).entries()) {
+    const previous = chain[index];
+    assert.deepEqual(previous.points.at(-1), next.points[0], next.id);
+    assert.deepEqual(previous.seams.end, next.seams.start, next.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${previous.id}:end` &&
+          to === `${next.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  const lower = buildBakedRoadContact(chain[3]).surface;
+  const upper = buildBakedRoadContact(
+    lookup("i280-south-beyond-dogpatch"),
+  ).surface;
+  const crossing = [3379.018, -2458.532];
+  assert.ok(Math.abs(lower.heightAt(...crossing) - 21.77) < 0.03);
+  assert.ok(Math.abs(upper.heightAt(...crossing) - 29.58) < 0.03);
+
+  const obstacles = tiles.map((tile, i) =>
+    buildCollisionIndex(tile, tokens[i]),
+  );
+  assert.equal(roadBake.overheadBuildingPatches["808f7fac"], 3);
+  assert.equal(roadBake.overheadBuildingPatches["808f7fb4"], 1);
+  const road = buildBakedRoadContact(chain[4]).surface;
+  for (const station of [945, 975, 1129, 1155]) {
+    const i = road.profile.findIndex(({ s_m }) => s_m >= station);
+    assert.ok(i > 0);
+    const [x, y, z] = road.profile[i].position;
+    const [a, b] = road.profile[i - 1].position;
+    const heading = Math.atan2(y - b, x - a);
+    assert.equal(collisionAt(obstacles, { x, y, z, heading }, z), null);
+  }
+});
+
 test("tiled right-only guard rail bounces on the right and leaves the left edge open", () => {
   const road = {
     id: "test-highway-exit",
@@ -546,7 +611,6 @@ test("Dogpatch keeps four ramp portals and the southbound through lane connected
   assert.ok(groundAtWorld(tiles, x, y, true) < 11);
   const indexes = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
   const { surface } = buildBakedRoadContact(road("south-through-dogpatch"));
-  assert.equal(roadBake.overheadBuildingPatches["808f7fac"], 2);
   for (const [x, y, heading] of [
     [4262.41, -875.6, -1.67],
     [4230.53, -1027.3, -1.92],
