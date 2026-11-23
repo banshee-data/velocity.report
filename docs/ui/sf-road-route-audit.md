@@ -299,3 +299,26 @@ driven dips over 0.5 m and measured a maximum seam step of 0.061 m across
 the 20 courses. The five remaining stops were Toll Plaza's emoji approach,
 the end of the selected I-280 contact, a stall on The Embarcadero and two
 tree impacts on Terry A Francois Boulevard and John F Kennedy Drive.
+
+## Rounded Toll Plaza approach
+
+The first Toll Plaza bake accepted a car that was already lined up with the
+tunnel. The Presidio emoji course arrived at the west junction while still
+turning. In that run the car followed the upper terrain past the lower
+portal. The revised game contact starts 16 m back on the connected west
+street and rounds the 96° turn into the same lower bore. The curve is game
+geometry pinned to the existing street and tunnel alignments.
+
+The [rounded-approach regression](../../tools/sf-drive/road-audit-toll-rounded-release-routes.json)
+pins manifest `b6f59e014f14bdc281f909d04e1d9fe2c9a114639c5c06d1029677fae594e2ab`.
+Its SHA-256 is
+`2993f2dcb4a49890c10669f29dac5b677545d15101fc6babe080ce266733b617`.
+The Toll Plaza car collected both emojis and reached 251 m beyond its
+eastern handoff. Chrome drove both directions and verified grounded
+exterior contact at each exit.
+
+Sixteen of the 20 fixed-step emoji courses completed. The largest tile-seam
+step was 0.061 m. None of the driven profiles had a depression over 0.5 m
+using the eight-metre chord test. The remaining stops were the end of the
+selected I-280 route, a stall on The Embarcadero and tree impacts on Terry
+A Francois Boulevard and John F Kennedy Drive.

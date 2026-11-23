@@ -1,0 +1,1 @@
+- Rounded the [western Toll Plaza entrance](../../ui/sf-road-route-audit.md#rounded-toll-plaza-approach) onto the lower deck and verified the full Presidio emoji route and both Chrome directions.

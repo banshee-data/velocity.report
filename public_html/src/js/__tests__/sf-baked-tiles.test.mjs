@@ -286,3 +286,26 @@ test("Harrison and Silver Avenue decks span the lower roads at independent heigh
     }
   }
 });
+
+test("Toll Plaza joins the west street before rounding the bend into the lower bore", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808586ec.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/toll-plaza-tunnel",
+  );
+  const { surface, portals } = buildBakedRoadContact(road);
+  const [west] = portals;
+  assert.ok(Math.hypot(west.x + 3161.95, west.y - 5193.32) < 0.03);
+  assert.ok(
+    Math.abs(groundAtWorld([tile], west.x, west.y, true) - west.z) < 0.03,
+  );
+  const bearings = surface.profile
+    .slice(1, 35)
+    .map(({ position: [x, y] }, i) => {
+      const [px, py] = surface.profile[i].position;
+      return Math.atan2(y - py, x - px);
+    });
+  assert.ok(Math.abs(bearings[0] - 2.303) < 0.01);
+  assert.ok(Math.abs(bearings.at(-1) - 0.627) < 0.01);
+  for (let i = 1; i < bearings.length; i++)
+    assert.ok(Math.abs(bearings[i] - bearings[i - 1]) < 0.17);
+});
