@@ -20,8 +20,8 @@ export function treeDamageForImpact(tree, mass, normalSpeed, nx, ny, previous) {
     anchor: [tree.x, tree.y],
     work,
     ...(previous && { priorLean: [previous.east, previous.north] }),
-    east: -nx,
-    north: -ny,
+    east: -nx || 0,
+    north: -ny || 0,
     absorbed: Math.min(1, (work - (previous?.work ?? 0)) / energy),
   };
 }
