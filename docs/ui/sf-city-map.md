@@ -324,6 +324,37 @@ The audit screened 14,997 road rows across 157 tiles. Intervals above 50% fell f
 There were 51 intervals with missing ground across the reviewed 23rd Street shadow.
 A flag calls for evidence review. Some steep grades are genuine.
 
+### Citywide road rebake
+
+The released rebake builds a new 157-tile compatibility base from the game bundle
+at `eb47e0c56bcecd2cc34404a9dc152989059fbf52`, the original Arrow
+`tiles-game/manifest.json` and the city Road Surface export
+`sf-city-roads-f0857998ad43f38ff552dafdfa3457b8bfcfb0a102b31ea258f8f68aa698ced6`.
+The original scenery and reviewed pavement corrections carry forward. Each
+supported ground station is resampled with the game's terrain triangles, including
+the 1 m refinements. Existing gaps and flagged level ambiguities carry missing
+contact. Named tunnel alignments have stable unresolved records with missing
+interiors and unverified portals and clearance.
+
+Pass `--bundle`, `--original`, `--source` and `--output` to the
+[road rebake tool](../../tools/sf-drive/rebake-road-tiles.py). Run it in the Arrow
+bake environment with NumPy and SciPy. Use its `base/manifest.json` and emitted
+road revision in `bake-city-drive.py`. Then run `embed-road-layers.py` with
+the new road revision, the compatibility base directory and the prior quest
+route. Copy the tiles and game drive into `public_html/src/sf/` and run
+`node tools/sf-drive/build-quest-route.mjs`.
+
+The rebake retains 9,875 documented same-level joins and 290 provisional
+elevated spans. The six-section Bay Bridge drive and the 137 quest placements
+match their previous geometry. The coverage footprint and all 1,140 arterial
+lines reproduce the published coverage. The city audit reports 469 intervals
+above 50% grade after dropping four aerially draped tunnel rows, compared with
+499 in the parent game. Those remaining intervals still need review.
+
+- [Compatibility base manifest](http://arrow-worker:50061/city-tiles/sf-game-base-a97bc8f32e8399bd0ed4ed6be5557cf87d2f7970a0d8e6362837c27545788eec/manifest.json)
+- [Road layers and game drive manifest](http://arrow-worker:50061/city-tiles/sf-city-roads-97993185300b116bf296169b1f0e88f7685e9fe18af57d696c3b89742813e3cc/manifest.json)
+- [Finished game tile manifest](http://arrow-worker:50061/city-tiles/sf-game-cee97394d57d2c07efeffd8a99f57ab4708877a3140f649dbdd867f8ba3ea5ad/tiles/manifest.json)
+
 ### Inputs for a new game-tile revision
 
 1. Freeze the DataSF centreline and street geometry source versions, the 3DEP acquisition,

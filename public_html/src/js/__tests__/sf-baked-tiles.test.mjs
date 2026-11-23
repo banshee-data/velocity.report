@@ -46,3 +46,25 @@ test("bundled road runs have identical geometry across tile owners", () => {
   assert.equal(runs.size, roadBake.runs + reviewedRoads.size);
   assert.deepEqual(seamKinds, new Set(["bridge", "overpass"]));
 });
+
+test("the rebake keeps tunnel alignments off the aerial ground while retaining Tunnel Avenue", () => {
+  const { tiles, terrainRebake } = JSON.parse(file("tiles/manifest.json"));
+  const tunnelNames = new Set([
+    "Robert C Levy Tunnel",
+    "Stockton Tunnel",
+    "Toll Plaza Tunnel",
+  ]);
+  assert.equal(
+    Object.values(terrainRebake.removedTunnelRows).reduce((a, b) => a + b),
+    4,
+  );
+  let tunnelAvenue = false;
+  for (const { t } of tiles) {
+    const { n, r } = JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`)));
+    for (const [index] of r) {
+      assert.ok(!tunnelNames.has(n[index]), t);
+      if (n[index] === "Tunnel Ave") tunnelAvenue = true;
+    }
+  }
+  assert.ok(tunnelAvenue);
+});

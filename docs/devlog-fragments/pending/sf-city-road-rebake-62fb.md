@@ -1,0 +1,1 @@
+- Rebaked all 157 game tiles against the reviewed Dogpatch terrain and repinned 15,491 road profiles to the matching compatibility base. Existing same-level joins and supported elevated runs passed verification. Marked four named tunnel alignments unresolved and removed their false pavement drapes from the aerial ground.

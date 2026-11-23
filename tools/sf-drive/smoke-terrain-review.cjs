@@ -13,7 +13,9 @@ async function main() {
   );
   const id = manifest.places[0].id;
   const placement = route.placementSha256 ? `:${route.placementSha256}` : "";
-  const key = `sf-progress-v1:sf-trial-v2:${manifest.roadBake.baseSha256}${placement}:${id}`;
+  const progressBase =
+    manifest.terrainRebake?.progressBaseSha256 || manifest.roadBake.baseSha256;
+  const key = `sf-progress-v1:sf-trial-v2:${progressBase}${placement}:${id}`;
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
     args: ["--no-sandbox", "--enable-unsafe-swiftshader"],
