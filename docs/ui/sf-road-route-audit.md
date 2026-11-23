@@ -832,3 +832,32 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `c258108a7752d400af15734ebb15b5ec343077b304e722973fe1133cc92403a2`.
 - Contact SHA-256 `46f19986668756c23a8fc4191c3c414e4b79a8ceb36e5069daffc0014570a6d5`.
 - The bake changes six tiles and preserves the existing emoji placement revision.
+
+## Northbound I-280 exit toward Cesar Chavez
+
+The lower viaduct now has a separate 808 m exit toward Cesar Chavez.
+The branch shares one pavement seam with the route into Dogpatch and
+descends from 12.76 m to the street-level handoff at 4.54 m NAVD88.
+Maximum grade is 5.6%. The fit uses a separate set of side and ground
+returns where the other deck obscures the exit. The source near the
+handoff contains a higher band at roughly 16.6 m. The lower lane
+remains on its own surface before it returns to ordinary terrain.
+
+A 15-node clearance survey confirmed the pavement where an inferred
+roof face blocked the centre lane. The bake clips 8.6 m² within the
+observed travel strip. The centre lane now clears that location with
+no steering offset. At 120 Hz, the driver took 202.1 s to reach ground
+from Alemany and completed the through branch to Sixth in 354.2 s.
+Chrome drove the same Alemany entrance and exit in 228.6 s, reaching
+40.5 mph and handing off to ground contact. All 20 frozen emoji
+courses also passed with no driven dips deeper than 0.5 m and a
+maximum driven tile-seam step of 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  alemany-to-cesar-chavez-northbound alemany-to-sixth-northbound
+```
+
+- Game manifest SHA-256 `e88693c02191df20ec39fafa0dfc5d15dbce5602148af81a92011f2ab8255e78`.
+- Contact SHA-256 `256ee13da415e75629311fd0a061a56500cbd04979146c82542cc01d86f3f101`.
+- The bake changes five tiles and preserves the existing emoji placement revision.
