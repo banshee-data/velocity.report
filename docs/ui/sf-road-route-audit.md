@@ -454,3 +454,22 @@ approach. A separate Masonic crossing stayed near 84 m above the bore.
 The test runs are `geary-westbound` and `geary-eastbound` in
 `tools/sf-drive/smoke-presidio-tunnels.cjs`. The game manifest SHA-256 is
 `9c1957990db3cbed492a4bf37bd43a841e5715486c8d2db97850b560ff5fb440`.
+
+## Branch East off-ramp to San Jose Avenue
+
+The bake fits three contact strips in the Branch East crossing. The
+northbound exit runs near 48.1 m NAVD88 beneath the I-280 deck near
+54.0 m. The viaduct farther along holds the exit at 56.7 m where the
+ground drops to 46.6 m. The 144 m covered part of the exit interpolates
+the two visible portal elevations. The exit and mainline each keep one
+complete strip across both owners.
+
+The continuous Chrome preview followed the northbound freeway fork
+through the lower bore and across the viaduct to San Jose Avenue at up
+to 38.4 mph. The first run hit a tree before the bore. The accepted
+run used the clear lane around the trees and grounded after both
+portals. A separate drive stayed on the upper I-280 deck. The isolated
+checks are `branch-east-ramp`, `branch-east-upper` and
+`branch-east-san-jose` in `tools/sf-drive/smoke-presidio-tunnels.cjs`.
+The game manifest SHA-256 is
+`025e4d4a9f7a223e0070cc1fab406b25673671bdfb93a810625051c5a07740a9`.

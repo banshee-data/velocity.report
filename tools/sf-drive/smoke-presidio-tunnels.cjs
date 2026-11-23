@@ -126,6 +126,21 @@ for (const reverse of [false, true]) {
     laneGuides: { [geary]: { lane: reverse ? 2.5 : -4.5 } },
   };
 }
+cases["branch-east-ramp"] = {
+  roads: ["branch-east-off-ramp"],
+  owners: ["808f7e7c", "808f7e64"],
+  speed: 15,
+};
+cases["branch-east-upper"] = {
+  roads: ["branch-east-i280-northbound"],
+  owners: ["808f7e7c", "808f7e64"],
+  speed: 18,
+};
+cases["branch-east-san-jose"] = {
+  roads: ["branch-east-san-jose-viaduct"],
+  owners: ["808f7e64"],
+  speed: 15,
+};
 
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
@@ -239,6 +254,7 @@ async function drive(page, sections, speed) {
 
         function tick(now) {
           const d = canvas.dataset;
+          if (d.replay === "crash") return finish("crashed");
           const surfaceId = d.surfaceId || "";
           pose = {
             x: Number(d.east),
@@ -264,7 +280,6 @@ async function drive(page, sections, speed) {
             return finish("lost intermediate contact");
           blocked = d.roadBlocked === "true" ? blocked + 1 : 0;
           if (blocked >= 10) return finish("blocked");
-          if (document.body.dataset.replay === "true") return finish("crashed");
           if (now - started > 460_000) return finish("timed out");
 
           if (now - last >= 27) {

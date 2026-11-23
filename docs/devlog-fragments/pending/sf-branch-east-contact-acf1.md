@@ -1,0 +1,1 @@
+- Baked the Branch East northbound I-280 exit, the mainline above its bore and the viaduct to San Jose Avenue. The [route audit](../../ui/sf-road-route-audit.md#branch-east-off-ramp-to-san-jose-avenue) records separate upper and lower contact and the continuous Chrome exit.
