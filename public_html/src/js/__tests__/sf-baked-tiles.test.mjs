@@ -151,7 +151,7 @@ test("Alemany northbound stays on its own deck and clears the surveyed Dogpatch 
   const obstacles = tiles.map((tile, i) =>
     buildCollisionIndex(tile, tokens[i]),
   );
-  assert.equal(roadBake.overheadBuildingPatches["808f7fac"], 3);
+  assert.ok(roadBake.overheadBuildingPatches["808f7fac"] >= 3);
   assert.equal(roadBake.overheadBuildingPatches["808f7fb4"], 1);
   const road = buildBakedRoadContact(chain[4]).surface;
   for (const station of [945, 975, 1129, 1155]) {
@@ -162,6 +162,47 @@ test("Alemany northbound stays on its own deck and clears the surveyed Dogpatch 
     const heading = Math.atan2(y - b, x - a);
     assert.equal(collisionAt(obstacles, { x, y, z, heading }, z), null);
   }
+});
+
+test("Cesar Chavez exit branches from the lower viaduct and returns to ground", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7efc", "808f7f04", "808f7fa4", "808f7fac", "808f7fb4"];
+  const tiles = tokens.map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const incoming = roads.get("sf-contact/i280-north-lower-viaduct");
+  const ramp = roads.get("sf-contact/i280-north-cesar-chavez-exit");
+  const through = roads.get("sf-contact/i280-north-south-dogpatch");
+  for (const branch of [ramp, through]) {
+    assert.deepEqual(incoming.points.at(-1), branch.points[0], branch.id);
+    assert.deepEqual(incoming.seams.end, branch.seams.start, branch.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${incoming.id}:end` &&
+          to === `${branch.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(ramp.groundEnds, ["end"]);
+  const [endX, endY, endZ] = ramp.points.at(-1);
+  assert.ok(Math.abs(groundAtWorld(tiles, endX, endY, true) - endZ) < 0.03);
+
+  const indexes = tiles.map((tile, i) => buildCollisionIndex(tile, tokens[i]));
+  const { surface } = buildBakedRoadContact(ramp);
+  const i = surface.profile.findIndex(({ s_m }) => s_m >= 112);
+  assert.ok(i > 0);
+  const [x, y, z] = surface.profile[i].position;
+  const [a, b] = surface.profile[i - 1].position;
+  assert.equal(
+    collisionAt(indexes, { x, y, z, heading: Math.atan2(y - b, x - a) }, z),
+    null,
+  );
+  assert.equal(roadBake.overheadBuildingPatches["808f7fac"], 4);
 });
 
 test("tiled right-only guard rail bounces on the right and leaves the left edge open", () => {

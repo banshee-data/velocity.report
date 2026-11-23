@@ -379,6 +379,7 @@ for (const branch of ["fifth", "sixth"]) {
     forks: [
       ...exit.forks,
       ["i280-north-alemany-climb", "i280-north-lower-viaduct", -1.35],
+      ["i280-north-lower-viaduct", "i280-north-south-dogpatch", 1.55],
     ],
     laneGuides: {
       ...exit.laneGuides,
@@ -401,6 +402,19 @@ for (const branch of ["fifth", "sixth"]) {
     },
   };
 }
+const alemanyToSixth = cases["alemany-to-sixth-northbound"];
+cases["alemany-to-cesar-chavez-northbound"] = {
+  ...alemanyToSixth,
+  roads: [...alemanyNorthApproach.slice(0, 4), "i280-north-cesar-chavez-exit"],
+  speedLimits: {
+    ...alemanyToSixth.speedLimits,
+    "i280-north-cesar-chavez-exit": 11,
+  },
+  forks: [
+    ["i280-north-alemany-climb", "i280-north-lower-viaduct", -1.35],
+    ["i280-north-lower-viaduct", "i280-north-cesar-chavez-exit", -1.4],
+  ],
+};
 for (const reverse of [false, true]) {
   cases[
     reverse ? "dogpatch-twentieth-eastbound" : "dogpatch-twentieth-westbound"
