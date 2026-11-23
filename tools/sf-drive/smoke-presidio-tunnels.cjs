@@ -153,7 +153,8 @@ async function drive(page, sections, speed) {
           if (surfaceId && pose.camera === "tunnel") enclosed.add(surfaceId);
           if (!seen.size && now - started > 20_000)
             return finish("missed entrance");
-          if (!surfaceId && seen.has(ids.at(-1))) return finish("left road");
+          if (!surfaceId && seen.has(ids.at(-1)) && pose.grounded)
+            return finish("left road");
           blocked = d.roadBlocked === "true" ? blocked + 1 : 0;
           if (blocked >= 10) return finish("blocked");
           if (document.body.dataset.replay === "true") return finish("crashed");
