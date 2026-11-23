@@ -330,6 +330,39 @@ the median trees. Run the set with
 The game’s collision test checks that the roadway clears the eastern building
 while the upper volume stays solid. The main floor is a game interpolation.
 
+### Presidio Parkway and Toll Plaza contact
+
+**World and Data.** The bake follows six pinned DataSF centrelines through
+Battery and Main Post in both US 101 directions. A separate 109 m strip follows
+the lower Toll Plaza road across both portals and onto the eastern street.
+Lower pavement sampled at the portals anchors the profiles. The covered
+floor elevations use game interpolation. The game bundles the complete road
+strips in all three tile owners. The Gerardus source revision retains the
+original coverage gaps.
+
+**Physics.** The southbound Main Post car initially hit the prism inferred
+under a roof. The five-metre opening follows the left lane through that
+section. The lower adjacent roof prevented widening the opening across the
+full carriageway. At Toll Plaza, the original collision trace hit an
+overhead prism after the lower road was selected. The bake preserves the
+roof and adjusts the building volume above the game's lower lane. Tests
+verify that both clearances still have collision at the upper elevation.
+
+| Corridor                    | Covered sections visited            | Peak game profile grade |
+| --------------------------- | ----------------------------------- | ----------------------: |
+| US 101 northbound           | Main Post, Battery                  |                   7.10% |
+| US 101 southbound           | Battery, Main Post                  |                   7.43% |
+| Toll Plaza, both directions | Lower road under the north approach |                   4.69% |
+
+**UI.** The [Chrome smoke test](../../tools/sf-drive/smoke-presidio-tunnels.cjs)
+checks the manual keyboard path, tunnel camera and exterior contact at each
+end. Run `node tools/sf-drive/smoke-presidio-tunnels.cjs` against the running
+game with Playwright available. It starts shortly before each portal and
+follows the traversable lane. These are four corridor runs. Full Presidio
+emoji itineraries still need street connections through the portal areas.
+The manifest pins the combined contact at
+`fa93ec59801894348411b019da20177fffef8d4be4468f6f3e79fe75978b2d9c`.
+
 ### Stockton tunnel contact
 
 **World and Physics.** The Stockton trial bakes a distinct tunnel floor and both

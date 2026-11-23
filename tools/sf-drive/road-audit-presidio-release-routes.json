@@ -1,0 +1,143 @@
+{
+  "manifestSha256": "db80bd6d2ec42bf43da05e40a1ce8e29a6128c18fc46676b7a68014f59019031",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "stockton-northbound",
+      "from": "\ud83d\ude8b",
+      "to": "\ud83c\udf5d",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "entry": [2910.2, 3267.8, "Stockton St"],
+        "exit": [2840.8, 3692.2, "Stockton St"]
+      }
+    },
+    {
+      "id": "stockton-southbound",
+      "from": "\ud83e\udd80",
+      "to": "\ud83e\uddf1",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "reverse": true,
+        "entry": [2840.8, 3692.2, "Stockton St"],
+        "exit": [2910.2, 3267.8, "Stockton St"]
+      }
+    },
+    {
+      "id": "broadway-west",
+      "from": "\ud83e\udd80",
+      "to": "\ud83e\udda2",
+      "expectContactExit": true,
+      "contact": {
+        "roads": ["sf-contact/broadway-westbound"],
+        "entry": [2568.7, 4147.4, "Broadway"],
+        "exit": [1751.4, 4006.6, "Broadway"],
+        "afterGuide": [
+          [1796, 4018],
+          [1774, 4015],
+          [1758, 4012]
+        ]
+      }
+    },
+    {
+      "id": "toll-eastbound",
+      "from": "\ud83c\udf38",
+      "to": "\ud83c\udf01",
+      "contact": {
+        "roads": ["sf-contact/toll-plaza-tunnel"],
+        "entry": [-3162, 5193, "Unnamed 152"],
+        "exit": [-3075.6, 5277.6, "Unnamed 77"]
+      }
+    },
+    {
+      "id": "fremont-under-deck",
+      "from": "\ud83c\udff9",
+      "to": "\ud83c\udfd9\ufe0f",
+      "groundOnly": true,
+      "via": [[3979, 2670, "2nd St"]]
+    },
+    {
+      "id": "fifth-i280",
+      "from": "\ud83d\udede",
+      "to": "\ud83d\ude82",
+      "via": [[4130, 398, "I-280 Southbound"]]
+    },
+    {
+      "id": "us101-bayview",
+      "from": "\ud83e\udea1",
+      "to": "\ud83e\udd6c",
+      "via": [[3496, -4069, "Hwy 101 Southbound"]]
+    },
+    {
+      "id": "dogpatch-seventeenth",
+      "from": "\ud83c\udfe5",
+      "to": "\ud83d\ude82"
+    },
+    {
+      "id": "dogpatch-twenty-third",
+      "from": "\ud83c\udfd7\ufe0f",
+      "to": "\ud83d\udee3\ufe0f",
+      "via": [
+        [4380, -524],
+        [4190, -540]
+      ]
+    },
+    {
+      "id": "mission-creek",
+      "from": "\u26be",
+      "to": "\ud83c\udfc0"
+    },
+    {
+      "id": "north-waterfront",
+      "from": "\ud83c\udf6b",
+      "to": "\u2693"
+    },
+    {
+      "id": "presidio",
+      "from": "\ud83c\udf38",
+      "to": "\ud83d\udeaa"
+    },
+    {
+      "id": "outer-richmond",
+      "from": "\ud83c\udf37",
+      "to": "\ud83e\udd86"
+    },
+    {
+      "id": "park-west",
+      "from": "\u26f3",
+      "to": "\ud83d\udea3"
+    },
+    {
+      "id": "sunset",
+      "from": "\ud83e\udebb",
+      "to": "\ud83e\uddd7"
+    },
+    {
+      "id": "great-highway",
+      "from": "\ud83e\udd92",
+      "to": "\ud83c\udf05"
+    },
+    {
+      "id": "lake-merced-southbound",
+      "from": "\ud83d\udc1f",
+      "to": "\ud83c\udfa3"
+    },
+    {
+      "id": "diamond-heights",
+      "from": "\ud83d\udc8e",
+      "to": "\u26f0\ufe0f"
+    },
+    {
+      "id": "mission-southbound",
+      "from": "\ud83d\udd8c\ufe0f",
+      "to": "\ud83c\udf2e"
+    },
+    {
+      "id": "excelsior-southbound",
+      "from": "\ud83c\udf3a",
+      "to": "\ud83e\uddf3"
+    }
+  ]
+}
