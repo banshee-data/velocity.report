@@ -9,6 +9,7 @@
 - **How the map was built:** [city map record](sf-city-map.md) (levels of detail, decisions, next
   steps), with the [size study](sf-city-map-size-study.md) and
   [review brief](sf-city-map-review-brief.md).
+- **Road tests:** [rebaked road route audit](sf-road-route-audit.md).
 
 The page drives a car anywhere in San Francisco over measured geometry, so a reader can move between
 survey sites with the city around them. The camera starts zoomed out behind and above the car;

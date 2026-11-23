@@ -1,0 +1,69 @@
+{
+  "manifestSha256": "cee97394d57d2c07efeffd8a99f57ab4708877a3140f649dbdd867f8ba3ea5ad",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    { "id": "waterfront", "from": "⚓", "to": "🌉" },
+    {
+      "id": "soma-under-deck",
+      "from": "🏙️",
+      "to": "🎭",
+      "via": [[3200, 2258]]
+    },
+    { "id": "mission-bay", "from": "🏀", "to": "🌉" },
+    { "id": "dogpatch-21st", "from": "🛣️", "to": "🐾", "via": [[4540, -80]] },
+    {
+      "id": "dogpatch-23rd",
+      "from": "🚂",
+      "to": "🐾",
+      "via": [
+        [4190, -540],
+        [4380, -524]
+      ]
+    },
+    {
+      "id": "stockton-tunnel",
+      "from": "🐉",
+      "to": "🍝",
+      "tunnel": "Stockton Tunnel"
+    },
+    {
+      "id": "broadway-tunnel",
+      "from": "🛤️",
+      "to": "🍝",
+      "tunnel": "Robert C Levy Tunnel"
+    },
+    {
+      "id": "toll-plaza-tunnel",
+      "from": "🪵",
+      "to": "🌁",
+      "tunnel": "Toll Plaza Tunnel"
+    },
+    { "id": "presidio-west", "from": "🪵", "to": "🚲" },
+    {
+      "id": "soma-i280",
+      "from": "🛞",
+      "to": "🚚",
+      "via": [
+        [4160, 465, "I-280 Southbound"],
+        [4313, -586, "I-280 Southbound"]
+      ]
+    },
+    {
+      "id": "freeway-to-bayview",
+      "from": "📦",
+      "to": "🚵",
+      "via": [[3496, -4069, "Hwy 101 Southbound"]]
+    },
+    { "id": "ocean-beach", "from": "🏄", "to": "🐚" },
+    { "id": "north-beach-hills", "from": "🍫", "to": "🍝" },
+    { "id": "pacific-heights", "from": "🦢", "to": "🪞" },
+    { "id": "castro-mission", "from": "🏳️‍🌈", "to": "🌮" },
+    { "id": "twin-peaks", "from": "📷", "to": "🗻" },
+    { "id": "sunset-avenues", "from": "🌈", "to": "🏄" },
+    { "id": "golden-gate-park", "from": "🛹", "to": "🦬" },
+    { "id": "lake-merced", "from": "🛶", "to": "🎣" },
+    { "id": "excelsior", "from": "🌞", "to": "🗺️" }
+  ]
+}

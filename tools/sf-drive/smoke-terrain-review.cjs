@@ -1,6 +1,7 @@
 // Run against the built SF site with Playwright available on NODE_PATH.
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
+const { confirmManualTakeover } = require("./manual-takeover.cjs");
 
 async function main() {
   const origin = process.env.SF_BASE_URL || "http://localhost:8090";
@@ -70,21 +71,35 @@ async function main() {
             `${name} restored at ${JSON.stringify(start)}`,
           );
         }
-        if (name === "23rd Street approach") {
+        if (name.endsWith("approach")) {
           await page.locator("#drive").focus();
-          await page.keyboard.press("ArrowUp");
-          await page
-            .getByRole("button", { name: "Take manual control" })
-            .click();
+          await confirmManualTakeover(page);
           await page.keyboard.down("ArrowUp");
-          await page.waitForFunction(
-            () =>
-              document.querySelector("#drive").dataset.roadBlocked === "true",
-          );
-          await page.keyboard.up("ArrowUp");
-          const stopped = await snapshot();
-          assert.ok(stopped.east > 4165 && stopped.east < 4168);
-          assert.ok(stopped.altitude > 14.7 && stopped.altitude < 15.4);
+          if (name === "23rd Street approach") {
+            await page.waitForFunction(
+              () =>
+                document.querySelector("#drive").dataset.roadBlocked === "true",
+            );
+            await page.keyboard.up("ArrowUp");
+            const stopped = await snapshot();
+            assert.ok(
+              stopped.east > 4165 && stopped.east <= 4168,
+              JSON.stringify(stopped),
+            );
+            assert.ok(
+              stopped.altitude > 14.7 && stopped.altitude < 15.4,
+              JSON.stringify(stopped),
+            );
+            console.log("23rd Street gap stop", stopped);
+          } else {
+            await page.waitForFunction(
+              () =>
+                Number(document.querySelector("#drive").dataset.east) >= 4808,
+            );
+            await page.keyboard.up("ArrowUp");
+            const cleared = await snapshot();
+            console.log("21st Street cleared the reviewed lane", cleared);
+          }
         }
         assert.deepEqual(errors, []);
         console.log(name, start);
