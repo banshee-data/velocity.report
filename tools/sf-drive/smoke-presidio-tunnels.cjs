@@ -153,13 +153,20 @@ for (const direction of ["northbound", "southbound"]) {
   const northbound = direction === "northbound";
   const tunnel = "macarthur-tunnel";
   const deck = `kobbe-viaduct-${direction}`;
-  cases[`macarthur-kobbe-${direction}`] = {
+  const kobbe = {
     roads: northbound ? [tunnel, deck] : [deck, tunnel],
     owners: ["808586e4", "80858724", "8085871c"],
     speed: 15,
     connectByGround: true,
     reverseRoads: northbound ? [] : [tunnel],
     laneGuides: { [tunnel]: { lane: northbound ? -4.2 : 4.2 } },
+  };
+  const ruckman = `ruckman-viaduct-${direction}`;
+  cases[`macarthur-kobbe-${direction}`] = kobbe;
+  cases[`macarthur-ruckman-${direction}`] = {
+    ...kobbe,
+    roads: northbound ? [...kobbe.roads, ruckman] : [ruckman, ...kobbe.roads],
+    owners: [...kobbe.owners, "808586dc"],
   };
 }
 
@@ -208,7 +215,7 @@ function driveLine({ id, points }, rampApproach) {
   });
 }
 
-function withGroundConnections([first, second]) {
+function withGroundConnections(roads) {
   const extension = (from, toward, metres) => {
     const distance = Math.hypot(toward[0] - from[0], toward[1] - from[1]);
     return from.map(
@@ -225,13 +232,19 @@ function withGroundConnections([first, second]) {
     ),
     sources: [],
   });
-  const [start, next] = first.positions;
-  const [previous, end] = second.positions.slice(-2);
+  const [start, next] = roads[0].positions;
+  const [previous, end] = roads.at(-1).positions.slice(-2);
   return [
     ground("approach", extension(start, next, -14), start),
-    first,
-    ground("between", first.positions.at(-1), second.positions[0]),
-    second,
+    ...roads.flatMap((road, i) => {
+      const next = roads[i + 1];
+      return next
+        ? [
+            road,
+            ground(`between-${i}`, road.positions.at(-1), next.positions[0]),
+          ]
+        : [road];
+    }),
     ground("departure", end, extension(end, previous, -16)),
   ];
 }

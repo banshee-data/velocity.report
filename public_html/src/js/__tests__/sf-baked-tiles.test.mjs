@@ -367,6 +367,28 @@ test("Kobbe Avenue remains below both SR 1 decks, which join the highway at each
   }
 });
 
+test("Ruckman keeps both SR 1 decks above the street and meets the northbound connector", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808586dc.json.gz")));
+  for (const [direction, x] of [
+    ["northbound", -2589],
+    ["southbound", -2596.4],
+  ]) {
+    const road = tile.playableRoads.find(
+      ({ id }) => id === `sf-contact/ruckman-viaduct-${direction}`,
+    );
+    const { surface, portals } = buildBakedRoadContact(road);
+    assert.equal(portals.length, 2);
+    for (const { x, y, z } of portals) {
+      assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+    }
+    const street = groundAtWorld([tile], x, 4547, true);
+    const deck = surface.heightAt(x, 4547);
+    assert.ok(street > 35 && street < 39);
+    assert.ok(deck > 44 && deck < 45);
+    assert.ok(deck - street > 5);
+  }
+});
+
 test("the Branch East exit and northbound I-280 keep their own road levels", () => {
   const tiles = ["808f7e7c", "808f7e64"].map((t) =>
     JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
