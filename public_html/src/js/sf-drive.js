@@ -144,6 +144,7 @@ import {
   highwayRailSegments,
   leaveRoadSide,
   roadBoundary,
+  strikeHighwayRail,
   crashRoadSupport,
   indexCrashRails,
 } from "./sf-highway-edge.js";
@@ -964,6 +965,34 @@ export async function startDrive({
   });
   const deckMaterial = roadMaterial.clone();
   deckMaterial.color.lerp(C.kerb, 0.33);
+  function addGuardRails(surface, mesh) {
+    surface.railSegments = highwayRailSegments(surface);
+    if (!surface.railSegments.length) return;
+    const vertices = surface.railSegments.flatMap(({ a, b }) => [
+      ...V(...a),
+      ...V(...b),
+      ...V(a[0], a[1], a[2] + 0.65),
+      ...V(...b),
+      ...V(b[0], b[1], b[2] + 0.65),
+      ...V(a[0], a[1], a[2] + 0.65),
+    ]);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(vertices, 3),
+    );
+    geometry.computeVertexNormals();
+    mesh.add(
+      new THREE.Mesh(
+        geometry,
+        new THREE.MeshLambertMaterial({
+          color: 0xadb5ba,
+          side: THREE.DoubleSide,
+        }),
+      ),
+    );
+  }
+
   function addRoadTile(tile) {
     for (const surface of tile.surfaces) {
       if (!surface.contact || roadSurfaces.has(surface.id)) continue;
@@ -973,7 +1002,6 @@ export async function startDrive({
         boundary:
           surface.kind === "ground" ? [] : roadBoundary(surface.contact),
       };
-      driveSurface.railSegments = highwayRailSegments(driveSurface);
       roadSurfaces.set(surface.id, driveSurface);
       if (!gameDrive || surface.kind !== "ground")
         roadMeshes.add(
@@ -1002,36 +1030,11 @@ export async function startDrive({
           ),
         );
       }
-      if (driveSurface.railSegments.length) {
-        const vertices = driveSurface.railSegments.flatMap(({ a, b }) => [
-          ...V(...a),
-          ...V(...b),
-          ...V(a[0], a[1], a[2] + 0.65),
-          ...V(...b),
-          ...V(b[0], b[1], b[2] + 0.65),
-          ...V(a[0], a[1], a[2] + 0.65),
-        ]);
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute(vertices, 3),
-        );
-        geometry.computeVertexNormals();
-        roadMeshes.add(
-          new THREE.Mesh(
-            geometry,
-            new THREE.MeshLambertMaterial({
-              color: 0xadb5ba,
-              side: THREE.DoubleSide,
-            }),
-          ),
-        );
-      }
+      addGuardRails(driveSurface, roadMeshes);
     }
     network?.add(tile);
   }
   if (gameDrive) addRoadTile(gameDrive.topology);
-  const crashRails = indexCrashRails(roadSurfaces.values());
   const places = [...(manifest.places || [])];
   if (gameDrive?.exitStart) places.unshift(gameDrive.exitStart);
   if (gameDrive) places.unshift(gameDrive.start);
@@ -1438,6 +1441,7 @@ export async function startDrive({
                 ),
               );
               if (appearance) mesh.add(tunnelMesh(surface, appearance));
+              addGuardRails(surface, mesh);
               scene.add(mesh);
               bakedRoads.set(road.id, { surface, mesh, owners: 1 });
               bakedPortals.set(road.id, portals);
@@ -1683,6 +1687,7 @@ export async function startDrive({
       kind === "ground" ? { previous: car, supportAt } : null,
     );
     const poses = leadIn.read();
+    const crashRails = indexCrashRails(roadSurfaces.values());
     const impactTick = poses.length;
     do {
       car = crashCar(crash, incoming);
@@ -2876,19 +2881,21 @@ export async function startDrive({
             1.35,
           );
         } else if (!candidate && bakedRoads.has(surface.id)) {
-          candidate = driveOnRoadNetwork(
-            car,
-            controls,
-            1 / 120,
-            surface,
-            roadSurfaces,
-            bakedNetwork,
-            (token) => {
-              if (!byToken.has(token) || loaded.has(token)) return false;
-              stream(car, [token]);
-              return !failures.has(token);
-            },
-          );
+          candidate =
+            strikeHighwayRail(car, controls, 1 / 120, surface) ||
+            driveOnRoadNetwork(
+              car,
+              controls,
+              1 / 120,
+              surface,
+              roadSurfaces,
+              bakedNetwork,
+              (token) => {
+                if (!byToken.has(token) || loaded.has(token)) return false;
+                stream(car, [token]);
+                return !failures.has(token);
+              },
+            );
           if (
             candidate.blocked &&
             !candidate.waiting &&

@@ -13,10 +13,98 @@ import {
   collisionAt,
   groundAtWorld,
 } from "../sf-drive-core.js";
+import {
+  highwayRailSegments,
+  leaveRoadSide,
+  roadBoundary,
+  strikeHighwayRail,
+} from "../sf-highway-edge.js";
 
 const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+test("tiled right-only guard rail bounces on the right and leaves the left edge open", () => {
+  const road = {
+    id: "test-highway-exit",
+    kind: "ramp",
+    owners: ["8085807c", "8085807c"],
+    width: 6,
+    points: Array.from({ length: 31 }, (_, x) => [x, 0, 10]),
+    railSides: ["right"],
+  };
+  const { surface } = buildBakedRoadContact(road);
+  surface.boundary = roadBoundary(surface.contact);
+  surface.railSegments = highwayRailSegments(surface);
+  assert.ok(surface.railSegments.length);
+  assert.ok(surface.railSegments.every(({ a, b }) => a[1] < 0 && b[1] < 0));
+  const left = { x: 15, y: 0.39, z: 10, v: 7, heading: Math.PI / 2 };
+  const right = { ...left, y: -left.y, heading: -left.heading };
+  assert.equal(strikeHighwayRail(left, {}, 1 / 120, surface), null);
+  assert.equal(
+    strikeHighwayRail(right, {}, 1 / 120, surface).edgeContact,
+    "bounce",
+  );
+  assert.equal(
+    leaveRoadSide({ ...left, y: 2.99, grounded: true }, {}, 1 / 120, surface)
+      .leavingRoad,
+    true,
+  );
+  assert.equal(buildBakedRoadContact({ ...road, railSides: ["center"] }), null);
+});
+
+test("the upper West Span shares its Fremont fork with the westbound freeway continuation", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = [
+    "80858014",
+    "80858024",
+    "8085803c",
+    "8085806c",
+    "80858074",
+    "8085807c",
+    "80858084",
+  ];
+  const roads = new Map(
+    tokens.flatMap((token) => {
+      const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+      return tile.playableRoads.map((road) => [road.id, road]);
+    }),
+  );
+  const upper = roads.get("yerba-buena-upper-tunnel");
+  const lower = roads.get("yerba-buena-lower-tunnel");
+  assert.ok(buildBakedRoadContact(upper).appearance);
+  assert.ok(buildBakedRoadContact(lower).appearance);
+  assert.ok(upper.points[0][2] > lower.points[0][2] + 10);
+  for (const ids of [
+    ["city-approach", "fremont-exit"],
+    [
+      "city-approach",
+      "sf-contact/i80-westbound-fremont-split",
+      "sf-contact/i80-westbound-upper-soma",
+      "sf-contact/i80-westbound-fourth-merge",
+      "westbound-i80",
+    ],
+  ]) {
+    for (const [index, next] of ids.slice(1).entries()) {
+      const before = ids[index];
+      const a = roads.get(before);
+      const b = roads.get(next);
+      assert.deepEqual(a.points.at(-1), b.points[0], next);
+      assert.deepEqual(a.seams.end, b.seams.start, next);
+      assert.ok(
+        roadBake.playableTransitions.some(
+          ({ from, to, direction }) =>
+            from === `${before}:end` &&
+            to === `${next}:start` &&
+            direction === "forward",
+        ),
+      );
+    }
+  }
+  const exit = roads.get("fremont-exit");
+  assert.deepEqual(exit.groundEnds, ["end"]);
+  assert.deepEqual(exit.railSides, ["right"]);
+});
 
 test("Central Freeway joins the lower Bay Bridge through contiguous eastbound contact", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
