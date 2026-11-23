@@ -116,6 +116,15 @@ for (const reverse of [false, true]) {
     speed: 10,
     reverse,
   };
+  const geary = "geary-masonic-tunnel";
+  cases[reverse ? "geary-eastbound" : "geary-westbound"] = {
+    roads: [geary],
+    owners: ["808580b4", "80858734"],
+    speed: 14,
+    reverse,
+    // The open eastbound approach has planted islands beside the inner lane.
+    laneGuides: { [geary]: { lane: reverse ? 2.5 : -4.5 } },
+  };
 }
 
 async function asset(pathname) {
@@ -347,6 +356,7 @@ async function main() {
           width_m: road.width,
           positions: reverse ? positions.toReversed() : positions,
           speed_mps: speedLimits[slug] ?? speed,
+          game_clearance_m: road.game_clearance_m,
           sources: [],
         };
       });

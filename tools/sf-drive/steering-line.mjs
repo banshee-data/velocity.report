@@ -2,6 +2,7 @@
 // and obstacle checks continue to use the original game assets.
 export function steeringLine(points, guide = {}) {
   const {
+    lane = 0,
     approach = 0,
     holdApproach = false,
     entranceEast = 0,
@@ -41,7 +42,7 @@ export function steeringLine(points, guide = {}) {
         ) **
           2
       : 0;
-    const lateral = exitLane + clearanceLane;
+    const lateral = lane + exitLane + clearanceLane;
     return [
       x + entranceLane - lateral * Math.sin(heading),
       y + lateral * Math.cos(heading),

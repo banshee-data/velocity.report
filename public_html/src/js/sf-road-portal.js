@@ -4,13 +4,14 @@ const reach = 3;
 const tolerance = 0.22;
 
 export function roadPortals(surface, groundEnds) {
-  const { profile } = surface;
+  const { contact, profile } = surface;
   return groundEnds.map((end) => {
     const atEnd = end === "end";
     const index = atEnd ? profile.length - 1 : 0;
     const [x, y, z] = profile[index].position;
     const [u, v] = profile[index + (atEnd ? -1 : 1)].position;
     const length = Math.hypot(u - x, v - y);
+    const [edgeX, edgeY] = contact.vertices[index * 2];
     return {
       surface,
       x,
@@ -18,6 +19,7 @@ export function roadPortals(surface, groundEnds) {
       z,
       nx: (u - x) / length,
       ny: (v - y) / length,
+      halfWidth: Math.hypot(edgeX - x, edgeY - y),
     };
   });
 }
@@ -83,9 +85,12 @@ export function driveThroughRoadPortal(
   const matches = [];
   for (const portals of portalGroups)
     for (const portal of portals) {
+      const dx = car.x - portal.x;
+      const dy = car.y - portal.y;
       if (
         (car.surfaceId && car.surfaceId !== portal.surface.id) ||
-        Math.hypot(car.x - portal.x, car.y - portal.y) > reach
+        Math.abs(dx * portal.nx + dy * portal.ny) > reach ||
+        Math.abs(dy * portal.nx - dx * portal.ny) > portal.halfWidth + reach
       )
         continue;
       const next = stepThrough(car, input, dt, portal, pavementHeight);

@@ -1,0 +1,1 @@
+- Baked the Geary Boulevard tunnel under Masonic into both tile owners and fixed wide portal contact so cars can enter from an outer lane. The [route audit](../../ui/sf-road-route-audit.md#geary-boulevard-beneath-masonic) records the Chrome drives in both directions and the surface crossing above.

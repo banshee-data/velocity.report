@@ -278,6 +278,30 @@ test("Alemany keeps its overpass complete in both tiles above northbound I-280",
   }
 });
 
+test("Geary's bidirectional tunnel joins the ground and stays below Masonic", () => {
+  const tiles = ["808580b4", "80858734"].map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const roads = tiles.map(({ playableRoads }) =>
+    playableRoads.find(({ id }) => id === "sf-contact/geary-masonic-tunnel"),
+  );
+  assert.deepEqual(roads[0], roads[1]);
+  assert.equal(roads[0].source_cnn, "6105000");
+  const { surface, portals, appearance } = buildBakedRoadContact(roads[0]);
+  assert.equal(portals.length, 2);
+  for (const { x, y, z, halfWidth } of portals) {
+    assert.ok(Math.abs(halfWidth - 8) < 0.002);
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  }
+  const above = groundAtWorld(tiles, -643.5, 2489.8, true);
+  const bore = surface.heightAt(-643.5, 2489.8);
+  assert.ok(above > 83.5 && above < 84.5);
+  assert.ok(bore > 76.4 && bore < 77.5);
+  assert.ok(above - bore > appearance.clearance);
+  const length = appearance.interior[1] - appearance.interior[0];
+  assert.ok(length > 160 && length < 162);
+});
+
 test("Broadway's lower lanes clear the building while its upper surfaces stay solid", () => {
   const owners = ["808580ec", "808580f4"];
   const tiles = owners.map((t) =>
