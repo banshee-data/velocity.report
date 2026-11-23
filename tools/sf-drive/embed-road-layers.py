@@ -184,6 +184,8 @@ def with_drive_approaches(drives, path, expected_sha256):
     if drive is None:
         raise ValueError("Game drive approaches reference an unknown drive")
     approaches = extension["approaches"]
+    if any(type(row.get("replace_sections", False)) is not bool for row in approaches):
+        raise ValueError("Game drive replace_sections must be a boolean")
     ids = {row["id"] for row in approaches}
     if len(ids) != len(approaches) or drive["id"] in ids:
         raise ValueError("Game drive approaches need distinct start IDs")

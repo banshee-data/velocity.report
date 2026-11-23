@@ -21,7 +21,7 @@ const { chromium } = require("playwright");
       )
         errors.push(message.text());
     });
-    const waitForStart = (id, surface, speed) =>
+    const waitForStart = (id, surface, speed, timeout = 60_000) =>
       page.waitForFunction(
         ({ id, surface, speed }) => {
           const drive = document.querySelector("#drive").dataset;
@@ -36,7 +36,7 @@ const { chromium } = require("playwright");
           );
         },
         { id, surface, speed },
-        { timeout: 60000 },
+        { timeout },
       );
     const bridge = "bay-bridge-highway-drive";
     await page.goto(`${host}/sf/?city=bay-bridge`);
@@ -61,6 +61,35 @@ const { chromium } = require("playwright");
     console.log(
       "The start picker loads the baked Bay Bridge drive at speed, Fremont exit and a stationary intersection.",
     );
+    if (process.argv.includes("--eastbound")) {
+      const start = "yerba-buena-eastbound";
+      await page.goto(`${host}/sf/?at=${start}`);
+      for (const surface of [
+        "first-street-eastbound-entry",
+        "sf-eastbound-lower-approach",
+        "bay-bridge-eastbound-lower",
+        "yerba-buena-lower-west-approach",
+        "yerba-buena-lower-tunnel",
+        "yerba-buena-lower-east-approach",
+      ]) {
+        await waitForStart(start, surface, null, 220_000);
+        if (surface === "yerba-buena-lower-tunnel") {
+          const { altitude, cameraContact } = await page
+            .locator("#drive")
+            .evaluate(({ dataset }) => ({ ...dataset }));
+          assert.ok(Number(altitude) < 50);
+          assert.equal(cameraContact, "tunnel");
+        }
+      }
+      await page.waitForFunction(() => {
+        const { north, contact } = document.querySelector("#drive").dataset;
+        return Number(north) > 5870 && contact === "grounded";
+      });
+      assert.deepEqual(errors, []);
+      console.log(
+        "The eastbound drive reached the lower east approach from First Street.",
+      );
+    }
   } finally {
     await browser.close();
   }

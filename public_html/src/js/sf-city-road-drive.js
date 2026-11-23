@@ -18,7 +18,9 @@ export function cityDriveApproach(drive, id) {
         id: approach.id,
         label: approach.label,
         initial_speed_mps: approach.initial_speed_mps,
-        sections: [...approach.sections, ...drive.sections],
+        sections: approach.replace_sections
+          ? approach.sections
+          : [...approach.sections, ...drive.sections],
       }
     : drive;
 }

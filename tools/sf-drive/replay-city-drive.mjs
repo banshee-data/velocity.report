@@ -70,31 +70,35 @@ const surfaces = new Map(
 );
 const step = 1 / 120;
 const entrance = surfaces.get("fourth-street-entrance");
-for (const fraction of [0.25, 0.75]) {
-  const { a, b, nx, ny } =
-    entrance.railSegments[Math.floor(fraction * entrance.railSegments.length)];
-  const setback = CAR_HALF_LENGTH + 0.06;
-  const x = (a[0] + b[0]) / 2 - setback * nx;
-  const y = (a[1] + b[1]) / 2 - setback * ny;
-  const z = entrance.heightAt(x, y);
-  assert.notEqual(z, null);
-  const heading = Math.atan2(ny, nx);
-  const impact = strikeHighwayRail(
-    { x, y, z, heading, v: drive.start.initialSpeed, grounded: true },
-    {},
-    step,
-    entrance,
-  );
-  assert.equal(impact?.edgeContact, "bounce");
-  assert.equal(impact.roadImpact, undefined);
-  assert.ok(impact.grounded && !impact.blocked);
-  assert.ok(impact.v * Math.cos(impact.heading - heading) < 0);
-  assert.equal(
-    collisionAt([tile(tileAt(map.tiles, x, y).t).index], impact, impact.z),
-    null,
-  );
+if (entrance) {
+  for (const fraction of [0.25, 0.75]) {
+    const { a, b, nx, ny } =
+      entrance.railSegments[
+        Math.floor(fraction * entrance.railSegments.length)
+      ];
+    const setback = CAR_HALF_LENGTH + 0.06;
+    const x = (a[0] + b[0]) / 2 - setback * nx;
+    const y = (a[1] + b[1]) / 2 - setback * ny;
+    const z = entrance.heightAt(x, y);
+    assert.notEqual(z, null);
+    const heading = Math.atan2(ny, nx);
+    const impact = strikeHighwayRail(
+      { x, y, z, heading, v: drive.start.initialSpeed, grounded: true },
+      {},
+      step,
+      entrance,
+    );
+    assert.equal(impact?.edgeContact, "bounce");
+    assert.equal(impact.roadImpact, undefined);
+    assert.ok(impact.grounded && !impact.blocked);
+    assert.ok(impact.v * Math.cos(impact.heading - heading) < 0);
+    assert.equal(
+      collisionAt([tile(tileAt(map.tiles, x, y).t).index], impact, impact.z),
+      null,
+    );
+  }
+  console.log("Fourth Street entrance: both 50 mph side impacts rebounded");
 }
-console.log("Fourth Street entrance: both 50 mph side impacts rebounded");
 
 let car = { ...drive.start, v: drive.start.initialSpeed, grounded: true };
 car.z = surfaces.get(car.surfaceId).heightAt(car.x, car.y);

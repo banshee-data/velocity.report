@@ -110,11 +110,17 @@ def test_bundled_approach_requires_exact_parent_and_preserves_original_sections(
     original = {"id": "bridge", "sections": [{"id": "west-span"}]}
     drives = encoded({"drives": [original]})
     entry = {"id": "island", "label": "Island", "sections": [{"id": "tunnel"}]}
+    opposite = {
+        "id": "eastbound",
+        "label": "Eastbound",
+        "replace_sections": True,
+        "sections": [{"id": "lower"}],
+    }
     extension = {
         "format": "sf-game-drive-approaches",
         "base_drive_sha256": digest(drives),
         "drive_id": "bridge",
-        "approaches": [entry],
+        "approaches": [entry, opposite],
     }
     path = tmp_path / "extension.json"
     raw = encoded(extension)
@@ -124,5 +130,15 @@ def test_bundled_approach_requires_exact_parent_and_preserves_original_sections(
     with pytest.raises(ValueError, match="pinned parent"):
         with_drive_approaches(drives + b" ", path, digest(raw))
     bundled, starts = with_drive_approaches(drives, path, digest(raw))
-    assert starts == [{"id": "island", "label": "Island"}]
-    assert json.loads(bundled)["drives"] == [dict(original, approaches=[entry])]
+    assert starts == [
+        {"id": "island", "label": "Island"},
+        {"id": "eastbound", "label": "Eastbound"},
+    ]
+    assert json.loads(bundled)["drives"] == [
+        dict(original, approaches=[entry, opposite])
+    ]
+    opposite["replace_sections"] = "yes"
+    raw = encoded(extension)
+    path.write_bytes(raw)
+    with pytest.raises(ValueError, match="replace_sections must be a boolean"):
+        with_drive_approaches(drives, path, digest(raw))

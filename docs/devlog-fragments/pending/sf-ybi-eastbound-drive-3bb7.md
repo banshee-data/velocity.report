@@ -1,0 +1,1 @@
+- Added an eastbound Bay Bridge start from First Street through the inferred lower Yerba Buena bore, with the westbound Fremont and Fourth Street replay checked alongside it. [Drive audit](../../ui/sf-road-route-audit.md#eastbound-bay-bridge-and-lower-yerba-buena-bore)
