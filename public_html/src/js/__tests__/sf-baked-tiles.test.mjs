@@ -127,7 +127,7 @@ test("the playable I-280 parts keep identical contact across neighbouring owners
   );
 });
 
-test("southbound I-280 retains both fork branches and rejoins lower pavement", () => {
+test("southbound I-280 retains both 18th Street fork branches and levels", () => {
   const t = "808f7fcc";
   const tile = JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`)));
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
@@ -141,17 +141,76 @@ test("southbound I-280 retains both fork branches and rejoins lower pavement", (
     ["sf-contact/i280-18th-off-ramp:start", `${through}:start`],
   );
   const road = tile.playableRoads.find(({ id }) => id === through);
-  const { portals, surface } = buildBakedRoadContact(road);
-  assert.equal(portals.length, 1);
-  const [{ x, y, z }] = portals;
-  const ground = groundAtWorld([tile], x, y, true);
-  assert.ok(Number.isFinite(ground) && Math.abs(ground - z) < 0.03);
+  const { surface } = buildBakedRoadContact(road);
   const underRamp = surface.heightAt(4161.917, 311.135);
   assert.ok(underRamp > 20.3 && underRamp < 20.6);
   for (let i = 1; i < road.points.length; i++) {
     const [ax, ay, az] = road.points[i - 1];
     const [bx, by, bz] = road.points[i];
     assert.ok(Math.abs(bz - az) / Math.hypot(bx - ax, by - ay) < 0.04);
+  }
+});
+
+test("Dogpatch keeps four ramp portals and the southbound through lane connected", () => {
+  const tokens = ["808f7fb4", "808f7fac", "808f7efc"];
+  const tiles = tokens.map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const prefix = "sf-contact/i280-";
+  const road = (slug) =>
+    tiles
+      .flatMap(({ playableRoads }) => playableRoads)
+      .find(({ id }) => id === prefix + slug);
+  const connections = (slug) =>
+    roadBake.playableTransitions
+      .filter(({ from }) => from === `${prefix}${slug}:end`)
+      .map(({ to }) => to.slice(prefix.length, -6))
+      .sort();
+  assert.deepEqual(connections("dogpatch-approach"), [
+    "dogpatch-off-ramp",
+    "south-through-dogpatch",
+  ]);
+  assert.deepEqual(connections("dogpatch-off-ramp"), [
+    "dogpatch-pennsylvania-north",
+    "dogpatch-pennsylvania-south",
+  ]);
+  for (const approach of [
+    "dogpatch-pennsylvania-on-north",
+    "dogpatch-pennsylvania-on-south",
+  ])
+    assert.deepEqual(connections(approach), ["dogpatch-on-ramp"]);
+  for (const approach of ["dogpatch-on-ramp", "south-through-dogpatch"])
+    assert.deepEqual(connections(approach), ["south-beyond-dogpatch"]);
+  for (const slug of [
+    "dogpatch-pennsylvania-north",
+    "dogpatch-pennsylvania-south",
+    "dogpatch-pennsylvania-on-north",
+    "dogpatch-pennsylvania-on-south",
+    "south-beyond-dogpatch",
+  ]) {
+    const { portals } = buildBakedRoadContact(road(slug));
+    assert.equal(portals.length, 1, slug);
+    const [{ x, y, z }] = portals;
+    const pavement = groundAtWorld(tiles, x, y, true);
+    assert.ok(Number.isFinite(pavement) && Math.abs(pavement - z) < 0.03, slug);
+  }
+  const { surface: approach } = buildBakedRoadContact(
+    road("dogpatch-approach"),
+  );
+  const [x, y] = [4192.36, -173.02];
+  assert.ok(Math.abs(approach.heightAt(x, y) - 23.48) < 0.05);
+  assert.ok(groundAtWorld(tiles, x, y, true) < 11);
+  const indexes = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
+  const { surface } = buildBakedRoadContact(road("south-through-dogpatch"));
+  assert.equal(roadBake.overheadBuildingPatches["808f7fac"], 2);
+  for (const [x, y, heading] of [
+    [4262.41, -875.6, -1.67],
+    [4230.53, -1027.3, -1.92],
+  ]) {
+    const z = surface.heightAt(x, y);
+    assert.ok(Number.isFinite(z));
+    assert.equal(collisionAt(indexes, { x, y, heading }, z), null);
   }
 });
 

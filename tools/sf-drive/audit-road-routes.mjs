@@ -33,6 +33,7 @@ import {
   scrapeObstacle,
   seriousImpact,
 } from "../../public_html/src/js/sf-crash.js";
+import { steeringLine } from "./steering-line.mjs";
 
 const args = process.argv.slice(2);
 const assetsPath = args.find((arg) => arg.startsWith("--assets="));
@@ -279,27 +280,6 @@ function routeFor(spec, from, to) {
   return best.route;
 }
 
-// Steer across the approach lane before an explicitly selected fork. The
-// offsets guide the keyboard-equivalent input. Physics uses the baked strip.
-function approachLane(points, offset) {
-  const guided = [...points];
-  let remaining = 0;
-  for (let i = points.length - 2; i >= 0 && remaining < 32; i--) {
-    const point = points[i];
-    const ahead = points[i + 1];
-    remaining += distance(point, ahead);
-    const blend = clamp((32 - remaining) / 18, 0, 1);
-    const shift =
-      offset * (1 - Math.exp(-remaining / 5)) * blend ** 2 * (3 - 2 * blend);
-    const course = heading(points[Math.max(0, i - 1)], ahead);
-    guided[i] = {
-      x: point.x - shift * Math.sin(course),
-      y: point.y + shift * Math.cos(course),
-    };
-  }
-  return guided;
-}
-
 function layeredRoute(contact, from, to, start, destination) {
   const {
     roads,
@@ -309,6 +289,7 @@ function layeredRoute(contact, from, to, start, destination) {
     beforeGuide = [],
     afterGuide = [],
     approachOffsets = {},
+    laneGuides = {},
   } = contact;
   const [enterNode, exitNode] = [entry, exit].map(([x, y, name]) =>
     snap({ x, y }, [name], 55),
@@ -319,12 +300,12 @@ function layeredRoute(contact, from, to, start, destination) {
   const ribbon = roads.flatMap((id) => {
     const surface = pieces.get(id);
     assert.ok(surface, `No baked contact ${id}`);
-    const centreline = (
-      reverse ? surface.points.toReversed() : surface.points
-    ).map(([x, y]) => ({ x, y }));
-    const points = approachOffsets[id]
-      ? approachLane(centreline, approachOffsets[id])
-      : centreline;
+    const profile = reverse ? surface.points.toReversed() : surface.points;
+    const offset = approachOffsets[id];
+    const guide = laneGuides[id] ?? (offset ? { approach: offset } : null);
+    const points = (guide ? steeringLine(profile, guide) : profile).map(
+      ([x, y]) => ({ x, y }),
+    );
     return points.slice(1).map((point, i) => ({
       from: points[i],
       to: point,

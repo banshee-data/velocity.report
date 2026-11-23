@@ -353,3 +353,39 @@ The Chrome regression uses
 `tools/sf-drive/smoke-presidio-tunnels.cjs i280-mainline i280-pennsylvania i280-18th`.
 The new game manifest SHA-256 is
 `259d1ff5fc3faa6a32ff0bc68c7321546ff22834d15229c46d234f190754a2b5`.
+
+## Dogpatch I-280 exits, entrances and through lanes
+
+At (4192.36, −173.02), the aerial ground surface sits at 9.84 m
+while the class-17 highway pavement sits at 23.48 m. The new game
+contact follows the upper pavement over the lower roads and through
+both Pennsylvania Avenue exit branches. Two street approaches join
+the southbound mainline again. It continues to the matched terrain
+handoff near US 101 at about 9.51 m.
+
+Transects through the exit fork supported a roughly 9 m game strip.
+The fit shifts the centre 1.5 m west where the observed pavement is
+asymmetric. The mainline continuation peaks at 6.43% grade. Its two
+inferred building-face overlaps are clipped inside the pavement strip.
+The bake carries identical complete spans in their intersecting tiles
+and preserves the separate 23rd Street crossing below.
+
+The fixed-step runs collected both emojis via each Pennsylvania Avenue
+exit. The north exit continued 1.15 km beyond its portal and the south
+exit continued 694 m. The southbound course from 5th Street to Sweeny
+and Barneveld completed approximately 8.8 km. It flagged a steep
+segment farther along Alemany Boulevard for follow-up.
+
+Seventeen of the 20 courses completed. The driven profiles had zero
+depressions over 0.5 m and a maximum tile-seam step of 0.061 m. The
+remaining stops were The Embarcadero stall and tree impacts on Terry
+A Francois Boulevard and John F Kennedy Drive. This round follows the
+new I-280 continuation to Sweeny and Barneveld in place of the shorter
+I-280 course.
+
+Run `node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-i280-dogpatch-loop-routes.json`
+to replay the 20 courses on game manifest
+`50a3d9a63b2a667d15bf5805ee5b6fd9fd476707f995c1345c246313473aec02`.
+The Chrome regression covers the through lane, both exits and both
+entrances with the named I-280 cases in
+`tools/sf-drive/smoke-presidio-tunnels.cjs`.

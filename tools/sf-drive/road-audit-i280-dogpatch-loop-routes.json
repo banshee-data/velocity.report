@@ -1,0 +1,193 @@
+{
+  "manifestSha256": "50a3d9a63b2a667d15bf5805ee5b6fd9fd476707f995c1345c246313473aec02",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "stockton-northbound",
+      "from": "🚋",
+      "to": "🍝",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "entry": [2910.2, 3267.8, "Stockton St"],
+        "exit": [2840.8, 3692.2, "Stockton St"]
+      }
+    },
+    {
+      "id": "stockton-southbound",
+      "from": "🦀",
+      "to": "🧱",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "reverse": true,
+        "entry": [2840.8, 3692.2, "Stockton St"],
+        "exit": [2910.2, 3267.8, "Stockton St"]
+      }
+    },
+    {
+      "id": "broadway-west",
+      "from": "🦀",
+      "to": "🦢",
+      "expectContactExit": true,
+      "contact": {
+        "roads": ["sf-contact/broadway-westbound"],
+        "entry": [2568.7, 4147.4, "Broadway"],
+        "exit": [1751.4, 4006.6, "Broadway"],
+        "afterGuide": [
+          [1796, 4018],
+          [1774, 4015],
+          [1758, 4012]
+        ]
+      }
+    },
+    {
+      "id": "toll-eastbound",
+      "from": "🌸",
+      "to": "🌁",
+      "contact": {
+        "roads": ["sf-contact/toll-plaza-tunnel"],
+        "entry": [-3157, 5188, "Unnamed 152"],
+        "exit": [-3075.6, 5277.6, "Unnamed 77"]
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "fremont-under-deck",
+      "from": "🏹",
+      "to": "🏙️",
+      "groundOnly": true,
+      "via": [[3979, 2670, "2nd St"]],
+      "contact": {
+        "roads": ["sf-contact/harrison-beale-bridge"],
+        "entry": [4320, 3069, "Harrison St"],
+        "exit": [4273, 3022, "Harrison St"]
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "i280-south-city-span",
+      "from": "🛞",
+      "to": "📦",
+      "expectContactExit": true,
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-south-through-18th",
+          "sf-contact/i280-dogpatch-approach",
+          "sf-contact/i280-south-through-dogpatch",
+          "sf-contact/i280-south-beyond-dogpatch"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [2661.67, -2822.24, "Hwy 101 To I-280 Ramp"],
+        "laneGuides": {
+          "sf-contact/i280-dogpatch-approach": {
+            "approach": 1.25,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-through-dogpatch": {
+            "entranceEast": 1.25,
+            "entranceMetres": 20
+          },
+          "sf-contact/i280-south-beyond-dogpatch": {
+            "clearance": {
+              "offset": 2.2,
+              "station": 1954,
+              "length": 30
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "us101-bayview",
+      "from": "🪡",
+      "to": "🥬",
+      "via": [[3496, -4069, "Hwy 101 Southbound"]],
+      "contact": {
+        "roads": ["sf-contact/silver-avenue-bridge"],
+        "entry": [3115, -3001, "Silver Ave"],
+        "exit": [3019, -3063, "Silver Ave"],
+        "reverse": true
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "dogpatch-seventeenth",
+      "from": "🏥",
+      "to": "🚂"
+    },
+    {
+      "id": "dogpatch-twenty-third",
+      "from": "🏗️",
+      "to": "🛣️",
+      "via": [
+        [4380, -524],
+        [4190, -540]
+      ],
+      "contact": {
+        "roads": ["sf-contact/dogpatch-23rd-lower"],
+        "reverse": true,
+        "entry": [4257, -535, "23rd St"],
+        "exit": [4151, -543, "23rd St"]
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "mission-creek",
+      "from": "⚾",
+      "to": "🏀"
+    },
+    {
+      "id": "north-waterfront",
+      "from": "🍫",
+      "to": "⚓"
+    },
+    {
+      "id": "presidio",
+      "from": "🌸",
+      "to": "🚪"
+    },
+    {
+      "id": "outer-richmond",
+      "from": "🌷",
+      "to": "🦆"
+    },
+    {
+      "id": "park-west",
+      "from": "⛳",
+      "to": "🚣"
+    },
+    {
+      "id": "sunset",
+      "from": "🪻",
+      "to": "🧗"
+    },
+    {
+      "id": "great-highway",
+      "from": "🦒",
+      "to": "🌅"
+    },
+    {
+      "id": "lake-merced-southbound",
+      "from": "🐟",
+      "to": "🎣"
+    },
+    {
+      "id": "diamond-heights",
+      "from": "💎",
+      "to": "⛰️"
+    },
+    {
+      "id": "mission-southbound",
+      "from": "🖌️",
+      "to": "🌮"
+    },
+    {
+      "id": "excelsior-southbound",
+      "from": "🌺",
+      "to": "🧳"
+    }
+  ]
+}

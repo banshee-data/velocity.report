@@ -41,6 +41,21 @@ const cases = {
 };
 const defaultCases = Object.keys(cases);
 const i280Approach = ["i280-fifth-south-entry", "i280-king-to-mariposa"];
+const dogpatchOwners = [
+  ...i280Owners,
+  "808f7fb4",
+  "808f7fac",
+  "808f7f04",
+  "808f7efc",
+];
+const dogpatchApproach = [
+  ...i280Approach,
+  "i280-south-through-18th",
+  "i280-dogpatch-approach",
+];
+const dogpatchClearance = {
+  clearance: { offset: 2.2, station: 1954, length: 30 },
+};
 for (const [name, exit] of [
   ["i280-pennsylvania", "i280-pennsylvania-exit"],
   ["i280-18th", "i280-18th-exit"],
@@ -53,10 +68,47 @@ for (const [name, exit] of [
   };
 }
 cases["i280-mainline"] = {
-  roads: [...i280Approach, "i280-south-through-18th"],
-  owners: i280Owners,
-  speed: 20,
+  roads: [
+    ...dogpatchApproach,
+    "i280-south-through-dogpatch",
+    "i280-south-beyond-dogpatch",
+  ],
+  owners: dogpatchOwners,
+  speed: 22,
+  speedLimits: { "i280-south-through-dogpatch": 16 },
+  laneGuides: {
+    "i280-dogpatch-approach": { approach: 1.25, holdApproach: true },
+    "i280-south-through-dogpatch": { entranceEast: 1.25, entranceMetres: 20 },
+    "i280-south-beyond-dogpatch": dogpatchClearance,
+  },
 };
+for (const direction of ["north", "south"]) {
+  const north = direction === "north";
+  const exit = `i280-dogpatch-pennsylvania-${direction}`;
+  cases[`i280-dogpatch-exit-${direction}`] = {
+    roads: [...dogpatchApproach, "i280-dogpatch-off-ramp", exit],
+    owners: dogpatchOwners,
+    speed: 16,
+    speedLimits: { "i280-dogpatch-off-ramp": 12, [exit]: 8 },
+    laneGuides: {
+      "i280-dogpatch-off-ramp": { approach: -1.25, holdApproach: north },
+      [exit]: north
+        ? {
+            entranceEast: -1.25,
+            clearance: { offset: -2, station: 26, length: 13 },
+          }
+        : null,
+    },
+  };
+  const entry = `i280-dogpatch-pennsylvania-on-${direction}`;
+  cases[`i280-dogpatch-enter-${direction}`] = {
+    roads: [entry, "i280-dogpatch-on-ramp", "i280-south-beyond-dogpatch"],
+    owners: dogpatchOwners,
+    speed: 18,
+    speedLimits: { [entry]: 9, "i280-dogpatch-on-ramp": 13 },
+    laneGuides: { "i280-south-beyond-dogpatch": dogpatchClearance },
+  };
+}
 
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
@@ -153,6 +205,7 @@ async function drive(page, sections, speed) {
       let pulse = 0;
       let blocked = 0;
       let maxSpeed = 0;
+      let lastSupported;
       return new Promise((resolve) => {
         function finish(status) {
           for (const code of held) key(code, false);
@@ -161,6 +214,7 @@ async function drive(page, sections, speed) {
             seen: [...seen.values()],
             enclosed: [...enclosed],
             exit: pose,
+            lastSupported,
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
           });
@@ -183,15 +237,18 @@ async function drive(page, sections, speed) {
           if (surfaceId && !ids.includes(surfaceId))
             return finish("wrong road");
           if (surfaceId && !seen.has(surfaceId)) seen.set(surfaceId, pose);
+          if (surfaceId && pose.grounded) lastSupported = pose;
           if (surfaceId && pose.camera === "tunnel") enclosed.add(surfaceId);
           if (!seen.size && now - started > 20_000)
             return finish("missed entrance");
           if (!surfaceId && seen.has(ids.at(-1)) && pose.grounded)
             return finish("left road");
+          if (!surfaceId && seen.size && pose.grounded)
+            return finish("lost intermediate contact");
           blocked = d.roadBlocked === "true" ? blocked + 1 : 0;
           if (blocked >= 10) return finish("blocked");
           if (document.body.dataset.replay === "true") return finish("crashed");
-          if (now - started > 240_000) return finish("timed out");
+          if (now - started > 460_000) return finish("timed out");
 
           if (now - last >= 27) {
             const input = cityDriveControls(course, {
@@ -230,6 +287,7 @@ async function drive(page, sections, speed) {
 }
 
 async function main() {
+  const { steeringLine } = await import("./steering-line.mjs");
   const names = process.argv.length > 2 ? process.argv.slice(2) : defaultCases;
   for (const name of names)
     assert.ok(Object.hasOwn(cases, name), `Unknown case ${name}`);
@@ -260,20 +318,40 @@ async function main() {
   });
   try {
     for (const name of names) {
-      const { roads: slugs, speed, reverse, rampApproach } = cases[name];
+      const {
+        roads: slugs,
+        speed,
+        reverse,
+        rampApproach,
+        laneGuides = {},
+        speedLimits = {},
+      } = cases[name];
       const sections = slugs.map((slug) => {
         const road = roads.get(prefix + slug);
         assert.ok(road, slug);
-        const positions = driveLine(road, rampApproach);
+        const guide = laneGuides[slug];
+        const positions = guide
+          ? steeringLine(road.points, guide)
+          : driveLine(road, rampApproach);
         return {
           id: road.id,
           kind: road.kind,
           width_m: road.width,
           positions: reverse ? positions.toReversed() : positions,
-          speed_mps: speed,
+          speed_mps: speedLimits[slug] ?? speed,
           sources: [],
         };
       });
+      for (let i = 1; i < sections.length; i++) {
+        const previous = sections[i - 1].positions.at(-1);
+        const [x, y, z] = sections[i].positions[0];
+        assert.ok(
+          Math.hypot(previous[0] - x, previous[1] - y) < 0.05 &&
+            Math.abs(previous[2] - z) < 0.002,
+          `Open steering guide from ${sections[i - 1].id} to ${sections[i].id}`,
+        );
+        sections[i].positions = [previous, ...sections[i].positions.slice(1)];
+      }
       const [start, next] = sections[0].positions;
       const heading = Math.atan2(next[1] - start[1], next[0] - start[0]);
       const approach = speed > 8 ? 11 : 7;
