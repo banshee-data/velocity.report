@@ -686,3 +686,31 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `acce98f2f1ff8528e988cda1b2452e3b3819f8d390013855d9fe7b8edf90e19f`.
 - Contact SHA-256 `4c535f963f6be0eb2a990925c6bf0e9b1bd53b560652695973cb0a6da4bd77f1`.
 - The bake changes six tile files and keeps the existing emoji placement revision.
+
+## Central Freeway to the lower Bay Bridge
+
+The eastbound bake closes the 1.93 km gap between the interchange and the
+lower Bay Bridge approach. From ordinary South Van Ness pavement, the
+through route climbs to eastbound I-80, follows the lower merge at Essex,
+crosses the West Span, and goes through the lower Yerba Buena bore. It
+ends on the east approach before the Oakland span.
+
+The April 2023 survey supplies 249 depth-12 EPT nodes. Near Essex, the
+lower contact rises from 27.2 m to 32.43 m NAVD88 beneath an upper deck
+about 8 m higher. The lower fit interpolates 7.9 m between two observed
+stations. The steepest longitudinal grade is 4.4% on the lower climb and
+8.5% on the merge. The game preserves the provisional upper-deck geometry.
+
+The fixed-step drive covered all 15 sections in 454.8 s, reached 44.5 mph
+and stayed grounded. The manual-input guide changes lanes around three
+mapped trees. All 20 frozen emoji courses passed again, covering 52.45 km
+with zero dips deeper than 0.5 m and a maximum seam step of 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  central-to-lower-bridge
+```
+
+- Game manifest SHA-256 `6a11518133065f83704de6962a6aad072b74ea3e371705a72da2c7e1a8e7e27a`.
+- Contact SHA-256 `e2f4dbaf7672691dc8062481cb60e163e56a72e18cc31067fc2f6741bdfd0b19`.
+- The bake changes four tile files and keeps the existing emoji placement revision.
