@@ -8,6 +8,7 @@
 
 import { treeRadius } from "./sf-tree-damage.js";
 import { validBuildingFace } from "./sf-building-walls.js";
+import { GROUND_MISSING, groundDetailAt } from "./sf-drive-surface.js";
 
 import {
   drivingHull,
@@ -17,7 +18,7 @@ import {
 } from "./sf-chassis-contact.js";
 export { CAR_HALF_LENGTH, CAR_HALF_WIDTH } from "./sf-chassis-contact.js";
 
-export const GROUND_MISSING = -32768;
+export { GROUND_MISSING } from "./sf-drive-surface.js";
 
 /** Tiles to load and to drop around (x, y). `tiles` are manifest rows {t, x, y, half}. */
 export function tilesAround(tiles, x, y, loadMargin = 900, dropMargin = 1600) {
@@ -34,19 +35,21 @@ export function tilesAround(tiles, x, y, loadMargin = 900, dropMargin = 1600) {
 
 /** Ground height (m, NAVD88) at tile-local (lx, ly) metres, or null outside the grid or on a gap. */
 export function groundAt(g, lx, ly, allowGaps = true) {
-  const n = g.n;
+  if (groundDetailAt(g.detail, lx, ly)) g = g.detail;
+  const columns = g.columns ?? g.n;
+  const rows = g.rows ?? g.n;
   const fx = (lx - g.x0) / g.s;
   const fy = (ly - g.y0) / g.s;
-  if (fx < 0 || fy < 0 || fx > n - 1 || fy > n - 1) return null;
-  const i = Math.min(Math.floor(fx), n - 2);
-  const j = Math.min(Math.floor(fy), n - 2);
+  if (fx < 0 || fy < 0 || fx > columns - 1 || fy > rows - 1) return null;
+  const i = Math.min(Math.floor(fx), columns - 2);
+  const j = Math.min(Math.floor(fy), rows - 2);
   const tx = fx - i;
   const ty = fy - j;
   const z = [
-    g.z[j * n + i],
-    g.z[j * n + i + 1],
-    g.z[(j + 1) * n + i],
-    g.z[(j + 1) * n + i + 1],
+    g.z[j * columns + i],
+    g.z[j * columns + i + 1],
+    g.z[(j + 1) * columns + i],
+    g.z[(j + 1) * columns + i + 1],
   ];
   // The renderer omits a quad with any missing corner. Physics must not drive on it.
   if (!allowGaps && z.includes(GROUND_MISSING)) return null;

@@ -1,0 +1,1 @@
+- Rebaked the reviewed Dogpatch pavement at 1 m resolution and used matching triangles for game contact, terrain and paint. Retained the Louisiana Street jog, trimmed the 21st Street embankment crossing and stopped 23rd Street contact at the I-280 aerial shadow. Rendered the supported lower deck separately and added a citywide grade audit and regression tests.
