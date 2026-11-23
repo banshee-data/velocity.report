@@ -332,6 +332,7 @@ cases["dogpatch-to-sixth-northbound"] = {
   ],
   owners: ["808f7fb4", "808f7fbc", "808f7fcc", "808f7fd4", "808f7fac"],
   speed: 17,
+  forks: [["i280-mariposa-northbound", "i280-sixth-northbound", -1.4]],
   speedLimits: {
     "i280-dogpatch-east-north-entry": 12,
     "i280-sixth-northbound": 14,
@@ -347,6 +348,12 @@ cases["dogpatch-to-sixth-northbound"] = {
       clearance: { offset: -1.8, station: 696, length: 32 },
     },
   },
+};
+const dogpatchNorth = cases["dogpatch-to-sixth-northbound"];
+cases["dogpatch-to-fifth-northbound"] = {
+  ...dogpatchNorth,
+  roads: [...dogpatchNorth.roads.slice(0, -1), "i280-north-fifth-exit"],
+  forks: [["i280-mariposa-northbound", "i280-north-fifth-exit", 1.65]],
 };
 for (const reverse of [false, true]) {
   cases[
