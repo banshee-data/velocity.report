@@ -1,0 +1,1 @@
+- Continued the baked southbound I-280 drive from Fifth Street to the Pennsylvania Avenue and 18th Street exits. Both [fork and pavement handoffs](../../plans/ui-sf-layered-roads-plan.md#southbound-i-280-at-18th-street) passed the game’s fixed-step driving check.

@@ -252,8 +252,36 @@ entry, the lower ramp and the merge using the bundled contacts and collision
 geometry. The [Chrome smoke test](../../tools/sf-drive/smoke-baked-structure.cjs)
 checks entry through manual controls and that the overlapping street remains
 at 3.13 m. In the replay, the car enters at 2.87 m and joins the mainline at
-18.15 m. The next exit still needs playable contact. The [route audit](../ui/sf-road-route-audit.md) describes the
+18.15 m. The [route audit](../ui/sf-road-route-audit.md) describes the
 original wrong-level failure.
+
+### Southbound I-280 at 18th Street
+
+**World and Physics.** The playable contact continues from the southbound
+mainline to the common off-ramp, then separates into Pennsylvania Avenue and
+18th Street. The branches share one transverse seam and each has a ground
+portal. A car can only choose a branch reached through a declared connection.
+When both ribbons cover the wheels at the split, the solver compares the car’s
+direction of travel with the next eight metres of each branch. An unloaded
+owner is requested before the join.
+
+The measured alignment and grade sources are the pinned DataSF centrelines and
+3DEP returns. Both street terminals use the baked ground height. The 18th
+Street portal sits four metres before the mapped end, where the ramp and
+pavement are already at matching levels and the driver has room to turn on
+the street. Three new strips live in tile `808f7fcc`. The adjacent 5th Street
+entry keeps its existing cross-tile contact, and the bake reuses the current
+emoji placements.
+
+**Data.** The contact product is
+`bf8877c35256e0e73e75eb23240ec79fb2afd6b10ac9b559391fe5f396ef16eb`.
+Run the [two-course exit check](../../tools/sf-drive/road-audit-i280-exits.json)
+with `node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-i280-exits.json`.
+It requires each declared join and at least 20 m on exterior pavement after
+the exit. The Pennsylvania Avenue run collected both emojis. The 18th Street
+run continued 1.73 km on city streets before a tree stopped it near Potrero.
+Neither baked branch flagged a dip over the surrounding eight-metre chord.
+Their full baked approach profiles peaked at 14.0% and 8.1%, respectively.
 
 ### Stockton tunnel contact
 

@@ -1,0 +1,40 @@
+{
+  "manifestSha256": "36e992e17571bcc1627ac7ca98a79c885e1850c0582d046c32e83ff81b1eca74",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "i280-pennsylvania",
+      "from": "🛞",
+      "to": "🚂",
+      "expectContactExit": true,
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-18th-off-ramp",
+          "sf-contact/i280-pennsylvania-exit"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [4080.9, 372.9, "Pennsylvania Ave"]
+      }
+    },
+    {
+      "id": "i280-18th-west",
+      "from": "🛞",
+      "to": "🏥",
+      "expectContactExit": true,
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-18th-off-ramp",
+          "sf-contact/i280-18th-exit"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [4087.4, 307.3, "18th St"]
+      }
+    }
+  ]
+}

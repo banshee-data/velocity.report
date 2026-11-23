@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as THREE from "../../vendor/three/three.module.js";
 import { createFlightTimeline, sampleFlightProfile } from "../sf-airtime.js";
+import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
 import { buildingWalls, validBuildingFace } from "../sf-building-walls.js";
 import { createCarReveal } from "../sf-car-reveal.js";
 import {
@@ -169,6 +170,93 @@ test("the city drive crosses from a deck to street terrain and rejoins the highw
       .map(({ id }) => id),
     ["fourth-street-entrance"],
   );
+});
+
+test("steering across a shared ramp seam chooses the aligned branch", () => {
+  const seam = { bearing: 0, width: 8 };
+  const baked = (id, points, seams) =>
+    buildBakedRoadContact({
+      id,
+      kind: "ramp",
+      width: 8,
+      owners: ["808f7fcc", "808f7fcc"],
+      points,
+      seams,
+    });
+  const trunk = baked(
+    "trunk",
+    [
+      [-16, 0, 12],
+      [-8, 0, 12],
+      [0, 0, 12],
+    ],
+    {
+      end: seam,
+    },
+  );
+  const left = baked(
+    "left",
+    [
+      [0, 0, 12],
+      [4, 1, 12],
+      [10, 4, 12],
+    ],
+    {
+      start: seam,
+    },
+  );
+  const straight = baked(
+    "straight",
+    [
+      [0, 0, 12],
+      [4, 0, 12],
+      [10, 0, 12],
+    ],
+    {
+      start: seam,
+    },
+  );
+  const transitions = [straight, left].map(({ surface }) => ({
+    id: `join-${surface.id}`,
+    from: "trunk:end",
+    to: `${surface.id}:start`,
+    direction: "forward",
+    support: "interpolated",
+    status: "joined",
+  }));
+  const network = indexRoadNetwork(transitions);
+  const pieces = [trunk, straight, left];
+  network.add({
+    endpoints: pieces.flatMap((road) => road.endpoints),
+    transitions,
+  });
+  const surfaces = new Map(pieces.map(({ surface }) => [surface.id, surface]));
+  for (const [heading, expected] of [
+    [0, "straight"],
+    [0.38, "left"],
+  ]) {
+    const car = {
+      x: -0.015,
+      y: 0,
+      z: 12,
+      v: 6,
+      heading,
+      grounded: true,
+      surfaceId: "trunk",
+    };
+    const next = driveOnRoadNetwork(
+      car,
+      { throttle: 0 },
+      1 / 120,
+      trunk.surface,
+      surfaces,
+      network,
+      () => false,
+    );
+    assert.equal(next.surfaceId, expected);
+    assert.equal(next.z, 12);
+    assert.equal(next.seam.surfaceId, "trunk");
+  }
 });
 
 test("manual pavement can leave the guide, brake to rest, and self-driving rejoins without a reset", () => {
