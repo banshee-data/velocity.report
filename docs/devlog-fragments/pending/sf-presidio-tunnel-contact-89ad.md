@@ -1,0 +1,1 @@
+- Baked both Presidio Parkway directions through Battery and Main Post and added the lower Toll Plaza road, with [four Chrome corridor checks](../../plans/ui-sf-layered-roads-plan.md#presidio-parkway-and-toll-plaza-contact) for correct contact through each bore.

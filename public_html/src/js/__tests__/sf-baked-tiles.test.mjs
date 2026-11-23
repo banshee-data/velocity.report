@@ -133,10 +133,10 @@ test("Broadway's lower lanes clear the building while its upper surfaces stay so
     JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
   );
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
-  assert.deepEqual(roadBake.overheadBuildingPatches, {
-    "808580ec": 1,
-    "808580f4": 2,
-  });
+  assert.deepEqual(
+    owners.map((t) => roadBake.overheadBuildingPatches[t]),
+    [1, 2],
+  );
   const bores = tiles.map(({ playableRoads }) =>
     playableRoads.filter(({ id }) => id.startsWith("sf-contact/broadway-")),
   );
@@ -160,4 +160,81 @@ test("Broadway's lower lanes clear the building while its upper surfaces stay so
   const north = 4077.38;
   assert.ok(Math.abs(surface.heightAt(east, north) - 52.91) < 0.1);
   assert.ok(Math.abs(groundAtWorld(tiles, east, north, true) - 93.81) < 0.1);
+});
+
+test("Presidio's four bores turn into continuous contact at their portals", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808586d4", "808586dc", "808586ec"].map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) => playableRoads.map((r) => [r.id, r])),
+  );
+  const transitions = new Map(
+    roadBake.playableTransitions.map(({ from, to }) => [from, to]),
+  );
+  for (const [direction, bores] of [
+    ["nb", ["main-post-northbound", "battery-northbound"]],
+    ["sb", ["battery-southbound", "main-post-southbound"]],
+  ]) {
+    const start = `sf-contact/presidio-${direction}-entry`;
+    const end = `sf-contact/presidio-${direction}-exit`;
+    let id = start;
+    const tunnels = [];
+    const visited = new Set();
+    while (id) {
+      assert.ok(!visited.has(id), `Road cycle at ${id}`);
+      visited.add(id);
+      const road = roads.get(id);
+      assert.ok(road, id);
+      const baked = buildBakedRoadContact(road);
+      assert.ok(baked, id);
+      if (road.kind === "tunnel") {
+        assert.ok(baked.appearance, id);
+        tunnels.push(id);
+      }
+      for (const terminal of road.groundEnds) {
+        const [x, y, z] = road.points.at(terminal === "start" ? 0 : -1);
+        assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03, id);
+      }
+      for (let i = 1; i < road.points.length; i++) {
+        const [x, y, z] = road.points[i];
+        const [px, py, pz] = road.points[i - 1];
+        assert.ok(Math.abs(z - pz) / Math.hypot(x - px, y - py) < 0.075, id);
+      }
+      id = transitions.get(`${id}:end`)?.replace(/:start$/, "");
+    }
+    assert.deepEqual(
+      tunnels,
+      bores.map((bore) => `sf-contact/${bore}`),
+    );
+    assert.deepEqual(roads.get(start).groundEnds, ["start"]);
+    assert.deepEqual(roads.get(end).groundEnds, ["end"]);
+    assert.equal([...visited].at(-1), end);
+  }
+
+  const [north, , plaza] = tiles;
+  for (const [tile, name, entry, upper] of [
+    [north, "main-post-southbound", { x: -1038.3, y: 4807.3, heading: 0 }, 8.3],
+    [
+      plaza,
+      "toll-plaza-tunnel",
+      { x: -3169.55, y: 5207.47, heading: 0.625 },
+      55.4,
+    ],
+  ]) {
+    const road = roads.get(`sf-contact/${name}`);
+    const { surface, appearance, portals } = buildBakedRoadContact(road);
+    assert.ok(appearance, name);
+    if (tile === plaza) {
+      assert.equal(portals.length, 2);
+      for (const { x, y, z } of portals)
+        assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+    }
+    const floor = surface.heightAt(entry.x, entry.y);
+    assert.ok(Number.isFinite(floor), name);
+    const indexes = [buildCollisionIndex(tile, tile.t)];
+    assert.equal(collisionAt(indexes, entry, floor), null, name);
+    assert.equal(collisionAt(indexes, entry, upper), "building", name);
+  }
 });
