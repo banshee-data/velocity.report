@@ -58,7 +58,7 @@ def test_ramp_join_shares_a_point_and_blends_heading_and_grade(left_kind, right_
 def test_overhead_patches_use_original_row_indices_and_check_source_records():
     encoded = road_layers["encoded"]
     digest = road_layers["digest"]
-    patch_buildings = road_layers["patch_overhead_buildings"]
+    patch_buildings = road_layers["patch_source_rows"]
     first, untouched, last = [[base, [[base + 20]]] for base in (10, 50, 70)]
     buildings = [first, untouched, last]
     cover, side, other = [[base, [[100]]] for base in (30, 10, 90)]
@@ -72,6 +72,33 @@ def test_overhead_patches_use_original_row_indices_and_check_source_records():
         patch_buildings(buildings, [*patches, patches[0]])
     with pytest.raises(ValueError, match="does not match source row 0"):
         patch_buildings([last, untouched, first], patches)
+
+
+def test_covered_ground_roads_can_belong_to_a_different_tile_from_the_bore(tmp_path):
+    encoded = road_layers["encoded"]
+    digest = road_layers["digest"]
+    playable_product = road_layers["playable_product"]
+    patch = {"index": 0, "sha256": "source", "parts": [["approach"], ["exit"]]}
+    product = {
+        "format": "sf-game-road-contact",
+        "version": 1,
+        "base_sha256": "base",
+        "road_revision": "revision",
+        "roads": [],
+        "transitions": [],
+        "covered_ground_road_patches": {"8085871c": [patch]},
+    }
+    path = tmp_path / "structures.json"
+    payload = encoded(product)
+    path.write_bytes(payload)
+    manifest = {"tiles": [{"t": "8085871c"}]}
+    _, _, roads, index = playable_product(
+        path, digest(payload), "base", "revision", manifest
+    )
+    assert roads == {"8085871c": [patch]}
+    assert index["coveredGroundRoadPatches"] == {"8085871c": 1}
+    with pytest.raises(ValueError, match="must name base tiles"):
+        playable_product(path, digest(payload), "base", "revision", {"tiles": []})
 
 
 def test_bundled_approach_requires_exact_parent_and_preserves_original_sections(

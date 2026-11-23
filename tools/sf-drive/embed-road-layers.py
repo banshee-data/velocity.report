@@ -35,26 +35,24 @@ def checked(source, name, entry):
     return raw
 
 
-def patch_overhead_buildings(buildings, patches):
-    """Apply all replacements against the original, ordered building records."""
+def patch_source_rows(rows, patches):
+    """Apply all replacements against the original, ordered tile records."""
     replacements = {}
     for patch in patches:
         index = patch["index"]
         if (
             type(index) is not int
-            or not 0 <= index < len(buildings)
+            or not 0 <= index < len(rows)
             or index in replacements
-            or digest(encoded(buildings[index])) != patch["sha256"]
+            or digest(encoded(rows[index])) != patch["sha256"]
             or not patch["parts"]
         ):
-            raise ValueError(
-                f"Overhead building patch does not match source row {index}"
-            )
+            raise ValueError(f"Tile patch does not match source row {index}")
         replacements[index] = patch["parts"]
     return [
         part
-        for index, building in enumerate(buildings)
-        for part in replacements.get(index, [building])
+        for index, row in enumerate(rows)
+        for part in replacements.get(index, [row])
     ]
 
 
@@ -148,19 +146,26 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             or seam_a != seam_b
         ):
             raise ValueError(f"Open playable join {transition['id']}")
-    patches = product.get("overhead_building_patches", {})
-    if not patches.keys() <= by_tile.keys():
+    building_patches = product.get("overhead_building_patches", {})
+    road_patches = product.get("covered_ground_road_patches", {})
+    if not building_patches.keys() <= by_tile.keys():
         raise ValueError("Overhead building patches must belong to playable road tiles")
+    if not road_patches.keys() <= {tile["t"] for tile in tiles}:
+        raise ValueError("Covered ground road patches must name base tiles")
     release = {
         "playableSha256": sha256,
         "playableTransitions": product["transitions"],
         "playableReplaces": sorted(replaced),
     }
-    if patches:
+    if building_patches:
         release["overheadBuildingPatches"] = {
-            token: len(records) for token, records in patches.items()
+            token: len(records) for token, records in building_patches.items()
         }
-    return by_tile, patches, release
+    if road_patches:
+        release["coveredGroundRoadPatches"] = {
+            token: len(records) for token, records in road_patches.items()
+        }
+    return by_tile, building_patches, road_patches, release
 
 
 def with_drive_approaches(drives, path, expected_sha256):
@@ -252,10 +257,12 @@ def bake(
             for token in sorted(tokens):
                 by_tile[token].append(run)
             run_count += 1
-    playable_tiles, overhead_patches, playable_index = ({}, {}, {})
+    playable_tiles, overhead_patches, road_patches, playable_index = ({}, {}, {}, {})
     if playable is not None:
-        playable_tiles, overhead_patches, playable_index = playable_product(
-            playable, playable_sha256, digest(raw_base), roads["revision"], manifest
+        playable_tiles, overhead_patches, road_patches, playable_index = (
+            playable_product(
+                playable, playable_sha256, digest(raw_base), roads["revision"], manifest
+            )
         )
     tiles_out = output / "tiles"
     tiles_out.mkdir(parents=True)
@@ -266,7 +273,7 @@ def bake(
         if digest(raw) != roads["tiles"][token]["base_tile_gzip_sha256"]:
             raise ValueError(f"Base tile checksum differs for {token}")
         payload = raw
-        if token in by_tile or token in playable_tiles:
+        if token in by_tile or token in playable_tiles or token in road_patches:
             content = json.loads(gzip.decompress(raw))
             if token in by_tile:
                 content["raisedRoads"] = [
@@ -276,9 +283,9 @@ def bake(
             if token in playable_tiles:
                 content["playableRoads"] = playable_tiles[token]
             if token in overhead_patches:
-                content["b"] = patch_overhead_buildings(
-                    content["b"], overhead_patches[token]
-                )
+                content["b"] = patch_source_rows(content["b"], overhead_patches[token])
+            if token in road_patches:
+                content["r"] = patch_source_rows(content["r"], road_patches[token])
             payload = gzip.compress(encoded(content), compresslevel=9, mtime=0)
         (tiles_out / name).write_bytes(payload)
         tile["bytes"] = len(payload)
