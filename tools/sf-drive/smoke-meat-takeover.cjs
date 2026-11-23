@@ -76,10 +76,7 @@ const { chromium } = require("playwright");
           await page.locator("#insuranceRate").textContent(),
           /Meter off/,
         );
-        assert.match(
-          await page.locator("#insuranceLimit").textContent(),
-          /^50 mph game limit · (?:1|2|4|8)×$/,
-        );
+        assert.equal(await page.locator("#insuranceLimit").textContent(), "");
         assert.equal(await page.locator("#insuranceMeter").isVisible(), false);
         assert.equal(await page.locator("#selfDrivingIcon").isVisible(), true);
         const action = takeControl ? confirm : cancel;

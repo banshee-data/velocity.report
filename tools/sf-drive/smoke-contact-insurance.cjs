@@ -27,7 +27,7 @@ async function setup(browser, suffix) {
       drop() {
         const floor = surface.heightAt(car.x, car.y);
         if (!Number.isFinite(floor)) throw Error("Missing highway support");
-        car = {...car, z:floor + 4, v:19, vx:19*Math.cos(car.heading),
+        car = {...car, z:floor + 8, v:19, vx:19*Math.cos(car.heading),
           vy:19*Math.sin(car.heading), vz:0, grounded:false, leavingRoad:true};
       },
       strike() {
@@ -106,7 +106,7 @@ ${hook}`,
       return (
         car.v > 19.15 &&
         car.limit === 50 &&
-        car.multiplier >= 1 &&
+        car.multiplier === 1 &&
         Math.hypot(car.x - before.x, car.y - before.y) > 12
       );
     }, start);
@@ -161,7 +161,7 @@ ${hook}`,
     await skip.click();
     assert.deepEqual(city.errors, []);
     console.log(
-      "Chromium verified recoverable highway touchdown, continued acceleration, blown-down baked tree in live and archived replay, and a one-time crash charge.",
+      "Chromium verified recoverable highway touchdown, continued acceleration, baked tree falling in live and archived replay, and a one-time crash charge.",
     );
   } finally {
     await browser.close();
