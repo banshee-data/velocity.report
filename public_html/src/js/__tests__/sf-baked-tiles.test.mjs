@@ -127,6 +127,34 @@ test("the playable I-280 parts keep identical contact across neighbouring owners
   );
 });
 
+test("southbound I-280 retains both fork branches and rejoins lower pavement", () => {
+  const t = "808f7fcc";
+  const tile = JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`)));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const fork = "sf-contact/i280-king-to-mariposa:end";
+  const through = "sf-contact/i280-south-through-18th";
+  assert.deepEqual(
+    roadBake.playableTransitions
+      .filter(({ from }) => from === fork)
+      .map(({ to }) => to)
+      .sort(),
+    ["sf-contact/i280-18th-off-ramp:start", `${through}:start`],
+  );
+  const road = tile.playableRoads.find(({ id }) => id === through);
+  const { portals, surface } = buildBakedRoadContact(road);
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  const ground = groundAtWorld([tile], x, y, true);
+  assert.ok(Number.isFinite(ground) && Math.abs(ground - z) < 0.03);
+  const underRamp = surface.heightAt(4161.917, 311.135);
+  assert.ok(underRamp > 20.3 && underRamp < 20.6);
+  for (let i = 1; i < road.points.length; i++) {
+    const [ax, ay, az] = road.points[i - 1];
+    const [bx, by, bz] = road.points[i];
+    assert.ok(Math.abs(bz - az) / Math.hypot(bx - ax, by - ay) < 0.04);
+  }
+});
+
 test("Broadway's lower lanes clear the building while its upper surfaces stay solid", () => {
   const owners = ["808580ec", "808580f4"];
   const tiles = owners.map((t) =>

@@ -1,4 +1,4 @@
-// Drive the Presidio Parkway and Toll Plaza corridors using the game's keyboard path.
+// Drive baked corridors using the game's keyboard path.
 const assert = require("node:assert/strict");
 const { readFile } = require("node:fs/promises");
 const { join } = require("node:path");
@@ -9,6 +9,7 @@ const { confirmManualTakeover } = require("./manual-takeover.cjs");
 const origin = process.env.SF_BASE_URL || "http://127.0.0.1:8090";
 const candidate = process.env.SF_CANDIDATE_DIR;
 const owners = ["808586d4", "808586dc", "808586ec"];
+const i280Owners = ["808f7fd4", "808f7fcc"];
 const tilePath = (token) => `tiles/${token}.json.gz`;
 const prefix = "sf-contact/";
 const cases = {
@@ -38,6 +39,24 @@ const cases = {
   "toll-eastbound": { roads: ["toll-plaza-tunnel"], speed: 8 },
   "toll-westbound": { roads: ["toll-plaza-tunnel"], speed: 8, reverse: true },
 };
+const defaultCases = Object.keys(cases);
+const i280Approach = ["i280-fifth-south-entry", "i280-king-to-mariposa"];
+for (const [name, exit] of [
+  ["i280-pennsylvania", "i280-pennsylvania-exit"],
+  ["i280-18th", "i280-18th-exit"],
+]) {
+  cases[name] = {
+    roads: [...i280Approach, "i280-18th-off-ramp", exit],
+    owners: i280Owners,
+    speed: 12,
+    rampApproach: true,
+  };
+}
+cases["i280-mainline"] = {
+  roads: [...i280Approach, "i280-south-through-18th"],
+  owners: i280Owners,
+  speed: 20,
+};
 
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
@@ -46,23 +65,37 @@ async function asset(pathname) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-function driveLine({ id, points }) {
+function driveLine({ id, points }, rampApproach) {
   // Steer around the median tree when approaching northbound, and follow the
   // clear left lane through the roof constriction in the southbound Main Post bore.
   const tree = id === `${prefix}presidio-nb-entry`;
-  if (!tree && id !== `${prefix}main-post-southbound`) return points;
+  const ramp = rampApproach && id === `${prefix}i280-king-to-mariposa`;
+  if (!ramp && !tree && id !== `${prefix}main-post-southbound`) return points;
   const smooth = (v) => {
     const n = Math.max(0, Math.min(1, v));
     return n * n * (3 - 2 * n);
   };
-  let distance = 0;
+  const distances = [0];
+  for (let i = 1; i < points.length; i++) {
+    distances.push(
+      distances.at(-1) +
+        Math.hypot(
+          points[i][0] - points[i - 1][0],
+          points[i][1] - points[i - 1][1],
+        ),
+    );
+  }
   return points.map(([x, y, z], i) => {
     const a = points[Math.max(0, i - 1)];
     const b = points[Math.min(points.length - 1, i + 1)];
-    if (i) distance += Math.hypot(x - a[0], y - a[1]);
-    const offset = tree
-      ? 1.75 * Math.max(0, 1 - ((distance - 81) / 25) ** 2) ** 2
-      : 2.5 * smooth((distance - 175) / 29) * smooth((273 - distance) / 29);
+    const distance = distances[i];
+    const remaining = distances.at(-1) - distance;
+    let offset =
+      2.5 * smooth((distance - 175) / 29) * smooth((273 - distance) / 29);
+    if (tree) offset = 1.75 * Math.max(0, 1 - ((distance - 81) / 25) ** 2) ** 2;
+    if (ramp)
+      offset =
+        1.45 * (1 - Math.exp(-remaining / 5)) * smooth((32 - remaining) / 18);
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
     const length = Math.hypot(dx, dy);
@@ -197,12 +230,16 @@ async function drive(page, sections, speed) {
 }
 
 async function main() {
-  const names =
-    process.argv.length > 2 ? process.argv.slice(2) : Object.keys(cases);
+  const names = process.argv.length > 2 ? process.argv.slice(2) : defaultCases;
+  for (const name of names)
+    assert.ok(Object.hasOwn(cases, name), `Unknown case ${name}`);
+  const tokens = [
+    ...new Set(names.flatMap((name) => cases[name].owners ?? owners)),
+  ];
   const patchedPaths = [
     "tiles/manifest.json",
     "quest-route.json",
-    ...owners.map(tilePath),
+    ...tokens.map(tilePath),
   ];
   const snapshots = new Map(
     await Promise.all(
@@ -212,7 +249,7 @@ async function main() {
   const manifest = JSON.parse(snapshots.get("tiles/manifest.json"));
   const quest = JSON.parse(snapshots.get("quest-route.json"));
   const roads = new Map();
-  for (const token of owners) {
+  for (const token of tokens) {
     const tile = JSON.parse(gunzipSync(snapshots.get(tilePath(token))));
     for (const road of tile.playableRoads ?? []) roads.set(road.id, road);
   }
@@ -223,12 +260,11 @@ async function main() {
   });
   try {
     for (const name of names) {
-      assert.ok(Object.hasOwn(cases, name), `Unknown case ${name}`);
-      const { roads: slugs, speed, reverse } = cases[name];
+      const { roads: slugs, speed, reverse, rampApproach } = cases[name];
       const sections = slugs.map((slug) => {
         const road = roads.get(prefix + slug);
         assert.ok(road, slug);
-        const positions = driveLine(road);
+        const positions = driveLine(road, rampApproach);
         return {
           id: road.id,
           kind: road.kind,
