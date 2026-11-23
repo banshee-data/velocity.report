@@ -411,3 +411,27 @@ Street. No driven depression was greater than 0.5 m.
 
 The Alemany game manifest SHA-256 is
 `88617e9851bae2ab896d5c02ac28d40f828d8534ac054d984d9610df9bea844a`.
+
+## Yerba Buena westbound to Fremont and Fourth Street
+
+The 592 m Yerba Buena start adds an east approach, the 164.52 m upper
+tunnel, and a west approach to the existing Bay Bridge drive. The tunnel
+connects the exposed pavement at 55.96 m and 52.31 m NAVD88 with an
+interpolated profile. The maximum tunnel grade is 2.92%. The three
+handoffs through the tunnel and onto the west span use common endpoints.
+The lower eastbound bore and ramp contact still need elevation
+and alignment evidence.
+
+The fixed-step run started at 50 mph and completed all nine sections in
+261.91 s of game time, with zero contact loss or scenery strikes. It
+left I-80 at Fremont and returned to westbound I-80 at Fourth. Both
+50 mph Fourth Street side probes rebounded without a crash. The original
+six-section run completed in 235.96 s.
+
+`node tools/sf-drive/replay-city-drive.mjs yerba-buena-westbound` replays the
+new start. With Playwright available via `NODE_PATH`,
+`node tools/sf-drive/smoke-yerba-buena.cjs` drives it in Chrome. The browser
+test checks grounded contact, the tunnel camera and the west span, Fremont
+and Fourth transitions. The game ships the full route with its checksummed
+same-origin bundle. Its manifest SHA-256 is
+`dcab6482510a25336b68c5cc81c7437c053ae1c423f2f27f4502dd215f5b7e9b`.

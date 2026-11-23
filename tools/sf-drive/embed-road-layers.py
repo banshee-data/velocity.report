@@ -163,7 +163,41 @@ def playable_product(path, sha256, base_hash, revision, manifest):
     return by_tile, patches, release
 
 
-def bake(source, base, quest, output, playable=None, playable_sha256=None):
+def with_drive_approaches(drives, path, expected_sha256):
+    raw = path.read_bytes()
+    if digest(raw) != expected_sha256:
+        raise ValueError("Game drive approaches checksum differs")
+    extension = json.loads(raw)
+    if extension["format"] != "sf-game-drive-approaches" or extension[
+        "base_drive_sha256"
+    ] != digest(drives):
+        raise ValueError("Game drive approaches need their pinned parent")
+    payload = json.loads(drives)
+    drive = next(
+        (row for row in payload["drives"] if row["id"] == extension["drive_id"]), None
+    )
+    if drive is None:
+        raise ValueError("Game drive approaches reference an unknown drive")
+    approaches = extension["approaches"]
+    ids = {row["id"] for row in approaches}
+    if len(ids) != len(approaches) or drive["id"] in ids:
+        raise ValueError("Game drive approaches need distinct start IDs")
+    drive["approaches"] = approaches
+    return encoded(payload), [
+        {"id": row["id"], "label": row["label"]} for row in approaches
+    ]
+
+
+def bake(
+    source,
+    base,
+    quest,
+    output,
+    playable=None,
+    playable_sha256=None,
+    approaches=None,
+    approaches_sha256=None,
+):
     raw_base = (base / "manifest.json").read_bytes()
     manifest = json.loads(raw_base)
     roads = json.loads(read_source(source, "manifest.json"))
@@ -177,6 +211,9 @@ def bake(source, base, quest, output, playable=None, playable_sha256=None):
             "Road bake and pristine base map must share a revision and frame"
         )
     drives = checked(source, "gamedrives.json", roads["files"]["gamedrives.json"])
+    starts = []
+    if approaches is not None:
+        drives, starts = with_drive_approaches(drives, approaches, approaches_sha256)
     drive_data = json.loads(drives)
     if drive_data["base_manifest_sha256"] != digest(raw_base):
         raise ValueError("The game route belongs to a different base map")
@@ -257,6 +294,8 @@ def bake(source, base, quest, output, playable=None, playable_sha256=None):
         **counts,
         **playable_index,
     }
+    if starts:
+        manifest["roadBake"]["driveApproaches"] = starts
     bundled_manifest = encoded(manifest)
     (tiles_out / "manifest.json").write_bytes(bundled_manifest)
     route = json.loads(quest.read_bytes())
@@ -277,9 +316,13 @@ if __name__ == "__main__":
     cli.add_argument("--output", type=Path, required=True)
     cli.add_argument("--playable", type=Path)
     cli.add_argument("--playable-sha256")
+    cli.add_argument("--approaches", type=Path)
+    cli.add_argument("--approaches-sha256")
     args = cli.parse_args()
     if bool(args.playable) != bool(args.playable_sha256):
         cli.error("--playable and --playable-sha256 must be provided together")
+    if bool(args.approaches) != bool(args.approaches_sha256):
+        cli.error("--approaches and --approaches-sha256 must be provided together")
     bake(
         args.source,
         args.base,
@@ -287,4 +330,6 @@ if __name__ == "__main__":
         args.output,
         args.playable,
         args.playable_sha256,
+        args.approaches,
+        args.approaches_sha256,
     )

@@ -1,0 +1,1 @@
+- Baked a 50 mph westbound Yerba Buena start through the upper tunnel and onto the Bay Bridge drive. The [route audit](../../ui/sf-road-route-audit.md#yerba-buena-westbound-to-fremont-and-fourth-street) records the portal anchors, the tunnel grade, and the run off at Fremont and back onto I-80 at Fourth.

@@ -10,6 +10,19 @@ import { leaveRoadSide, strikeHighwayRail } from "./sf-highway-edge.js";
 export const BAY_BRIDGE_CITY_DRIVE = "bay-bridge-highway-drive";
 export const BAY_BRIDGE_APPROACH = "Bay Bridge approach";
 
+export function cityDriveApproach(drive, id) {
+  const approach = drive.approaches?.find((record) => record.id === id);
+  return approach
+    ? {
+        ...drive,
+        id: approach.id,
+        label: approach.label,
+        initial_speed_mps: approach.initial_speed_mps,
+        sections: [...approach.sections, ...drive.sections],
+      }
+    : drive;
+}
+
 export function buildRaisedRoad(road, routeReferences) {
   if (road.profiles.every((id) => routeReferences?.has(id))) return null;
   const width = road.kind === "bridge" ? 3.5 : 2.5;
@@ -171,6 +184,12 @@ export function buildCityGameDrive(drive, groundHeight) {
     };
     const meshHeight = indexRoadContact(contact);
     const end_ids = [`${id}:start`, `${id}:end`];
+    const clearance = span.game_clearance_m;
+    if (
+      kind === "tunnel" &&
+      (!Number.isFinite(clearance) || clearance < 2.5 || clearance > 10)
+    )
+      throw new Error("The game tunnel needs a valid clearance.");
     surfaces.push({
       id,
       kind,
@@ -180,6 +199,9 @@ export function buildCityGameDrive(drive, groundHeight) {
       end_ids,
       end_tiles: ["game", "game"],
       terminalBearings: [tangents[start] + Math.PI, tangents[end]],
+      ...(kind === "tunnel" && {
+        appearance: { interior: [0, profile.at(-1).s_m], clearance },
+      }),
       rail: span.rail,
       railSides: span.rail_sides,
       railBounceOnly: id === "fourth-street-entrance",
@@ -313,7 +335,7 @@ export function driveOnCityRoute(
   const next =
     strikeHighwayRail(car, input, dt, surface) ||
     driveOnRoadNetwork(car, input, dt, surface, surfaces, network, () => false);
-  if (!next.blocked || next.waiting) return next;
+  if (!next.blocked || next.waiting || surface.kind === "tunnel") return next;
   if (surface.kind !== "ground")
     return leaveRoadSide(car, input, dt, surface) || next;
   const base = pavement?.(car.x, car.y);
