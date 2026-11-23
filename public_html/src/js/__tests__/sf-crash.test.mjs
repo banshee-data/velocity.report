@@ -240,6 +240,7 @@ test("the same normal impact breaks a thin trunk, cracks a larger one and leaves
   assert.equal(light, null);
   near(broken.diameter, 0.3);
   assert.equal(broken.stage, "broken");
+  assert.deepEqual(JSON.parse(JSON.stringify(broken)), broken);
   assert.equal(crack.stage, "cracked");
   assert.equal(crack.diameter, 0.4);
   assert.equal(damaged(strike(10, 10), 10), null);

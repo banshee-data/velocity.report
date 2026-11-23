@@ -1638,7 +1638,7 @@ export async function startDrive({
       kind,
       outcome: crash.outcome,
       fee,
-      treeDamage: treeEvent,
+      ...(treeEvent && { treeDamage: treeEvent }),
       telemetry: replayTelemetry(poses, impactTick, inbound),
     });
     if (hud.takeover.open) hud.takeover.close("cancel");
