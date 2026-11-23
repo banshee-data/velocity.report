@@ -97,6 +97,20 @@ test("the playable I-280 parts keep identical contact across neighbouring owners
     assert.ok(terminal?.[1], from);
     assert.deepEqual(terminal, terminals.get(to));
   }
+  const fork = "sf-contact/i280-18th-off-ramp:end";
+  const exits = [
+    "sf-contact/i280-18th-exit",
+    "sf-contact/i280-pennsylvania-exit",
+  ];
+  assert.deepEqual(
+    roadBake.playableTransitions
+      .filter(({ from }) => from === fork)
+      .map(({ to }) => to)
+      .sort(),
+    exits.map((exit) => `${exit}:start`),
+  );
+  for (const exit of exits)
+    assert.deepEqual(roads.get(exit).groundEnds, ["end"]);
   const stockton = roads.get("sf-contact/stockton-tunnel");
   assert.deepEqual(stockton.groundEnds, ["start", "end"]);
   assert.equal(stockton.kind, "tunnel");

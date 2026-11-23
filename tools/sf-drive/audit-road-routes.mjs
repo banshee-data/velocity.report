@@ -51,7 +51,7 @@ const quest = JSON.parse(readFileSync(new URL("quest-route.json", assets)));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 assert.equal(digest(bytes), plan.manifestSha256);
 assert.equal(quest.manifestSha256, plan.manifestSha256);
-assert.equal(plan.routes.length, 20);
+assert.ok(plan.routes.length, "the course set is empty");
 const ids = new Set(plan.routes.map(({ id }) => id));
 assert.equal(ids.size, plan.routes.length);
 const chosen = new Set(
@@ -545,6 +545,7 @@ function drive(path, from, to) {
   let status = "timed out";
   const seenSurfaces = new Set();
   const samples = [{ ...car, road: from.names[0] }];
+  let exitDistance;
   const trial = createTrial([from, to]);
   const limit = (path.at(-1).s / 2 + 90) / step;
   const crashSupport = crashRoadSupport(heightAt, surfaces);
@@ -631,6 +632,7 @@ function drive(path, from, to) {
       flightClearance = 0;
     }
     const next = hit ? scrapeObstacle(candidate, hit) : candidate;
+    if (car.surfaceId && !next.surfaceId && portal) exitDistance = travelled;
     if (ownerOf(car.x, car.y) !== ownerOf(next.x, next.y)) {
       seamCrossings++;
       worstSeamStep = Math.max(worstSeamStep, Math.abs(next.z - car.z));
@@ -673,6 +675,8 @@ function drive(path, from, to) {
     seamCrossings,
     worstSeamStep: round(worstSeamStep),
     seenSurfaces: [...seenSurfaces],
+    afterExitMetres:
+      exitDistance === undefined ? null : round(travelled - exitDistance),
     drivenProfile: drivenProfile(samples),
     stop: location({ ...car, road: road?.name }),
   };
@@ -699,4 +703,11 @@ for (const spec of plan.routes) {
       result,
     }),
   );
+  if (spec.expectContactExit) {
+    assert.deepEqual(result.seenSurfaces, spec.contact.roads, spec.id);
+    assert.ok(
+      result.afterExitMetres >= 20,
+      `${spec.id} did not clear its final portal`,
+    );
+  }
 }

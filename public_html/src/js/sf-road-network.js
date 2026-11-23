@@ -214,6 +214,20 @@ function terminals(surface) {
   });
 }
 
+function branchMiss(car, surface, terminal, travel) {
+  const end = terminal === surface.end_ids[1];
+  const profile = surface.profile;
+  const station = end
+    ? (profile.findLast((p) => profile.at(-1).s_m - p.s_m >= 8) ?? profile[0])
+    : (profile.find((p) => p.s_m >= 8) ?? profile.at(-1));
+  const [x, y] = station.position;
+  const reach = Math.hypot(car.x - x, car.y - y);
+  return Math.hypot(
+    car.x + travel * reach * Math.cos(car.heading) - x,
+    car.y + travel * reach * Math.sin(car.heading) - y,
+  );
+}
+
 export function driveOnRoadNetwork(
   car,
   input,
@@ -251,6 +265,7 @@ export function driveOnRoadNetwork(
       continue;
     waiting = requestOwner(owner) || waiting;
     const candidates = [];
+    let approach;
     for (const to of graph.transitions.get(id) || []) {
       const source = graph.endpoints.get(id);
       const destination = graph.endpoints.get(to);
@@ -273,19 +288,29 @@ export function driveOnRoadNetwork(
         (candidate.x - point[0]) * dx + (candidate.y - point[1]) * dy >= 0;
       if (z !== null && pastEnd) {
         candidates.push({
-          ...candidate,
-          z,
-          surfaceId: target.id,
-          seam: { surfaceId: surface.id, point },
+          car: {
+            ...candidate,
+            z,
+            surfaceId: target.id,
+            seam: { surfaceId: surface.id, point },
+          },
+          miss: branchMiss(candidate, target, to, travel),
         });
       } else if (
         !pastEnd &&
         surface.heightAt(candidate.x, candidate.y) !== null
       ) {
-        candidates.push(candidate);
+        approach ??= candidate;
       }
     }
-    if (candidates.length === 1) return candidates[0];
+    // A fork can have several legal surfaces at the same transverse seam.
+    // Use the vehicle's direction of travel to select among those surfaces.
+    if (candidates.length && !waiting) {
+      candidates.sort((a, b) => a.miss - b.miss);
+      const [first, second] = candidates;
+      if (!second || second.miss - first.miss > 0.05) return first.car;
+    }
+    if (approach) return approach;
   }
   if (next.blocked) return { ...next, waiting };
   return {
