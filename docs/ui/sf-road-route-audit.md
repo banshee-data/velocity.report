@@ -776,3 +776,27 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `10a57e879a516ba1934412adb05c6c9e23ea73c14a58952de08ac4311d29a9e2`.
 - Contact SHA-256 `152f1c139b493e07732803866e25cceb778cd46f46398901e52148ca1f20af18`.
 - The bake changes three tiles and preserves the existing emoji placement revision.
+
+## I-280 northbound city exit near Fifth Street
+
+The northbound Mariposa fork connects to both the existing Sixth Street
+exit and a 655 m exit near Fifth. The latter descends from 15.79 m to
+3.01 m NAVD88 at a maximum grade of 6.5%. The fit uses 97 depth-12 EPT
+nodes. Where the upper road hides the lower contact near station 423 m,
+the bake interpolates between the observed lower pavement on both sides.
+The ramp retains one identity across its two tile owners.
+
+Chrome drove from ordinary Dogpatch pavement through the fork and
+returned to ground contact near Fifth in 170.0 s, reaching 41.3 mph.
+The Sixth Street branch completed in 184.6 s, reaching 40.7 mph.
+All 20 frozen emoji courses passed over 52.45 km with zero driven dips
+deeper than 0.5 m and a maximum driven tile-seam step of 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  dogpatch-to-fifth-northbound dogpatch-to-sixth-northbound
+```
+
+- Game manifest SHA-256 `23b03ed2abf7c9d57c1768d8ed936f718b5ca93460bee3c0c4fef1dd32d34d0e`.
+- Contact SHA-256 `66943cdc2de0326e744eadb77565d96a0db3abcb2e7690195eac768b3a361cb1`.
+- The bake changes two tiles and preserves the existing emoji placement revision.

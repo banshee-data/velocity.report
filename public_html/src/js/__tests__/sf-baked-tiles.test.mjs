@@ -69,6 +69,36 @@ test("Dogpatch northbound runs below 18th Street and keeps 20th Street on its ow
   assert.ok(roadBake.coveredGroundRoadPatches["808f7fb4"] >= 1);
 });
 
+test("northbound I-280 keeps both city exits connected across tile owners", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7fcc", "808f7fd4"].map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const road = (tile, name) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`);
+  const incoming = road(tiles[0], "i280-mariposa-northbound");
+  const fifth = road(tiles[1], "i280-north-fifth-exit");
+  assert.deepEqual(fifth, road(tiles[0], "i280-north-fifth-exit"));
+  assert.deepEqual(fifth.owners, ["808f7fcc", "808f7fd4"]);
+  assert.deepEqual(fifth.points[0], incoming.points.at(-1));
+  assert.deepEqual(fifth.seams.start, incoming.seams.end);
+  const exits = roadBake.playableTransitions
+    .filter(
+      ({ from, direction }) =>
+        from === `${incoming.id}:end` && direction === "forward",
+    )
+    .map(({ to }) => to)
+    .sort();
+  assert.deepEqual(exits, [
+    "sf-contact/i280-north-fifth-exit:start",
+    "sf-contact/i280-sixth-northbound:start",
+  ]);
+  assert.deepEqual(fifth.groundEnds, ["end"]);
+  const end = fifth.points.at(-1);
+  const [x, y, z] = end;
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.1);
+});
+
 test("tiled right-only guard rail bounces on the right and leaves the left edge open", () => {
   const road = {
     id: "test-highway-exit",
