@@ -214,6 +214,30 @@ test("Dogpatch keeps four ramp portals and the southbound through lane connected
   }
 });
 
+test("Alemany keeps its overpass complete in both tiles above northbound I-280", () => {
+  const tokens = ["808f7e64", "808f7ef4"];
+  const tiles = tokens.map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const roads = tiles.map(({ playableRoads }) =>
+    playableRoads.find(({ id }) => id === "sf-contact/alemany-i280-overpass"),
+  );
+  assert.deepEqual(roads[0], roads[1]);
+  const { surface, portals } = buildBakedRoadContact(roads[0]);
+  assert.equal(portals.length, 2);
+  for (const { x, y, z } of portals)
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  const lower = groundAtWorld(tiles, 1293.207, -3176.618, true);
+  const deck = surface.heightAt(1293.207, -3176.618);
+  assert.ok(lower > 28.7 && lower < 29.2);
+  assert.ok(deck > 36.35 && deck < 36.55);
+  for (let i = 1; i < roads[0].points.length; i++) {
+    const [ax, ay, az] = roads[0].points[i - 1];
+    const [bx, by, bz] = roads[0].points[i];
+    assert.ok(Math.abs(bz - az) / Math.hypot(bx - ax, by - ay) < 0.03);
+  }
+});
+
 test("Broadway's lower lanes clear the building while its upper surfaces stay solid", () => {
   const owners = ["808580ec", "808580f4"];
   const tiles = owners.map((t) =>
