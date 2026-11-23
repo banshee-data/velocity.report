@@ -24,6 +24,51 @@ const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
+test("Dogpatch northbound runs below 18th Street and keeps 20th Street on its own deck", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7fb4", "808f7fbc", "808f7fcc", "808f7fd4"].map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const names = [
+    "i280-dogpatch-east-north-entry",
+    "i280-dogpatch-northbound",
+    "i280-south-of-eighteenth-northbound",
+    "i280-mariposa-northbound",
+  ].map((id) => `sf-contact/${id}`);
+  for (const [index, id] of names.slice(1).entries()) {
+    const a = roads.get(names[index]),
+      b = roads.get(id);
+    assert.deepEqual(a.points.at(-1), b.points[0], id);
+    assert.deepEqual(a.seams.end, b.seams.start, id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${a.id}:end` &&
+          to === `${b.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  const northbound = buildBakedRoadContact(roads.get(names[2])).surface;
+  const eighteenth = buildBakedRoadContact(
+    roads.get("sf-contact/eighteenth-west-viaduct"),
+  ).surface;
+  const dogpatchZ = northbound.heightAt(4184.1, 312);
+  const viaductZ = eighteenth.heightAt(4184.1, 312);
+  assert.ok(dogpatchZ > 20 && dogpatchZ < 22);
+  assert.ok(viaductZ > 25 && viaductZ < 28);
+  const twentieth = roads.get("sf-contact/dogpatch-twentieth-viaduct");
+  const { surface, portals } = buildBakedRoadContact(twentieth);
+  assert.ok(surface.heightAt(4226.9, 31.34) > 31);
+  const freeway = buildBakedRoadContact(roads.get(names[1])).surface;
+  assert.ok(surface.heightAt(4209, 30.1) - freeway.heightAt(4209, 30.1) > 6);
+  assert.equal(portals.length, 2);
+  assert.ok(roadBake.coveredGroundRoadPatches["808f7fb4"] >= 1);
+});
+
 test("tiled right-only guard rail bounces on the right and leaves the left edge open", () => {
   const road = {
     id: "test-highway-exit",

@@ -747,3 +747,32 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `c55a80eaf89383fbc1515246897a7e7482be42c1bbc451680a1f118f05c91545`.
 - Contact SHA-256 `7b3be0fb974041eb6519479f4cd973da9699f8c111f6afdfcf7a7354b69ad5ff`.
 - The bake changes seven tile files and keeps the existing emoji placement revision.
+
+## Dogpatch northbound I-280 and 20th Street
+
+The Dogpatch east-side ramp now reaches northbound I-280, passes
+under the 18th Street viaduct and joins the Mariposa contact to Sixth
+Street. The new 1.36 km uses 113 depth-12 EPT nodes. At the crossing,
+the highway contact sits near 20.4 m NAVD88 and the viaduct near 26.8 m.
+In Chrome the drive began on ordinary city pavement and returned to
+street level at Sixth and Brannan in 185.4 s, reaching 40.8 mph.
+
+At 20th Street, the old terrain-sampled route reached 86.4% grade where
+it crossed the steep embankment. The observed deck runs from 16.04 m to
+35.85 m NAVD88 over 284 m. Its maximum longitudinal grade is 11.3%.
+The bake trims the terrain paint under the deck and retains the nearby
+parallel ground road. Chrome crossed the deck westbound in 26.2 s and
+eastbound in 24.7 s, and stayed grounded at both street handoffs.
+
+All 20 frozen emoji courses passed over 52.45 km after both changes,
+with zero driven dips deeper than 0.5 m and a maximum driven tile-seam
+step of 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  dogpatch-to-sixth-northbound dogpatch-twentieth-westbound dogpatch-twentieth-eastbound
+```
+
+- Game manifest SHA-256 `10a57e879a516ba1934412adb05c6c9e23ea73c14a58952de08ac4311d29a9e2`.
+- Contact SHA-256 `152f1c139b493e07732803866e25cceb778cd46f46398901e52148ca1f20af18`.
+- The bake changes three tiles and preserves the existing emoji placement revision.
