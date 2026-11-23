@@ -569,3 +569,42 @@ before the Oakland span.
 
 The immutable bake has manifest SHA-256
 `35cae286cdc658c4828417c71d8bb30ef6e94f1710e7f078fe43e9571c0acb9b`.
+
+## Sixth Street I-280 and the 18th Street viaduct
+
+The 6th–Brannan contact follows two independent I-280 carriageways. The
+southbound road climbs from Sixth Street onto the existing mainline towards
+Mariposa and the 18th Street exit. The northbound drive climbs the 18th Street
+viaduct from the east, turns right onto the ramp, joins the Mariposa mainline
+and reaches the Sixth Street surface. The 18th Street deck also supports
+through traffic in both directions.
+
+The depth-12 3DEP survey from April 2023 shows the 18th Street ramp junction
+near 26.4 m NAVD88, about 7.7 m above the terrain lookup at that location.
+The bake removes the ground paint only between the two viaduct handoffs.
+The browser stayed near 11.1 m along Indiana Street beneath the viaduct and
+between 2.98 and 3.25 m on Townsend Street beneath the two freeway decks.
+
+The two Sixth Street contact sections are 669 m and 800 m long with maximum
+longitudinal grades of 6.6% and 7.6%. The east approach to the 18th Street
+viaduct reaches 12.3%. The game models the right turn within the measured
+pavement. Its lane width and the interpolated transition are game geometry.
+
+The same 20 guided emoji courses again collected both endpoints, covering
+52.45 km with zero driven dips above 0.5 m and a maximum tile-seam step of
+6.1 cm. The keyboard smoke test uses the right-turn lane at the 18th Street
+fork. A centreline-only attempt continued west across the viaduct.
+
+Run the browser checks with the exact tile revision and Chrome available.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  sixth-southbound sixth-northbound eighteenth-eastbound eighteenth-westbound
+```
+
+- Game manifest SHA-256 `a6347c623642489f6d134af040320ef1df74de4b3baa141ce79f12bb6cffe3bb`.
+- Contact SHA-256 `9a6be35d2c85635675d6cf081c0de20a5018405617c7594e574d02d6cba2138a`.
+- The bake changes two tile payloads and reuses the existing emoji placement
+  revision, so saved pickups remain compatible.
+- The upstream northbound mainline before the 18th Street merge is outside
+  this fit. More elevated alignments remain provisional across the city.

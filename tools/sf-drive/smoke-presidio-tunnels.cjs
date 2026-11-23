@@ -82,6 +82,53 @@ cases["i280-mainline"] = {
     "i280-south-beyond-dogpatch": dogpatchClearance,
   },
 };
+cases["sixth-southbound"] = {
+  roads: [
+    "i280-sixth-southbound",
+    "i280-king-to-mariposa",
+    "i280-18th-off-ramp",
+    "i280-18th-exit",
+  ],
+  owners: i280Owners,
+  speed: 16,
+  speedLimits: {
+    "i280-king-to-mariposa": 14,
+    "i280-18th-off-ramp": 12,
+    "i280-18th-exit": 8,
+  },
+  rampApproach: true,
+};
+cases["sixth-northbound"] = {
+  roads: [
+    "eighteenth-east-viaduct",
+    "i280-eighteenth-north-entry",
+    "i280-mariposa-northbound",
+    "i280-sixth-northbound",
+  ],
+  owners: i280Owners,
+  speed: 16,
+  speedLimits: {
+    "eighteenth-east-viaduct": 7,
+    "i280-eighteenth-north-entry": 8,
+  },
+  laneGuides: {
+    "eighteenth-east-viaduct": { approach: -2.25, holdApproach: true },
+    "i280-eighteenth-north-entry": {
+      entranceEast: -0.167,
+      entranceNorth: 2.244,
+      entranceMetres: 16,
+    },
+  },
+};
+for (const reverse of [false, true]) {
+  const viaducts = ["eighteenth-east-viaduct", "eighteenth-west-viaduct"];
+  cases[reverse ? "eighteenth-eastbound" : "eighteenth-westbound"] = {
+    roads: reverse ? viaducts.toReversed() : viaducts,
+    owners: i280Owners,
+    speed: 8,
+    reverse,
+  };
+}
 for (const direction of ["north", "south"]) {
   const north = direction === "north";
   const exit = `i280-dogpatch-pennsylvania-${direction}`;
