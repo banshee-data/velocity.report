@@ -129,6 +129,16 @@ ${hook}`,
     const skip = page.getByRole("button", { name: "Skip replay" });
     await skip.waitFor();
     const read = () => page.evaluate(() => window.contactFixture.read());
+    async function readFallenTree() {
+      const sample = await page.waitForFunction(() => {
+        const fixture = window.contactFixture;
+        const upright = fixture.treeUp();
+        if (!Number.isFinite(upright) || upright >= 0.2) return false;
+        const { elapsed, spent } = fixture.read();
+        return { elapsed, spent };
+      });
+      return sample.jsonValue();
+    }
     const crash = await read();
     assert.equal(crash.clip.kind, "tree");
     assert.equal(crash.clip.treeDamage.stage, "broken");
@@ -140,8 +150,7 @@ ${hook}`,
       /cm trunk · tree fell/,
     );
     await page.waitForFunction(() => window.contactFixture.treeUp() > 0.99);
-    await page.waitForFunction(() => window.contactFixture.treeUp() < 0.2);
-    const replaying = await read();
+    const replaying = await readFallenTree();
     assert.equal(replaying.elapsed, crash.elapsed);
     assert.equal(replaying.spent, crash.spent);
     await page.keyboard.press("Escape");
@@ -157,8 +166,7 @@ ${hook}`,
       .getByRole("button", { name: /^Play .*tree/i })
       .click();
     await skip.waitFor();
-    await page.waitForFunction(() => window.contactFixture.treeUp() < 0.2);
-    assert.equal((await read()).spent, 0);
+    assert.equal((await readFallenTree()).spent, 0);
     await page.keyboard.press("Escape");
     await skip.waitFor({ state: "hidden" });
     assert.deepEqual(city.errors, []);
