@@ -1,0 +1,40 @@
+{
+  "manifestSha256": "0f862e15f9d09dbf9ac6621c54adb8bfe5d8eb114d4b4482d71fee3037b563ec",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "broadway-west",
+      "from": "🦀",
+      "to": "🦢",
+      "expectContactExit": true,
+      "contact": {
+        "roads": ["sf-contact/broadway-westbound"],
+        "entry": [2568.7, 4147.4, "Broadway"],
+        "exit": [1751.4, 4006.6, "Broadway"],
+        "afterGuide": [
+          [1796, 4018],
+          [1774, 4015],
+          [1758, 4012]
+        ]
+      }
+    },
+    {
+      "id": "broadway-east",
+      "from": "🦢",
+      "to": "🍝",
+      "expectContactExit": true,
+      "contact": {
+        "roads": ["sf-contact/broadway-eastbound"],
+        "reverse": true,
+        "entry": [1751.4, 4006.6, "Broadway"],
+        "exit": [2570.4, 4127.6, "Broadway"],
+        "beforeGuide": [
+          [1767, 4003.1],
+          [1796, 4009.3]
+        ]
+      }
+    }
+  ]
+}

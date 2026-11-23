@@ -283,6 +283,53 @@ run continued 1.73 km on city streets before a tree stopped it near Potrero.
 Neither baked branch flagged a dip over the surrounding eight-metre chord.
 Their full baked approach profiles peaked at 14.0% and 8.1%, respectively.
 
+### Broadway tunnel contact
+
+**World and Data.** DataSF CNNs `3186201` and `3186101` carry opposite travel
+directions, with the same street endpoints and about 3.05 m separation across
+most of the mapped corridor. The [FHWA tunnel inventory](https://data.transportation.gov/Roadways-and-Bridges/National-Tunnel-Inventory/64m4-zwar)
+lists two bores and a length of 1,954 ft for `34C0006`. The original project
+manager’s [1950 construction account](https://www.usmodernist.org/WCN/WCN-1950-12.pdf)
+records a 1,616 ft main bore and a maximum grade of 3%. The game trial models
+the main bore separately from both approaches. Its interior floor interpolates
+between the lower bands observed at the approaches. The surface elevations
+above the tunnel are distinct measurements.
+
+The April 2023 3DEP sample found pavement at 40.5 m NAVD88 near station 94 m,
+46.3 m at 142 m and 55.5 m around 676–700 m on the westbound alignment. The
+nominal FHWA western point projects to station 689 m. A second upper band at
+about 62 m near station 735 m marks the Hyde Street crossing. The trial
+checksums the DataSF source cell and fits each outer handoff to the exact game
+terrain. The two lane widths and their offsets are game parameters.
+
+**Physics.** The first westbound drive selected its baked floor and stopped
+at (2531.7, 4132.1), 40.45 m. The collision was against the game’s inferred
+building volume, which starts at 40.5 m and fills the lane below the health
+centre. Public Works documents [the building over the road at the east portal](https://bidopportunities.apps.sfdpw.org/CaseLoad/GetFile/6123).
+The first eastbound drive stayed on exterior pavement and stalled at
+(1759.4, 4007.5) near a median tree. A diagnostic drive steered around the
+median trees and suppressed the suspected overhead collisions. Both directions
+crossed the baked floor and completed their emoji itineraries in that
+diagnostic. Release acceptance requires the normal collision path and
+confirmation that traffic on the upper streets retains its own level.
+
+The [Gerardus exporter](https://github.com/banshee-data/gerardus/pull/96)
+includes the overhead clearance in the contact product. The game baker
+checks each of the three affected building records against the terrain tile
+before applying the replacement. The pieces to either side keep their original
+base. Existing roof vertices keep their elevations, and new cut edges use the
+roof plane. The manifest pins the combined game contact product at
+`b1bf53a51b03a6478e38ddcbf639e655bb03fbea749a6a1d3ab09c046b3bec00`.
+
+Both courses completed with normal collision checks. The westbound course
+continued 2.45 km past the exterior handoff, and the eastbound course
+continued 567 m. The [Broadway course set](../../tools/sf-drive/road-audit-broadway-routes.json)
+pins the candidate manifest. The approach waypoints stay to either side of
+the median trees. Run the set with
+`node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-broadway-routes.json`.
+The game’s collision test checks that the roadway clears the eastern building
+while the upper volume stays solid. The main floor is a game interpolation.
+
 ### Stockton tunnel contact
 
 **World and Physics.** The Stockton trial bakes a distinct tunnel floor and both

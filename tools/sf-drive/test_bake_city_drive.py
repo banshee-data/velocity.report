@@ -1,4 +1,4 @@
-"""Regression checks for the Bay Bridge game route baker."""
+"""Regression checks for the SF game route bakers."""
 
 import math
 from pathlib import Path
@@ -9,6 +9,7 @@ import pytest
 smooth_ramp_join = runpy.run_path(Path(__file__).with_name("bake-city-drive.py"))[
     "smooth_ramp_join"
 ]
+road_layers = runpy.run_path(Path(__file__).with_name("embed-road-layers.py"))
 
 
 class SlopingPavement:
@@ -51,3 +52,22 @@ def test_ramp_join_shares_a_point_and_blends_heading_and_grade(left_kind, right_
     ground = left if left_kind == "ground" else right
     for x, y, z in ground["positions"]:
         assert z == pytest.approx(pavement.height(x, y), abs=0.00006)
+
+
+def test_overhead_patches_use_original_row_indices_and_check_source_records():
+    encoded = road_layers["encoded"]
+    digest = road_layers["digest"]
+    patch_buildings = road_layers["patch_overhead_buildings"]
+    first, untouched, last = [[base, [[base + 20]]] for base in (10, 50, 70)]
+    buildings = [first, untouched, last]
+    cover, side, other = [[base, [[100]]] for base in (30, 10, 90)]
+    patches = [
+        {"index": 0, "sha256": digest(encoded(first)), "parts": [cover, side]},
+        {"index": 2, "sha256": digest(encoded(last)), "parts": [other]},
+    ]
+    assert patch_buildings(buildings, patches) == [cover, side, untouched, other]
+    assert buildings == [first, untouched, last]
+    with pytest.raises(ValueError, match="does not match source row 0"):
+        patch_buildings(buildings, [*patches, patches[0]])
+    with pytest.raises(ValueError, match="does not match source row 0"):
+        patch_buildings([last, untouched, first], patches)
