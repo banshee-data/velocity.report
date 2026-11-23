@@ -355,6 +355,10 @@ above 50% grade after dropping four aerially draped tunnel rows, compared with
 - [Road layers and game drive manifest](http://arrow-worker:50061/city-tiles/sf-city-roads-97993185300b116bf296169b1f0e88f7685e9fe18af57d696c3b89742813e3cc/manifest.json)
 - [Finished game tile manifest](http://arrow-worker:50061/city-tiles/sf-game-cee97394d57d2c07efeffd8a99f57ab4708877a3140f649dbdd867f8ba3ea5ad/tiles/manifest.json)
 
+The [20-course route audit](sf-road-route-audit.md) records the playable
+approaches, contact gaps, wrong-level highway reproduction and grade review sites
+on this release.
+
 ### Inputs for a new game-tile revision
 
 1. Freeze the DataSF centreline and street geometry source versions, the 3DEP acquisition,

@@ -226,6 +226,9 @@ and leaves their interior profiles without heights. The game omits their aerial
 ground drapes. Tunnel Avenue remains a surface road. The rebake retains the
 existing regional references where the referenced base tiles are byte-identical.
 See the [rebake inputs and output hashes](../ui/sf-city-map.md#citywide-road-rebake).
+The [20-course route audit](../ui/sf-road-route-audit.md) gives reproduction
+coordinates for the 5th Street ramp contact gap, the Dogpatch grade flags and the
+unresolved tunnel approaches.
 
 Both rails at the Fourth Street entrance use a rebound for side impacts at any speed.
 The car loses speed and stays on the ramp. The replay checks a 50 mph strike on each

@@ -3,7 +3,10 @@ const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
 const { confirmManualTakeover } = require("./manual-takeover.cjs");
 const manifest = require("../../public_html/src/sf/tiles/manifest.json");
-const { targets } = require("../../public_html/src/sf/quest-route.json");
+const {
+  targets,
+  placementSha256,
+} = require("../../public_html/src/sf/quest-route.json");
 
 (async () => {
   const origin = process.env.SF_BASE_URL || "http://localhost:8090";
@@ -48,7 +51,11 @@ const { targets } = require("../../public_html/src/sf/quest-route.json");
 
     const url = `${origin}/sf/?at=embarcadero`;
     const target = targets.find(({ t }) => t === "8085806c");
-    const key = `sf-progress-v1:sf-trial-v2:${manifest.roadBake.baseSha256}:embarcadero`;
+    const progressBase =
+      manifest.terrainRebake?.progressBaseSha256 ||
+      manifest.roadBake.baseSha256;
+    const placement = placementSha256 ? `:${placementSha256}` : "";
+    const key = `sf-progress-v1:sf-trial-v2:${progressBase}${placement}:embarcadero`;
     const airtimes = [
       { seconds: 4.2, peak: 6 },
       { seconds: 2.1, peak: 2 },
