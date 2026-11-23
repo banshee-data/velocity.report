@@ -10,6 +10,9 @@ export function steeringLine(points, guide = {}) {
     entranceMetres = 12,
     clearance,
   } = guide;
+  const clearances = Array.isArray(clearance)
+    ? clearance
+    : [clearance].filter(Boolean);
   const smooth = (value) => {
     const t = Math.max(0, Math.min(1, value));
     return t * t * (3 - 2 * t);
@@ -34,14 +37,12 @@ export function steeringLine(points, guide = {}) {
       smooth((32 - remaining) / 18) *
       (holdApproach ? 1 : 1 - Math.exp(-remaining / 5));
     const entranceLane = smooth(1 - distances[i] / entranceMetres);
-    const clearanceLane = clearance
-      ? clearance.offset *
-        Math.max(
-          0,
-          1 - ((distances[i] - clearance.station) / clearance.length) ** 2,
-        ) **
-          2
-      : 0;
+    const clearanceLane = clearances.reduce(
+      (sum, { offset, station, length }) =>
+        sum +
+        offset * Math.max(0, 1 - ((distances[i] - station) / length) ** 2) ** 2,
+      0,
+    );
     const lateral = lane + exitLane + clearanceLane;
     return [
       x + entranceEast * entranceLane - lateral * Math.sin(heading),

@@ -185,6 +185,11 @@ cases["central-from-fourth"] = {
     "i80-westbound-central-connector": 14,
   },
   forks: [["westbound-i80", "i80-westbound-fifth", 1.55]],
+  laneGuides: {
+    "i80-westbound-fifth": {
+      clearance: { offset: -2.2, station: 355, length: 26 },
+    },
+  },
 };
 cases["central-thirteenth-exit"] = {
   ...cases["central-from-fourth"],
@@ -226,6 +231,36 @@ cases["central-van-ness-entry"] = {
   laneGuides: {
     "central-freeway-van-ness-entry": {
       clearance: { offset: 1.35, station: 204, length: 25 },
+    },
+  },
+};
+cases["central-to-lower-bridge"] = {
+  ...cases["central-van-ness-entry"],
+  owners: [...new Set([...centralOwners, "808f7fd4", ...lowerBridgeOwners])],
+  roads: [
+    ...cases["central-van-ness-entry"].roads,
+    "i80-eastbound-midtown",
+    "i80-eastbound-fourth",
+    "i80-eastbound-soma",
+    "i80-eastbound-lower-climb",
+    "i80-eastbound-essex-merge",
+    "sf-eastbound-lower-approach",
+    "bay-bridge-eastbound-lower",
+    "yerba-buena-lower-west-approach",
+    "yerba-buena-lower-tunnel",
+    "yerba-buena-lower-east-approach",
+  ],
+  maxDurationMs: 660_000,
+  laneGuides: {
+    ...cases["central-van-ness-entry"].laneGuides,
+    "i80-eastbound-soma": {
+      clearance: { offset: 2.4, station: 114, length: 31 },
+    },
+    "i80-eastbound-essex-merge": {
+      clearance: [
+        { offset: 2.6, station: 39, length: 25 },
+        { offset: -2.3, station: 127, length: 25 },
+      ],
     },
   },
 };
@@ -396,9 +431,22 @@ function withGroundConnections(roads) {
   ];
 }
 
-async function drive(page, sections, speed, connectByGround, finishOnDeck) {
+async function drive(
+  page,
+  sections,
+  speed,
+  connectByGround,
+  finishOnDeck,
+  maxDurationMs,
+) {
   return page.evaluate(
-    async ({ sections, speed, connectByGround, finishOnDeck }) => {
+    async ({
+      sections,
+      speed,
+      connectByGround,
+      finishOnDeck,
+      maxDurationMs,
+    }) => {
       const driveModule = performance
         .getEntriesByType("resource")
         .find(({ name }) => name.endsWith("/sf-drive.js"));
@@ -500,7 +548,7 @@ async function drive(page, sections, speed, connectByGround, finishOnDeck) {
             return finish("lost intermediate contact");
           blocked = d.roadBlocked === "true" ? blocked + 1 : 0;
           if (blocked >= 10) return finish("blocked");
-          if (now - started > 460_000) return finish("timed out");
+          if (now - started > maxDurationMs) return finish("timed out");
 
           if (now - last >= 27) {
             const input = cityDriveControls(course, {
@@ -536,7 +584,7 @@ async function drive(page, sections, speed, connectByGround, finishOnDeck) {
         requestAnimationFrame(tick);
       });
     },
-    { sections, speed, connectByGround, finishOnDeck },
+    { sections, speed, connectByGround, finishOnDeck, maxDurationMs },
   );
 }
 
@@ -579,6 +627,7 @@ async function main() {
         rampApproach,
         connectByGround = false,
         finishOnDeck = false,
+        maxDurationMs = 460_000,
         reverseRoads = [],
         laneGuides = {},
         speedLimits = {},
@@ -591,6 +640,7 @@ async function main() {
         const heading = Math.atan2(b[1] - a[1], b[0] - a[0]);
         guides[outgoing] = { approach: offset, holdApproach: true };
         guides[incoming] = {
+          ...guides[incoming],
           entranceEast: -offset * Math.sin(heading),
           entranceNorth: offset * Math.cos(heading),
           entranceMetres: 21,
@@ -690,6 +740,7 @@ async function main() {
           speed,
           connectByGround,
           finishOnDeck,
+          maxDurationMs,
         );
         console.log(JSON.stringify({ name, contactHash, ...result, errors }));
         assert.deepEqual(errors, []);

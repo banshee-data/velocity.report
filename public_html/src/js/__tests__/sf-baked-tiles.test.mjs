@@ -18,6 +18,58 @@ const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
+test("Central Freeway joins the lower Bay Bridge through contiguous eastbound contact", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = [
+    "808f7e2c",
+    "80858084",
+    "808f7fd4",
+    "8085807c",
+    "80858074",
+  ].map((token) => JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))));
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) =>
+      playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  const chain = [
+    "sf-contact/i80-eastbound-interchange",
+    "sf-contact/i80-eastbound-midtown",
+    "sf-contact/i80-eastbound-fourth",
+    "sf-contact/i80-eastbound-soma",
+    "sf-contact/i80-eastbound-lower-climb",
+    "sf-contact/i80-eastbound-essex-merge",
+    "sf-eastbound-lower-approach",
+  ].map((id) => roads.get(id));
+  for (const [index, road] of chain.slice(1).entries()) {
+    const previous = chain[index];
+    assert.ok(buildBakedRoadContact(road), road.id);
+    assert.deepEqual(road.groundEnds, [], road.id);
+    assert.deepEqual(previous.points.at(-1), road.points[0], road.id);
+    assert.deepEqual(previous.seams.end, road.seams.start, road.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${previous.id}:end` &&
+          to === `${road.id}:start` &&
+          direction === "forward",
+      ),
+      road.id,
+    );
+  }
+  const merge = chain.at(-2);
+  const upper = tiles
+    .flatMap(({ raisedRoads }) => raisedRoads ?? [])
+    .find(({ id }) => id.startsWith("overpass/19365000/"));
+  const levelGap = upper.points.at(-1)[2] - merge.points.at(-1)[2];
+  assert.ok(levelGap > 8 && levelGap < 10);
+  assert.ok(
+    upper.profiles.every(
+      (profile) => !roadBake.playableReplaces.includes(profile),
+    ),
+  );
+});
+
 test("Yerba Buena connects continuously through the upper tunnel to the original bridge drive", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const drive = JSON.parse(file("gamedrives.json")).drives.find(
