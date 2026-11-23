@@ -5,6 +5,10 @@ import { test } from "node:test";
 import { gunzipSync } from "node:zlib";
 import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
 import {
+  BAY_BRIDGE_CITY_DRIVE,
+  cityDriveApproach,
+} from "../sf-city-road-drive.js";
+import {
   buildCollisionIndex,
   collisionAt,
   groundAtWorld,
@@ -13,6 +17,42 @@ import {
 const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+test("Yerba Buena connects continuously through the upper tunnel to the original bridge drive", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const drive = JSON.parse(file("gamedrives.json")).drives.find(
+    ({ id }) => id === BAY_BRIDGE_CITY_DRIVE,
+  );
+  const entry = roadBake.driveApproaches.find(
+    ({ id }) => id === "yerba-buena-westbound",
+  );
+  const selected = cityDriveApproach(drive, entry.id);
+  assert.equal(selected.label, entry.label);
+  assert.equal(selected.initial_speed_mps, 50 * 0.44704);
+  assert.equal(cityDriveApproach(drive, "fremont-exit"), drive);
+  assert.equal(drive.sections[0].id, "bay-bridge-westbound");
+  assert.deepEqual(selected.sections.slice(3), drive.sections);
+  const [approach, tunnel, exit, bridge] = selected.sections;
+  assert.equal(tunnel.kind, "tunnel");
+  assert.equal(tunnel.game_clearance_m, 4.4);
+  assert.equal(tunnel.width_m, 16);
+  for (const [before, after] of [
+    [approach, tunnel],
+    [tunnel, exit],
+    [exit, bridge],
+  ]) {
+    assert.deepEqual(before.positions.at(-1), after.positions[0]);
+  }
+  let length = 0;
+  for (let i = 1; i < tunnel.positions.length; i++) {
+    const [ax, ay, az] = tunnel.positions[i - 1];
+    const [bx, by, bz] = tunnel.positions[i];
+    const ds = Math.hypot(bx - ax, by - ay);
+    assert.ok(Math.abs(bz - az) / ds < 0.045);
+    length += ds;
+  }
+  assert.ok(length > 164 && length < 166);
+});
 
 test("bundled road runs have identical geometry across tile owners", () => {
   const manifestBytes = file("tiles/manifest.json");

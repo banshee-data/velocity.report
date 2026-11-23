@@ -92,6 +92,7 @@ import {
   BAY_BRIDGE_CITY_DRIVE,
   applyCityDriveScenery,
   buildCityGameDrive,
+  cityDriveApproach,
   cityDriveControls,
   cityDriveCanResume,
   cityDriveOnRoute,
@@ -770,20 +771,23 @@ export async function startDrive({
 }) {
   const params = new URLSearchParams(location.search);
   const at = params.get("at");
-  const cityMode =
-    params.get("city") ||
-    (!at &&
-    !params.has("district") &&
-    !params.has("region") &&
-    params.get("mode") !== "solo"
-      ? "survey"
-      : null);
   const tileBase = base;
   const [manifest, route, coverage] = await Promise.all([
     fetchJsonGz(`${base}manifest.json`),
     fetchJsonGz(`${base}../quest-route.json`),
     fetchJsonGz(`${base}../coverage.json`),
   ]);
+  const bridgeApproaches = manifest.roadBake?.driveApproaches || [];
+  const cityMode =
+    params.get("city") ||
+    (bridgeApproaches.some(({ id }) => id === at)
+      ? "bay-bridge"
+      : !at &&
+          !params.has("district") &&
+          !params.has("region") &&
+          params.get("mode") !== "solo"
+        ? "survey"
+        : null);
   let bakedDrive;
   if (cityMode === "bay-bridge" || cityMode === "survey") {
     const bridge = await readBundledDrive(
@@ -791,7 +795,10 @@ export async function startDrive({
       manifest.roadBake,
       BAY_BRIDGE_CITY_DRIVE,
     );
-    bakedDrive = cityMode === "survey" ? bridgeSurveyDrive(bridge) : bridge;
+    bakedDrive =
+      cityMode === "survey"
+        ? bridgeSurveyDrive(bridge)
+        : cityDriveApproach(bridge, at);
   }
   const coverageCorners = Object.values(coverage.cells).flat();
   const cellPaths = new Map(
@@ -972,9 +979,13 @@ export async function startDrive({
         roadMeshes.add(
           new THREE.Mesh(
             contactGeometry(surface.contact, false),
-            surface.kind === "ground" ? roadMaterial : deckMaterial,
+            surface.kind === "ground" || surface.kind === "tunnel"
+              ? roadMaterial
+              : deckMaterial,
           ),
         );
+      if (surface.appearance)
+        roadMeshes.add(tunnelMesh(surface, surface.appearance));
       if (gameDrive) {
         const points = surface.profile.flatMap(({ position: [x, y, z] }) =>
           V(x, y, z + 0.06),
@@ -1034,6 +1045,11 @@ export async function startDrive({
             name: BAY_BRIDGE_APPROACH,
             city: "bay-bridge",
           },
+          ...bridgeApproaches.map(({ id, label }) => ({
+            id,
+            name: label,
+            city: "bay-bridge",
+          })),
         ]
       : []),
   ];

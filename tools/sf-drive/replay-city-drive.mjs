@@ -7,6 +7,7 @@ import {
   applyCityDriveScenery,
   BAY_BRIDGE_CITY_DRIVE,
   buildCityGameDrive,
+  cityDriveApproach,
   cityDriveControls,
 } from "../../public_html/src/js/sf-city-road-drive.js";
 import {
@@ -35,10 +36,13 @@ assert.equal(
 );
 const bundle = JSON.parse(driveBytes);
 assert.equal(bundle.base_manifest_sha256, map.roadBake.baseSha256);
-const published = bundle.drives.find(
+const baseDrive = bundle.drives.find(
   (entry) => entry.id === BAY_BRIDGE_CITY_DRIVE,
 );
-assert.ok(published);
+assert.ok(baseDrive);
+const start = process.argv[2];
+const published = cityDriveApproach(baseDrive, start);
+if (start) assert.equal(published.id, start, "Unknown Bay Bridge start");
 const tileSizes = new Map(map.tiles.map((tile) => [tile.t, tile.bytes]));
 const loaded = new Map();
 
@@ -124,12 +128,8 @@ for (let tick = 0; tick < 540 / step; tick++) {
   }
   car = next;
 }
-assert.deepEqual(seen, [
-  "bay-bridge-westbound",
-  "city-approach",
-  "fremont-exit",
-  "city-streets",
-  "fourth-street-entrance",
-  "westbound-i80",
-]);
+assert.deepEqual(
+  seen,
+  published.sections.map(({ id }) => id),
+);
 assert.ok(finished, "The car did not reach the end of the city route");

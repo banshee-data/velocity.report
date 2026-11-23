@@ -1,6 +1,7 @@
 """Regression checks for the SF game route bakers."""
 
 import math
+import json
 from pathlib import Path
 import runpy
 
@@ -71,3 +72,30 @@ def test_overhead_patches_use_original_row_indices_and_check_source_records():
         patch_buildings(buildings, [*patches, patches[0]])
     with pytest.raises(ValueError, match="does not match source row 0"):
         patch_buildings([last, untouched, first], patches)
+
+
+def test_bundled_approach_requires_exact_parent_and_preserves_original_sections(
+    tmp_path,
+):
+    encoded = road_layers["encoded"]
+    digest = road_layers["digest"]
+    with_drive_approaches = road_layers["with_drive_approaches"]
+    original = {"id": "bridge", "sections": [{"id": "west-span"}]}
+    drives = encoded({"drives": [original]})
+    entry = {"id": "island", "label": "Island", "sections": [{"id": "tunnel"}]}
+    extension = {
+        "format": "sf-game-drive-approaches",
+        "base_drive_sha256": digest(drives),
+        "drive_id": "bridge",
+        "approaches": [entry],
+    }
+    path = tmp_path / "extension.json"
+    raw = encoded(extension)
+    path.write_bytes(raw)
+    with pytest.raises(ValueError, match="checksum differs"):
+        with_drive_approaches(drives, path, "incorrect")
+    with pytest.raises(ValueError, match="pinned parent"):
+        with_drive_approaches(drives + b" ", path, digest(raw))
+    bundled, starts = with_drive_approaches(drives, path, digest(raw))
+    assert starts == [{"id": "island", "label": "Island"}]
+    assert json.loads(bundled)["drives"] == [dict(original, approaches=[entry])]
