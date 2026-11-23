@@ -1,0 +1,1 @@
+- Baked the [Harrison and Silver Avenue street decks](../../ui/sf-road-route-audit.md#harrison-and-silver-avenue-crossing-trials) above their existing lower crossings, and verified two completed emoji courses and six Chrome drives over and under them.

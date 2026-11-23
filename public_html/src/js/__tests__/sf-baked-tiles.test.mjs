@@ -238,3 +238,51 @@ test("Presidio's four bores turn into continuous contact at their portals", () =
     assert.equal(collisionAt(indexes, entry, upper), "building", name);
   }
 });
+
+test("Harrison and Silver Avenue decks span the lower roads at independent heights", () => {
+  const cases = [
+    [
+      "8085807c",
+      "harrison-beale-bridge",
+      4300.061,
+      3048.916,
+      15.58,
+      8.0,
+      0.075,
+    ],
+    [
+      "808f7efc",
+      "silver-avenue-bridge",
+      3058.179,
+      -3041.466,
+      22.69,
+      16.21,
+      0.03,
+    ],
+  ];
+  for (const [token, id, x, y, upper, lower, maxGrade] of cases) {
+    const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+    const road = tile.playableRoads.find(
+      (entry) => entry.id === `sf-contact/${id}`,
+    );
+    const { surface, portals } = buildBakedRoadContact(road);
+    assert.equal(surface.kind, "bridge_deck", id);
+    assert.equal(portals.length, 2, id);
+    for (const portal of portals)
+      assert.ok(
+        Math.abs(groundAtWorld([tile], portal.x, portal.y, true) - portal.z) <
+          0.03,
+        id,
+      );
+    assert.ok(Math.abs(surface.heightAt(x, y) - upper) < 0.03, id);
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - lower) < 0.03, id);
+    for (let i = 1; i < road.points.length; i++) {
+      const a = road.points[i - 1],
+        b = road.points[i];
+      assert.ok(
+        Math.abs(b[2] - a[2]) / Math.hypot(b[0] - a[0], b[1] - a[1]) < maxGrade,
+        id,
+      );
+    }
+  }
+});

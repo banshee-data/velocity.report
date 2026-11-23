@@ -1,0 +1,34 @@
+{
+  "manifestSha256": "895a62bdaaeb007844f5562d58e2cce5171d1a2d018c6baefd9e81e1bc8e1c9c",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "fremont-under-deck",
+      "from": "\ud83c\udff9",
+      "to": "\ud83c\udfd9\ufe0f",
+      "groundOnly": true,
+      "via": [[3979, 2670, "2nd St"]],
+      "contact": {
+        "roads": ["sf-contact/harrison-beale-bridge"],
+        "entry": [4320, 3069, "Harrison St"],
+        "exit": [4273, 3022, "Harrison St"]
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "us101-bayview",
+      "from": "\ud83e\udea1",
+      "to": "\ud83e\udd6c",
+      "via": [[3496, -4069, "Hwy 101 Southbound"]],
+      "contact": {
+        "roads": ["sf-contact/silver-avenue-bridge"],
+        "entry": [3115, -3001, "Silver Ave"],
+        "exit": [3019, -3063, "Silver Ave"],
+        "reverse": true
+      },
+      "expectContactExit": true
+    }
+  ]
+}
