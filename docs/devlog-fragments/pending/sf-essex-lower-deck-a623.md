@@ -1,0 +1,1 @@
+- Baked the Essex and First Street ramps, lower West Span and Yerba Buena bore into the city tiles. Moved the First Street handoff beyond Harrison and verified the separation in the twenty-course audit. [Drive audit](../../ui/sf-road-route-audit.md#essex-street-and-the-tiled-lower-bay-bridge)
