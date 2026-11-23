@@ -85,13 +85,24 @@ test("the playable I-280 parts keep identical contact across neighbouring owners
         duplicated.add(road.id);
       }
       roads.set(road.id, road);
-      terminals.set(`${road.id}:start`, [road.points[0], road.seams.start]);
-      terminals.set(`${road.id}:end`, [road.points.at(-1), road.seams.end]);
+      terminals.set(`${road.id}:start`, [road.points[0], road.seams?.start]);
+      terminals.set(`${road.id}:end`, [road.points.at(-1), road.seams?.end]);
     }
   }
   const entry = roads.get("sf-contact/i280-fifth-south-entry");
   assert.deepEqual(entry.groundEnds, ["start"]);
   assert.ok(duplicated.has(entry.id));
-  for (const { from, to } of roadBake.playableTransitions)
-    assert.deepEqual(terminals.get(from), terminals.get(to));
+  for (const { from, to } of roadBake.playableTransitions) {
+    const terminal = terminals.get(from);
+    assert.ok(terminal?.[1], from);
+    assert.deepEqual(terminal, terminals.get(to));
+  }
+  const stockton = roads.get("sf-contact/stockton-tunnel");
+  assert.deepEqual(stockton.groundEnds, ["start", "end"]);
+  assert.equal(stockton.kind, "tunnel");
+  assert.ok(
+    Math.abs(
+      stockton.interior_range_m[1] - stockton.interior_range_m[0] - 276.44,
+    ) < 0.01,
+  );
 });

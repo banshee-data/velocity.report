@@ -106,6 +106,7 @@ import {
 import { driveOnRoadNetwork, indexRoadNetwork } from "./sf-road-network.js";
 import { buildBakedRoadContact } from "./sf-baked-road-contact.js";
 import { driveThroughRoadPortal } from "./sf-road-portal.js";
+import { tunnelMesh } from "./sf-tunnel-mesh.js";
 import { buildingWalls, validBuildingFace } from "./sf-building-walls.js";
 import {
   crashHistory,
@@ -1330,7 +1331,15 @@ export async function startDrive({
         const entry = bakedRoads.get(id);
         if (--entry.owners) continue;
         scene.remove(entry.mesh);
-        entry.mesh.geometry.dispose();
+        entry.mesh.traverse((object) => {
+          object.geometry?.dispose();
+          if (
+            object.material &&
+            object.material !== deckMaterial &&
+            object.material !== roadMaterial
+          )
+            object.material.dispose();
+        });
         for (const terminal of entry.surface.end_ids)
           bakedNetwork.endpoints.delete(terminal);
         bakedPortals.delete(id);
@@ -1401,13 +1410,18 @@ export async function startDrive({
             else {
               const contact = buildBakedRoadContact(road);
               if (!contact || roadSurfaces.has(road.id)) continue;
-              const { surface, endpoints, portals } = contact;
+              const { surface, endpoints, portals, appearance } = contact;
+              if (surface.kind === "tunnel" && !appearance) continue;
               if (surface.kind !== "tunnel")
                 surface.boundary = roadBoundary(surface.contact);
-              const mesh = new THREE.Mesh(
-                contactGeometry(surface.contact, false),
-                deckMaterial,
+              const mesh = new THREE.Group();
+              mesh.add(
+                new THREE.Mesh(
+                  contactGeometry(surface.contact, false),
+                  surface.kind === "tunnel" ? roadMaterial : deckMaterial,
+                ),
               );
+              if (appearance) mesh.add(tunnelMesh(surface, appearance));
               scene.add(mesh);
               bakedRoads.set(road.id, { surface, mesh, owners: 1 });
               bakedPortals.set(road.id, portals);
@@ -2736,7 +2750,11 @@ export async function startDrive({
     const roadDrive = isRoadReview(selectedStart);
     const terrainHeight = (x, y) => groundAtWorld(tiles, x, y, true);
     const heightAt = surface?.heightAt || terrainHeight;
-    const crashSupport = crashRoadSupport(terrainHeight, roadSurfaces);
+    const crashSupport = crashRoadSupport(
+      terrainHeight,
+      roadSurfaces,
+      surface?.kind === "tunnel" ? surface : undefined,
+    );
     if (!grounded) {
       let z0 = heightAt(car.x, car.y);
       const owner = tileAt(manifest.tiles, car.x, car.y).t;
@@ -3074,7 +3092,9 @@ export async function startDrive({
       drawSeeker();
     }
     const nearest =
-      roadDrive || crash || !grounded ? null : nearestQuestTarget(trial, car);
+      roadDrive || crash || !grounded || surface?.kind === "tunnel"
+        ? null
+        : nearestQuestTarget(trial, car);
     const nextEmoji = nearest && loaded.get(nearest.t)?.marker ? nearest : null;
     if (nextEmoji !== emojiTarget) {
       emojiTarget = nextEmoji;
@@ -3161,7 +3181,11 @@ export async function startDrive({
         : 0;
     // Keep the horizon and view direction steady while the chassis tumbles.
     const view = driveCameraPose(
-      crash && state.view === "incar" ? "zoomed" : state.view,
+      surface?.kind === "tunnel"
+        ? "incar"
+        : crash && state.view === "incar"
+          ? "zoomed"
+          : state.view,
       crash ? { ...car, heading: crash.initialHeading } : car,
       carZ,
       currentHeightAt,
@@ -3290,6 +3314,8 @@ export async function startDrive({
           : "airborne";
       canvas.dataset.altitude = carZ.toFixed(3);
       canvas.dataset.surface = surface?.kind || "city";
+      canvas.dataset.cameraContact =
+        surface?.kind === "tunnel" ? "tunnel" : "exterior";
       canvas.dataset.surfaceId = surface?.id || "";
       canvas.dataset.routeComplete = String(completedCityDrive);
       canvas.dataset.roadWait = String(waitingForRoad);

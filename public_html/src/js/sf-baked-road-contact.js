@@ -85,8 +85,24 @@ export function buildBakedRoadContact(road) {
     heightAt: indexRoadContact(contact),
     highwayRailHalfWidth: 0,
   };
+  const interior = road.interior_range_m;
+  const clearance = road.game_clearance_m;
+  const appearance =
+    kind === "tunnel" &&
+    Array.isArray(interior) &&
+    interior.length === 2 &&
+    interior.every(Number.isFinite) &&
+    interior[0] >= 0 &&
+    interior[1] <= distance &&
+    interior[1] > interior[0] &&
+    Number.isFinite(clearance) &&
+    clearance >= 2.5 &&
+    clearance <= 10
+      ? { interior, clearance }
+      : null;
   return {
     surface,
+    appearance,
     endpoints: end_ids.map((terminal, i) => ({
       id: terminal,
       position: points[i ? points.length - 1 : 0],

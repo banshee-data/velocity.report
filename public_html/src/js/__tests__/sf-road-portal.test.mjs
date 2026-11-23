@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
 import { contactStep } from "../sf-drive-core.js";
+import { crashRoadSupport } from "../sf-highway-edge.js";
+import { tunnelMesh } from "../sf-tunnel-mesh.js";
 import { driveOnRoadSurface } from "../sf-road-contact.js";
 import { driveThroughRoadPortal, roadPortals } from "../sf-road-portal.js";
 
@@ -85,4 +87,25 @@ test("a portal without terrain support or with two eligible targets stays unsele
     driveThroughRoadPortal(entry, { throttle: 1 }, DT, [points], () => height);
   assert.equal(cross(portals, null), null);
   assert.equal(cross([...portals, ...portals], 0), null);
+});
+
+test("tunnel crash support keeps the selected floor below the exterior terrain", () => {
+  const tunnel = { ...section(-3), kind: "tunnel" };
+  const all = new Map([[tunnel.id, tunnel]]);
+  const crashUnder = crashRoadSupport(() => 8, all, tunnel);
+  assert.equal(crashUnder(20, 0, { x: 20, y: 0, z: -2.9 }).z, -3);
+  const crashOutside = crashRoadSupport(() => null, all);
+  assert.equal(crashOutside(20, 0, { x: 20, y: 0, z: 6 }), null);
+});
+
+test("tunnel walls and roof stop at the baked portal stations", () => {
+  const tunnel = section(-3);
+  const shell = tunnelMesh(tunnel, { interior: [6, 33], clearance: 4.5 });
+  const positions = shell.children[0].geometry.getAttribute("position");
+  const east = Array.from({ length: positions.count }, (_, i) =>
+    positions.getX(i),
+  );
+  assert.equal(Math.min(...east), 6);
+  assert.equal(Math.max(...east), 33);
+  assert.ok(shell.children[1].geometry.getAttribute("position").count > 0);
 });

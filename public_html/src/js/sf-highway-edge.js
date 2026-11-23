@@ -402,6 +402,7 @@ export function roadLandingAt(
   // sweep even when the point under the previous pose was lower or missing.
   let landing = terrain === null ? null : { z: terrain };
   for (const surface of surfaces) {
+    if (surface.kind === "tunnel") continue;
     const z = surface.heightAt(x, y);
     if (z === null || (landing && z <= landing.z)) continue;
     if (z > previousZ) {
@@ -415,8 +416,15 @@ export function roadLandingAt(
   return landing;
 }
 
-export function crashRoadSupport(terrainHeight, surfaces) {
+export function crashRoadSupport(terrainHeight, surfaces, tunnel) {
   return (x, y, previous) => {
+    const tunnelHeight = tunnel?.heightAt(x, y);
+    if (tunnelHeight != null)
+      return {
+        z: tunnelHeight,
+        surfaceId: tunnel.id,
+        heightAt: tunnel.heightAt,
+      };
     const hit = roadLandingAt(
       x,
       y,
