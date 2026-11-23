@@ -549,3 +549,23 @@ that crossing.
 
 The immutable bake has manifest SHA-256
 `829aefb5571c12ff6b2427e8765be866e680c192916ad82b23178213dc734d20`.
+
+## Eastbound Bay Bridge and lower Yerba Buena bore
+
+The named eastbound start takes the First Street on-ramp onto the lower
+west span, through the lower Yerba Buena bore, and onto the east
+approach. The drive uses the static game package. Its covered road
+heights are inferred from the survey bands on the approach and both
+sides of the west span. The lower bore starts at 43.35 m NAVD88 and
+joins the east approach at 51.24 m. The inferred bore profile spans
+286.5 m. [Caltrans tunnel assessment](https://catc.ca.gov/-/media/ctc-media/documents/programs/baseline-agreements/2025-10/04-2y780-baseline-agreement-new.pdf)
+
+The fixed-step replay completed all six eastbound sections in 209.77 s.
+Chrome completed the preview in 208.2 s, reached the lower span at
+49.5 mph and entered the tunnel at 42.1 mph. The original westbound
+replay still completed all nine sections through Fremont and Fourth
+Street in 261.91 s. The named eastbound drive ends on the east approach
+before the Oakland span.
+
+The immutable bake has manifest SHA-256
+`35cae286cdc658c4828417c71d8bb30ef6e94f1710e7f078fe43e9571c0acb9b`.

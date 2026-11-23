@@ -54,6 +54,40 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
   assert.ok(length > 164 && length < 166);
 });
 
+test("the eastbound bridge start connects First Street to the lower bore and east approach", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const drive = JSON.parse(file("gamedrives.json")).drives.find(
+    ({ id }) => id === BAY_BRIDGE_CITY_DRIVE,
+  );
+  const entry = roadBake.driveApproaches.find(
+    ({ id }) => id === "yerba-buena-eastbound",
+  );
+  const selected = cityDriveApproach(drive, entry.id);
+  assert.equal(selected.label, entry.label);
+  assert.equal(selected.sections[0].id, "first-street-eastbound-entry");
+  assert.equal(drive.sections[0].id, "bay-bridge-westbound");
+  const tunnel = selected.sections.find(({ kind }) => kind === "tunnel");
+  assert.equal(tunnel.id, "yerba-buena-lower-tunnel");
+  assert.equal(tunnel.game_clearance_m, 4.9);
+  let length = 0;
+  for (let i = 1; i < tunnel.positions.length; i++) {
+    const [ax, ay, az] = tunnel.positions[i - 1];
+    const [bx, by, bz] = tunnel.positions[i];
+    const ds = Math.hypot(bx - ax, by - ay);
+    assert.ok(Math.abs(bz - az) / ds < 0.05);
+    length += ds;
+  }
+  assert.ok(length > 286 && length < 288);
+  assert.ok(tunnel.positions[0][2] < 44 && tunnel.positions.at(-1)[2] > 51);
+  for (let i = 1; i < selected.sections.length; i++) {
+    assert.deepEqual(
+      selected.sections[i - 1].positions.at(-1),
+      selected.sections[i].positions[0],
+    );
+  }
+  assert.equal(selected.sections.at(-1).id, "yerba-buena-lower-east-approach");
+});
+
 test("bundled road runs have identical geometry across tile owners", () => {
   const manifestBytes = file("tiles/manifest.json");
   const { tiles, roadBake, terrainReview } = JSON.parse(manifestBytes);
