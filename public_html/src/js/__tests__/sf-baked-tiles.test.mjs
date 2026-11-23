@@ -88,6 +88,60 @@ test("the eastbound bridge start connects First Street to the lower bore and eas
   assert.equal(selected.sections.at(-1).id, "yerba-buena-lower-east-approach");
 });
 
+test("Essex and First Street enter the same lower deck from ordinary city pavement", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const drive = JSON.parse(file("gamedrives.json")).drives.find(
+    ({ id }) => id === BAY_BRIDGE_CITY_DRIVE,
+  );
+  const essex = cityDriveApproach(drive, "essex-eastbound");
+  const first = cityDriveApproach(drive, "yerba-buena-eastbound");
+  assert.equal(essex.sections[0].id, "essex-street-eastbound-entry");
+  assert.deepEqual(essex.sections.slice(1), first.sections.slice(1));
+  const city = JSON.parse(gunzipSync(file("tiles/8085807c.json.gz")));
+  const deck = city.playableRoads.find(
+    ({ id }) => id === "sf-eastbound-lower-approach",
+  );
+  for (const route of [essex, first]) {
+    const ramp = city.playableRoads.find(
+      ({ id }) => id === route.sections[0].id,
+    );
+    assert.deepEqual(ramp.points.at(-1), deck.points[0]);
+    assert.deepEqual(ramp.seams.end, deck.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${ramp.id}:end` && edge.to === `${deck.id}:start`,
+      ),
+    );
+    const { portals } = buildBakedRoadContact(ramp);
+    assert.equal(portals.length, 1);
+    const [{ x, y, z }] = portals;
+    assert.ok(Math.abs(groundAtWorld([city], x, y, true) - z) < 0.15);
+    if (route === first) {
+      const [startX, startY] = first.sections[0].positions[0];
+      assert.ok(Math.hypot(x - startX, y - startY) > 7);
+    }
+  }
+});
+
+test("ordinary city tiles carry the complete lower West Span and Yerba Buena bore", () => {
+  const readRoad = (token, id) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))).playableRoads.find(
+      (road) => road.id === id,
+    );
+  const westId = "bay-bridge-eastbound-lower";
+  const west = readRoad("80858074", westId);
+  for (const owner of ["80858014", "8085803c", "8085806c"])
+    assert.deepEqual(readRoad(owner, westId), west);
+  const boreId = "yerba-buena-lower-tunnel";
+  const bore = readRoad("80858024", boreId);
+  assert.deepEqual(readRoad("8085803c", boreId), bore);
+  const { appearance, portals } = buildBakedRoadContact(bore);
+  assert.equal(appearance.clearance, 4.9);
+  assert.ok(appearance.interior[1] > 286);
+  assert.deepEqual(portals, []);
+});
+
 test("bundled road runs have identical geometry across tile owners", () => {
   const manifestBytes = file("tiles/manifest.json");
   const { tiles, roadBake, terrainReview } = JSON.parse(manifestBytes);

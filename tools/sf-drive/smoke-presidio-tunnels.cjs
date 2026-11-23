@@ -10,6 +10,14 @@ const origin = process.env.SF_BASE_URL || "http://127.0.0.1:8090";
 const candidate = process.env.SF_CANDIDATE_DIR;
 const owners = ["808586d4", "808586dc", "808586ec"];
 const i280Owners = ["808f7fd4", "808f7fcc"];
+const lowerBridgeOwners = [
+  "80858014",
+  "80858024",
+  "8085803c",
+  "8085806c",
+  "80858074",
+  "8085807c",
+];
 const tilePath = (token) => `tiles/${token}.json.gz`;
 const prefix = "sf-contact/";
 const cases = {
@@ -118,6 +126,10 @@ cases["sixth-northbound"] = {
       entranceNorth: 2.244,
       entranceMetres: 16,
     },
+    "i280-sixth-northbound": {
+      // Hold the clear lane past the two mapped trees near the descent.
+      clearance: { offset: -1.8, station: 696, length: 29 },
+    },
   },
 };
 for (const reverse of [false, true]) {
@@ -127,6 +139,25 @@ for (const reverse of [false, true]) {
     owners: i280Owners,
     speed: 8,
     reverse,
+  };
+}
+for (const [name, entry] of [
+  ["essex-tiled", "essex-street-eastbound-entry"],
+  ["first-street-tiled", "first-street-eastbound-entry"],
+]) {
+  cases[name] = {
+    roads: [
+      entry,
+      "sf-eastbound-lower-approach",
+      "bay-bridge-eastbound-lower",
+      "yerba-buena-lower-west-approach",
+      "yerba-buena-lower-tunnel",
+      "yerba-buena-lower-east-approach",
+    ],
+    owners: lowerBridgeOwners,
+    speed: 22,
+    speedLimits: { [entry]: 10, "yerba-buena-lower-tunnel": 17 },
+    finishOnDeck: true,
   };
 }
 for (const direction of ["north", "south"]) {
@@ -296,9 +327,9 @@ function withGroundConnections(roads) {
   ];
 }
 
-async function drive(page, sections, speed, connectByGround) {
+async function drive(page, sections, speed, connectByGround, finishOnDeck) {
   return page.evaluate(
-    async ({ sections, speed, connectByGround }) => {
+    async ({ sections, speed, connectByGround, finishOnDeck }) => {
       const driveModule = performance
         .getEntriesByType("resource")
         .find(({ name }) => name.endsWith("/sf-drive.js"));
@@ -385,9 +416,15 @@ async function drive(page, sections, speed, connectByGround) {
           if (surfaceId && pose.camera === "tunnel") enclosed.add(surfaceId);
           if (!seen.size && now - started > 20_000)
             return finish("missed entrance");
-          const atFinish =
-            !connectByGround ||
-            Math.hypot(pose.x - end[0], pose.y - end[1]) < 4;
+          const distanceToFinish = Math.hypot(pose.x - end[0], pose.y - end[1]);
+          if (
+            finishOnDeck &&
+            surfaceId === ids.at(-1) &&
+            pose.grounded &&
+            distanceToFinish < 12
+          )
+            return finish("reached deck finish");
+          const atFinish = !connectByGround || distanceToFinish < 4;
           if (!surfaceId && seen.has(ids.at(-1)) && pose.grounded && atFinish)
             return finish("left road");
           if (!connectByGround && !surfaceId && seen.size && pose.grounded)
@@ -430,7 +467,7 @@ async function drive(page, sections, speed, connectByGround) {
         requestAnimationFrame(tick);
       });
     },
-    { sections, speed, connectByGround },
+    { sections, speed, connectByGround, finishOnDeck },
   );
 }
 
@@ -472,12 +509,13 @@ async function main() {
         reverse,
         rampApproach,
         connectByGround = false,
+        finishOnDeck = false,
         reverseRoads = [],
         laneGuides = {},
         speedLimits = {},
       } = cases[name];
       const contactSections = slugs.map((slug) => {
-        const road = roads.get(prefix + slug);
+        const road = roads.get(prefix + slug) ?? roads.get(slug);
         assert.ok(road, slug);
         const guide = laneGuides[slug];
         const positions = guide
@@ -564,7 +602,13 @@ async function main() {
         assert.equal(contactHash, manifest.roadBake.playableSha256);
         await canvas.focus();
         await confirmManualTakeover(page);
-        const result = await drive(page, sections, speed, connectByGround);
+        const result = await drive(
+          page,
+          sections,
+          speed,
+          connectByGround,
+          finishOnDeck,
+        );
         console.log(JSON.stringify({ name, contactHash, ...result, errors }));
         assert.deepEqual(errors, []);
         assert.deepEqual(
@@ -576,10 +620,14 @@ async function main() {
           result.enclosed,
           sections.filter(({ kind }) => kind === "tunnel").map(({ id }) => id),
         );
-        assert.equal(result.status, "left road");
+        assert.equal(
+          result.status,
+          finishOnDeck ? "reached deck finish" : "left road",
+        );
         const last = sections.at(-1).positions.at(-1);
         assert.ok(
-          Math.hypot(result.exit.x - last[0], result.exit.y - last[1]) < 6,
+          Math.hypot(result.exit.x - last[0], result.exit.y - last[1]) <
+            (finishOnDeck ? 12 : 6),
         );
         assert.equal(result.exit.camera, "exterior");
         assert.ok(result.exit.grounded);

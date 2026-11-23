@@ -608,3 +608,40 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   revision, so saved pickups remain compatible.
 - The upstream northbound mainline before the 18th Street merge is outside
   this fit. More elevated alignments remain provisional across the city.
+
+## Essex Street and the tiled lower Bay Bridge
+
+Essex Street and First Street now reach the same eastbound lower deck from
+the normal game map. The named Essex course starts on the city ramp and joins
+the existing lower West Span, Yerba Buena bore and east approach. The exit to
+Oakland lies beyond this bake.
+
+The 207 m Essex strip peaks at 6.1% grade. Above the covered merge the
+upper sheet reaches about 41.1 m NAVD88, while measured side returns bracket
+the lower game contact at about 32.3 m. The fit uses interpolation through
+the occlusion. The driving line clears the mapped approach trees.
+
+The first bake placed the First Street handoff at the Harrison junction.
+The Fremont under-deck course picked up that contact while staying on
+Harrison. Moving the handoff 8 m down the ramp let the same course collect
+both emojis on its intended level. All 20 guided courses then passed over
+52.45 km, with zero driven dips above 0.5 m and a maximum tile-seam step
+of 6.1 cm. The named First Street start retains its original position.
+
+The Chrome manual-input replay entered from ordinary Essex pavement,
+stayed grounded through the lower bore and reached the east approach in
+218.3 s. The named route completed in about 212 s. The westbound replay
+still reached Fremont, the city streets and Fourth Street in 261.91 s.
+
+Six tile payloads carry the lower route. Four carry the complete lower West
+Span record and two carry the complete bore. The bake clips three previously
+excluded bridge scenery records where their extrusions obstruct the deck
+corridors. The city-mode game reads the road contacts from its static tiles.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  essex-tiled first-street-tiled
+```
+
+- Game manifest SHA-256 `072b63d8d7baf5596a583c3c1a50eb2666b4d4d5b361f9d6fdd2b83ac67e7f35`.
+- Tiled contact SHA-256 `c5b8dfdc033fb76c2de29ab1f255e83aee03de44a487b5a8b2a11c546dcb8740`.
