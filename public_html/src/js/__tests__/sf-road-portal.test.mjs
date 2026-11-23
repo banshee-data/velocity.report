@@ -9,11 +9,11 @@ import { driveThroughRoadPortal, roadPortals } from "../sf-road-portal.js";
 
 const DT = 1 / 120;
 
-function section(interior) {
+function section(interior, width = 6) {
   return buildBakedRoadContact({
     id: "second-level",
     kind: interior > 0 ? "ramp" : "tunnel",
-    width: 6,
+    width,
     points: [0, 10, 30, 40].map((x) => [
       x,
       0,
@@ -23,6 +23,31 @@ function section(interior) {
     groundEnds: ["start", "end"],
   }).surface;
 }
+
+test("both lanes of a wide tunnel connect to the exterior pavement", () => {
+  const surface = section(-3, 16);
+  const portals = roadPortals(surface, ["start", "end"]);
+  for (const [x, lane, heading, entering] of [
+    [-0.01, -4.5, 0, true],
+    [0.01, 4.5, Math.PI, false],
+    [40.01, 4.5, Math.PI, true],
+    [39.99, -4.5, 0, false],
+  ]) {
+    const car = {
+      ...flatCar(x, lane, heading, entering ? 0 : -0.003),
+      surfaceId: entering ? undefined : surface.id,
+    };
+    const next = driveThroughRoadPortal(
+      car,
+      { throttle: 1 },
+      DT,
+      [portals],
+      () => 0,
+    );
+    assert.ok(next?.grounded);
+    assert.equal(next.surfaceId, entering ? surface.id : undefined);
+  }
+});
 
 function flatCar(x, y, heading, z = 0) {
   return { x, y, z, heading, v: 6, grounded: true };

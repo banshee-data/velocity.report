@@ -435,3 +435,22 @@ test checks grounded contact, the tunnel camera and the west span, Fremont
 and Fourth transitions. The game ships the full route with its checksummed
 same-origin bundle. Its manifest SHA-256 is
 `dcab6482510a25336b68c5cc81c7437c053ae1c423f2f27f4502dd215f5b7e9b`.
+
+## Geary Boulevard beneath Masonic
+
+The Geary–Masonic regional review verified some surface joins and left the
+through connection unresolved. DataSF CNN 6105000 identifies the through
+alignment. The 2023 aerial returns at the east and west mouths place the
+lower pavement at 76.34 m and 77.33 m NAVD88. The 161 m covered section
+interpolates between those observations. The full contact is 303 m with a
+peak grade of 3.19%. Both owners carry the identical strip.
+[Caltrans tunnel inventory](https://dot.ca.gov/-/media/dot-media/programs/maintenance/documents/f0009163-localtunnellist-a11y.pdf)
+
+The portal search uses the contact width to accept cars entering in the
+outer lane. Chrome drove westbound at up to 33.9 mph and eastbound at up
+to 34.0 mph, returning to exterior ground at both ends. The eastbound
+test used the clear inner lane after a wider line hit a tree on the open
+approach. A separate Masonic crossing stayed near 84 m above the bore.
+The test runs are `geary-westbound` and `geary-eastbound` in
+`tools/sf-drive/smoke-presidio-tunnels.cjs`. The game manifest SHA-256 is
+`9c1957990db3cbed492a4bf37bd43a841e5715486c8d2db97850b560ff5fb440`.
