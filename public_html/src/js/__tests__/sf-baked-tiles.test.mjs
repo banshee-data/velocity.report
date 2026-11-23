@@ -302,6 +302,44 @@ test("Geary's bidirectional tunnel joins the ground and stays below Masonic", ()
   assert.ok(length > 160 && length < 162);
 });
 
+test("the Branch East exit and northbound I-280 keep their own road levels", () => {
+  const tiles = ["808f7e7c", "808f7e64"].map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const matching = (tile, slug) =>
+    tile.playableRoads.find(
+      ({ id }) => id === `sf-contact/branch-east-${slug}`,
+    );
+  const bore = matching(tiles[0], "off-ramp");
+  const mainline = matching(tiles[0], "i280-northbound");
+  const viaduct = matching(tiles[1], "san-jose-viaduct");
+  for (const [road, slug] of [
+    [bore, "off-ramp"],
+    [mainline, "i280-northbound"],
+  ]) {
+    assert.deepEqual(road, matching(tiles[1], slug));
+  }
+  for (const road of [bore, mainline, viaduct]) {
+    const { portals } = buildBakedRoadContact(road);
+    assert.equal(portals.length, 2);
+    for (const { x, y, z } of portals)
+      assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  }
+  const crossing = [451.516, -3185.15];
+  const { surface, appearance } = buildBakedRoadContact(bore);
+  const lower = surface.heightAt(...crossing);
+  const upper = buildBakedRoadContact(mainline).surface.heightAt(...crossing);
+  assert.ok(lower > 48 && lower < 48.25);
+  assert.ok(upper > 53.8 && upper < 54.1);
+  assert.ok(upper - lower > appearance.clearance);
+  const farCrossing = [680.986, -2997.639];
+  const farDeck = buildBakedRoadContact(viaduct).surface.heightAt(
+    ...farCrossing,
+  );
+  assert.ok(farDeck > 56.5 && farDeck < 56.8);
+  assert.ok(farDeck - groundAtWorld(tiles, ...farCrossing, true) > 9);
+});
+
 test("Broadway's lower lanes clear the building while its upper surfaces stay solid", () => {
   const owners = ["808580ec", "808580f4"];
   const tiles = owners.map((t) =>
