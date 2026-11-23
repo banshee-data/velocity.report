@@ -530,3 +530,22 @@ neighbourhood speed, peaking at 20.3 mph.
 
 The immutable bake has manifest SHA-256
 `9a9db992d0cc8d16719e1f140d15ff6f54f496c77e45a0244c3b9e92fab9eba3`.
+
+## SR 1 over Ruckman Avenue
+
+The 2023 3DEP transects show independent pavement bands above the valley.
+The two 168 m strips use those bands for contact and join the existing
+highway at either end. The northbound strip follows the mapped road
+directly onto the US 101 connector. The largest grade on either strip
+is 6.9%.
+
+Chrome drove from the south approach through MacArthur, Kobbe and
+Ruckman in 75.3 s. The reverse drive took 76.1 s. Both reached about
+37 mph and exited onto exterior ground. On the lower road, an uphill
+Storey Avenue drive stayed grounded at 35.92–37.93 m NAVD88. A downhill
+pass briefly lifted at up to 22.5 mph and landed on the lower road.
+The survey samples place the viaduct pavement around 44.3 m NAVD88 above
+that crossing.
+
+The immutable bake has manifest SHA-256
+`829aefb5571c12ff6b2427e8765be866e680c192916ad82b23178213dc734d20`.
