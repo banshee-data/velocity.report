@@ -92,7 +92,9 @@ the velocity into the contact normal distinguishes a glancing scrape from a hard
 A scrape sheds speed across the wall and preserves motion along it. The tyres gradually
 catch the slide. Object strikes trigger a crash at 9.5 m/s into the surface, highway
 rails at 13 m/s, and landings at 16 m/s into the local ground or deck. A recoverable
-landing keeps horizontal momentum and returns steering and throttle to the tyres. A hard strike disconnects steering, throttle and braking during the crash replay. Momentum carries the chassis through follow-up contacts with walls, trunks,
+landing on drivable support keeps horizontal momentum and returns steering and throttle
+to the tyres. A touchdown on an obstacle top, such as a building roof, still
+triggers recovery because the car cannot drive there. A hard strike disconnects steering, throttle and braking during the crash replay. Momentum carries the chassis through follow-up contacts with walls, trunks,
 rails and the ground. A square hit can rebound, a corner strike can yaw, and a hard
 landing on one side can roll the car. In flight, the chassis keeps its take-off pitch
 and bank. Each ground contact takes its slope from the road or terrain it touches.

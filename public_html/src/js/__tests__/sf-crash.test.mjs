@@ -174,16 +174,26 @@ test("controls and render batching cannot change the passive trajectory", () => 
   }
 });
 
-test("overlapping horizontal footprints are separated by height; a descending roof contact points upwards", () => {
-  const high = { ...car, x: 5, z: 11 };
+test("a slow touchdown on an unsupported roof still enters recovery", () => {
+  const high = {
+    ...car,
+    x: 5,
+    z: 11,
+    grounded: false,
+    v: 0,
+    vx: 0,
+    vy: 0,
+    vz: -2,
+  };
   assert.equal(obstacleContact(wall, drivingHull(high)), null);
-  const hit = obstacleContact(
-    wall,
-    drivingHull({ ...high, z: 9.9 }),
-    drivingHull(high),
-  );
+  const touching = { ...high, z: 9.99 };
+  const hit = obstacleContact(wall, drivingHull(touching), drivingHull(high));
   assert.equal(hit.nz, 1);
-  near(hit.depth, 0.1);
+  near(hit.depth, 0.01);
+  assert.equal(seriousImpact(touching, hit), true);
+  assert.equal(seriousImpact({ ...touching, vz: 1 }, hit), false);
+  const underside = { ...hit, nz: -1 };
+  assert.equal(seriousImpact({ ...touching, vz: 2 }, underside), false);
 });
 
 test("gravity changes a level drop's velocity without rotating the chassis or inventing horizontal travel", () => {

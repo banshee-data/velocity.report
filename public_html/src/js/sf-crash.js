@@ -68,7 +68,10 @@ export function closingSpeed(car, hit) {
 }
 
 export function seriousImpact(car, hit) {
-  return closingSpeed(car, hit) >= 9.5;
+  const closing = closingSpeed(car, hit);
+  // Obstacle tops have no driving support. Use crash recovery for descending
+  // contacts so gravity cannot trap the car in an endless airborne scrape.
+  return hit.nz > 0 ? closing > 0 : closing >= 9.5;
 }
 
 // Keep the tangential component of a graze. Tyres regain sideways grip over
