@@ -1,0 +1,1 @@
+- Added both Broadway Tunnel directions to the San Francisco game. The [contact bake](../../plans/ui-sf-layered-roads-plan.md#broadway-tunnel-contact) checks the overhead building edits against the original tile and preserves the streets above the tunnel.

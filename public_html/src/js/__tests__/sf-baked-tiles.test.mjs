@@ -3,6 +3,12 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { gunzipSync } from "node:zlib";
+import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
+import {
+  buildCollisionIndex,
+  collisionAt,
+  groundAtWorld,
+} from "../sf-drive-core.js";
 
 const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
@@ -119,4 +125,39 @@ test("the playable I-280 parts keep identical contact across neighbouring owners
       stockton.interior_range_m[1] - stockton.interior_range_m[0] - 276.44,
     ) < 0.01,
   );
+});
+
+test("Broadway's lower lanes clear the building while its upper surfaces stay solid", () => {
+  const owners = ["808580ec", "808580f4"];
+  const tiles = owners.map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  assert.deepEqual(roadBake.overheadBuildingPatches, {
+    "808580ec": 1,
+    "808580f4": 2,
+  });
+  const bores = tiles.map(({ playableRoads }) =>
+    playableRoads.filter(({ id }) => id.startsWith("sf-contact/broadway-")),
+  );
+  assert.deepEqual(bores[0], bores[1]);
+  assert.deepEqual(
+    bores[0].map(({ id }) => id),
+    ["sf-contact/broadway-westbound", "sf-contact/broadway-eastbound"],
+  );
+  for (const road of bores[0])
+    assert.deepEqual(road.groundEnds, ["start", "end"]);
+
+  const { surface } = buildBakedRoadContact(bores[0][0]);
+  const indexes = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
+  const entry = { x: 2529.5, y: 4132.1, heading: -2.917 };
+  const floor = surface.heightAt(entry.x, entry.y);
+  assert.ok(floor > 40 && floor < 41);
+  assert.equal(collisionAt(indexes, entry, floor), null);
+  assert.equal(collisionAt(indexes, entry, 55), "building");
+
+  const east = 2191.961;
+  const north = 4077.38;
+  assert.ok(Math.abs(surface.heightAt(east, north) - 52.91) < 0.1);
+  assert.ok(Math.abs(groundAtWorld(tiles, east, north, true) - 93.81) < 0.1);
 });

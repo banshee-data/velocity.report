@@ -35,6 +35,29 @@ def checked(source, name, entry):
     return raw
 
 
+def patch_overhead_buildings(buildings, patches):
+    """Apply all replacements against the original, ordered building records."""
+    replacements = {}
+    for patch in patches:
+        index = patch["index"]
+        if (
+            type(index) is not int
+            or not 0 <= index < len(buildings)
+            or index in replacements
+            or digest(encoded(buildings[index])) != patch["sha256"]
+            or not patch["parts"]
+        ):
+            raise ValueError(
+                f"Overhead building patch does not match source row {index}"
+            )
+        replacements[index] = patch["parts"]
+    return [
+        part
+        for index, building in enumerate(buildings)
+        for part in replacements.get(index, [building])
+    ]
+
+
 def supported_runs(rows):
     """Join adjacent sections only at a shared, supported source station."""
     points = []
@@ -125,11 +148,19 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             or seam_a != seam_b
         ):
             raise ValueError(f"Open playable join {transition['id']}")
-    return by_tile, {
+    patches = product.get("overhead_building_patches", {})
+    if not patches.keys() <= by_tile.keys():
+        raise ValueError("Overhead building patches must belong to playable road tiles")
+    release = {
         "playableSha256": sha256,
         "playableTransitions": product["transitions"],
         "playableReplaces": sorted(replaced),
     }
+    if patches:
+        release["overheadBuildingPatches"] = {
+            token: len(records) for token, records in patches.items()
+        }
+    return by_tile, patches, release
 
 
 def bake(source, base, quest, output, playable=None, playable_sha256=None):
@@ -184,9 +215,9 @@ def bake(source, base, quest, output, playable=None, playable_sha256=None):
             for token in sorted(tokens):
                 by_tile[token].append(run)
             run_count += 1
-    playable_tiles, playable_index = ({}, {})
+    playable_tiles, overhead_patches, playable_index = ({}, {}, {})
     if playable is not None:
-        playable_tiles, playable_index = playable_product(
+        playable_tiles, overhead_patches, playable_index = playable_product(
             playable, playable_sha256, digest(raw_base), roads["revision"], manifest
         )
     tiles_out = output / "tiles"
@@ -207,6 +238,10 @@ def bake(source, base, quest, output, playable=None, playable_sha256=None):
                 ]
             if token in playable_tiles:
                 content["playableRoads"] = playable_tiles[token]
+            if token in overhead_patches:
+                content["b"] = patch_overhead_buildings(
+                    content["b"], overhead_patches[token]
+                )
             payload = gzip.compress(encoded(content), compresslevel=9, mtime=0)
         (tiles_out / name).write_bytes(payload)
         tile["bytes"] = len(payload)

@@ -280,7 +280,14 @@ function routeFor(spec, from, to) {
 }
 
 function layeredRoute(contact, from, to, start, destination) {
-  const { roads, reverse, entry, exit } = contact;
+  const {
+    roads,
+    reverse,
+    entry,
+    exit,
+    beforeGuide = [],
+    afterGuide = [],
+  } = contact;
   const [enterNode, exitNode] = [entry, exit].map(([x, y, name]) =>
     snap({ x, y }, [name], 55),
   );
@@ -303,12 +310,18 @@ function layeredRoute(contact, from, to, start, destination) {
   });
   const connector = (from, to, name) =>
     distance(from, to) > 0.01 ? [{ from, to, name }] : [];
+  const guide = (first, waypoints, last, name) => {
+    const points = [first, ...waypoints.map(([x, y]) => ({ x, y })), last];
+    return points
+      .slice(1)
+      .flatMap((point, i) => connector(points[i], point, name));
+  };
   return [
     ...connector(from, start, from.names[0]),
     ...before,
-    ...connector(enterNode, ribbon[0].from, entry[2]),
+    ...guide(enterNode, beforeGuide, ribbon[0].from, entry[2]),
     ...ribbon,
-    ...connector(ribbon.at(-1).to, exitNode, exit[2]),
+    ...guide(ribbon.at(-1).to, afterGuide, exitNode, exit[2]),
     ...after,
     ...connector(destination, to, to.names[0]),
   ];
@@ -651,7 +664,13 @@ function drive(path, from, to) {
     maxMph = Math.max(maxMph, next.v * 2.236936);
     stalls = next.v < 0.3 ? stalls + 1 : 0;
     car = next;
-    advanceTrial(trial, step, car, control.input.throttle > 0, car.grounded);
+    advanceTrial(
+      trial,
+      step,
+      car,
+      control.input.throttle > 0,
+      car.grounded && !car.surfaceId,
+    );
     if (trial.status === "finished") {
       status = "both emoji collected";
       break;
