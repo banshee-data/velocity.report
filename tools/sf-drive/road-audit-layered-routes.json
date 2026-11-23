@@ -1,0 +1,81 @@
+{
+  "manifestSha256": "180d246e5ca46e7eba8e7ea35a70af33250178b3ba065bbd67edc9fc3355a597",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "stockton-northbound",
+      "from": "🚋",
+      "to": "🍝",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "entry": [2910.2, 3267.8, "Stockton St"],
+        "exit": [2840.8, 3692.2, "Stockton St"]
+      }
+    },
+    {
+      "id": "stockton-southbound",
+      "from": "🦀",
+      "to": "🧱",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "reverse": true,
+        "entry": [2840.8, 3692.2, "Stockton St"],
+        "exit": [2910.2, 3267.8, "Stockton St"]
+      }
+    },
+    {
+      "id": "broadway-westbound",
+      "from": "🦀",
+      "to": "🛤️",
+      "tunnel": "Robert C Levy Tunnel"
+    },
+    {
+      "id": "toll-plaza-northbound",
+      "from": "🌸",
+      "to": "🌁",
+      "tunnel": "Toll Plaza Tunnel"
+    },
+    {
+      "id": "fremont-under-deck",
+      "from": "🏹",
+      "to": "🏙️",
+      "groundOnly": true,
+      "via": [[3979, 2670, "2nd St"]]
+    },
+    {
+      "id": "fifth-i280",
+      "from": "🛞",
+      "to": "🚂",
+      "via": [[4130, 398, "I-280 Southbound"]]
+    },
+    {
+      "id": "us101-bayview",
+      "from": "🪡",
+      "to": "🥬",
+      "via": [[3496, -4069, "Hwy 101 Southbound"]]
+    },
+    { "id": "dogpatch-seventeenth", "from": "🏥", "to": "🚂" },
+    {
+      "id": "dogpatch-twenty-third",
+      "from": "🏗️",
+      "to": "🛣️",
+      "via": [
+        [4380, -524],
+        [4190, -540]
+      ]
+    },
+    { "id": "mission-creek", "from": "⚾", "to": "🏀" },
+    { "id": "north-waterfront", "from": "🍫", "to": "⚓" },
+    { "id": "presidio", "from": "🌸", "to": "🚪" },
+    { "id": "outer-richmond", "from": "🌷", "to": "🦆" },
+    { "id": "park-west", "from": "⛳", "to": "🚣" },
+    { "id": "sunset", "from": "🪻", "to": "🧗" },
+    { "id": "great-highway", "from": "🦒", "to": "🌅" },
+    { "id": "lake-merced-southbound", "from": "🐟", "to": "🎣" },
+    { "id": "diamond-heights", "from": "💎", "to": "⛰️" },
+    { "id": "mission-southbound", "from": "🖌️", "to": "🌮" },
+    { "id": "excelsior-southbound", "from": "🌺", "to": "🧳" }
+  ]
+}

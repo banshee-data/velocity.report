@@ -119,3 +119,80 @@ these screens.
 Treat the successful drives as game checks on this immutable revision. Route selection,
 steering and collision envelopes can contribute to failures. Field clearance,
 unpaved detours and universal highway or tunnel traversability remain unverified.
+
+## Follow-up on the Stockton and I-280 bake
+
+Twenty new emoji courses on game commit `91e074ad02a8c9b734f10c9023602a97383f3b1d`
+covered **35.78 km across 59 min 03 s of simulation**. Eleven collected both emojis.
+The game served the 157-tile manifest with SHA-256
+`180d246e5ca46e7eba8e7ea35a70af33250178b3ba065bbd67edc9fc3355a597`.
+The [follow-up course set](../../tools/sf-drive/road-audit-layered-routes.json) has SHA-256
+`0c899c373ca1777bf71ba6633dd069b6e2477612b4c2d485043d68b4ba46f0e9`.
+
+```sh
+node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-layered-routes.json
+node tools/sf-drive/audit-road-flatness.mjs
+node tools/sf-drive/replay-baked-structure.mjs
+node tools/sf-drive/replay-city-drive.mjs
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-stockton-tunnel.cjs
+```
+
+Use `--assets=/path/to/sf` with an archived copy of this manifest, its tiles and its quest
+file when the checked-out bundle has moved on. `--plan` selects a course set. Positional
+course IDs limit a run to those courses.
+
+**World and Physics.** In addition to terrain, the 120 Hz driver uses the game’s baked
+road network and portal contact. Stockton’s two itineraries explicitly use its baked
+floor. The I-280 approach detects the entrance during the drive and retains raised
+contact until the last declared terminal. The check stops at contact loss or a serious
+impact. It preloads tiles and excludes traffic. Chrome separately drove both Stockton
+directions with keyboard controls and switched between tunnel and exterior cameras.
+It read 50.41 m on the street above the bore. The Bay Bridge fixed-step drive completed
+all six sections, including Fremont and Fourth, in 235.96 s.
+
+**Goals and Data.** The car collected all 20 starting emojis. The table measures absolute
+grade from grounded car positions, resampled at one-metre intervals along the driven
+distance. A dip is more than 0.5 m below the chord over the surrounding eight metres.
+An airborne sample invalidates its dip window. The separate planned-profile screen
+queries pavement for explicit layered courses and terrain elsewhere. Its 62 steep
+intervals, 36 dip samples and 82 unsupported samples include terrain below elevated
+routes and portions beyond a drive’s stopping point.
+
+| Course                 | Emoji endpoints                                       | Driven (km) | Grade p95 / peak | Outcome                    |
+| ---------------------- | ----------------------------------------------------- | ----------: | ---------------: | -------------------------- |
+| Stockton northbound    | 🚋 Market & Spear → 🍝 Grant & Green                  |        2.66 |      5.9% / 9.0% | Both collected             |
+| Stockton southbound    | 🦀 North Point & Kearny → 🧱 Larkin & Cedar           |        3.54 |    10.3% / 14.2% | Both collected             |
+| Broadway westbound     | 🦀 North Point & Kearny → 🛤️ Broadway & Hyde          |        1.48 |    12.0% / 14.2% | Unresolved east portal     |
+| Toll Plaza northbound  | 🌸 First Dr West & North → 🌁 US 101 ramp             |        2.24 |     8.9% / 21.8% | Unresolved tunnel approach |
+| Below I-80             | 🏹 Folsom & Embarcadero → 🏙️ Harrison & Vassar        |        1.06 |     8.0% / 98.1% | Stalled on 2nd St          |
+| Fifth Street I-280     | 🛞 Fifth St ramps → 🚂 Texas & 17th                   |        1.14 |      5.5% / 8.6% | End of raised contact      |
+| US 101 into Bayview    | 🪡 Palou & Phelps → 🥬 Arleta & Rutland               |        2.32 |    10.7% / 54.1% | Tree near US 101 alignment |
+| Dogpatch 17th          | 🏥 Potrero & 18th → 🚂 Texas & 17th                   |        1.28 |    11.2% / 18.8% | Both collected             |
+| Dogpatch 23rd          | 🏗️ Marin & Michigan → 🛣️ Watchman & Missouri          |        1.22 |      4.4% / 6.4% | Missing ground on 23rd     |
+| Mission Creek          | ⚾ Bridgeview & Toni Stone → 🏀 Warriors Way          |        0.65 |      1.4% / 4.1% | Tree on Terry A Francois   |
+| North waterfront       | 🍫 North Point & Columbus → ⚓ Green & Embarcadero    |        1.17 |      2.5% / 4.1% | Stalled on Embarcadero     |
+| Presidio               | 🌸 First Dr West & North → 🚪 Arguello & Washington   |        1.33 |    13.2% / 20.6% | Both collected             |
+| Outer Richmond         | 🌷 36th & Clement → 🦆 Fulton & 38th                  |        1.22 |    12.5% / 13.7% | Both collected             |
+| Golden Gate Park west  | ⛳ JFK & Golf Course Access → 🚣 Stow Lake & JFK      |        1.63 |      4.5% / 7.7% | Tree on JFK Drive          |
+| Sunset                 | 🪻 39th & Santiago → 🧗 8th & Ortega                  |        3.73 |    16.3% / 23.8% | Both collected             |
+| Great Highway          | 🦒 Great Highway & Sloat → 🌅 48th & Pacheco          |        1.73 |      1.8% / 5.0% | Both collected             |
+| Lake Merced southbound | 🐟 Lake Merced & Higuera → 🎣 Lake Merced & John Muir |        1.15 |      5.0% / 6.0% | Both collected             |
+| Diamond Heights        | 💎 Jade & Gold Mine → ⛰️ Molimo & Myra                |        3.00 |    11.0% / 22.6% | Both collected             |
+| Mission southbound     | 🖌️ 14th & Natoma → 🌮 Capp & 20th                     |        1.22 |      2.6% / 3.8% | Both collected             |
+| Excelsior southbound   | 🌺 Yale & Silver → 🧳 Moscow & France                 |        2.02 |    17.0% / 22.1% | Both collected             |
+
+Neither Stockton floor profile had a dip flag. Its baked centreline was 4.7% at the
+95th percentile and 4.72% at the peak in both directions. The I-280 car remained on the
+deck at (4035.5, 667.7), 18.21 m NAVD88, before the unsupported continuation. The
+largest one-step altitude change across 34 driven tile crossings was 6.1 cm. There
+were 27 completed flights at or above 5 cm clearance, with a 0.53 m maximum. No fully
+grounded eight-metre window in the driven traces met the dip criterion.
+
+The 2nd Street run showed a 98.1% rise on Harrison at (4297.5, 3046.4) and later
+stopped at (3979.9, 2670.0). The US 101 run recorded a 54.1% rise on Silver Avenue
+at (3047.2, −3048.0) and stopped at a tree near (3438.8, −4119.7). Review those levels
+and the 23rd Street contact gap at
+(4239.1, −536.2) before extending the routes. The independent terrain screen still found
+469 intervals over 50%, including the 125.1% maximum on Blanken Avenue. The planned
+profiles and observed car traces cover a subset of game contact. They describe game
+behaviour and route availability rather than field grades or clearance.

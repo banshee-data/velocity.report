@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { resolve, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
 import {
   advanceTrial,
@@ -20,14 +22,27 @@ import {
   obstacleContact,
 } from "../../public_html/src/js/sf-chassis-contact.js";
 import { crashRoadSupport } from "../../public_html/src/js/sf-highway-edge.js";
+import { buildBakedRoadContact } from "../../public_html/src/js/sf-baked-road-contact.js";
+import { driveThroughRoadPortal } from "../../public_html/src/js/sf-road-portal.js";
+import {
+  driveOnRoadNetwork,
+  indexRoadNetwork,
+} from "../../public_html/src/js/sf-road-network.js";
 import {
   hardLanding,
   scrapeObstacle,
   seriousImpact,
 } from "../../public_html/src/js/sf-crash.js";
 
-const assets = new URL("../../public_html/src/sf/", import.meta.url);
-const source = new URL("road-audit-routes.json", import.meta.url);
+const args = process.argv.slice(2);
+const assetsPath = args.find((arg) => arg.startsWith("--assets="));
+const assets = assetsPath
+  ? pathToFileURL(resolve(assetsPath.slice("--assets=".length)) + sep)
+  : new URL("../../public_html/src/sf/", import.meta.url);
+const planPath = args.find((arg) => arg.startsWith("--plan="));
+const source = planPath
+  ? resolve(planPath.slice("--plan=".length))
+  : new URL("road-audit-routes.json", import.meta.url);
 const bytes = readFileSync(new URL("tiles/manifest.json", assets));
 const manifest = JSON.parse(bytes);
 const planBytes = readFileSync(source);
@@ -39,7 +54,9 @@ assert.equal(quest.manifestSha256, plan.manifestSha256);
 assert.equal(plan.routes.length, 20);
 const ids = new Set(plan.routes.map(({ id }) => id));
 assert.equal(ids.size, plan.routes.length);
-const chosen = new Set(process.argv.slice(2));
+const chosen = new Set(
+  args.filter((arg) => arg !== planPath && arg !== assetsPath),
+);
 for (const id of chosen) assert.ok(ids.has(id), `Unknown course: ${id}`);
 const courseSet = digest(planBytes);
 const tiles = new Map(
@@ -68,6 +85,22 @@ const heightAt = (x, y) => {
   const tile = tiles.get(ownerOf(x, y));
   return groundAt(tile.g, x - tile.o[0], y - tile.o[1], false);
 };
+const pieces = new Map();
+for (const tile of tiles.values()) {
+  for (const road of tile.playableRoads ?? []) {
+    if (!pieces.has(road.id)) pieces.set(road.id, road);
+  }
+}
+const contacts = [...pieces.values()].map(buildBakedRoadContact);
+const surfaces = new Map(contacts.map(({ surface }) => [surface.id, surface]));
+const portals = new Map(
+  contacts.map(({ surface, portals }) => [surface.id, portals]),
+);
+const transitions = manifest.roadBake?.playableTransitions ?? [];
+const network = indexRoadNetwork(transitions);
+network.add({ endpoints: contacts.flatMap((c) => c.endpoints), transitions });
+const courseHeight = (road, x, y) =>
+  road.surfaceId ? surfaces.get(road.surfaceId).heightAt(x, y) : heightAt(x, y);
 const nodes = new Map();
 function nodeAt(x, y) {
   const key = `${Math.round(x * 10)},${Math.round(y * 10)}`;
@@ -171,7 +204,7 @@ function snap(point, roads, limit) {
   return best;
 }
 
-function routeBetween(from, to, tunnel, highway) {
+function routeBetween(from, to, tunnel, highway, groundOnly = false) {
   const queue = new Queue();
   const costs = new Map([[from, 0]]);
   const parents = new Map();
@@ -190,6 +223,7 @@ function routeBetween(from, to, tunnel, highway) {
     }
     for (const edge of node.edges) {
       if (tunnel ? !edge.tunnel || edge.name !== tunnel : edge.tunnel) continue;
+      if (groundOnly && edge.highway) continue;
       const next = cost + edge.length * (edge.highway === highway ? 1 : 2.5);
       if (next >= (costs.get(edge.to) ?? Infinity)) continue;
       costs.set(edge.to, next);
@@ -203,6 +237,8 @@ function routeBetween(from, to, tunnel, highway) {
 function routeFor(spec, from, to) {
   const start = snap(from, from.names, 27);
   const destination = snap(to, to.names, 27);
+  if (spec.contact)
+    return layeredRoute(spec.contact, from, to, start, destination);
   const vias = (spec.via || []).map(([x, y, name]) => ({
     node: snap({ x, y }, name ? [name] : null, name ? 600 : 40),
     highway: !!name,
@@ -227,6 +263,7 @@ function routeFor(spec, from, to) {
           stop.node,
           stop.tunnel,
           !!stop.highway || !!stops[i].highway,
+          spec.groundOnly,
         ),
       );
     if (legs.some((leg) => !leg)) continue;
@@ -242,6 +279,41 @@ function routeFor(spec, from, to) {
   return best.route;
 }
 
+function layeredRoute(contact, from, to, start, destination) {
+  const { roads, reverse, entry, exit } = contact;
+  const [enterNode, exitNode] = [entry, exit].map(([x, y, name]) =>
+    snap({ x, y }, [name], 55),
+  );
+  const before = routeBetween(start, enterNode);
+  const after = routeBetween(exitNode, destination);
+  assert.ok(before && after, "no ground route to a layered course portal");
+  const ribbon = roads.flatMap((id) => {
+    const surface = pieces.get(id);
+    assert.ok(surface, `No baked contact ${id}`);
+    const points = (reverse ? surface.points.toReversed() : surface.points).map(
+      ([x, y]) => ({ x, y }),
+    );
+    return points.slice(1).map((point, i) => ({
+      from: points[i],
+      to: point,
+      name: surface.label,
+      surfaceId: surface.id,
+      highway: surface.kind !== "tunnel",
+    }));
+  });
+  const connector = (from, to, name) =>
+    distance(from, to) > 0.01 ? [{ from, to, name }] : [];
+  return [
+    ...connector(from, start, from.names[0]),
+    ...before,
+    ...connector(enterNode, ribbon[0].from, entry[2]),
+    ...ribbon,
+    ...connector(ribbon.at(-1).to, exitNode, exit[2]),
+    ...after,
+    ...connector(destination, to, to.names[0]),
+  ];
+}
+
 function samplePath(route) {
   const first = route[0];
   const path = [{ x: first.from.x, y: first.from.y, road: first }];
@@ -253,7 +325,7 @@ function samplePath(route) {
   let s = 0;
   return path.map((point, i) => {
     if (i) s += distance(path[i - 1], point);
-    return { ...point, s, z: heightAt(point.x, point.y) };
+    return { ...point, s, z: courseHeight(point.road, point.x, point.y) };
   });
 }
 
@@ -271,10 +343,12 @@ function profile(path) {
       ...point,
       road: b.road.name,
       tunnel: b.road.tunnel,
-      z: heightAt(point.x, point.y),
+      surfaceId: b.road.surfaceId,
+      z: courseHeight(b.road, point.x, point.y),
     });
   }
   const grades = [];
+  const layerGrades = [];
   const events = [];
   for (let j = 1; j < samples.length; j++) {
     const point = samples[j];
@@ -283,6 +357,8 @@ function profile(path) {
     if (previous.tunnel || point.tunnel) continue;
     const grade = point.z - previous.z;
     grades.push(Math.abs(grade));
+    if (point.surfaceId && point.surfaceId === previous.surfaceId)
+      layerGrades.push(Math.abs(grade));
     const before = samples[j - 4]?.z;
     const after = samples[j + 4]?.z;
     const depression =
@@ -296,6 +372,7 @@ function profile(path) {
       });
   }
   grades.sort((a, b) => a - b);
+  layerGrades.sort((a, b) => a - b);
   const worstGrade = events.toSorted(
     (a, b) => Math.abs(b.grade) - Math.abs(a.grade),
   )[0];
@@ -308,6 +385,11 @@ function profile(path) {
         .reduce((sum, p, i) => sum + (p.road.highway ? p.s - path[i].s : 0), 0),
     ),
     unsupported: samples.filter(({ z }) => z === null).length,
+    bakedSamples: samples.filter(({ surfaceId }) => surfaceId).length,
+    bakedP95Grade: layerGrades.length
+      ? round(layerGrades[Math.floor((layerGrades.length - 1) * 0.95)] * 100)
+      : null,
+    bakedPeakGrade: layerGrades.length ? round(layerGrades.at(-1) * 100) : null,
     tunnelSamples: samples.filter(({ tunnel }) => tunnel).length,
     p95Grade: grades.length
       ? round(grades[Math.floor((grades.length - 1) * 0.95)] * 100)
@@ -338,6 +420,41 @@ function location({ x, y, z, road }) {
     z: round(z),
     tile: ownerOf(x, y),
     road,
+  };
+}
+
+function drivenProfile(samples) {
+  const grades = [];
+  let steepest;
+  let deepest;
+  let dips = 0;
+  for (let i = 1; i < samples.length; i++) {
+    const point = samples[i];
+    const previous = samples[i - 1];
+    if (point.z === null || previous.z === null) continue;
+    const grade = (point.z - previous.z) * 100;
+    grades.push(Math.abs(grade));
+    if (!steepest || Math.abs(grade) > Math.abs(steepest.grade))
+      steepest = { ...point, grade };
+    const window = samples.slice(i - 4, i + 5);
+    if (window.length !== 9 || window.some(({ z }) => z === null)) continue;
+    const depth = (window[0].z + window[8].z) / 2 - point.z;
+    if (depth <= dipThreshold) continue;
+    dips++;
+    if (!deepest || depth > deepest.depth) deepest = { ...point, depth };
+  }
+  grades.sort((a, b) => a - b);
+  return {
+    p95Grade: grades.length
+      ? round(grades[Math.floor((grades.length - 1) * 0.95)])
+      : null,
+    peakGrade: grades.length ? round(grades.at(-1)) : null,
+    worstGrade: steepest && {
+      ...location(steepest),
+      grade: round(steepest.grade),
+    },
+    dips,
+    worstDip: deepest && { ...location(deepest), depth: round(deepest.depth) },
   };
 }
 
@@ -426,9 +543,11 @@ function drive(path, from, to) {
   let tick = 0;
   let stopCrossTrack = 0;
   let status = "timed out";
+  const seenSurfaces = new Set();
+  const samples = [{ ...car, road: from.names[0] }];
   const trial = createTrial([from, to]);
   const limit = (path.at(-1).s / 2 + 90) / step;
-  const crashSupport = crashRoadSupport(heightAt, new Map());
+  const crashSupport = crashRoadSupport(heightAt, surfaces);
   for (; tick < limit; tick++) {
     if (tick % 120 === 0) {
       nearby = tilesAround(manifest.tiles, car.x, car.y, 60).want.map((token) =>
@@ -452,7 +571,27 @@ function drive(path, from, to) {
       status = "controller left the course";
       break;
     }
-    const candidate = contactStep(
+    const surface = surfaces.get(car.surfaceId);
+    const portal = driveThroughRoadPortal(
+      car,
+      control.input,
+      step,
+      surface ? [portals.get(surface.id)] : portals.values(),
+      heightAt,
+    );
+    let candidate = portal;
+    if (!candidate && surface) {
+      candidate = driveOnRoadNetwork(
+        car,
+        control.input,
+        step,
+        surface,
+        surfaces,
+        network,
+        () => false,
+      );
+    }
+    candidate ??= contactStep(
       car,
       control.input,
       step,
@@ -463,10 +602,11 @@ function drive(path, from, to) {
       1.35,
     );
     if (candidate.blocked) {
-      status = "missing ground contact";
+      status = surface ? "end of baked contact" : "missing ground contact";
       break;
     }
-    const support = heightAt(candidate.x, candidate.y);
+    const support = courseHeight(candidate, candidate.x, candidate.y);
+    if (candidate.surfaceId) seenSurfaces.add(candidate.surfaceId);
     if (car.grounded === false && hardLanding(car, candidate, crashSupport)) {
       status = "hard landing";
       car = candidate;
@@ -495,7 +635,17 @@ function drive(path, from, to) {
       seamCrossings++;
       worstSeamStep = Math.max(worstSeamStep, Math.abs(next.z - car.z));
     }
-    travelled += distance(car, next);
+    const run = distance(car, next);
+    while (samples.length <= travelled + run) {
+      const fraction = (samples.length - travelled) / run;
+      const point = blend(car, next, fraction);
+      const z =
+        car.grounded && next.grounded
+          ? car.z + (next.z - car.z) * fraction
+          : null;
+      samples.push({ ...point, z, road: road?.name });
+    }
+    travelled += run;
     maxMph = Math.max(maxMph, next.v * 2.236936);
     stalls = next.v < 0.3 ? stalls + 1 : 0;
     car = next;
@@ -522,6 +672,8 @@ function drive(path, from, to) {
     scrapes,
     seamCrossings,
     worstSeamStep: round(worstSeamStep),
+    seenSurfaces: [...seenSurfaces],
+    drivenProfile: drivenProfile(samples),
     stop: location({ ...car, road: road?.name }),
   };
 }
