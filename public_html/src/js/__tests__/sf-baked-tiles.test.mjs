@@ -340,6 +340,33 @@ test("MacArthur keeps one complete bore across tiles and only paints the open ap
   }
 });
 
+test("Kobbe Avenue remains below both SR 1 decks, which join the highway at each end", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808586e4.json.gz")));
+  for (const [direction, x] of [
+    ["northbound", -2594.4],
+    ["southbound", -2603.3],
+  ]) {
+    const road = tile.playableRoads.find(
+      ({ id }) => id === `sf-contact/kobbe-viaduct-${direction}`,
+    );
+    const { surface, portals } = buildBakedRoadContact(road);
+    assert.equal(portals.length, 2);
+    for (const { x, y, z } of portals) {
+      assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+    }
+    const street = groundAtWorld([tile], x, 4200, true);
+    const deck = surface.heightAt(x, 4200);
+    assert.ok(street > 55 && street < 59);
+    assert.ok(deck > 65 && deck < 66);
+    assert.ok(deck - street > 6);
+    for (let i = 1; i < road.points.length; i++) {
+      const [ax, ay, az] = road.points[i - 1];
+      const [bx, by, bz] = road.points[i];
+      assert.ok(Math.abs(bz - az) / Math.hypot(bx - ax, by - ay) < 0.08);
+    }
+  }
+});
+
 test("the Branch East exit and northbound I-280 keep their own road levels", () => {
   const tiles = ["808f7e7c", "808f7e64"].map((t) =>
     JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),

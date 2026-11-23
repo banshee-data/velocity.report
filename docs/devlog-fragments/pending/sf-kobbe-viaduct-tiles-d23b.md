@@ -1,0 +1,1 @@
+- Baked both SR 1 decks above Kobbe Avenue and drove the connected MacArthur tunnel and viaduct in both directions. [Drive audit](../../ui/sf-road-route-audit.md#sr-1-over-kobbe-avenue)
