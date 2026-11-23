@@ -10,7 +10,7 @@ const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 test("bundled road runs have identical geometry across tile owners", () => {
   const manifestBytes = file("tiles/manifest.json");
-  const { tiles, roadBake } = JSON.parse(manifestBytes);
+  const { tiles, roadBake, terrainReview } = JSON.parse(manifestBytes);
   const driveBytes = file("gamedrives.json");
   assert.equal(digest(driveBytes), roadBake.driveSha256);
   assert.equal(
@@ -41,6 +41,8 @@ test("bundled road runs have identical geometry across tile owners", () => {
       runs.set(run.id, run);
     }
   }
-  assert.equal(runs.size, roadBake.runs);
+  const reviewedRoads = new Set(terrainReview?.addedRoads);
+  for (const id of reviewedRoads) assert.ok(runs.has(id), id);
+  assert.equal(runs.size, roadBake.runs + reviewedRoads.size);
   assert.deepEqual(seamKinds, new Set(["bridge", "overpass"]));
 });

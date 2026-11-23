@@ -1,4 +1,8 @@
-import { clipHalfPlane } from "./sf-drive-surface.js";
+import {
+  GROUND_TRIANGLES,
+  clipHalfPlane,
+  groundQuads,
+} from "./sf-drive-surface.js";
 
 // Stylised guidance from the existing two-way centrelines, not observed paint
 // or lane rules. Carry the 3 m dash / 3 m gap phase across polyline vertices.
@@ -60,7 +64,6 @@ export function roadMarkingTriangles(tile, region, marks) {
     y0 = o[1] + g.y0;
   const regionPlanes = planesFor(region),
     positions = [];
-  const vertex = (i, j) => [x0 + i * g.s, y0 + j * g.s, g.z[j * g.n + i] / 10];
   const rx0 = Math.min(...region.map((p) => p[0])),
     rx1 = Math.max(...region.map((p) => p[0]));
   const ry0 = Math.min(...region.map((p) => p[1])),
@@ -78,29 +81,18 @@ export function roadMarkingTriangles(tile, region, marks) {
     const planes = [...planesFor(mark), ...regionPlanes];
     for (let j = j0; j <= j1; j++)
       for (let i = i0; i <= i1; i++) {
-        const k = j * g.n + i;
-        if ([k, k + 1, k + g.n, k + g.n + 1].some((n) => g.z[n] === -32768))
-          continue;
-        const v = [
-          vertex(i, j),
-          vertex(i + 1, j),
-          vertex(i, j + 1),
-          vertex(i + 1, j + 1),
-        ];
-        for (const ids of [
-          [0, 1, 2],
-          [1, 3, 2],
-        ]) {
-          let poly = ids.map((n) => v[n]);
-          for (const [nx, ny, d] of planes) {
-            poly = clipHalfPlane(poly, nx, ny, d);
-            if (!poly.length) break;
+        for (const v of groundQuads(g, o, i, j))
+          for (const ids of GROUND_TRIANGLES) {
+            let poly = ids.map((n) => v[n]);
+            for (const [nx, ny, d] of planes) {
+              poly = clipHalfPlane(poly, nx, ny, d);
+              if (!poly.length) break;
+            }
+            for (let n = 1; n + 1 < poly.length; n++) {
+              for (const p of [poly[0], poly[n], poly[n + 1]])
+                positions.push(p[0], p[2], -p[1]);
+            }
           }
-          for (let n = 1; n + 1 < poly.length; n++) {
-            for (const p of [poly[0], poly[n], poly[n + 1]])
-              positions.push(p[0], p[2], -p[1]);
-          }
-        }
       }
   }
   return positions;

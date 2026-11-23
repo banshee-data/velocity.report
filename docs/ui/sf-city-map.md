@@ -279,6 +279,60 @@ To rebuild the game tiles from the work directory:
 3. `venv/bin/python -I scripts/game_manifest.py tiles-game`.
 4. Copy `tiles-game/*.json.gz` and `manifest.json` into `public_html/src/sf/tiles/` on the branch, build with Eleventy and drive it locally before committing.
 
+### Dogpatch terrain review
+
+The 8 m terrain grid had two different failures near Louisiana and 21st and Pennsylvania and 23rd.
+At 21st Street, an imported centreline crossed an embankment at the western approach.
+The game now keeps the Louisiana jog and separates the two approaches across the embankment.
+At 23rd Street, interpolated ground joined elevations on either side of an aerial shadow, creating
+a roughly 64% grade on the western approach. The ground now ends at the evidence gap. A separately
+rendered class-17 strip shows 24 m of the lower 23rd Street deck over the rail cutting. The far end,
+the connection beneath I-280 and the deck's clearance remain unresolved.
+
+Both game tiles carry a bounded 1 m ground refinement. Paint, rendering and tyre contact use the
+same triangles and omit the same unsupported cells. The refinement edges agree with the coarse
+grid. The maximum observed game-centreline grade on the retained 21st Street road fell from
+33% to 17% across the reviewed approach. The supported west approach to 23rd Street stays
+below 8% and the physics replay stops before the gap.
+
+The [terrain review tool](../../tools/sf-drive/apply-terrain-review.py) pins the input manifest and
+both compressed tiles. Its input arrays contain world-plane XYZ in the manifest frame from the
+USGS 3DEP `CA_SanFrancisco_1_B23` EPT archive at depth 12. Extract class 2 over
+`[4684, -82, 4804, -38]` for 21st Street, and classes 2 and 17 separately over
+`[4128, -580, 4272, -500]` for 23rd Street. Use the Arrow work directory's `scripts/ept.py`,
+transform the crop bounds to lon/lat, and convert the returned horizontal coordinates to EPSG:7131
+less the base manifest origin. Keep the original NAVD88 altitude. The output manifest records the
+three crop hashes, the source and corrected tile hashes, and the rendered deck ID.
+
+Against held-out 2 m blocks within 1.5 m of the reviewed 21st Street centreline, the ground fit
+reduced height RMSE from 0.152 m to 0.017 m over 987 returns. At the 23rd Street west approach,
+RMSE was 0.014 m on the original grid and 0.016 m on the refinement over 354 held-out returns.
+These scores cover the supported approaches. They leave the 23rd Street shadow open.
+
+Run `node tools/sf-drive/audit-road-flatness.mjs [tile-directory]` to screen supported
+class 2–5 carriageways at intervals of up to 2 m for grade changes, steep slopes and support gaps.
+The audit screened 14,997 road rows across 157 tiles. Intervals above 50% fell from 503 to
+499, and intervals adjacent to a grade change above 25 percentage points fell from 645 to 643.
+There were 51 intervals with missing ground across the reviewed 23rd Street shadow.
+A flag calls for evidence review. Some steep grades are genuine.
+
+### Inputs for a new game-tile revision
+
+1. Freeze the DataSF centreline and street geometry source versions, the 3DEP acquisition,
+   the EPSG:7131 origin, and the NAVD88 vertical datum. Fit pavement with road-aware sampling at
+   retaining edges and keep a missing-support mask through aerial shadows. Preserve grade and
+   crossfall where the ground evidence supports them.
+2. Bake the pristine ground and scenery to a new versioned tile directory. Fit decks, overpasses
+   and ramps independently from their supported returns. Carry stable road, structure and
+   surface IDs so a ground crossing can remain separate from the road above it. Record explicit
+   compatible joins with owner-tile references. Use a tunnel survey for interior geometry and
+   clearance and evidence of the road below the 23rd Street shadow before joining that crossing.
+3. Rebuild the Gerardus overlay against the new pristine manifest hash. Re-run the game drive
+   baker and `embed-road-layers.py`, regenerate coverage and the quest route against the final
+   game manifest, and publish the bundle together. Exercise grade changes, delayed owner
+   loads, same-level recovery, each entrance and exit, and drives below the decks before
+   promoting additional structures to drivable.
+
 Traps on arrow-worker:
 
 - The Gerardus server holds 4–6 GB of the 9.9 GB. Never build shapely Point objects for millions of lidar points (use `contains_xy` on arrays); two out-of-memory kills pushed the server 4.6 GB into swap.
