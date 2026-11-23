@@ -355,6 +355,52 @@ cases["dogpatch-to-fifth-northbound"] = {
   roads: [...dogpatchNorth.roads.slice(0, -1), "i280-north-fifth-exit"],
   forks: [["i280-mariposa-northbound", "i280-north-fifth-exit", 1.65]],
 };
+const alemanyNorthApproach = [
+  "i280-north-alemany-entry",
+  "i280-north-alemany-main",
+  "i280-north-alemany-climb",
+  "i280-north-lower-viaduct",
+  "i280-north-south-dogpatch",
+];
+for (const branch of ["fifth", "sixth"]) {
+  const exit = cases[`dogpatch-to-${branch}-northbound`];
+  cases[`alemany-to-${branch}-northbound`] = {
+    ...exit,
+    roads: [...alemanyNorthApproach, ...exit.roads.slice(1)],
+    owners: [...exit.owners, "808f7ef4", "808f7efc", "808f7f04", "808f7fa4"],
+    speed: 17,
+    entranceTimeoutMs: 45_000,
+    speedLimits: {
+      ...exit.speedLimits,
+      "i280-north-alemany-entry": 11,
+      "i280-north-alemany-climb": 15,
+      "i280-north-lower-viaduct": 14,
+    },
+    forks: [
+      ...exit.forks,
+      ["i280-north-alemany-climb", "i280-north-lower-viaduct", -1.35],
+    ],
+    laneGuides: {
+      ...exit.laneGuides,
+      "i280-north-alemany-entry": {
+        clearance: { offset: 1.75, station: 51, length: 24 },
+      },
+      "i280-north-alemany-climb": {
+        clearance: [
+          { offset: 2.25, station: 71, length: 24 },
+          { offset: -1.8, station: 116, length: 23 },
+        ],
+      },
+      "i280-north-lower-viaduct": {
+        clearance: [
+          { offset: -1.8, station: 59, length: 18 },
+          { offset: 1.9, station: 154, length: 39 },
+          { offset: 1.9, station: 621, length: 29 },
+        ],
+      },
+    },
+  };
+}
 for (const reverse of [false, true]) {
   cases[
     reverse ? "dogpatch-twentieth-eastbound" : "dogpatch-twentieth-westbound"
@@ -539,6 +585,7 @@ async function drive(
   connectByGround,
   finishOnDeck,
   maxDurationMs,
+  entranceTimeoutMs,
 ) {
   return page.evaluate(
     async ({
@@ -547,6 +594,7 @@ async function drive(
       connectByGround,
       finishOnDeck,
       maxDurationMs,
+      entranceTimeoutMs,
     }) => {
       const driveModule = performance
         .getEntriesByType("resource")
@@ -632,7 +680,7 @@ async function drive(
           if (surfaceId && !seen.has(surfaceId)) seen.set(surfaceId, pose);
           if (surfaceId && pose.grounded) lastSupported = pose;
           if (surfaceId && pose.camera === "tunnel") enclosed.add(surfaceId);
-          if (!seen.size && now - started > 20_000)
+          if (!seen.size && now - started > entranceTimeoutMs)
             return finish("missed entrance");
           const distanceToFinish = Math.hypot(pose.x - end[0], pose.y - end[1]);
           if (
@@ -685,7 +733,14 @@ async function drive(
         requestAnimationFrame(tick);
       });
     },
-    { sections, speed, connectByGround, finishOnDeck, maxDurationMs },
+    {
+      sections,
+      speed,
+      connectByGround,
+      finishOnDeck,
+      maxDurationMs,
+      entranceTimeoutMs,
+    },
   );
 }
 
@@ -729,6 +784,7 @@ async function main() {
         connectByGround = false,
         finishOnDeck = false,
         maxDurationMs = 460_000,
+        entranceTimeoutMs = 20_000,
         rollingStart = false,
         reverseRoads = [],
         laneGuides = {},
@@ -740,7 +796,11 @@ async function main() {
         const road = roads.get(prefix + outgoing) ?? roads.get(outgoing);
         const [a, b] = road.points.slice(-2);
         const heading = Math.atan2(b[1] - a[1], b[0] - a[0]);
-        guides[outgoing] = { approach: offset, holdApproach: true };
+        guides[outgoing] = {
+          ...guides[outgoing],
+          approach: offset,
+          holdApproach: true,
+        };
         guides[incoming] = {
           ...guides[incoming],
           entranceEast: -offset * Math.sin(heading),
@@ -863,6 +923,7 @@ async function main() {
           connectByGround,
           finishOnDeck,
           maxDurationMs,
+          entranceTimeoutMs,
         );
         console.log(JSON.stringify({ name, contactHash, ...result, errors }));
         assert.deepEqual(errors, []);

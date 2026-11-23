@@ -800,3 +800,35 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `23b03ed2abf7c9d57c1768d8ed936f718b5ca93460bee3c0c4fef1dd32d34d0e`.
 - Contact SHA-256 `66943cdc2de0326e744eadb77565d96a0db3abcb2e7690195eac768b3a361cb1`.
 - The bake changes two tiles and preserves the existing emoji placement revision.
+
+## Alemany to Dogpatch on northbound I-280
+
+Five contact sections add 3.90 km from the Alemany entry to the existing
+Dogpatch northbound deck. The maximum added centreline grade is 5.2%,
+and the entrance matches ground contact within 2 cm. At the shared
+footprint by the covered viaduct, northbound contact is 21.77 m NAVD88
+and southbound contact is 29.58 m. Where the upper deck hides the lane,
+the lower grade follows an interpolation constrained by measured side
+returns. The two decks keep independent contact.
+
+The northbound approach into Dogpatch had eight inferred roof faces
+overlapping the surveyed pavement. The bake clips those overlaps in
+four pinned building rows, preserving the lower faces and previous
+southbound clearance. The street trees stay in place. The scripted
+driver uses lane offsets at six of the closer trees and through the
+covered section.
+
+At 120 Hz, the keyboard-equivalent regression followed nine sections
+from ordinary Alemany pavement through Dogpatch. It returned to
+ground contact at Sixth in 353.0 s and near Fifth in 360.2 s. All 20
+frozen emoji courses also passed over 52.45 km, with no driven dips
+deeper than 0.5 m and a maximum driven tile-seam step of 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  alemany-to-sixth-northbound alemany-to-fifth-northbound
+```
+
+- Game manifest SHA-256 `c258108a7752d400af15734ebb15b5ec343077b304e722973fe1133cc92403a2`.
+- Contact SHA-256 `46f19986668756c23a8fc4191c3c414e4b79a8ceb36e5069daffc0014570a6d5`.
+- The bake changes six tiles and preserves the existing emoji placement revision.
