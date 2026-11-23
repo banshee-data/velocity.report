@@ -103,7 +103,9 @@ import {
   driveOnRoadSurface,
   indexRoadContact,
 } from "./sf-road-contact.js";
-import { indexRoadNetwork } from "./sf-road-network.js";
+import { driveOnRoadNetwork, indexRoadNetwork } from "./sf-road-network.js";
+import { buildBakedRoadContact } from "./sf-baked-road-contact.js";
+import { driveThroughRoadPortal } from "./sf-road-portal.js";
 import { buildingWalls, validBuildingFace } from "./sf-building-walls.js";
 import {
   crashHistory,
@@ -935,6 +937,15 @@ export async function startDrive({
   const shoreline =
     gameDrive?.points[gameDrive.spans.get("bay-bridge-westbound")?.end];
   const network = gameDrive && indexRoadNetwork(gameDrive.topology.transitions);
+  const bakedTransitions = manifest.roadBake?.playableTransitions || [];
+  const bakedNetwork = indexRoadNetwork(bakedTransitions);
+  bakedNetwork.add({ endpoints: [], transitions: bakedTransitions });
+  const bakedRoads = new Map();
+  const bakedPortals = new Map();
+  const replacedPreviews = new Set([
+    ...(gameDrive?.references || []),
+    ...(manifest.roadBake?.playableReplaces || []),
+  ]);
   const raisedRoads = new Map();
   const roadMaterial = new THREE.MeshLambertMaterial({
     color: C.asphalt,
@@ -1315,6 +1326,17 @@ export async function startDrive({
     for (const t of drop) {
       const e = loaded.get(t);
       if (!e) continue;
+      for (const id of e.bakedRoadIds) {
+        const entry = bakedRoads.get(id);
+        if (--entry.owners) continue;
+        scene.remove(entry.mesh);
+        entry.mesh.geometry.dispose();
+        for (const terminal of entry.surface.end_ids)
+          bakedNetwork.endpoints.delete(terminal);
+        bakedPortals.delete(id);
+        roadSurfaces.delete(id);
+        bakedRoads.delete(id);
+      }
       for (const road of e.tile.raisedRoads || []) {
         const cached = raisedRoads.get(road.id);
         if (--cached.owners) continue;
@@ -1355,6 +1377,7 @@ export async function startDrive({
             tile,
             grp,
             roads,
+            bakedRoadIds: [],
             kerbs: tile.k.map((line) => {
               const points = [];
               for (let i = 0; i + 1 < line.length; i += 2)
@@ -1372,12 +1395,33 @@ export async function startDrive({
           loaded.set(t, entry);
           for (const [index, damage] of treeDamage.get(t) || [])
             grp.userData.drawTree?.(index, damage);
+          for (const road of tile.playableRoads || []) {
+            const existing = bakedRoads.get(road.id);
+            if (existing) existing.owners++;
+            else {
+              const contact = buildBakedRoadContact(road);
+              if (!contact || roadSurfaces.has(road.id)) continue;
+              const { surface, endpoints, portals } = contact;
+              if (surface.kind !== "tunnel")
+                surface.boundary = roadBoundary(surface.contact);
+              const mesh = new THREE.Mesh(
+                contactGeometry(surface.contact, false),
+                deckMaterial,
+              );
+              scene.add(mesh);
+              bakedRoads.set(road.id, { surface, mesh, owners: 1 });
+              bakedPortals.set(road.id, portals);
+              roadSurfaces.set(road.id, surface);
+              bakedNetwork.add({ endpoints, transitions: [] });
+            }
+            entry.bakedRoadIds.push(road.id);
+          }
           for (const road of tile.raisedRoads || []) {
             const cached = raisedRoads.get(road.id);
             if (cached) {
               cached.owners++;
             } else {
-              const mesh = buildRaisedRoad(road, gameDrive?.references);
+              const mesh = buildRaisedRoad(road, replacedPreviews);
               raisedRoads.set(road.id, { mesh, owners: 1 });
               if (mesh) scene.add(mesh);
             }
@@ -2770,12 +2814,23 @@ export async function startDrive({
           ((surface ? !car.v : trial.status === "ready") && input.throttle === 0
             ? { ...input, brake: true }
             : input);
-        let candidate;
-        if (car.leavingRoad) {
+        let candidate = bakedPortals.size
+          ? driveThroughRoadPortal(
+              car,
+              controls,
+              1 / 120,
+              surface
+                ? [bakedPortals.get(surface.id) || []]
+                : bakedPortals.values(),
+              terrainHeight,
+            )
+          : null;
+        if (!candidate && car.leavingRoad) {
           candidate = fallFromRoad(car, 1 / 120, (x, y) =>
             crashSupport(x, y, car),
           );
-        } else if (!surface) {
+        }
+        if (!candidate && !surface) {
           candidate = contactStep(
             car,
             controls,
@@ -2786,7 +2841,28 @@ export async function startDrive({
             }),
             1.35,
           );
-        } else if (network) {
+        } else if (!candidate && bakedRoads.has(surface.id)) {
+          candidate = driveOnRoadNetwork(
+            car,
+            controls,
+            1 / 120,
+            surface,
+            roadSurfaces,
+            bakedNetwork,
+            (token) => {
+              if (!byToken.has(token) || loaded.has(token)) return false;
+              stream(car, [token]);
+              return !failures.has(token);
+            },
+          );
+          if (
+            candidate.blocked &&
+            !candidate.waiting &&
+            surface.kind !== "tunnel"
+          )
+            candidate =
+              leaveRoadSide(car, controls, 1 / 120, surface) || candidate;
+        } else if (!candidate && network) {
           candidate = driveOnCityRoute(
             car,
             controls,
@@ -2798,7 +2874,7 @@ export async function startDrive({
               ? terrainHeight
               : undefined,
           );
-        } else {
+        } else if (!candidate) {
           candidate = driveOnRoadSurface(car, controls, 1 / 120, surface);
           if (candidate.blocked && surface.kind !== "ground")
             candidate =
@@ -2942,7 +3018,14 @@ export async function startDrive({
         }
       }
       // Remember reached, clear intersections; a crash never erases quest progress.
-      if (!roadDrive && car.grounded && !crash && !blocked && now >= crashUntil)
+      if (
+        !roadDrive &&
+        !bakedRoads.has(car.surfaceId) &&
+        car.grounded &&
+        !crash &&
+        !blocked &&
+        now >= crashUntil
+      )
         for (const e of loaded.values())
           for (const p of e.intersections) {
             if (Math.hypot(car.x - p.x, car.y - p.y) < 12) {
@@ -2959,7 +3042,12 @@ export async function startDrive({
           wallDt,
           car,
           grounded && !crash && now >= crashUntil && input.throttle !== 0,
-          grounded && car.grounded && !crash && !blocked && now >= crashUntil,
+          grounded &&
+            car.grounded &&
+            !bakedRoads.has(car.surfaceId) &&
+            !crash &&
+            !blocked &&
+            now >= crashUntil,
         );
     for (const t of found)
       announce(
@@ -3122,8 +3210,13 @@ export async function startDrive({
     }
     if (now - hudAt > 250) {
       hudAt = now;
-      const street = streetAt(tiles, car.x, car.y, car.heading);
-      const next = nextCrossing(tiles, car.x, car.y, car.heading, street);
+      const layered = bakedRoads.has(car.surfaceId);
+      const street = layered
+        ? surface?.label
+        : streetAt(tiles, car.x, car.y, car.heading);
+      const next = layered
+        ? null
+        : nextCrossing(tiles, car.x, car.y, car.heading, street);
       hud.street.textContent = roadDrive
         ? car.leavingRoad
           ? "Airborne · road edge"
@@ -3140,9 +3233,11 @@ export async function startDrive({
           : "Off street";
       hud.next.textContent = roadDrive
         ? `${carZ.toFixed(1)} m NAVD88 · ${car.leavingRoad ? "Airborne" : surface ? "Game route" : "Base map"}`
-        : next
-          ? `${next.names.join(" · ")} in ${Math.round(next.distance / 10) * 10} m`
-          : "";
+        : layered
+          ? `${carZ.toFixed(1)} m NAVD88 · ${surface.kind.replaceAll("_", " ")}`
+          : next
+            ? `${next.names.join(" · ")} in ${Math.round(next.distance / 10) * 10} m`
+            : "";
       if (crash) hud.next.textContent = "Crash · recovering";
       else if (trial.status === "finished")
         hud.next.textContent = `Finished! ${trial.crashes} crashes`;

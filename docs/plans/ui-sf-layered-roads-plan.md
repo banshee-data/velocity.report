@@ -230,6 +230,32 @@ The [20-course route audit](../ui/sf-road-route-audit.md) gives reproduction
 coordinates for the 5th Street ramp contact gap, the Dogpatch grade flags and the
 unresolved tunnel approaches.
 
+### Baked I-280 contact trial
+
+The game now has a baked contact path for the 5th Street southbound I-280
+entrance and the mainline as far as the next junction near Mariposa. The
+[Gerardus game exporter](https://github.com/banshee-data/gerardus/pull/93) pins
+road CNNs 19330000 and 19339000 and requires shared DataSF node 50100000.
+It matches the entry to ground at station 48 m. A short interpolated section
+at stations 305.88–333.33 m follows the lower ramp through the upper-deck
+occlusion. The authored approach and interpolation stay in the game product
+with their own provenance.
+
+Playable strips carry joint widths and bearings and appear whole in each
+intersecting tile. A grounded car can select the strip only through a declared
+terrain portal or a compatible baked join. Surface-street pickups and
+checkpoints remain attached to surface streets. The normal browser game reads
+these strips from its static tiles and can reuse them offline.
+
+Run `node tools/sf-drive/replay-baked-structure.mjs` to exercise the pavement
+entry, the lower ramp and the merge using the bundled contacts and collision
+geometry. The [Chrome smoke test](../../tools/sf-drive/smoke-baked-structure.cjs)
+checks entry through manual controls and that the overlapping street remains
+at 3.13 m. In the replay, the car enters at 2.87 m and joins the mainline at
+18.15 m. The next exit and the three named tunnel structures still need
+playable contact. The [route audit](../ui/sf-road-route-audit.md) describes the
+original wrong-level failure.
+
 Both rails at the Fourth Street entrance use a rebound for side impacts at any speed.
 The car loses speed and stays on the ramp. The replay checks a 50 mph strike on each
 rail before driving the six connected sections from the rolling bridge start.

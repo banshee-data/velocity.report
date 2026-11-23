@@ -52,7 +52,8 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-offline.cjs
 
 The audit accepts one or more course IDs from the course set as positional arguments.
 It reads removed tunnel alignments from the pinned parent commit, so Git history must
-include that revision. For browser commands, make Playwright available on `NODE_PATH`
+include that revision. To repeat the original audit after a new bake, use a checkout
+at `5cf29faf5`, which contains the script and its matching tile bundle. For browser commands, make Playwright available on `NODE_PATH`
 and set `CHROMIUM_PATH` to the Chrome executable.
 
 ## Route results
