@@ -96,6 +96,12 @@ const dogpatchApproach = [
 const dogpatchClearance = {
   clearance: { offset: 2.2, station: 1954, length: 30 },
 };
+const southAlemanyApproach = "i280-south-beyond-dogpatch";
+const southAlemanyMainline = "i280-south-to-alemany-mainline";
+const southAlemanyLeftExit = "i280-south-to-us101-south-exit";
+const southAlemanyMainlineClearance = {
+  clearance: { ...dogpatchClearance.clearance, station: 224 },
+};
 for (const [name, exit] of [
   ["i280-pennsylvania", "i280-pennsylvania-exit"],
   ["i280-18th", "i280-18th-exit"],
@@ -111,7 +117,8 @@ cases["i280-mainline"] = {
   roads: [
     ...dogpatchApproach,
     "i280-south-through-dogpatch",
-    "i280-south-beyond-dogpatch",
+    southAlemanyApproach,
+    southAlemanyMainline,
     "i280-south-alemany-merge-tail",
     "i280-south-alemany-through",
     "i280-south-alemany-exit",
@@ -122,11 +129,14 @@ cases["i280-mainline"] = {
     "i280-south-through-dogpatch": 16,
     "i280-south-alemany-exit": 11,
   },
-  forks: [["i280-south-alemany-through", "i280-south-alemany-exit", -1.6]],
+  forks: [
+    [southAlemanyApproach, southAlemanyMainline, -1.5],
+    ["i280-south-alemany-through", "i280-south-alemany-exit", -1.6],
+  ],
   laneGuides: {
     "i280-dogpatch-approach": { approach: 1.25, holdApproach: true },
     "i280-south-through-dogpatch": { entranceEast: 1.25, entranceMetres: 20 },
-    "i280-south-beyond-dogpatch": dogpatchClearance,
+    [southAlemanyMainline]: southAlemanyMainlineClearance,
   },
 };
 cases["sixth-southbound"] = {
@@ -1905,6 +1915,50 @@ cases["alemany-upper-over-northbound-connector"] = {
   finishDistance: 155,
   maxDurationMs: 55_000,
   covered: [],
+};
+const southAlemanyFork = {
+  owners: [...dogpatchOwners, "808f7e54", "808f7ef4", "808f7ee4"],
+  speed: 17,
+  rollingStart: true,
+  rollingStartMetres: 1650,
+  initialSpeedMps: 16,
+  finishOnDeck: true,
+  covered: [],
+};
+cases["southbound-i280-left-exit-to-us101"] = {
+  ...southAlemanyFork,
+  roads: [
+    southAlemanyApproach,
+    southAlemanyLeftExit,
+    "i280-to-us101-south-descent",
+    "us101-south-paul-approach",
+  ],
+  forks: [[southAlemanyApproach, southAlemanyLeftExit, 1.7]],
+  finishDistance: 80,
+  maxDurationMs: 150_000,
+};
+cases["southbound-i280-through-left-exit-fork"] = {
+  ...southAlemanyFork,
+  roads: [southAlemanyApproach, southAlemanyMainline],
+  forks: [[southAlemanyApproach, southAlemanyMainline, -1.7]],
+  laneGuides: { [southAlemanyMainline]: southAlemanyMainlineClearance },
+  finishDistance: 275,
+  maxDurationMs: 55_000,
+};
+const northAlemanyClimb = "i280-north-alemany-climb";
+const northAlemanyLower = "i280-north-lower-viaduct";
+cases["northbound-i280-below-alemany-left-exit"] = {
+  ...southAlemanyFork,
+  roads: [northAlemanyClimb, northAlemanyLower],
+  rollingStartMetres: 695,
+  finishDistance: 240,
+  speed: 14,
+  forks: [[northAlemanyClimb, northAlemanyLower, -1.35]],
+  laneGuides: alemanyToSixth.laneGuides,
+  maxAirborneMetres: 0,
+  covered: [prefix + northAlemanyClimb, prefix + northAlemanyLower],
+  exitCamera: "covered",
+  maxDurationMs: 55_000,
 };
 cases["northbound-us101-through-alemany-fork"] = {
   ...cases["northbound-us101-to-southbound-i280"],
