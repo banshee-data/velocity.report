@@ -2596,3 +2596,48 @@ test("Bayshore stays on the upper street through the Hester fork and merges onto
     null,
   );
 });
+
+test("both southbound Hester entrances stay below US 101 and join the collector fork", () => {
+  const token = "808f7f24";
+  const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const road = (name) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`);
+  const third = road("us101-south-hester-third-entry");
+  const salinas = road("us101-south-hester-salinas-entry");
+  const collector = road("us101-south-hester-entrance-collector");
+  const south = road("us101-south-hester-collector-return");
+  const street = road("us101-south-hester-bayshore-exit");
+  for (const [from, to] of [
+    [third, collector],
+    [salinas, collector],
+    [collector, south],
+    [collector, street],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from: a, to: b, direction, status }) =>
+          a === `${from.id}:end` &&
+          b === `${to.id}:start` &&
+          direction === "forward" &&
+          status === "joined",
+      ),
+    );
+  }
+  for (const ramp of [third, salinas]) {
+    const [{ x, y, z }] = buildBakedRoadContact(ramp).portals;
+    assert.deepEqual(ramp.groundEnds, ["start"]);
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.02);
+  }
+  assert.ok(Math.abs(third.points[0][0] - 3809.5041) < 0.01);
+  assert.deepEqual(collector.groundEnds, []);
+  assert.ok(Math.abs(collector.points[0][2] - 34.2) < 0.01);
+  const upper = road("us101-north-hester-to-bayshore");
+  const [x, y] = [3569.7184, -4516.3596];
+  const upperHeight = buildBakedRoadContact(upper).surface.heightAt(x, y);
+  const lowerHeight = buildBakedRoadContact(third).surface.heightAt(x, y);
+  assert.ok(Number.isFinite(upperHeight) && Number.isFinite(lowerHeight));
+  assert.ok(upperHeight - lowerHeight > 8 && upperHeight - lowerHeight < 9);
+});

@@ -23,11 +23,13 @@ import {
 } from "../../public_html/src/js/sf-chassis-contact.js";
 import { crashRoadSupport } from "../../public_html/src/js/sf-highway-edge.js";
 import { buildBakedRoadContact } from "../../public_html/src/js/sf-baked-road-contact.js";
+import { contactGeometry } from "../../public_html/src/js/sf-road-contact.js";
 import { driveThroughRoadPortal } from "../../public_html/src/js/sf-road-portal.js";
 import {
   driveOnRoadNetwork,
   indexRoadNetwork,
 } from "../../public_html/src/js/sf-road-network.js";
+import { deckClearanceIndex } from "../../public_html/src/js/sf-tree-clearance.js";
 import {
   hardLanding,
   scrapeObstacle,
@@ -94,6 +96,13 @@ for (const tile of tiles.values()) {
 }
 const contacts = [...pieces.values()].map(buildBakedRoadContact);
 const surfaces = new Map(contacts.map(({ surface }) => [surface.id, surface]));
+const bakedDecks = deckClearanceIndex();
+for (const { surface } of contacts) {
+  if (surface.kind === "tunnel") continue;
+  const geometry = contactGeometry(surface.contact, false);
+  bakedDecks.add(geometry);
+  geometry.dispose();
+}
 const portals = new Map(
   contacts.map(({ surface, portals }) => [surface.id, portals]),
 );
@@ -603,8 +612,12 @@ function drive(path, from, to) {
         tiles.get(token),
       );
       collisions = nearby.map((tile) => {
-        if (!indexes.has(tile.t))
-          indexes.set(tile.t, buildCollisionIndex(tile, tile.t));
+        if (!indexes.has(tile.t)) {
+          indexes.set(
+            tile.t,
+            buildCollisionIndex(tile, tile.t, new Map(), bakedDecks.ceiling),
+          );
+        }
         return indexes.get(tile.t);
       });
     }
