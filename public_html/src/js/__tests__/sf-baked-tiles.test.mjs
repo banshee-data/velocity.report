@@ -786,6 +786,53 @@ test("the east island ramp joins the upper bore without changing the through tun
   }
 });
 
+test("the lower island exit stays below the upper bore and meets Hillcrest pavement", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/80858024.json.gz")));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
+  const entry = roads.get("yerba-buena-lower-tunnel");
+  const through = roads.get("yerba-buena-lower-tunnel-east-of-exit");
+  const exit = roads.get("sf-contact/yerba-buena-east-eastbound-exit-tunnel");
+  const ramp = roads.get("sf-contact/yerba-buena-east-eastbound-off-ramp");
+  for (const [before, after] of [
+    [entry, through],
+    [entry, exit],
+    [exit, ramp],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  assert.ok(exit.points[0][2] < 49);
+  const [x, y, z] = ramp.points.at(-1);
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.005);
+  const shells = [through, exit].map((road) => {
+    const { surface, appearance } = buildBakedRoadContact(road);
+    return tunnelMesh(surface, appearance);
+  });
+  for (const { points } of [through, exit]) {
+    for (let i = 1; i < points.length; i++) {
+      const eye = ([x, y, z]) => new Vector3(x, z + 1, -y);
+      const start = eye(points[i - 1]);
+      const delta = eye(points[i]).sub(start);
+      const length = delta.length();
+      const ray = new Raycaster(start, delta.normalize(), 0, length);
+      assert.equal(
+        ray.intersectObjects(shells).length,
+        0,
+        `wall across lower tunnel at ${points[i]}`,
+      );
+    }
+  }
+});
+
 test("23rd Street crosses both US 101 carriageways at its own level", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808f7e4c.json.gz")));
   const other = JSON.parse(gunzipSync(file("tiles/808f7e34.json.gz")));
@@ -945,19 +992,26 @@ test("the eastbound bridge start connects First Street to the lower bore and eas
   assert.equal(selected.label, entry.label);
   assert.equal(selected.sections[0].id, "first-street-eastbound-entry");
   assert.equal(drive.sections[0].id, "bay-bridge-westbound");
-  const tunnel = selected.sections.find(({ kind }) => kind === "tunnel");
-  assert.equal(tunnel.id, "yerba-buena-lower-tunnel");
-  assert.equal(tunnel.game_clearance_m, 4.9);
+  const tunnels = selected.sections.filter(({ kind }) => kind === "tunnel");
+  assert.deepEqual(
+    tunnels.map(({ id }) => id),
+    ["yerba-buena-lower-tunnel", "yerba-buena-lower-tunnel-east-of-exit"],
+  );
   let length = 0;
-  for (let i = 1; i < tunnel.positions.length; i++) {
-    const [ax, ay, az] = tunnel.positions[i - 1];
-    const [bx, by, bz] = tunnel.positions[i];
-    const ds = Math.hypot(bx - ax, by - ay);
-    assert.ok(Math.abs(bz - az) / ds < 0.05);
-    length += ds;
+  for (const tunnel of tunnels) {
+    assert.equal(tunnel.game_clearance_m, 4.9);
+    for (let i = 1; i < tunnel.positions.length; i++) {
+      const [ax, ay, az] = tunnel.positions[i - 1];
+      const [bx, by, bz] = tunnel.positions[i];
+      const ds = Math.hypot(bx - ax, by - ay);
+      assert.ok(Math.abs(bz - az) / ds < 0.05);
+      length += ds;
+    }
   }
   assert.ok(length > 286 && length < 288);
-  assert.ok(tunnel.positions[0][2] < 44 && tunnel.positions.at(-1)[2] > 51);
+  assert.ok(
+    tunnels[0].positions[0][2] < 44 && tunnels.at(-1).positions.at(-1)[2] > 51,
+  );
   for (let i = 1; i < selected.sections.length; i++) {
     assert.deepEqual(
       selected.sections[i - 1].positions.at(-1),
@@ -1017,7 +1071,16 @@ test("ordinary city tiles carry the complete lower West Span and Yerba Buena bor
   assert.deepEqual(readRoad("8085803c", boreId), bore);
   const { appearance, portals } = buildBakedRoadContact(bore);
   assert.equal(appearance.clearance, 4.9);
-  assert.ok(appearance.interior[1] > 286);
+  const continuation = readRoad(
+    "80858024",
+    "yerba-buena-lower-tunnel-east-of-exit",
+  );
+  assert.deepEqual(bore.points.at(-1), continuation.points[0]);
+  assert.ok(
+    appearance.interior[1] +
+      buildBakedRoadContact(continuation).appearance.interior[1] >
+      286,
+  );
   assert.deepEqual(portals, []);
 });
 

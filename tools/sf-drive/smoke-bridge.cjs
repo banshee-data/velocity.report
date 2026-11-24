@@ -70,14 +70,15 @@ const { chromium } = require("playwright");
         "bay-bridge-eastbound-lower",
         "yerba-buena-lower-west-approach",
         "yerba-buena-lower-tunnel",
+        "yerba-buena-lower-tunnel-east-of-exit",
         "yerba-buena-lower-east-approach",
       ]) {
         await waitForStart(start, surface, null, 220_000);
-        if (surface === "yerba-buena-lower-tunnel") {
+        if (surface.startsWith("yerba-buena-lower-tunnel")) {
           const { altitude, cameraContact } = await page
             .locator("#drive")
             .evaluate(({ dataset }) => ({ ...dataset }));
-          assert.ok(Number(altitude) < 50);
+          assert.ok(Number(altitude) < 51.3);
           assert.equal(cameraContact, "tunnel");
         }
       }
