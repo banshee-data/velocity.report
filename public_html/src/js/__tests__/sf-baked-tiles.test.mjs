@@ -1380,7 +1380,6 @@ test("southbound US 101 keeps the Silver fork, Industrial merge and Silliman str
     ["silliman-entry", "start"],
     ["silliman-exit", "end"],
     ["san-bruno-exit", "end"],
-    ["paul-mainline", "end"],
   ]) {
     const surface = road(id);
     assert.deepEqual(surface.groundEnds, [groundEnd]);
@@ -1398,6 +1397,57 @@ test("southbound US 101 keeps the Silver fork, Industrial merge and Silliman str
       acrossTiles,
     );
   }
+});
+
+test("southbound US 101 stays on its level through the Hester fork and collector merge", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7ee4", "808f7f24", "808f7f2c"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) => playableRoads.map((r) => [r.id, r])),
+  );
+  const road = (name) => roads.get(`sf-contact/us101-south-${name}`);
+  const paul = road("paul-mainline");
+  const main = road("hester-mainline");
+  const entry = road("hester-collector-entry");
+  const exit = road("hester-bayshore-exit");
+  const collector = road("hester-collector-return");
+  const edge = road("hester-to-city-edge");
+  for (const [from, to] of [
+    [paul, main],
+    [paul, entry],
+    [entry, exit],
+    [entry, collector],
+    [main, edge],
+    [collector, edge],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from: a, to: b, direction }) =>
+          a === `${from.id}:end` &&
+          b === `${to.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  for (const ramp of [paul, main, entry, collector]) {
+    assert.deepEqual(ramp.groundEnds, []);
+    assert.equal(buildBakedRoadContact(ramp).portals.length, 0);
+  }
+  for (const ramp of [exit, edge]) {
+    const [{ x, y, z }] = buildBakedRoadContact(ramp).portals;
+    assert.deepEqual(ramp.groundEnds, ["end"]);
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  }
+  assert.deepEqual(edge.owners, ["808f7f24", "808f7f2c"]);
+  assert.deepEqual(
+    tiles[1].playableRoads.find(({ id }) => id === edge.id),
+    tiles[2].playableRoads.find(({ id }) => id === edge.id),
+  );
+  assert.equal(roadBake.overheadBuildingPatches["808f7f24"], 3);
 });
 
 test("Potrero and Cesar Chavez entrances merge above the street on southbound US 101", () => {

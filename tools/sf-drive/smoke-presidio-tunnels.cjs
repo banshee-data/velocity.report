@@ -1266,7 +1266,10 @@ cases["silliman-to-san-bruno"] = {
 };
 cases["silver-through-san-bruno"] = {
   ...cases["silver-to-silliman"],
+  owners: [...bayshoreOwners, "808f7f2c"],
   roads: [...bayshoreApproach, sillimanThrough, ...bayshoreSouth, paulThrough],
+  finishOnDeck: true,
+  finishDistance: 240,
   forks: [
     [silverBayshore, bayshoreFromSilver, 2.2],
     [bayshoreToSilliman, sillimanThrough, 2],
@@ -1392,6 +1395,52 @@ cases["cesar-chavez-street-to-us101-south"] = {
     ...alemanyLaneGuides,
     [chavezCity]: { clearance: { offset: 1.25, station: 39, length: 21 } },
   },
+};
+
+const hesterPaul = "us101-south-paul-mainline";
+const hesterMain = "us101-south-hester-mainline";
+const hesterCollector = "us101-south-hester-collector-entry";
+const hesterReturn = "us101-south-hester-collector-return";
+const hesterRoad = "us101-south-hester-bayshore-exit";
+const hesterEdge = "us101-south-hester-to-city-edge";
+const hesterStart = {
+  owners: ["808f7ee4", "808f7f24", "808f7f2c"],
+  speed: 18,
+  rollingStart: true,
+  initialSpeedMps: 16,
+  rollingStartMetres: 310,
+  speedLimits: { [hesterCollector]: 12, [hesterRoad]: 12, [hesterReturn]: 12 },
+  laneGuides: {
+    [hesterMain]: { clearance: { offset: 1.85, station: 592, length: 22 } },
+    [hesterRoad]: { clearance: { offset: 1.7, station: 24, length: 22 } },
+    [hesterEdge]: {
+      clearance: [
+        { offset: 1.35, station: 647, length: 23 },
+        { offset: -1.75, station: 740, length: 35 },
+      ],
+    },
+  },
+};
+cases["us101-south-hester-exit"] = {
+  ...hesterStart,
+  roads: [hesterPaul, hesterCollector, hesterRoad],
+  forks: [
+    [hesterPaul, hesterCollector, -1.8],
+    [hesterCollector, hesterRoad, -1.6],
+  ],
+};
+cases["us101-south-hester-mainline"] = {
+  ...hesterStart,
+  roads: [hesterPaul, hesterMain, hesterEdge],
+  forks: [[hesterPaul, hesterMain, 1.9]],
+};
+cases["us101-south-hester-collector"] = {
+  ...hesterStart,
+  roads: [hesterPaul, hesterCollector, hesterReturn, hesterEdge],
+  forks: [
+    [hesterPaul, hesterCollector, -1.8],
+    [hesterCollector, hesterReturn, 1.65],
+  ],
 };
 
 async function asset(pathname) {
