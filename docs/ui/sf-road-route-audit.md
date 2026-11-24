@@ -2105,3 +2105,29 @@ grade was 13.1% and the trace had zero dips deeper than 0.5 m. A
 Lake Street to Presidio retry then covered 4.56 km, with 16.4% peak
 grade and zero dips over the same threshold. It stalled at
 (−1034.6, 4052.6), near the destination.
+
+## Broadway lane scenery
+
+A direct westbound run selected the lower Broadway surface and hit an
+inferred trunk near (1887, 4032) on the west approach at about 55 m
+NAVD88. A footprint sweep found five interfering inferred trunk rows
+at four locations across the two lanes. The April 2023 survey showed
+lower pavement at those locations and zero nearby returns in classes
+3–6. The two-tile correction removes the five matching rows. The bores,
+upper building footprints and adjacent scenery retain their existing
+geometry.
+
+The contact regression failed on the prior bake at the collision
+footprint of one of the inferred trunks. Chrome repeated the westbound
+run to exterior pavement in 54.4 s, then drove the eastbound lane in
+59.4 s. Both finished grounded. The previous westbound attempt crashed
+after 48.8 s. These were directed bore tests. The Broadway-to-Marina
+emoji route stalled before reaching the bore.
+
+- Game manifest SHA-256 `e31fcb0e984e4ba0b3d39f736aa16d3385f47c86c364264ef24240a55ef120ab`.
+- Contact SHA-256 `8627bc2e65573c2c1d658729d450929d7c44054dcaf8000d5d78cd79a2452aa9`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  broadway-westbound broadway-eastbound
+```

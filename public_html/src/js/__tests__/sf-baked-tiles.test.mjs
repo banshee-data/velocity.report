@@ -2045,6 +2045,37 @@ test("Broadway's lower lanes clear the building while its upper surfaces stay so
   assert.ok(Math.abs(groundAtWorld(tiles, east, north, true) - 93.81) < 0.1);
 });
 
+test("the Broadway portal lanes clear inferred trunks at their supported road levels", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const owners = ["808580ec", "808580f4"];
+  const tiles = owners.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const indexes = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
+  const bores = tiles[0].playableRoads.filter(({ id }) =>
+    id.startsWith("sf-contact/broadway-"),
+  );
+  assert.equal(bores.length, 2);
+  for (const { id, points } of bores) {
+    for (const [i, [x, y, z]] of points.slice(1).entries()) {
+      const [priorX, priorY] = points[i];
+      const heading = Math.atan2(y - priorY, x - priorX);
+      for (const offset of [-0.8, 0, 0.8]) {
+        const car = {
+          x: x - offset * Math.sin(heading),
+          y: y + offset * Math.cos(heading),
+          heading,
+        };
+        assert.equal(collisionAt(indexes, car, z), null, `${id} at ${x}, ${y}`);
+      }
+    }
+  }
+  assert.deepEqual(
+    owners.map((token) => roadBake.inferredTreePatches[token]),
+    [4, 1],
+  );
+});
+
 test("Presidio's four bores turn into continuous contact at their portals", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808586d4", "808586dc", "808586ec"].map((t) =>
