@@ -98,7 +98,7 @@ export function tileRegion(tile, tiles) {
 }
 
 /** Clip only boundary triangles; z is interpolated along their original planes. */
-export function terrainTriangles(tile, region) {
+export function* terrainTriangleRows(tile, region) {
   const { g, o } = tile;
   const positions = [],
     uv = [];
@@ -110,7 +110,8 @@ export function terrainTriangles(tile, region) {
       (b[1] - a[1]) * a[0] + (a[0] - b[0]) * a[1],
     ];
   });
-  for (let j = 0; j < g.n - 1; j++)
+  for (let j = 0; j < g.n - 1; j++) {
+    yield;
     for (let i = 0; i < g.n - 1; i++) {
       for (const v of groundQuads(g, o, i, j))
         for (const ids of GROUND_TRIANGLES) {
@@ -130,5 +131,15 @@ export function terrainTriangles(tile, region) {
             }
         }
     }
+  }
   return { positions, uv };
+}
+
+export function terrainTriangles(tile, region) {
+  const rows = terrainTriangleRows(tile, region);
+  let step;
+  do {
+    step = rows.next();
+  } while (!step.done);
+  return step.value;
 }
