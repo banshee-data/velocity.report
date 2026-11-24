@@ -1,5 +1,7 @@
 import { CRASH_HOLD_TICKS, REPLAY_HZ, replayPose } from "./sf-replay.js";
 
+import { DRIVE_CAR } from "./sf-drive-core.js";
+import { Vector3, Quaternion } from "../vendor/three/three.core.js";
 const impactWindow = 0.3 * REPLAY_HZ;
 const binTicks = REPLAY_HZ / 10;
 const headings = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -72,18 +74,40 @@ export function replayLandmark(clip, targets) {
 
 // Accumulate peak values per 100 ms from the full-rate simulated velocities.
 // Each bin preserves one-tick braking and jerk events even when pose keys are sparse.
-export function replayTelemetry(poses, impact = null, inbound = null) {
+export function replayTelemetry(
+  poses,
+  impact = null,
+  inbound = null,
+  incomingMomentum = null,
+) {
   const bins = [];
-  let previous, lastAcceleration;
+  let previous,
+    lastAcceleration,
+    momentum = incomingMomentum;
+  const side = new Vector3(),
+    rotation = new Quaternion();
   for (const [tick, pose] of poses.entries()) {
     const v = pose.velocity;
     if (!v || !v.every(Number.isFinite)) return null;
     const speed = Math.hypot(...v);
-    const bin = (bins[Math.floor(tick / binTicks)] ??= [0, 0, 0]);
+    const bin = (bins[Math.floor(tick / binTicks)] ??= incomingMomentum
+      ? [0, 0, 0, 0, 0, 0]
+      : [0, 0, 0]);
     bin[0] = Math.max(bin[0], Math.round(speed * 2.236936));
     const approach = tick === impact && inbound ? inbound : previous;
     if (approach) {
       const delta = v.map((value, i) => (value - approach[i]) * REPLAY_HZ);
+      if (incomingMomentum) {
+        // Recorded quaternion maps body +Z (right) into scene east/up/-north.
+        side.set(0, 0, 1).applyQuaternion(rotation.fromArray(pose.q));
+        const lateral =
+          side.x * delta[0] + side.y * delta[2] - side.z * delta[1];
+        bin[3] = Math.max(bin[3], Math.round((10 * Math.abs(lateral)) / 9.81));
+        bin[5] = Math.max(
+          bin[5],
+          Math.round((10 * Math.hypot(...delta)) / 9.81),
+        );
+      }
       const decel = (Math.hypot(...approach) - speed) * REPLAY_HZ;
       const baseline = lastAcceleration ?? (tick === impact ? [0, 0, 0] : null);
       bin[1] = Math.max(bin[1], Math.round(decel));
@@ -94,6 +118,14 @@ export function replayTelemetry(poses, impact = null, inbound = null) {
         bin[2] = Math.max(bin[2], Math.round(jerk));
       }
       lastAcceleration = delta;
+    }
+    if (pose.momentum && momentum) {
+      const change = pose.momentum.map((value, i) => value - momentum[i]);
+      bin[4] = Math.max(
+        bin[4],
+        Math.round((DRIVE_CAR.mass * REPLAY_HZ * Math.hypot(...change)) / 1000),
+      );
+      momentum = pose.momentum;
     }
     previous = v;
   }
@@ -111,26 +143,39 @@ export function replayCharts(panel, clip) {
     data.every(
       (bin) =>
         Array.isArray(bin) &&
-        bin.length === charts.length &&
+        (bin.length === 3 || bin.length === 6) &&
+        bin.length === data[0].length &&
         bin.every((value) => Number.isSafeInteger(value) && value >= 0),
     );
   panel.querySelector(".telemetry-missing").hidden = available;
   const locale = new Intl.NumberFormat();
+  const severe = available && data.some((bin) => bin[5] >= 600);
+  panel.querySelector(".severe-load").hidden = !severe;
+  panel.querySelector(".injury-reference").hidden = impact === null;
+  panel.classList.toggle("severe", severe);
   const graphs = charts
     .map((canvas, channel) => {
       const figure = canvas.closest("figure");
-      figure.hidden = !available;
-      if (!available) return null;
-      const points = data.map((bin) => bin[channel]);
+      figure.hidden = !available || channel >= data[0].length;
+      if (figure.hidden) return null;
+      const points = data.map(
+        (bin) => bin[channel] / (Number(canvas.dataset.scale) || 1),
+      );
       const peak = Math.max(...points);
       const peakText = `${locale.format(peak)} ${canvas.dataset.unit} peak`;
       figure.querySelector("output").textContent = peakText;
       canvas.setAttribute("aria-label", `${canvas.dataset.label}, ${peakText}`);
-      return { canvas, ctx: canvas.getContext("2d"), points, peak };
+      return {
+        canvas,
+        ctx: canvas.getContext("2d"),
+        points,
+        peak,
+        resultant: channel === 5,
+      };
     })
     .filter(Boolean);
   return (tick) => {
-    for (const { canvas, ctx, points, peak } of graphs) {
+    for (const { canvas, ctx, points, peak, resultant } of graphs) {
       const w = canvas.width,
         h = canvas.height;
       const x = (t) => 1 + (t / clip.end) * (w - 2);
@@ -148,6 +193,10 @@ export function replayCharts(panel, clip) {
         ctx.lineTo(x(Math.min(clip.end, (i + 1) * binTicks)), y);
       }
       ctx.stroke();
+      if (resultant && peak >= 60) {
+        ctx.fillStyle = "#ff6767";
+        ctx.fillRect(0, h - 3 - ((h - 6) * 60) / peak, w, 1);
+      }
       if (clip.takeoff !== undefined) {
         ctx.fillStyle = "#a78bfa";
         ctx.fillRect(x(clip.takeoff), 0, 1, h);

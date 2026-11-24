@@ -8,8 +8,9 @@ eleventyExcludeFromCollections: true
 <link rel="stylesheet" href="/css/scene-colours.css">
 <style>
 body { margin:0; background:var(--scene-canvas); color:var(--scene-text); font:16px system-ui; } main { max-width:800px; margin:auto; padding:16px; } h1 { font-size:24px; } a { color:var(--scene-primaryText); } canvas { width:100%; height:260px; display:block; background:var(--scene-panel); } button { min-height:48px; padding:12px; background:var(--scene-panel); color:inherit; border:1px solid var(--scene-panelBorder); border-radius:8px; font:inherit; } .pedals { display:flex; gap:12px; position:sticky; bottom:0; background:var(--scene-canvas); padding:12px 0; } .pedals button { flex:1; touch-action:none; user-select:none; } .held { outline:2px solid var(--scene-primary); } #metrics, #annotation { font:14px monospace; white-space:pre-line; min-height:80px; } [hidden] { display:none!important; }
+.drive-bar {display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--scene-panel-border);border-radius:12px;background:var(--scene-panel)} .drive-bar small {display:block;}
 </style></head><body><main>
-<a href="{{ '/sf/' | url }}">City drive</a> · <a href="{{ '/sf/?mode=solo' | url }}">Solo practice</a>
+<header class="drive-bar"><div><strong>Downhill approach</strong><small>Next · signal and crosswalk</small></div><a href="{{ '/sf/?modes=1' | url }}">Modes</a></header>
 <h1>Downhill following practice</h1>
 <p>Authored 6% downhill, one lane and one scripted lead car. Simulation only; no real-world accuracy claim. Steering is locked for this exercise.</p>
 <p>Start at 10 m/s. Green → amber at 3s → red at 6s; the lead clears on green, then brakes at 6s. Brake early, leave space, stop before the white limit line. The striped crosswalk starts 8m beyond it.</p>

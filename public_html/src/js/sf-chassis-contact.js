@@ -297,6 +297,11 @@ export function obstacleContact(indexes, hull, previous) {
               depth: above ? shape.top - hull.low : hull.high - shape.base,
             };
           }
+          if (hit?.tree?.ceiling) {
+            const top = hit.tree.ceiling(hit.x, hit.y, shape.base);
+            if (hull.low >= top || top <= shape.base) continue;
+            hit.z = Math.min(hit.z, top);
+          }
           if (hit && (!best || hit.depth > best.depth)) best = hit;
         }
   return best;

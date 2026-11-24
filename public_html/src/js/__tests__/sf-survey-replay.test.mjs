@@ -8,6 +8,7 @@ import {
   createSurveyReplay,
   nearbySurvey,
   projectSurveyTrack,
+  surveyTracksBetween,
 } from "../sf-survey-replay.js";
 
 function json(path) {
@@ -121,12 +122,21 @@ test("projects the measured box centre and rotates the recorded heading into the
 });
 
 function session(samples, id) {
+  const part = {
+    header: {},
+    frameCount: 100,
+    async frameAtOffsetWithIndex(us) {
+      samples.push([id, us / 1e6]);
+      return { frame: { t: us, tr: [id] }, frameIndex: Math.floor(us / 10000) };
+    },
+    async frameAtIndex(index) {
+      return { t: index * 10000, tr: [id] };
+    },
+  };
   return {
     duration: 1,
-    parts: [{ header: {} }],
-    async frameAt(seconds) {
-      samples.push([id, seconds]);
-      return { partIndex: 0, frame: { t: seconds * 1e6, tr: [id] } };
+    locate(seconds) {
+      return { part, us: seconds * 1e6 };
     },
   };
 }
@@ -188,9 +198,16 @@ test("skips missing chunks and keeps the linked survey visible when all replay i
       duration: 1,
       playableFrom: (seconds) =>
         seconds === 0 && samples.length === 1 ? 0.3 : null,
-      async frameAt(seconds) {
-        samples.push(seconds);
-        throw new ChunkUnavailableError("Missing test chunk");
+      locate(seconds) {
+        return {
+          us: seconds * 1e6,
+          part: {
+            async frameAtOffsetWithIndex() {
+              samples.push(seconds);
+              throw new ChunkUnavailableError("Missing test chunk");
+            },
+          },
+        };
       },
     }),
     onSite: (site) => sites.push(site),
@@ -204,4 +221,15 @@ test("skips missing chunks and keeps the linked survey visible when all replay i
   assert.deepEqual(samples, [0, 0.3]);
   assert.deepEqual(sites, [a]);
   assert.equal(statuses.at(-1), "Replay unavailable");
+});
+
+test("survey interpolation follows identity, turns across ±π and holds gaps or lost tracks", () => {
+  const t = { id: "a", c: "car", x: 1, y: 2, z: 0, bh: Math.PI - 0.1 };
+  const a = { t: 0, tr: [t, { ...t, id: "lost" }] },
+    b = { t: 100000, tr: [{ ...t, x: 5, y: 4, bh: -Math.PI + 0.1 }] };
+  const [mid, lost] = surveyTracksBetween(a, b, 50000);
+  assert.deepEqual([mid.bx, mid.by], [3, 3]);
+  assert.ok(Math.abs(mid.bh - Math.PI) < 1e-10);
+  assert.equal(lost, a.tr[1]);
+  assert.equal(surveyTracksBetween(a, { ...b, t: 2e6 }, 50000), a.tr);
 });

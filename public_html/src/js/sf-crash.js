@@ -12,6 +12,8 @@ import {
   chassisAttitude,
 } from "./sf-chassis-contact.js";
 
+import { DRIVE_CAR } from "./sf-drive-core.js";
+
 const DT = 1 / 120;
 const REST_TICKS = 30;
 const CRUSH_TIME = 0.045; // seconds, effective loading time constant
@@ -200,13 +202,33 @@ function resolveObstacle(crash, hit) {
   if (hit.yielded !== undefined) {
     const arm = point.sub(crash.position);
     const incoming = Math.min(0, pointVelocity(crash, arm).dot(n));
-    const fraction = 1 - Math.sqrt(1 - hit.yielded);
-    applyImpulse(
-      crash,
-      arm,
-      n,
-      -incoming * effectiveMass(crash, arm, n) * fraction,
-    );
+    const chassisMass = effectiveMass(crash, arm, n);
+    // Fracture work consumes part of the closing energy. The remaining
+    // contact speed must also accelerate the falling trunk. Approximate it
+    // as a tapered cylinder of green wood in this game model.
+    const tree = hit.tree;
+    const treeMass = tree
+      ? (550 * Math.PI * tree.radius ** 2 * tree.height) / 2
+      : 0;
+    const targetMass = treeMass / DRIVE_CAR.mass;
+    const carry = targetMass / (targetMass + chassisMass);
+    const remaining = Math.sqrt(1 - hit.yielded);
+    const impulse =
+      -incoming * chassisMass * (1 - remaining + remaining * carry);
+    applyImpulse(crash, arm, n, impulse);
+    // Tangential grip during the strike also acts at the actual contact arm.
+    const tangent = pointVelocity(crash, arm);
+    tangent.addScaledVector(n, -tangent.dot(n));
+    const slip = tangent.length();
+    if (slip > 1e-8) {
+      tangent.divideScalar(slip);
+      applyImpulse(
+        crash,
+        arm,
+        tangent,
+        -Math.min(0.32 * impulse, slip * effectiveMass(crash, arm, tangent)),
+      );
+    }
     return 0;
   }
   resolve(crash, point, n, 0.32);
@@ -247,6 +269,7 @@ export function beginCrash(car, kind, hit, heightAt, landing) {
     const yaw = car.v ? (car.lateralAcceleration || 0) / car.v : 0;
     crash.momentum.copy(bodyUp).multiplyScalar(yaw / invInertia.z);
   }
+  crash.incomingMomentum = crash.momentum.toArray();
   if (hit) resolveObstacle(crash, hit);
   crash.points = bodyPoints(crash);
   if (landing) {

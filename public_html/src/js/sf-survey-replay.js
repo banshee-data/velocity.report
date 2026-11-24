@@ -11,13 +11,36 @@ import {
   trackBoxAnchor,
   trackBoxSize,
 } from "./scene-track-box.js";
+import { ghostCarFactory } from "./sf-car-model.js";
 import { histogramSvg } from "./survey-charts.js";
 
 const NOTICE_M = 250;
 const APPROACH_M = 115;
 const LEAVE_M = 145;
 const SWITCH_MARGIN_M = 15;
-const SAMPLE_INTERVAL_S = 1 / 15;
+
+// Interpolate between consecutive observations of the same track and class.
+export function surveyTracksBetween(frame, next, us) {
+  if (!next || us <= frame.t || next.t <= frame.t || next.t - frame.t > 250000)
+    return frame.tr;
+  const f = Math.min(1, (us - frame.t) / (next.t - frame.t));
+  const targets = new Map(next.tr.map((t) => [t.id, t]));
+  return frame.tr.map((t) => {
+    const n = targets.get(t.id);
+    if (t.id == null || !n || n.c !== t.c) return t;
+    const [x, y] = trackBoxAnchor(t),
+      [u, v] = trackBoxAnchor(n);
+    const yaw = t.bh ?? t.hdg ?? 0,
+      turn = (n.bh ?? n.hdg ?? yaw) - yaw;
+    return {
+      ...t,
+      bx: x + (u - x) * f,
+      by: y + (v - y) * f,
+      z: t.z + (n.z - t.z) * f,
+      bh: yaw + Math.atan2(Math.sin(turn), Math.cos(turn)) * f,
+    };
+  });
+}
 
 /** Keep the current recording near overlapping approaches and at the boundary. */
 export function nearbySurvey(sites, car, current) {
@@ -93,17 +116,45 @@ export function createSurveyReplay({
   async function sample(replay, seconds) {
     replay.busy = true;
     try {
-      const { frame, partIndex } = await replay.session.frameAt(seconds);
+      const { session } = replay;
+      const { part, us } = session.locate(seconds);
+      let pair = replay.pair;
+      if (
+        !pair ||
+        pair.part !== part ||
+        us < pair.frame.t ||
+        us >= pair.until
+      ) {
+        const located = await part.frameAtOffsetWithIndex(us);
+        if (!located) throw new Error("Survey replay contains no frame");
+        let next = null,
+          until = Infinity;
+        if (located.frameIndex + 1 < part.frameCount) {
+          try {
+            next = await part.frameAtIndex(located.frameIndex + 1);
+            until = next.t;
+          } catch (error) {
+            // The current frame is still playable when only lookahead fails.
+            // At the chunk boundary the ordinary missing-chunk recovery runs.
+            if (!(error instanceof ChunkUnavailableError)) throw error;
+            until = part.chunks[part.chunkIndexForOffset(us) + 1]?.t0 ?? us;
+          }
+        }
+        pair = { part, frame: located.frame, next, until };
+        replay.pair = pair;
+      }
       if (replay !== active) return;
-      if (!frame) throw new Error("Survey replay contains no frame");
       replay.hasFrame = true;
-      replay.lastSample = seconds;
-      if (frame === replay.frame) return;
-      replay.frame = frame;
-      const header = replay.session.parts[partIndex].header;
-      if (followingScopeAt(header, frame.t).available) {
+      if (
+        followingScopeAt(part.header, pair.frame.t).available &&
+        followingScopeAt(part.header, us).available
+      ) {
         onStatus("Recorded traffic · looping");
-        onFrame(replay.site, frame.tr);
+        const next =
+          pair.next && followingScopeAt(part.header, pair.next.t).available
+            ? pair.next
+            : null;
+        onFrame(replay.site, surveyTracksBetween(pair.frame, next, us));
       } else {
         onStatus("Outside placed replay coverage");
         onFrame(replay.site, []);
@@ -116,8 +167,7 @@ export function createSurveyReplay({
       onFrame(replay.site, []);
       if (skip) {
         replay.seconds = skip.seconds;
-        replay.lastSample = -Infinity;
-        replay.frame = null;
+        replay.pair = null;
       } else {
         replay.session = null;
         onStatus("Replay unavailable");
@@ -144,9 +194,7 @@ export function createSurveyReplay({
     update(car, dt) {
       const site = car ? nearbySurvey(sites, car, active?.site) : null;
       if (site !== (active?.site ?? null)) {
-        active = site
-          ? { site, seconds: 0, lastSample: -Infinity, busy: true }
-          : null;
+        active = site ? { site, seconds: 0, busy: true } : null;
         onSite(site);
         onFrame(site, []);
         if (active) {
@@ -154,7 +202,11 @@ export function createSurveyReplay({
           void start(active);
         }
       }
-      onApproach?.(car && !active ? surveyAhead(sites, car) : null);
+      onApproach?.(
+        car && !active ? surveyAhead(sites, car) : null,
+        car,
+        active?.site,
+      );
       if (!active?.session || active.busy) return;
       const { seconds, wrapped } = advanceSceneClock(
         active.seconds,
@@ -163,9 +215,11 @@ export function createSurveyReplay({
         active.session.duration,
       );
       active.seconds = seconds;
-      if (wrapped) onFrame(active.site, []);
-      if (wrapped || seconds - active.lastSample >= SAMPLE_INTERVAL_S)
-        void sample(active, seconds);
+      if (wrapped) {
+        active.pair = null;
+        onFrame(active.site, []);
+      }
+      void sample(active, seconds);
     },
   };
 }
@@ -181,8 +235,11 @@ export function mountSurveyReplay({ sites, root, scene, hud, groundAt }) {
     ]),
   );
   const boxes = [];
+  const ghosts = [];
+  const makeGhost = ghostCarFactory();
   function showTracks(site, tracks) {
-    let used = 0;
+    let used = 0,
+      ghostCount = 0;
     for (const track of tracks) {
       const kind = roadUserKind(track.c);
       if (!kind) continue;
@@ -194,6 +251,18 @@ export function mountSurveyReplay({ sites, root, scene, hud, groundAt }) {
       // Keep box bases visible over the game's coarser terrain. Horizontal
       // positions come directly from the accepted pose.
       anchor[2] = Math.max(anchor[2], ground + 0.06);
+      if (kind === "vehicle") {
+        let ghost = ghosts[ghostCount++];
+        if (!ghost) {
+          ghost = makeGhost();
+          ghosts.push(ghost);
+          layer.add(ghost);
+        }
+        ghost.visible = true;
+        ghost.position.set(anchor[0], anchor[2], -anchor[1]);
+        ghost.rotation.y = yaw;
+        continue;
+      }
       let box = boxes[used];
       if (!box) {
         box = new THREE.Group();
@@ -210,13 +279,28 @@ export function mountSurveyReplay({ sites, root, scene, hud, groundAt }) {
       placeTrackBox(box, anchor, trackBoxSize(track), yaw);
       used++;
     }
+    for (let i = ghostCount; i < ghosts.length; i++) ghosts[i].visible = false;
     for (let i = used; i < boxes.length; i++) boxes[i].visible = false;
   }
 
   let approachSite = null;
   return createSurveyReplay({
     sites,
-    onApproach(approach) {
+    onApproach(approach, car, activeSite) {
+      const target = activeSite || approach?.site;
+      if (target) {
+        const dx = target.x - car.x,
+          dy = target.y - car.y;
+        const direction = car.heading - Math.atan2(dy, dx);
+        const cue = activeSite ? hud.cardCue : hud.approachCue;
+        cue.querySelector("i").style.transform = `rotate(${direction}rad)`;
+        const distance = Math.round(Math.hypot(dx, dy));
+        cue.querySelector("span").textContent = `${distance} m`;
+        cue.setAttribute(
+          "aria-label",
+          `Survey ${distance} metres, ${["ahead", "ahead right", "right", "behind right", "behind", "behind left", "left", "ahead left"][(Math.round(direction / (Math.PI / 4)) + 16) % 8]}`,
+        );
+      }
       const site = approach?.site ?? null;
       if (site !== approachSite) {
         approachSite = site;
@@ -224,10 +308,6 @@ export function mountSurveyReplay({ sites, root, scene, hud, groundAt }) {
         if (site) hud.approachTitle.textContent = site.title;
       }
       if (!site) return;
-      // Round to 10 m so the readout is steady while driving.
-      const distance = `${Math.round(approach.distance / 10) * 10} m`;
-      if (hud.approachDistance.textContent !== distance)
-        hud.approachDistance.textContent = distance;
     },
     open: (site) => new SceneSession(new URL(site.manifest, root).href).open(),
     onFrame: showTracks,

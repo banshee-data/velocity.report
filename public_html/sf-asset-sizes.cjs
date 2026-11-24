@@ -18,6 +18,8 @@ function sfDownloadAssets(root = __dirname) {
     ["tiles", "../gamedrives.json", "src/sf/gamedrives.json"],
     ...[
       "sf-drive.js",
+      "sf-tree-clearance.js",
+      "sf-car-model.js",
       "sf-drive-assets.js",
       "sf-city-road-drive.js",
       "sf-soma-drive.js",

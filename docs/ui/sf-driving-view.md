@@ -140,7 +140,10 @@ re-run contacts against the currently loaded map.
 Inputs are released on impact, recovery and lost focus. The contact dimensions,
 friction, restitution and thresholds are gameplay approximations. Kerbs and tree crowns
 do not trigger city crashes.
-The car waits at a missing ground surface or an unloaded tile boundary.
+The car waits at a missing ground surface or an unloaded tile boundary. Declared joins accept
+wheel contact across the full terminal width. A broken trunk absorbs fracture work and takes
+momentum from the car at its contact point, including tangential friction and yaw torque.
+Street and deck footprints cut intersecting tree geometry, leaving closed faces along the cut.
 
 Replays use 0.99× speed, with 0.5× from 300 ms before to 300 ms after a crash
 impact. Airtime replays include up to two seconds before take-off, use the same
@@ -155,7 +158,11 @@ Replay graphs store peak speed, deceleration and jerk in 100 ms bins from the
 120 Hz simulated vehicle velocity. Deceleration is the positive drop in speed
 per second. Jerk is the magnitude of the change in the acceleration vector per
 second. The graphs keep short impact spikes visible and mark the impact with an
-orange line. Older clips retain their trajectories. Vehicle telemetry is available
+orange line. New crash clips also record peak absolute body-lateral acceleration, resultant
+acceleration and net torque from the change in chassis angular momentum at each physics step.
+The red 60 g reference on the resultant channel flags a severe simulated vehicle load. The
+instrumented dummy chest criterion in FMVSS 208 S6.3 depends on loading duration. Chassis
+samples cannot establish a serious injury or fatal outcome. Older clips retain their original channels and trajectories. Vehicle telemetry is available
 for clips captured with this version. A survival threshold needs occupant loads,
 restraints and injury criteria. The game models the chassis. [NHTSA test procedure for occupant crash protection](https://www.nhtsa.gov/sites/nhtsa.gov/files/documents/tp-208-14_tag.pdf)
 
@@ -239,7 +246,7 @@ can therefore report more. No extra requests or full-city download are needed to
 
 ## Survey traffic replay
 
-**Data, World, UI.** The lower-left cue shows the name and straight-line distance of
+**Data, World, UI.** The lower-left cue shows the name, relative bearing and straight-line distance of
 the nearest survey ahead within 250 m. Drive within 115 m of a survey's placed sensor
 to replace the cue with its speed card and start its recording at normal speed. The nearest eligible survey takes priority, with
 a 15 m margin before switching between overlapping approaches. The replay closes beyond
@@ -248,11 +255,17 @@ and the recording loops at its end. The red
 diamonds on the minimap identify the 24 playable surveys. SoMa 1 is published without an
 accepted pose.
 
-The game streams the published survey's frames on approach. The replay shows classified
-motor vehicles, pedestrians and cyclists as boxes. Their motion follows the recorded
-timestamps. They are visual observations with no collisions or response to driving input.
+The game streams the published survey's frames on approach. The replay uses the player-car model at 50% opacity for classified motor vehicles.
+Pedestrian and cyclist boxes retain their measured dimensions. Each display update interpolates
+position and the shortest heading change between adjacent observations of the same track and
+class. A part boundary, missing track or gap over 250 ms ends interpolation. They are visual observations with no collisions or response to driving input.
 The game starts each intersection independently and uses the survey's stationary coverage
 when the export defines it. Broken replay assets leave the card and survey link available.
+
+The mode picker groups locations and scenarios under **Self driving**, **Free drive** and
+**Driving school**. Street and next-crossing fields occupy the top bar. Unmapped crossings
+are labelled, including on elevated roads. The longest visible airtime fronts a single
+card stack, with shorter flights nested behind it.
 
 The compact lower-left card sits above the touch steering controls and shows the
 distribution of peak speed per vehicle track and the P85 for the replayed recording.
@@ -373,7 +386,7 @@ a one-time charge of 0.01¢ per 1,000 m/s³ of peak simulated vehicle jerk from
 impact through recovery. The crash replay shows that charge. The HUD tracks
 deliveries, spend and crash infractions. These rates are game tuning values.
 
-Choose **Bay Bridge approach** in **Start from** for the westbound drive at 50 mph.
+Choose **Modes → Self driving → Bay Bridge approach** for the westbound drive at 50 mph.
 The route crosses the bridge, takes the Fremont exit and rejoins I-80 from Fourth
 Street. The picker also includes Fremont Street exit and city intersection starts.
 Both Fourth Street entrance rails deflect the car and slow it down on contact. The
