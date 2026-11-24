@@ -2406,7 +2406,7 @@ blocked contact. The fixed-step run of the same itinerary used 734.85 m
 of tunnel contact. These are game measurements.
 
 The [Broadway-to-Marina course](../../tools/sf-drive/road-audit-broadway-marina.json)
-pins the street intersections and the current game manifest.
+pins the street intersections and the Ocean Avenue game manifest.
 
 ## Ocean Avenue and the northbound I-280 entrance
 
@@ -2440,3 +2440,29 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   ocean-bridge-to-i280-northbound i280-ocean-northbound-entry \
   i280-ocean-exit-and-reentry
 ```
+
+## Dogpatch, Presidio and Fort Funston follow-up
+
+The final three course fixtures cover the original emoji pairs. The
+Dogpatch run approaches the 23rd Street lower crossing from the east
+and continues from Pennsylvania Avenue to Potrero. Both Pennsylvania
+off-ramps have exit-only ground portals, so through traffic on
+Pennsylvania follows the street. The Liggett Avenue and Sloat Boulevard
+runs encountered inferred trunks in the driving lane. The new bake
+checks the scene rows against 3DEP pavement and low obstruction
+returns before removing the eight false trunks across these routes.
+On Skyline Boulevard the steering fixture uses the west side of the
+pavement beside an uncertain return that stays in the scene.
+
+| Course                      | Fixed-step distance | Ground grade p95 | Grade peak |
+| --------------------------- | ------------------: | ---------------: | ---------: |
+| Dogpatch to Potrero         |             4.63 km |            15.5% |      34.0% |
+| Lake Street to the Presidio |             4.77 km |            10.5% |      17.5% |
+| Ocean Beach to Fort Funston |             3.82 km |             6.4% |      10.0% |
+
+All three fixed-step runs collected both emojis. The Dogpatch run used
+the existing 81 m contact underneath I-280.
+
+- Game manifest SHA-256 `20a1c8743338cc9e5e9827ba2c91fc2c7fc1cbeadda661d1990df74baa5ca9ce`.
+- Contact SHA-256 `9f03bae8b7f550f2a2e4a63fd5d38fbede3af394ec42883422f464d14d58f6bb`.
+- [Pinned course fixture](../../tools/sf-drive/road-audit-cross-city-lane-clearance.json).

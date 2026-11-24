@@ -263,6 +263,7 @@ def playable_product(path, sha256, base_hash, revision, manifest):
     for road in product["roads"]:
         points = road["points"]
         rail_sides = road.get("railSides", [])
+        exit_only = road.get("groundExitOnly", [])
         if (
             not isinstance(rail_sides, list)
             or any(side not in ("left", "right") for side in rail_sides)
@@ -278,6 +279,9 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             or not 2.5 <= road["width"] <= 30
             or road["kind"] not in {"ramp", "bridge_deck", "tunnel"}
             or not set(road["groundEnds"]) <= {"start", "end"}
+            or not isinstance(exit_only, list)
+            or any(end not in road["groundEnds"] for end in exit_only)
+            or len(set(exit_only)) != len(exit_only)
             or road["owners"] != [owner(points[0]), owner(points[-1])]
             or not valid_width_transitions(road)
             or not valid_covered_range(road)

@@ -4,7 +4,7 @@ const reach = 3;
 const tolerance = 0.22;
 const rampLookahead = 5;
 
-export function roadPortals(surface, groundEnds) {
+export function roadPortals(surface, groundEnds, groundExitOnly = []) {
   const { contact, profile } = surface;
   return groundEnds.map((end) => {
     const atEnd = end === "end";
@@ -15,6 +15,7 @@ export function roadPortals(surface, groundEnds) {
     const [edgeX, edgeY] = contact.vertices[index * 2];
     return {
       surface,
+      exitOnly: groundExitOnly.includes(end),
       x,
       y,
       z,
@@ -36,6 +37,7 @@ function stepThrough(car, input, dt, portal, pavementHeight) {
   const { surface, x, y, z, nx, ny, entryProbe } = portal;
   const along = (east, north) => (east - x) * nx + (north - y) * ny;
   const entering = !car.surfaceId;
+  if (entering && portal.exitOnly) return null;
   const before = along(car.x, car.y);
   if (entering ? before > 0.001 : before < -0.001) return null;
   const ground = pavementHeight(x, y);

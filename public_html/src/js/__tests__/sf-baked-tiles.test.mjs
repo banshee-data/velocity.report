@@ -2635,7 +2635,7 @@ test("Marin and Cesar Chavez climb from street level into the northbound Bayshor
     collisionAt([buildCollisionIndex(tile, token)], { x, y, heading: 1.69 }, z),
     null,
   );
-  assert.equal(roadBake.inferredTreePatches[token], 7);
+  assert.equal(roadBake.inferredTreePatches[token], 8);
 });
 
 test("Mariposa Street stays at the lower level through the viaduct and connects to southbound I-280", () => {
