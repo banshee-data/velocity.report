@@ -1264,3 +1264,31 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `0258e1b19df5d4acded858f4b18169cf4ff1238e8501e380d4a12bbdb8d2b8f0`.
 - Contact SHA-256 `62b4b84067dc2c069b9158e7c65802f0721d91f78dd3c489fd9cef92de9a669d`.
 - The bake changes four tiles and preserves emoji placement.
+
+## Northbound SR 1 at the Ruckman fork
+
+The northbound Ruckman viaduct now branches at 45.34 m NAVD88. One
+75.0 m branch joins the southbound approach through Battery and Main
+Post. The other runs 74.15 m to the existing Golden Gate approach
+pavement. The split reuses the original end points and keeps the
+southbound viaduct on its own contact. The fit uses 57 depth-12 3DEP
+nodes. The peak grade across the three fitted sections is 6.72%.
+
+Chrome drove from Kobbe Avenue to the northbound pavement handoff in
+34.1 s. At the fork the second run took the southbound branch, passed
+through both tunnel bores and reached ordinary street pavement in
+157.7 s. Both runs crossed the gap between Kobbe and Ruckman on
+grounded contact. The browser measured 47.0 m and 48.6 m respectively.
+The fixed-step runs crossed 49.5 m of pavement between the viaducts.
+The existing MacArthur route reached the northbound pavement in 75.6 s.
+All 20 frozen emoji routes finished across 52.43 km, with a maximum
+driven seam step of 6.1 cm and no driven dip over 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  sr1-kobbe-to-golden-gate sr1-kobbe-to-presidio
+```
+
+- Game manifest SHA-256 `dd498a4034ee906396e28d1ac1a0f5aa016be5c7b93901df822e90419e6af997`.
+- Contact SHA-256 `4a7dd5528a174e318658f5e36cf6971a824c92746c7059661abd7f9643fa2519`.
+- The bake changes one tile and preserves emoji placement.

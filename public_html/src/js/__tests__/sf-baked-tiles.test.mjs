@@ -1150,21 +1150,49 @@ test("Kobbe Avenue remains below both SR 1 decks, which join the highway at each
   }
 });
 
-test("Ruckman keeps both SR 1 decks above the street and meets the northbound connector", () => {
+test("Ruckman keeps both SR 1 decks above the street and branches at the northbound fork", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tile = JSON.parse(gunzipSync(file("tiles/808586dc.json.gz")));
+  const road = (slug) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
+  const north = road("ruckman-viaduct-northbound");
+  const goldenGate = road("sr1-north-to-golden-gate-approach");
+  const city = road("sr1-north-to-presidio-southbound");
+  const doyle = road("presidio-sb-entry");
+  for (const [from, to] of [
+    [north, goldenGate],
+    [north, city],
+    [city, doyle],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from: start, to: end, direction }) =>
+          start === `${from.id}:end` &&
+          end === `${to.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(north.groundEnds, ["start"]);
+  assert.deepEqual(goldenGate.groundEnds, ["end"]);
   for (const [direction, x] of [
     ["northbound", -2589],
     ["southbound", -2596.4],
   ]) {
-    const road = tile.playableRoads.find(
-      ({ id }) => id === `sf-contact/ruckman-viaduct-${direction}`,
-    );
-    const { surface, portals } = buildBakedRoadContact(road);
+    const decks =
+      direction === "northbound"
+        ? [north, goldenGate]
+        : [road("ruckman-viaduct-southbound")];
+    const contact = decks.map(buildBakedRoadContact);
+    const portals = contact.flatMap((deck) => deck.portals);
     assert.equal(portals.length, 2);
     for (const { x, y, z } of portals) {
       assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
     }
     const street = groundAtWorld([tile], x, 4547, true);
+    const { surface } = contact.at(-1);
     const deck = surface.heightAt(x, 4547);
     assert.ok(street > 35 && street < 39);
     assert.ok(deck > 44 && deck < 45);
