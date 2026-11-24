@@ -168,6 +168,8 @@ jobs:
         with:
           name: coverage-${{ matrix.shard }}
           path: coverage-${{ matrix.shard }}.out
+          retention-days: 7
+          if-no-files-found: error
 
   coverage:
     name: "📈 Coverage"

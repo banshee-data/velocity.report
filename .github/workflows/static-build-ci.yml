@@ -77,6 +77,11 @@ env:
   # Only main pushes and manual runs write caches; pull requests read them.
   SAVE_CACHES: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
+# Cancel obsolete PR revisions while leaving pushes, releases and manual runs independent.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-and-smoke-test:
     name: Static build + smoke test (${{ matrix.arch }})
@@ -275,7 +280,7 @@ jobs:
         with:
           name: velocity-report-static-binary-${{ matrix.arch }}
           path: build/static/velocity-report-*-static
-          retention-days: 14
+          retention-days: ${{ github.event_name == 'workflow_dispatch' && 14 || 3 }}
 
   # The full VM gate: the arm64 job's host checks again, inside a pinned
   # Debian 12 ARM64 cloud image booted under qemu. It proves what the
