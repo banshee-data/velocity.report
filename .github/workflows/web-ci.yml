@@ -27,6 +27,11 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
 
+# Cancel obsolete PR revisions while leaving pushes, releases and manual runs independent.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     name: "🔍 Lint (advisory)"

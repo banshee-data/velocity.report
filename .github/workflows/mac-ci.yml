@@ -8,6 +8,7 @@ on:
       - "tools/visualiser-macos/**"
       - "proto/velocity_visualiser/**"
       - "proto/gerardus/**"
+      - ".github/workflows/mac-ci.yml"
 
   # Tags and manual dispatch produce a versioned DMG artefact.
   push:
@@ -18,6 +19,11 @@ on:
 permissions:
   contents: read
   pull-requests: write
+
+# Cancel obsolete PR revisions while leaving pushes, releases and manual runs independent.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   setup:
@@ -41,13 +47,6 @@ jobs:
           cd /tmp/grpc-swift-protobuf
           swift build -c release --product protoc-gen-grpc-swift-2
           cp .build/release/protoc-gen-grpc-swift-2 /tmp/protoc-gen-grpc-swift
-
-      - name: Upload grpc-swift plugin
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: protoc-gen-grpc-swift-2
-          path: /tmp/protoc-gen-grpc-swift
-          retention-days: 1
 
       - name: Install protobuf tools
         run: brew install protobuf swift-protobuf
