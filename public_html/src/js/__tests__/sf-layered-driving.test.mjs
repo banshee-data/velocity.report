@@ -212,7 +212,7 @@ test("the city drive crosses from a deck to street terrain and rejoins the highw
   );
 });
 
-test("steering across a shared ramp seam chooses the aligned branch", () => {
+test("steering chooses the aligned branch and a tied fork carries the same road onward", () => {
   const seam = { bearing: 0, width: 8 };
   const baked = (id, points, seams) =>
     buildBakedRoadContact({
@@ -222,6 +222,7 @@ test("steering across a shared ramp seam chooses the aligned branch", () => {
       owners: ["808f7fcc", "808f7fcc"],
       points,
       seams,
+      source_cnn: id === "left" ? "19314000" : "19343000",
     });
   const trunk = baked(
     "trunk",
@@ -273,6 +274,7 @@ test("steering across a shared ramp seam chooses the aligned branch", () => {
   const surfaces = new Map(pieces.map(({ surface }) => [surface.id, surface]));
   for (const [heading, expected] of [
     [0, "straight"],
+    [0.197, "straight"],
     [0.38, "left"],
   ]) {
     const car = {

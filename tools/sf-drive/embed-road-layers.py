@@ -99,18 +99,46 @@ def valid_width_transitions(road):
     if not transitions.keys() <= seams.keys() <= {"start", "end"}:
         return False
     for label, seam in seams.items():
+        left = seam.get("leftWidth", seam["width"] / 2)
         if (
             not math.isfinite(seam["bearing"])
             or not 2.5 <= seam["width"] <= 30
+            or type(left) not in (float, int)
+            or not math.isfinite(left)
+            or not 0 < left < seam["width"]
             or (seam["width"] > road["width"] and label not in transitions)
         ):
             return False
     if not all(math.isfinite(length) and length > 0 for length in transitions.values()):
         return False
-    if not transitions:
+    widths = road.get("widthSections", [])
+    if "widthSections" in road and (not isinstance(widths, list) or not widths):
+        return False
+    if not transitions and not widths:
         return True
     points = road["points"]
     length = sum(math.dist(a[:2], b[:2]) for a, b in zip(points, points[1:]))
+    previous = -1
+    for section in widths:
+        if (
+            not isinstance(section, list)
+            or len(section) != 3
+            or any(
+                type(value) not in (float, int) or not math.isfinite(value)
+                for value in section
+            )
+        ):
+            return False
+        station, left, right = section
+        if not (
+            0 <= station <= length
+            and previous < station
+            and 0 < left
+            and 0 < right
+            and 2.5 <= left + right <= 30
+        ):
+            return False
+        previous = station
     return sum(transitions.values()) <= length
 
 

@@ -23,7 +23,11 @@ import {
   strikeHighwayRail,
 } from "../sf-highway-edge.js";
 import { driveThroughRoadPortal } from "../sf-road-portal.js";
-import { contactGeometry, driveOnRoadSurface } from "../sf-road-contact.js";
+import {
+  contactGeometry,
+  driveOnRoadSurface,
+  roadSupportsCar,
+} from "../sf-road-contact.js";
 import { deckClearanceIndex } from "../sf-tree-clearance.js";
 import { tunnelMesh } from "../sf-tunnel-mesh.js";
 
@@ -628,6 +632,59 @@ test("a narrow ramp tapers into the shared cross-section of a wider deck", () =>
   );
   assert.equal(
     buildBakedRoadContact({ ...ramp, widthTransitionMetres: { end: 41 } }),
+    null,
+  );
+});
+
+test("measured road widths extend contact and move the matching highway rail", () => {
+  const road = {
+    id: "measured-fork",
+    kind: "ramp",
+    width: 8,
+    owners: ["8085807c", "8085807c"],
+    points: Array.from({ length: 21 }, (_, i) => [i * 2, 0, 10]),
+    widthSections: [
+      [0, 4, 4],
+      [20, 7, 3],
+      [40, 7, 3],
+    ],
+    seams: { end: { bearing: 0, width: 12, leftWidth: 8 } },
+    widthTransitionMetres: { end: 12 },
+    railSides: ["left"],
+  };
+  const { surface } = buildBakedRoadContact(road);
+  assert.equal(surface.heightAt(10, 5.2), 10);
+  assert.equal(surface.heightAt(10, 6), null);
+  assert.equal(surface.heightAt(20, 6.5), 10);
+  assert.equal(surface.heightAt(20, -3.5), null);
+  assert.deepEqual(surface.contact.vertices.slice(-2), [
+    [40, 8, 10],
+    [40, -4, 10],
+  ]);
+  assert.deepEqual(surface.terminalHalfWidths, [4, 8]);
+  assert.ok(
+    highwayRailSegments(surface).some(({ a, b }) =>
+      [a, b].some(([x, y]) => x === 20 && Math.abs(y - 6.65) < 0.001),
+    ),
+  );
+  assert.equal(
+    buildBakedRoadContact({
+      ...road,
+      widthSections: [
+        [0, 4, 4],
+        [41, 7, 3],
+      ],
+    }),
+    null,
+  );
+  assert.equal(
+    buildBakedRoadContact({
+      ...road,
+      widthSections: [
+        [1, 4, 4],
+        [1, 7, 3],
+      ],
+    }),
     null,
   );
 });
@@ -1469,6 +1526,8 @@ test("Dogpatch keeps four ramp portals and the southbound through lane connected
   const indexes = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
   const { surface } = buildBakedRoadContact(road("south-through-dogpatch"));
   for (const [x, y, heading] of [
+    [4265.17, -839.73, -1.57],
+    [4267.09, -846.3, -1.58],
     [4262.41, -875.6, -1.67],
     [4230.53, -1027.3, -1.92],
   ]) {
@@ -2765,7 +2824,9 @@ test("the southbound I-280 left exit stays on the upper deck and joins southboun
   }
   assert.deepEqual(exit.groundEnds, []);
   assert.ok(exit.profiles.length > 0);
-  assert.ok(exit.profiles.every((id) => roadBake.playableReplaces.includes(id)));
+  assert.ok(
+    exit.profiles.every((id) => roadBake.playableReplaces.includes(id)),
+  );
   const copies = tiles.flatMap(({ playableRoads }) =>
     playableRoads.filter(({ id }) => id === exit.id),
   );
@@ -2785,6 +2846,45 @@ test("the southbound I-280 left exit stays on the upper deck and joins southboun
         [from, to].every((end) => !end.startsWith(`${lower.id}:`)),
     ),
   );
+  const upperSurface = buildBakedRoadContact(approach).surface;
+  const i = upperSurface.profile.findIndex(({ s_m }) => s_m >= 1230);
+  const {
+    position: [x, y],
+  } = upperSurface.profile[i];
+  const [a, b] = upperSurface.profile[i + 1].position;
+  const heading = Math.atan2(b - y, a - x);
+  const leftLane = {
+    x: x - 7.25 * Math.sin(heading),
+    y: y + 7.25 * Math.cos(heading),
+    heading,
+  };
+  assert.ok(roadSupportsCar(upperSurface.heightAt, leftLane));
+});
+
+test("the Geary east portal meets street pavement across both travel lanes", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808580b4.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/geary-masonic-tunnel",
+  );
+  const [[x, y, z], [u, v]] = road.points;
+  const span = Math.hypot(u - x, v - y);
+  const east = (u - x) / span;
+  const north = (v - y) / span;
+  for (const lane of [-6, -4.5, 0, 4.5, 6]) {
+    const trail = Array.from({ length: 31 }, (_, i) =>
+      groundAtWorld(
+        [tile],
+        x + (i - 30) * east - lane * north,
+        y + (i - 30) * north + lane * east,
+        true,
+      ),
+    );
+    assert.ok(trail.every(Number.isFinite));
+    assert.ok(Math.abs(trail.at(-1) - z) < 0.01);
+    assert.ok(
+      trail.slice(1).every((height, i) => Math.abs(height - trail[i]) < 0.06),
+    );
+  }
 });
 
 test("outer lanes keep momentum across the 12 m Dogpatch seam", async () => {

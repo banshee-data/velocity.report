@@ -21,7 +21,9 @@ export function roadPortals(surface, groundEnds, groundExitOnly = []) {
       z,
       nx: (u - x) / length,
       ny: (v - y) / length,
-      halfWidth: Math.hypot(edgeX - x, edgeY - y),
+      halfWidth:
+        surface.terminalHalfWidths?.[atEnd ? 1 : 0] ??
+        Math.hypot(edgeX - x, edgeY - y),
       entryProbe:
         surface.kind === "ramp"
           ? Math.min(rampLookahead, profile.at(-1).s_m / 2)

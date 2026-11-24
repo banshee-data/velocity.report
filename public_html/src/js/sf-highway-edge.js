@@ -118,6 +118,7 @@ export function highwayRailSegments(surface) {
       const {
         s_m,
         position: [x, y],
+        edgeWidths,
       } = profile[i];
       if (s_m < sideClearance || s_m > profile.at(-1).s_m - sideClearance)
         continue;
@@ -127,8 +128,15 @@ export function highwayRailSegments(surface) {
       const dy = after[1] - before[1];
       const length = Math.hypot(dx, dy);
       if (!length) continue;
-      const east = x + (side * dy * halfWidth) / length;
-      const north = y - (side * dx * halfWidth) / length;
+      const insetWidth = edgeWidths
+        ? edgeWidths[side < 0 ? 0 : 1] - 0.35
+        : halfWidth;
+      if (insetWidth <= 0) {
+        previous = null;
+        continue;
+      }
+      const east = x + (side * dy * insetWidth) / length;
+      const north = y - (side * dx * insetWidth) / length;
       const z = surface.heightAt(east, north);
       const point = z === null ? null : [east, north, z];
       if (previous && point)

@@ -1,0 +1,315 @@
+{
+  "manifestSha256": "c5866d8204a880292ddb7fcb0f6a422f6d3665f4a511378d56cbe7e0ca397dcc",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "expectCompletion": true,
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "stockton-northbound",
+      "from": "🚋",
+      "to": "🍝",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "entry": [2910.2, 3267.8, "Stockton St"],
+        "exit": [2840.8, 3692.2, "Stockton St"]
+      }
+    },
+    {
+      "id": "stockton-southbound",
+      "from": "🦀",
+      "to": "🧱",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "reverse": true,
+        "entry": [2840.8, 3692.2, "Stockton St"],
+        "exit": [2910.2, 3267.8, "Stockton St"]
+      }
+    },
+    {
+      "id": "broadway-west",
+      "from": "🦀",
+      "to": "🦢",
+      "expectContactExit": true,
+      "contact": {
+        "roads": ["sf-contact/broadway-westbound"],
+        "entry": [2568.7, 4147.4, "Broadway"],
+        "exit": [1751.4, 4006.6, "Broadway"],
+        "afterGuide": [
+          [1796, 4018],
+          [1774, 4015],
+          [1758, 4012]
+        ]
+      }
+    },
+    {
+      "id": "toll-eastbound",
+      "from": "🌸",
+      "to": "🌁",
+      "contact": {
+        "roads": ["sf-contact/toll-plaza-tunnel"],
+        "entry": [-3157, 5188, "Unnamed 152"],
+        "exit": [-3075.6, 5277.6, "Unnamed 77"]
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "fremont-under-deck",
+      "from": "🏹",
+      "to": "🏙️",
+      "groundOnly": true,
+      "via": [[3979, 2670, "2nd St"]],
+      "contact": {
+        "roads": ["sf-contact/harrison-beale-bridge"],
+        "entry": [4320, 3069, "Harrison St"],
+        "exit": [4273, 3022, "Harrison St"]
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "i280-south-city-span",
+      "from": "🛞",
+      "to": "📦",
+      "expectContactExit": true,
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-south-through-18th",
+          "sf-contact/i280-dogpatch-approach",
+          "sf-contact/i280-south-through-dogpatch",
+          "sf-contact/i280-south-beyond-dogpatch",
+          "sf-contact/i280-south-to-alemany-mainline",
+          "sf-contact/i280-south-alemany-merge-tail",
+          "sf-contact/i280-south-alemany-through",
+          "sf-contact/i280-south-alemany-exit"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [1854.53, -3084.24, "I-280 S Off Ramp"],
+        "laneGuides": {
+          "sf-contact/i280-dogpatch-approach": {
+            "approach": 1.25,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-through-dogpatch": {
+            "entranceEast": 1.25,
+            "entranceMetres": 20
+          },
+          "sf-contact/i280-south-beyond-dogpatch": {
+            "approach": -1.6,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-alemany-through": {
+            "approach": -1.6,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-alemany-exit": {
+            "entranceEast": -0.37535,
+            "entranceNorth": 1.55535,
+            "entranceMetres": 21
+          },
+          "sf-contact/i280-south-to-alemany-mainline": {
+            "entranceEast": -1.14,
+            "entranceNorth": 1.12,
+            "entranceMetres": 20,
+            "clearance": {
+              "offset": 2.2,
+              "station": 224,
+              "length": 30
+            }
+          }
+        },
+        "afterSurfaces": ["sf-contact/alemany-i280-overpass"]
+      }
+    },
+    {
+      "id": "us101-bayview",
+      "from": "🪡",
+      "to": "🥬",
+      "via": [[3496, -4069, "Hwy 101 Southbound"]],
+      "contact": {
+        "roads": ["sf-contact/silver-avenue-bridge"],
+        "entry": [3115, -3001, "Silver Ave"],
+        "exit": [3019, -3063, "Silver Ave"],
+        "reverse": true
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "dogpatch-seventeenth",
+      "from": "🏥",
+      "to": "🚂"
+    },
+    {
+      "id": "dogpatch-twenty-third",
+      "from": "🏗️",
+      "to": "🛣️",
+      "via": [
+        [4380, -524],
+        [4190, -540]
+      ],
+      "contact": {
+        "roads": ["sf-contact/dogpatch-23rd-lower"],
+        "reverse": true,
+        "entry": [4257, -535, "23rd St"],
+        "exit": [4151, -543, "23rd St"]
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "mission-creek",
+      "from": "⚾",
+      "to": "🏀",
+      "laneDetours": [[4648.379, 1440.285, -2.8]]
+    },
+    {
+      "id": "north-waterfront",
+      "from": "🍫",
+      "to": "⚓",
+      "laneDetours": [[3025.806, 5175.886, -2.8]]
+    },
+    {
+      "id": "presidio",
+      "from": "🌸",
+      "to": "🚪"
+    },
+    {
+      "id": "outer-richmond",
+      "from": "🌷",
+      "to": "🦆"
+    },
+    {
+      "id": "park-west",
+      "from": "⛳",
+      "to": "🚣",
+      "laneDetours": [
+        [-4639.486, 1180.067, -2.8],
+        [-3842.138, 1131.472, 2.8],
+        [-3258.29, 1277.75, 2.8]
+      ]
+    },
+    {
+      "id": "sunset",
+      "from": "🪻",
+      "to": "🧗"
+    },
+    {
+      "id": "great-highway",
+      "from": "🦒",
+      "to": "🌅"
+    },
+    {
+      "id": "lake-merced-southbound",
+      "from": "🐟",
+      "to": "🎣"
+    },
+    {
+      "id": "diamond-heights",
+      "from": "💎",
+      "to": "⛰️"
+    },
+    {
+      "id": "mission-southbound",
+      "from": "🖌️",
+      "to": "🌮"
+    },
+    {
+      "id": "excelsior-southbound",
+      "from": "🌺",
+      "to": "🧳"
+    },
+    {
+      "id": "fifth-alemany-left-exit-to-portola",
+      "from": "🛞",
+      "to": "🌱",
+      "expectContactExit": true,
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-south-through-18th",
+          "sf-contact/i280-dogpatch-approach",
+          "sf-contact/i280-south-through-dogpatch",
+          "sf-contact/i280-south-beyond-dogpatch",
+          "sf-contact/i280-south-to-us101-south-exit",
+          "sf-contact/i280-to-us101-south-descent",
+          "sf-contact/us101-south-paul-approach",
+          "sf-contact/us101-south-san-bruno-exit"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [3427.4, -4253.4, "San Bruno Ave"],
+        "laneGuides": {
+          "sf-contact/i280-dogpatch-approach": {
+            "approach": 1.25,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-through-dogpatch": {
+            "entranceEast": 1.25,
+            "entranceMetres": 20
+          },
+          "sf-contact/i280-south-beyond-dogpatch": {
+            "approach": 1.8,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-to-us101-south-exit": {
+            "entranceEast": 1.286,
+            "entranceNorth": -1.26,
+            "entranceMetres": 25
+          },
+          "sf-contact/us101-south-paul-approach": {
+            "approach": -1.35,
+            "holdApproach": true
+          },
+          "sf-contact/us101-south-san-bruno-exit": {
+            "entranceEast": -1.29,
+            "entranceNorth": -0.4,
+            "entranceMetres": 21
+          }
+        }
+      }
+    },
+    {
+      "id": "geary-masonic-west",
+      "from": "🛍️",
+      "to": "🪴",
+      "contact": {
+        "roads": ["sf-contact/geary-masonic-tunnel"],
+        "entry": [-433.3, 2510.4, "Geary Blvd"],
+        "exit": [-803.1, 2468.5, "Geary Blvd"],
+        "laneGuides": {
+          "sf-contact/geary-masonic-tunnel": {
+            "lane": -4.5
+          }
+        },
+        "afterGuide": [
+          [-771, 2478.1],
+          [-788.9, 2474.5]
+        ],
+        "beforeGuide": [
+          [-441.1, 2513.3],
+          [-449.4, 2512.1],
+          [-455.1, 2511.6]
+        ]
+      },
+      "laneDetours": [[-414.1, 2512.3, -3.5]],
+      "expectContactExit": true
+    },
+    {
+      "id": "broadway-east-to-embarcadero",
+      "from": "🦢",
+      "to": "⚓",
+      "expectContactExit": true,
+      "contact": {
+        "roads": ["sf-contact/broadway-eastbound"],
+        "reverse": true,
+        "entry": [1751.4, 4006.6, "Broadway"],
+        "exit": [2570.4, 4127.6, "Broadway"],
+        "beforeGuide": [
+          [1767, 4003.1],
+          [1796, 4009.3]
+        ],
+        "afterVia": [[3429.9, 4283.2, "Broadway"]]
+      }
+    }
+  ]
+}
