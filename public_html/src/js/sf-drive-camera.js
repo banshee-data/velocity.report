@@ -17,6 +17,8 @@ export const MIRROR_VIEW_RANGE = {
   fogFar: 140,
 };
 const CHASE_DISTANCE = 34;
+const DECK_PROBES = [-CHASE_DISTANCE, -28, -22, -16, -10, -4, 0, 6, 12, 18];
+const CAMERA_DECK_MARGIN = 0.5;
 
 // Body roll leans outward from the turn. Damp the response so changing the
 // steering input or crossing onto dirt does not snap the horizon.
@@ -63,6 +65,24 @@ export function coveredRoadBlend(surface, { x, y }) {
   return fraction * fraction * (3 - 2 * fraction);
 }
 
+export function overheadDeckBlend(car, z, ground, ceiling) {
+  const hx = Math.cos(car.heading);
+  const hy = Math.sin(car.heading);
+  let blend = 0;
+  for (const distance of DECK_PROBES) {
+    const x = car.x + hx * distance;
+    const y = car.y + hy * distance;
+    const street = ground(x, y) ?? z;
+    // The clearance index also contains ordinary pavement. Ask for surfaces
+    // high enough above the local street to cover the car.
+    const deck = ceiling(x, y, Math.max(street, z) + 2);
+    if (deck > street + 26) continue;
+    const fraction = 1 - Math.max(0, distance - 6, -distance - 22) / 18;
+    blend = Math.max(blend, fraction * fraction * (3 - 2 * fraction));
+  }
+  return blend;
+}
+
 export function driveCameraPose(
   view,
   car,
@@ -71,6 +91,7 @@ export function driveCameraPose(
   roll = 0,
   skylineLift = 0,
   coveredBlend = 0,
+  deckCeiling,
 ) {
   const hx = Math.cos(car.heading),
     hy = Math.sin(car.heading);
@@ -108,8 +129,11 @@ export function driveCameraPose(
   const lookDistance = 14 - 5 * coveredBlend;
   const x = car.x - hx * followDistance;
   const y = car.y - hy * followDistance;
+  const support = Math.max(ground(x, y) ?? z, z);
+  const ceiling =
+    coveredBlend > 0 && deckCeiling ? deckCeiling(x, y, support + 2) : Infinity;
   return {
-    position: [x, y, Math.max(ground(x, y) ?? z, z) + lift],
+    position: [x, y, Math.min(support + lift, ceiling - CAMERA_DECK_MARGIN)],
     look: [
       car.x + hx * lookDistance,
       car.y + hy * lookDistance,
