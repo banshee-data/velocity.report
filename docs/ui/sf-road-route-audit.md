@@ -853,11 +853,46 @@ Chrome drove the same Alemany entrance and exit in 228.6 s, reaching
 courses also passed with no driven dips deeper than 0.5 m and a
 maximum driven tile-seam step of 6.1 cm.
 
+The public Chrome round trip continued across 275 m of street
+pavement to the Pennsylvania Avenue entrance. It reached the
+southbound deck in 288.0 s. The fixed-step run reached the same deck
+in 262.5 s and travelled 273.6 m between the two ground portals.
+
 ```sh
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
-  alemany-to-cesar-chavez-northbound alemany-to-sixth-northbound
+  alemany-to-cesar-chavez-northbound alemany-to-sixth-northbound \
+  cesar-chavez-pennsylvania-roundtrip
 ```
 
 - Game manifest SHA-256 `e88693c02191df20ec39fafa0dfc5d15dbce5602148af81a92011f2ab8255e78`.
 - Contact SHA-256 `256ee13da415e75629311fd0a061a56500cbd04979146c82542cc01d86f3f101`.
 - The bake changes five tiles and preserves the existing emoji placement revision.
+
+## Alemany to US 101 northbound
+
+Four contact sections add 2.77 km of alternate northbound pavement.
+The turn from I-280 reaches US 101 and the Bayshore fork, where the
+driver can continue north or descend to street level. The existing
+I-280 branch stays connected at the Alemany seam. At the Bayshore
+crossing, the through lane remains more than 7 m above the ground
+layer. Maximum added centreline grade is 6.3% on the exit.
+
+The main fit uses 251 depth-12 EPT nodes. An additional 19-node
+survey verifies the merged pavement under two inferred roof faces.
+The bake clips 130.4 m² across their shared seam. The other faces in
+the building row retain their original geometry.
+
+The fixed-step driver reached the Bayshore street handoff in 176.5 s
+and the through pavement in 198.2 s. Chrome completed the through
+drive in 199.6 s. All 20 emoji courses passed across 52.45 km with
+zero driven dips deeper than 0.5 m and a maximum driven tile seam
+of 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  alemany-to-us101-exit alemany-to-us101-through
+```
+
+- Game manifest SHA-256 `cc8ae31fc12ebf5281e9762a35ffee38b77761d1538400d8be3561ca1ce6160f`.
+- Contact SHA-256 `f499a5ca7f62bbff6267dcd89cc080c5d0f9322f6f5bc308d61e7c6d53a12e84`.
+- The bake changes four tiles and preserves the existing emoji placement revision.

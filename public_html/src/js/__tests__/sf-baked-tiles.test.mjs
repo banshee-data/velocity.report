@@ -205,6 +205,58 @@ test("Cesar Chavez exit branches from the lower viaduct and returns to ground", 
   assert.equal(roadBake.overheadBuildingPatches["808f7fac"], 4);
 });
 
+test("Alemany connects to US 101 and leaves the original I-280 branch available", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7ef4", "808f7efc", "808f7e54", "808f7e4c"];
+  const tiles = tokens.map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const byId = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const road = (id) => byId.get(`sf-contact/${id}`);
+  const approach = road("i280-north-alemany-main");
+  const connector = road("i280-to-101-north-connector");
+  const silver = road("us101-north-silver-approach");
+  const exit = road("us101-north-bayshore-exit");
+  const through = road("us101-north-bayshore-through");
+  for (const [before, after] of [
+    [approach, road("i280-north-alemany-climb")],
+    [approach, connector],
+    [connector, silver],
+    [silver, exit],
+    [silver, through],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0], after.id);
+    assert.deepEqual(before.seams.end, after.seams.start, after.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  for (const branch of [exit, through]) {
+    assert.deepEqual(branch.groundEnds, ["end"]);
+    const [x, y, z] = branch.points.at(-1);
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03, branch.id);
+  }
+  const { surface } = buildBakedRoadContact(through);
+  const crossing = [3199.64, -1212.11];
+  assert.ok(
+    surface.heightAt(...crossing) - groundAtWorld(tiles, ...crossing, true) > 7,
+  );
+
+  const obstacles = tiles.map((tile, i) =>
+    buildCollisionIndex(tile, tokens[i]),
+  );
+  const [x, y, z] = connector.points.at(-1);
+  assert.equal(collisionAt(obstacles, { x, y, z, heading: 1.67 }, z), null);
+  assert.equal(roadBake.overheadBuildingPatches["808f7e54"], 1);
+});
+
 test("tiled right-only guard rail bounces on the right and leaves the left edge open", () => {
   const road = {
     id: "test-highway-exit",
