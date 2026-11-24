@@ -2471,6 +2471,7 @@ test("the southbound Bayshore turn stays above its refined ground and joins the 
   const stem = baked("us101-south-bayshore-exit-approach");
   const south = baked("us101-south-bayshore-south-turn-exit");
   const north = baked("us101-south-bayshore-north-turn-exit");
+  const lower = baked("bayshore-boulevard-under-us101");
   for (const branch of [south, north]) {
     assert.deepEqual(stem.points.at(-1), branch.points[0]);
     assert.deepEqual(stem.seams.end, branch.seams.start);
@@ -2483,22 +2484,62 @@ test("the southbound Bayshore turn stays above its refined ground and joins the 
       ),
     );
   }
-  const { surface, portals } = buildBakedRoadContact(south);
   assert.equal(tile.g.s, 8);
   assert.equal(tile.g.detail.s, 1);
   assert.ok(roadBake.terrainDetailPatches["808f7e4c"]);
-  for (const {
-    position: [x, y, z],
-    s_m,
-  } of surface.profile) {
-    if (s_m < 205 || s_m > 248) continue;
+  for (const road of [south, lower]) {
+    const { surface } = buildBakedRoadContact(road);
+    const [coverStart, coverEnd] = surface.coveredRange;
+    for (const {
+      position: [x, y, z],
+      s_m,
+    } of surface.profile) {
+      if (s_m < coverStart || s_m > coverEnd) continue;
+      assert.ok(
+        groundAtWorld([tile], x, y, true) - z < 0.15,
+        `Ground over ${road.id} at ${s_m} m`,
+      );
+    }
+  }
+  const [{ x, y, z }] = buildBakedRoadContact(lower).portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+});
+
+test("the Potrero connector joins lower Bayshore pavement without losing the US 101 fork", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e4c.json.gz")));
+  const road = (id) =>
+    tile.playableRoads.find((candidate) => candidate.id === `sf-contact/${id}`);
+  const potrero = road("us101-south-potrero-avenue-approach");
+  const freeway = road("us101-south-potrero-entry");
+  const connector = road("potrero-to-bayshore-boulevard");
+  const offRamp = road("us101-south-bayshore-south-turn-exit");
+  const lower = road("bayshore-boulevard-under-us101");
+  for (const [from, to] of [
+    [potrero, freeway],
+    [potrero, connector],
+    [connector, lower],
+    [offRamp, lower],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
     assert.ok(
-      groundAtWorld([tile], x, y, true) - z < 0.15,
-      `Ground over lane at ${s_m} m`,
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${from.id}:end` &&
+          edge.to === `${to.id}:start` &&
+          edge.direction === "forward",
+      ),
     );
   }
-  const [{ x, y, z }] = portals;
-  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+  assert.deepEqual(connector.groundEnds, []);
+  assert.deepEqual(offRamp.groundEnds, []);
+  assert.deepEqual(lower.groundEnds, ["end"]);
+  assert.deepEqual(lower.groundExitOnly, ["end"]);
+  const upperRoad = road("us101-south-cesar-through");
+  const upper = buildBakedRoadContact(upperRoad).surface;
+  const [x, y, z] = lower.points[0];
+  assert.ok(upper.heightAt(x, y) - z > 7);
 });
 
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
