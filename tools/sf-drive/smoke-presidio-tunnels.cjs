@@ -809,6 +809,17 @@ for (const reverse of [false, true]) {
     laneGuides: { [macarthur]: { lane: reverse ? 4.2 : -4.2 } },
   };
 }
+for (const reverse of [false, true]) {
+  const direction = reverse ? "northeast" : "southwest";
+  cases[`san-jose-bosworth-${direction}`] = {
+    roads: ["san-jose-bosworth-upper-street"],
+    owners: ["808f7e64", "808f7e8c"],
+    reverse,
+    speed: 12,
+    groundApproachMetres: 7,
+    maxDurationMs: 85_000,
+  };
+}
 cases["branch-east-ramp"] = {
   roads: ["branch-east-off-ramp"],
   owners: ["808f7e7c", "808f7e64"],
