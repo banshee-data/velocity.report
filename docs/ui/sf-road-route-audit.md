@@ -2832,3 +2832,23 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   potrero-avenue-to-bayshore us101-south-bayshore-south-turn \
   potrero-avenue-to-us101-south us101-south-over-bayshore-exit
 ```
+
+### Bayshore street departure
+
+The first public Potrero drive reached exterior street pavement
+with 4.55 m of airborne travel. A second trace measured 3.18 m,
+with two flights 25 m and 33 m beyond the lower portal. At those
+locations the terrain was 17 cm and 10 cm above the surveyed
+centreline. The one-metre terrain refinement extends with 28
+survey stations across five lateral offsets. It blends into the
+coarse grid and preserves the portal height to within 1 cm.
+[Gerardus terrain recipe](https://github.com/banshee-data/gerardus/pull/172).
+
+Chrome drove the corrected Potrero route twice and the southbound
+US 101 exit once to exterior Bayshore Boulevard with zero airborne
+travel in the preview. The same 3 m airtime check still covers the
+Potrero run. All 20 fixed-step emoji courses completed again, with
+a 6.1 cm largest seam step and zero driven dips over 0.5 m.
+
+- Game manifest SHA-256 `d0d60fe379fadd327cdcfa8639b82ad99d76a8553b0d24349e27439b0b647240`.
+- Contact SHA-256 `c7917d4bfbe1265f5d5f2887168e7ea3b40ba67e8990a363a9de6aff497b848a`.
