@@ -1,0 +1,1 @@
+- Baked the signed Macalla Road loop onto westbound I‑80 and verified the upper-deck merge and tunnel in Chrome. [SF road audit](../../ui/sf-road-route-audit.md#macalla-road-loop-onto-westbound-i-80)

@@ -29,7 +29,7 @@ Merging PR #1085 to main publishes the game at velocity.report/sf. The bake scri
 
 ## Sources
 
-Every layer comes from public-domain or PDDL data, read through Gerardus's caches on arrow-worker; the oldest input, the City's 2010 building heights, is the main source of error.
+The base city layers use public-domain or PDDL data from Gerardus’s caches on arrow-worker. The City’s 2010 building heights are the oldest input and the main source of error. The Macalla ramp uses alignment data from OpenStreetMap contributors (ODbL) and elevations from USGS 3DEP. [OpenStreetMap data licence](https://www.openstreetmap.org/copyright)
 
 | Input                                                | Date             | What it gives                                                                                               | Licence             | Quirks found                                                                                                 |
 | ---------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------ |

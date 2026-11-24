@@ -2211,3 +2211,36 @@ highest driven sampled grade was 38.9% near (1898, 4021), well before
 Minna. The route had no sampled dip over 0.5 m. Including the earlier
 Mission Bay retry, 14 of the original 20 emoji pairs have now finished
 at least once.
+
+## Macalla Road loop onto westbound I-80
+
+The signed westbound entrance loops from Macalla Road onto the open
+upper deck. The new 316.27 m contact follows that loop at the level
+documented by SFCTA. The previously baked path follows the separate
+street-inventory alignment below the loop. The two approaches shown
+here, the loop and the upper through deck, now share one full-width
+seam at 57.46 m NAVD88. [SFCTA east-side ramp map](https://www.sfcta.org/projects/i-80-east-side-ramps-project)
+
+The approach meets Macalla Road at 53.66 m NAVD88 and peaks at 9.04%
+grade. A cross-section scan found no game collisions at 477 poses
+spanning the centreline and 2.25 m to either side. The largest sampled
+terrain protrusion was 0.18 m. The horizontal reference comes from
+OpenStreetMap contributors and the elevations come from the April 2023
+USGS 3DEP survey. [OpenStreetMap data licence](https://www.openstreetmap.org/copyright)
+
+Chrome drove 31.9 m on the approach to the loop, with 24.2 m recorded
+as grounded at both sample endpoints. It merged, passed through both
+upper bore sections and reached the West Span grounded in 57.0 s. The
+separate through drive finished in 26.5 s. The automatic named start
+reached Fremont and returned to westbound I‑80 at Fourth.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  macalla-to-westbound-i80 island-east-upper-mainline island-east-westbound-exit
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-yerba-buena.cjs
+```
+
+- Game manifest SHA-256 `492001a86938d762ed9fa4184e86c7d5722cba37f19c230c02c69106fff38fe2`.
+- Contact SHA-256 `3282852cb38e38683da188445b5216cc1e515021c8daa78f3704d8a62dc15693`.
+- Guide SHA-256 `eaff6101e3f54c0534f46e8a85a0054bd3760a16b5a09961e5cc6984cb2e7c72`.
+- The bake changes one L13 tile and retains the emoji placement revision.

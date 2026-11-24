@@ -322,8 +322,10 @@ cases["central-to-lower-bridge"] = {
     },
   },
 };
+const macallaMerge = "yerba-buena-upper-after-macalla-merge";
 const upperFromIsland = [
   "yerba-buena-east-approach",
+  macallaMerge,
   "yerba-buena-upper-tunnel",
   "yerba-buena-upper-tunnel-west-of-merge",
   "yerba-buena-west-approach",
@@ -2054,9 +2056,25 @@ cases["island-east-westbound-entry"] = {
   finishDistance: 77,
   maxDurationMs: 120_000,
 };
+const macallaEntrance = "macalla-road-westbound-i80-entrance";
+cases["macalla-to-westbound-i80"] = {
+  owners: islandEastOwners,
+  roads: [macallaEntrance, ...upperFromIsland.slice(1, 5)],
+  groundArrival: [
+    [6620.4, 5768.0],
+    [6631.5, 5763.9],
+    [6649.0, 5759.4],
+  ],
+  groundApproachMetres: 0,
+  speed: 14,
+  speedLimits: { [macallaEntrance]: 11 },
+  finishOnDeck: true,
+  finishDistance: 77,
+  maxDurationMs: 150_000,
+};
 cases["island-east-upper-mainline"] = {
   owners: islandEastOwners,
-  roads: upperFromIsland.slice(0, 4),
+  roads: upperFromIsland.slice(0, 5),
   rollingStart: true,
   initialSpeedMps: 18,
   speed: 18,
@@ -2219,7 +2237,7 @@ cases["island-east-westbound-exit"] = {
 };
 cases["island-east-westbound-through-exit"] = {
   owners: islandEastOwners,
-  roads: [eastSpan, eastThrough, ...upperFromIsland.slice(0, 4)],
+  roads: [eastSpan, eastThrough, ...upperFromIsland.slice(0, 5)],
   rollingStart: true,
   rollingStartMetres: 5,
   speed: 18,
