@@ -996,8 +996,11 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
   assert.equal(selected.initial_speed_mps, 50 * 0.44704);
   assert.equal(cityDriveApproach(drive, "fremont-exit"), drive);
   assert.equal(drive.sections[0].id, "bay-bridge-westbound");
-  assert.deepEqual(selected.sections.slice(4), drive.sections);
-  const [approach, firstBore, sharedBore, exit, bridge] = selected.sections;
+  assert.deepEqual(selected.sections.slice(6), drive.sections);
+  const [span, through, approach, firstBore, sharedBore, exit, bridge] =
+    selected.sections;
+  assert.equal(span.id, "sf-contact/yerba-buena-upper-east-span");
+  assert.equal(through.id, "sf-contact/yerba-buena-upper-east-through");
   const tunnels = [firstBore, sharedBore];
   for (const tunnel of tunnels) {
     assert.equal(tunnel.kind, "tunnel");
@@ -1005,6 +1008,8 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
     assert.equal(tunnel.width_m, 16);
   }
   for (const [before, after] of [
+    [span, through],
+    [through, approach],
     [approach, firstBore],
     [firstBore, sharedBore],
     [sharedBore, exit],
@@ -1023,6 +1028,66 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
     }
   }
   assert.ok(length > 164 && length < 166);
+});
+
+test("the upper East Span forks to Macalla Road without crossing the lower deck", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/80858024.json.gz")));
+  const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
+  const road = (suffix) => roads.get(`sf-contact/${suffix}`);
+  const stem = road("yerba-buena-upper-east-span");
+  const through = road("yerba-buena-upper-east-through");
+  const ramp = road("yerba-buena-east-westbound-off-ramp");
+  const upper = roads.get("yerba-buena-east-approach");
+  for (const [before, after] of [
+    [stem, through],
+    [stem, ramp],
+    [through, upper],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  const { surface: approach } = buildBakedRoadContact(stem);
+  assert.ok(approach.profile.at(-1).s_m >= 140);
+  const index = buildCollisionIndex(tile, tile.t);
+  for (const [
+    i,
+    {
+      position: [x, y, z],
+    },
+  ] of approach.profile.slice(1).entries()) {
+    const [priorX, priorY] = approach.profile[i].position;
+    const heading = Math.atan2(y - priorY, x - priorX);
+    for (const lateral of [-2.2, 0, 2.2]) {
+      const car = {
+        x: x - lateral * Math.sin(heading),
+        y: y + lateral * Math.cos(heading),
+        heading,
+      };
+      assert.equal(
+        collisionAt([index], car, z),
+        null,
+        `East Span at ${x}, ${y}`,
+      );
+    }
+  }
+  const overhead = { x: 6937.2, y: 5993.1, heading: -2.4 };
+  assert.equal(collisionAt([index], overhead, 65), "building");
+  const { surface: exit, portals } = buildBakedRoadContact(ramp);
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.005);
+  assert.ok(exit.profile[0].position[2] > 60);
+  assert.ok(exit.profile.at(-1).position[2] > 54);
+  assert.ok(exit.profile.at(-1).s_m > 310);
 });
 
 test("the eastbound bridge start connects First Street to the lower bore and east approach", () => {

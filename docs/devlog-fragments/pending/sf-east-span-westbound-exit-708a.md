@@ -1,0 +1,1 @@
+- Baked the [westbound East Span exit to Macalla Road](../../ui/sf-road-route-audit.md#westbound-east-span-exit-to-macalla-road), extended the existing 50 mph start and cleared the measured travel lane beneath the retained overhead geometry.
