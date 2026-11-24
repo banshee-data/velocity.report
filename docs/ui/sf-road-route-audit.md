@@ -1386,3 +1386,40 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Contact SHA-256 `0aaf70acd3960c5c85ed1e4ff3fbbe149a5d7b225e4a53ff400264a0e24cf095`.
 - Survey EPT node SHA-256 `b337922e28e56b179d4b4c2e19a55e3c15a18165cac0247e0e83b081b4d9f7ac`.
 - The bake changes three tiles and preserves emoji placement.
+
+## Southbound US 101 exit to northbound Bayshore Boulevard
+
+The northbound Bayshore turn leaves the existing Potrero exit approach at
+15.84 m NAVD88. The branch reaches 13.43 m at the split and meets the
+northbound city pavement at 6.20 m. The survey and street inventory fit
+352 m of contact through the two new sections. The steepest fitted grade
+is 9.51%.
+
+The April 2023 survey includes 46 classified depth-12 nodes and 17
+depth-15 nodes in the lower pavement crop. The lower shoulders bracket a
+30 m indirect section beneath the freeway. The game interpolates that
+section, keeping the two upper freeway contacts at their separate
+elevations. Two inferred tree trunks lay in the driving lane. The
+survey shows lower pavement and separate high returns in those columns,
+so the bake drops the two offending game rows.
+
+The default chase camera begins to lower on the approach to the covered
+interval and keeps the trailing view below the deck until the camera
+and car both clear it. With route assist disabled, Chrome drove the
+lower exit and continued onto city pavement in 50.5 s. It observed
+grounded contact at the handoff and restored the ordinary camera on
+the street. A regression test projects the camera sightline through
+both upper decks along the exit. The independent southbound drive on the deck above
+passed in 21.3 s and kept its exterior camera. The fixed-step lower drive
+stayed grounded for 46.5 s. All 20 frozen emoji routes finished across
+52.43 km with a largest driven seam step of 6.1 cm and no driven dips over
+0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  us101-south-bayshore-north-turn us101-south-over-bayshore-exit
+```
+
+- Game manifest SHA-256 `58a310838dfff50c673be3dd503712282ba485338ad9e487157e1ecffb1b278c`.
+- Contact SHA-256 `53d021b92300c1d32e49d56efb6df071c66e674a4947ae239a617472fc90cc67`.
+- The bake changes one tile and preserves emoji placement.

@@ -13,6 +13,7 @@ import {
   collisionAt,
   groundAtWorld,
 } from "../sf-drive-core.js";
+import { coveredRoadBlend, driveCameraPose } from "../sf-drive-camera.js";
 import {
   highwayRailSegments,
   leaveRoadSide,
@@ -1499,6 +1500,92 @@ test("Potrero and Cesar Chavez entrances merge above the street on southbound US
       merge,
     );
   }
+});
+
+test("the Bayshore exit passes below both freeway directions and keeps its city handoff", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e4c.json.gz")));
+  const road = (id) =>
+    tile.playableRoads.find((r) => r.id === `sf-contact/${id}`);
+  const upstream = road("us101-south-potrero-exit");
+  const approach = road("us101-south-bayshore-exit-approach");
+  const exit = road("us101-south-bayshore-north-turn-exit");
+  for (const [from, to] of [
+    [upstream, approach],
+    [approach, exit],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${from.id}:end` &&
+          edge.to === `${to.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  const { surface, portals } = buildBakedRoadContact(exit);
+  assert.deepEqual(surface.coveredRange, [136, 170]);
+  assert.equal(
+    buildBakedRoadContact({ ...exit, covered_range_m: [136, 200] }),
+    null,
+  );
+  const deckNames = [
+    ["us101-south-cesar-through", 145],
+    ["us101-north-bayshore-through", 164],
+  ];
+  const decks = [];
+  for (const [id, crossing] of deckNames) {
+    const upper = buildBakedRoadContact(road(id)).surface;
+    decks.push(upper);
+    const {
+      position: [x, y, z],
+    } = surface.profile.find(({ s_m }) => s_m >= crossing);
+    const above = upper.heightAt(x, y);
+    assert.ok(above - z > 7, id);
+    assert.equal(surface.heightAt(x, y), z);
+    assert.equal(upper.coveredRange, undefined);
+  }
+  const profile = surface.profile;
+  for (let i = 1; i < profile.length; i++) {
+    const {
+      s_m,
+      position: [x, y, z],
+    } = profile[i];
+    if (s_m < 134) continue;
+    const [px, py] = profile[i - 1].position;
+    const car = { x, y, heading: Math.atan2(y - py, x - px) };
+    const { position } = driveCameraPose(
+      "zoomed",
+      car,
+      z,
+      surface.heightAt,
+      0,
+      0,
+      coveredRoadBlend(surface, car),
+    );
+    const [cx, cy, cz] = position;
+    const samples = Math.ceil(Math.hypot(cx - x, cy - y) / 0.25);
+    for (let step = 0; step <= samples; step++) {
+      const t = step / samples;
+      const sx = cx + (x - cx) * t;
+      const sy = cy + (y - cy) * t;
+      const sightline = cz + (z + 0.8 - cz) * t;
+      for (const deck of decks) {
+        const height = deck.heightAt(sx, sy);
+        if (height === null) continue;
+        assert.ok(
+          height - sightline > 0.5,
+          `Camera under ${deck.id} at ${s_m.toFixed(1)} m`,
+        );
+      }
+    }
+  }
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+  assert.equal(roadBake.inferredTreePatches["808f7e4c"], 2);
 });
 
 test("Monterey keeps its ramp mouths separate and Ocean Avenue reaches city pavement", () => {

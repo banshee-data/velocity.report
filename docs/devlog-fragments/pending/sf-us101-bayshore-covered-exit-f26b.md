@@ -1,0 +1,1 @@
+- Baked the southbound US 101 exit to northbound Bayshore Boulevard. The default chase view lowers through the covered section, keeping the car and road visible. The [route audit](../../ui/sf-road-route-audit.md#southbound-us-101-exit-to-northbound-bayshore-boulevard) records Chrome drives on both the exit and the freeway above it.

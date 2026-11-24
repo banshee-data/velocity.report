@@ -114,6 +114,24 @@ def valid_width_transitions(road):
     return sum(transitions.values()) <= length
 
 
+def valid_covered_range(road):
+    if "covered_range_m" not in road:
+        return True
+    covered = road["covered_range_m"]
+    if (
+        not isinstance(covered, list)
+        or len(covered) != 2
+        or any(
+            type(value) not in (int, float) or not math.isfinite(value)
+            for value in covered
+        )
+    ):
+        return False
+    points = road["points"]
+    length = sum(math.dist(a[:2], b[:2]) for a, b in zip(points, points[1:]))
+    return 0 <= covered[0] < covered[1] <= length
+
+
 def playable_product(path, sha256, base_hash, revision, manifest):
     raw = path.read_bytes()
     if digest(raw) != sha256:
@@ -155,6 +173,7 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             or not set(road["groundEnds"]) <= {"start", "end"}
             or road["owners"] != [owner(points[0]), owner(points[-1])]
             or not valid_width_transitions(road)
+            or not valid_covered_range(road)
         ):
             raise ValueError(f"Invalid playable road {road['id']}")
         for label, point in (("start", points[0]), ("end", points[-1])):

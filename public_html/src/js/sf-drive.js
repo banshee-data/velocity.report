@@ -57,6 +57,7 @@ import {
   DRIVE_VIEWS,
   DRIVE_VIEW_RANGE,
   MIRROR_VIEW_RANGE,
+  coveredRoadBlend,
   driveCameraPose,
   incarRoll,
 } from "./sf-drive-camera.js";
@@ -1573,6 +1574,7 @@ export async function startDrive({
       DRIVE_VIEWS[(DRIVE_VIEWS.indexOf(state.view) + 1) % DRIVE_VIEWS.length],
     );
   const reset = (p = selectedStart, keepAirtime = false) => {
+    cameraCoveredRoad = null;
     clearEmojiFocus();
     car = startingCar(p);
     grounded = false;
@@ -2472,6 +2474,7 @@ export async function startDrive({
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   let cameraRoll = 0;
   let camInit = false;
+  let cameraCoveredRoad = null;
   if (params.get("mode") === "solo") enterSolo();
   setView(state.view);
   let roadAt = 0,
@@ -3203,6 +3206,10 @@ export async function startDrive({
         ? incarRoll(cameraRoll, car.lateralAcceleration || 0, dt)
         : 0;
     // Keep the horizon and view direction steady while the chassis tumbles.
+    if (surface) cameraCoveredRoad = surface.coveredRange ? surface : null;
+    const crossingBlend = coveredRoadBlend(cameraCoveredRoad, car);
+    if (!surface && crossingBlend === 0) cameraCoveredRoad = null;
+    const coveredBlend = state.view === "zoomed" ? crossingBlend : 0;
     const view = driveCameraPose(
       surface?.kind === "tunnel"
         ? "incar"
@@ -3221,6 +3228,7 @@ export async function startDrive({
               1150,
             )
         : 0,
+      coveredBlend,
     );
     const target = new THREE.Vector3(...V(...view.position));
     const look = new THREE.Vector3(...V(...view.look));
@@ -3338,7 +3346,11 @@ export async function startDrive({
       canvas.dataset.altitude = carZ.toFixed(3);
       canvas.dataset.surface = surface?.kind || "city";
       canvas.dataset.cameraContact =
-        surface?.kind === "tunnel" ? "tunnel" : "exterior";
+        surface?.kind === "tunnel"
+          ? "tunnel"
+          : coveredBlend > 0
+            ? "covered"
+            : "exterior";
       canvas.dataset.surfaceId = surface?.id || "";
       canvas.dataset.routeComplete = String(completedCityDrive);
       canvas.dataset.roadWait = String(waitingForRoad);

@@ -135,6 +135,27 @@ def test_bake_requires_a_transition_for_a_wider_seam():
     assert not valid({**road, "widthTransitionMetres": {"end": 41}})
 
 
+@pytest.mark.parametrize(
+    ("covered", "expected"),
+    [
+        ([0, 40], True),
+        ([12, 36], True),
+        ([-1, 36], False),
+        ([12, 41], False),
+        ([26, 12], False),
+        ([True, 36], False),
+        ([12, math.inf], False),
+        ([12], False),
+    ],
+)
+def test_bake_bounds_the_covered_range_by_the_road_length(covered, expected):
+    road = {
+        "points": [[0, 0, 0], [20, 0, 1], [40, 0, 2]],
+        "covered_range_m": covered,
+    }
+    assert road_layers["valid_covered_range"](road) is expected
+
+
 def test_bundled_approach_requires_exact_parent_and_preserves_original_sections(
     tmp_path,
 ):
