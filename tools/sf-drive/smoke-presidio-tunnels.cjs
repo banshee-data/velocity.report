@@ -2870,6 +2870,32 @@ for (const reverse of [false, true]) {
     maxDurationMs: 45_000,
   };
 }
+for (const reverse of [false, true]) {
+  const road = "lyell-street-under-i280";
+  cases[`${road}-${reverse ? "southbound" : "northbound"}`] = {
+    owners: ["808f7e64"],
+    roads: [road],
+    speed: 11,
+    reverse,
+    laneGuides: { [road]: { lane: reverse ? 1.5 : -1.5 } },
+    groundApproachMetres: 6,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [
+          [748.564, -3134.009, 34.905],
+          [753.181, -3135.93, 34.815],
+          [758.73, -3138.24, 34.75],
+        ]
+      : [
+          [716.232, -3027.95, 43.623],
+          [715.195, -3022.041, 44.536],
+          [713.122, -3010.221, 46.371],
+        ],
+    covered: [prefix + road],
+    maxAirborneMetres: 0,
+    maxDurationMs: 35_000,
+  };
+}
 const sr82Owners = ["808f7c24", "808f7c2c", "808f7c34", "808f7c3c", "808f7e84"];
 const southGenevaTail = "i280-south-beyond-geneva";
 const southSr82Main = "i280-south-geneva-to-sr82";

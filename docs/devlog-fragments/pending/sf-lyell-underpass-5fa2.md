@@ -1,0 +1,1 @@
+- Baked separate lower road contact beneath both I-280 carriageways at Lyell Street. Verified both keyboard drives through the crossing and recorded the survey shadow in the [SF road route audit](../../ui/sf-road-route-audit.md#lyell-street-beneath-i-280).

@@ -3104,3 +3104,39 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   islais-creek-illinois-street-southbound islais-creek-illinois-street-northbound \
   mission-creek-fourth-street-southbound mission-creek-fourth-street-northbound
 ```
+
+## Lyell Street beneath I-280
+
+The previous bake used the city terrain grid at the Lyell Street
+undercrossing. Its centreline rose 2.38 m in 10 m, and a northbound
+Chrome keyboard drive travelled 12.14 m airborne at about 25 mph.
+The April 2023 aerial survey observes the freeway decks above the
+lower street and the pavement beyond each side of the shadow.
+[Public Works structure inventory](https://data.sf.gov/api/views/x5tj-txci/rows.pdf?accessType=DOWNLOAD).
+
+The new bake gives Lyell a 103.87 m, 7 m wide contact underneath both
+carriageways. The fit uses direct observations at 23 of 36 stations and
+interpolates 41.60 m between the last and first observed lower pavement
+on either side. One-metre terrain samples meet the lower road so the
+coarse terrain stays below it. The fitted grade peaks at 14.84% on
+the open north approach. That rise remains in the game.
+
+Both final Chrome drives entered from street level, stayed on the lower
+contact and returned to open pavement in the exterior view. The
+northbound and southbound runs reached 26.7 mph and 28.2 mph respectively,
+with zero airborne distance and no browser errors. An intermediate
+candidate still lifted northbound just before entering the lower contact.
+The final southern portal is 14 m earlier on the observed street.
+
+All 23 fixed-step emoji routes completed again on the final package.
+Across 67.59 km and 63 tile crossings, the largest observed seam step
+was 6.1 cm and no driven dip exceeded 0.5 m over an 8 m chord.
+
+- Game manifest SHA-256 `968f934d99974551f8e8ca9c0e563b766583c6858709cb66257a485482a287d7`.
+- Contact SHA-256 `e25b0cd1ee8bcd15992b59b25171e60e7a0886e0b1174106587f0c784b4ad0e2`.
+- [Gerardus recipe and survey provenance](https://github.com/banshee-data/gerardus/pull/177).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  lyell-street-under-i280-northbound lyell-street-under-i280-southbound
+```
