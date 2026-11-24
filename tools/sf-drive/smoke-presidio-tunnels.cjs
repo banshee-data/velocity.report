@@ -1002,6 +1002,107 @@ cases["i280-south-ellsworth-exit"] = {
   forks: [["i280-south-alemany-through", "i280-south-alemany-exit", -1.6]],
 };
 
+const montereyTail = "i280-south-beyond-alemany";
+const montereyExit = "i280-south-monterey-exit";
+const montereyEntry = "i280-north-monterey-entry";
+const montereyOwners = [
+  "808f7c2c",
+  "808f7dd4",
+  "808f7e64",
+  "808f7e7c",
+  "808f7e84",
+  "808f7ef4",
+  "808f7efc",
+];
+const montereyReturn = [
+  montereyEntry,
+  "i280-north-monterey-to-alemany",
+  "i280-north-alemany-west-approach",
+  "i280-north-alemany-main",
+];
+const montereyRolling = {
+  owners: montereyOwners,
+  speed: 18,
+  rollingStart: true,
+  initialSpeedMps: 16,
+  rollingStartMetres: 110,
+  laneGuides: {
+    [montereyTail]: alemanyLaneGuides[montereyTail],
+    [montereyExit]: { clearance: { offset: -1.65, station: 56, length: 42 } },
+    "i280-south-monterey-mainline": {
+      clearance: { offset: 1.45, station: 721, length: 28 },
+    },
+    "i280-south-monterey-to-ocean": {
+      clearance: [
+        { offset: 1.4, station: 375, length: 29 },
+        { offset: 1.65, station: 470, length: 30 },
+        { offset: 2.3, station: 628, length: 28 },
+      ],
+    },
+  },
+  speedLimits: {
+    [montereyExit]: 12,
+    [montereyEntry]: 12,
+    "i280-south-ocean-approach": 12,
+    "i280-south-ocean-exit": 11,
+  },
+};
+cases["i280-monterey-exit"] = {
+  ...montereyRolling,
+  roads: [montereyTail, montereyExit],
+  forks: [[montereyTail, montereyExit, -1.8]],
+};
+cases["i280-monterey-entry"] = {
+  ...montereyRolling,
+  rollingStart: false,
+  roads: montereyReturn,
+  finishOnDeck: true,
+};
+cases["i280-ocean-exit"] = {
+  ...montereyRolling,
+  roads: [
+    montereyTail,
+    "i280-south-monterey-mainline",
+    "i280-south-monterey-to-ocean",
+    "i280-south-ocean-approach",
+    "i280-south-ocean-exit",
+  ],
+  forks: [[montereyTail, "i280-south-monterey-mainline", 1.7]],
+};
+
+cases["i280-monterey-roundtrip"] = {
+  ...cases["i280-monterey-exit"],
+  roads: [montereyTail, montereyExit, ...montereyReturn],
+  connectByGround: true,
+  finishOnDeck: true,
+  laneGuides: {
+    ...montereyRolling.laneGuides,
+    [montereyExit]: {
+      ...montereyRolling.laneGuides[montereyExit],
+      approach: 2.9,
+      holdApproach: true,
+    },
+  },
+  groundConnection: {
+    after: "sf-contact/" + montereyExit,
+    minimumMetres: 130,
+    via: [
+      [282, -3160],
+      [264, -3160],
+      [244, -3160],
+      [229, -3160],
+      [222, -3156],
+      [223, -3151],
+      [231, -3147.7],
+      [253, -3147.4],
+      [269, -3150],
+      [276, -3156.5],
+      [285, -3161.5],
+      [289, -3162.8],
+    ],
+  },
+};
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
@@ -1359,6 +1460,7 @@ async function main() {
         entranceTimeoutMs = 20_000,
         rollingStart = false,
         initialSpeedMps = 50 * 0.44704,
+        rollingStartMetres,
         reverseRoads = [],
         laneGuides = {},
         speedLimits = {},
@@ -1426,9 +1528,18 @@ async function main() {
         );
         sections[i].positions = [previous, ...sections[i].positions.slice(1)];
       }
-      const [start, next] = rollingStart
-        ? sections[0].positions.slice(2, 4)
-        : sections[0].positions;
+      const first = sections[0].positions;
+      let startIndex = rollingStart ? 2 : 0;
+      if (rollingStart && rollingStartMetres) {
+        let station = 0;
+        startIndex = first.findIndex(([x, y], i) => {
+          if (i === 0) return false;
+          station += Math.hypot(x - first[i - 1][0], y - first[i - 1][1]);
+          return station >= rollingStartMetres;
+        });
+      }
+      assert.ok(startIndex >= 0 && startIndex < first.length - 1);
+      const [start, next] = first.slice(startIndex, startIndex + 2);
       const heading = Math.atan2(next[1] - start[1], next[0] - start[0]);
       const approach = rollingStart ? 0 : speed > 8 ? 11 : 7;
       const checkpoint = {
@@ -1538,7 +1649,8 @@ async function main() {
           const [endEast, endNorth] = ground.positions.at(-1);
           const distance = Math.hypot(endEast - east, endNorth - north);
           assert.ok(
-            result.groundMetres >= distance - 6,
+            result.groundMetres >=
+              (groundConnection.minimumMetres ?? distance - 6),
             "Incomplete drive on city pavement",
           );
           assert.ok(result.groundedMetres > 0, "No contact with city pavement");

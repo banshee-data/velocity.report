@@ -19,6 +19,7 @@ import {
   roadBoundary,
   strikeHighwayRail,
 } from "../sf-highway-edge.js";
+import { driveThroughRoadPortal } from "../sf-road-portal.js";
 
 const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
@@ -1229,6 +1230,89 @@ test("Central Freeway connects Fourth Street, 13th, Octavia and South Van Ness",
   assert.ok(z - groundAtWorld(tiles, x, y, true) > 4);
   assert.equal(roadBake.overheadBuildingPatches["8085809c"], 1);
   assert.ok(!tiles[2].playableRoads?.some(({ id }) => id === exit.id));
+});
+
+test("Monterey keeps its ramp mouths separate and Ocean Avenue reaches city pavement", () => {
+  const tokens = ["808f7e64", "808f7e7c", "808f7ef4", "808f7e84", "808f7c2c"];
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) => playableRoads.map((r) => [r.id, r])),
+  );
+  const road = (slug) => roads.get(`sf-contact/${slug}`);
+  const north = road("i280-north-monterey-entry");
+  const south = road("i280-south-monterey-exit");
+  const northContact = buildBakedRoadContact(north);
+  const southContact = buildBakedRoadContact(south);
+  const [entry] = northContact.portals;
+  const [exit] = southContact.portals;
+  assert.ok(Math.hypot(entry.x - exit.x, entry.y - exit.y) > 8.9);
+  const ground = (x, y) => groundAtWorld(tiles, x, y, true);
+  for (const { x, y, z } of [entry, exit]) {
+    assert.ok(Math.abs(ground(x, y) - z) < 0.03);
+  }
+  const x = entry.x - 0.05 * entry.nx;
+  const y = entry.y - 0.05 * entry.ny;
+  const car = {
+    x,
+    y,
+    z: ground(x, y),
+    heading: Math.atan2(entry.ny, entry.nx),
+    v: 10,
+    grounded: true,
+  };
+  const arrived = driveThroughRoadPortal(
+    car,
+    { throttle: 1 },
+    1 / 120,
+    [southContact.portals, northContact.portals],
+    ground,
+  );
+  assert.ok(arrived?.grounded);
+  assert.equal(arrived.surfaceId, north.id);
+
+  const southbound = road("i280-south-beyond-alemany");
+  const ocean = road("i280-south-ocean-exit");
+  for (const chain of [
+    [
+      north,
+      road("i280-north-monterey-to-alemany"),
+      road("i280-north-alemany-west-approach"),
+      road("i280-north-alemany-main"),
+    ],
+    [southbound, south],
+    [
+      southbound,
+      road("i280-south-monterey-mainline"),
+      road("i280-south-monterey-to-ocean"),
+      road("i280-south-ocean-approach"),
+      ocean,
+    ],
+  ]) {
+    for (const [i, to] of chain.slice(1).entries()) {
+      const from = chain[i];
+      assert.deepEqual(from.points.at(-1), to.points[0]);
+      assert.deepEqual(from.seams.end, to.seams.start);
+      assert.ok(
+        roadBake.playableTransitions.some(
+          (edge) =>
+            edge.from === `${from.id}:end` &&
+            edge.to === `${to.id}:start` &&
+            edge.direction === "forward",
+        ),
+      );
+    }
+  }
+  const [oceanExit] = buildBakedRoadContact(ocean).portals;
+  assert.ok(Math.abs(ground(oceanExit.x, oceanExit.y) - oceanExit.z) < 0.03);
+  const fromBothTiles = tiles
+    .slice(0, 2)
+    .map(({ playableRoads }) =>
+      playableRoads.find(({ id }) => id === north.id),
+    );
+  assert.deepEqual(fromBothTiles[0], fromBothTiles[1]);
 });
 
 test("Central Freeway and Tenth Street join southbound US 101 while I-80 stays connected", () => {

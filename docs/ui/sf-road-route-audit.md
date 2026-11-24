@@ -1124,3 +1124,44 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `9d1c25e18dafc7b5defae541256ec0d4ac10167340b01d03684c83e22be977db`.
 - Contact SHA-256 `c22f57e740ec8bffe95fb3519be38a58f6506ddfb2faa6fed751c8a69a5ee839`.
 - The bake changes two tiles and preserves the existing emoji placement revision.
+
+## I-280 Monterey Boulevard and Ocean Avenue
+
+Eight directed contact sections add 4.33 km. Southbound I-280 can reach
+Monterey Boulevard or continue to the Ocean Avenue exit. The northbound
+entrance from Monterey joins the existing I-280 mainline at Alemany.
+
+The street inventory puts both Monterey mouths at one intersection
+coordinate. At that position, the game found two valid contact surfaces
+when approaching from the street and continued on the terrain. Fitting
+each throat to its surveyed carriageway puts their terrain joins 8.95 m
+apart. Both joins preserve pavement height, at 66.0016 m and 65.8981 m
+NAVD88.
+
+The fit pins 553 depth-12 EPT nodes. Side returns and bounded
+interpolation keep the lower pavement continuous beneath the
+northbound flyovers. The steepest fitted section is the 9.75% climb to
+Ocean Avenue.
+
+A fixed-step drive exited southbound I-280 at Monterey, drove 150.5 m on
+city pavement, and rejoined northbound I-280. It reached Alemany in
+243.1 s. The independent Monterey exit, Monterey entrance and Ocean
+Avenue exit passed in 78.6 s, 146.2 s and 165.0 s.
+
+Chrome repeated the Monterey round trip in 233.5 s, including 149.8 m
+between the two ramps. Ground contact was reported for 137.8 m of that
+street section, and the car finished grounded at Alemany. The Ocean
+Avenue drive reached ordinary pavement in 155.0 s. Both runs began
+110 m into the existing southbound deck and used keyboard controls.
+
+The same 20 emoji routes covered 52.43 km and all finished. No driven
+dip exceeded 0.5 m. The largest driven tile-seam step remained 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-monterey-roundtrip i280-ocean-exit
+```
+
+- Game manifest SHA-256 `36f7b3f8a32f4f14ca1f8b435a97cfcf6dea44d1ec8d0a701fe61a5a7514c7b8`.
+- Contact SHA-256 `f6da3b2f61f2a5a6c64a26e55f51d53ec5cc8b2f2e0592790fed3bc46fdc298c`.
+- The bake changes six tiles and preserves the existing emoji placement revision.
