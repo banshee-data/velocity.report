@@ -729,6 +729,124 @@ for (const direction of ["northbound", "southbound"]) {
   };
 }
 
+const seventhStart = [
+  "i80-eastbound-interchange",
+  "i80-eastbound-seventh-off-ramp",
+];
+const seventhFork = [seventhStart[0], seventhStart[1], -1.6];
+const seventhDrive = {
+  owners: ["808f7e2c", "80858084"],
+  speed: 13,
+  rollingStart: true,
+  initialSpeedMps: 13,
+  laneGuides: {
+    "i80-eastbound-seventh-off-ramp": {
+      clearance: { offset: -1.8, station: 24, length: 20 },
+    },
+  },
+  speedLimits: {
+    "i80-eastbound-seventh-off-ramp": 10,
+    "i80-eastbound-seventh-west-exit": 9,
+    "i80-eastbound-seventh-east-exit": 9,
+  },
+};
+for (const [direction, offset] of [
+  ["west", 1.55],
+  ["east", -1.55],
+]) {
+  const exit = `i80-eastbound-seventh-${direction}-exit`;
+  cases[`i80-seventh-${direction}-exit`] = {
+    ...seventhDrive,
+    roads: [...seventhStart, exit],
+    forks: [seventhFork, [seventhStart[1], exit, offset]],
+  };
+}
+cases["i80-seventh-harrison-roundtrip"] = {
+  ...seventhDrive,
+  roads: [
+    ...seventhStart,
+    "i80-eastbound-seventh-west-exit",
+    "i80-westbound-harrison-entry",
+    "i80-westbound-interchange",
+  ],
+  forks: [
+    seventhFork,
+    [seventhStart[1], "i80-eastbound-seventh-west-exit", 1.55],
+  ],
+  connectByGround: true,
+  groundConnection: {
+    after: "sf-contact/i80-eastbound-seventh-west-exit",
+    via: [
+      [3043, 1654],
+      [3036, 1663],
+      [3004, 1693],
+      [2977.5, 1717.3],
+      [2970.0, 1722.4],
+      [2966.0, 1719.2],
+    ],
+  },
+  finishOnDeck: true,
+};
+const harrisonSouth = {
+  owners: ["808f7e2c", "808f7e34", "808f7e4c"],
+  roads: [
+    "i80-westbound-harrison-entry",
+    "i80-westbound-interchange",
+    "i80-westbound-to-us101-south",
+    "us101-south-potrero-main",
+    "us101-south-potrero-exit",
+    "us101-south-cesar-potrero-approach",
+  ],
+  speed: 17,
+  laneGuides: {
+    "us101-south-potrero-main": {
+      clearance: [
+        { offset: 1.65, station: 455, length: 26 },
+        { offset: -1.6, station: 818, length: 23 },
+        { offset: 1.6, station: 840, length: 29 },
+        { offset: -1.4, station: 884, length: 24 },
+        { offset: 1.6, station: 951, length: 24 },
+        { offset: 1.35, station: 1356, length: 20 },
+        { offset: 1.2, station: 1478, length: 42 },
+      ],
+    },
+    "us101-south-potrero-exit": {
+      clearance: { offset: 1.25, station: 14, length: 14 },
+    },
+  },
+  speedLimits: {
+    "i80-westbound-harrison-entry": 11,
+    "i80-westbound-to-us101-south": 14,
+    "us101-south-potrero-exit": 11,
+    "us101-south-cesar-potrero-approach": 11,
+  },
+  forks: [["i80-westbound-interchange", "i80-westbound-to-us101-south", 1.55]],
+};
+for (const [destination, offset] of [
+  ["cesar-chavez", 1.6],
+  ["potrero-avenue", -1.6],
+]) {
+  const exit = `us101-south-${destination}-exit`;
+  cases[`harrison-to-${destination}`] = {
+    ...harrisonSouth,
+    roads: [...harrisonSouth.roads, exit],
+    forks: [
+      ...harrisonSouth.forks,
+      ["us101-south-cesar-potrero-approach", exit, offset],
+    ],
+    speedLimits: { ...harrisonSouth.speedLimits, [exit]: 10 },
+    laneGuides:
+      destination === "potrero-avenue"
+        ? {
+            ...harrisonSouth.laneGuides,
+            "us101-south-cesar-potrero-approach": {
+              clearance: { offset: 2.05, station: 162, length: 15 },
+            },
+          }
+        : harrisonSouth.laneGuides,
+  };
+}
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
@@ -923,6 +1041,8 @@ async function drive(
       let blocked = 0;
       let maxSpeed = 0;
       let lastSupported;
+      let groundPose;
+      let groundMetres = 0;
       return new Promise((resolve) => {
         function finish(status) {
           for (const code of held) key(code, false);
@@ -932,6 +1052,7 @@ async function drive(
             enclosed: [...enclosed],
             exit: pose,
             lastSupported,
+            groundMetres: Math.round(groundMetres * 10) / 10,
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
           });
@@ -956,6 +1077,20 @@ async function drive(
             return finish("wrong road");
           if (surfaceId && !seen.has(surfaceId)) seen.set(surfaceId, pose);
           if (surfaceId && pose.grounded) lastSupported = pose;
+          if (
+            !surfaceId &&
+            pose.grounded &&
+            groundHints.get(seen.size) === "between-streets"
+          ) {
+            if (groundPose)
+              groundMetres += Math.hypot(
+                pose.x - groundPose.x,
+                pose.y - groundPose.y,
+              );
+            groundPose = pose;
+          } else {
+            groundPose = undefined;
+          }
           if (surfaceId && pose.camera === "tunnel") enclosed.add(surfaceId);
           if (!seen.size && now - started > entranceTimeoutMs)
             return finish("missed entrance");
@@ -1237,6 +1372,16 @@ async function main() {
         );
         assert.equal(result.exit.camera, "exterior");
         assert.ok(result.exit.grounded);
+        if (groundConnection) {
+          const ground = sections.find(({ id }) => id === "between-streets");
+          const [east, north] = ground.positions[0];
+          const [endEast, endNorth] = ground.positions.at(-1);
+          const distance = Math.hypot(endEast - east, endNorth - north);
+          assert.ok(
+            result.groundMetres >= distance - 6,
+            "Incomplete drive on city pavement",
+          );
+        }
         if (process.env.SF_SCREENSHOT_DIR)
           await page.screenshot({
             path: join(

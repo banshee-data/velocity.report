@@ -394,6 +394,61 @@ test("SoMa ramps join the correct I-80 lanes and clear the surveyed Fifth Street
   assert.equal(roadBake.overheadBuildingPatches["8085807c"], 1);
 });
 
+test("Seventh Street and southbound US 101 meet ordinary pavement only at their exits", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7e2c", "808f7e34", "808f7e4c"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const road = (name) => roads.get(`sf-contact/${name}`);
+  const seventh = road("i80-eastbound-seventh-off-ramp");
+  const west = road("i80-eastbound-seventh-west-exit");
+  const east = road("i80-eastbound-seventh-east-exit");
+  const south = road("i80-westbound-to-us101-south");
+  const main = road("us101-south-potrero-main");
+  const fork = road("us101-south-potrero-exit");
+  const approach = road("us101-south-cesar-potrero-approach");
+  const cesar = road("us101-south-cesar-chavez-exit");
+  const potrero = road("us101-south-potrero-avenue-exit");
+  for (const [before, after] of [
+    [road("i80-eastbound-interchange"), seventh],
+    [seventh, west],
+    [seventh, east],
+    [road("i80-westbound-interchange"), south],
+    [south, main],
+    [main, fork],
+    [fork, approach],
+    [approach, cesar],
+    [approach, potrero],
+  ]) {
+    assert.deepEqual(before.groundEnds, [], before.id);
+    assert.deepEqual(before.points.at(-1), after.points[0], after.id);
+    assert.deepEqual(before.seams.end, after.seams.start, after.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  for (const exit of [west, east, cesar, potrero]) {
+    assert.deepEqual(exit.groundEnds, ["end"], exit.id);
+    const [x, y, z] = exit.points.at(-1);
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03, exit.id);
+  }
+  for (const owner of south.owners) {
+    const tile = tiles.find(({ t }) => t === owner);
+    assert.deepEqual(
+      tile.playableRoads.find(({ id }) => id === south.id),
+      south,
+    );
+  }
+});
+
 test("a narrow ramp tapers into the shared cross-section of a wider deck", () => {
   const seam = { bearing: 0, width: 12 };
   const ramp = {
