@@ -1804,6 +1804,26 @@ cases["alemany-late-lower-crossings-camera"] = {
   exitCamera: "covered",
 };
 
+const hesterUpperStreet = "bayshore-north-hester-approach";
+const hesterEntry = "us101-north-bayshore-hester-entry";
+cases["bayshore-hester-street-through"] = {
+  roads: [hesterUpperStreet, "bayshore-north-hester-through"],
+  owners: ["808f7f24", "808f7f1c", "808f7ee4"],
+  speed: 10,
+  groundApproachMetres: 11,
+  forks: [[hesterUpperStreet, "bayshore-north-hester-through", -1.8]],
+  maxDurationMs: 90_000,
+};
+cases["bayshore-hester-entry-us101"] = {
+  ...cases["bayshore-hester-street-through"],
+  roads: [hesterUpperStreet, hesterEntry, "us101-north-bayshore-to-paul"],
+  forks: [[hesterUpperStreet, hesterEntry, 1.8]],
+  speedLimits: { [hesterEntry]: 14, "us101-north-bayshore-to-paul": 16 },
+  finishOnDeck: true,
+  finishDistance: 70,
+  maxDurationMs: 130_000,
+};
+
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
