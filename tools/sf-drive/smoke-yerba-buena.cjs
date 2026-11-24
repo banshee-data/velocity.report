@@ -27,7 +27,8 @@ async function checkRoute() {
     await page.goto(`${origin}/sf/?at=${start}`);
     for (const [id, min, max] of [
       ["yerba-buena-east-approach", 55.9, 61.0],
-      ["yerba-buena-upper-tunnel", 52.2, 56.0],
+      ["yerba-buena-upper-tunnel", 54.1, 56.0],
+      ["yerba-buena-upper-tunnel-west-of-merge", 52.2, 54.4],
       ["yerba-buena-west-approach", 52.2, 55.1],
       ["bay-bridge-westbound", 54.9, 66.0],
       ["city-approach", 39.0, 57.0],
@@ -36,7 +37,7 @@ async function checkRoute() {
       ["fourth-street-entrance", 4.0, 12.0],
       ["westbound-i80", 10.0, 17.0],
     ]) {
-      const tunnel = id === "yerba-buena-upper-tunnel";
+      const tunnel = id.startsWith("yerba-buena-upper-tunnel");
       const handle = await page.waitForFunction(
         ({ id, tunnel }) => {
           const data = document.querySelector("#drive").dataset;

@@ -702,6 +702,77 @@ test("the upper West Span shares its Fremont fork with the westbound freeway con
   assert.deepEqual(exit.railSides, ["right"]);
 });
 
+test("the east island ramp joins the upper bore without changing the through tunnel level", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["80858024", "8085803c"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) =>
+      playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  const ramp = roads.get("sf-contact/yerba-buena-east-westbound-on-ramp");
+  const entranceBore = roads.get(
+    "sf-contact/yerba-buena-east-westbound-entrance-tunnel",
+  );
+  const mainBore = roads.get("yerba-buena-upper-tunnel");
+  const sharedBore = roads.get("yerba-buena-upper-tunnel-west-of-merge");
+  const west = roads.get("yerba-buena-west-approach");
+  assert.deepEqual(ramp.groundEnds, ["start"]);
+  assert.equal(buildBakedRoadContact(ramp).appearance, null);
+  assert.ok(buildBakedRoadContact(entranceBore).appearance);
+  assert.ok(buildBakedRoadContact(sharedBore).appearance);
+  for (const [before, after] of [
+    [ramp, entranceBore],
+    [entranceBore, sharedBore],
+    [mainBore, sharedBore],
+    [sharedBore, west],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  const product = JSON.parse(file("gamedrives.json"));
+  const route = cityDriveApproach(product.drives[0], "yerba-buena-westbound");
+  for (const road of [mainBore, sharedBore]) {
+    assert.deepEqual(
+      route.sections.find(({ id }) => id === road.id).positions,
+      road.points,
+    );
+  }
+});
+
+test("Evans Avenue retains its measured grade across the rebaked terrain strip", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7fac.json.gz")));
+  const point = [3797.04, -1228.795];
+  const end = [3760.65, -1133.32];
+  const length = Math.hypot(end[0] - point[0], end[1] - point[1]);
+  for (const offset of [-6, 0, 6]) {
+    const heights = Array.from({ length: 102 }, (_, station) => {
+      const x =
+        point[0] +
+        (station * (end[0] - point[0]) + offset * (end[1] - point[1])) / length;
+      const y =
+        point[1] +
+        (station * (end[1] - point[1]) - offset * (end[0] - point[0])) / length;
+      return groundAtWorld([tile], x, y, true);
+    });
+    assert.ok(heights.every((z) => z !== null));
+    assert.ok(Math.min(...heights.slice(44, 65)) > 13.5);
+    assert.ok(
+      heights.slice(1).every((z, i) => Math.abs(z - heights[i]) < 0.12),
+    );
+  }
+});
+
 test("Central Freeway joins the lower Bay Bridge through contiguous eastbound contact", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = [
@@ -767,25 +838,31 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
   assert.equal(selected.initial_speed_mps, 50 * 0.44704);
   assert.equal(cityDriveApproach(drive, "fremont-exit"), drive);
   assert.equal(drive.sections[0].id, "bay-bridge-westbound");
-  assert.deepEqual(selected.sections.slice(3), drive.sections);
-  const [approach, tunnel, exit, bridge] = selected.sections;
-  assert.equal(tunnel.kind, "tunnel");
-  assert.equal(tunnel.game_clearance_m, 4.4);
-  assert.equal(tunnel.width_m, 16);
+  assert.deepEqual(selected.sections.slice(4), drive.sections);
+  const [approach, firstBore, sharedBore, exit, bridge] = selected.sections;
+  const tunnels = [firstBore, sharedBore];
+  for (const tunnel of tunnels) {
+    assert.equal(tunnel.kind, "tunnel");
+    assert.equal(tunnel.game_clearance_m, 4.4);
+    assert.equal(tunnel.width_m, 16);
+  }
   for (const [before, after] of [
-    [approach, tunnel],
-    [tunnel, exit],
+    [approach, firstBore],
+    [firstBore, sharedBore],
+    [sharedBore, exit],
     [exit, bridge],
   ]) {
     assert.deepEqual(before.positions.at(-1), after.positions[0]);
   }
   let length = 0;
-  for (let i = 1; i < tunnel.positions.length; i++) {
-    const [ax, ay, az] = tunnel.positions[i - 1];
-    const [bx, by, bz] = tunnel.positions[i];
-    const ds = Math.hypot(bx - ax, by - ay);
-    assert.ok(Math.abs(bz - az) / ds < 0.045);
-    length += ds;
+  for (const { positions } of tunnels) {
+    for (let i = 1; i < positions.length; i++) {
+      const [ax, ay, az] = positions[i - 1];
+      const [bx, by, bz] = positions[i];
+      const ds = Math.hypot(bx - ax, by - ay);
+      assert.ok(Math.abs(bz - az) / ds < 0.045);
+      length += ds;
+    }
   }
   assert.ok(length > 164 && length < 166);
 });

@@ -37,7 +37,8 @@ import {
 } from "../../public_html/src/js/sf-crash.js";
 import { steeringLine } from "./steering-line.mjs";
 
-const args = process.argv.slice(2);
+const exportCourses = process.argv.includes("--export-courses");
+const args = process.argv.slice(2).filter((arg) => arg !== "--export-courses");
 const assetsPath = args.find((arg) => arg.startsWith("--assets="));
 const assets = assetsPath
   ? pathToFileURL(resolve(assetsPath.slice("--assets=".length)) + sep)
@@ -447,7 +448,10 @@ function profile(path) {
       ? round(layerGrades[Math.floor((layerGrades.length - 1) * 0.95)] * 100)
       : null,
     bakedPeakGrade: layerGrades.length ? round(layerGrades.at(-1) * 100) : null,
-    tunnelSamples: samples.filter(({ tunnel }) => tunnel).length,
+    tunnelSamples: samples.filter(
+      ({ tunnel, surfaceId }) =>
+        tunnel || surfaces.get(surfaceId)?.kind === "tunnel",
+    ).length,
     p95Grade: grades.length
       ? round(grades[Math.floor((grades.length - 1) * 0.95)] * 100)
       : null,
@@ -515,7 +519,7 @@ function drivenProfile(samples) {
   };
 }
 
-function controlsFor(path) {
+function speedLimits(path) {
   // Limit speed before sharp turns, including when entering a junction on a
   // downhill grade. The policy can see its course but cannot move the car.
   const speed = path.map((p, i) => {
@@ -536,6 +540,11 @@ function controlsFor(path) {
       speed[i],
       Math.sqrt(speed[i + 1] ** 2 + 6 * (path[i + 1].s - path[i].s)),
     );
+  return speed;
+}
+
+function controlsFor(path) {
+  const speed = speedLimits(path);
   let at = 0;
   return (car) => {
     let closest = Infinity;
@@ -602,6 +611,8 @@ function drive(path, from, to) {
   let status = "timed out";
   const seenSurfaces = new Set();
   const samples = [{ ...car, road: from.names[0] }];
+  const distanceBySurface = { ground: 0, layered: 0, tunnel: 0 };
+  let airborneMetres = 0;
   let exitDistance;
   const trial = createTrial([from, to]);
   const limit = (path.at(-1).s / 2 + 90) / step;
@@ -699,6 +710,14 @@ function drive(path, from, to) {
       worstSeamStep = Math.max(worstSeamStep, Math.abs(next.z - car.z));
     }
     const run = distance(car, next);
+    const roadKind = surfaces.get(next.surfaceId)?.kind;
+    if (car.grounded && next.grounded) {
+      const bucket =
+        roadKind === "tunnel" ? "tunnel" : roadKind ? "layered" : "ground";
+      distanceBySurface[bucket] += run;
+    } else {
+      airborneMetres += run;
+    }
     while (samples.length <= travelled + run) {
       const fraction = (samples.length - travelled) / run;
       const point = blend(car, next, fraction);
@@ -739,6 +758,10 @@ function drive(path, from, to) {
     peakClearance: round(peakClearance),
     stopCrossTrack: round(stopCrossTrack),
     scrapes,
+    groundedStreetMetres: round(distanceBySurface.ground),
+    groundedLayeredMetres: round(distanceBySurface.layered),
+    groundedTunnelMetres: round(distanceBySurface.tunnel),
+    airborneMetres: round(airborneMetres),
     seamCrossings,
     worstSeamStep: round(worstSeamStep),
     seenSurfaces: [...seenSurfaces],
@@ -760,6 +783,26 @@ for (const spec of plan.routes) {
   const path = spec.laneDetours?.length
     ? applyLaneDetours(sampled, spec.laneDetours)
     : sampled;
+  if (exportCourses) {
+    const speeds = speedLimits(path);
+    console.log(
+      JSON.stringify({
+        id: spec.id,
+        from: from.t,
+        to: to.t,
+        manifestSha256: plan.manifestSha256,
+        placementSha256: quest.placementSha256,
+        progressBaseSha256: manifest.terrainRebake.progressBaseSha256,
+        waypoints: path.map(({ x, y, s }, i) => [
+          round(x),
+          round(y),
+          round(s),
+          round(speeds[i]),
+        ]),
+      }),
+    );
+    continue;
+  }
   const metrics = profile(path);
   const result = drive(path, from, to);
   console.log(

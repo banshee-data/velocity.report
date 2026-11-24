@@ -1817,3 +1817,101 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 
 - Game manifest SHA-256 `d5b7a53795a748fb7a69e5473233da3e343d3410f49bf59f7a73b0ceddfe3e8f`.
 - Contact SHA-256 `ca2e756da459ff0e802399f6373f68000c08f1adfed1f1972d34bca637340902`.
+
+## Cross-city emoji routes and the east Yerba Buena entrance
+
+The 20-course set in `tools/sf-drive/road-audit-cross-city-routes.json`
+varies both ends of each drive across the city. It crosses Stockton and
+Broadway, the Presidio toll underpass, I-280, US 101, city roads under I-80,
+and neighbourhood grades from the ocean to Bernal Heights and Treasure
+Island. Each fixed-step run starts at an emoji and records a finish when
+it collects both. The driver uses normal car physics at 120 Hz with
+23 mph street and 40 mph highway targets. Short turns can drive slower.
+
+The route audit samples the planned path and the actual wheel-supported
+trace at one-metre intervals. A depression is the distance below the
+mean of points four metres either side of a sample. The screen counts
+samples deeper than 0.5 m. A sequence of neighbouring samples can mark
+one dip. Its tile-boundary measure is the largest height change in a
+single simulation step crossing ownership, which includes the road's grade.
+The browser checks use confirmation of manual takeover, keyboard events,
+and saved emoji pickups. Browser traces can miss a short excursion
+between rendered frames.
+
+The first fixed-step pass used the published west-island manifest
+`d5b7a53795a748fb7a69e5473233da3e343d3410f49bf59f7a73b0ceddfe3e8f`.
+The routes planned 68.31 km and drove 38.96 km before collection or a stop.
+The car drove 830 m through tunnel contact and 1,958 m over other baked
+road levels. Eight drives collected both emojis. Among the remaining
+drives, four stalled, six hit scenery, and two reached the end of an
+unexpected baked road branch. The largest change at 37 crossed tile
+boundaries was 8.2 cm. The median course p95 grade was 9.2%. The planned
+paths flagged 19 dip samples and 71 samples without contact. The portions
+actually driven included zero dip samples deeper than 0.5 m.
+
+| Course                         | Fixed-step result                                            | Driven km | Peak grade |
+| ------------------------------ | ------------------------------------------------------------ | --------: | ---------: |
+| Chinatown north via Stockton   | Stalled on Columbus                                          |      2.64 |       9.0% |
+| Chinatown south via Stockton   | Building on Minna                                            |      2.78 |      39.4% |
+| Broadway to the Marina         | Building on Bartol before the tunnel                         |      0.57 |      31.8% |
+| Presidio toll underpass        | Both emojis                                                  |      3.44 |      21.4% |
+| Mission Bay to Pennsylvania    | Reached end of I-280 contact after taking the through branch |      2.18 |       8.8% |
+| Mission Bay to Alemany         | Tree on Terry A Francois                                     |      0.44 |       1.2% |
+| Silver Avenue bridge           | Both emojis                                                  |      3.39 |      17.8% |
+| Hester to Bayshore             | Both emojis                                                  |      3.19 |      28.4% |
+| Dogpatch to Potrero            | Reached end of Pennsylvania contact                          |      1.25 |      53.7% |
+| Embarcadero to SoMa            | Stalled on Main                                              |      0.15 |       2.9% |
+| Lake Street to the Presidio    | Stalled on Liggett                                           |      4.62 |      17.5% |
+| Lands End to Outer Richmond    | Both emojis                                                  |      2.43 |      17.5% |
+| Richmond to Golden Gate Park   | Tree on John F Kennedy                                       |      1.11 |      10.0% |
+| Upper Haight to Inner Sunset   | Both emojis                                                  |      1.92 |       5.3% |
+| Ocean Beach to Fort Funston    | Tree on Skyline                                              |      1.39 |       5.2% |
+| Lake Merced to Ingleside       | Stalled on Font                                              |      1.10 |       4.7% |
+| West Portal to Sunnyside       | Both emojis                                                  |      2.18 |      14.5% |
+| Twin Peaks to Bernal           | Tree on Twin Peaks                                           |      0.30 |      18.7% |
+| Excelsior to Visitacion Valley | Both emojis                                                  |      2.45 |      21.2% |
+| Treasure Island north          | Both emojis                                                  |      1.42 |       7.5% |
+
+Chrome collected both emojis on the northbound Stockton corridor in
+377 s, on the toll underpass corridor in 355 s, and on Treasure Island
+in 144 s. The southbound Stockton drive passed the tunnel and hit a
+building on Minna. Separate Chrome drives on the public game crossed
+both Presidio bores in both directions and completed the west-island
+exit and re-entry in 117.8 s.
+
+### Evans Avenue
+
+The worst driven grade was 53.7% on Evans Avenue, where the coarse
+terrain was 6.7 m below the observed pavement. A 102 m correction uses
+survey returns in the centre and both outer tracks. At the centre of the
+former dip, the corrected pavement stays near 13.9 m NAVD88. Chrome drove
+101.8 m without airborne frames and measured a peak grade of 6.8% over
+five metres. The Dogpatch course's largest driven grade fell to 21.3%,
+now on 25th Street. The later Pennsylvania join still stops its fixed-step
+drive. Seven planned dip samples remain on the route after the Evans fix.
+
+### The east Yerba Buena entrance
+
+The new westbound entrance runs from Macalla Road to the upper bore. Both
+westbound routes use the same contact beyond the merge. The April 2023
+survey supports the exposed pavement. The final 63 m under rock use an
+inferred curve between the observed entrance and the upper-bore contact.
+The named 50 mph Bay Bridge start uses the same split through the tunnel.
+Chrome reached the west approach on the new entrance in 40.1 s and on
+the continuing upper mainline in 26.9 s. Both finished grounded in the
+exterior view. The other east-island ramp connections remain under review.
+
+- Game manifest SHA-256 `229ab362eaa6fe1098f025f2ba900ea62a442c31add12906c0d978662e7f177f`.
+- Contact SHA-256 `7c292284a117d6f95686a9d1e4cc07ccdf9d27717929f065c068c54c569f1a59`.
+
+Use the manifest hash of the tested revision in a copy of the plan. Pass
+`--export-courses` to prepare the same waypoints and speed targets for
+Chrome and keep its trace outside Git.
+
+```sh
+node tools/sf-drive/audit-road-routes.mjs --plan=/tmp/road-audit-plan.json
+node tools/sf-drive/audit-road-routes.mjs --plan=/tmp/road-audit-plan.json \
+  --export-courses >/tmp/road-audit-courses.ndjson
+SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
+  /tmp/road-audit-courses.ndjson
+```

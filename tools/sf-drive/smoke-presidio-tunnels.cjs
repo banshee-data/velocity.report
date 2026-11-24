@@ -306,6 +306,7 @@ cases["central-to-lower-bridge"] = {
 const upperFromIsland = [
   "yerba-buena-east-approach",
   "yerba-buena-upper-tunnel",
+  "yerba-buena-upper-tunnel-west-of-merge",
   "yerba-buena-west-approach",
   "bay-bridge-westbound",
   "city-approach",
@@ -2016,6 +2017,33 @@ cases["island-west-exit-and-reentry"] = {
   finishOnDeck: true,
   finishDistance: 155,
   maxDurationMs: 215_000,
+};
+
+const islandEastOwners = ["80858024", "8085803c"];
+cases["island-east-westbound-entry"] = {
+  owners: islandEastOwners,
+  roads: [
+    "yerba-buena-east-westbound-on-ramp",
+    "yerba-buena-east-westbound-entrance-tunnel",
+    "yerba-buena-upper-tunnel-west-of-merge",
+    "yerba-buena-west-approach",
+  ],
+  speed: 11,
+  speedLimits: { "yerba-buena-west-approach": 16 },
+  groundApproachMetres: 9,
+  finishOnDeck: true,
+  finishDistance: 77,
+  maxDurationMs: 120_000,
+};
+cases["island-east-upper-mainline"] = {
+  owners: islandEastOwners,
+  roads: upperFromIsland.slice(0, 4),
+  rollingStart: true,
+  initialSpeedMps: 18,
+  speed: 18,
+  finishOnDeck: true,
+  finishDistance: 77,
+  maxDurationMs: 120_000,
 };
 
 function fromGround(points, firstRoad) {
