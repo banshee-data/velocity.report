@@ -1,0 +1,1 @@
+- Investigated [SF offline map upgrades](../../ui/sf-offline-map-upgrade.md) in disposable Chromium across two pinned map releases and added a browser reproduction with an optional continuity guard.

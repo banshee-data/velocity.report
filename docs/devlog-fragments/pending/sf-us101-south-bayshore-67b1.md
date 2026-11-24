@@ -1,0 +1,1 @@
+- Baked southbound US 101 from Silver Avenue to San Bruno Avenue and verified the Industrial and Silliman ramp entrances, city exits and continuing freeway branches in the [road route audit](../../ui/sf-road-route-audit.md#southbound-us-101-from-silver-avenue-to-san-bruno-avenue).

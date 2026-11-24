@@ -1094,3 +1094,201 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `c9b648b5490a0e5a045983a4bb45af6afbb1a581620324526bcb632a5f1f3756`.
 - Contact SHA-256 `f410a1d4c9da14d1f3dcff94aa8df5cdfbba3feac995b0424f74d062c59680e8`.
 - The bake changes two tiles and preserves the emoji placement revision.
+
+## Presidio Parkway mainline and SR 1
+
+Two mainline sections add 1,004.8 m of contact at the western ends of the
+Presidio viaducts. The northbound US 101 lane shares its incoming seam at
+38.45 m NAVD88 with the SR 1 branch. The southbound mainline joins the
+existing viaduct at 35.64 m. Both new reaches meet the base terrain at
+their exterior ends.
+
+The fit pins 145 depth-12 EPT nodes. The highest fitted grades are 4.52%
+northbound and 4.64% southbound. The first northbound Chrome drive struck
+an inferred trunk near station 508 m. At its mapped position, 226 pavement
+returns and 68 other survey returns within one metre all lay at pavement
+height. The correction removes that single source row from the baked
+tile. The centre-lane retest passed.
+
+Chrome completed northbound US 101 in 116.0 s, southbound US 101 in
+118.4 s, and the original northbound SR 1 exit in 102.4 s. Both Main Post
+and Battery registered as enclosed on each drive, and all three drives
+ended grounded beyond the baked contact. Peak speeds were 51.7, 52.5 and
+51.9 mph respectively.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  presidio-doyle-northbound presidio-doyle-southbound northbound
+```
+
+- Game manifest SHA-256 `9d1c25e18dafc7b5defae541256ec0d4ac10167340b01d03684c83e22be977db`.
+- Contact SHA-256 `c22f57e740ec8bffe95fb3519be38a58f6506ddfb2faa6fed751c8a69a5ee839`.
+- The bake changes two tiles and preserves the existing emoji placement revision.
+
+## I-280 Monterey Boulevard and Ocean Avenue
+
+Eight directed contact sections add 4.33 km. Southbound I-280 can reach
+Monterey Boulevard or continue to the Ocean Avenue exit. The northbound
+entrance from Monterey joins the existing I-280 mainline at Alemany.
+
+The street inventory puts both Monterey mouths at one intersection
+coordinate. At that position, the game found two valid contact surfaces
+when approaching from the street and continued on the terrain. Fitting
+each throat to its surveyed carriageway puts their terrain joins 8.95 m
+apart. Both joins preserve pavement height, at 66.0016 m and 65.8981 m
+NAVD88.
+
+The fit pins 553 depth-12 EPT nodes. Side returns and bounded
+interpolation keep the lower pavement continuous beneath the
+northbound flyovers. The steepest fitted section is the 9.75% climb to
+Ocean Avenue.
+
+A fixed-step drive exited southbound I-280 at Monterey, drove 150.5 m on
+city pavement, and rejoined northbound I-280. It reached Alemany in
+243.1 s. The independent Monterey exit, Monterey entrance and Ocean
+Avenue exit passed in 78.6 s, 146.2 s and 165.0 s.
+
+Chrome repeated the Monterey round trip in 233.5 s, including 149.8 m
+between the two ramps. Ground contact was reported for 137.8 m of that
+street section, and the car finished grounded at Alemany. The Ocean
+Avenue drive reached ordinary pavement in 155.0 s. Both runs began
+110 m into the existing southbound deck and used keyboard controls.
+
+The same 20 emoji routes covered 52.43 km and all finished. No driven
+dip exceeded 0.5 m. The largest driven tile-seam step remained 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-monterey-roundtrip i280-ocean-exit
+```
+
+- Game manifest SHA-256 `36f7b3f8a32f4f14ca1f8b435a97cfcf6dea44d1ec8d0a701fe61a5a7514c7b8`.
+- Contact SHA-256 `f6da3b2f61f2a5a6c64a26e55f51d53ec5cc8b2f2e0592790fed3bc46fdc298c`.
+- The bake changes six tiles and preserves the existing emoji placement revision.
+
+## Marina Boulevard to northbound Presidio Parkway
+
+The Marina Boulevard entrance adds 258.2 m of measured contact. It
+starts on city pavement at 3.00 m NAVD88 and joins the existing section
+beyond Main Post at 2.61 m. The final 24 m taper from the 8 m ramp into
+the shared 10.8 m cross-section. Main Post retains its existing join.
+
+The fit uses 44 depth-12 3DEP nodes, with a peak grade of 6.11%. Chrome
+drove from Marina Boulevard through Battery and split to northbound
+US 101 in 113.0 s and SR 1 in 99.2 s. Both reached ordinary pavement
+grounded. The fixed-step drives took 161.1 s and 147.1 s respectively.
+All 20 frozen emoji routes finished again across 52.43 km.
+
+A separate survey check sampled the Mariposa Street ramps every 4 m.
+Within the expected lower pavement bands, 85 of 90 northbound exit
+stations and 68 of 90 southbound entrance stations had at least 12
+returns at an eligible lateral offset. The longest distances between
+supported stations were 24 m and 60 m. Both exceed the contact exporter's
+22 m interpolation limit, so those spans remain provisional.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  presidio-marina-to-doyle presidio-marina-to-sr1
+```
+
+- Game manifest SHA-256 `ec425a74f03e286d1fc876a27e54bcb813597f0c2cb76cba1d2b68c73a30c67e`.
+- Contact SHA-256 `d90935aee8175c6c6dde4d9db56727d20803cf82635f82f089115c49d2edf5fd`.
+- The bake changes one tile and preserves the existing emoji placement revision.
+
+## Northbound I-280 exit to Mariposa Street
+
+Half-metre sampling of the April 2023 3DEP survey found lower pavement
+returns at stations 205 and 225 m. The samples bound the gap at 20 m within
+the existing 22 m interpolation limit. The southbound entrance still has
+a 55.5 m gap and remains provisional.
+
+The 354.38 m ramp leaves the Dogpatch northbound section at 24.47 m NAVD88
+and joins Mariposa Street at 11.36 m. Its maximum fitted grade is 6.98%.
+The 8 m ramp tapers from the shared 12 m section over its first 24 m.
+The existing mainline branches separately towards 18th Street.
+
+Chrome drove from the east Dogpatch entrance to Mariposa Street in 97.3 s
+using keyboard inputs in manual mode. At the street handoff the car was
+grounded, travelled at 12.4 mph and had no selected elevated surface.
+The separate fixed-step drive completed the same route in 99.0 s. The 20
+frozen emoji routes again covered 52.43 km and reached all targets. The
+largest driven tile seam remained 6.1 cm. No driven dip exceeded 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-mariposa-exit dogpatch-to-sixth-northbound
+```
+
+- Game manifest SHA-256 `fc4b55cf6a0f297a9c36a2bf2d5a4268a99ba8282f313644d9121b150543e68a`.
+- Contact SHA-256 `c47287e09f6c14fc2e5c2efb2d8326fbb236b8c423edda790c8e16866015a9b7`.
+- The bake changes one tile and preserves the existing emoji placement revision.
+
+## Southbound US 101 from Silver Avenue to San Bruno Avenue
+
+This bake adds ten directed sections, including the Industrial Street
+entrance, separate Silliman exit and entrance contacts, and the San Bruno
+Avenue exit. It keeps the I-280 branch at Silver Avenue and carries the
+mainline across four tile owners. The city ramps are 8 m wide. The
+through contacts widen to 13 m. The four ramp tapers run for 24 m.
+
+The fit used 254 depth-12 nodes from the April 2023 3DEP survey. The
+highest fitted grade is 9.27% on the San Bruno exit. The lowest city
+handoff is Industrial Street at 6.75 m NAVD88. Both Silliman contacts
+meet street pavement at 24.23 m, with separate directions into the
+intersection. The San Bruno exit reaches 38.13 m.
+
+The fixed-step car took the Silliman exit, drove 442.0 m on Silliman
+Street, Girard Street, Silver Avenue and San Bruno Avenue, re-entered
+US 101, and exited at San Bruno in 271.5 s. The Chrome keyboard runs
+separately confirmed the Industrial entrance to Silliman in 67.5 s,
+the Silliman entrance to San Bruno in 86.7 s, and the Silver approach
+to Silliman in 125.9 s. The through route reached the end of the bake
+in 188.2 s. The steering line stays inside the contact
+strip at Industrial Street where a baked building footprint intersects
+the test centreline. The building evidence needs a separate review.
+
+All 20 frozen emoji routes reached both targets over 52.43 km. The
+largest driven tile seam was 6.1 cm. No driven dip exceeded 0.5 m.
+The highest driven grade was 26.18% on Ordway Street.
+
+A separate check of the westbound I-80 loop to Harrison and Fremont
+found a 25.5 m shadow in the lower return band from station 349.0 m
+to 374.5 m, even with sampling every 0.5 m. The loop stays provisional
+under the 22 m limit.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  industrial-to-silliman silliman-roundtrip silver-through-san-bruno
+```
+
+- Game manifest SHA-256 `0258e1b19df5d4acded858f4b18169cf4ff1238e8501e380d4a12bbdb8d2b8f0`.
+- Contact SHA-256 `62b4b84067dc2c069b9158e7c65802f0721d91f78dd3c489fd9cef92de9a669d`.
+- The bake changes four tiles and preserves emoji placement.
+
+## Northbound SR 1 at the Ruckman fork
+
+The northbound Ruckman viaduct now branches at 45.34 m NAVD88. One
+75.0 m branch joins the southbound approach through Battery and Main
+Post. The other runs 74.15 m to the existing Golden Gate approach
+pavement. The split reuses the original end points and keeps the
+southbound viaduct on its own contact. The fit uses 57 depth-12 3DEP
+nodes. The peak grade across the three fitted sections is 6.72%.
+
+Chrome drove from Kobbe Avenue to the northbound pavement handoff in
+34.1 s. At the fork the second run took the southbound branch, passed
+through both tunnel bores and reached ordinary street pavement in
+157.7 s. Both runs crossed the gap between Kobbe and Ruckman on
+grounded contact. The browser measured 47.0 m and 48.6 m respectively.
+The fixed-step runs crossed 49.5 m of pavement between the viaducts.
+The existing MacArthur route reached the northbound pavement in 75.6 s.
+All 20 frozen emoji routes finished across 52.43 km, with a maximum
+driven seam step of 6.1 cm and no driven dip over 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  sr1-kobbe-to-golden-gate sr1-kobbe-to-presidio
+```
+
+- Game manifest SHA-256 `dd498a4034ee906396e28d1ac1a0f5aa016be5c7b93901df822e90419e6af997`.
+- Contact SHA-256 `4a7dd5528a174e318658f5e36cf6971a824c92746c7059661abd7f9643fa2519`.
+- The bake changes one tile and preserves emoji placement.

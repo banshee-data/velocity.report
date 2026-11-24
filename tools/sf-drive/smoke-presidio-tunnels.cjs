@@ -31,6 +31,7 @@ const cases = {
       "presidio-nb-exit",
     ],
     speed: 22,
+    forks: [["presidio-nb-viaduct", "presidio-nb-exit", -1.65]],
   },
   southbound: {
     roads: [
@@ -48,6 +49,35 @@ const cases = {
   "toll-westbound": { roads: ["toll-plaza-tunnel"], speed: 8, reverse: true },
 };
 const defaultCases = Object.keys(cases);
+const doyleNorthExit = "presidio-doyle-northbound-exit";
+cases["presidio-doyle-northbound"] = {
+  ...cases.northbound,
+  roads: [...cases.northbound.roads.slice(0, -1), doyleNorthExit],
+  forks: [["presidio-nb-viaduct", doyleNorthExit, 1.65]],
+};
+cases["presidio-doyle-southbound"] = {
+  ...cases.southbound,
+  roads: [
+    "presidio-doyle-southbound-entry",
+    ...cases.southbound.roads.slice(1),
+  ],
+};
+const marinaEntrance = "presidio-marina-northbound-entry";
+for (const [name, through] of [
+  ["presidio-marina-to-doyle", cases["presidio-doyle-northbound"]],
+  ["presidio-marina-to-sr1", cases.northbound],
+]) {
+  cases[name] = {
+    ...through,
+    roads: [marinaEntrance, ...through.roads.slice(2)],
+    speedLimits: { [marinaEntrance]: 12 },
+    laneGuides: {
+      [marinaEntrance]: {
+        clearance: { offset: -1.7, station: 218, length: 32 },
+      },
+    },
+  };
+}
 const i280Approach = ["i280-fifth-south-entry", "i280-king-to-mariposa"];
 const dogpatchOwners = [
   ...i280Owners,
@@ -734,7 +764,13 @@ for (const direction of ["northbound", "southbound"]) {
   cases[`macarthur-kobbe-${direction}`] = kobbe;
   cases[`macarthur-ruckman-${direction}`] = {
     ...kobbe,
-    roads: northbound ? [...kobbe.roads, ruckman] : [ruckman, ...kobbe.roads],
+    roads: northbound
+      ? [...kobbe.roads, ruckman, "sr1-north-to-golden-gate-approach"]
+      : [ruckman, ...kobbe.roads],
+    forks: northbound
+      ? [[ruckman, "sr1-north-to-golden-gate-approach", 2.1]]
+      : [],
+
     owners: [...kobbe.owners, "808586dc"],
   };
 }
@@ -988,6 +1024,298 @@ cases["i280-south-ellsworth-exit"] = {
   forks: [["i280-south-alemany-through", "i280-south-alemany-exit", -1.6]],
 };
 
+const montereyTail = "i280-south-beyond-alemany";
+const montereyExit = "i280-south-monterey-exit";
+const montereyEntry = "i280-north-monterey-entry";
+const montereyOwners = [
+  "808f7c2c",
+  "808f7dd4",
+  "808f7e64",
+  "808f7e7c",
+  "808f7e84",
+  "808f7ef4",
+  "808f7efc",
+];
+const montereyReturn = [
+  montereyEntry,
+  "i280-north-monterey-to-alemany",
+  "i280-north-alemany-west-approach",
+  "i280-north-alemany-main",
+];
+const montereyRolling = {
+  owners: montereyOwners,
+  speed: 18,
+  rollingStart: true,
+  initialSpeedMps: 16,
+  rollingStartMetres: 110,
+  laneGuides: {
+    [montereyTail]: alemanyLaneGuides[montereyTail],
+    [montereyExit]: { clearance: { offset: -1.65, station: 56, length: 42 } },
+    "i280-south-monterey-mainline": {
+      clearance: { offset: 1.45, station: 721, length: 28 },
+    },
+    "i280-south-monterey-to-ocean": {
+      clearance: [
+        { offset: 1.4, station: 375, length: 29 },
+        { offset: 1.65, station: 470, length: 30 },
+        { offset: 2.3, station: 628, length: 28 },
+      ],
+    },
+  },
+  speedLimits: {
+    [montereyExit]: 12,
+    [montereyEntry]: 12,
+    "i280-south-ocean-approach": 12,
+    "i280-south-ocean-exit": 11,
+  },
+};
+cases["i280-monterey-exit"] = {
+  ...montereyRolling,
+  roads: [montereyTail, montereyExit],
+  forks: [[montereyTail, montereyExit, -1.8]],
+};
+cases["i280-monterey-entry"] = {
+  ...montereyRolling,
+  rollingStart: false,
+  roads: montereyReturn,
+  finishOnDeck: true,
+};
+cases["i280-ocean-exit"] = {
+  ...montereyRolling,
+  roads: [
+    montereyTail,
+    "i280-south-monterey-mainline",
+    "i280-south-monterey-to-ocean",
+    "i280-south-ocean-approach",
+    "i280-south-ocean-exit",
+  ],
+  forks: [[montereyTail, "i280-south-monterey-mainline", 1.7]],
+};
+
+cases["i280-monterey-roundtrip"] = {
+  ...cases["i280-monterey-exit"],
+  roads: [montereyTail, montereyExit, ...montereyReturn],
+  connectByGround: true,
+  finishOnDeck: true,
+  laneGuides: {
+    ...montereyRolling.laneGuides,
+    [montereyExit]: {
+      ...montereyRolling.laneGuides[montereyExit],
+      approach: 2.9,
+      holdApproach: true,
+    },
+  },
+  groundConnection: {
+    after: "sf-contact/" + montereyExit,
+    minimumMetres: 130,
+    via: [
+      [282, -3160],
+      [264, -3160],
+      [244, -3160],
+      [229, -3160],
+      [222, -3156],
+      [223, -3151],
+      [231, -3147.7],
+      [253, -3147.4],
+      [269, -3150],
+      [276, -3156.5],
+      [285, -3161.5],
+      [289, -3162.8],
+    ],
+  },
+};
+
+const mariposaMain = "i280-dogpatch-northbound";
+const mariposaExit = "i280-north-mariposa-exit";
+cases["i280-mariposa-exit"] = {
+  ...dogpatchNorth,
+  roads: [...dogpatchNorth.roads.slice(0, 2), mariposaExit],
+  forks: [[mariposaMain, mariposaExit, -2.2]],
+  speedLimits: { ...dogpatchNorth.speedLimits, [mariposaExit]: 12 },
+};
+cases["dogpatch-to-sixth-northbound"] = {
+  ...dogpatchNorth,
+  forks: [
+    [mariposaMain, "i280-south-of-eighteenth-northbound", 2.2],
+    ...dogpatchNorth.forks,
+  ],
+};
+
+const silverBayshore = "us101-south-silver-through";
+const bayshoreFromSilver = "us101-south-silver-to-industrial";
+const bayshoreToSilliman = "us101-south-industrial-to-silliman";
+const sillimanOff = "us101-south-silliman-exit";
+const sillimanOn = "us101-south-silliman-entry";
+const industrialOn = "us101-south-industrial-entry";
+const paulApproach = "us101-south-paul-approach";
+const sanBrunoOff = "us101-south-san-bruno-exit";
+const paulThrough = "us101-south-paul-mainline";
+const sillimanThrough = "us101-south-silliman-mainline";
+const bayshoreApproach = [
+  silverBayshore,
+  bayshoreFromSilver,
+  bayshoreToSilliman,
+];
+const bayshoreSouth = ["us101-south-silliman-to-paul", paulApproach];
+const bayshoreOwners = [
+  ...new Set([...us101Alemany.owners, "808f7ee4", "808f7f24"]),
+];
+const bayshore = {
+  speed: 18,
+  owners: bayshoreOwners,
+  laneGuides: {
+    ...alemanyLaneGuides,
+    [bayshoreFromSilver]: {
+      clearance: [
+        { offset: 2.8, station: 17, length: 17 },
+        { offset: -4.85, station: 149, length: 48 },
+        { offset: 1.4, station: 290, length: 25 },
+        { offset: 1.5, station: 449, length: 24 },
+      ],
+    },
+    [industrialOn]: {
+      clearance: [
+        { offset: 1, station: 23, length: 20 },
+        { offset: -0.9, station: 338, length: 18 },
+      ],
+    },
+    [sillimanOff]: {
+      clearance: [
+        { offset: -1.8, station: 50, length: 23 },
+        { offset: 0.7, station: 96, length: 18 },
+      ],
+    },
+    [paulThrough]: {
+      clearance: [
+        { offset: -1.4, station: 165, length: 24 },
+        { offset: 1.4, station: 244, length: 24 },
+      ],
+    },
+  },
+  speedLimits: {
+    [industrialOn]: 12,
+    [sillimanOff]: 12,
+    [sillimanOn]: 12,
+    [sanBrunoOff]: 12,
+    [bayshoreFromSilver]: 15,
+  },
+};
+cases["silver-to-silliman"] = {
+  ...bayshore,
+  roads: [...bayshoreApproach, sillimanOff],
+  rollingStart: true,
+  initialSpeedMps: 16,
+  forks: [
+    [silverBayshore, bayshoreFromSilver, 2.2],
+    [bayshoreToSilliman, sillimanOff, -2],
+  ],
+};
+cases["industrial-to-silliman"] = {
+  ...bayshore,
+  roads: [industrialOn, bayshoreToSilliman, sillimanOff],
+  groundApproachMetres: 3.5,
+  forks: [[bayshoreToSilliman, sillimanOff, -2]],
+};
+cases["silliman-to-san-bruno"] = {
+  ...bayshore,
+  roads: [sillimanOn, ...bayshoreSouth, sanBrunoOff],
+  forks: [[paulApproach, sanBrunoOff, -2]],
+};
+cases["silver-through-san-bruno"] = {
+  ...cases["silver-to-silliman"],
+  roads: [...bayshoreApproach, sillimanThrough, ...bayshoreSouth, paulThrough],
+  forks: [
+    [silverBayshore, bayshoreFromSilver, 2.2],
+    [bayshoreToSilliman, sillimanThrough, 2],
+    [paulApproach, paulThrough, 2],
+  ],
+};
+for (const name of [
+  "us101-south-to-i280-through-alemany",
+  "us101-alemany-i280-roundtrip",
+]) {
+  const route = cases[name];
+  route.owners = bayshoreOwners;
+  route.forks = [
+    [silverBayshore, us101SouthSpine.at(-1), -2.2],
+    ...route.forks,
+  ];
+}
+
+cases["silliman-roundtrip"] = {
+  ...cases["silver-to-silliman"],
+  roads: [
+    ...bayshoreApproach,
+    sillimanOff,
+    sillimanOn,
+    ...bayshoreSouth,
+    sanBrunoOff,
+  ],
+  forks: [
+    ...cases["silver-to-silliman"].forks,
+    [paulApproach, sanBrunoOff, -2],
+  ],
+  connectByGround: true,
+  groundConnection: {
+    after: "sf-contact/" + sillimanOff,
+    minimumMetres: 430,
+    via: [
+      [3075.9, -3194.9],
+      [3068, -3195.5],
+      [3001.4, -3216.8],
+      [2995.7, -3217.6],
+      [2991.6, -3215.5],
+      [2988.8, -3210.7],
+      [2986.8, -3204.4],
+      [2950.7, -3102.9],
+      [2949.8, -3097.5],
+      [2951.8, -3092.5],
+      [2956, -3087.7],
+      [2960, -3086.2],
+      [3020, -3062.8],
+      [3026, -3061.5],
+      [3030.4, -3064.1],
+      [3034, -3071],
+      [3073, -3177.4],
+      [3075, -3183],
+      [3076, -3187],
+      [3076.6, -3189.5],
+      [3077.7, -3191.0],
+    ],
+  },
+};
+
+const sr1Kobbe = "kobbe-viaduct-northbound";
+const ruckmanNorth = "ruckman-viaduct-northbound";
+const sr1City = "sr1-north-to-presidio-southbound";
+const sr1Bridge = "sr1-north-to-golden-gate-approach";
+const sr1Start = {
+  roads: [sr1Kobbe, ruckmanNorth, sr1Bridge],
+  owners: [...new Set([...owners, "808586e4"])],
+  rollingStart: true,
+  initialSpeedMps: 16,
+  speed: 18,
+  speedLimits: { [sr1City]: 12, [sr1Bridge]: 12, [ruckmanNorth]: 15 },
+  connectByGround: true,
+  groundConnection: {
+    after: "sf-contact/" + sr1Kobbe,
+    minimumMetres: 47,
+    via: [
+      [-2590.83, 4396.3],
+      [-2590.2, 4423.0],
+    ],
+  },
+};
+cases["sr1-kobbe-to-golden-gate"] = {
+  ...sr1Start,
+  forks: [[ruckmanNorth, sr1Bridge, 2.1]],
+};
+cases["sr1-kobbe-to-presidio"] = {
+  ...sr1Start,
+  roads: [sr1Kobbe, ruckmanNorth, sr1City, ...cases.southbound.roads],
+  forks: [[ruckmanNorth, sr1City, -0.75]],
+};
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
@@ -1097,12 +1425,11 @@ function withGroundConnections(roads, connection) {
     ground("approach", extension(start, next, -14), start),
     ...roads.flatMap((road, i) => {
       const next = roads[i + 1];
-      return next
-        ? [
-            road,
-            ground(`between-${i}`, road.positions.at(-1), next.positions[0]),
-          ]
-        : [road];
+      if (!next) return [road];
+      const from = road.positions.at(-1);
+      const to = next.positions[0];
+      if (Math.hypot(from[0] - to[0], from[1] - to[1]) < 0.05) return [road];
+      return [road, ground(`between-${i}`, from, to)];
     }),
     ground("departure", end, extension(end, previous, -16)),
   ];
@@ -1345,6 +1672,8 @@ async function main() {
         entranceTimeoutMs = 20_000,
         rollingStart = false,
         initialSpeedMps = 50 * 0.44704,
+        rollingStartMetres,
+        groundApproachMetres,
         reverseRoads = [],
         laneGuides = {},
         speedLimits = {},
@@ -1412,11 +1741,22 @@ async function main() {
         );
         sections[i].positions = [previous, ...sections[i].positions.slice(1)];
       }
-      const [start, next] = rollingStart
-        ? sections[0].positions.slice(2, 4)
-        : sections[0].positions;
+      const first = sections[0].positions;
+      let startIndex = rollingStart ? 2 : 0;
+      if (rollingStart && rollingStartMetres) {
+        let station = 0;
+        startIndex = first.findIndex(([x, y], i) => {
+          if (i === 0) return false;
+          station += Math.hypot(x - first[i - 1][0], y - first[i - 1][1]);
+          return station >= rollingStartMetres;
+        });
+      }
+      assert.ok(startIndex >= 0 && startIndex < first.length - 1);
+      const [start, next] = first.slice(startIndex, startIndex + 2);
       const heading = Math.atan2(next[1] - start[1], next[0] - start[0]);
-      const approach = rollingStart ? 0 : speed > 8 ? 11 : 7;
+      const approach = rollingStart
+        ? 0
+        : (groundApproachMetres ?? (speed > 8 ? 11 : 7));
       const checkpoint = {
         x: start[0] - approach * Math.cos(heading),
         y: start[1] - approach * Math.sin(heading),
@@ -1524,7 +1864,8 @@ async function main() {
           const [endEast, endNorth] = ground.positions.at(-1);
           const distance = Math.hypot(endEast - east, endNorth - north);
           assert.ok(
-            result.groundMetres >= distance - 6,
+            result.groundMetres >=
+              (groundConnection.minimumMetres ?? distance - 6),
             "Incomplete drive on city pavement",
           );
           assert.ok(result.groundedMetres > 0, "No contact with city pavement");
