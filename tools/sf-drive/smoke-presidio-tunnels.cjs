@@ -1600,6 +1600,61 @@ cases["cesar-chavez-to-northbound-us101"] = {
     [cesarEntry]: { clearance: { offset: 1.9, station: 0, length: 26 } },
   },
 };
+const southMariposa = "i280-south-mariposa-entry";
+cases["mariposa-west-to-southbound-i280"] = {
+  roads: [southMariposa, "i280-dogpatch-approach"],
+  owners: ["808f7fcc", "808f7fb4", "808f7fac", "808f7fd4"],
+  speed: 16,
+  speedLimits: { [southMariposa]: 12 },
+  finishOnDeck: true,
+  finishDistance: 92,
+  groundApproachMetres: 0,
+  maxDurationMs: 95_000,
+  groundArrival: [
+    [4104, 454.2],
+    [4115, 455],
+    [4125.4, 456.4],
+  ],
+  covered: ["sf-contact/i280-south-mariposa-entry"],
+};
+
+cases["mariposa-upper-18th-viaduct"] = {
+  roads: ["i280-18th-off-ramp"],
+  owners: i280Owners,
+  speed: 13,
+  rollingStart: true,
+  rollingStartMetres: 185,
+  initialSpeedMps: 12,
+  finishOnDeck: true,
+  finishDistance: 278,
+  covered: [],
+};
+
+function fromGround(points, firstRoad) {
+  const [start, turn, tangent] = points;
+  const end = firstRoad.positions[0];
+  const positions = Array.from({ length: 23 }, (_, index) => {
+    const t = index / 23;
+    const u = 1 - t;
+    const [x, y] = start.map(
+      (value, axis) =>
+        u ** 3 * value +
+        3 * u * u * t * turn[axis] +
+        3 * u * t * t * tangent[axis] +
+        t ** 3 * end[axis],
+    );
+    return [x, y, end[2]];
+  });
+  return {
+    id: "between-streets",
+    kind: "ground",
+    width_m: 8,
+    speed_mps: 4,
+    positions: [...positions, end],
+    sources: [],
+  };
+}
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
@@ -1955,6 +2010,7 @@ async function main() {
         connectByGround = false,
         groundConnection,
         groundDeparture,
+        groundArrival,
         finishOnDeck = false,
         finishDistance,
         maxDurationMs = 460_000,
@@ -2018,7 +2074,7 @@ async function main() {
         assert.ok(finish > 0, "Deck finish must be inside the last section");
         last.positions = last.positions.slice(0, finish + 1);
       }
-      const sections = groundDeparture
+      let sections = groundDeparture
         ? [
             ...contactSections,
             {
@@ -2036,6 +2092,8 @@ async function main() {
         : connectByGround
           ? withGroundConnections(contactSections, groundConnection)
           : contactSections;
+      if (groundArrival)
+        sections = [fromGround(groundArrival, sections[0]), ...sections];
       for (let i = 1; i < sections.length; i++) {
         const previous = sections[i - 1].positions.at(-1);
         const [x, y, z] = sections[i].positions[0];
@@ -2130,6 +2188,7 @@ async function main() {
           return (await response.json()).roadBake.playableSha256;
         });
         assert.equal(contactHash, manifest.roadBake.playableSha256);
+        await page.bringToFront();
         await canvas.focus();
         await confirmManualTakeover(page);
         const result = await drive(
@@ -2164,6 +2223,11 @@ async function main() {
         );
         assert.equal(result.exit.camera, "exterior");
         assert.ok(result.exit.grounded);
+        if (groundArrival) {
+          assert.ok(result.groundMetres > 20);
+          assert.ok(result.groundedMetres > 18);
+          assert.ok(Math.abs(result.seen[0].z - 12.97) < 0.15);
+        }
         if (groundConnection) {
           const ground = sections.find(({ id }) => id === "between-streets");
           const [east, north] = ground.positions[0];

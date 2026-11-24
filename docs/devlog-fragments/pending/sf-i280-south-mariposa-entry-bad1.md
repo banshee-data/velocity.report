@@ -1,0 +1,1 @@
+- Baked the lower Mariposa Street crossing and the southbound I-280 entrance. The [road route audit](../../ui/sf-road-route-audit.md#mariposa-street-beneath-i-280-and-the-southbound-entrance) records the surveyed levels and the browser drives.

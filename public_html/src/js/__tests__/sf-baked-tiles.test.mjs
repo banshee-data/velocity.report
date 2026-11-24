@@ -21,6 +21,7 @@ import {
   strikeHighwayRail,
 } from "../sf-highway-edge.js";
 import { driveThroughRoadPortal } from "../sf-road-portal.js";
+import { driveOnRoadSurface } from "../sf-road-contact.js";
 
 const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
@@ -2282,4 +2283,65 @@ test("Marin and Cesar Chavez climb from street level into the northbound Bayshor
     null,
   );
   assert.equal(roadBake.inferredTreePatches[token], 7);
+});
+
+test("Mariposa Street stays at the lower level through the viaduct and connects to southbound I-280", () => {
+  const token = "808f7fcc";
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = [token, "808f7fb4", "808f7fd4"].map((owner) =>
+    JSON.parse(gunzipSync(file(`tiles/${owner}.json.gz`))),
+  );
+  const [tile] = tiles;
+  const roads = new Map(
+    tiles.flatMap((entry) =>
+      entry.playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  const ramp = roads.get("sf-contact/i280-south-mariposa-entry");
+  const through = roads.get("sf-contact/i280-dogpatch-approach");
+  assert.deepEqual(ramp.points.at(-1), through.points[0]);
+  assert.deepEqual(ramp.seams.end, through.seams.start);
+  assert.ok(
+    roadBake.playableTransitions.some(
+      (edge) =>
+        edge.from === `${ramp.id}:end` &&
+        edge.to === `${through.id}:start` &&
+        edge.direction === "forward",
+    ),
+  );
+  const { surface, portals } = buildBakedRoadContact(ramp);
+  const heightAt = (x, y) => groundAtWorld([tile], x, y, true);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(heightAt(x, y) - z) < 0.03);
+  assert.deepEqual(surface.coveredRange, [0, 152]);
+  const upper = buildBakedRoadContact(roads.get("sf-contact/i280-18th-exit"));
+  const {
+    position: [lowerX, lowerY, lowerZ],
+  } = surface.profile.find((point) => point.s_m >= 104);
+  assert.ok(upper.surface.heightAt(lowerX, lowerY) - lowerZ > 7.5);
+  assert.ok(heightAt(lowerX, lowerY) <= lowerZ);
+
+  const index = buildCollisionIndex(tile, token);
+  let car = {
+    x: 4082,
+    y: 448.3,
+    z: heightAt(4082, 448.3),
+    heading: Math.atan(0.078),
+    v: 0,
+    grounded: true,
+  };
+  for (let frame = 0; frame < 120 * 25 && car.x < 4185; frame++) {
+    car = driveOnRoadSurface(
+      car,
+      { steer: 0, throttle: car.v < 5.5 ? 1 : 0, brake: 0 },
+      1 / 120,
+      { heightAt },
+    );
+    assert.ok(car.grounded);
+    assert.ok(car.z > 11.25 && car.z < 13.25);
+    assert.equal(collisionAt([index], car, car.z), null);
+  }
+  assert.ok(car.x >= 4185);
+  assert.ok(roadBake.terrainDetailPatches[token]);
+  assert.ok(!tile.tr.some(([x, y]) => x === 2480 && y === -2627));
 });
