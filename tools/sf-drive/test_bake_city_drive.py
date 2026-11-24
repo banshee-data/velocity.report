@@ -135,6 +135,23 @@ def test_bake_requires_a_transition_for_a_wider_seam():
     assert not valid({**road, "widthTransitionMetres": {"end": 41}})
 
 
+def test_bake_validates_asymmetric_width_and_bounds_its_stations():
+    valid = road_layers["valid_width_transitions"]
+    road = {
+        "width": 8,
+        "points": [[0, 0, 0], [20, 0, 1], [40, 0, 2]],
+        "seams": {"end": {"bearing": 0, "width": 12, "leftWidth": 8}},
+        "widthTransitionMetres": {"end": 12},
+    }
+    assert valid({**road, "widthSections": [[0, 4, 4], [20, 7, 3], [40, 8, 4]]})
+    assert not valid({**road, "widthSections": [[0, 4, 4], [41, 7, 3]]})
+    assert not valid({**road, "widthSections": [[15, 4, 4], [15, 7, 3]]})
+    assert not valid({**road, "widthSections": [[0, 4, -1]]})
+    assert not valid(
+        {**road, "seams": {"end": {"bearing": 0, "width": 12, "leftWidth": 12}}}
+    )
+
+
 @pytest.mark.parametrize(
     ("covered", "expected"),
     [

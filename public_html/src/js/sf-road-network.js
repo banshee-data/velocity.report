@@ -7,6 +7,7 @@ import {
 const supported = (value) => ["observed", "interpolated"].includes(value);
 const seamReachM = 4;
 const ownerPreloadM = 12;
+const branchToleranceM = 0.05;
 
 // Distance to the finite transverse join. A lane can sit several metres
 // from its centre while its front and rear axles straddle the same seam.
@@ -355,6 +356,8 @@ export function driveOnRoadNetwork(
             seam: { surfaceId: surface.id, ...terminal },
           },
           miss: branchMiss(candidate, target, to, travel),
+          continuesAlignment:
+            surface.sourceCnn && target.sourceCnn === surface.sourceCnn,
         });
       } else if (
         !pastEnd &&
@@ -368,7 +371,15 @@ export function driveOnRoadNetwork(
     if (candidates.length && !waiting) {
       candidates.sort((a, b) => a.miss - b.miss);
       const [first, second] = candidates;
-      if (!second || second.miss - first.miss > 0.05) return first.car;
+      if (!second || second.miss - first.miss > branchToleranceM)
+        return first.car;
+      // Two nearly tangent branches can have the same predicted miss. A
+      // single continuation of the current alignment can carry forward.
+      const continuations = candidates.filter(
+        ({ miss, continuesAlignment }) =>
+          continuesAlignment && miss - first.miss <= branchToleranceM,
+      );
+      if (continuations.length === 1) return continuations[0].car;
     }
     if (approach) return approach;
   }

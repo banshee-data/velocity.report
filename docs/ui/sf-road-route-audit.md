@@ -2937,3 +2937,42 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   southbound-i280-left-exit-to-us101 southbound-i280-through-left-exit-fork \
   alemany-upper-over-northbound-connector northbound-i280-below-alemany-left-exit
 ```
+
+### Follow-up routes through Alemany, Dogpatch and Geary
+
+The full I-280 keyboard itinerary stopped at the Alemany fork when the
+predicted line fit both outgoing surfaces equally. A tied fork now
+continues on a uniquely matching DataSF alignment. The driver's heading
+still selects the exit when its path has the smaller miss. The baked
+widths carry the measured left lanes into both outgoing surfaces.
+
+A second keyboard itinerary hit two inferred roof faces on the
+southbound Dogpatch deck. The survey recorded 641 returns at the
+pavement height and none in the sampled vehicle-height band. The bake
+clears those two faces within the measured carriageway.
+
+The Geary route exposed a steep step where the eastern street terrain
+met the tunnel. The measured approach now meets the existing portal
+plane. In five lane positions over the last 30 m, the largest sampled
+grade fell from 68.3% to 4.7% and the largest join step fell from 68 cm
+to less than 3 mm.
+
+All 23 fixed-step courses collected both pickups over 66.57 km.
+There were 62 tile crossings, a largest seam step of 6.1 cm and zero
+driven dips deeper than 0.5 m against an eight-metre chord.
+[Pinned course plan](../../tools/sf-drive/road-audit-alemany-geary-routes.json).
+
+| Itinerary                           | Distance | Grade p95 | Peak grade |
+| ----------------------------------- | -------: | --------: | ---------: |
+| Fifth Street to Alemany Boulevard   |  8.79 km |     7.70% |     17.48% |
+| Fifth Street to Portola via US 101  |  7.47 km |     7.91% |     26.57% |
+| Divisadero to Mayfair via Geary     |  2.17 km |     8.18% |     20.36% |
+| Lombard to Embarcadero via Broadway |  4.51 km |    16.64% |     23.34% |
+
+- Game manifest SHA-256 `c5866d8204a880292ddb7fcb0f6a422f6d3665f4a511378d56cbe7e0ca397dcc`.
+- Contact SHA-256 `40d4b797424c678f751c06aa1c9eb75501ba337ffaeb84b240d89e1e1e14f04a`.
+
+```sh
+node tools/sf-drive/audit-road-routes.mjs \
+  --plan=tools/sf-drive/road-audit-alemany-geary-routes.json
+```
