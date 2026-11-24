@@ -132,6 +132,42 @@ def valid_covered_range(road):
     return 0 <= covered[0] < covered[1] <= length
 
 
+def valid_tunnel_wall_openings(road):
+    if "tunnel_wall_openings_m" not in road:
+        return True
+    openings = road["tunnel_wall_openings_m"]
+    interior = road.get("interior_range_m")
+    if (
+        road["kind"] != "tunnel"
+        or not isinstance(openings, dict)
+        or not openings.keys() <= {"left", "right"}
+        or not isinstance(interior, list)
+        or len(interior) != 2
+        or any(
+            type(value) not in (int, float) or not math.isfinite(value)
+            for value in interior
+        )
+    ):
+        return False
+    for ranges in openings.values():
+        if not isinstance(ranges, list):
+            return False
+        last = interior[0]
+        for interval in ranges:
+            if (
+                not isinstance(interval, list)
+                or len(interval) != 2
+                or any(
+                    type(value) not in (int, float) or not math.isfinite(value)
+                    for value in interval
+                )
+                or not last <= interval[0] < interval[1] <= interior[1]
+            ):
+                return False
+            last = interval[1]
+    return True
+
+
 def patch_terrain_detail(grid, patch, base_sha256):
     """Add a reviewed rectangle tied to an exact pristine base tile."""
     detail = patch["detail"]
@@ -245,6 +281,7 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             or road["owners"] != [owner(points[0]), owner(points[-1])]
             or not valid_width_transitions(road)
             or not valid_covered_range(road)
+            or not valid_tunnel_wall_openings(road)
         ):
             raise ValueError(f"Invalid playable road {road['id']}")
         for label, point in (("start", points[0]), ("end", points[-1])):

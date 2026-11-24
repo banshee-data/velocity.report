@@ -6,6 +6,7 @@ import {
 } from "./sf-road-contact.js";
 import { driveOnRoadNetwork } from "./sf-road-network.js";
 import { leaveRoadSide, strikeHighwayRail } from "./sf-highway-edge.js";
+import { validTunnelWallOpenings } from "./sf-tunnel-mesh.js";
 
 export const BAY_BRIDGE_CITY_DRIVE = "bay-bridge-highway-drive";
 export const BAY_BRIDGE_APPROACH = "Bay Bridge approach";
@@ -187,6 +188,13 @@ export function buildCityGameDrive(drive, groundHeight) {
     const meshHeight = indexRoadContact(contact);
     const end_ids = [`${id}:start`, `${id}:end`];
     const clearance = span.game_clearance_m;
+    const interior = [0, profile.at(-1).s_m];
+    const wallOpenings = span.tunnel_wall_openings_m;
+    if (
+      wallOpenings !== undefined &&
+      (kind !== "tunnel" || !validTunnelWallOpenings(wallOpenings, interior))
+    )
+      throw new Error("The game drive contains invalid tunnel wall openings.");
     if (
       kind === "tunnel" &&
       (!Number.isFinite(clearance) || clearance < 2.5 || clearance > 10)
@@ -203,7 +211,11 @@ export function buildCityGameDrive(drive, groundHeight) {
       terminalHalfWidths: [fromWidth / 2, toWidth / 2],
       terminalBearings: [tangents[start] + Math.PI, tangents[end]],
       ...(kind === "tunnel" && {
-        appearance: { interior: [0, profile.at(-1).s_m], clearance },
+        appearance: {
+          interior,
+          clearance,
+          ...(wallOpenings && { wallOpenings }),
+        },
       }),
       rail: span.rail,
       railSides: span.rail_sides,

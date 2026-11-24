@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { gunzipSync } from "node:zlib";
+import { Raycaster, Vector3 } from "../../vendor/three/three.module.js";
 import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
 import {
   BAY_BRIDGE_CITY_DRIVE,
@@ -23,6 +24,7 @@ import {
 } from "../sf-highway-edge.js";
 import { driveThroughRoadPortal } from "../sf-road-portal.js";
 import { driveOnRoadSurface } from "../sf-road-contact.js";
+import { tunnelMesh } from "../sf-tunnel-mesh.js";
 
 const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
@@ -740,13 +742,47 @@ test("the east island ramp joins the upper bore without changing the through tun
       ),
     );
   }
+  const shells = [mainBore, entranceBore, sharedBore].map((road) => {
+    const { surface, appearance } = buildBakedRoadContact(road);
+    return tunnelMesh(surface, appearance);
+  });
+  const originalMainBore = buildBakedRoadContact(mainBore);
+  const uncut = tunnelMesh(originalMainBore.surface, {
+    ...originalMainBore.appearance,
+    wallOpenings: {},
+  });
+  const eye = ([x, y, z]) => new Vector3(x, z + 1.0, -y);
+  let uncutHits = 0;
+  for (const { points } of [entranceBore, mainBore]) {
+    for (let i = 1; i < points.length; i++) {
+      const start = eye(points[i - 1]);
+      const delta = eye(points[i]).sub(start);
+      const end = delta.length();
+      const ray = new Raycaster(start, delta.normalize(), 0, end);
+      assert.equal(
+        ray.intersectObjects(shells).length,
+        0,
+        `wall across tunnel at ${points[i]}`,
+      );
+      uncutHits += ray.intersectObject(uncut).length;
+    }
+  }
+  assert.ok(uncutHits > 0, "the earlier wall would cross the entrance lane");
+  const viewpoint = eye(mainBore.points[5]).lerp(eye(mainBore.points[6]), 0.5);
+  const vertices = originalMainBore.surface.contact.vertices;
+  const outerWall = eye(vertices[10]).lerp(eye(vertices[12]), 0.5);
+  const sideways = outerWall.sub(viewpoint).normalize();
+  const wall = new Raycaster(viewpoint, sideways, 0, 12);
+  assert.ok(
+    wall.intersectObject(shells[0]).length,
+    "outside the merge, the outer wall remains",
+  );
   const product = JSON.parse(file("gamedrives.json"));
   const route = cityDriveApproach(product.drives[0], "yerba-buena-westbound");
   for (const road of [mainBore, sharedBore]) {
-    assert.deepEqual(
-      route.sections.find(({ id }) => id === road.id).positions,
-      road.points,
-    );
+    const guide = route.sections.find(({ id }) => id === road.id);
+    assert.deepEqual(guide.positions, road.points);
+    assert.deepEqual(guide.tunnel_wall_openings_m, road.tunnel_wall_openings_m);
   }
 });
 

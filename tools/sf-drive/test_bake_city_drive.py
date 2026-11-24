@@ -224,3 +224,18 @@ def test_bake_adds_a_pinned_terrain_detail_without_replacing_the_coarse_grid():
     shifted_edge[1] = 61
     with pytest.raises(ValueError, match="boundary differs"):
         add_detail(grid, {**patch, "detail": {**detail, "z": shifted_edge}}, "tile-sha")
+
+
+def test_tunnel_wall_openings_are_ordered_and_confined_to_the_interior():
+    valid = road_layers["valid_tunnel_wall_openings"]
+    tunnel = {"kind": "tunnel", "interior_range_m": [1, 60]}
+    assert valid(tunnel)
+    assert valid({**tunnel, "tunnel_wall_openings_m": {"left": [[4, 7], [13, 60]]}})
+    for openings in (
+        {"up": [[1, 5]]},
+        {"left": [[0, 7]]},
+        {"left": [[4, 8], [7, 18]]},
+        {"right": [[5, math.inf]]},
+        {"right": [[6, 61]]},
+    ):
+        assert not valid({**tunnel, "tunnel_wall_openings_m": openings})

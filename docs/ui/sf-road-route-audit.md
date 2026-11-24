@@ -1877,7 +1877,10 @@ Chrome collected both emojis on the northbound Stockton corridor in
 in 144 s. The southbound Stockton drive passed the tunnel and hit a
 building on Minna. Separate Chrome drives on the public game crossed
 both Presidio bores in both directions and completed the west-island
-exit and re-entry in 117.8 s.
+exit and re-entry in 117.8 s. The Mission Bay to Alemany keyboard run
+collected both emojis over 9.49 km in 823 s. It took the southbound
+I-280 exits and the existing Alemany overpass, with no driven dip deeper
+than 0.5 m.
 
 ### Evans Avenue
 
@@ -1897,12 +1900,15 @@ westbound routes use the same contact beyond the merge. The April 2023
 survey supports the exposed pavement. The final 63 m under rock use an
 inferred curve between the observed entrance and the upper-bore contact.
 The named 50 mph Bay Bridge start uses the same split through the tunnel.
-Chrome reached the west approach on the new entrance in 40.1 s and on
+The tunnel walls open where the two bores overlap. A mesh ray test
+checks that the eye line is clear along both approaches and that the
+outer walls remain outside the merge.
+Chrome reached the west approach on the new entrance in 40.6 s and on
 the continuing upper mainline in 26.9 s. Both finished grounded in the
 exterior view. The other east-island ramp connections remain under review.
 
-- Game manifest SHA-256 `229ab362eaa6fe1098f025f2ba900ea62a442c31add12906c0d978662e7f177f`.
-- Contact SHA-256 `7c292284a117d6f95686a9d1e4cc07ccdf9d27717929f065c068c54c569f1a59`.
+- Game manifest SHA-256 `e1812dbb4ec28ac5b630de86de90d89472d8d76d7ffc3d79cda9f5696411ea9a`.
+- Contact SHA-256 `881d997593a743f758413a56fd9acfc6267b03a0ac19a4df960017f2bd378f61`.
 
 Use the manifest hash of the tested revision in a copy of the plan. Pass
 `--export-courses` to prepare the same waypoints and speed targets for
