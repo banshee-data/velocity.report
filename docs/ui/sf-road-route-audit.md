@@ -2976,3 +2976,67 @@ driven dips deeper than 0.5 m against an eight-metre chord.
 node tools/sf-drive/audit-road-routes.mjs \
   --plan=tools/sf-drive/road-audit-alemany-geary-routes.json
 ```
+
+#### Full keyboard drives in Chrome
+
+The frozen plan produced 23 completed emoji-to-emoji drives in Chrome.
+The driver used the game's manual throttle, braking and steering inputs.
+Fourteen itineraries ran on the earlier `a80f8734` bake, five on
+`b40ff3d8` and four on the `c5866d82` release candidate. The four
+candidate drives used the exact tiles and game modules subsequently
+published. Together the 23 drives covered 66.72 km in 103 combined drive
+minutes. There were no local dips deeper than 0.5 m against the
+eight-metre chord and no requests to Arrow from a drive page. The median
+route grade p95 was 8.34%. The citywide terrain screen still put 392
+intervals above 50% grade and flagged 51 missing intervals among
+1,190,480 supported intervals.
+
+| Itinerary on `c5866d82`             | Distance |        Time | Grade p95 | Peak grade |
+| ----------------------------------- | -------: | ----------: | --------: | ---------: |
+| Fifth Street to Alemany Boulevard   |  8.80 km | 10 min 20 s |     7.78% |     17.48% |
+| Fifth Street to Portola via US 101  |  7.49 km |   8 min 6 s |     7.88% |     27.73% |
+| Divisadero to Mayfair via Geary     |  2.17 km |  3 min 40 s |     8.03% |     10.62% |
+| Lombard to Embarcadero via Broadway |  4.51 km |  7 min 24 s |    17.17% |     23.30% |
+
+The Portola run recorded the 27.73% peak after leaving US 101. Earlier
+runs on that itinerary struck inferred roof faces in Dogpatch. The
+Alemany run had stopped at the highway fork. Both completed on the
+corrected bake. Separate drives on the live game verified the Alemany
+upper exit, upper mainline and lower northbound viaduct with zero metres
+of airtime on those road sections. The Geary portal checks exercised
+both directions. These grade and dip measurements describe sampled car
+contact in the game.
+
+### Presidio exits and the SR 1 merge
+
+The Doyle rebake adds 1.29 km of linked contact. A first Chrome drive
+left the lower loop at its former ground handoff. The bake now treats
+that handoff and two others as road joins, using the same position,
+elevation and cross-section on both sides. The two cross-tile roads
+carry identical contact geometry in both tiles.
+
+| Keyboard drive                                 | Added contact on route | Duration | Airborne distance |
+| ---------------------------------------------- | ---------------------: | -------: | ----------------: |
+| Northbound US 101 loop to southbound SR 1      |                363.1 m |   71.9 s |               0 m |
+| Golden Gate southbound exit to southbound SR 1 |                383.8 m |   68.6 s |               0 m |
+| Ruckman northbound to the Golden Gate approach |                597.6 m |   57.6 s |               0 m |
+
+Chrome used the covered camera while the car stayed on the lower loop
+and again while northbound SR 1 passed under Doyle. The April 2023
+survey observes the upper pavement and brackets a 56.81 m shadow on the
+lower loop. The game interpolates the lower contact across that
+interval. The interpolation gives a continuous drive in the game.
+Field clearance inside the shadow remains unmeasured.
+
+All 23 fixed-step emoji courses ran on this manifest. They collected
+both pickups over 66.57 km, with 62 tile crossings and a largest
+observed seam step of 6.1 cm. No sampled dip exceeded 0.5 m.
+
+- Game manifest SHA-256 `407ab24ba2d5da155283e2a8074d2b7c4bd50f84872efefc482d8f3e1f42d4ae`.
+- Contact SHA-256 `cb16df5061be46b5af5a0626d4574188d6fb6fa47adb2706eb484dfdb2e1ebef`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  doyle-northbound-loop-to-sr1 golden-gate-southbound-exit-to-sr1 \
+  ruckman-northbound-to-golden-gate
+```

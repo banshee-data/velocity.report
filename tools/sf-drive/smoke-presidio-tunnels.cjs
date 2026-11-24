@@ -2483,6 +2483,82 @@ cases["golden-gate-marin-to-presidio"] = {
   finishDistance: 175,
   maxDurationMs: 265_000,
 };
+const sr1SouthMerge = "presidio-to-sr1-south-merge";
+const presidioLoop = "presidio-nb-loop-to-sr1-south";
+const goldenGateSr1Exit = "presidio-southbound-to-sr1-exit";
+const fromDoyleToSr1 = {
+  owners: goldenGateOwners,
+  rollingStart: true,
+  initialSpeedMps: 14,
+  speed: 16,
+  speedLimits: { [presidioLoop]: 11, [goldenGateSr1Exit]: 13 },
+  finishOnDeck: true,
+  finishDistance: 100,
+  maxAirborneMetres: 0,
+};
+cases["doyle-northbound-loop-to-sr1"] = {
+  ...fromDoyleToSr1,
+  roads: [
+    "presidio-nb-viaduct",
+    "presidio-nb-exit",
+    presidioLoop,
+    sr1SouthMerge,
+    "ruckman-viaduct-southbound",
+  ],
+  forks: [["presidio-nb-viaduct", "presidio-nb-exit", -1.65]],
+  covered: [prefix + presidioLoop],
+};
+cases["golden-gate-southbound-exit-to-sr1"] = {
+  ...fromDoyleToSr1,
+  roads: [
+    "golden-gate-southbound-6",
+    goldenGateSr1Exit,
+    sr1SouthMerge,
+    "ruckman-viaduct-southbound",
+  ],
+  forks: [["golden-gate-southbound-6", goldenGateSr1Exit, -2.1]],
+};
+cases["ruckman-northbound-to-golden-gate"] = {
+  ...fromDoyleToSr1,
+  roads: [
+    ruckmanNorth,
+    sr1Bridge,
+    "sr1-north-to-doyle-merge",
+    "golden-gate-northbound-1",
+  ],
+  forks: [[ruckmanNorth, sr1Bridge, 2.1]],
+  finishDistance: 90,
+  covered: [prefix + "sr1-north-to-doyle-merge"],
+};
+for (const name of ["northbound", "presidio-marina-to-sr1"]) {
+  const previous = cases[name];
+  cases[name] = {
+    ...previous,
+    roads: [
+      ...previous.roads,
+      ...cases["doyle-northbound-loop-to-sr1"].roads.slice(2),
+    ],
+    speedLimits: { ...previous.speedLimits, [presidioLoop]: 11 },
+    finishOnDeck: true,
+    finishDistance: 100,
+  };
+}
+for (const name of [
+  "macarthur-ruckman-northbound",
+  "sr1-kobbe-to-golden-gate",
+]) {
+  const previous = cases[name];
+  cases[name] = {
+    ...previous,
+    owners: [...new Set([...previous.owners, "808586ec"])],
+    roads: [
+      ...previous.roads,
+      ...cases["ruckman-northbound-to-golden-gate"].roads.slice(2),
+    ],
+    finishOnDeck: true,
+    finishDistance: 90,
+  };
+}
 for (const street of ["richland", "highland"]) {
   for (const [direction, reverse, approach] of [
     ["eastbound", false, 2.5],
