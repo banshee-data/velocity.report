@@ -2566,3 +2566,39 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   blanken-underpass-eastbound blanken-underpass-westbound \
   blanken-us101-northbound blanken-us101-southbound
 ```
+
+## I-280 from Geneva Avenue to SR 82
+
+The seven new contact strips carry both I-280 carriageways from
+Geneva Avenue to the southwest map edge. They also carry the
+northbound San Jose Avenue entrance and both southbound branches.
+The game previously used the ground grid in this corridor, which
+understated the roadway by about 7.8 m at one northbound crossing
+and 7.3 m at one southbound crossing. The new contact shares the
+existing Geneva endpoints and keeps vehicles on the correct level.
+[Caltrans interchange inventory](https://dot.ca.gov/-/media/dot-media/programs/safety-programs/documents/exit/calnexus-i-280-03-2020-a11y.pdf)
+
+The April 2023 survey supported 1,996 of 2,005 stations. The longest
+observation step was 14.98 m. The fitted mainline peaked at 4.84%
+grade. The steepest ramp reached 6.34%. Its deepest local dip was
+0.237 m near the bottom of the climb onto northbound I-280. Those
+numbers use a chord of about 20 m and describe the game contact.
+The clearance check sampled the centre and two lateral offsets.
+All centre poses were clear. Two false trunks were removed from the
+San Jose Avenue exit after reviewing the nearby survey returns.
+
+Chrome preview drove both through carriageways and all three ramps.
+The northbound through drive took 108.3 s. The southbound through
+drive reached the terrain handoff at the map edge in 111.6 s.
+Both used manual keyboard input. The final entrance handoff begins
+16 m into the approach where the ground and fitted surface agree.
+
+- Game manifest SHA-256 `6f884b2cd031c16ff9c93111ff4850f055e3387410f104ddd76e88bde40f531c`.
+- Contact SHA-256 `d64ebea63ea919dc38195509e09c6e978162b4d82c686c19fafd4e30db941ea3`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-sr82-northbound-through i280-sr82-southbound-through \
+  i280-sr82-northbound-entry i280-sr82-southbound-exit \
+  i280-sr82-southbound-edge-exit
+```

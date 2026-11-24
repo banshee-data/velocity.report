@@ -1,0 +1,1 @@
+- Baked both I-280 carriageways and three ramps south of Geneva, replacing ground contact that cut through the freeway level. Drove both directions and documented the surveyed joins, grades and scenery checks in the [SF road route audit](../../ui/sf-road-route-audit.md).
