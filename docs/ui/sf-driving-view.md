@@ -446,8 +446,10 @@ and drops tiles more than 1.6 km past their edge.
 
 A module worker builds the terrain, buildings and clipped static trees. It returns typed
 vertex buffers to the renderer, which installs at most one completed batch per frame.
-Surface requests take priority over foliage. Intact trees appear as instances, and crowns
-and trunks that could intersect a road wait for their capped mesh. When a road streams
+Surface requests take priority over foliage. Intact trees share instanced draws within 160 m
+sectors so the renderer can skip off-screen trees. Cut meshes share vertices within each tree
+and pack their normals as signed bytes. Crowns and trunks that could intersect a road wait
+for their capped mesh. When a road streams
 in or out, only changed intersections need a new cut. Tile eviction cancels queued tree
 updates. If the worker is unavailable, the renderer prepares the same geometry in short
 slices between frames. Road contact and the pose of a falling tree stay on the driving thread.

@@ -65,7 +65,14 @@ export function createMeshQueue(
       schedule();
       return;
     }
-    const deadline = now() + 3;
+    const start = now();
+    // On a GPU-bound browser a timer can wait hundreds of milliseconds
+    // between turns. Give a waiting local surface enough CPU to load.
+    const delay = start - (active.yieldedAt ?? start);
+    const budget = active.group.priority
+      ? Math.min(24, Math.max(4, delay / 5))
+      : 3;
+    const deadline = start + budget;
     try {
       let step;
       do {
@@ -74,6 +81,7 @@ export function createMeshQueue(
       if (!step.done) {
         // Yield to input and paint. A slow GPU must not limit geometry
         // preparation to 3 ms of CPU per displayed frame.
+        active.yieldedAt = now();
         yieldTask(runSlice);
         return;
       }

@@ -10,9 +10,9 @@ import {
   Vector3,
 } from "../../vendor/three/three.core.js";
 import { createMeshQueue } from "../sf-mesh-queue.js";
-import { meshSteps } from "../sf-mesh-steps.js";
+import { meshSteps, treeModel } from "../sf-mesh-steps.js";
 import { addTrees } from "../sf-tree-layer.js";
-import { deckClearanceIndex } from "../sf-tree-clearance.js";
+import { carveTree, deckClearanceIndex } from "../sf-tree-clearance.js";
 
 function clock() {
   const frames = [];
@@ -218,4 +218,100 @@ test("static tree cuts deduplicate unchanged roads, stay capped, and survive a f
   scene.userData.cancelTreeCuts();
   time.tick();
   assert.equal(time.pending, 0);
+});
+
+test("indexed cut trees preserve every triangle, including cap normals and hard edges", () => {
+  const deck = deckClearanceIndex(),
+    slab = new BufferGeometry();
+  slab.setAttribute(
+    "position",
+    new Float32BufferAttribute(
+      [-3, 2, -3, 0, 2, -3, 0, 2, 3, -3, 2, -3, 0, 2, 3, -3, 2, 3],
+      3,
+    ),
+  );
+  deck.add(slab);
+  const model = treeModel(false),
+    matrix = new Matrix4().makeScale(2, 2, 2).setPosition(0, 2, 0);
+  const reference = carveTree(model, matrix, 0, deck);
+  const cuts = [
+    ...deck.query(model.boundingBox.clone().applyMatrix4(matrix), 0),
+  ];
+  const packed = finish({
+    trunk: false,
+    rows: [
+      { index: 0, transform: matrix.elements, ids: cuts.map((_, i) => i) },
+    ],
+    planes: cuts.map((c) =>
+      c.planes.map((p) => [...p.normal.toArray(), p.constant]),
+    ),
+  });
+  assert.equal(packed.index.length, reference.attributes.position.count);
+  assert.ok(
+    packed.index instanceof Uint16Array && packed.normal instanceof Int8Array,
+  );
+  assert.ok(
+    packed.position.byteLength +
+      packed.normal.byteLength +
+      packed.index.byteLength <
+      reference.attributes.position.array.byteLength +
+        reference.attributes.normal.array.byteLength,
+  );
+  for (const [i, vertex] of packed.index.entries())
+    for (let axis = 0; axis < 3; axis++) {
+      assert.equal(
+        packed.position[3 * vertex + axis],
+        reference.attributes.position.array[3 * i + axis],
+      );
+      assert.ok(
+        Math.abs(
+          packed.normal[3 * vertex + axis] / 127 -
+            reference.attributes.normal.array[3 * i + axis],
+        ) <=
+          0.5 / 127 + 1e-7,
+      );
+    }
+});
+
+test("distant tree sectors have independent conservative draw bounds and share source geometry", () => {
+  const group = new Group(),
+    queue = {
+      update() {
+        assert.fail("uncut trees have no clip work");
+      },
+      cancel() {},
+    };
+  addTrees(
+    group,
+    {
+      o: [0, 0],
+      tr: [
+        [0, 0, 6, 2],
+        [3000, 0, 6, 2],
+      ],
+    },
+    () => 0,
+    { tree: new Color("green"), trunk: new Color("brown") },
+    { enableOn() {} },
+    deckClearanceIndex(),
+    queue,
+  );
+  const crowns = group.children.filter(
+    (m) => m.geometry.type === "IcosahedronGeometry",
+  );
+  assert.equal(crowns.length, 2);
+  assert.equal(crowns[0].geometry, crowns[1].geometry);
+  assert.ok(
+    !crowns[0].boundingSphere.intersectsSphere(crowns[1].boundingSphere),
+  );
+  assert.ok(crowns.every((mesh) => mesh.count === 1));
+  const versions = crowns.map((mesh) => mesh.instanceMatrix.version);
+  group.userData.refreshTreeCuts([
+    new Box3(new Vector3(-4, 4, -4), new Vector3(4, 4, 4)),
+  ]);
+  assert.deepEqual(
+    crowns.map((mesh) => mesh.instanceMatrix.version),
+    versions,
+    "unchanged instances do not trigger GPU uploads",
+  );
 });

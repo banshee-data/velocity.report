@@ -13,7 +13,7 @@ self.onmessage = ({ data: { id, data } }) => {
         ? [...result.buildings, result.terrain]
             .filter(Boolean)
             .flatMap((group) => Object.values(group))
-        : [result.position, result.normal];
+        : [result.position, result.normal, result.index];
     self.postMessage(
       { id, result },
       attributes.filter(Boolean).map((a) => a.buffer),

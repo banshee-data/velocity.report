@@ -1250,12 +1250,14 @@ export async function startDrive({
       e.removeStreet?.();
       terrainPainter.remove(t);
       scene.remove(e.grp);
-      const materials = new Set();
+      const materials = new Set(),
+        geometries = new Set();
       e.grp.traverse((o) => {
         if (o.isInstancedMesh) o.dispose();
-        o.geometry?.dispose();
+        if (o.geometry) geometries.add(o.geometry);
         if (o.material) materials.add(o.material);
       });
+      for (const geometry of geometries) geometry.dispose();
       for (const material of materials) {
         material.map?.dispose();
         material.dispose();
