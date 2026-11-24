@@ -1,0 +1,1 @@
+- Baked both Bay Bridge East Span carriageways to the eastern edge of the game map, with surveyed joins to the existing Hillcrest and Macalla approaches. Recorded road grades and browser checks in the [SF road route audit](../../ui/sf-road-route-audit.md#east-span-from-yerba-buena-to-the-map-edge).
