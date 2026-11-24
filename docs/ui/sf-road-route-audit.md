@@ -986,3 +986,41 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `6c3972a007c14ff422144d7a51fb2d2d70c60088600818d26ce8dbea52e9189a`.
 - Contact SHA-256 `82435df883f9bc57e9961c19664867f98762478b72d798d0eb55ae8d87ef6e48`.
 - The bake changes four tiles and preserves the existing emoji placement revision.
+
+## Seventh Street, Harrison and southbound US 101
+
+Nine directed sections add 3.00 km of contact. Eastbound I-80 can reach
+both Seventh Street exits at 5.78 m and 6.33 m NAVD88. From the west exit,
+Chrome drove 113.4 m of ordinary pavement before entering the Harrison
+Street ramp and rejoining westbound I-80. The preview round trip finished
+grounded in 111.5 s. A repeat drove 114.1 m on ordinary pavement and
+finished in 112.0 s. The fixed-step drives reached both Seventh Street
+exits in 45.4 s and 43.7 s.
+
+The westbound I-80 split keeps its original Central Freeway connector
+and adds a separate path to southbound US 101. From Harrison Street, the
+new route goes through the Potrero interchange to two ordinary street
+exits. The fixed-step drives reached Cesar Chavez at 2.45 m NAVD88 in
+242.3 s and Potrero Avenue at 8.55 m NAVD88 in 244.4 s. The shared ramp
+continues through the two intermediate forks with linked contact. Chrome
+reached the same streets in 224.5 s and 226.3 s. At the
+Cesar Chavez terminal the last 20 m blend a 0.39 m difference between the
+observed lower lane and the base street elevation into the ground seam.
+The Potrero Avenue branch has a 12.45% fitted peak through its actual
+climb from the lower junction.
+
+The two fits pin 265 and 42 depth-12 EPT nodes. Individual obscured
+stations use supported neighbours or side returns at the same level.
+The browser steering lines use clear lanes through the existing trees.
+The 20 frozen emoji routes finished across 52.45 km with zero driven
+dips deeper than 0.5 m and a largest tile-seam step of 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i80-seventh-west-exit i80-seventh-east-exit i80-seventh-harrison-roundtrip \
+  harrison-to-cesar-chavez harrison-to-potrero-avenue
+```
+
+- Game manifest SHA-256 `f3d584a73c0886953cf413980c2e6d0363539213a8ceff6cca8b2e89577072b2`.
+- Contact SHA-256 `0330a3578eef22038531bc1e3df422df4001d0556c95dc255f2764b9b2b92f82`.
+- The bake changes three tiles and preserves the existing emoji placement revision.

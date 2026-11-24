@@ -1,0 +1,1 @@
+- Connected both Seventh Street exits, the Harrison entrance, and westbound I-80 to southbound US 101 through to Cesar Chavez and Potrero Avenue. [Drive audit](../../ui/sf-road-route-audit.md#seventh-street-harrison-and-southbound-us-101)
