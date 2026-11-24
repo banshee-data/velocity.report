@@ -2668,3 +2668,40 @@ joins to the southbound mainline.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   san-jose-bosworth-southwest san-jose-bosworth-northeast
 ```
+
+## Bosworth and San Jose Avenue onto southbound I-280
+
+The two entrances now come together at 49.01 m NAVD88. A shared ramp
+joins the existing Monterey to Ocean mainline contact at 50.03 m.
+The Bosworth entrance stays about 8.4 m below the San Jose Avenue
+deck at their crossing. Both tiles carry each complete approach, so
+the road and its joins span the tile boundary.
+
+The three fitted sections total 1.064 km. The April 2023 survey supports
+356 of 359 fit stations. The longest observation step is 11.98 m. The
+shared merge has the steepest grade at 5.32%. The largest fitted dip
+over a chord of about 20 m is 0.101 m on the Bosworth approach.
+
+Before correcting the inferred trunks, the first Chrome runs struck
+scenery on the approaches. The bake removes six inferred trees at
+measured pavement footprints. All 534 centreline poses then cleared
+the game collision check. Seven sampled poses farther to the sides
+still touched retained roadside trees.
+
+| Chrome drive             |   Time | Peak speed | Finish                       |
+| ------------------------ | -----: | ---------: | ---------------------------- |
+| Bosworth Street entrance | 57.0 s |   40.5 mph | Grounded on southbound I-280 |
+| San Jose Avenue entrance | 62.9 s |   40.6 mph | Grounded on southbound I-280 |
+
+Both keyboard drives used the lower approaches and the shared ramp
+under the overpasses. The separate upper San Jose Avenue route remains
+available.
+
+- Game manifest SHA-256 `b3dba8fb851d10d0c237d332b732da4870e1cdf2e137c804f3a4602cc058f575`.
+- Contact SHA-256 `7eb6a51360263767558a3628059f567599395482f7c65ef4b3dd83e4faef8cf5`.
+- [Gerardus survey recipe](https://github.com/banshee-data/gerardus/pull/169).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  bosworth-southbound-entry san-jose-southbound-entry
+```

@@ -820,6 +820,26 @@ for (const reverse of [false, true]) {
     maxDurationMs: 85_000,
   };
 }
+for (const entrance of [
+  "bosworth-southbound-entry",
+  "san-jose-southbound-entry",
+]) {
+  cases[entrance] = {
+    owners: ["808f7e64", "808f7e7c", "808f7e8c", "808f7e84"],
+    roads: [
+      entrance,
+      "bosworth-i280-southbound-merge",
+      "i280-south-monterey-to-ocean",
+    ],
+    speed: 17,
+    speedLimits: { [entrance]: 13 },
+    groundApproachMetres: 7,
+    finishOnDeck: true,
+    finishDistance: 85,
+    covered: [prefix + entrance, prefix + "bosworth-i280-southbound-merge"],
+    maxDurationMs: 125_000,
+  };
+}
 cases["branch-east-ramp"] = {
   roads: ["branch-east-off-ramp"],
   owners: ["808f7e7c", "808f7e64"],

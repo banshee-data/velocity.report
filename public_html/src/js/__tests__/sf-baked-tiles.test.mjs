@@ -3910,3 +3910,81 @@ test("San Jose Avenue stays on its measured upper road above the Bosworth ramps"
     assert.ok(Math.abs(bz - az) / Math.hypot(c - a, d - b) < 0.035);
   }
 });
+
+test("both Bosworth entrances join southbound I-280 below the San Jose Avenue deck", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7e64", "808f7e7c", "808f7e8c", "808f7e84"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) =>
+      (tile.playableRoads ?? []).map((road) => [road.id, road]),
+    ),
+  );
+  const contact = (name) => roads.get(`sf-contact/${name}`);
+  const bosworth = contact("bosworth-southbound-entry");
+  const sanJose = contact("san-jose-southbound-entry");
+  const merge = contact("bosworth-i280-southbound-merge");
+  const onward = contact("i280-south-monterey-to-ocean");
+  for (const [before, after] of [
+    [bosworth, merge],
+    [sanJose, merge],
+    [merge, onward],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+
+  for (const road of [bosworth, sanJose]) {
+    assert.deepEqual(road.groundEnds, ["start"]);
+    for (const tile of tiles.slice(0, 2)) {
+      assert.deepEqual(
+        tile.playableRoads.find(({ id }) => id === road.id),
+        road,
+      );
+    }
+  }
+  const x = 569.56;
+  const y = -3010.53;
+  const upper = buildBakedRoadContact(
+    contact("san-jose-bosworth-upper-street"),
+  ).surface;
+  const lower = buildBakedRoadContact(bosworth).surface;
+  assert.ok(lower.heightAt(x, y) > 49.8 && lower.heightAt(x, y) < 50.4);
+  assert.ok(upper.heightAt(x, y) - lower.heightAt(x, y) > 8);
+
+  const clearance = deckClearanceIndex();
+  for (const road of roads.values()) {
+    const { surface } = buildBakedRoadContact(road);
+    if (surface.kind !== "tunnel") {
+      clearance.add(contactGeometry(surface.contact, false));
+    }
+  }
+  const indexes = tiles.map((tile) =>
+    buildCollisionIndex(tile, tile.t, new Map(), clearance.ceiling),
+  );
+  for (const road of [bosworth, sanJose, merge]) {
+    for (let i = 1; i < road.points.length; i++) {
+      const [a, b] = road.points[i - 1];
+      const [east, north, z] = road.points[i];
+      const car = {
+        x: east,
+        y: north,
+        heading: Math.atan2(north - b, east - a),
+      };
+      assert.equal(
+        collisionAt(indexes, car, z),
+        null,
+        `${road.id} at ${east}, ${north}`,
+      );
+    }
+  }
+});
