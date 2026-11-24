@@ -1742,6 +1742,68 @@ cases["northbound-us101-silliman-alemany-loop"] = {
   exitCamera: "exterior",
 };
 
+const alemanySouthboundConnector = "us101-north-to-i280-south";
+const alemanyNorthboundApproach = "us101-north-bayshore-to-paul";
+const alemanyUpperConnector = "i280-north-to-us101-south-connector";
+cases["northbound-us101-to-southbound-i280"] = {
+  roads: [
+    alemanyNorthboundApproach,
+    alemanySouthboundConnector,
+    "i280-south-alemany-through",
+  ],
+  owners: [
+    "808f7ee4",
+    "808f7efc",
+    "808f7ef4",
+    "808f7f1c",
+    "808f7f04",
+    "808f7e5c",
+  ],
+  forks: [[alemanyNorthboundApproach, alemanySouthboundConnector, -2]],
+  speed: 20,
+  speedLimits: { [alemanySouthboundConnector]: 18 },
+  rollingStart: true,
+  rollingStartMetres: 406,
+  initialSpeedMps: 18,
+  finishOnDeck: true,
+  finishDistance: 115,
+  maxDurationMs: 165_000,
+  covered: [prefix + alemanySouthboundConnector],
+};
+cases["alemany-upper-over-northbound-connector"] = {
+  roads: [alemanyUpperConnector, "i280-to-us101-south-descent"],
+  owners: ["808f7ef4", "808f7efc", "808f7ee4"],
+  speed: 15,
+  rollingStart: true,
+  rollingStartMetres: 970,
+  initialSpeedMps: 14,
+  finishOnDeck: true,
+  finishDistance: 155,
+  maxDurationMs: 55_000,
+  covered: [],
+};
+cases["northbound-us101-through-alemany-fork"] = {
+  ...cases["northbound-us101-to-southbound-i280"],
+  roads: [alemanyNorthboundApproach, "us101-north-paul-to-silliman"],
+  forks: [[alemanyNorthboundApproach, "us101-north-paul-to-silliman", 1.7]],
+  covered: [],
+  finishDistance: 130,
+  maxDurationMs: 55_000,
+};
+cases["alemany-late-lower-crossings-camera"] = {
+  roads: [alemanySouthboundConnector],
+  owners: ["808f7ee4", "808f7efc", "808f7f1c"],
+  speed: 15,
+  rollingStart: true,
+  rollingStartMetres: 1240,
+  initialSpeedMps: 14,
+  finishOnDeck: true,
+  finishDistance: 1430,
+  maxDurationMs: 45_000,
+  covered: [prefix + alemanySouthboundConnector],
+  exitCamera: "covered",
+};
+
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];

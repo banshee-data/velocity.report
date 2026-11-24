@@ -65,18 +65,19 @@ export function coveredRoadBlend(surface, { x, y }) {
   return fraction * fraction * (3 - 2 * fraction);
 }
 
-export function overheadDeckBlend(car, z, ground, ceiling) {
+export function overheadDeckBlend(car, z, heightAt, ceiling) {
   const hx = Math.cos(car.heading);
   const hy = Math.sin(car.heading);
   let blend = 0;
   for (const distance of DECK_PROBES) {
     const x = car.x + hx * distance;
     const y = car.y + hy * distance;
-    const street = ground(x, y) ?? z;
-    // The clearance index also contains ordinary pavement. Ask for surfaces
-    // high enough above the local street to cover the car.
-    const deck = ceiling(x, y, Math.max(street, z) + 2);
-    if (deck > street + 26) continue;
+    const pavement = heightAt(x, y);
+    if (!Number.isFinite(pavement)) continue;
+    // Each probe compares the deck with the selected road's pavement at
+    // that point. A slope or a neighbouring ramp may sit above the car.
+    const deck = ceiling(x, y, Math.max(pavement, z) + 2);
+    if (deck > pavement + 26) continue;
     const fraction = 1 - Math.max(0, distance - 6, -distance - 22) / 18;
     blend = Math.max(blend, fraction * fraction * (3 - 2 * fraction));
   }

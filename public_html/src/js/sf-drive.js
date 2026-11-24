@@ -3382,12 +3382,12 @@ export async function startDrive({
     if (surface) cameraCoveredRoad = surface.coveredRange ? surface : null;
     const crossingBlend = coveredRoadBlend(cameraCoveredRoad, car);
     if (!surface && crossingBlend === 0) cameraCoveredRoad = null;
-    const streetBlend =
-      state.view === "zoomed" && !surface
-        ? overheadDeckBlend(car, carZ, terrainHeight, deckIndex.ceiling)
+    const deckBlend =
+      state.view === "zoomed" && crossingBlend < 1 && surface?.kind !== "tunnel"
+        ? overheadDeckBlend(car, carZ, currentHeightAt, deckIndex.ceiling)
         : 0;
     const coveredBlend =
-      state.view === "zoomed" ? Math.max(crossingBlend, streetBlend) : 0;
+      state.view === "zoomed" ? Math.max(crossingBlend, deckBlend) : 0;
     const view = driveCameraPose(
       surface?.kind === "tunnel"
         ? "incar"

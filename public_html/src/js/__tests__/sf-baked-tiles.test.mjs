@@ -2493,3 +2493,60 @@ test("the northbound Silliman fork hands off to Bayshore Boulevard below the dec
     null,
   );
 });
+
+test("the Alemany connector keeps both stacked crossings and the US 101 through fork", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7ee4", "808f7efc", "808f7f1c"];
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) =>
+      playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  const road = (name) => roads.get(`sf-contact/${name}`);
+  const approach = road("us101-north-bayshore-to-paul");
+  const connector = road("us101-north-to-i280-south");
+  const through = road("us101-north-paul-to-silliman");
+  const merge = road("i280-south-alemany-through");
+  for (const [from, to] of [
+    [approach, connector],
+    [approach, through],
+    [connector, merge],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from: a, to: b, direction, status }) =>
+          a === `${from.id}:end` &&
+          b === `${to.id}:start` &&
+          direction === "forward" &&
+          status === "joined",
+      ),
+    );
+  }
+  for (const tile of tiles) {
+    assert.deepEqual(
+      tile.playableRoads.find(({ id }) => id === connector.id),
+      connector,
+    );
+  }
+  assert.deepEqual(connector.groundEnds, []);
+  const { surface } = buildBakedRoadContact(connector);
+  assert.deepEqual(surface.coveredRange, [675, 1025]);
+  const obstacles = tiles.map((tile, index) =>
+    buildCollisionIndex(tile, tokens[index]),
+  );
+  for (const [upperName, x, y, heading] of [
+    ["i280-north-to-us101-south-connector", 3125.926, -3079.465, 1.997],
+    ["i280-north-alemany-climb", 2815.336, -2802.036, 3.046],
+  ]) {
+    const lower = surface.heightAt(x, y);
+    const upper = buildBakedRoadContact(road(upperName)).surface.heightAt(x, y);
+    assert.ok(Number.isFinite(lower) && Number.isFinite(upper));
+    assert.ok(upper - lower > 7 && upper - lower < 8);
+    assert.equal(collisionAt(obstacles, { x, y, heading }, lower), null);
+  }
+});
