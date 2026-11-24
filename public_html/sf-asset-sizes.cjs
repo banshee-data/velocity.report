@@ -19,6 +19,11 @@ function sfDownloadAssets(root = __dirname) {
     ...[
       "sf-drive.js",
       "sf-tree-clearance.js",
+      "sf-tree-layer.js",
+      "sf-mesh-worker.js",
+      "sf-mesh-queue.js",
+      "sf-mesh-steps.js",
+      "sf-tile-geometry.js",
       "sf-car-model.js",
       "sf-drive-assets.js",
       "sf-city-road-drive.js",

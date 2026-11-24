@@ -444,6 +444,16 @@ of about nine tiles fetches 2 to 3 MB.
 The page loads the tiles within about 900 m of the car's tile edge, nearest first, three at a time,
 and drops tiles more than 1.6 km past their edge.
 
+A module worker builds the terrain, buildings and clipped static trees. It returns typed
+vertex buffers to the renderer, which installs at most one completed batch per frame.
+Surface requests take priority over foliage. Intact trees share instanced draws within 160 m
+sectors so the renderer can skip off-screen trees. Cut meshes share vertices within each tree
+and pack their normals as signed bytes. Crowns and trunks that could intersect a road wait
+for their capped mesh. When a road streams
+in or out, only changed intersections need a new cut. Tile eviction cancels queued tree
+updates. If the worker is unavailable, the renderer prepares the same geometry in short
+slices between frames. Road contact and the pose of a falling tree stay on the driving thread.
+
 ## Limits
 
 - With the Bay Bridge overlay loaded, the driving menu offers the supported upper deck and

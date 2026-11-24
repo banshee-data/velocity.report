@@ -102,6 +102,19 @@ export function deckClearanceIndex() {
             b.min.z > bounds.max.z
           )
             continue;
+          // A diagonal road triangle can have a much larger bounding box
+          // than its footprint. Reject boxes fully outside any prism face.
+          if (
+            cut.planes.some(
+              ({ normal: n, constant }) =>
+                n.x * (n.x < 0 ? bounds.min.x : bounds.max.x) +
+                  n.y * (n.y < 0 ? bounds.min.y : bounds.max.y) +
+                  n.z * (n.z < 0 ? bounds.min.z : bounds.max.z) +
+                  constant <
+                -eps,
+            )
+          )
+            continue;
           result.add(cut);
         }
       });
@@ -111,9 +124,18 @@ export function deckClearanceIndex() {
 }
 
 function split(faces, plane) {
-  const values = faces.flat().map((p) => plane.distanceToPoint(p));
-  if (values.every((v) => v >= -eps)) return [faces, []];
-  if (values.every((v) => v <= eps)) return [[], faces];
+  let above = false,
+    below = false;
+  scan: for (const face of faces) {
+    for (const point of face) {
+      const d = plane.distanceToPoint(point);
+      above ||= d > eps;
+      below ||= d < -eps;
+      if (above && below) break scan;
+    }
+  }
+  if (!below) return [faces, []];
+  if (!above) return [[], faces];
   const positive = [],
     negative = [],
     rim = [];
@@ -159,12 +181,20 @@ function split(faces, plane) {
   return [positive, negative];
 }
 
-export function carveTree(geometry, matrix, base, index) {
+export function treeCuts(geometry, matrix, base, index) {
   if (!geometry.boundingBox) geometry.computeBoundingBox();
-  const cuts = index.query(
-    geometry.boundingBox.clone().applyMatrix4(matrix),
-    base,
+  return index.query(geometry.boundingBox.clone().applyMatrix4(matrix), base);
+}
+
+export function carveTree(geometry, matrix, base, index) {
+  return carveTreeCuts(
+    geometry,
+    matrix,
+    treeCuts(geometry, matrix, base, index),
   );
+}
+
+export function carveTreeCuts(geometry, matrix, cuts) {
   if (!cuts.size) return null;
   const positions = geometry.attributes.position,
     indices = geometry.index;

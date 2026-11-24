@@ -1,4 +1,6 @@
-import { deckClearanceIndex, carveTree } from "./sf-tree-clearance.js";
+import { deckClearanceIndex } from "./sf-tree-clearance.js";
+import { createMeshQueue } from "./sf-mesh-queue.js";
+import { addTrees } from "./sf-tree-layer.js";
 import { makeCar } from "./sf-car-model.js";
 // San Francisco driving view (/sf/): drive anywhere in the city over measured
 // geometry. Tiles (one per S2 level-13 cell, about 1.1 km across) stream in
@@ -51,7 +53,7 @@ import {
   hardLanding,
 } from "./sf-crash.js";
 
-import { terrainTriangles, tileRegion } from "./sf-drive-surface.js";
+import { tileRegion } from "./sf-drive-surface.js";
 import { createDownloadSizeTracker } from "./sf-download-size.js";
 import { bindDrivingPad, drivingInput } from "./sf-touch-controls.js";
 import { districtTrials, seekerDirection } from "./sf-district-trials.js";
@@ -116,7 +118,6 @@ import {
 import { buildBakedRoadContact } from "./sf-baked-road-contact.js";
 import { driveThroughRoadPortal } from "./sf-road-portal.js";
 import { tunnelMesh } from "./sf-tunnel-mesh.js";
-import { buildingWalls, validBuildingFace } from "./sf-building-walls.js";
 import {
   crashHistory,
   encodeReplay,
@@ -134,9 +135,7 @@ import {
   replayCharts,
 } from "./sf-replay-telemetry.js";
 import {
-  treeRadius,
   treeDamageForImpact,
-  treeFallAngle,
   treeFallProgress,
   replayTreeIndex,
 } from "./sf-tree-damage.js";
@@ -325,123 +324,8 @@ function applyRoadPaint(entry, positions, C) {
   paint.geometry = geometry;
 }
 
-function appendBuildingWallCorners(outlines, edges) {
-  const corners = new Map();
-  for (const { a, b, za, zb } of edges) {
-    for (const [point, neighbour, floor] of [
-      [a, b, za],
-      [b, a, zb],
-    ]) {
-      const key = point.join(",");
-      const corner = corners.get(key) ?? { point, neighbours: [], floor };
-      corner.neighbours.push(neighbour);
-      corner.floor = Math.min(corner.floor, floor);
-      corners.set(key, corner);
-    }
-  }
-  for (const { point, neighbours, floor } of corners.values()) {
-    // Only draw wall posts at real turns in the eaves. Straight edge
-    // subdivisions and the ends of interior roof ridges need no posts.
-    if (neighbours.length !== 2) continue;
-    const [a, b] = neighbours;
-    const ax = a[0] - point[0],
-      ay = a[1] - point[1];
-    const bx = b[0] - point[0],
-      by = b[1] - point[1];
-    if (
-      Math.abs(ax * by - ay * bx) >
-      0.5 * Math.hypot(ax, ay) * Math.hypot(bx, by)
-    )
-      outlines.push(...V(...point), ...V(point[0], point[1], floor));
-  }
-}
-
-function addBuildings(group, tile, C, reveal, distant = false) {
-  const [ox, oy] = tile.o;
-  // Keep each building whole, but batch nearby buildings so the camera
-  // rejects distant blocks before submitting their triangles and outlines.
-  const batchSize = 1600; // decimetres; tile coordinates are local
-  const batches = new Map();
-  for (const b of tile.b) {
-    const validFaces = b[1].filter(validBuildingFace);
-    const firstRing = validFaces[0]?.[0];
-    if (!firstRing?.length) continue;
-    if (
-      distant &&
-      !validFaces.some((face) =>
-        face.some((ring) =>
-          ring.some((z, index) => index % 3 === 2 && z - b[0] >= 420),
-        ),
-      )
-    )
-      continue;
-    const key = `${Math.floor(firstRing[0] / batchSize)},${Math.floor(firstRing[1] / batchSize)}`;
-    let batch = batches.get(key);
-    if (!batch) {
-      batch = { positions: [], colours: [], outlines: [] };
-      batches.set(key, batch);
-    }
-    const { positions, colours, outlines } = batch;
-    const zb = b[0] / 10;
-    const roof = b[2] ? C.extra : C.roof;
-    const wall = b[2] ? C.extra : C.wall;
-    const roofEdges = new Map();
-    const faces = validFaces.map((face) =>
-      face.map((r) => {
-        const a = [];
-        for (let i = 0; i < r.length; i += 3)
-          a.push([ox + r[i] / 10, oy + r[i + 1] / 10, r[i + 2] / 10]);
-        // Drop a closing point that repeats the first: the triangulator drops it
-        // too, and its indices must address the same vertices as `all` below.
-        const f = a[0];
-        const l = a.at(-1);
-        if (a.length > 3 && f[0] === l[0] && f[1] === l[1]) a.pop();
-        return a;
-      }),
-    );
-    for (const rings of faces) {
-      const outer = rings[0].map((v) => new THREE.Vector2(v[0], v[1]));
-      const holes = rings
-        .slice(1)
-        .map((h) => h.map((v) => new THREE.Vector2(v[0], v[1])));
-      let tris = [];
-      try {
-        tris = THREE.ShapeUtils.triangulateShape(outer, holes);
-      } catch {
-        tris = [];
-      }
-      const all = [].concat(...rings);
-      for (const t of tris) {
-        for (const k of t) {
-          positions.push(...V(all[k][0], all[k][1], all[k][2]));
-          colours.push(roof.r, roof.g, roof.b);
-        }
-      }
-      if (distant) continue;
-      for (const r of rings) {
-        for (let i = 0; i < r.length; i++) {
-          const a = r[i];
-          const c = r[(i + 1) % r.length];
-          const edge = [a.join(","), c.join(",")].sort().join("|");
-          roofEdges.set(edge, [a, c]);
-        }
-      }
-    }
-    for (const [a, b] of roofEdges.values())
-      outlines.push(...V(...a), ...V(...b));
-    const exposedWalls = [];
-    buildingWalls(faces, zb, (a, b, za, zb) => {
-      const bottomA = [a[0], a[1], za];
-      const bottomB = [b[0], b[1], zb];
-      for (const point of [bottomA, bottomB, b, bottomA, b, a]) {
-        positions.push(...V(...point));
-        colours.push(wall.r, wall.g, wall.b);
-      }
-      if (!distant) exposedWalls.push({ a, b, za, zb });
-    });
-    if (!distant) appendBuildingWallCorners(outlines, exposedWalls);
-  }
-  if (!batches.size) return;
+function addBuildings(group, batches, reveal, distant = false) {
+  if (!batches.length) return;
   const facesMaterial = distant
     ? new THREE.MeshBasicMaterial({
         vertexColors: true,
@@ -469,15 +353,12 @@ function addBuildings(group, tile, C, reveal, distant = false) {
     reveal.enableOn(facesMaterial);
     reveal.enableOn(outlineMaterial);
   }
-  for (const { positions, colours, outlines } of batches.values()) {
-    if (!positions.length) continue;
+  for (const { positions, colours, outlines, normals } of batches) {
     const faces = new THREE.BufferGeometry();
-    faces.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(positions, 3),
-    );
-    faces.setAttribute("color", new THREE.Float32BufferAttribute(colours, 3));
-    if (!distant) faces.computeVertexNormals();
+    faces.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    faces.setAttribute("color", new THREE.BufferAttribute(colours, 3));
+    if (normals)
+      faces.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
     const buildings = new THREE.Mesh(faces, facesMaterial);
     buildings.renderOrder = -2;
     if (distant) {
@@ -485,10 +366,7 @@ function addBuildings(group, tile, C, reveal, distant = false) {
       continue;
     }
     const edges = new THREE.BufferGeometry();
-    edges.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(outlines, 3),
-    );
+    edges.setAttribute("position", new THREE.BufferAttribute(outlines, 3));
     const lines = new THREE.LineSegments(edges, outlineMaterial);
     lines.renderOrder = -1;
     group.add(buildings, lines);
@@ -496,7 +374,7 @@ function addBuildings(group, tile, C, reveal, distant = false) {
   return facesMaterial;
 }
 
-function buildTile(tile, C, region, reveal, deckIndex) {
+function buildTile(tile, C, meshes, reveal, deckIndex, meshQueue) {
   const ox = tile.o[0];
   const oy = tile.o[1];
   const gz = groundFn(tile);
@@ -507,14 +385,11 @@ function buildTile(tile, C, region, reveal, deckIndex) {
   tile.zfill = vals.length
     ? vals.reduce((a, b) => a + b, 0) / vals.length / 10
     : 0;
-  const surface = terrainTriangles(tile, region);
+  const surface = meshes.terrain;
   const gg = new THREE.BufferGeometry();
-  gg.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(surface.positions, 3),
-  );
-  gg.setAttribute("uv", new THREE.Float32BufferAttribute(surface.uv, 2));
-  gg.computeVertexNormals();
+  gg.setAttribute("position", new THREE.BufferAttribute(surface.positions, 3));
+  gg.setAttribute("uv", new THREE.BufferAttribute(surface.uv, 2));
+  gg.setAttribute("normal", new THREE.BufferAttribute(surface.normals, 3));
   const cv = document.createElement("canvas");
   cv.width = cv.height = matchMedia("(pointer: coarse)").matches ? 1024 : 2048;
   const ctx = cv.getContext("2d");
@@ -530,152 +405,9 @@ function buildTile(tile, C, region, reveal, deckIndex) {
   grp.userData.terrain = terrain;
   grp.add(terrain);
 
-  addBuildings(grp, tile, C, reveal);
+  addBuildings(grp, meshes.buildings, reveal);
 
-  // trees: crown and trunk, instanced
-  const nt = tile.tr.length;
-  if (nt) {
-    const crown = new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(1, 1),
-      new THREE.MeshLambertMaterial({ color: C.tree }),
-      nt,
-    );
-    const trunk = new THREE.InstancedMesh(
-      new THREE.CylinderGeometry(1, 1, 1, 6),
-      new THREE.MeshLambertMaterial({ color: C.trunk }),
-      nt,
-    );
-    reveal.enableOn(crown.material);
-    reveal.enableOn(trunk.material);
-    const mtx = new THREE.Matrix4();
-    const qn = new THREE.Quaternion();
-    const s = new THREE.Vector3();
-    const p = new THREE.Vector3();
-    const axis = new THREE.Vector3();
-    const prior = new THREE.Quaternion();
-    const base = new THREE.Vector3();
-    const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
-    const poses = new Map();
-    // Keep static cuts in two tile batches even on densely planted streets.
-    // A tree being replayed gets its own two meshes while its pose changes.
-    const staticParts = [new Map(), new Map()],
-      batches = [],
-      movingParts = new Map();
-    let dirty = false;
-    function rebuildCuts() {
-      if (!dirty) return;
-      dirty = false;
-      for (const [k, batch] of [crown, trunk].entries()) {
-        if (batches[k]) {
-          grp.remove(batches[k]);
-          batches[k].geometry.dispose();
-          batches[k] = null;
-        }
-        let count = 0;
-        for (const g of staticParts[k].values())
-          count += g.attributes.position.count;
-        if (!count) continue;
-        const combined = new THREE.BufferGeometry();
-        for (const attr of ["position", "normal"]) {
-          const values = new Float32Array(3 * count);
-          let offset = 0;
-          for (const g of staticParts[k].values()) {
-            values.set(g.attributes[attr].array, offset);
-            offset += g.attributes[attr].array.length;
-          }
-          combined.setAttribute(attr, new THREE.BufferAttribute(values, 3));
-        }
-        batches[k] = new THREE.Mesh(combined, batch.material);
-        grp.add(batches[k]);
-      }
-    }
-    function setTreePart(batch, key, i) {
-      const geometry = carveTree(batch.geometry, mtx, base.y, deckIndex);
-      const parts = staticParts[key % 2];
-      if (parts.delete(i)) dirty = true;
-      const old = movingParts.get(key);
-      if (old) {
-        grp.remove(old);
-        old.geometry.dispose();
-        movingParts.delete(key);
-      }
-      if (geometry && geometry.attributes.position.count) {
-        if (poses.get(i)?.[0]) {
-          const part = new THREE.Mesh(geometry, batch.material);
-          grp.add(part);
-          movingParts.set(key, part);
-        } else {
-          parts.set(i, geometry);
-          dirty = true;
-        }
-      }
-      batch.setMatrixAt(i, geometry ? hiddenMatrix : mtx);
-    }
-    function setTreePose(i, event, elapsed = 1) {
-      const [x, y, h, r] = tile.tr[i];
-      base.set(...V(ox + x / 10, oy + y / 10, gz(x / 10, y / 10)));
-      qn.identity();
-      if (event) {
-        // Rotate the trunk and canopy about the same ground anchor, away from impact.
-        axis.set(-event.north, 0, -event.east).normalize();
-        if (event.priorLean) {
-          qn.setFromAxisAngle(axis, treeFallAngle(event, 1));
-          const [east, north] = event.priorLean;
-          axis.set(-north, 0, -east).normalize();
-          prior.setFromAxisAngle(axis, treeFallAngle({ stage: "cracked" }, 1));
-          qn.copy(prior.slerp(qn, treeFallProgress(elapsed)));
-        } else {
-          qn.setFromAxisAngle(axis, treeFallAngle(event, elapsed));
-        }
-      }
-      const ch = Math.max(1.5, Math.min(h * 0.6, 2.2 * r));
-      p.set(0, h - ch / 2, 0)
-        .applyQuaternion(qn)
-        .add(base);
-      s.set(r, ch / 2, r);
-      mtx.compose(p, qn, s);
-      setTreePart(crown, i * 2, i);
-      const tw = treeRadius(h);
-      p.set(0, (h - ch) / 2, 0)
-        .applyQuaternion(qn)
-        .add(base);
-      s.set(tw, Math.max(0.5, h - ch), tw);
-      mtx.compose(p, qn, s);
-      setTreePart(trunk, i * 2 + 1, i);
-    }
-    tile.tr.forEach((_, i) => setTreePose(i));
-    rebuildCuts();
-    grp.userData.drawTree = (i, event, seconds) => {
-      if (!tile.tr[i]) return;
-      poses.set(i, [event, seconds]);
-      setTreePose(i, event, seconds);
-      rebuildCuts();
-      crown.instanceMatrix.needsUpdate = true;
-      trunk.instanceMatrix.needsUpdate = true;
-    };
-    grp.userData.refreshTreeCuts = (bounds) => {
-      tile.tr.forEach(([x, y, h, r], i) => {
-        const east = ox + x / 10,
-          south = -oy - y / 10;
-        const extent = poses.get(i)?.[0] ? h + r : r;
-        if (
-          !bounds.some(
-            (b) =>
-              east + extent >= b.min.x &&
-              east - extent <= b.max.x &&
-              south + extent >= b.min.z &&
-              south - extent <= b.max.z,
-          )
-        )
-          return;
-        setTreePose(i, ...(poses.get(i) || []));
-      });
-      rebuildCuts();
-      crown.instanceMatrix.needsUpdate =
-        trunk.instanceMatrix.needsUpdate = true;
-    };
-    grp.add(crown, trunk);
-  }
+  addTrees(grp, tile, gz, C, reveal, deckIndex, meshQueue);
 
   // signposts: a pole on the corner, with a blade per street lined up with that street
   if (tile.s.length) grp.add(buildSigns(tile, C, ox, oy, gz));
@@ -976,6 +708,25 @@ export async function startDrive({
 
   const roadSurfaces = new Map();
   const deckIndex = deckClearanceIndex();
+  let meshWorker;
+  try {
+    meshWorker = new Worker(new URL("./sf-mesh-worker.js", import.meta.url), {
+      type: "module",
+    });
+  } catch {
+    /* Use the frame-budgeted local mesh builder. */
+  }
+  const meshQueue = createMeshQueue(meshWorker);
+  function prepareTile(tile, region) {
+    const { o, b, g } = tile;
+    const { roof, wall, extra } = C;
+    return meshQueue.tile({
+      type: "tile",
+      tile: { o, b, g: region ? g : undefined },
+      colours: { roof, wall, extra },
+      region,
+    });
+  }
   const changedDecks = [];
   let pendingDeckUpdate = false;
   function registerDeck(geometry) {
@@ -1495,14 +1246,18 @@ export async function startDrive({
         raisedRoads.delete(road.id);
       }
       canvas.dataset.raisedRoads = String(raisedRoads.size);
+      e.grp.userData.cancelTreeCuts?.();
       e.removeStreet?.();
       terrainPainter.remove(t);
       scene.remove(e.grp);
-      const materials = new Set();
+      const materials = new Set(),
+        geometries = new Set();
       e.grp.traverse((o) => {
-        o.geometry?.dispose();
+        if (o.isInstancedMesh) o.dispose();
+        if (o.geometry) geometries.add(o.geometry);
         if (o.material) materials.add(o.material);
       });
+      for (const geometry of geometries) geometry.dispose();
       for (const material of materials) {
         material.map?.dispose();
         material.dispose();
@@ -1514,17 +1269,18 @@ export async function startDrive({
       if ((failures.get(t) || 0) > performance.now()) continue;
       loading.add(t);
       (skylineRequests.get(t) || fetchJsonGz(`${tileBase}${t}.json.gz`))
-        .then((data) => {
+        .then(async (data) => {
           const tile = { ...data };
           applyCityDriveScenery(tile, gameDrive?.sceneExclusions?.[t]);
           tile.half = byToken.get(t).half;
+          const meshes = await prepareTile(tile, regions.get(t));
           const roads = roadShapes(tile);
           const pavement = streetClearanceGeometry(tile, roads);
           const removeStreet = pavement.attributes.position.count
             ? registerDeck(pavement)
             : null;
           pavement.dispose();
-          const grp = buildTile(tile, C, regions.get(t), reveal, deckIndex);
+          const grp = buildTile(tile, C, meshes, reveal, deckIndex, meshQueue);
           scene.add(grp);
           const entry = {
             tile,
@@ -3552,7 +3308,7 @@ export async function startDrive({
       const request = fetchJsonGz(`${tileBase}${token}.json.gz`);
       skylineRequests.set(token, request);
       request
-        .then((tile) => {
+        .then(async (tile) => {
           // Match the local route's structure exceptions without mutating a
           // decoded tile that may already be shared with the local streamer.
           const displayTile = { ...tile };
@@ -3561,7 +3317,13 @@ export async function startDrive({
             gameDrive.sceneExclusions?.[token],
           );
           const buildings = new THREE.Group();
-          const material = addBuildings(buildings, displayTile, C, null, true);
+          const meshes = await prepareTile(displayTile, null);
+          const material = addBuildings(
+            buildings,
+            meshes.buildings,
+            null,
+            true,
+          );
           if (!buildings.children.length) return;
           skylineBuildings.add(buildings);
           skylineTiles.set(token, { buildings, material });
