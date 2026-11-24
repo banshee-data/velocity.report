@@ -2343,9 +2343,12 @@ strip for both moves.
 The 120 Hz Embarcadero-to-SoMa replay reached both emojis over 2.44 km.
 It recorded a 7.07% grade p95, a 9.74% peak and no tracked dip over 0.5 m.
 The sampled profile covers the driven route, including the Harrison
-overpass and its approaches. A separate Chrome run deliberately took
-Fourth, merged onto westbound I-80 and reached the street at Fifth in
-78.2 seconds.
+overpass and its approaches. Chrome then collected both emojis over
+2.44 km in 247.8 seconds. It recorded a grade p95 of 7.38%, a peak of
+8.86%, 200 m with airborne contact and no tracked dip over 0.5 m. It
+spent no time blocked. A separate Chrome run deliberately took Fourth,
+merged onto westbound I-80 and reached the street at Fifth in 78.2
+seconds.
 
 The 20-course fixed-step repeat on the same tiles covered 41.33 km.
 Nine courses collected both emojis, three stalled, six stopped at
