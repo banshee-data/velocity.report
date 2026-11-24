@@ -808,6 +808,34 @@ for (const reverse of [false, true]) {
     reverse,
     laneGuides: { [macarthur]: { lane: reverse ? 4.2 : -4.2 } },
   };
+  const direction = reverse ? "southbound" : "northbound";
+  const approach = `sr1-south-of-macarthur-${direction}`;
+  const owners = ["8085871c", "80858724", "808586e4"];
+  cases[approach] = {
+    owners,
+    roads: [approach],
+    groundApproachMetres: 9,
+    speed: 13,
+    maxAirborneMetres: 2,
+  };
+  const roads = reverse ? [macarthur, approach] : [approach, macarthur];
+  cases[`macarthur-and-south-crossing-${direction}`] = {
+    owners,
+    roads,
+    speed: 13,
+    groundApproachMetres: 9,
+    maxAirborneMetres: 5,
+    connectByGround: true,
+    reverseRoads: reverse ? [macarthur] : [],
+    laneGuides: { [macarthur]: { lane: reverse ? 4.2 : -4.2 } },
+    groundConnection: [
+      {
+        after: prefix + roads[0],
+        via: [],
+        minimumMetres: 2,
+      },
+    ],
+  };
 }
 for (const reverse of [false, true]) {
   const direction = reverse ? "northeast" : "southwest";

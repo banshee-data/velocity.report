@@ -2567,6 +2567,55 @@ test("lower Bayshore follows the measured street grade beyond the portal", () =>
   }
 });
 
+test("both SR 1 approaches carry the same contact across the tile boundary", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["8085871c", "80858724"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const cases = [
+    ["northbound", -2653.332, 3396.3535],
+    ["southbound", -2661.0729, 3400.5867],
+  ];
+  const deckIndex = deckClearanceIndex();
+  const surfaces = cases.map(([direction, x, y]) => {
+    const id = `sf-contact/sr1-south-of-macarthur-${direction}`;
+    const [road, neighbour] = tiles.map((tile) =>
+      tile.playableRoads.find((candidate) => candidate.id === id),
+    );
+    assert.deepEqual(road, neighbour);
+    assert.equal(new Set(road.owners).size, 2);
+    const { surface, portals } = buildBakedRoadContact(road);
+    assert.deepEqual(
+      portals.map(({ exitOnly }) => exitOnly),
+      [false, true],
+    );
+    for (const { x, y, z } of portals)
+      assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.01);
+    assert.ok(surface.heightAt(x, y) - groundAtWorld(tiles, x, y, true) > 5);
+    deckIndex.add(contactGeometry(surface.contact, false));
+    return road.points;
+  });
+  assert.equal(roadBake.overheadBuildingPatches["8085871c"], 1);
+  const collisions = tiles.map((tile) =>
+    buildCollisionIndex(tile, tile.t, new Map(), deckIndex.ceiling),
+  );
+  for (const points of surfaces) {
+    for (const [i, [x, y, z]] of points.entries()) {
+      if (!i) continue;
+      const [a, b] = points[i - 1];
+      const heading = Math.atan2(y - b, x - a);
+      for (const offset of [0, -2.2, 2.2]) {
+        const car = {
+          x: x - offset * Math.sin(heading),
+          y: y + offset * Math.cos(heading),
+          heading,
+        };
+        assert.equal(collisionAt(collisions, car, z), null);
+      }
+    }
+  }
+});
+
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["8085807c", "80858084"];

@@ -1,0 +1,1 @@
+- Fitted both SR 1 carriageways south of MacArthur Tunnel and cleared the inferred volume and trunk from the surveyed lanes. Recorded the road levels and browser checks in the [SF road route audit](../../ui/sf-road-route-audit.md#sr-1-south-of-macarthur-tunnel).

@@ -2852,3 +2852,46 @@ a 6.1 cm largest seam step and zero driven dips over 0.5 m.
 
 - Game manifest SHA-256 `d0d60fe379fadd327cdcfa8639b82ad99d76a8553b0d24349e27439b0b647240`.
 - Contact SHA-256 `c7917d4bfbe1265f5d5f2887168e7ea3b40ba67e8990a363a9de6aff497b848a`.
+
+## SR 1 south of MacArthur Tunnel
+
+The previous live game put both directions onto the terrain below
+the carriageways. Chrome crashed in both directions. At the
+checked crossing the game terrain was 5.39 m below the observed
+northbound pavement and 5.04 m below the southbound pavement.
+
+The bake carries each direction about 222 m from ground to the
+short pavement handoff at the south portal. Both tiles carry
+the complete contacts and the portals match the adjoining ground.
+The first 148 m preview resolved both crashes but exposed further
+bumps on the remaining open approach. The extension uses 26
+additional observed stations in each direction.
+
+The inferred building row overlapped the measured lanes and
+caused a collision even when the car was on the fitted pavement.
+The bake clips that volume to the travel strips and removes an
+inferred trunk from a survey-supported northbound lane footprint.
+All 666 sampled centre and lateral collision poses cleared.
+[Gerardus survey recipe](https://github.com/banshee-data/gerardus/pull/173).
+
+| Chrome keyboard drive                         |   Time | Airborne |
+| --------------------------------------------- | -----: | -------: |
+| Northbound across SR 1 and through the tunnel | 62.9 s |      0 m |
+| Southbound through the tunnel and across SR 1 | 63.4 s |   1.69 m |
+
+Both cars crossed the short pavement handoff grounded and
+finished on exterior street pavement. The maximum fitted grade is
+8.50% northbound and 7.20% southbound. The largest local dip across
+a chord of about 20 m is 6.7 cm.
+
+All 20 fixed-step emoji courses collected both pickups over 52.43 km.
+The largest driven seam step was 6.1 cm, and no driven dip exceeded
+0.5 m.
+
+- Game manifest SHA-256 `a80f8734f13ae6f037d72506e39c78942cfb8f1b4316680915452ca5ddfb0f67`.
+- Contact SHA-256 `1e0d9aa803974d450a7307423ec1b3cc521d099d52d9e1d86f99b4fd63b56d56`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  macarthur-and-south-crossing-northbound macarthur-and-south-crossing-southbound
+```
