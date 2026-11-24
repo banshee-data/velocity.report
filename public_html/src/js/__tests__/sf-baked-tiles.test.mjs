@@ -996,8 +996,8 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
   assert.equal(selected.initial_speed_mps, 50 * 0.44704);
   assert.equal(cityDriveApproach(drive, "fremont-exit"), drive);
   assert.equal(drive.sections[0].id, "bay-bridge-westbound");
-  assert.deepEqual(selected.sections.slice(6), drive.sections);
-  const [span, through, approach, firstBore, sharedBore, exit, bridge] =
+  assert.deepEqual(selected.sections.slice(7), drive.sections);
+  const [span, through, approach, merged, firstBore, sharedBore, exit, bridge] =
     selected.sections;
   assert.equal(span.id, "sf-contact/yerba-buena-upper-east-span");
   assert.equal(through.id, "sf-contact/yerba-buena-upper-east-through");
@@ -1010,7 +1010,8 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
   for (const [before, after] of [
     [span, through],
     [through, approach],
-    [approach, firstBore],
+    [approach, merged],
+    [merged, firstBore],
     [firstBore, sharedBore],
     [sharedBore, exit],
     [exit, bridge],
@@ -3168,5 +3169,67 @@ test("Minna Street remains drivable under the retained building bridge", () => {
     const car = pose(42, lateral);
     const z = groundAtWorld([tile], car.x, car.y, true);
     assert.equal(collisionAt(obstacles, car, z), "building");
+  }
+});
+
+test("the Macalla loop merges into westbound I-80 at the upper level", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["8085801c", "80858024", "8085803c"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads = [] }) =>
+      playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  const ramp = roads.get("sf-contact/macalla-road-westbound-i80-entrance");
+  const near = roads.get("yerba-buena-east-approach");
+  const through = roads.get("sf-contact/yerba-buena-upper-after-macalla-merge");
+  const tunnel = roads.get("yerba-buena-upper-tunnel");
+  assert.ok(ramp, "the signed entrance has its own playable contact");
+  for (const [before, after] of [
+    [near, through],
+    [ramp, through],
+    [through, tunnel],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  const { surface, portals } = buildBakedRoadContact(ramp);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
+  assert.ok(surface.profile.at(-1).s_m > 300);
+  assert.ok(groundAtWorld(tiles, 6710.14, 5802.76, true) < 40);
+  assert.ok(surface.heightAt(6710.14, 5802.76) > 56);
+  const index = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
+  for (let i = 1; i < ramp.points.length; i++) {
+    const [a, b, h] = ramp.points[i - 1];
+    const [x, y, z] = ramp.points[i];
+    const heading = Math.atan2(y - b, x - a);
+    assert.ok(Math.abs(z - h) / Math.hypot(x - a, y - b) < 0.12);
+    for (const lateral of [-2.25, 0, 2.25]) {
+      const car = {
+        x: x - lateral * Math.sin(heading),
+        y: y + lateral * Math.cos(heading),
+        heading,
+      };
+      assert.equal(collisionAt(index, car, z), null, `Macalla at ${x}, ${y}`);
+    }
+  }
+  const drive = JSON.parse(file("gamedrives.json")).drives[0];
+  const named = cityDriveApproach(drive, "yerba-buena-westbound");
+  for (const road of [near, through]) {
+    assert.deepEqual(
+      named.sections.find(({ id }) => id === road.id).positions,
+      road.points,
+    );
   }
 });

@@ -322,8 +322,10 @@ cases["central-to-lower-bridge"] = {
     },
   },
 };
+const macallaMerge = "yerba-buena-upper-after-macalla-merge";
 const upperFromIsland = [
   "yerba-buena-east-approach",
+  macallaMerge,
   "yerba-buena-upper-tunnel",
   "yerba-buena-upper-tunnel-west-of-merge",
   "yerba-buena-west-approach",
@@ -2054,9 +2056,25 @@ cases["island-east-westbound-entry"] = {
   finishDistance: 77,
   maxDurationMs: 120_000,
 };
+const macallaEntrance = "macalla-road-westbound-i80-entrance";
+cases["macalla-to-westbound-i80"] = {
+  owners: islandEastOwners,
+  roads: [macallaEntrance, ...upperFromIsland.slice(1, 5)],
+  groundArrival: [
+    [6620.4, 5768.0],
+    [6631.5, 5763.9],
+    [6649.0, 5759.4],
+  ],
+  groundApproachMetres: 0,
+  speed: 14,
+  speedLimits: { [macallaEntrance]: 11 },
+  finishOnDeck: true,
+  finishDistance: 77,
+  maxDurationMs: 150_000,
+};
 cases["island-east-upper-mainline"] = {
   owners: islandEastOwners,
-  roads: upperFromIsland.slice(0, 4),
+  roads: upperFromIsland.slice(0, 5),
   rollingStart: true,
   initialSpeedMps: 18,
   speed: 18,
@@ -2219,7 +2237,7 @@ cases["island-east-westbound-exit"] = {
 };
 cases["island-east-westbound-through-exit"] = {
   owners: islandEastOwners,
-  roads: [eastSpan, eastThrough, ...upperFromIsland.slice(0, 4)],
+  roads: [eastSpan, eastThrough, ...upperFromIsland.slice(0, 5)],
   rollingStart: true,
   rollingStartMetres: 5,
   speed: 18,
@@ -2227,6 +2245,37 @@ cases["island-east-westbound-through-exit"] = {
   finishOnDeck: true,
   finishDistance: 77,
   maxDurationMs: 125_000,
+};
+cases["macalla-westbound-roundtrip"] = {
+  ...cases["island-east-westbound-exit"],
+  roads: [eastSpan, westExit, macallaEntrance, ...upperFromIsland.slice(1, 5)],
+  speedLimits: { [westExit]: 9, [macallaEntrance]: 11 },
+  groundDeparture: undefined,
+  groundConnection: {
+    after: prefix + westExit,
+    via: [
+      [6631, 5767],
+      [6623, 5770],
+      [6622, 5765],
+      [6632, 5764],
+      [6642, 5762.3],
+      [6647.5, 5761.5],
+    ],
+    minimumMetres: 38,
+    turn: {
+      east: 6623,
+      north: 5770,
+      direction: 1,
+      returnVia: [
+        [6630.5, 5764.9],
+        [6641.5, 5762.6],
+        [6648.4, 5761.0],
+      ],
+    },
+  },
+  finishOnDeck: true,
+  finishDistance: 77,
+  maxDurationMs: 195_000,
 };
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
@@ -2435,6 +2484,7 @@ async function drive(
       course.speed.fill(5, Math.max(0, course.speed.length - 8));
 
       let turnPhase = 0;
+      let returnPoint = 0;
       let turnHeading;
       let reversedOnGround = false;
       // Use a three-point turn where the narrow island junction has no room
@@ -2476,7 +2526,11 @@ async function drive(
           steer = -direction;
           if (Math.abs(pose.v) < 0.12) turnPhase = 5;
         } else if (turnPhase === 5) {
-          steer = steerToward(...entrance);
+          const points = groundTurn.returnVia ?? [];
+          const [x, y] = points[returnPoint] ?? entrance;
+          if (Math.hypot(pose.x - x, pose.y - y) < 1.6)
+            returnPoint = Math.min(returnPoint + 1, points.length);
+          steer = steerToward(...(points[returnPoint] ?? entrance));
         }
         const brake = braking || Math.abs(pose.v) > limit + 0.45;
         const moving = !brake && Math.abs(pose.v) < limit;

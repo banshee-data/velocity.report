@@ -28,7 +28,8 @@ async function checkRoute() {
     for (const [id, min, max] of [
       ["sf-contact/yerba-buena-upper-east-span", 58.5, 60.6],
       ["sf-contact/yerba-buena-upper-east-through", 60.3, 61.5],
-      ["yerba-buena-east-approach", 55.9, 61.0],
+      ["yerba-buena-east-approach", 57.4, 61.0],
+      ["sf-contact/yerba-buena-upper-after-macalla-merge", 55.9, 57.6],
       ["yerba-buena-upper-tunnel", 54.1, 56.0],
       ["yerba-buena-upper-tunnel-west-of-merge", 52.2, 54.4],
       ["yerba-buena-west-approach", 52.2, 55.1],
