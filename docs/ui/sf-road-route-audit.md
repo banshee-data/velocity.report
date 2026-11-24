@@ -2082,14 +2082,19 @@ seam. Both named eastbound starts use this join. The game regression
 checks the city pavement handoff, the shared deck seam, the grade and
 more than 7 m of separation beneath the upper road. On the canonical
 package, Chrome reached the deck from Hillcrest in 26.6 s and drove
-through from the lower tunnel in 25.5 s. Both finished grounded.
+through from the lower tunnel in 25.5 s. Both finished grounded. A
+continuous run exited the lower bore, turned on Hillcrest and merged
+back onto eastbound I-80 in 67.9 s. It recorded 36.3 m of grounded
+travel during the 47.4 m city-street connection and finished grounded
+on the shared deck.
 
 - Game manifest SHA-256 `f50b36f76a7f4a4b0d2c6fb15a309b5fc3aee0775ff4652007c87012a2b05453`.
 - Contact SHA-256 `724e07c4c529ed4b480d15be570b2cbf8a6173af746d2ce2a0d838aad60bc235`.
 
 ```sh
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
-  island-east-eastbound-entry island-east-lower-mainline island-east-eastbound-exit
+  island-east-eastbound-entry island-east-lower-mainline \
+  island-east-eastbound-exit island-east-roundtrip
 ```
 
 A separate retry from Mission Bay used the corrected starting heading

@@ -2157,6 +2157,37 @@ cases["island-east-eastbound-entry"] = {
   covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
   maxDurationMs: 75_000,
 };
+cases["island-east-roundtrip"] = {
+  ...cases["island-east-eastbound-exit"],
+  roads: [
+    firstLowerBore,
+    eastExitBore,
+    lowerEastExit,
+    "yerba-buena-east-eastbound-on-ramp",
+    "yerba-buena-lower-east-after-entry",
+  ],
+  groundDeparture: undefined,
+  groundConnection: {
+    after: prefix + lowerEastExit,
+    via: [
+      [6743, 5583],
+      [6747, 5581.5],
+      [6750.5, 5584],
+      [6750.4, 5593],
+      [6748.7, 5605],
+    ],
+    minimumMetres: 29,
+  },
+  speedLimits: {
+    [eastExitBore]: 10,
+    [lowerEastExit]: 8,
+    "yerba-buena-east-eastbound-on-ramp": 10,
+  },
+  finishOnDeck: true,
+  finishDistance: 70,
+  covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
+  maxDurationMs: 120_000,
+};
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
