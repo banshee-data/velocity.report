@@ -42,20 +42,25 @@ const { chromium } = require("playwright");
     await page.goto(`${host}/sf/?city=bay-bridge`);
     await waitForStart(bridge, "bay-bridge-westbound", "rolling");
     await page.locator("#menuBtn").click();
-    const picker = page.getByLabel("Start from", { exact: true });
+    const picker = page.getByLabel("Location or scenario", { exact: true });
+    const mode = page.getByLabel("Driving mode", { exact: true });
+    async function startScenario(id) {
+      await picker.selectOption(id);
+      await page.getByRole("button", { name: "Start scenario" }).click();
+    }
     assert.equal(await picker.locator(`option[value="${bridge}"]`).count(), 1);
     assert.equal(await page.locator("#bridgeLink, #cityDriveLink").count(), 0);
-    await picker.selectOption("fremont-exit");
+    await startScenario("fremont-exit");
     await waitForStart("fremont-exit", "fremont-exit", null);
     assert.equal(new URL(page.url()).searchParams.get("city"), "bay-bridge");
-    const intersection = await picker
-      .locator(`option:not([value="${bridge}"]):not([value="fremont-exit"])`)
-      .first()
-      .getAttribute("value");
-    await picker.selectOption(intersection);
-    await waitForStart(intersection, "", "0");
     await page.locator("#menuBtn").click();
-    await picker.selectOption(bridge);
+    await mode.selectOption("free");
+    await startScenario("downtown");
+    await waitForStart("downtown", "", "0");
+    assert.equal(new URL(page.url()).searchParams.get("mode"), "free");
+    await page.locator("#menuBtn").click();
+    await mode.selectOption("auto");
+    await startScenario(bridge);
     await waitForStart(bridge, "bay-bridge-westbound", "rolling");
     assert.deepEqual(errors, []);
     console.log(
@@ -84,10 +89,19 @@ const { chromium } = require("playwright");
           assert.equal(cameraContact, "tunnel");
         }
       }
-      await page.waitForFunction(() => {
-        const { north, contact } = document.querySelector("#drive").dataset;
-        return Number(north) > 6410 && contact === "grounded";
-      });
+      await page.waitForFunction(
+        () => {
+          const { north, contact, routeComplete } =
+            document.querySelector("#drive").dataset;
+          return (
+            Number(north) > 6410 &&
+            contact === "grounded" &&
+            routeComplete === "true"
+          );
+        },
+        null,
+        { timeout: 120_000 },
+      );
       assert.deepEqual(errors, []);
       console.log(
         "The eastbound drive reached the East Span map boundary from First Street.",
