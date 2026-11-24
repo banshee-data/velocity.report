@@ -2705,3 +2705,45 @@ available.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   bosworth-southbound-entry san-jose-southbound-entry
 ```
+
+## Twenty-route regression after the Bosworth entrances
+
+The same frozen itineraries completed 19 of 20 routes on the earlier
+and new game bakes. The failing route reached the same point on
+southbound I-280 in both packages. Its replay still left the freeway
+at the old ground handoff. The updated itinerary follows the paved
+Alemany exit, crosses the Alemany overpass, and reaches the same Sweeny
+Street pickup. The change only revises the test path. The new
+[route fixture](../../tools/sf-drive/road-audit-bosworth-release-routes.json)
+records the current manifest and requires every pickup and expected
+contact exit.
+
+All 20 fixed-step drives collected both emojis. They covered 52.43 km
+in 83.8 minutes of simulated driving. The largest measured step at a
+driven seam was 6.1 cm, and no driven dip exceeded 0.5 m. The highest
+measured grade was 26.2% on Ordway Street in the US 101 to Bayview
+course. That peak is a short game-contact measurement.
+
+A separate citywide terrain screen examined 14,996 road rows.
+It flagged 392 intervals above 50% grade and 51 missing intervals.
+The screen follows ground under some raised roads, so its counts
+identify areas for review rather than direct failures of raised game
+contact.
+
+The public Chrome run also reopened cached starts offline, collected
+an emoji offline, and restored the pickup and three saved airtimes
+after reload. Both southbound entrance drives reached the live
+mainline beneath the overpasses in 57.3 s and 62.4 s. The earlier
+westbound self-drive completed the Fremont and Fourth Street stops
+and reached 115 mph on the legacy city approach, above the earlier
+55 mph test target.
+
+- Earlier manifest SHA-256 `6f884b2cd031c16ff9c93111ff4850f055e3387410f104ddd76e88bde40f531c`.
+- Current manifest SHA-256 `b3dba8fb851d10d0c237d332b732da4870e1cdf2e137c804f3a4602cc058f575`.
+- Current course fixture SHA-256 `d3e69f508b7c8cd58b96711dbe30fc5502f1aef8baaee2509d83ba5763ebdfa1`.
+
+```sh
+node tools/sf-drive/audit-road-routes.mjs \
+  --plan=tools/sf-drive/road-audit-bosworth-release-routes.json
+node tools/sf-drive/audit-road-flatness.mjs
+```
