@@ -342,6 +342,101 @@ test("US 101 viaduct contact spans both tiles and forks to Ninth Street and Octa
   assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
 });
 
+test("SoMa ramps join the correct I-80 lanes and clear the surveyed Fifth Street pavement", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["8085807c", "80858084", "808f7e2c", "808f7fd4"];
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const source = (name) => roads.get(`sf-contact/${name}`);
+  const exit = source("i80-eastbound-fourth-bryant-exit");
+  const fifth = source("i80-eastbound-fifth-bryant-entry");
+  const bryant = source("i80-eastbound-bryant-entry");
+  const harrison = source("i80-westbound-harrison-entry");
+  const fourth = source("i80-eastbound-fourth");
+  for (const [before, after] of [
+    [fourth, exit],
+    [bryant, fourth],
+    [fifth, source("i80-eastbound-lower-climb")],
+    [harrison, source("i80-westbound-interchange")],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0], after.id);
+    assert.deepEqual(before.seams.end, after.seams.start, after.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  for (const [ramp, end] of [
+    [exit, "end"],
+    [fifth, "start"],
+    [bryant, "start"],
+    [harrison, "start"],
+  ]) {
+    assert.deepEqual(ramp.groundEnds, [end]);
+    const [x, y, z] = ramp.points.at(end === "start" ? 0 : -1);
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03, ramp.id);
+  }
+
+  const indexes = tiles.map((tile, i) => buildCollisionIndex(tile, tokens[i]));
+  const { surface } = buildBakedRoadContact(fifth);
+  const [x, y] = [3516.59, 2126.49];
+  const z = surface.heightAt(x, y);
+  assert.ok(z > 5.6 && z < 5.9);
+  assert.equal(collisionAt(indexes, { x, y, z, heading: 0.79 }, z), null);
+  assert.equal(roadBake.overheadBuildingPatches["8085807c"], 1);
+});
+
+test("a narrow ramp tapers into the shared cross-section of a wider deck", () => {
+  const seam = { bearing: 0, width: 12 };
+  const ramp = {
+    id: "narrow-ramp",
+    kind: "ramp",
+    width: 8,
+    owners: ["8085807c", "8085807c"],
+    points: Array.from({ length: 21 }, (_, i) => [i * 2, 0, 10]),
+    seams: { end: seam },
+    widthTransitionMetres: { end: 24 },
+  };
+  const deck = {
+    ...ramp,
+    id: "wide-deck",
+    kind: "bridge_deck",
+    width: 12,
+    points: ramp.points.map(([x, y, z]) => [x + 40, y, z]),
+    seams: { start: seam },
+    widthTransitionMetres: {},
+  };
+  const { surface } = buildBakedRoadContact(ramp);
+  const vertices = surface.contact.vertices;
+  assert.equal(vertices[16][1], 4);
+  assert.equal(vertices[28][1], 5);
+  assert.equal(vertices.at(-2)[1], 6);
+  assert.deepEqual(
+    vertices.slice(-2),
+    buildBakedRoadContact(deck).surface.contact.vertices.slice(0, 2),
+  );
+  assert.equal(
+    buildBakedRoadContact({ ...ramp, widthTransitionMetres: {} }),
+    null,
+  );
+  assert.equal(
+    buildBakedRoadContact({ ...ramp, widthTransitionMetres: { start: 24 } }),
+    null,
+  );
+  assert.equal(
+    buildBakedRoadContact({ ...ramp, widthTransitionMetres: { end: 41 } }),
+    null,
+  );
+});
+
 test("tiled right-only guard rail bounces on the right and leaves the left edge open", () => {
   const road = {
     id: "test-highway-exit",
