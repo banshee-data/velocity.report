@@ -526,6 +526,7 @@ const us101Potrero = {
 cases["alemany-to-potrero-exit"] = {
   ...us101Potrero,
   roads: [...us101Potrero.roads, "us101-north-potrero-exit"],
+  finishOnDeck: false,
   speedLimits: { ...us101Potrero.speedLimits, "us101-north-potrero-exit": 11 },
   laneGuides: {
     ...us101Potrero.laneGuides,
