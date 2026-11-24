@@ -2046,6 +2046,45 @@ cases["island-east-upper-mainline"] = {
   maxDurationMs: 120_000,
 };
 
+const potreroCrossingTiles = ["808f7e34", "808f7e4c"];
+for (const reverse of [false, true]) {
+  cases[reverse ? "potrero-23rd-eastbound" : "potrero-23rd-westbound"] = {
+    owners: potreroCrossingTiles,
+    roads: ["potrero-23rd-us101-overpass"],
+    reverse,
+    groundApproachMetres: 13,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [
+          [3310, -607.31, 29.9],
+          [3335, -605.4, 30],
+        ]
+      : [
+          [3205, -615.35, 26.8],
+          [3176, -617.57, 26.5],
+        ],
+    speed: 8,
+    maxDurationMs: 65000,
+  };
+}
+for (const [direction, road, start, end] of [
+  ["northbound", "us101-north-potrero-approach", 130, 255],
+  ["southbound", "us101-south-potrero-main", 1350, 1495],
+]) {
+  cases[`potrero-23rd-under-${direction}`] = {
+    owners: potreroCrossingTiles,
+    roads: [road],
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 15,
+    speed: 15,
+    finishOnDeck: true,
+    finishDistance: end,
+    covered: [prefix + road],
+    maxDurationMs: 65000,
+  };
+}
+
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];

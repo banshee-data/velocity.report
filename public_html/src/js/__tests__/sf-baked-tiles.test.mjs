@@ -786,6 +786,36 @@ test("the east island ramp joins the upper bore without changing the through tun
   }
 });
 
+test("23rd Street crosses both US 101 carriageways at its own level", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e4c.json.gz")));
+  const other = JSON.parse(gunzipSync(file("tiles/808f7e34.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/potrero-23rd-us101-overpass",
+  );
+  const { surface } = buildBakedRoadContact(road);
+  assert.deepEqual(road.groundEnds, ["start", "end"]);
+  for (const [x, y, z] of [road.points[0], road.points.at(-1)]) {
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.005);
+  }
+  for (const id of [
+    "sf-contact/us101-north-potrero-approach",
+    "sf-contact/us101-south-potrero-main",
+  ]) {
+    const lower = tile.playableRoads.find((entry) => entry.id === id);
+    assert.deepEqual(
+      lower,
+      other.playableRoads.find((entry) => entry.id === id),
+    );
+    const [x, y, z] = lower.points.reduce((best, point) =>
+      Math.abs(point[1] + 611) < Math.abs(best[1] + 611) ? point : best,
+    );
+    const level = surface.heightAt(x, y);
+    assert.ok(level - z > 6.5 && level - z < 8, id);
+  }
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  assert.ok(roadBake.coveredGroundRoadPatches[tile.t]);
+});
+
 test("Evans Avenue retains its measured grade across the rebaked terrain strip", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808f7fac.json.gz")));
   const point = [3797.04, -1228.795];
