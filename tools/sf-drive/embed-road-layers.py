@@ -177,28 +177,29 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             or seam_a != seam_b
         ):
             raise ValueError(f"Open playable join {transition['id']}")
-    building_patches = product.get("overhead_building_patches", {})
-    road_patches = product.get("covered_ground_road_patches", {})
     base_tiles = {tile["t"] for tile in tiles}
-    # A footprint can reach the road from an adjacent tile.
-    if not building_patches.keys() <= base_tiles:
-        raise ValueError("Overhead building patches must name base tiles")
-    if not road_patches.keys() <= base_tiles:
-        raise ValueError("Covered ground road patches must name base tiles")
     release = {
         "playableSha256": sha256,
         "playableTransitions": product["transitions"],
         "playableReplaces": sorted(replaced),
     }
-    if building_patches:
-        release["overheadBuildingPatches"] = {
-            token: len(records) for token, records in building_patches.items()
-        }
-    if road_patches:
-        release["coveredGroundRoadPatches"] = {
-            token: len(records) for token, records in road_patches.items()
-        }
-    return by_tile, building_patches, road_patches, release
+    by_tile_patches = defaultdict(dict)
+    for field, product_key, manifest_key in (
+        ("b", "overhead_building_patches", "overheadBuildingPatches"),
+        ("r", "covered_ground_road_patches", "coveredGroundRoadPatches"),
+        ("tr", "inferred_tree_patches", "inferredTreePatches"),
+    ):
+        patches = product.get(product_key, {})
+        # Scenery from an adjacent tile can reach the road.
+        if not patches.keys() <= base_tiles:
+            raise ValueError(f"{product_key} must name base tiles")
+        if patches:
+            release[manifest_key] = {
+                token: len(records) for token, records in patches.items()
+            }
+            for token, records in patches.items():
+                by_tile_patches[token][field] = records
+    return by_tile, by_tile_patches, release
 
 
 def with_drive_approaches(drives, path, expected_sha256):
@@ -292,12 +293,10 @@ def bake(
             for token in sorted(tokens):
                 by_tile[token].append(run)
             run_count += 1
-    playable_tiles, overhead_patches, road_patches, playable_index = ({}, {}, {}, {})
+    playable_tiles, tile_patches, playable_index = {}, {}, {}
     if playable is not None:
-        playable_tiles, overhead_patches, road_patches, playable_index = (
-            playable_product(
-                playable, playable_sha256, digest(raw_base), roads["revision"], manifest
-            )
+        playable_tiles, tile_patches, playable_index = playable_product(
+            playable, playable_sha256, digest(raw_base), roads["revision"], manifest
         )
     tiles_out = output / "tiles"
     tiles_out.mkdir(parents=True)
@@ -308,10 +307,7 @@ def bake(
         if digest(raw) != roads["tiles"][token]["base_tile_gzip_sha256"]:
             raise ValueError(f"Base tile checksum differs for {token}")
         payload = raw
-        if any(
-            token in group
-            for group in (by_tile, playable_tiles, overhead_patches, road_patches)
-        ):
+        if any(token in group for group in (by_tile, playable_tiles, tile_patches)):
             content = json.loads(gzip.decompress(raw))
             if token in by_tile:
                 content["raisedRoads"] = [
@@ -320,10 +316,8 @@ def bake(
                 ]
             if token in playable_tiles:
                 content["playableRoads"] = playable_tiles[token]
-            if token in overhead_patches:
-                content["b"] = patch_source_rows(content["b"], overhead_patches[token])
-            if token in road_patches:
-                content["r"] = patch_source_rows(content["r"], road_patches[token])
+            for field, patches in tile_patches.get(token, {}).items():
+                content[field] = patch_source_rows(content[field], patches)
             payload = gzip.compress(encoded(content), compresslevel=9, mtime=0)
         (tiles_out / name).write_bytes(payload)
         tile["bytes"] = len(payload)

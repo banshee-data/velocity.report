@@ -31,6 +31,7 @@ const cases = {
       "presidio-nb-exit",
     ],
     speed: 22,
+    forks: [["presidio-nb-viaduct", "presidio-nb-exit", -1.65]],
   },
   southbound: {
     roads: [
@@ -48,6 +49,19 @@ const cases = {
   "toll-westbound": { roads: ["toll-plaza-tunnel"], speed: 8, reverse: true },
 };
 const defaultCases = Object.keys(cases);
+const doyleNorthExit = "presidio-doyle-northbound-exit";
+cases["presidio-doyle-northbound"] = {
+  ...cases.northbound,
+  roads: [...cases.northbound.roads.slice(0, -1), doyleNorthExit],
+  forks: [["presidio-nb-viaduct", doyleNorthExit, 1.65]],
+};
+cases["presidio-doyle-southbound"] = {
+  ...cases.southbound,
+  roads: [
+    "presidio-doyle-southbound-entry",
+    ...cases.southbound.roads.slice(1),
+  ],
+};
 const i280Approach = ["i280-fifth-south-entry", "i280-king-to-mariposa"];
 const dogpatchOwners = [
   ...i280Owners,
