@@ -2203,3 +2203,11 @@ preserve the existing route past Fifth and Howard.
 
 - Game manifest SHA-256 `705747ae7596eb487cad7f8744af8d9627feb5fb8504ffa50e74d0e20feb56c4`.
 - Contact SHA-256 `dacfc7e00883cb32a76bf25457520ed8a3240abc92d839bfdb249bbbeb0c690e`.
+
+Chrome repeated Chinatown south via Stockton using the same two emoji
+targets and traced 3.11 km in 328.6 s. It completed the Stockton bore and
+the Minna passage, collected both emojis, and finished grounded. The
+highest driven sampled grade was 38.9% near (1898, 4021), well before
+Minna. The route had no sampled dip over 0.5 m. Including the earlier
+Mission Bay retry, 14 of the original 20 emoji pairs have now finished
+at least once.
