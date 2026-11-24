@@ -2128,9 +2128,12 @@ test("the Branch East exit and northbound I-280 keep their own road levels", () 
   ]) {
     assert.deepEqual(road, matching(tiles[1], slug));
   }
-  for (const road of [bore, mainline, viaduct]) {
+  const shared = tiles[1].playableRoads.find(
+    ({ id }) => id === "sf-contact/san-jose-avenue-shared-deck",
+  );
+  for (const road of [bore, mainline, viaduct, shared]) {
     const { portals } = buildBakedRoadContact(road);
-    assert.equal(portals.length, road === mainline ? 1 : 2);
+    assert.equal(portals.length, road === viaduct ? 0 : 1);
     for (const { x, y, z } of portals)
       assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
   }
@@ -3987,4 +3990,75 @@ test("both Bosworth entrances join southbound I-280 below the San Jose Avenue de
       );
     }
   }
+});
+
+test("Monterey Boulevard and the Branch East exit share one upper deck into San Jose Avenue", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7e64", "808f7e7c"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) =>
+      (tile.playableRoads ?? []).map((road) => [road.id, road]),
+    ),
+  );
+  const contact = (name) => roads.get(`sf-contact/${name}`);
+  const monterey = contact("monterey-san-jose-approach");
+  const exit = contact("branch-east-san-jose-viaduct");
+  const bore = contact("branch-east-off-ramp");
+  const shared = contact("san-jose-avenue-shared-deck");
+
+  assert.deepEqual(monterey.groundEnds, ["start"]);
+  assert.deepEqual(bore.groundEnds, ["start"]);
+  assert.deepEqual(exit.groundEnds, []);
+  assert.deepEqual(shared.groundEnds, ["end"]);
+  assert.deepEqual(bore.points.at(-1), exit.points[0]);
+  assert.deepEqual(bore.seams.end, exit.seams.start);
+  assert.ok(
+    roadBake.playableTransitions.some(
+      (link) =>
+        link.from === `${bore.id}:end` &&
+        link.to === `${exit.id}:start` &&
+        link.direction === "forward",
+    ),
+  );
+  for (const [approach, direction] of [
+    [monterey, "both"],
+    [exit, "forward"],
+  ]) {
+    assert.deepEqual(approach.points.at(-1), shared.points[0]);
+    assert.deepEqual(approach.seams.end, shared.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (link) =>
+          link.from === `${approach.id}:end` &&
+          link.to === `${shared.id}:start` &&
+          link.direction === direction,
+      ),
+    );
+  }
+  for (const tile of tiles) {
+    assert.deepEqual(
+      tile.playableRoads.find(({ id }) => id === monterey.id),
+      monterey,
+    );
+  }
+
+  const upper = buildBakedRoadContact(monterey).surface;
+  for (const [x, y, lowerName, minClearance] of [
+    [493.47, -3071.69, "bosworth-southbound-entry", 9.8],
+    [552.27, -3090.69, "branch-east-off-ramp", 7.2],
+  ]) {
+    const lower = buildBakedRoadContact(contact(lowerName)).surface;
+    const ground = lower.heightAt(x, y);
+    assert.ok(ground > 48 && ground < 51);
+    assert.ok(upper.heightAt(x, y) - ground > minClearance);
+  }
+
+  const departure = buildBakedRoadContact(shared).portals[0];
+  assert.ok(
+    Math.abs(
+      groundAtWorld(tiles, departure.x, departure.y, true) - departure.z,
+    ) < 0.02,
+  );
 });

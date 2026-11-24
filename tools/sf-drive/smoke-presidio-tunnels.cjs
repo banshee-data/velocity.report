@@ -840,10 +840,16 @@ for (const entrance of [
     maxDurationMs: 125_000,
   };
 }
+const sanJoseShared = "san-jose-avenue-shared-deck";
+const sanJoseExit = "branch-east-san-jose-viaduct";
+const montereyApproach = "monterey-san-jose-approach";
+const sanJoseOwners = ["808f7e64", "808f7e7c", "808f7e8c"];
 cases["branch-east-ramp"] = {
-  roads: ["branch-east-off-ramp"],
-  owners: ["808f7e7c", "808f7e64"],
-  speed: 15,
+  roads: ["branch-east-off-ramp", sanJoseExit, sanJoseShared],
+  owners: sanJoseOwners,
+  speed: 13,
+  maxAirborneMetres: 2,
+  maxDurationMs: 115_000,
 };
 cases["branch-east-upper"] = {
   roads: ["branch-east-i280-northbound", "i280-north-monterey-merge"],
@@ -853,10 +859,23 @@ cases["branch-east-upper"] = {
   speed: 18,
 };
 cases["branch-east-san-jose"] = {
-  roads: ["branch-east-san-jose-viaduct"],
-  owners: ["808f7e64"],
-  speed: 15,
+  roads: [sanJoseExit, sanJoseShared],
+  owners: sanJoseOwners,
+  speed: 13,
+  rollingStart: true,
+  initialSpeedMps: 13,
 };
+for (const reverse of [false, true]) {
+  const roads = [montereyApproach, sanJoseShared];
+  cases[reverse ? "san-jose-to-monterey" : "monterey-to-san-jose"] = {
+    roads: reverse ? roads.toReversed() : roads,
+    owners: sanJoseOwners,
+    reverse,
+    speed: 11.5,
+    groundApproachMetres: reverse ? 5 : 9,
+    maxAirborneMetres: 2,
+  };
+}
 for (const direction of ["northbound", "southbound"]) {
   const northbound = direction === "northbound";
   const tunnel = "macarthur-tunnel";
@@ -3021,6 +3040,7 @@ async function drive(
       let groundPose;
       let groundMetres = 0;
       let groundedMetres = 0;
+      let airborneMetres = 0;
       return new Promise((resolve) => {
         function finish(status) {
           for (const code of held) key(code, false);
@@ -3033,6 +3053,7 @@ async function drive(
             lastSupported,
             groundMetres: Math.round(groundMetres * 10) / 10,
             groundedMetres: Math.round(groundedMetres * 10) / 10,
+            airborneMetres: Math.round(airborneMetres * 100) / 100,
             ...(groundTurn && { reversedOnGround }),
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
@@ -3043,6 +3064,7 @@ async function drive(
           const d = canvas.dataset;
           if (d.replay === "crash") return finish("crashed");
           const surfaceId = d.surfaceId || "";
+          const previousPose = pose;
           pose = {
             x: Number(d.east),
             y: Number(d.north),
@@ -3053,6 +3075,12 @@ async function drive(
             camera: d.cameraContact,
             grounded: d.contact === "grounded",
           };
+          if (previousPose && d.contact === "airborne") {
+            airborneMetres += Math.hypot(
+              pose.x - previousPose.x,
+              pose.y - previousPose.y,
+            );
+          }
           maxSpeed = Math.max(maxSpeed, pose.v);
           if (surfaceId && !ids.includes(surfaceId))
             return finish("wrong road");
@@ -3197,6 +3225,7 @@ async function main() {
         finishOnDeck = false,
         finishDistance,
         maxDurationMs = 460_000,
+        maxAirborneMetres,
         entranceTimeoutMs = 20_000,
         rollingStart = false,
         initialSpeedMps = 50 * 0.44704,
@@ -3433,6 +3462,12 @@ async function main() {
         );
         assert.equal(result.exit.camera, cases[name].exitCamera ?? "exterior");
         assert.ok(result.exit.grounded);
+        if (maxAirborneMetres !== undefined) {
+          assert.ok(
+            result.airborneMetres <= maxAirborneMetres,
+            `Excessive airborne travel: ${result.airborneMetres} m`,
+          );
+        }
         if (groundArrival) {
           assert.ok(result.groundMetres > 20);
           assert.ok(result.groundedMetres > 18);
