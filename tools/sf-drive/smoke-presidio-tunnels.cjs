@@ -2319,6 +2319,20 @@ cases["golden-gate-marin-to-presidio"] = {
   finishDistance: 175,
   maxDurationMs: 265_000,
 };
+for (const street of ["richland", "highland"]) {
+  for (const [direction, reverse, approach] of [
+    ["eastbound", false, 2.5],
+    ["westbound", true, 7],
+  ]) {
+    cases[`bernal-cut-${street}-${direction}`] = {
+      owners: ["808f7e64"],
+      roads: [`${street}-avenue-bridge`],
+      reverse,
+      groundApproachMetres: approach,
+      speed: 8,
+    };
+  }
+}
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
