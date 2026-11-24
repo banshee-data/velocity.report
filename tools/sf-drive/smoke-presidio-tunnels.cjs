@@ -1135,6 +1135,150 @@ cases["dogpatch-to-sixth-northbound"] = {
   ],
 };
 
+const silverBayshore = "us101-south-silver-through";
+const bayshoreFromSilver = "us101-south-silver-to-industrial";
+const bayshoreToSilliman = "us101-south-industrial-to-silliman";
+const sillimanOff = "us101-south-silliman-exit";
+const sillimanOn = "us101-south-silliman-entry";
+const industrialOn = "us101-south-industrial-entry";
+const paulApproach = "us101-south-paul-approach";
+const sanBrunoOff = "us101-south-san-bruno-exit";
+const paulThrough = "us101-south-paul-mainline";
+const sillimanThrough = "us101-south-silliman-mainline";
+const bayshoreApproach = [
+  silverBayshore,
+  bayshoreFromSilver,
+  bayshoreToSilliman,
+];
+const bayshoreSouth = ["us101-south-silliman-to-paul", paulApproach];
+const bayshoreOwners = [
+  ...new Set([...us101Alemany.owners, "808f7ee4", "808f7f24"]),
+];
+const bayshore = {
+  speed: 18,
+  owners: bayshoreOwners,
+  laneGuides: {
+    ...alemanyLaneGuides,
+    [bayshoreFromSilver]: {
+      clearance: [
+        { offset: 2.8, station: 17, length: 17 },
+        { offset: -4.85, station: 149, length: 48 },
+        { offset: 1.4, station: 290, length: 25 },
+        { offset: 1.5, station: 449, length: 24 },
+      ],
+    },
+    [industrialOn]: {
+      clearance: [
+        { offset: 1, station: 23, length: 20 },
+        { offset: -0.9, station: 338, length: 18 },
+      ],
+    },
+    [sillimanOff]: {
+      clearance: [
+        { offset: -1.8, station: 50, length: 23 },
+        { offset: 0.7, station: 96, length: 18 },
+      ],
+    },
+    [paulThrough]: {
+      clearance: [
+        { offset: -1.4, station: 165, length: 24 },
+        { offset: 1.4, station: 244, length: 24 },
+      ],
+    },
+  },
+  speedLimits: {
+    [industrialOn]: 12,
+    [sillimanOff]: 12,
+    [sillimanOn]: 12,
+    [sanBrunoOff]: 12,
+    [bayshoreFromSilver]: 15,
+  },
+};
+cases["silver-to-silliman"] = {
+  ...bayshore,
+  roads: [...bayshoreApproach, sillimanOff],
+  rollingStart: true,
+  initialSpeedMps: 16,
+  forks: [
+    [silverBayshore, bayshoreFromSilver, 2.2],
+    [bayshoreToSilliman, sillimanOff, -2],
+  ],
+};
+cases["industrial-to-silliman"] = {
+  ...bayshore,
+  roads: [industrialOn, bayshoreToSilliman, sillimanOff],
+  groundApproachMetres: 3.5,
+  forks: [[bayshoreToSilliman, sillimanOff, -2]],
+};
+cases["silliman-to-san-bruno"] = {
+  ...bayshore,
+  roads: [sillimanOn, ...bayshoreSouth, sanBrunoOff],
+  forks: [[paulApproach, sanBrunoOff, -2]],
+};
+cases["silver-through-san-bruno"] = {
+  ...cases["silver-to-silliman"],
+  roads: [...bayshoreApproach, sillimanThrough, ...bayshoreSouth, paulThrough],
+  forks: [
+    [silverBayshore, bayshoreFromSilver, 2.2],
+    [bayshoreToSilliman, sillimanThrough, 2],
+    [paulApproach, paulThrough, 2],
+  ],
+};
+for (const name of [
+  "us101-south-to-i280-through-alemany",
+  "us101-alemany-i280-roundtrip",
+]) {
+  const route = cases[name];
+  route.owners = bayshoreOwners;
+  route.forks = [
+    [silverBayshore, us101SouthSpine.at(-1), -2.2],
+    ...route.forks,
+  ];
+}
+
+cases["silliman-roundtrip"] = {
+  ...cases["silver-to-silliman"],
+  roads: [
+    ...bayshoreApproach,
+    sillimanOff,
+    sillimanOn,
+    ...bayshoreSouth,
+    sanBrunoOff,
+  ],
+  forks: [
+    ...cases["silver-to-silliman"].forks,
+    [paulApproach, sanBrunoOff, -2],
+  ],
+  connectByGround: true,
+  groundConnection: {
+    after: "sf-contact/" + sillimanOff,
+    minimumMetres: 430,
+    via: [
+      [3075.9, -3194.9],
+      [3068, -3195.5],
+      [3001.4, -3216.8],
+      [2995.7, -3217.6],
+      [2991.6, -3215.5],
+      [2988.8, -3210.7],
+      [2986.8, -3204.4],
+      [2950.7, -3102.9],
+      [2949.8, -3097.5],
+      [2951.8, -3092.5],
+      [2956, -3087.7],
+      [2960, -3086.2],
+      [3020, -3062.8],
+      [3026, -3061.5],
+      [3030.4, -3064.1],
+      [3034, -3071],
+      [3073, -3177.4],
+      [3075, -3183],
+      [3076, -3187],
+      [3076.6, -3189.5],
+      [3077.7, -3191.0],
+    ],
+  },
+};
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
@@ -1493,6 +1637,7 @@ async function main() {
         rollingStart = false,
         initialSpeedMps = 50 * 0.44704,
         rollingStartMetres,
+        groundApproachMetres,
         reverseRoads = [],
         laneGuides = {},
         speedLimits = {},
@@ -1573,7 +1718,9 @@ async function main() {
       assert.ok(startIndex >= 0 && startIndex < first.length - 1);
       const [start, next] = first.slice(startIndex, startIndex + 2);
       const heading = Math.atan2(next[1] - start[1], next[0] - start[0]);
-      const approach = rollingStart ? 0 : speed > 8 ? 11 : 7;
+      const approach = rollingStart
+        ? 0
+        : (groundApproachMetres ?? (speed > 8 ? 11 : 7));
       const checkpoint = {
         x: start[0] - approach * Math.cos(heading),
         y: start[1] - approach * Math.sin(heading),
