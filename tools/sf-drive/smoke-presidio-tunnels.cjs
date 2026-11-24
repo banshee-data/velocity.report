@@ -189,11 +189,23 @@ for (const [name, entry] of [
       "bay-bridge-eastbound-lower",
       "yerba-buena-lower-west-approach",
       "yerba-buena-lower-tunnel",
+      "yerba-buena-lower-tunnel-east-of-exit",
       "yerba-buena-lower-east-approach",
     ],
     owners: lowerBridgeOwners,
     speed: 22,
-    speedLimits: { [entry]: 10, "yerba-buena-lower-tunnel": 17 },
+    speedLimits: {
+      [entry]: 10,
+      "yerba-buena-lower-tunnel": 17,
+      "yerba-buena-lower-tunnel-east-of-exit": 17,
+    },
+    forks: [
+      [
+        "yerba-buena-lower-tunnel",
+        "yerba-buena-lower-tunnel-east-of-exit",
+        1.5,
+      ],
+    ],
     finishOnDeck: true,
   };
 }
@@ -287,9 +299,14 @@ cases["central-to-lower-bridge"] = {
     "bay-bridge-eastbound-lower",
     "yerba-buena-lower-west-approach",
     "yerba-buena-lower-tunnel",
+    "yerba-buena-lower-tunnel-east-of-exit",
     "yerba-buena-lower-east-approach",
   ],
   maxDurationMs: 660_000,
+  forks: [
+    ...cases["central-van-ness-entry"].forks,
+    ["yerba-buena-lower-tunnel", "yerba-buena-lower-tunnel-east-of-exit", 1.5],
+  ],
   laneGuides: {
     ...cases["central-van-ness-entry"].laneGuides,
     "i80-eastbound-soma": {
@@ -2085,6 +2102,40 @@ for (const [direction, road, start, end] of [
   };
 }
 
+const lowerEastOwners = ["80858024", "8085803c"];
+const firstLowerBore = "yerba-buena-lower-tunnel";
+const eastExitBore = "yerba-buena-east-eastbound-exit-tunnel";
+const lowerEastExit = "yerba-buena-east-eastbound-off-ramp";
+const afterLowerExit = "yerba-buena-lower-tunnel-east-of-exit";
+cases["island-east-eastbound-exit"] = {
+  owners: lowerEastOwners,
+  roads: [firstLowerBore, eastExitBore, lowerEastExit],
+  rollingStart: true,
+  rollingStartMetres: 96,
+  initialSpeedMps: 14,
+  speed: 12,
+  speedLimits: { [eastExitBore]: 10, [lowerEastExit]: 8 },
+  forks: [[firstLowerBore, eastExitBore, -2.4]],
+  connectByGround: true,
+  groundDeparture: [
+    [6743.1, 5580, 47.9],
+    [6744.1, 5560, 47.8],
+  ],
+  maxDurationMs: 115_000,
+};
+cases["island-east-lower-mainline"] = {
+  owners: lowerEastOwners,
+  roads: [firstLowerBore, afterLowerExit, "yerba-buena-lower-east-approach"],
+  rollingStart: true,
+  rollingStartMetres: 96,
+  initialSpeedMps: 16,
+  speed: 16,
+  forks: [[firstLowerBore, afterLowerExit, 1.5]],
+  finishOnDeck: true,
+  finishDistance: 75,
+  exitCamera: "covered",
+  maxDurationMs: 115_000,
+};
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];

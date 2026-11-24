@@ -1,0 +1,1 @@
+- Baked the [lower eastbound Yerba Buena exit](../../ui/sf-road-route-audit.md#lower-eastbound-yerba-buena-exit), verified the Hillcrest handoff and the lower through deck in Chrome, and kept the same tunnel geometry for the First Street and Essex starts.

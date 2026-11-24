@@ -1960,3 +1960,39 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   potrero-23rd-westbound potrero-23rd-eastbound \
   potrero-23rd-under-northbound potrero-23rd-under-southbound
 ```
+
+## Lower eastbound Yerba Buena exit
+
+The lower eastbound branch now leaves the lower tunnel for Hillcrest Road.
+The game contact uses 56 m of inferred alignment inside the survey shadow,
+followed by returns from the lower ramp. It follows the measured lane past
+the inventory endpoint to the first pavement handoff with matching elevation.
+The handoff is at 48.30 m NAVD88. The 70 m exit bore and 144 m exposed ramp
+preserve the lower level alongside the upper I-80 carriageway. Their
+largest absolute grades are 9.85% and 6.45% respectively.
+
+The lower through route retains both upper clearance and full continuity
+through the split. The first tunnel and its east continuation share a
+single seam. The wall openings follow the overlap between the diverging
+contact strips. Both First Street and Essex use the same split in their
+named drives.
+
+Chrome took the lower exit and drove onwards on Hillcrest Road in 38.4 s.
+The independent lower-deck through check finished in 15.6 s. Both finished
+grounded. The simulation and mesh tests check the two legal joins, clear
+eyelines and ground at the Hillcrest handoff.
+
+The citywide ground screen on the 23rd Street release sampled 1,190,791
+supported intervals and found 445 over 50% grade. There were 450 on the
+immediately preceding release. Fifty-one intervals on both revisions had
+missing ground. This screen follows the ground grid and can flag a normal
+change at a stacked crossing. The driven route and the selected baked
+surface establish which level needs correction.
+
+- Game manifest SHA-256 `64a72513acc46128fc1ebf4e7265ed9e86a53f363aed488293bf01a8db73ebba`.
+- Contact SHA-256 `2bd80f52352d2493e85d19c8a1681ae1efd525d3afb0888e3093d522dc382dc2`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-east-eastbound-exit island-east-lower-mainline
+```
