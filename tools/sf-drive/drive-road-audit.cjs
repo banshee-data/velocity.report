@@ -61,9 +61,11 @@ async function drive(page, course, key) {
             car.contact === "grounded" && before.contact === "grounded";
           while (step > 0 && grounded.length <= distance + step) {
             const fraction = (grounded.length - distance) / step;
-            grounded.push(
-              onRoad ? before.z + fraction * (car.z - before.z) : null,
-            );
+            grounded.push({
+              x: before.x + fraction * (car.x - before.x),
+              y: before.y + fraction * (car.y - before.y),
+              z: onRoad ? before.z + fraction * (car.z - before.z) : null,
+            });
           }
           distance += step;
           if (step > 0.005) motionTime = now;
@@ -129,17 +131,29 @@ async function drive(page, course, key) {
       for (const code of held) press(code, false);
       const grades = [];
       let deepestDip = 0;
+      let steepest = 0;
+      let dipAt = null;
+      let steepestAt = null;
       let dips = 0;
       for (let i = 1; i < grounded.length; i++) {
-        if (grounded[i - 1] === null || grounded[i] === null) continue;
-        grades.push(Math.abs(grounded[i] - grounded[i - 1]) * 100);
+        const { x, y, z } = grounded[i];
+        const prior = grounded[i - 1].z;
+        if (z === null || prior === null) continue;
+        const grade = Math.abs(z - prior) * 100;
+        grades.push(grade);
+        if (grade > steepest) {
+          steepest = grade;
+          steepestAt = [round(x), round(y)];
+        }
         if (i < 4 || i + 4 >= grounded.length) continue;
         const window = grounded.slice(i - 4, i + 5);
-        if (window.includes(null)) continue;
-        const depth = (window[0] + window[8]) / 2 - grounded[i];
-        if (depth > 0.5) {
-          dips++;
-          deepestDip = Math.max(depth, deepestDip);
+        if (window.some((sample) => sample.z === null)) continue;
+        const depth = (window[0].z + window[8].z) / 2 - z;
+        if (depth <= 0.5) continue;
+        dips++;
+        if (depth > deepestDip) {
+          deepestDip = depth;
+          dipAt = [round(x), round(y)];
         }
       }
       grades.sort((a, b) => a - b);
@@ -158,6 +172,8 @@ async function drive(page, course, key) {
         peakGrade: grades.length ? round(grades.at(-1)) : null,
         dips,
         deepestDip: round(deepestDip),
+        dipAt,
+        steepestAt,
         surfaces: [...surfaces],
         enclosed: [...enclosed],
         stop: car,
@@ -221,7 +237,22 @@ async function main() {
           },
           { key, checkpoint },
         );
-        await page.goto(`${origin}/sf/?at=downtown`);
+        const manifestUrl = new URL("/sf/tiles/manifest.json", origin).href;
+        const [observed] = await Promise.all([
+          page.waitForResponse(manifestUrl),
+          page.goto(`${origin}/sf/?at=downtown`),
+        ]);
+        assert.ok(
+          observed.ok(),
+          "The browser could not load the course manifest",
+        );
+        assert.equal(
+          createHash("sha256")
+            .update(await observed.body())
+            .digest("hex"),
+          sha,
+          "The deployed game switched bakes before this course started",
+        );
         const canvas = page.locator('#drive[data-contact="grounded"]');
         await canvas.waitFor({ timeout: 60_000 });
         await canvas.focus();

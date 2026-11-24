@@ -1921,3 +1921,42 @@ node tools/sf-drive/audit-road-routes.mjs --plan=/tmp/road-audit-plan.json \
 SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
   /tmp/road-audit-courses.ndjson
 ```
+
+## 23rd Street over US 101 in Potrero
+
+The cross-city course flagged a second drop on 23rd Street. At world
+position (3264.1, −610.8), the coarse terrain was 21.7 m NAVD88 and the
+observed 23rd Street pavement was 29.1 m. The cut contains both US 101
+carriageways. The new 71 m contact strip follows the upper pavement and
+joins city streets at both ends. The lower carriageways keep their
+existing contact. At sampled vehicle positions beside the crossing, the
+road levels are 7.53 m apart northbound and 6.75 m apart southbound. The
+largest grade on the new strip is 6.9%.
+
+| Chrome drive      | Elapsed | Finish                                |
+| ----------------- | ------: | ------------------------------------- |
+| 23rd St westbound |  19.2 s | Grounded on city pavement beyond deck |
+| 23rd St eastbound |  21.2 s | Grounded on city pavement beyond deck |
+| US 101 northbound |   6.7 s | Grounded on the lower carriageway     |
+| US 101 southbound |  10.3 s | Grounded on the lower carriageway     |
+
+The ground-following path also flagged a dip near Alemany Boulevard.
+The Mission Bay to Alemany Chrome run used the existing upper road there
+and recorded no dip deeper than 0.5 m. The lower terrain sample explains
+why the planned path alone can flag a dip at a stacked crossing.
+
+The browser audit now records the locations of the largest driven grade
+and dip. A separate baseline Dogpatch drive recorded a 0.90 m depression
+at Evans Avenue, near (3777.5, −1177.3), before that terrain correction.
+The course runner checks the manifest Chrome loaded at the start of each
+route so a site deployment does not silently change a batch's revision.
+
+- Game manifest SHA-256 `e06d3eb6ef17c50ecbb6a0eb7725dd1416c5c776828e4a2ed6d75f71151cc3e6`.
+- Contact SHA-256 `5cbc34edf34f2bca11d040daa88945f3282ae49b768eac7aac0ed732d93adbe4`.
+- Aerial EPT node receipt `940858ef1d8ff2204e098b10c55cc85c0644611f5caf5f2ff13c8659ffee5b1a`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  potrero-23rd-westbound potrero-23rd-eastbound \
+  potrero-23rd-under-northbound potrero-23rd-under-southbound
+```
