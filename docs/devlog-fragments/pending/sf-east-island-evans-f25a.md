@@ -1,0 +1,1 @@
+- Baked the east Yerba Buena westbound entrance and corrected a survey-confirmed false dip on Evans Avenue. Added a [20-course emoji audit](../../ui/sf-road-route-audit.md#cross-city-emoji-routes-and-the-east-yerba-buena-entrance) with keyboard and fixed-step measurements.

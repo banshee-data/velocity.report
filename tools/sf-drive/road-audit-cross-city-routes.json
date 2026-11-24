@@ -1,0 +1,230 @@
+{
+  "manifestSha256": "d5b7a53795a748fb7a69e5473233da3e343d3410f49bf59f7a73b0ceddfe3e8f",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "expectCompletion": false,
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "chinatown-stockton-north",
+      "from": "🏙️",
+      "to": "🍫",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "entry": [2910.2, 3267.8, "Stockton St"],
+        "exit": [2840.8, 3692.2, "Stockton St"]
+      }
+    },
+    {
+      "id": "chinatown-stockton-south",
+      "from": "🛤️",
+      "to": "🎭",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "reverse": true,
+        "entry": [2840.8, 3692.2, "Stockton St"],
+        "exit": [2910.2, 3267.8, "Stockton St"]
+      }
+    },
+    {
+      "id": "broadway-to-marina",
+      "from": "⚓",
+      "to": "🎟️",
+      "contact": {
+        "roads": ["sf-contact/broadway-westbound"],
+        "entry": [2568.7, 4147.4, "Broadway"],
+        "exit": [1751.4, 4006.6, "Broadway"],
+        "afterGuide": [
+          [1796, 4018],
+          [1774, 4015],
+          [1758, 4012]
+        ]
+      }
+    },
+    {
+      "id": "presidio-toll-underpass",
+      "from": "🚪",
+      "to": "🌁",
+      "contact": {
+        "roads": ["sf-contact/toll-plaza-tunnel"],
+        "entry": [-3157, 5188, "Unnamed 152"],
+        "exit": [-3075.6, 5277.6, "Unnamed 77"]
+      }
+    },
+    {
+      "id": "mission-bay-to-pennsylvania",
+      "from": "⚾",
+      "to": "🚂",
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-18th-off-ramp",
+          "sf-contact/i280-pennsylvania-exit"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [4080.9, 372.9, "Pennsylvania Ave"]
+      }
+    },
+    {
+      "id": "mission-bay-to-alemany",
+      "from": "🏀",
+      "to": "🌺",
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-south-through-18th",
+          "sf-contact/i280-dogpatch-approach",
+          "sf-contact/i280-south-through-dogpatch",
+          "sf-contact/i280-south-beyond-dogpatch",
+          "sf-contact/i280-south-alemany-merge-tail",
+          "sf-contact/i280-south-alemany-through",
+          "sf-contact/i280-south-alemany-exit"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [1854.5294, -3084.2425, "Alemany Blvd"],
+        "laneGuides": {
+          "sf-contact/i280-dogpatch-approach": {
+            "approach": 1.25,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-through-dogpatch": {
+            "entranceEast": 1.25,
+            "entranceMetres": 20
+          },
+          "sf-contact/i280-south-beyond-dogpatch": {
+            "clearance": {
+              "offset": 2.2,
+              "station": 1954,
+              "length": 30
+            }
+          },
+          "sf-contact/i280-south-alemany-through": {
+            "approach": -1.6,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-alemany-exit": {
+            "entranceEast": -0.37535172512625214,
+            "entranceNorth": 1.5553491834455526,
+            "entranceMetres": 21
+          }
+        },
+        "afterSurfaces": ["sf-contact/alemany-i280-overpass"]
+      }
+    },
+    {
+      "id": "silver-to-hunters-point",
+      "from": "🧰",
+      "to": "🌺",
+      "contact": {
+        "roads": ["sf-contact/silver-avenue-bridge"],
+        "entry": [3115, -3001, "Silver Ave"],
+        "exit": [3019, -3063, "Silver Ave"],
+        "reverse": true
+      }
+    },
+    {
+      "id": "hester-to-bayshore",
+      "from": "🚸",
+      "to": "🚊",
+      "contact": {
+        "roads": [
+          "sf-contact/us101-south-hester-third-entry",
+          "sf-contact/us101-south-hester-entrance-collector",
+          "sf-contact/us101-south-hester-bayshore-exit"
+        ],
+        "entry": [3825.3617, -4412.7694, "3rd St"],
+        "exit": [3616.35, -4955.8723, "Bay Shore Blvd"],
+        "laneGuides": {
+          "sf-contact/us101-south-hester-entrance-collector": {
+            "approach": -1.6,
+            "holdApproach": true
+          },
+          "sf-contact/us101-south-hester-bayshore-exit": {
+            "clearance": {
+              "offset": 1.7,
+              "station": 24,
+              "length": 22
+            },
+            "entranceEast": -1.5799,
+            "entranceNorth": -0.253,
+            "entranceMetres": 21
+          }
+        }
+      }
+    },
+    {
+      "id": "dogpatch-to-potrero",
+      "from": "🚚",
+      "to": "🧁",
+      "contact": {
+        "roads": ["sf-contact/dogpatch-23rd-lower"],
+        "reverse": true,
+        "entry": [4257, -535, "23rd St"],
+        "exit": [4151, -543, "23rd St"]
+      }
+    },
+    {
+      "id": "embarcadero-to-soma-under-i80",
+      "from": "🌉",
+      "to": "🎭",
+      "groundOnly": true,
+      "contact": {
+        "roads": ["sf-contact/harrison-beale-bridge"],
+        "entry": [4320, 3069, "Harrison St"],
+        "exit": [4273, 3022, "Harrison St"]
+      }
+    },
+    {
+      "id": "lake-street-to-presidio",
+      "from": "🚲",
+      "to": "🥾"
+    },
+    {
+      "id": "lands-end-to-outer-richmond",
+      "from": "🖼️",
+      "to": "🔭"
+    },
+    {
+      "id": "richmond-to-golden-gate-park",
+      "from": "🎬",
+      "to": "🦬"
+    },
+    {
+      "id": "upper-haight-to-inner-sunset",
+      "from": "☮️",
+      "to": "☕"
+    },
+    {
+      "id": "ocean-beach-to-fort-funston",
+      "from": "🐚",
+      "to": "🪂"
+    },
+    {
+      "id": "lake-merced-to-ingleside",
+      "from": "🛶",
+      "to": "🧸"
+    },
+    {
+      "id": "west-portal-to-sunnyside",
+      "from": "🚇",
+      "to": "🎨"
+    },
+    {
+      "id": "twin-peaks-to-bernal",
+      "from": "📷",
+      "to": "📚"
+    },
+    {
+      "id": "excelsior-to-visitacion-valley",
+      "from": "🗺️",
+      "to": "🐕"
+    },
+    {
+      "id": "treasure-island-north",
+      "from": "🧭",
+      "to": "🪁"
+    }
+  ]
+}

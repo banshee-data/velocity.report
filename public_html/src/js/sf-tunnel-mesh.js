@@ -17,16 +17,42 @@ function section(surface, station) {
   });
 }
 
+export function validTunnelWallOpenings(openings, [start, end]) {
+  if (openings === undefined) return true;
+  return (
+    openings !== null &&
+    typeof openings === "object" &&
+    !Array.isArray(openings) &&
+    Object.entries(openings).every(
+      ([side, ranges]) =>
+        ["left", "right"].includes(side) &&
+        Array.isArray(ranges) &&
+        ranges.every(
+          (range, i) =>
+            Array.isArray(range) &&
+            range.length === 2 &&
+            range.every(Number.isFinite) &&
+            start <= range[0] &&
+            range[0] < range[1] &&
+            range[1] <= end &&
+            (i === 0 || ranges[i - 1][1] <= range[0]),
+        ),
+    )
+  );
+}
+
 export function tunnelMesh(surface, appearance) {
-  const { interior, clearance } = appearance;
+  const { interior, clearance, wallOpenings = {} } = appearance;
   const [start, end] = interior;
+  const profileStations = surface.profile
+    .map(({ s_m }) => s_m)
+    .filter((s) => s > start && s < end);
+  const openingStations = Object.values(wallOpenings).flat(2);
   const stations = [
-    start,
-    ...surface.profile
-      .map(({ s_m }) => s_m)
-      .filter((s) => s > start && s < end),
-    end,
-  ];
+    ...new Set([start, ...profileStations, ...openingStations, end]),
+  ].sort((a, b) => a - b);
+  const open = (side, station) =>
+    wallOpenings[side]?.some(([a, b]) => a < station && station < b);
   const shell = [];
   const stripes = [];
   const top = ([x, y, z]) => [x, y, z + clearance];
@@ -36,8 +62,9 @@ export function tunnelMesh(surface, appearance) {
     if (previous) {
       const [a, b] = previous;
       const [c, d] = next;
-      face(shell, a, c, top(c), top(a));
-      face(shell, b, top(b), top(d), d);
+      const midpoint = (previousStation + station) / 2;
+      if (!open("left", midpoint)) face(shell, a, c, top(c), top(a));
+      if (!open("right", midpoint)) face(shell, b, top(b), top(d), d);
       face(shell, top(a), top(c), top(d), top(b));
       if (Math.floor(previousStation / 12) !== Math.floor(station / 12)) {
         for (const fraction of [0.22, 0.78]) {

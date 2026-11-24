@@ -1,5 +1,6 @@
 import { indexRoadContact } from "./sf-road-contact.js";
 import { roadPortals } from "./sf-road-portal.js";
+import { validTunnelWallOpenings } from "./sf-tunnel-mesh.js";
 
 const kinds = new Set(["ramp", "bridge_deck", "tunnel"]);
 
@@ -148,6 +149,7 @@ export function buildBakedRoadContact(road) {
   };
   const interior = road.interior_range_m;
   const clearance = road.game_clearance_m;
+  const openings = road.tunnel_wall_openings_m;
   const appearance =
     kind === "tunnel" &&
     Array.isArray(interior) &&
@@ -156,11 +158,13 @@ export function buildBakedRoadContact(road) {
     interior[0] >= 0 &&
     interior[1] <= distance &&
     interior[1] > interior[0] &&
+    validTunnelWallOpenings(openings, interior) &&
     Number.isFinite(clearance) &&
     clearance >= 2.5 &&
     clearance <= 10
-      ? { interior, clearance }
+      ? { interior, clearance, ...(openings && { wallOpenings: openings }) }
       : null;
+  if (openings !== undefined && !appearance) return null;
   return {
     surface,
     appearance,
