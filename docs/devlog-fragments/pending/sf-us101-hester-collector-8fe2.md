@@ -1,0 +1,1 @@
+- Baked the southbound US 101 mainline and Hester Avenue collector into three game tiles, including the Bayshore exit and the collector's return to the freeway. The [road route audit](../../ui/sf-road-route-audit.md#southbound-us-101-at-hester-avenue) records keyboard drives through both branches and the clearance beneath higher pavement.

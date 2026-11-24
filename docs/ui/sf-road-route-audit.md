@@ -1345,3 +1345,44 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `2afc0061690b36a5417d43c32b1c2f6a780687b204502c6a408a054205fcc12f`.
 - Contact SHA-256 `150b0111e5f424ceb6896698456ed0992aaadb64f874c7a4a6310e5322b1605b`.
 - The bake changes two tiles and preserves emoji placement.
+
+## Southbound US 101 at Hester Avenue
+
+The bake extends the Paul Avenue mainline to the Hester fork at 38.17 m
+NAVD88. The collector divides at 44.14 m. One branch reaches Bayshore
+Boulevard and Hester Avenue at 47.11 m. The other rejoins the mainline
+at 38.39 m. Both routes to the southern city boundary share one
+843.50 m strip across two tiles and meet the existing pavement at
+10.72 m.
+
+The fit uses 313 depth-12 April 2023 3DEP nodes and reaches a peak
+grade of 9.42% on the open mainline. Lower shoulder returns bound a
+17 m interval on the mainline and a 16 m interval on the collector.
+The collector fit adjusts those outer returns by the measured 6%
+crossfall. The bake trims two inferred solids within the lane and
+raises the base of a third solid there to leave clearance beneath
+observed higher pavement.
+
+| Drive                      | Fixed step |  Chrome | End                                  |
+| -------------------------- | ---------: | ------: | ------------------------------------ |
+| Mainline from Paul Avenue  |    94.53 s |  92.2 s | Southern boundary pavement           |
+| Collector to Hester Avenue |    59.73 s |  57.5 s | Bayshore Boulevard and Hester Avenue |
+| Collector back onto US 101 |   110.72 s | 106.2 s | Southern boundary pavement           |
+
+Chrome used keyboard input in manual mode with route assist disabled.
+The fixed-step drives stayed grounded throughout. Chrome verified
+grounded contact on each new section and at the pavement handoffs. The two entrances from the Hester street
+network remain under review. The survey confirms two height bands
+where they pass under higher pavement and leaves a gap in the lower
+band. All 20 frozen emoji routes finished across 52.43 km. The largest
+driven seam step was 6.1 cm and the driven traces had no dips over 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  us101-south-hester-mainline us101-south-hester-exit us101-south-hester-collector
+```
+
+- Game manifest SHA-256 `fa05b0da2b47348d7fba9386a7be86f792e43a32d6b10cefd3804b4e249c024d`.
+- Contact SHA-256 `0aaf70acd3960c5c85ed1e4ff3fbbe149a5d7b225e4a53ff400264a0e24cf095`.
+- Survey EPT node SHA-256 `b337922e28e56b179d4b4c2e19a55e3c15a18165cac0247e0e83b081b4d9f7ac`.
+- The bake changes three tiles and preserves emoji placement.
