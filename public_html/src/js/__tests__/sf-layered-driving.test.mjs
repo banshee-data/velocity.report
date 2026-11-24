@@ -404,6 +404,17 @@ test("the city drive adjusts only the specified scenery records in its pinned ba
   assert.deepEqual(tile, { b: [third], tr: [[5, 6, 7, 8]] });
 });
 
+test("authored building exclusions keep their footprint when a bake inserts rows", () => {
+  const intended = [20, [[[10, 20, 30]]], 1];
+  const other = [20, [[[11, 20, 30]]], 1];
+  const inserted = [10, [[[10, 20, 30]]], 1];
+  const tile = { b: [other, inserted, intended], tr: [] };
+  applyCityDriveScenery(tile, {
+    buildingFootprints: [{ signature: [20, 1, 1], firstPoint: [10, 20, 30] }],
+  });
+  assert.deepEqual(tile.b, [other, inserted]);
+});
+
 const stripContact = (z) => ({
   vertices: [
     [0, -3, z],

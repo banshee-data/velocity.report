@@ -3132,3 +3132,41 @@ test("west Yerba Buena ramps join the island to the correct Bay Bridge decks", (
   }
   assert.ok(probes > 60);
 });
+
+test("Minna Street remains drivable under the retained building bridge", () => {
+  const token = "80858084";
+  const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  const obstacles = [buildCollisionIndex(tile, token)];
+  const [startX, startY] = [3000.9, 2475.6];
+  const heading = Math.atan2(2407.2 - startY, 2932.2 - startX);
+  const along = Math.cos(heading);
+  const north = Math.sin(heading);
+  function pose(station, lateral) {
+    return {
+      x: startX + station * along - lateral * north,
+      y: startY + station * north + lateral * along,
+      heading,
+    };
+  }
+  for (const lateral of [-1.5, 0, 1.5]) {
+    let previous;
+    for (let station = 13; station <= 85; station++) {
+      const car = pose(station, lateral);
+      const z = groundAtWorld([tile], car.x, car.y, true);
+      assert.ok(z >= 8 && z <= 9.1, `pavement at ${station} m`);
+      if (previous !== undefined) assert.ok(Math.abs(z - previous) < 0.12);
+      previous = z;
+      assert.equal(
+        collisionAt(obstacles, car, z),
+        null,
+        `ground clearance at ${station} m, lateral ${lateral} m`,
+      );
+    }
+  }
+  assert.equal(collisionAt(obstacles, pose(42, 0), 13), "building");
+  for (const lateral of [-5.5, 5.5]) {
+    const car = pose(42, lateral);
+    const z = groundAtWorld([tile], car.x, car.y, true);
+    assert.equal(collisionAt(obstacles, car, z), "building");
+  }
+});

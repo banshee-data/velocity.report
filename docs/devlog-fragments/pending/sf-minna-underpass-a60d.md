@@ -1,0 +1,1 @@
+- Reopened the game’s Minna Street passage beneath the Chronicle building bridge and kept the SoMa delivery route working across the bake. [SF route audit](../../ui/sf-road-route-audit.md#minna-street-beneath-the-chronicle-building-bridge)
