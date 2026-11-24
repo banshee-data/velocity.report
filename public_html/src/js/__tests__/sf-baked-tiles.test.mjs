@@ -3352,3 +3352,49 @@ test("Main Street stays open beneath both Bay Bridge decks", () => {
   assert.ok(Math.abs(height("sf-eastbound-lower-approach") - 41.39) < 0.02);
   assert.ok(Math.abs(height("city-approach") - 50.18) < 0.02);
 });
+
+test("Harrison traffic crosses the Fourth Street ramp mouth without taking it", () => {
+  const tiles = ["8085807c", "80858084"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const road = tiles[0].playableRoads.find(
+    ({ id }) => id === "fourth-street-entrance",
+  );
+  const { surface, portals } = buildBakedRoadContact(road);
+  const [{ x, y, nx, ny }] = portals;
+  const ground = (east, north) => groundAtWorld(tiles, east, north, true);
+  for (const [east, north, heading, wantsRamp] of [
+    [3570.3, 2321.8, (-3 * Math.PI) / 4, false],
+    [x - 2 * nx, y - 2 * ny, Math.atan2(ny, nx), true],
+  ]) {
+    let car = {
+      x: east,
+      y: north,
+      z: ground(east, north),
+      heading,
+      v: 10,
+      grounded: true,
+    };
+    for (let step = 0; step < 480; step++) {
+      const input = { throttle: 0.1 };
+      car =
+        driveThroughRoadPortal(car, input, 1 / 120, [portals], ground) ??
+        contactStep(
+          car,
+          input,
+          1 / 120,
+          (px, py) => ({
+            height: ground(px, py),
+            drivable: true,
+          }),
+          1.35,
+        );
+      assert.equal(car.blocked, false);
+      assert.ok(Math.abs(car.z - ground(car.x, car.y)) < 0.3);
+      if (car.surfaceId || car.x < 3543) break;
+    }
+    assert.equal(car.surfaceId, wantsRamp ? surface.id : undefined);
+    if (!wantsRamp)
+      assert.ok(car.x < 3543, "through traffic cleared the mouth");
+  }
+});

@@ -2,6 +2,7 @@ import { driveOnRoadSurface } from "./sf-road-contact.js";
 
 const reach = 3;
 const tolerance = 0.22;
+const rampLookahead = 5;
 
 export function roadPortals(surface, groundEnds) {
   const { contact, profile } = surface;
@@ -20,6 +21,10 @@ export function roadPortals(surface, groundEnds) {
       nx: (u - x) / length,
       ny: (v - y) / length,
       halfWidth: Math.hypot(edgeX - x, edgeY - y),
+      entryProbe:
+        surface.kind === "ramp"
+          ? Math.min(rampLookahead, profile.at(-1).s_m / 2)
+          : 0,
     };
   });
 }
@@ -28,7 +33,7 @@ export function roadPortals(surface, groundEnds) {
 // straddle the seam in either direction without sampling terrain above or
 // below the interior of the road.
 function stepThrough(car, input, dt, portal, pavementHeight) {
-  const { surface, x, y, z, nx, ny } = portal;
+  const { surface, x, y, z, nx, ny, entryProbe } = portal;
   const along = (east, north) => (east - x) * nx + (north - y) * ny;
   const entering = !car.surfaceId;
   const before = along(car.x, car.y);
@@ -57,6 +62,15 @@ function stepThrough(car, input, dt, portal, pavementHeight) {
   // interfere with the normal street physics.
   const offset = (next.y - y) * nx - (next.x - x) * ny;
   if (surface.heightAt(x - offset * ny, y + offset * nx) === null) return null;
+
+  // Street traffic can cross the shallow end of a ramp diagonally.
+  // Commit to the ramp once the current line of travel reaches its lane.
+  if (entering && after >= 0 && entryProbe) {
+    const scale = entryProbe / travel;
+    const aheadX = next.x + (next.x - car.x) * scale;
+    const aheadY = next.y + (next.y - car.y) * scale;
+    if (surface.heightAt(aheadX, aheadY) === null) return null;
+  }
 
   const surfaceId = after < 0 ? undefined : surface.id;
   const futureX = next.x + 1.35 * Math.cos(next.heading);

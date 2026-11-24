@@ -2324,3 +2324,36 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-main-street.cjs
 - Game manifest SHA-256 `65317b86333c38ce22ef685372e629071af9407a2b7a28dcfa4d1ba4643e2db9`.
 - Contact SHA-256 `b3aa6a3b99df652fddd86eba1ab07a45dd897be92c9c8426f262795568b6791d`.
 - One L13 tile changed. The emoji placement revision was preserved.
+
+## Harrison Street past the Fourth Street entrance
+
+The first Main Street retry exposed a second failure at Fourth and
+Harrison. The car followed Harrison as intended until it crossed the
+mouth of the Fourth Street entrance. The physics selected the ramp
+within the shared low pavement, then stopped when the street-bound
+heading ran out of the ramp strip.
+
+The ramp portal now checks that the current direction of travel reaches
+the ramp contact within five metres of the mouth. The check is capped at
+half the strip length for shorter ramps. A driver aligned with the
+entrance still acquires it at the same seam. A driver continuing along
+Harrison stays at street level. The test uses the bundled Fourth Street
+strip for both moves.
+
+The 120 Hz Embarcadero-to-SoMa replay reached both emojis over 2.44 km.
+It recorded a 7.07% grade p95, a 9.74% peak and no tracked dip over 0.5 m.
+The sampled profile covers the driven route, including the Harrison
+overpass and its approaches. Chrome then collected both emojis over
+2.44 km in 247.8 seconds. It recorded a grade p95 of 7.38%, a peak of
+8.86%, 200 m with airborne contact and no tracked dip over 0.5 m. It
+spent no time blocked. A separate Chrome run deliberately took Fourth,
+merged onto westbound I-80 and reached the street at Fifth in 78.2
+seconds.
+
+The 20-course fixed-step repeat on the same tiles covered 41.33 km.
+Nine courses collected both emojis, three stalled, six stopped at
+scenery impacts and two reached the end of contact. The median course
+grade p95 was 9.15%. The maximum driven grade was 39.37% on the Chinatown
+south itinerary. Eight planned samples exceeded the 0.5 m dip threshold,
+and the driven portions recorded zero. The incomplete courses still
+need local browser reproductions.

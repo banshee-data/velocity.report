@@ -1,0 +1,1 @@
+- Kept Harrison Street traffic on the street as it crosses the Fourth Street entrance. The [route audit](../../ui/sf-road-route-audit.md#harrison-street-past-the-fourth-street-entrance) records the original stop and the replay with the corrected ramp selection.
