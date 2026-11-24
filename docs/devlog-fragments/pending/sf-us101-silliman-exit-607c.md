@@ -1,0 +1,1 @@
+- Baked the northbound Silliman exit and drove from US 101 to Bayshore Boulevard, across Silver Avenue, and back onto US 101 at Alemany.

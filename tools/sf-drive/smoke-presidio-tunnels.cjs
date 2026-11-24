@@ -1675,6 +1675,73 @@ cases["alemany-street-to-northbound-us101"] = {
   covered: ["sf-contact/us101-north-alemany-entry"],
 };
 
+const northboundSilliman = "us101-north-silliman-exit";
+const northboundSillimanApproach = "us101-north-paul-to-silliman";
+cases["northbound-us101-silliman-to-bayshore"] = {
+  roads: [northboundSillimanApproach, northboundSilliman],
+  owners: ["808f7ee4", "808f7efc"],
+  forks: [[northboundSillimanApproach, northboundSilliman, -1.8]],
+  speed: 13,
+  rollingStart: true,
+  rollingStartMetres: 490,
+  initialSpeedMps: 12,
+  maxDurationMs: 85_000,
+  covered: [prefix + northboundSilliman],
+  exitCamera: "covered",
+};
+cases["northbound-us101-silliman-alemany-loop"] = {
+  ...cases["northbound-us101-silliman-to-bayshore"],
+  roads: [
+    northboundSillimanApproach,
+    northboundSilliman,
+    "silver-avenue-bridge",
+    "us101-north-alemany-entry",
+    "us101-north-alemany-to-silver",
+    "us101-north-silver-approach",
+  ],
+  owners: ["808f7ee4", "808f7efc", "808f7e54"],
+  speedLimits: {
+    "us101-north-alemany-entry": 10,
+    "silver-avenue-bridge": 7,
+  },
+  connectByGround: true,
+  reverseRoads: ["silver-avenue-bridge"],
+  groundConnection: [
+    {
+      after: prefix + northboundSilliman,
+      via: [[3115.82, -3001.56]],
+      minimumMetres: 125,
+    },
+    {
+      after: prefix + "silver-avenue-bridge",
+      via: [
+        [3005.426, -3000.007],
+        [2978.861, -2941.871],
+        [2951.955, -2882.991],
+        [2943.17, -2864.49],
+        [2925.435, -2827.145],
+        [2897.008, -2767.284],
+        [2884.072, -2751.66],
+        [2865.487, -2719.116],
+        [2856.31, -2704.91],
+        [2852.686, -2692.267],
+        [2853.701, -2683.367],
+        [2855.46, -2675.651],
+        [2860.124, -2669.074],
+      ],
+      minimumMetres: 420,
+    },
+  ],
+  finishOnDeck: true,
+  finishDistance: 100,
+  maxDurationMs: 240_000,
+  covered: [
+    prefix + northboundSilliman,
+    "sf-contact/us101-north-alemany-entry",
+  ],
+  exitCamera: "exterior",
+};
+
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
@@ -1746,6 +1813,15 @@ function driveLine({ id, points }, rampApproach) {
 }
 
 function withGroundConnections(roads, connection) {
+  if (Array.isArray(connection))
+    return connection.reduce(
+      (sections, link, index) =>
+        withGroundConnections(sections, {
+          ...link,
+          id: `between-streets-${index}`,
+        }),
+      roads,
+    );
   if (connection) {
     const index = roads.findIndex(({ id }) => id === connection.after) + 1;
     assert.ok(
@@ -1777,7 +1853,7 @@ function withGroundConnections(roads, connection) {
     return [
       ...roads.slice(0, index),
       {
-        id: "between-streets",
+        id: connection.id ?? "between-streets",
         kind: "ground",
         positions,
         width_m: 7,
@@ -1936,7 +2012,7 @@ async function drive(
           if (
             !surfaceId &&
             d.contact !== "loading" &&
-            groundHints.get(seen.size) === "between-streets"
+            groundHints.get(seen.size)?.startsWith("between-streets")
           ) {
             if (groundPose) {
               const run = Math.hypot(
@@ -2266,14 +2342,23 @@ async function main() {
           Math.hypot(result.exit.x - last[0], result.exit.y - last[1]) <
             (finishOnDeck ? 12 : 6),
         );
-        assert.equal(result.exit.camera, "exterior");
+        assert.equal(result.exit.camera, cases[name].exitCamera ?? "exterior");
         assert.ok(result.exit.grounded);
         if (groundArrival) {
           assert.ok(result.groundMetres > 20);
           assert.ok(result.groundedMetres > 18);
           assert.ok(Math.abs(result.seen[0].z - 12.97) < 0.15);
         }
-        if (groundConnection) {
+        if (Array.isArray(groundConnection)) {
+          const minimum = groundConnection.reduce(
+            (sum, link) => sum + link.minimumMetres,
+            0,
+          );
+          assert.ok(
+            result.groundedMetres >= minimum,
+            "Incomplete drive on city pavement",
+          );
+        } else if (groundConnection) {
           const ground = sections.find(({ id }) => id === "between-streets");
           const [east, north] = ground.positions[0];
           const [endEast, endNorth] = ground.positions.at(-1);
