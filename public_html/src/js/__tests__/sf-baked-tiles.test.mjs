@@ -2542,6 +2542,31 @@ test("the Potrero connector joins lower Bayshore pavement without losing the US 
   assert.ok(upper.heightAt(x, y) - z > 7);
 });
 
+test("lower Bayshore follows the measured street grade beyond the portal", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e4c.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/bayshore-boulevard-under-us101",
+  );
+  const [{ x, y, z }] = buildBakedRoadContact(road).portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.01);
+
+  // The old terrain formed two humps at these recorded airborne starts.
+  const samples = [
+    [3193.35, -1357.21, 6.84],
+    [3193.158, -1362.521, 6.87],
+    [3193.025, -1364.131, 6.89],
+    [3192.651, -1370.438, 6.94],
+    [3192.574, -1371.995, 6.95],
+  ];
+  let previous = -Infinity;
+  for (const [east, north, measured] of samples) {
+    const elevation = groundAtWorld([tile], east, north, true);
+    assert.ok(Math.abs(elevation - measured) < 0.04);
+    assert.ok(elevation > previous);
+    previous = elevation;
+  }
+});
+
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["8085807c", "80858084"];

@@ -1,0 +1,1 @@
+- Matched the Bayshore Boulevard departure terrain to measured pavement after Chrome traced two hops beyond the underpass. Recorded the grade changes and the repeated drives in the [SF road route audit](../../ui/sf-road-route-audit.md#bayshore-street-departure).
