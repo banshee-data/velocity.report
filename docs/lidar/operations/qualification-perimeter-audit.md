@@ -72,3 +72,23 @@ without naming that split. The original production/unguarded-purpose guard tests
   dispatch the `lidar` namespace; that naming refusal is not guard evidence.
 - `make check-no-results`, `make check-devlog` and `git diff --check` passed. Raw logs and
   generated outputs remain outside the committed change.
+
+### Review follow-up: CI policy dependency
+
+The first PR CI run passed Go CI but failed `Capture Perf Baseline`, `Perf A/B`, and the
+amd64 static build's canonical-capture validation. Each reached the new guard with none of
+`VELOCITY_COHORT_MANIFEST`, `VELOCITY_ANNOTATION_ROOT` or `VELOCITY_ELIGIBILITY_DB` configured.
+These are policy-provisioning failures, not measured performance regressions.
+
+The tracked cohort manifest supplies site/capture assignments, but this checkout has no actual
+frozen-split registry for the canonical Kirk capture. Before these jobs can run, provide a
+trusted current registry snapshot through the existing custody process, configure its annotation
+root and the tracked manifest in each job, initialise a migrated per-job use ledger, and confirm
+that the exact capture/window is admissible. If policy refuses the whole capture, retain that
+refusal; choosing a different performance workload requires its own reviewed baseline decision.
+Do not replace the registry with an empty test directory, introduce a CI-only bypass, remove
+checks, or turn development evaluation into production to make the jobs green.
+
+Package-local tests now exercise the capture helper and fixture environment so their own Go
+coverage profiles include admission, protected/unknown/missing input refusal, whole-capture
+provenance and persistent ledger assertions. No eligibility rule or coverage threshold changed.
