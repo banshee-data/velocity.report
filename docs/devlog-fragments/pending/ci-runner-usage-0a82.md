@@ -1,0 +1,1 @@
+- Reduced repeat CI work by cancelling superseded static, macOS and web PR runs, shortening intermediate artifact retention, and running nightly replay shards and independent checks separately so failures identify which suite needs attention.

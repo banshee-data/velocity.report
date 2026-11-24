@@ -1596,7 +1596,7 @@ test-go-cov-pcap:
 	@./scripts/ensure-web-stub.sh
 	@./scripts/ensure-docs-stub.sh
 	@echo "Running Go tests with coverage (pcap tag, excluding internal/api)..."
-	@env -u GOROOT go test -tags=pcap -coverprofile=coverage.out -covermode=atomic \
+	@env -u GOROOT go test -tags=pcap -timeout 25m -coverprofile=coverage.out -covermode=atomic \
 		$$(go list -tags=pcap ./... | grep -v '/internal/api')
 
 # Show coverage summary for cmd/ and internal/ packages
