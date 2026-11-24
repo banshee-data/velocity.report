@@ -1871,6 +1871,87 @@ cases["hester-upper-northbound-over-entrances"] = {
   covered: [],
 };
 
+const hesterNorthApproach = "us101-north-city-edge-to-hester";
+const hesterNorthExit = "us101-north-hester-off-ramp";
+const hesterNorthThird = "us101-north-hester-third-off-ramp";
+const hesterNorthBayshore = "us101-north-hester-bayshore-off-ramp";
+const hesterNorthDeparture = {
+  owners: ["808f7f24", "808f7f2c", "808f7ee4", "808f7f1c"],
+  rollingStart: true,
+  rollingStartMetres: 706,
+  initialSpeedMps: 14,
+  speed: 14,
+  maxDurationMs: 120_000,
+};
+cases["northbound-hester-exit-to-third-street"] = {
+  ...hesterNorthDeparture,
+  roads: [hesterNorthApproach, hesterNorthExit, hesterNorthThird],
+  forks: [
+    [hesterNorthApproach, hesterNorthExit, -2],
+    [hesterNorthExit, hesterNorthThird, -1.8],
+  ],
+  speedLimits: { [hesterNorthThird]: 10 },
+};
+cases["northbound-hester-exit-to-bayshore"] = {
+  ...hesterNorthDeparture,
+  roads: [hesterNorthApproach, hesterNorthExit, hesterNorthBayshore],
+  forks: [
+    [hesterNorthApproach, hesterNorthExit, -2],
+    [hesterNorthExit, hesterNorthBayshore, 1.8],
+  ],
+  speedLimits: { [hesterNorthBayshore]: 11 },
+};
+cases["northbound-hester-stays-on-us101"] = {
+  ...hesterNorthDeparture,
+  roads: [hesterNorthApproach, northboundUs101Hester],
+  forks: [[hesterNorthApproach, northboundUs101Hester, 1.8]],
+  finishOnDeck: true,
+  finishDistance: 115,
+};
+
+cases["hester-third-street-exit-and-reentry"] = {
+  ...cases["northbound-hester-exit-to-third-street"],
+  roads: [
+    ...cases["northbound-hester-exit-to-third-street"].roads,
+    hesterThirdEntry,
+    hesterLowerEntrance,
+    hesterReturn,
+    hesterEdge,
+  ],
+  forks: [
+    ...cases["northbound-hester-exit-to-third-street"].forks,
+    [hesterLowerEntrance, hesterReturn, 1.65],
+  ],
+  speedLimits: {
+    [hesterNorthThird]: 10,
+    [hesterThirdEntry]: 11,
+    [hesterLowerEntrance]: 11,
+  },
+  connectByGround: true,
+  groundConnection: {
+    after: prefix + hesterNorthThird,
+    via: [
+      [3747.3, -4571.1],
+      [3751.4, -4567],
+      [3760.7, -4563.2],
+      [3777.2, -4541.4],
+      [3796.8, -4515.3],
+      [3796.5, -4496.7],
+      [3804.6, -4489.2],
+      [3815.3, -4461.3],
+      [3825, -4433.9],
+      [3825.65, -4422.3],
+      [3825.61, -4417.8],
+      [3823.4, -4414.1],
+      [3817.2, -4413.8],
+    ],
+    minimumMetres: 155,
+  },
+  finishOnDeck: true,
+  finishDistance: 150,
+  maxDurationMs: 220_000,
+};
+
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];

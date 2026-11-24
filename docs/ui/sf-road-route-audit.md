@@ -1737,3 +1737,41 @@ node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-heste
 
 - Game manifest SHA-256 `fc5addac6d395951d1b9b22d5eb7bbc16b9d5178da2a62e149c3eaaf9b121dcc`.
 - Contact SHA-256 `dac34f71c92183e2ecee256ef159ea4079c9f0126e1f4688272f36f9b42b0c78`.
+
+### Northbound US 101 exits at Hester
+
+The northbound approach now branches onto a 256.7 m shared exit. The
+225.9 m Bayshore branch reaches pavement near Williams Avenue. The
+208.7 m Third Street branch follows the lower surveyed lane and meets
+city pavement about 72 m beyond the original intersection alignment. At
+that alignment the surveyed street above it is about 4.2 m higher.
+The largest baked grade is 9.3% on the Third Street branch.
+
+The bake adjusts the terrain within the lower ramp corridor and removes
+five inferred trunks where the survey indicates pavement or clear
+space, including two on the southbound Third Street re-entry. The largest residual terrain protrusion is 0.38 m at one fork
+sample. A collision scan along the centreline and at lateral offsets of 0.75 m
+returned zero hits across four tiles.
+
+Chrome used the game's steering inputs to drive to Third Street in
+47.5 s, reach Bayshore Boulevard in 46.6 s, and stay on northbound
+US 101 through the fork in 14.3 s. Both exits handed over to grounded
+city pavement. A continuous drive exited to Third Street, turned on
+city streets and reached southbound US 101 in 151 s. The browser logged
+202.9 m between ramp contacts, with 172.8 m logged as grounded at both
+sample endpoints. It finished grounded without a crash.
+
+All 20 frozen courses collected both emojis over 52.43 km, including
+6.50 km of highway centreline. Their largest driven seam step was 6.1 cm
+across 50 crossings. No driven dip exceeded 0.5 m. The median of the
+course p95 grades was 9.5%. The steepest driven sample was 26.2% on
+Ordway Street in the Bayview course.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  northbound-hester-exit-to-third-street northbound-hester-exit-to-bayshore \
+  northbound-hester-stays-on-us101 hester-third-street-exit-and-reentry
+```
+
+- Game manifest SHA-256 `0e41779ec7493889754de763ca25deb37b785817c970125184d1c3b89e0665c1`.
+- Contact SHA-256 `269c9b3e1931f0ca6ece70e095a73cef5efd3232f31082212106eee6eca0170d`.
