@@ -99,14 +99,14 @@ observed or inferred geometry, and do not add direction for recreating a structu
 
 ## Commands
 
-The Makefile is the canonical entry point. Run `make help` for all targets.
+The Makefile is the canonical entry point. Run `make help` for the command overview.
 
 ### Quality gate (every commit must pass)
 
 ```bash
-make lint      # Check all code formatting (Go, Web)
-make format    # Auto-format all code
-make test      # Run all test suites
+make lint      # Check Go, web, docs, and repository hygiene
+make format    # Format Go, web, macOS, Markdown, and SQL
+make test      # Run maintained test suites
 ```
 
 ### Per-language validation
@@ -122,23 +122,23 @@ make format-web && make lint-web && make test-web && make build-web
 ### Building
 
 ```bash
-make build-velocity        # Single multi-call velocity binary (server + device + tune)
-make build-radar-local     # Alias: build velocity for local dev (requires libpcap)
-make build-radar-linux     # Alias: build velocity for ARM64 cross-compile
-make build-radar-mac       # Go server, macOS ARM64 with pcap
-make build-radar-mac-intel # Go server, macOS AMD64 with pcap
-make build-radar-static    # Fully-static linux/{amd64,arm64} ELF via Docker (zig+musl+libpcap.a) — see D-26
-make build-web             # Svelte frontend → web/build/
-make build-docs            # Eleventy docs site → docs_html/_site/
-make build-docs-offline    # Embedded offline docs site (Eleventy)
-make build-mac             # macOS visualiser (requires Xcode)
+make build-velocity            # Single multi-call velocity binary (server + device + tune)
+make build-radar-local         # Build velocity-report-local (requires libpcap)
+make build-velocity-linux      # velocity, Linux ARM64 with pcap
+make build-velocity-mac        # velocity, macOS ARM64 with pcap
+make build-velocity-mac-intel  # velocity, macOS AMD64 with pcap
+make build-velocity-static     # Fully static Linux AMD64 and ARM64 binaries via Docker (D-26)
+make build-web                 # Svelte frontend → web/build/
+make build-public-html         # Public site → public_html/_site/
+make build-docs-offline        # Embedded repository docs → docs_html/_site/
+make build-mac                 # macOS visualiser (requires Xcode)
 ```
 
 If `make build-radar-local` fails due to missing pcap: `brew install libpcap` (macOS) or `sudo apt-get install libpcap-dev` (Linux).
 
 Build through `make`, never a bare `go build`. The Makefile's LDFLAGS stamp `version.Version`, `GitSHA` and `BuildTime`, and a bare build leaves all three unset: the binary then reports `vdev` / `git sha: unknown`, and so does everything it writes. A VRLOG header and a published scene asset both record `build_version` and `build_git_sha`, which is how a recording is traced back to the code that made it — once it says `dev`/`unknown` that cannot be reconstructed. A bare build also drops the `typst_embed` tag.
 
-`make build-radar-local` builds the embedded offline docs first, so it needs pnpm on PATH and fails with `pnpm/npm not found` without it. Install once with `pnpm i` (see Setup below), then confirm the stamp took:
+`make build-radar-local` builds the embedded offline docs first, so it needs pnpm on PATH. Confirm the stamp after building:
 
 ```bash
 ./velocity-report-local version   # expect v<VERSION> and git sha == HEAD
@@ -151,8 +151,8 @@ make dev-go              # Go server with radar disabled (localhost:8080)
 make dev-go-lidar        # Go server with LiDAR enabled (gRPC mode)
 make dev-go-lidar-both   # Go server with LiDAR + 2370 foreground forward
 make dev-web             # Vite dev server (localhost:5173)
-make dev-docs            # Eleventy docs dev server
-make dev-docs-offline    # Embedded offline docs dev server
+make dev-public-html            # Public site preview (localhost:8090)
+make dev-docs-offline    # Repository docs preview (localhost:8093)
 ```
 
 ### Running a single test
@@ -171,9 +171,10 @@ pnpm run test -- -t "test name regex"
 ### Setup (first time)
 
 ```bash
-make install-web      # Installs web deps via pnpm
-make install-docs     # Installs Eleventy deps for docs site
-make install-python   # Local dev Python tooling
+make install-web          # SvelteKit app dependencies
+make install-public-html         # Public site dependencies
+make install-docs-offline # Embedded repository docs dependencies
+make install-python       # Local dev Python tooling
 ```
 
 ### Other useful targets

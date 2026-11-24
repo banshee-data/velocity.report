@@ -1,7 +1,7 @@
 # libpcap-static
 
 Build infrastructure that produces a fully-static `libpcap.a` for
-linux/amd64 and linux/arm64, used by `make build-radar-static` (see
+linux/amd64 and linux/arm64, used by `make build-velocity-static` (see
 [D-26](../../docs/DECISIONS.md)).
 
 The libpcap source lives in the sibling submodule
@@ -36,7 +36,7 @@ git fetch --tags origin
 git checkout libpcap-1.10.7      # or whatever the next release is
 cd ../..
 git add third_party/libpcap
-make build-radar-static           # rebuild + smoke-test
+make build-velocity-static           # rebuild + smoke-test
 git commit -m "[ai][sh] bump libpcap submodule to 1.10.7"
 ```
 

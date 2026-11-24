@@ -1,6 +1,6 @@
 # velocity.report/public_html
 
-Public-facing documentation site for the velocity.report citizen radar system, built with Eleventy and Tailwind CSS.
+Public site for the velocity.report traffic monitoring platform, built with Eleventy and Tailwind CSS.
 
 **Location**: `public_html/`
 **Framework**: Eleventy (11ty)
@@ -15,6 +15,9 @@ Public-facing documentation site for the velocity.report citizen radar system, b
 - [pnpm](https://pnpm.io/) package manager (v10 or higher)
 
 ## Quick start
+
+From the repository root, run `make install-public-html`, then `make dev-public-html`. The equivalent pnpm
+commands from this directory are:
 
 ```bash
 # Install dependencies
@@ -33,7 +36,8 @@ This runs Eleventy in watch mode with Tailwind CSS compilation. The site will be
 pnpm run build
 ```
 
-Outputs optimised files to the `_site/` directory.
+`make build-public-html` from the repository root runs the same build and outputs optimised files to
+`public_html/_site/`. `make build-public-html-image` builds the Pi image's copy for `/public_html/`.
 
 ## Test
 

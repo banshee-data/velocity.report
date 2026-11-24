@@ -11,11 +11,12 @@ cd velocity.report
 
 ## Initial Setup
 
-| Subsystem     | Command                  | Purpose                             |
-| ------------- | ------------------------ | ----------------------------------- |
-| Go server     | `make build-radar-local` | Build with pcap support (local dev) |
-| Web frontend  | `make install-web`       | Install pnpm/npm dependencies       |
-| Documentation | `make install-docs`      | Install Eleventy dependencies       |
+| Subsystem       | Command                     | Purpose                                         |
+| --------------- | --------------------------- | ----------------------------------------------- |
+| Go server       | `make build-radar-local`    | Build with pcap support (local dev)             |
+| Web frontend    | `make install-web`          | Install pnpm/npm dependencies                   |
+| Public site     | `make install-public-html`  | Install Eleventy dependencies in `public_html/` |
+| Repository docs | `make install-docs-offline` | Install Eleventy dependencies in `docs_html/`   |
 
 ### pcap Build Notes
 
@@ -23,25 +24,27 @@ If the Go build fails due to missing pcap dependencies:
 
 - **Debian/Ubuntu:** `sudo apt-get install libpcap-dev`
 - **macOS:** `brew install libpcap`
-- **Linux ARM64 image/release build:** `make build-radar-static-arm64` or `make build-radar-linux-docker` (uses Docker, zig/musl, and vendored libpcap)
+- **Linux ARM64 image/release build:** `make build-velocity-static-arm64` or `make build-velocity-linux-docker` (uses Docker, zig/musl, and vendored libpcap)
 
 ## Quality Gate (Mandatory)
 
 Every commit must pass all three:
 
 ```bash
-make lint      # Check all code formatting (Go, Web)
-make format    # Auto-format all code
-make test      # Run all test suites
+make lint      # Check Go, web, docs, and repository hygiene
+make format    # Format Go, web, macOS, Markdown, and SQL
+make test      # Run maintained test suites
 ```
 
 ## Testing
 
-| Command         | Scope                |
-| --------------- | -------------------- |
-| `make test`     | All tests (Go + Web) |
-| `make test-go`  | Go unit tests        |
-| `make test-web` | Web tests            |
+| Command                  | Scope                                   |
+| ------------------------ | --------------------------------------- |
+| `make test`              | Maintained suites across the repository |
+| `make test-go`           | Go unit tests                           |
+| `make test-web`          | Web tests                               |
+| `make test-public-html`  | Public site tests                       |
+| `make test-docs-offline` | Embedded repository docs tests          |
 
 ### Per-Language Validation
 
@@ -61,19 +64,19 @@ make build-web           # Verify production build
 
 ## Development Servers
 
-| Command         | Purpose                         |
-| --------------- | ------------------------------- |
-| `make dev-go`   | Go server (radar disabled)      |
-| `make dev-web`  | Web dev server (localhost:5173) |
-| `make dev-docs` | Documentation dev server        |
+| Command                 | Purpose                                     |
+| ----------------------- | ------------------------------------------- |
+| `make dev-go`           | Go server (radar disabled)                  |
+| `make dev-web`          | Web dev server (localhost:5173)             |
+| `make dev-public-html`  | Public site dev server (localhost:8090)     |
+| `make dev-docs-offline` | Repository docs dev server (localhost:8093) |
 
 ## Makefile Pattern
 
 Target naming: `<action>-<subsystem>[-<variant>]`
 
-- Targets are self-documenting via `##` help comments
 - Cross-compilation for ARM64 (Raspberry Pi 4)
-- Run `make help` for the full list
+- Run `make help` for the command overview and see [COMMANDS.md](../../COMMANDS.md) for workflows and compatibility aliases
 
 ## SQLite
 

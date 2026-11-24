@@ -401,7 +401,7 @@ backfill_ring_elevations --db sensor_data.db
 
 ---
 
-### Makefile targets (101 total)
+### Common Make targets
 
 **Build Targets:**
 
@@ -410,32 +410,36 @@ backfill_ring_elevations --db sensor_data.db
 - `build-velocity-mac` / `build-velocity-mac-intel` - Build `velocity` for macOS ARM64 / Intel
 - `build-radar-local` - Local development build with pcap (→ `./velocity-report-local`)
 - `build-radar-linux` / `build-radar-mac` / `build-radar-mac-intel` - Compatibility aliases for the `build-velocity-*` targets
-- `build-radar-static-arm64` - Static Raspberry Pi image/release-candidate build using Docker, zig/musl, and vendored libpcap
-- `build-radar-linux-docker` - Stage the static ARM64 image binary under `image/velocity-binaries/`
+- `build-velocity-static-arm64` - Static Raspberry Pi image/release-candidate build using Docker, zig/musl, and vendored libpcap
+- `build-velocity-linux-docker` - Stage the static ARM64 image binary under `image/velocity-binaries/`
 - `build-ctl` / `build-ctl-linux` / `build-tools` - Compatibility aliases that build the same `velocity` binary (no separate `velocity-ctl`)
 - `build-web` - Build Svelte web frontend
-- `build-docs` - Build documentation site
+- `build-public-html` - Build the public site into `public_html/_site/`
+- `build-docs-offline` - Build the embedded repository docs into `docs_html/_site/`
 
-**Development Targets (8):**
+**Development targets**
 
 - `dev-go` - Run Go server (radar disabled)
 - `dev-go-lidar` - Run Go server with lidar enabled (gRPC mode)
 - `dev-go-lidar-both` - Run Go server with lidar (both gRPC and 2370 forward)
 - `dev-go-kill-server` - Kill running dev server
 - `dev-web` - Run web dev server
-- `dev-docs` - Run docs dev server
+- `dev-public-html` - Preview the public site on port 8090
+- `dev-docs-offline` - Preview the repository docs on port 8093
 
-**Testing Targets (5):**
+**Testing targets**
 
-- `test` - Run aggregate tests (Go + Web + macOS)
+- `test` - Run the maintained repository suites
 - `test-go` - Go unit tests only
 - `test-python` - Python script/tool tests
 - `test-python-cov` - Python script/tool tests with coverage
 - `test-web` - Web tests
+- `test-public-html` - Public site tests
+- `test-docs-offline` - Repository docs tests
 
-**Code Quality Targets (8):**
+**Code quality targets**
 
-- `format` - Format all code (Go + Python tools + Web)
+- `format` - Format Go, web, macOS, Markdown, and SQL
 - `format-go` - Format Go code
 - `format-python` - Format Python code
 - `format-web` - Format web code
@@ -444,13 +448,13 @@ backfill_ring_elevations --db sensor_data.db
 - `lint-python` - Lint Python code
 - `lint-web` - Lint web code
 
-**Database Migration Targets (7):**
+**Database migration targets**
 
 - `migrate-up` - Run pending migrations
 - `migrate-down` - Rollback last migration
 - `migrate-status` - Show migration status
 - `migrate-detect` - Detect schema drift
-- `migrate-version` - Show current version
+- `migrate-version` - Migrate to a specific version (`VERSION=N`)
 - `migrate-force` - Force migration to specific version
 - `migrate-baseline` - Set baseline for existing DB
 
@@ -459,14 +463,15 @@ backfill_ring_elevations --db sensor_data.db
 > tool) were deleted in v0.5.1. On-device lifecycle is now `velocity device …`
 > (run on the Pi); there is no host-to-device push tool.
 
-**Installation Targets (4):**
+**Installation targets**
 
 - `install-python` - Install Python dependencies
 - `install-web` - Install web dependencies
-- `install-docs` - Install docs dependencies
+- `install-public-html` - Install public site dependencies
+- `install-docs-offline` - Install embedded repository docs dependencies
 - `ensure-python-tools` - Ensure Python formatting tools
 
-**Monitoring/Logging Targets (2):**
+**Monitoring and logging targets**
 
 - `log-go-tail` - Tail Go server logs
 - `log-go-cat` - Cat Go server logs
@@ -496,7 +501,7 @@ open http://localhost:8080/app/
 
 ```bash
 # Build the static Raspberry Pi artifact used by image/release packaging
-make build-radar-static-arm64
+make build-velocity-static-arm64
 
 # On the Pi: upgrade using the device namespace
 sudo velocity device upgrade

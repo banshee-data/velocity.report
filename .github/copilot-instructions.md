@@ -59,8 +59,8 @@ make test      # Run all test suites
 
 If the local Go build fails due to missing pcap dependencies, install
 `libpcap-dev` (Linux) or `brew install libpcap` (macOS). For Raspberry Pi
-image or release-candidate binaries, use `make build-radar-static-arm64` or
-`make build-radar-linux-docker`; those routes run in Docker with zig/musl and
+image or release-candidate binaries, use `make build-velocity-static-arm64` or
+`make build-velocity-linux-docker`; those routes run in Docker with zig/musl and
 vendored libpcap instead of relying on host libpcap.
 
 For full build setup, dev servers, and testing: see [knowledge/build-and-test.md](knowledge/build-and-test.md).

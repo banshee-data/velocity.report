@@ -258,7 +258,7 @@ The honest summary: **Eleventy serve lies to you about anything that isn't pure 
 | `install-docs-offline`     | `pnpm install` inside `docs_html/`                            |
 | `build-docs-offline`       | Create symlinks, `pnpm build`, run `check-docs-offline-links` |
 | `dev-docs-offline`         | Create symlinks, `eleventy --serve --port=8093`               |
-| `dev-docs-offline-kill`    | Kill stale Eleventy serve (mirror of `dev-docs-kill`)         |
+| `dev-docs-offline-kill`    | Kill stale Eleventy serve (mirror of `dev-public-html-kill`)  |
 | `clean-docs-offline`       | Remove `_site/` and the temporary symlinks                    |
 | `check-docs-offline-links` | Internal-link checker scoped to `docs_html/_site/` (§4.6)     |
 

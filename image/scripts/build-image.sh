@@ -198,8 +198,8 @@ log_info "Copied data reference files"
 # serves this staged tree alongside its existing /docs/ repository-docs route.
 # Always rebuild here: a normal public deployment targets /, which is not a
 # safe substitute for the image's mounted path.
-log_info "Building offline homepage site..."
-make -C "$REPO_ROOT" build-docs-public-html
+log_info "Building public site for the Pi image..."
+make -C "$REPO_ROOT" build-public-html-image
 PUBLIC_HTML_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
 rm -rf "$PUBLIC_HTML_DEST"
 mkdir -p "$PUBLIC_HTML_DEST"

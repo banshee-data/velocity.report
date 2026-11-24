@@ -30,7 +30,7 @@ The two Eleventy projects stay separate on purpose. Public docs and operator doc
 ## Build and serve model
 
 - `make build-docs-offline` builds the offline Eleventy site into `docs_html/_site`
-- `make build-docs-public-html` builds `public_html/_site` with paths rooted at `/public_html/`
+- `make build-public-html-image` builds and verifies `public_html/_site` with paths rooted at `/public_html/`
 - `make dev-docs-offline` runs the offline Eleventy preview for authoring
 - `python3 scripts/check-relative-links.py` validates Markdown link integrity across the source tree
 - `scripts/check-docs-offline-links.js` and

@@ -15,11 +15,12 @@
 This is the map of the project's make targets: how to build, test, format, deploy, and operate
 velocity.report without relying on tribal memory or a terminal incantation passed down at lunch.
 
-Run `make help` or `make` to see all available targets with descriptions.
+Run `make help` or `make` for the command overview. The Makefile also contains internal targets
+used by other recipes and CI.
 
 ## Naming convention
 
-The project uses a consistent naming scheme: `<action>-<subsystem>[-<variant>]`
+Most public targets follow `<action>-<subsystem>[-<variant>]`.
 
 - `action`: imperative verb (e.g. `build`, `test`, `check`, `sync`)
 - `subsystem`: functional surface (e.g. `go`, `web`, `config`)
@@ -30,44 +31,72 @@ Legacy aliases are kept for compatibility.
 
 ## Core subsystem targets
 
-| Action             | Go                                                            | Python            | Web            | Docs           | macOS        |
-| ------------------ | ------------------------------------------------------------- | ----------------- | -------------- | -------------- | ------------ |
-| **install**        | -                                                             | `install-python`  | `install-web`  | `install-docs` | -            |
-| **build**          | `build-radar-*`                                               | -                 | `build-web`    | `build-docs`   | `build-mac`  |
-| **dev**            | `dev-go`                                                      | -                 | `dev-web`      | `dev-docs`     | `dev-mac`    |
-| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-lidar-both`<br>`dev-go-kill-server` | -                 | -              | -              | -            |
-| **run**            | -                                                             | -                 | -              | -              | `run-mac`    |
-| **test**           | `test-go`                                                     | `test-python`     | `test-web`     | -              | `test-mac`   |
-| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary`                   | `test-python-cov` | `test-web-cov` | -              | -            |
-| **format**         | `format-go`                                                   | `format-python`   | `format-web`   | `format-docs`  | `format-mac` |
-| **lint**           | `lint-go`                                                     | `lint-python`     | `lint-web`     | -              | -            |
-| **clean**          | -                                                             | -                 | -              | -              | `clean-mac`  |
+| Subsystem                               | Install                | Build                                 | Develop                                       | Test                |
+| --------------------------------------- | ---------------------- | ------------------------------------- | --------------------------------------------- | ------------------- |
+| Go server and CLI                       |                        | `build-radar-local`, `build-velocity` | `dev-go`, `dev-go-lidar`, `dev-go-lidar-both` | `test-go`           |
+| Python tooling                          | `install-python`       |                                       |                                               | `test-python`       |
+| SvelteKit web app (`web/`)              | `install-web`          | `build-web`                           | `dev-web` (port 5173)                         | `test-web`          |
+| Public site (`public_html/`)            | `install-public-html`  | `build-public-html`                   | `dev-public-html` (port 8090)                 | `test-public-html`  |
+| Embedded repository docs (`docs_html/`) | `install-docs-offline` | `build-docs-offline`                  | `dev-docs-offline` (port 8093)                | `test-docs-offline` |
+| macOS visualiser                        |                        | `build-mac`                           | `dev-mac`                                     | `test-mac`          |
 
-**Cross-cutting formatting targets:**
+## Public site and offline docs
 
-- `format-sql`: Format SQL files (migrations and schema)
+The public site in `public_html/` uses `public-html` as its Make subsystem name.
+
+- `build-public-html` writes `public_html/_site/` for hosting at `/`.
+- `build-public-html-image` writes to the same directory with `/public_html/`-prefixed URLs for the Pi
+  image. Both builds replace the generated directory. `verify-public-html-image-build` verifies the
+  image output without rebuilding it.
+- `build-docs-offline` writes `docs_html/_site/` for the Go service to embed and serve at `/docs/`.
+- `dev-public-html-kill` and `dev-docs-offline-kill` stop the respective preview processes.
+- `format-docs` and `lint-docs` apply to repository Markdown.
+
+Deprecated public-site targets still dispatch to their replacements.
+
+| Old target                      | Replacement                      |
+| ------------------------------- | -------------------------------- |
+| `install-docs`                  | `install-public-html`            |
+| `dev-docs`                      | `dev-public-html`                |
+| `dev-docs-kill`                 | `dev-public-html-kill`           |
+| `build-docs`                    | `build-public-html`              |
+| `build-docs-public-html`        | `build-public-html-image`        |
+| `verify-docs-public-html-build` | `verify-public-html-image-build` |
 
 ## Aggregate targets
 
-- `test`: Run aggregate tests (Go + Web + macOS)
-- `format`: Format all code (Go + Python + Web + macOS + SQL + Markdown)
-- `lint`: Lint all code (Go + Python + Web); fails if formatting needed
-- `coverage`: Generate coverage reports for all components
+- `test` runs Go, Python, web, public site, offline docs, macOS, S2 Hilbert, and scene-capture tests.
+- `format` formats Go, web, macOS, Markdown, and SQL. Run `format-python` for Python tooling.
+- `lint` checks Go, web, documentation, and repository hygiene. Run `lint-python` or `lint-mac` for those checks.
+- `coverage` runs coverage for Go, Python, web, offline docs, and macOS.
 
-## Build targets (Go cross-compilation)
+## Go binary builds
 
-- `build-velocity`: Build the single multi-call `velocity` binary (local, pcap)
+- `build-velocity`: Build the multi-call binary as `./velocity` with pcap support
+- `build-radar-local`: Build the same program as `velocity-report-local` for development. Override the output with `VELOCITY_LOCAL_BIN`.
 - `build-velocity-linux`: Build `velocity` for Linux ARM64 with pcap
 - `build-velocity-mac`: Build `velocity` for macOS ARM64 with pcap
-- `build-radar-linux` / `build-radar-mac` / `build-radar-mac-intel` / `build-radar-local`: compatibility aliases that build the single `velocity` binary
+- `build-velocity-mac-intel`: Build `velocity` for macOS AMD64 with pcap
+- `build-radar-linux`, `build-radar-mac`, and `build-radar-mac-intel` map to the corresponding `build-velocity-*` targets.
 - `build-tools`: alias for `build-velocity` (sweep is now `velocity tune sweep`)
-- `build-ctl` / `build-ctl-linux`: aliases for `build-velocity` (device tools folded into `velocity device`)
-- `build-web`: Build web frontend (SvelteKit)
-- `build-docs`: Build documentation site (Eleventy)
+- `build-ctl` aliases `build-velocity`, and `build-ctl-linux` aliases `build-velocity-linux`. Device management runs under `velocity device`.
+
+### Static Linux binaries
+
+The static Linux build uses Docker, Zig, musl, and libpcap. The old targets remain callable as
+deprecated aliases.
+
+| Canonical target                   | Old target                      | Purpose                                                         |
+| ---------------------------------- | ------------------------------- | --------------------------------------------------------------- |
+| `build-velocity-static`            | `build-radar-static`            | Build both Linux architectures into `build/static/`             |
+| `build-velocity-static-amd64`      | `build-radar-static-amd64`      | Build the static Linux AMD64 binary                             |
+| `build-velocity-static-arm64`      | `build-radar-static-arm64`      | Build the static Linux ARM64 binary                             |
+| `build-velocity-linux-docker`      | `build-radar-linux-docker`      | Stage the Pi image's ARM64 binary in `image/velocity-binaries/` |
+| `test-velocity-static-arm64-vm`    | `test-radar-static-arm64-vm`    | Test an ARM64 build in a QEMU VM                                |
+| `test-velocity-static-golden-pcap` | `test-radar-static-golden-pcap` | Test an AMD64 build against the canonical LiDAR capture         |
 
 ## Testing targets
 
-- `test`: Run aggregate tests (Go + Web + macOS)
 - `test-go`: Run Go unit tests
 - `test-go-cov`: Run Go tests with coverage
 - `test-go-coverage-summary`: Show coverage summary for cmd/ and internal/
@@ -76,13 +105,12 @@ Legacy aliases are kept for compatibility.
 - `test-web`: Run web tests (Jest)
 - `test-web-cov`: Run web tests with coverage
 - `test-mac`: Run macOS visualiser tests (XCTest)
-- `test-perf`: Run performance regression tests (NAME=kirk0)
-- `coverage`: Generate coverage reports for all components
+- `test-perf`: Run the performance gate for one capture and profile (`NAME=kirk0`, `PROFILE=full` by default)
 
 ## macOS visualiser targets
 
 - `build-mac`: Build macOS LiDAR visualiser (Xcode)
-- `clean-mac`: Clean macOS visualiser build artifacts
+- `clean-mac`: Clean macOS visualiser build artefacts
 - `run-mac`: Run macOS visualiser (requires build-mac)
 - `dev-mac`: Kill, build, and run macOS visualiser
 - `test-mac`: Run macOS visualiser tests (XCTest)
@@ -103,7 +131,7 @@ Legacy aliases are kept for compatibility.
 
 ## Deployment targets (removed)
 
-> These targets were removed in v0.5.1. `velocity-deploy` has been replaced by `velocity-ctl`.
+> These targets were removed in v0.5.1. Device management now runs under `velocity device`.
 > See [deploy-rpi-imager-fork-plan.md §8](docs/plans/deploy-rpi-imager-fork-plan.md).
 
 - `setup-radar`: Install server on this host (requires sudo, **removed**)
@@ -116,7 +144,6 @@ Legacy aliases are kept for compatibility.
 
 ## Formatting targets
 
-- `format`: Format all code (Go + Python + Web + macOS + SQL + Markdown)
 - `format-go`: Format Go code (gofmt)
 - `format-python`: Format Python code (black + ruff)
 - `format-web`: Format web code (prettier)
@@ -126,7 +153,6 @@ Legacy aliases are kept for compatibility.
 
 ## Linting targets
 
-- `lint`: Lint all code (Go + Python + Web); fails if formatting needed
 - `lint-go`: Check Go formatting
 - `lint-python`: Check Python formatting
 - `lint-web`: Check web formatting
@@ -136,9 +162,9 @@ Legacy aliases are kept for compatibility.
 - `check-config-order`: Validate canonical tuning key order across config and docs surfaces
 - `sync-config-order`: Rewrite config/docs targets to canonical tuning key order
 - `check-config-maths`: Validate config maths keys against docs JSON, `tuning*.json`, and Go schema sources
-- `check-config-maths-strict`: Strict parity mode; also requires full webserver POST schema parity
-  Current status: optional in CI until webserver schema parity backlog is complete.
-- Compatibility aliases: `config-order-check`, `config-order-sync`, `readme-maths-check`, `readme-maths-check-strict`
+- Compatibility aliases include `config-order-check`, `config-order-sync`, `check-config-maths-strict`,
+  `readme-maths-check`, and `readme-maths-check-strict`. The two names ending in `-strict`
+  resolve to `check-config-maths`.
 
 ## Database migration targets
 
@@ -158,7 +184,7 @@ service account or `root`, for example `sudo -u velocity /usr/local/bin/velocity
 
 ## Utility targets
 
-- `set-version`: Update version across codebase (VER=0.4.0 TARGETS='--all')
+- `version-exact`: Update the version across the codebase (`VER=0.5.1`, optional `TARGETS`)
 - `log-go-tail`: Tail most recent Go server log
 - `log-go-cat`: Cat most recent Go server log
 - `log-go-tail-all`: Tail most recent Go server log plus debug log

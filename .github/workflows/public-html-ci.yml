@@ -80,8 +80,9 @@ jobs:
         with:
           working-directory: public_html
 
-      - name: Build documentation site
-        run: pnpm run build
+      - name: Build public site
+        working-directory: .
+        run: make build-public-html
 
       - name: Verify build output
         run: |
@@ -105,3 +106,7 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           find _site -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -10 >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build and verify the Pi image site after the hosted build
+        working-directory: .
+        run: make build-public-html-image

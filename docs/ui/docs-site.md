@@ -1,6 +1,6 @@
-# Documentation site (public_html)
+# Public site (public_html)
 
-The public-facing documentation site at [velocity.report](https://velocity.report), built with Eleventy and Tailwind CSS.
+The public site at [velocity.report](https://velocity.report), built with Eleventy and Tailwind CSS.
 
 **Source:** `public_html/`
 **Build output:** `public_html/_site/`
@@ -33,20 +33,20 @@ Content flow: `.md` → front matter selects layout → Nunjucks wraps → base 
 ## Build
 
 ```bash
-make build-docs          # Build site → public_html/_site/
-make build-docs-public-html # Build the image-mounted site → /public_html/
-make install-docs        # Install pnpm dependencies
+make install-public-html       # Install pnpm dependencies
+make build-public-html         # Build the public site → public_html/_site/
+make build-public-html-image   # Build and verify the Pi image copy for /public_html/
 ```
 
 Dev server (hot reload on `:8090`):
 
 ```bash
-cd public_html && pnpm run dev
+make dev-public-html
 ```
 
 ## Deployment
 
-- **GitHub Pages:** auto-deploys from the `gh-pages` branch
+- **GitHub Pages:** builds and deploys on changes to the public site on `main`
 - **On-device:** `make build-image` rebuilds the site with `/public_html/`-prefixed links, installs it to `/opt/velocity-report/public_html/`, and the Go service serves it at `/public_html/`. The app sidebar links it as **Homepage (offline)**; **Git repo docs** remains the separate `/docs/` site.
 
 ## OS image list

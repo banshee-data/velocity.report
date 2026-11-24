@@ -206,13 +206,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup Node.js with pnpm (docs)
+      - name: Setup Node.js with pnpm (public site)
         uses: ./.github/actions/setup-node-pnpm
         with:
           working-directory: public_html
 
-      - name: Build docs
-        run: make build-docs
+      - name: Build public site
+        run: make build-public-html
 
       - name: Setup Go
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
