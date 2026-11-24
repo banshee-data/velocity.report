@@ -1,0 +1,1 @@
+- Baked lower Beale Street beneath the Harrison deck and removed the draped road overlap. Drove both levels in both directions in Chrome and recorded the results in the [SF road route audit](../../ui/sf-road-route-audit.md#beale-street-beneath-harrison-street).
