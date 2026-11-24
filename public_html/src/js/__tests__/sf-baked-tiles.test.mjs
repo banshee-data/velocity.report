@@ -1450,7 +1450,7 @@ test("southbound US 101 stays on its level through the Hester fork and collector
     tiles[1].playableRoads.find(({ id }) => id === edge.id),
     tiles[2].playableRoads.find(({ id }) => id === edge.id),
   );
-  assert.equal(roadBake.overheadBuildingPatches["808f7f24"], 3);
+  assert.equal(roadBake.overheadBuildingPatches["808f7f24"], 4);
 });
 
 test("Potrero and Cesar Chavez entrances merge above the street on southbound US 101", () => {
@@ -2354,4 +2354,104 @@ test("Mariposa Street stays at the lower level through the viaduct and connects 
   assert.ok(car.x >= 4185);
   assert.ok(roadBake.terrainDetailPatches[token]);
   assert.ok(!tile.tr.some(([x, y]) => x === 2480 && y === -2627));
+});
+
+test("southern northbound US 101 joins the existing Silver approach across tiles", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const owners = [
+    "808f7e54",
+    "808f7ee4",
+    "808f7efc",
+    "808f7f1c",
+    "808f7f24",
+    "808f7f2c",
+  ];
+  const tiles = new Map(
+    owners.map((owner) => [
+      owner,
+      JSON.parse(gunzipSync(file(`tiles/${owner}.json.gz`))),
+    ]),
+  );
+  const roads = new Map(
+    [...tiles.values()].flatMap(({ playableRoads }) =>
+      playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  const mainline = [
+    "us101-north-city-edge-to-hester",
+    "us101-north-hester-to-bayshore",
+    "us101-north-bayshore-to-paul",
+    "us101-north-paul-to-silliman",
+    "us101-north-silliman-to-alemany",
+    "us101-north-alemany-to-silver",
+    "us101-north-silver-approach",
+  ].map((name) => roads.get(`sf-contact/${name}`));
+  const ramp = roads.get("sf-contact/us101-north-alemany-entry");
+  for (const [from, to] of [
+    ...mainline.slice(0, -1).map((road, i) => [road, mainline[i + 1]]),
+    [ramp, mainline[5]],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0], from.id);
+    assert.deepEqual(from.seams.end, to.seams.start, from.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (join) =>
+          join.from === `${from.id}:end` &&
+          join.to === `${to.id}:start` &&
+          join.direction === "forward",
+      ),
+      from.id,
+    );
+    for (const owner of new Set(from.owners)) {
+      assert.deepEqual(
+        tiles.get(owner).playableRoads.find(({ id }) => id === from.id),
+        from,
+      );
+    }
+    assert.ok(
+      from.points.every(
+        (point, i) =>
+          i === 0 ||
+          Math.abs(point[2] - from.points[i - 1][2]) /
+            Math.hypot(
+              point[0] - from.points[i - 1][0],
+              point[1] - from.points[i - 1][1],
+            ) <
+            (from === ramp ? 0.095 : 0.055),
+      ),
+    );
+  }
+  const hesterTile = tiles.get("808f7f24");
+  const hester = buildBakedRoadContact(mainline[1]).surface;
+  const x = 3657.92,
+    y = -4875.17;
+  const z = hester.heightAt(x, y);
+  assert.ok(z > 40 && z < 41);
+  assert.deepEqual(hester.coveredRange, [133, 177]);
+  assert.equal(
+    collisionAt(
+      [buildCollisionIndex(hesterTile, "808f7f24")],
+      { x, y, heading: 1.936 },
+      z,
+    ),
+    null,
+  );
+  assert.ok(
+    hesterTile.b.some(
+      ([bottom, faces]) =>
+        bottom === 480 &&
+        faces.some(
+          ([roof]) =>
+            roof[2] === 494 && roof[0] + hesterTile.o[0] * 10 === 36598,
+        ),
+    ),
+  );
+  const { portals } = buildBakedRoadContact(ramp);
+  const [entrance] = portals;
+  assert.ok(
+    Math.abs(
+      groundAtWorld([tiles.get(ramp.owners[0])], entrance.x, entrance.y, true) -
+        entrance.z,
+    ) < 0.05,
+  );
 });

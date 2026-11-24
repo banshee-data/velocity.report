@@ -1630,6 +1630,51 @@ cases["mariposa-upper-18th-viaduct"] = {
   covered: [],
 };
 
+const southernUs101Owners = [
+  "808f7e54",
+  "808f7ee4",
+  "808f7efc",
+  "808f7f1c",
+  "808f7f24",
+  "808f7f2c",
+];
+const northboundUs101Hester = "us101-north-hester-to-bayshore";
+cases["southern-city-edge-to-northbound-us101"] = {
+  roads: [
+    "us101-north-city-edge-to-hester",
+    northboundUs101Hester,
+    "us101-north-bayshore-to-paul",
+    "us101-north-paul-to-silliman",
+    "us101-north-silliman-to-alemany",
+    "us101-north-alemany-to-silver",
+    "us101-north-silver-approach",
+  ],
+  owners: southernUs101Owners,
+  speed: 21,
+  rollingStart: true,
+  rollingStartMetres: 24,
+  initialSpeedMps: 20.2,
+  finishOnDeck: true,
+  finishDistance: 100,
+  maxDurationMs: 330_000,
+  covered: [`sf-contact/${northboundUs101Hester}`],
+};
+cases["alemany-street-to-northbound-us101"] = {
+  roads: [
+    "us101-north-alemany-entry",
+    "us101-north-alemany-to-silver",
+    "us101-north-silver-approach",
+  ],
+  owners: ["808f7e54", "808f7efc"],
+  speed: 15,
+  speedLimits: { "us101-north-alemany-entry": 10 },
+  finishOnDeck: true,
+  finishDistance: 120,
+  groundApproachMetres: 12,
+  maxDurationMs: 115_000,
+  covered: ["sf-contact/us101-north-alemany-entry"],
+};
+
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];

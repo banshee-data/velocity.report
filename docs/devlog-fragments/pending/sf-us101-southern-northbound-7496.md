@@ -1,0 +1,1 @@
+- Baked the northbound US 101 approach from the southern city boundary and the Alemany Boulevard entrance. Preserved the upper road at Hester while opening the inferred lower clearance, then drove both routes in Chrome.
