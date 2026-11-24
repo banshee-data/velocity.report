@@ -2119,9 +2119,10 @@ geometry.
 
 The contact regression failed on the prior bake at the collision
 footprint of one of the inferred trunks. Chrome repeated the westbound
-run to exterior pavement in 54.4 s. The previous attempt crashed after
-48.8 s. This is a separate check from the Broadway-to-Marina emoji
-route, which stalled before reaching the bore.
+run to exterior pavement in 54.4 s, then drove the eastbound lane in
+59.4 s. Both finished grounded. The previous westbound attempt crashed
+after 48.8 s. These were directed bore tests. The Broadway-to-Marina
+emoji route stalled before reaching the bore.
 
 - Game manifest SHA-256 `e31fcb0e984e4ba0b3d39f736aa16d3385f47c86c364264ef24240a55ef120ab`.
 - Contact SHA-256 `8627bc2e65573c2c1d658729d450929d7c44054dcaf8000d5d78cd79a2452aa9`.
