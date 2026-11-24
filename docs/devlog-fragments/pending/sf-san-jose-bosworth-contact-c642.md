@@ -1,0 +1,1 @@
+- Baked the San Jose Avenue contact above the Bosworth ramps to remove the drop onto the lower terrain. Drove both directions and recorded the pavement handoffs, grades and clearance checks in the [SF road route audit](../../ui/sf-road-route-audit.md#san-jose-avenue-above-the-bosworth-ramps).

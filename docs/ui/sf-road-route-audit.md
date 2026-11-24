@@ -2636,3 +2636,35 @@ directed joins in the existing island tile.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   east-span-eastbound island-east-westbound-exit macalla-westbound-roundtrip
 ```
+
+## San Jose Avenue above the Bosworth ramps
+
+The live game followed the terrain of the lower interchange at the
+San Jose Avenue crossing. A southwest keyboard drive dropped to
+48.38 m NAVD88 about 150 m from the start. The same drive on the
+baked upper surface stayed grounded at 57.08 m. The 343.3 m contact
+strip joins ordinary terrain at both ends.
+
+April 2023 3DEP observations supported all 116 centre stations
+and all five offsets at each of 90 width-check stations. The game
+strip is 8 m wide. It peaks at 3.19% grade, with a deepest local
+dip of 0.047 m over a chord of about 20 m. The centre and two
+lateral offsets cleared all 516 scenery checks.
+
+| Chrome drive |   Time | Peak speed | Exit                      |
+| ------------ | -----: | ---------: | ------------------------- |
+| Southwest    | 30.4 s |   29.3 mph | Grounded on city pavement |
+| Northeast    | 30.9 s |   29.6 mph | Grounded on city pavement |
+
+Both drives used manual keyboard input. The upper street and lower
+terrain remain separate. The nearby entrances require their own
+joins to the southbound mainline.
+
+- Game manifest SHA-256 `086026f0f07816bfab8b60707885de5062359872eeb8d9b30a00c38d42430984`.
+- Contact SHA-256 `80fd985238790753815976b6af40bdc2b40aa3e0cf9011ce070331f5365700d6`.
+- [Gerardus survey recipe](https://github.com/banshee-data/gerardus/pull/168).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  san-jose-bosworth-southwest san-jose-bosworth-northeast
+```

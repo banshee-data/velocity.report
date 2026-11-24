@@ -3883,3 +3883,30 @@ test("I-280 follows the surveyed carriageways and directed SR 82 ramps south of 
     assert.ok(Math.max(...differences) > 6, item.id);
   }
 });
+
+test("San Jose Avenue stays on its measured upper road above the Bosworth ramps", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e64.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/san-jose-bosworth-upper-street",
+  );
+  assert.equal(road.width, 8);
+  assert.deepEqual(road.groundEnds, ["start", "end"]);
+  assert.ok(
+    road.profiles.every((id) => roadBake.playableReplaces.includes(id)),
+  );
+  const { surface, portals } = buildBakedRoadContact(road);
+  assert.equal(portals.length, 2);
+  for (const { x, y, z } of portals) {
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.02);
+  }
+  const [x, y] = [664.64, -2965.1];
+  assert.ok(groundAtWorld([tile], x, y, true) < 49);
+  assert.ok(surface.heightAt(x, y) > 56.9);
+  assert.ok(surface.heightAt(x, y) < 57.3);
+  for (let i = 1; i < road.points.length; i++) {
+    const [a, b, az] = road.points[i - 1];
+    const [c, d, bz] = road.points[i];
+    assert.ok(Math.abs(bz - az) / Math.hypot(c - a, d - b) < 0.035);
+  }
+});
