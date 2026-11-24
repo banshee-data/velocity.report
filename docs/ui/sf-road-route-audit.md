@@ -3176,3 +3176,49 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   harrison-beale-bridge-southwestbound harrison-beale-bridge-northeastbound \
   beale-street-under-harrison-southeastbound beale-street-under-harrison-northwestbound
 ```
+
+## Southbound I-280 exit onto the 18th Street viaduct
+
+The prior exit ended at 26.64 m with a declared ground handoff to
+terrain at 19.02 m. Chrome stopped at 26.63 m in both a drive from
+Fifth Street and a short replay from the off-ramp. The April 2023
+survey observes the ramp and viaduct at approximately 26.66 m at
+their shared node. [SFCTA's 18th Street ramp board](https://www.sfcta.org/sites/default/files/2026-10/Vision%20Zero%20Ramps%20-%20Round%202%20Outreach%20Boards.pdf#page=13).
+
+The new bake joins the ramp to 18th Street with eastbound and
+westbound curves fitted to the surveyed approach elevations. The
+contact reader aligns each shared cross-section with its own road's
+travel direction, letting the eastbound turn join the end of the
+west-oriented viaduct. The west turn uses a 17 m landing onto the
+open street. Straight travel across the viaduct still works in
+both directions.
+
+The asset regression checks all declared ground handoffs against
+the contact tolerance used by the game. It also checks matching
+endpoint coordinates and road geometry across tile owners. All 155
+ground handoffs in this bake match their terrain within 7.5 cm.
+The keyboard cases check both turns and the through paths separately.
+Both exit turns reached exterior street contact with zero airborne
+distance on the staged bake. The eastbound chase camera returned to
+its exterior view on the open street beyond the deck.
+
+Both full Fifth Street drives reached the westbound landing grounded.
+One full run recorded 3.72 m airborne outside the intermediate
+surface handoffs. The instrumented repeat recorded zero. The full
+test checks uninterrupted contact between the elevated sections.
+The two exit tests separately require zero airborne distance from
+the off-ramp through the final street handoff.
+
+All 23 fixed-step emoji routes completed over 67.59 km. The largest
+observed tile seam was 6.1 cm and no driven dip exceeded 0.5 m over an
+8 m chord.
+
+- Game manifest SHA-256 `347163fe2ee9267d0f4c211c9880b29d5edb38bf3915e7dbccd6df797c89618f`.
+- Contact SHA-256 `10fadb89e04d082f6e5500ea848be8a3253f17a1a040b1c606b1bee510c1547d`.
+- [Gerardus recipe and survey provenance](https://github.com/banshee-data/gerardus/pull/177).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-18th-exit-westbound i280-18th-exit-eastbound \
+  eighteenth-westbound eighteenth-eastbound i280-18th
+```
