@@ -225,7 +225,7 @@ function routeBetween(from, to, tunnel, highway, groundOnly = false) {
     if (cost !== costs.get(node)) continue;
     if (node === to) {
       const route = [];
-      for (let end = to; end !== from; ) {
+      for (let end = to; end !== from;) {
         const { previous, edge } = parents.get(end);
         route.push({ ...edge, from: previous });
         end = previous;
@@ -290,6 +290,16 @@ function routeFor(spec, from, to) {
   return best.route;
 }
 
+function groundLegs(from, to, via) {
+  const stops = [
+    from,
+    ...via.map(([x, y, name]) => snap({ x, y }, [name], 10)),
+    to,
+  ];
+  const legs = stops.slice(1).map((stop, i) => routeBetween(stops[i], stop));
+  return legs.every(Boolean) ? legs.flat() : null;
+}
+
 function layeredRoute(contact, from, to, start, destination) {
   const {
     roads,
@@ -298,14 +308,16 @@ function layeredRoute(contact, from, to, start, destination) {
     exit,
     beforeGuide = [],
     afterGuide = [],
+    beforeVia = [],
+    afterVia = [],
     approachOffsets = {},
     laneGuides = {},
   } = contact;
   const [enterNode, exitNode] = [entry, exit].map(([x, y, name]) =>
     snap({ x, y }, [name], 55),
   );
-  const before = routeBetween(start, enterNode);
-  const after = routeBetween(exitNode, destination);
+  const before = groundLegs(start, enterNode, beforeVia);
+  const after = groundLegs(exitNode, destination, afterVia);
   assert.ok(before && after, "no ground route to a layered course portal");
   const ribbon = roads.flatMap((id) => {
     const surface = pieces.get(id);

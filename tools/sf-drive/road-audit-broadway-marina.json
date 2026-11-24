@@ -1,0 +1,29 @@
+{
+  "manifestSha256": "ca90679cade799d95fc2270c921a0eca05d7b3daf76998586ca2dbad5c5f54fd",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "broadway-to-marina",
+      "from": "⚓",
+      "to": "🎟️",
+      "expectContactExit": true,
+      "contact": {
+        "roads": ["sf-contact/broadway-westbound"],
+        "entry": [2568.7, 4147.4, "Broadway"],
+        "exit": [1751.4, 4006.6, "Broadway"],
+        "beforeVia": [
+          [3245, 4361.7, "Vallejo St"],
+          [3165.4, 4348.8, "Montgomery St"]
+        ],
+        "afterVia": [[1605.4, 3990, "Polk St"]],
+        "afterGuide": [
+          [1796, 4018],
+          [1774, 4015],
+          [1758, 4012]
+        ]
+      }
+    }
+  ]
+}

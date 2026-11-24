@@ -23,7 +23,8 @@ import {
   strikeHighwayRail,
 } from "../sf-highway-edge.js";
 import { driveThroughRoadPortal } from "../sf-road-portal.js";
-import { driveOnRoadSurface } from "../sf-road-contact.js";
+import { contactGeometry, driveOnRoadSurface } from "../sf-road-contact.js";
+import { deckClearanceIndex } from "../sf-tree-clearance.js";
 import { tunnelMesh } from "../sf-tunnel-mesh.js";
 
 const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
@@ -2057,7 +2058,7 @@ test("the Branch East exit and northbound I-280 keep their own road levels", () 
   }
   for (const road of [bore, mainline, viaduct]) {
     const { portals } = buildBakedRoadContact(road);
-    assert.equal(portals.length, 2);
+    assert.equal(portals.length, road === mainline ? 1 : 2);
     for (const { x, y, z } of portals)
       assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
   }
@@ -3442,5 +3443,103 @@ test("Richland and Highland carry traffic above the San Jose Avenue cut", () => 
     const z = ground(x, y);
     assert.ok(z > 55 && z < 60);
     assert.equal(collisionAt(obstacles, { x, y, heading: -2.3 }, z), null);
+  }
+});
+
+test("Ocean Avenue crosses above I-280 and the northbound entrance joins at Monterey", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = [
+    "808f7c2c",
+    "808f7e84",
+    "808f7e7c",
+    "808f7e64",
+    "808f7ef4",
+  ].map((token) => JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))));
+  const roads = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const crossing = roads.get("sf-contact/ocean-avenue-bridge");
+  assert.equal(crossing.width, 16);
+  for (const owner of crossing.owners) {
+    const tile = tiles.find(({ t }) => t === owner);
+    assert.deepEqual(
+      tile.playableRoads.find(({ id }) => id === crossing.id),
+      crossing,
+    );
+  }
+  const { surface, portals } = buildBakedRoadContact(crossing);
+  assert.equal(portals.length, 2);
+  assert.ok(
+    surface.heightAt(-690, -4111.4) -
+      groundAtWorld(tiles, -690, -4111.4, true) >
+      6.5,
+  );
+  for (const { x, y, z } of portals) {
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
+  }
+
+  const chain = [
+    "i280-north-ocean-entry",
+    "i280-north-ocean-connector",
+    "i280-north-ocean-mainline",
+    "i280-north-ocean-monterey",
+    "branch-east-i280-northbound",
+    "i280-north-monterey-merge",
+    "i280-north-monterey-to-alemany",
+  ].map((slug) => roads.get(`sf-contact/${slug}`));
+  const [entry] = chain;
+  const [east, north, height] = entry.points[0];
+  assert.ok(Math.abs(groundAtWorld(tiles, east, north, true) - height) < 0.02);
+  const [streetX, streetY] = crossing.points[0];
+  assert.ok(Math.hypot(east - streetX, north - streetY) > 12);
+  assert.deepEqual(entry.groundEnds, ["start"]);
+  assert.deepEqual(chain[4].groundEnds, ["start"]);
+  for (let i = 1; i < chain.length; i++) {
+    const a = chain[i - 1];
+    const b = chain[i];
+    assert.deepEqual(a.points.at(-1), b.points[0]);
+    assert.deepEqual(a.seams.end, b.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${a.id}:end` &&
+          to === `${b.id}:start` &&
+          direction === "forward",
+      ),
+      b.id,
+    );
+  }
+
+  const decks = deckClearanceIndex();
+  for (const road of roads.values()) {
+    if (road.kind === "tunnel") continue;
+    const contact = buildBakedRoadContact(road).surface.contact;
+    const geometry = contactGeometry(contact, false);
+    decks.add(geometry);
+    geometry.dispose();
+  }
+  const obstacles = tiles.map((tile) =>
+    buildCollisionIndex(tile, tile.t, new Map(), decks.ceiling),
+  );
+  for (const road of [crossing, ...chain.slice(0, -1)]) {
+    for (let i = 1; i < road.points.length; i++) {
+      const [x, y, z] = road.points[i];
+      const [a, b, h] = road.points[i - 1];
+      const heading = Math.atan2(y - b, x - a);
+      assert.ok(Math.abs(z - h) / Math.hypot(x - a, y - b) < 0.1, road.id);
+      const lane = road.width < 10 ? 2.2 : 3.6;
+      for (const offset of [-lane, 0, lane]) {
+        const car = {
+          x: x - offset * Math.sin(heading),
+          y: y + offset * Math.cos(heading),
+          heading,
+        };
+        assert.equal(
+          collisionAt(obstacles, car, z),
+          null,
+          `${road.id} point ${i}, offset ${offset}`,
+        );
+      }
+    }
   }
 });

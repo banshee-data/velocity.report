@@ -2388,3 +2388,55 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `3d327ffd799ead97a209dcc6a2238d84b9852b3318b0c105b8e444520efbd9df`.
 - Contact SHA-256 `8379a7c77b56e6525fa369d4ad77e321113bd71fb94867fb2abc0f6bfac49c9b`.
 - One L13 tile changed. The game retained all 137 emoji placements and their revision.
+
+## Broadway to the Marina via Polk Street
+
+The original route generator used Bartol Street steps before the tunnel
+and the divided approach at Larkin and Francisco after it. The repeated
+route passes through Vallejo and Montgomery before entering the Broadway
+bore, then takes Polk from Broadway. The route reaches the same two
+emoji locations. [Bartol Street stair survey](https://www.sfstairways.com/stairways/bartol-street-at-vallejo-street/) ·
+[DPW roadway structures inventory](https://data.sf.gov/api/views/x5tj-txci/rows.pdf?accessType=DOWNLOAD)
+
+Chrome collected both emojis on the Bernal Cut release, covering 3.70 km
+in 376.3 s. The traces identify the full Broadway bore as enclosed and put
+the ground-contact 95th-percentile grade at 15.62%, with a peak of 22.79%
+on Vallejo Street. There were no observed dips deeper than 0.5 m and no
+blocked contact. The fixed-step run of the same itinerary used 734.85 m
+of tunnel contact. These are game measurements.
+
+The [Broadway-to-Marina course](../../tools/sf-drive/road-audit-broadway-marina.json)
+pins the street intersections and the current game manifest.
+
+## Ocean Avenue and the northbound I-280 entrance
+
+The measured 99.28 m Ocean Avenue deck crosses the terrain cut as a single
+16 m-wide surface spanning two static tiles. An eastbound car can turn on
+ordinary pavement into the northbound entrance. Its next highway seam
+carries the car through Branch East and onto the existing Monterey to
+Alemany roadway. The southbound Ocean exit remains available. [Caltrans I-280 interchange inventory](https://dot.ca.gov/-/media/dot-media/programs/safety-programs/documents/exit/calnexus-i-280-03-2020-a11y.pdf)
+
+Chrome drove 13 m on ground between the bridge and entrance, then
+finished the ramp grounded. The full northbound run crossed seven
+contacts in 113.4 s and reached 45.5 mph. From a 49.5 mph rolling start,
+a second drive took the southbound exit, circled via Geneva Avenue and
+Howth Street, crossed Ocean eastbound and re-entered northbound I-280.
+It finished beyond Monterey in 271.9 s with 628.4 m of grounded travel
+between the ramp and bridge contacts. The static test checked 3,063
+vehicle poses along the new and shared contacts at the centre and two
+lateral offsets. All were clear with the same deck clearance used by the
+game. The largest fitted dip was 0.183 m against an approximately 20 m
+chord on the northbound mainline. The steepest fitted grade was 8.76%
+at the eastern bridge approach. These local checks cover the new
+bridge, ramp and northbound continuation. The southbound mainline
+under Ocean Avenue and the southern Geneva entrance still need review.
+
+- Game manifest SHA-256 `ca90679cade799d95fc2270c921a0eca05d7b3daf76998586ca2dbad5c5f54fd`.
+- Contact SHA-256 `7ede428d23c5059bb326e8c9d251ed0af5b67078b1d4a45a2abefb3d2b385f97`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  ocean-avenue-bridge-eastbound ocean-avenue-bridge-westbound \
+  ocean-bridge-to-i280-northbound i280-ocean-northbound-entry \
+  i280-ocean-exit-and-reentry
+```
