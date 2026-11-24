@@ -1423,3 +1423,35 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `58a310838dfff50c673be3dd503712282ba485338ad9e487157e1ecffb1b278c`.
 - Contact SHA-256 `53d021b92300c1d32e49d56efb6df071c66e674a4947ae239a617472fc90cc67`.
 - The bake changes one tile and preserves emoji placement.
+
+## Southbound US 101 exit to southbound Bayshore Boulevard
+
+The southbound Bayshore turn takes the other branch of the same exit
+at 13.43 m NAVD88. It crosses below the freeway and follows a 60 m
+section of city street before handing off to regular pavement at
+about 6.8 m. The fitted contact reaches a peak grade of 8.71%. Lower
+pavement observations at stations 214.00 m and 242.78 m bound the
+28.78 m inferred section in the survey shadow.
+
+The original eight-metre terrain stood 1.75 m above the fitted road
+near the centre of the crossing. A one-metre refinement keeps the
+original grid and the elevations at the refinement boundary. The
+largest remaining terrain overlap along the centreline is 0.13 m.
+The refinement and contact represent inferred game geometry across
+the aerial shadow. Forty classified nodes and 26 finer survey nodes
+support the fit around the crossing.
+
+A fixed-step drive took the southbound turn and reached city pavement
+in 53.1 s. Chrome drove the route with the game’s route assist disabled
+and regained the exterior camera on the city street in 58.2 s.
+All 20 frozen emoji routes finished across 52.43 km. The largest driven
+seam step was 6.1 cm, with no driven dips over 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  us101-south-bayshore-south-turn us101-south-bayshore-north-turn us101-south-over-bayshore-exit
+```
+
+- Game manifest SHA-256 `cda5d8bf606b92e51c36f40d486c47d126e5ccc518edd3157b1fbd677eaca972`.
+- Contact SHA-256 `f8bc6ecd44262d161f66d48b9ef2062a829c7d42dab0b438576eef4657ffe87c`.
+- The bake changes one tile and preserves emoji placement.

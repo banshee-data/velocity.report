@@ -2028,3 +2028,41 @@ test("Toll Plaza joins the west street before rounding the bend into the lower b
   for (let i = 1; i < bearings.length; i++)
     assert.ok(Math.abs(bearings[i] - bearings[i - 1]) < 0.17);
 });
+
+test("the southbound Bayshore turn stays above its refined ground and joins the city street", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e4c.json.gz")));
+  const baked = (id) =>
+    tile.playableRoads.find((road) => road.id === `sf-contact/${id}`);
+  const stem = baked("us101-south-bayshore-exit-approach");
+  const south = baked("us101-south-bayshore-south-turn-exit");
+  const north = baked("us101-south-bayshore-north-turn-exit");
+  for (const branch of [south, north]) {
+    assert.deepEqual(stem.points.at(-1), branch.points[0]);
+    assert.deepEqual(stem.seams.end, branch.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${stem.id}:end` &&
+          edge.to === `${branch.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  const { surface, portals } = buildBakedRoadContact(south);
+  assert.equal(tile.g.s, 8);
+  assert.equal(tile.g.detail.s, 1);
+  assert.ok(roadBake.terrainDetailPatches["808f7e4c"]);
+  for (const {
+    position: [x, y, z],
+    s_m,
+  } of surface.profile) {
+    if (s_m < 205 || s_m > 248) continue;
+    assert.ok(
+      groundAtWorld([tile], x, y, true) - z < 0.15,
+      `Ground over lane at ${s_m} m`,
+    );
+  }
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+});

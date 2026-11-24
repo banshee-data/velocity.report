@@ -132,6 +132,77 @@ def valid_covered_range(road):
     return 0 <= covered[0] < covered[1] <= length
 
 
+def patch_terrain_detail(grid, patch, base_sha256):
+    """Add a reviewed rectangle tied to an exact pristine base tile."""
+    detail = patch["detail"]
+    fields = ("x0", "y0", "s", "columns", "rows")
+    if (
+        patch["base_tile_sha256"] != base_sha256
+        or "detail" in grid
+        or not isinstance(detail, dict)
+        or any(type(detail.get(key)) is not int for key in fields)
+    ):
+        raise ValueError("Terrain detail does not match an unrefined base tile")
+    x0, y0, step, columns, rows = (detail[key] for key in fields)
+    x1, y1 = x0 + (columns - 1) * step, y0 + (rows - 1) * step
+    side = (grid["n"] - 1) * grid["s"]
+    if (
+        not 0 < step < grid["s"]
+        or grid["s"] % step
+        or not grid["x0"] <= x0 < x1 <= grid["x0"] + side
+        or not grid["y0"] <= y0 < y1 <= grid["y0"] + side
+        or any(
+            (edge - origin) % grid["s"]
+            for edge, origin in (
+                (x0, grid["x0"]),
+                (x1, grid["x0"]),
+                (y0, grid["y0"]),
+                (y1, grid["y0"]),
+            )
+        )
+        or not isinstance(detail.get("z"), list)
+        or len(detail["z"]) != rows * columns
+        or any(type(z) not in (float, int) or not math.isfinite(z) for z in detail["z"])
+    ):
+        raise ValueError("Terrain detail must align with the coarse grid")
+
+    # All four sides lie on coarse grid lines. Interpolate along each line
+    # so the renderer's detailed triangles meet their coarse neighbours.
+    def edge_matches(count, first, stride, row, step_index):
+        coarse = grid["s"]
+        for i in range(count):
+            k, offset = divmod(i * step, coarse)
+            current = first + k * stride
+            height = grid["z"][current]
+            if offset:
+                following = grid["z"][current + stride]
+                if -32768 in (height, following):
+                    height = -32768
+                else:
+                    height += (following - height) * offset / coarse
+            if abs(detail["z"][row + i * step_index] - height) > 0.0001:
+                return False
+        return True
+
+    n = grid["n"]
+    start_column = int((x0 - grid["x0"]) // grid["s"])
+    start_row = int((y0 - grid["y0"]) // grid["s"])
+    end_column = int((x1 - grid["x0"]) // grid["s"])
+    end_row = int((y1 - grid["y0"]) // grid["s"])
+    if not all(
+        (
+            edge_matches(columns, start_row * n + start_column, 1, 0, 1),
+            edge_matches(
+                columns, end_row * n + start_column, 1, (rows - 1) * columns, 1
+            ),
+            edge_matches(rows, start_row * n + start_column, n, 0, columns),
+            edge_matches(rows, start_row * n + end_column, n, columns - 1, columns),
+        )
+    ):
+        raise ValueError("Terrain detail boundary differs from the coarse grid")
+    return {**grid, "detail": detail}
+
+
 def playable_product(path, sha256, base_hash, revision, manifest):
     raw = path.read_bytes()
     if digest(raw) != sha256:
@@ -218,6 +289,14 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             }
             for token, records in patches.items():
                 by_tile_patches[token][field] = records
+    terrain = product.get("terrain_detail_patches", {})
+    if not terrain.keys() <= base_tiles:
+        raise ValueError("Terrain detail patches must name base tiles")
+    if terrain:
+        release["terrainDetailPatches"] = {}
+        for token, patch in terrain.items():
+            by_tile_patches[token]["g"] = patch
+            release["terrainDetailPatches"][token] = digest(encoded(patch["detail"]))
     return by_tile, by_tile_patches, release
 
 
@@ -336,7 +415,12 @@ def bake(
             if token in playable_tiles:
                 content["playableRoads"] = playable_tiles[token]
             for field, patches in tile_patches.get(token, {}).items():
-                content[field] = patch_source_rows(content[field], patches)
+                if field == "g":
+                    content[field] = patch_terrain_detail(
+                        content[field], patches, digest(raw)
+                    )
+                else:
+                    content[field] = patch_source_rows(content[field], patches)
             payload = gzip.compress(encoded(content), compresslevel=9, mtime=0)
         (tiles_out / name).write_bytes(payload)
         tile["bytes"] = len(payload)

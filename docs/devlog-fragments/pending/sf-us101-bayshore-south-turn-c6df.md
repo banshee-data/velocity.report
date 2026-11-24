@@ -1,0 +1,1 @@
+- Baked the second southbound US 101 exit branch to southbound Bayshore Boulevard. The [route audit](../../ui/sf-road-route-audit.md#southbound-us-101-exit-to-southbound-bayshore-boulevard) records the lower-road fit, a terrain refinement through the freeway shadow, and the city pavement handoff.
