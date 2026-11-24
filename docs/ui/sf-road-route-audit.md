@@ -1320,3 +1320,28 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `e44bc8ed81329168785076ec3d1d31774e2cd8fcaa8c3779531e33e36a8aaec9`.
 - Contact SHA-256 `1cc4c318469b98446cb76612b491e91a5c92c834025fd61b8679bd920b9ac474`.
 - The bake changes one tile and preserves emoji placement.
+
+## Potrero Avenue and Cesar Chavez Street entrances to US 101
+
+The Potrero Avenue and Cesar Chavez Street entrances join one elevated
+ramp at 14.65 m NAVD88. The terrain beneath that merge is 9.11 m. Their
+two street handoffs sit at 12.25 m and 9.35 m respectively. The common
+167.91 m ramp enters the southern freeway at 15.69 m and crosses the
+tile boundary as the same contact strip.
+
+The fit uses 66 depth-12 April 2023 3DEP nodes. The peak fitted grade
+is 8.39% on the Cesar Chavez entrance. The fixed-step drive reached the
+southbound freeway in 58.3 s from Potrero and 41.8 s from Cesar Chavez.
+Chrome reached the same freeway in 55.5 s and 39.7 s respectively.
+Both cars stayed on the elevated merge before joining the mainline
+and finished grounded. All 20 frozen emoji routes covered 52.43 km,
+with a maximum driven seam step of 6.1 cm and no dip over 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  potrero-avenue-to-us101-south cesar-chavez-street-to-us101-south
+```
+
+- Game manifest SHA-256 `2afc0061690b36a5417d43c32b1c2f6a780687b204502c6a408a054205fcc12f`.
+- Contact SHA-256 `150b0111e5f424ceb6896698456ed0992aaadb64f874c7a4a6310e5322b1605b`.
+- The bake changes two tiles and preserves emoji placement.

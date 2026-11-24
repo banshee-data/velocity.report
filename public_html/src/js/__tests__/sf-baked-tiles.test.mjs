@@ -1400,6 +1400,57 @@ test("southbound US 101 keeps the Silver fork, Industrial merge and Silliman str
   }
 });
 
+test("Potrero and Cesar Chavez entrances merge above the street on southbound US 101", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7e4c", "808f7e54"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) => playableRoads.map((r) => [r.id, r])),
+  );
+  const road = (id) => roads.get(`sf-contact/us101-south-${id}`);
+  const potrero = road("potrero-avenue-approach");
+  const potreroRamp = road("potrero-entry");
+  const chavez = road("cesar-chavez-entry");
+  const merge = road("city-entrance-merge");
+  const highway = road("silver-through");
+  for (const [from, to] of [
+    [potrero, potreroRamp],
+    [potreroRamp, merge],
+    [chavez, merge],
+    [merge, highway],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${from.id}:end` &&
+          edge.to === `${to.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  for (const entrance of [potrero, chavez]) {
+    assert.deepEqual(entrance.groundEnds, ["start"]);
+    const { portals } = buildBakedRoadContact(entrance);
+    assert.equal(portals.length, 1);
+    const [{ x, y, z }] = portals;
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  }
+  assert.deepEqual(potreroRamp.groundEnds, []);
+  assert.deepEqual(merge.groundEnds, []);
+  const [x, y, z] = merge.points[0];
+  assert.ok(z - groundAtWorld(tiles, x, y, true) > 5);
+  for (const token of new Set(merge.owners)) {
+    const owner = tiles.find(({ t }) => t === token);
+    assert.deepEqual(
+      owner.playableRoads.find(({ id }) => id === merge.id),
+      merge,
+    );
+  }
+});
+
 test("Monterey keeps its ramp mouths separate and Ocean Avenue reaches city pavement", () => {
   const tokens = ["808f7e64", "808f7e7c", "808f7ef4", "808f7e84", "808f7c2c"];
   const tiles = tokens.map((token) =>

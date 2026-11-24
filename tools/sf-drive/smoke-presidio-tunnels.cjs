@@ -1359,6 +1359,41 @@ cases["sr1-kobbe-to-presidio"] = {
   forks: [[ruckmanNorth, sr1City, -0.75]],
 };
 
+const us101CityJoin = "us101-south-city-entrance-merge";
+const potreroCity = "us101-south-potrero-avenue-approach";
+const chavezCity = "us101-south-cesar-chavez-entry";
+const cityToSilver = {
+  owners: ["808f7e4c", "808f7e54"],
+  speed: 17,
+  finishOnDeck: true,
+  finishDistance: 190,
+  laneGuides: alemanyLaneGuides,
+  speedLimits: {
+    [potreroCity]: 12,
+    [chavezCity]: 12,
+    [us101CityJoin]: 14,
+    "us101-south-potrero-entry": 12,
+  },
+};
+cases["potrero-avenue-to-us101-south"] = {
+  ...cityToSilver,
+  roads: [
+    potreroCity,
+    "us101-south-potrero-entry",
+    us101CityJoin,
+    silverBayshore,
+  ],
+};
+cases["cesar-chavez-street-to-us101-south"] = {
+  ...cityToSilver,
+  roads: [chavezCity, us101CityJoin, silverBayshore],
+  groundApproachMetres: 3.5,
+  laneGuides: {
+    ...alemanyLaneGuides,
+    [chavezCity]: { clearance: { offset: 1.25, station: 39, length: 21 } },
+  },
+};
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
