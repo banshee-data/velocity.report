@@ -763,7 +763,11 @@ for (const spec of plan.routes) {
   if (plan.expectCompletion)
     assert.equal(result.status, "both emoji collected", spec.id);
   if (spec.expectContactExit) {
-    assert.deepEqual(result.seenSurfaces, spec.contact.roads, spec.id);
+    assert.deepEqual(
+      result.seenSurfaces,
+      [...spec.contact.roads, ...(spec.contact.afterSurfaces ?? [])],
+      spec.id,
+    );
     assert.ok(
       result.afterExitMetres >= 20,
       `${spec.id} did not clear its final portal`,

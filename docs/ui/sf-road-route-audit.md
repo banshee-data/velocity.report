@@ -1024,3 +1024,38 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `f3d584a73c0886953cf413980c2e6d0363539213a8ceff6cca8b2e89577072b2`.
 - Contact SHA-256 `0330a3578eef22038531bc1e3df422df4001d0556c95dc255f2764b9b2b92f82`.
 - The bake changes three tiles and preserves the existing emoji placement revision.
+
+## Southbound US 101 to I-280 at Alemany
+
+Eleven directed sections add 5.30 km of contact from the US 101 through
+lanes to southbound I-280 and Alemany Boulevard. The former terrain handoff
+near Dogpatch now continues as measured road contact. Both freeway lanes
+reach the same merge at 9.43 m NAVD88. The Alemany entrance blends from 9 m
+into the shared 12 m cross-section, then continues beyond the 27.56 m merge.
+The I-280 exit reaches ordinary pavement at Alemany and Ellsworth.
+
+The contact fits pin 295 and 196 depth-12 EPT nodes. Side returns keep the
+lower highway separate from the higher crossings. The highest fitted grade
+is 7.76%. Both Chrome drives from US 101
+reached the southbound I-280 deck beyond Alemany. The direct drive took
+246.6 s. The round trip took 329.6 s and travelled 787.6 m along Alemany
+Boulevard between the two ramps. The browser reported 708.8 m with ground
+contact on that part of the drive. A separate I-280 drive reached the
+Ellsworth exit in 65.4 s.
+
+The same 20 emoji pairs finished over 52.43 km, with no driven dip deeper
+than 0.5 m. The largest driven tile-seam step remained 6.1 cm. The revised
+Fifth Street to Sweeny Street course exits at Ellsworth and uses the
+Alemany overpass later in the drive. This course took 617.7 s at 120 Hz
+and its peak driven grade was 17.48%. See the
+[route fixture](../../tools/sf-drive/road-audit-alemany-routes.json).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  us101-south-to-i280-through-alemany us101-alemany-i280-roundtrip \
+  i280-south-ellsworth-exit
+```
+
+- Game manifest SHA-256 `7bbdb55535b00ac79ae210565235f57e2da69b64196603a336b849a253f5d9e0`.
+- Contact SHA-256 `3a03b874d072e1964ac5b0750c80634fe919d1d71a08a6ccdc41c6825e09f2bf`.
+- The bake changes seven tiles and preserves the existing emoji placement revision.

@@ -449,6 +449,61 @@ test("Seventh Street and southbound US 101 meet ordinary pavement only at their 
   }
 });
 
+test("Alemany keeps both I-280 merges connected and their city portals at street level", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7e4c", "808f7e54", "808f7e64", "808f7ef4", "808f7efc"];
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const road = (name) => roads.get(`sf-contact/${name}`);
+  const dogpatch = road("i280-south-beyond-dogpatch");
+  const tail = road("i280-south-alemany-merge-tail");
+  const approach = road("us101-south-to-i280-south-approach");
+  const merge = road("us101-south-to-i280-south-merge");
+  const through = road("i280-south-alemany-through");
+  const main = road("i280-south-alemany-main");
+  const entry = road("i280-south-alemany-entry");
+  const beyond = road("i280-south-beyond-alemany");
+  const eastExit = road("us101-south-alemany-east-exit");
+  const westExit = road("i280-south-alemany-exit");
+  for (const [before, after] of [
+    [dogpatch, tail],
+    [approach, merge],
+    [approach, eastExit],
+    [merge, through],
+    [tail, through],
+    [through, main],
+    [through, westExit],
+    [main, beyond],
+    [entry, beyond],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0], after.id);
+    assert.deepEqual(before.seams.end, after.seams.start, after.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(dogpatch.groundEnds, []);
+  assert.deepEqual(entry.widthTransitionMetres, { end: 24 });
+  for (const [ramp, end] of [
+    [eastExit, "end"],
+    [westExit, "end"],
+    [entry, "start"],
+  ]) {
+    assert.deepEqual(ramp.groundEnds, [end]);
+    const [x, y, z] = ramp.points.at(end === "start" ? 0 : -1);
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03, ramp.id);
+  }
+});
+
 test("a narrow ramp tapers into the shared cross-section of a wider deck", () => {
   const seam = { bearing: 0, width: 12 };
   const ramp = {
@@ -923,7 +978,6 @@ test("Dogpatch keeps four ramp portals and the southbound through lane connected
     "dogpatch-pennsylvania-south",
     "dogpatch-pennsylvania-on-north",
     "dogpatch-pennsylvania-on-south",
-    "south-beyond-dogpatch",
   ]) {
     const { portals } = buildBakedRoadContact(road(slug));
     assert.equal(portals.length, 1, slug);
