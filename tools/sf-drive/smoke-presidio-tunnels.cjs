@@ -1574,6 +1574,32 @@ cases["alemany-northbound-through-fork"] = {
   forks: [alemanyWestThrough],
 };
 
+const bayshoreNorthEntry = {
+  owners: ["808f7e4c", "808f7e54", "808f7e34"],
+  speed: 18,
+  finishOnDeck: true,
+  finishDistance: 100,
+  groundApproachMetres: 11,
+};
+const marinEntry = "us101-north-marin-entry";
+const cesarEntry = "us101-north-cesar-chavez-entry";
+const driveToPotrero = [
+  "us101-north-bayshore-entry-merge",
+  "us101-north-potrero-approach",
+];
+cases["marin-to-northbound-us101"] = {
+  ...bayshoreNorthEntry,
+  roads: [marinEntry, ...driveToPotrero],
+  speedLimits: { [marinEntry]: 12 },
+};
+cases["cesar-chavez-to-northbound-us101"] = {
+  ...bayshoreNorthEntry,
+  roads: [cesarEntry, ...driveToPotrero],
+  speedLimits: { [cesarEntry]: 12 },
+  laneGuides: {
+    [cesarEntry]: { clearance: { offset: 1.9, station: 0, length: 26 } },
+  },
+};
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
