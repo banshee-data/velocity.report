@@ -191,6 +191,7 @@ for (const [name, entry] of [
       "yerba-buena-lower-tunnel",
       "yerba-buena-lower-tunnel-east-of-exit",
       "yerba-buena-lower-east-approach",
+      "yerba-buena-lower-east-after-entry",
     ],
     owners: lowerBridgeOwners,
     speed: 22,
@@ -301,6 +302,7 @@ cases["central-to-lower-bridge"] = {
     "yerba-buena-lower-tunnel",
     "yerba-buena-lower-tunnel-east-of-exit",
     "yerba-buena-lower-east-approach",
+    "yerba-buena-lower-east-after-entry",
   ],
   maxDurationMs: 660_000,
   forks: [
@@ -2125,16 +2127,66 @@ cases["island-east-eastbound-exit"] = {
 };
 cases["island-east-lower-mainline"] = {
   owners: lowerEastOwners,
-  roads: [firstLowerBore, afterLowerExit, "yerba-buena-lower-east-approach"],
+  roads: [
+    firstLowerBore,
+    afterLowerExit,
+    "yerba-buena-lower-east-approach",
+    "yerba-buena-lower-east-after-entry",
+  ],
   rollingStart: true,
   rollingStartMetres: 96,
   initialSpeedMps: 16,
   speed: 16,
   forks: [[firstLowerBore, afterLowerExit, 1.5]],
   finishOnDeck: true,
-  finishDistance: 75,
-  exitCamera: "covered",
+  finishDistance: 70,
+  covered: ["yerba-buena-lower-east-approach"],
   maxDurationMs: 115_000,
+};
+cases["island-east-eastbound-entry"] = {
+  owners: lowerEastOwners,
+  roads: [
+    "yerba-buena-east-eastbound-on-ramp",
+    "yerba-buena-lower-east-after-entry",
+  ],
+  groundApproachMetres: 7,
+  speed: 10,
+  speedLimits: { "yerba-buena-lower-east-after-entry": 17 },
+  finishOnDeck: true,
+  finishDistance: 70,
+  covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
+  maxDurationMs: 75_000,
+};
+cases["island-east-roundtrip"] = {
+  ...cases["island-east-eastbound-exit"],
+  roads: [
+    firstLowerBore,
+    eastExitBore,
+    lowerEastExit,
+    "yerba-buena-east-eastbound-on-ramp",
+    "yerba-buena-lower-east-after-entry",
+  ],
+  groundDeparture: undefined,
+  groundConnection: {
+    after: prefix + lowerEastExit,
+    via: [
+      [6743, 5583],
+      [6747, 5581.5],
+      [6750.5, 5584],
+      [6750.4, 5593],
+      [6748.7, 5605],
+    ],
+    minimumMetres: 29,
+  },
+  speedLimits: {
+    [eastExitBore]: 10,
+    [lowerEastExit]: 8,
+    "yerba-buena-east-eastbound-on-ramp": 10,
+  },
+  finishOnDeck: true,
+  finishDistance: 70,
+  covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
+  maxDurationMs: 120_000,
 };
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;

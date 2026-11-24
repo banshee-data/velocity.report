@@ -1,0 +1,1 @@
+- Baked the [Hillcrest eastbound entrance](../../ui/sf-road-route-audit.md#hillcrest-eastbound-entrance) into the lower Bay Bridge approach and checked the drive from city pavement and from the through deck.

@@ -833,6 +833,51 @@ test("the lower island exit stays below the upper bore and meets Hillcrest pavem
   }
 });
 
+test("Hillcrest joins the lower east bridge deck through the same seam as the mainline", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/80858024.json.gz")));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
+  const entry = roads.get("sf-contact/yerba-buena-east-eastbound-on-ramp");
+  const mainline = roads.get("yerba-buena-lower-east-approach");
+  const deck = roads.get("yerba-buena-lower-east-after-entry");
+  const upper = buildBakedRoadContact(
+    roads.get("yerba-buena-east-approach"),
+  ).surface;
+  for (const road of [entry, mainline]) {
+    assert.deepEqual(road.points.at(-1), deck.points[0]);
+    assert.deepEqual(road.seams.end, deck.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${road.id}:end` &&
+          edge.to === `${deck.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  const { surface, portals } = buildBakedRoadContact(entry);
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.005);
+  const [start, end] = surface.coveredRange;
+  const under = surface.profile.filter(
+    ({ s_m }) => s_m > start + 5 && s_m < end - 5,
+  );
+  assert.ok(under.length > 12);
+  for (const {
+    position: [x, y, z],
+  } of under) {
+    assert.ok(upper.heightAt(x, y) - z > 7);
+  }
+  for (const [i, { position, s_m }] of surface.profile.slice(1).entries()) {
+    const previous = surface.profile[i];
+    assert.ok(
+      Math.abs(position[2] - previous.position[2]) / (s_m - previous.s_m) <
+        0.06,
+    );
+  }
+});
+
 test("23rd Street crosses both US 101 carriageways at its own level", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808f7e4c.json.gz")));
   const other = JSON.parse(gunzipSync(file("tiles/808f7e34.json.gz")));
@@ -1018,7 +1063,10 @@ test("the eastbound bridge start connects First Street to the lower bore and eas
       selected.sections[i].positions[0],
     );
   }
-  assert.equal(selected.sections.at(-1).id, "yerba-buena-lower-east-approach");
+  assert.equal(
+    selected.sections.at(-1).id,
+    "yerba-buena-lower-east-after-entry",
+  );
 });
 
 test("Essex and First Street enter the same lower deck from ordinary city pavement", () => {
