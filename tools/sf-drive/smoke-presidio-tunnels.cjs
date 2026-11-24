@@ -565,6 +565,41 @@ cases["alemany-to-i80-lower-bay"] = {
     ["us101-north-potrero-approach", "us101-north-i80-approach", 1.4],
   ],
 };
+const centralViaUS101 = {
+  owners: [...new Set([...us101Potrero.owners, ...centralOwners])],
+  speed: 18,
+  rollingStart: true,
+  initialSpeedMps: 16,
+  speedLimits: {
+    "us101-north-central-viaduct": 15,
+    "us101-north-ninth-bryant-exit": 10,
+    "us101-north-central-merge": 15,
+    "central-freeway-octavia-exit": 13,
+  },
+};
+const centralViaduct = [
+  "us101-north-i80-approach",
+  "us101-north-central-viaduct",
+];
+const us101ToCentral = [...centralViaduct, "us101-north-central-merge"];
+const centralFork = [centralViaduct[0], centralViaduct[1], 1.55];
+cases["us101-to-ninth-bryant"] = {
+  ...centralViaUS101,
+  roads: [...centralViaduct, "us101-north-ninth-bryant-exit"],
+  forks: [
+    centralFork,
+    [centralViaduct[1], "us101-north-ninth-bryant-exit", -1.6],
+  ],
+};
+cases["us101-to-octavia"] = {
+  ...centralViaUS101,
+  roads: [
+    ...us101ToCentral,
+    "central-freeway-east-northbound",
+    "central-freeway-octavia-exit",
+  ],
+  forks: [centralFork, [centralViaduct[1], "us101-north-central-merge", 1.6]],
+};
 for (const reverse of [false, true]) {
   cases[
     reverse ? "dogpatch-twentieth-eastbound" : "dogpatch-twentieth-westbound"
@@ -997,6 +1032,7 @@ async function main() {
         maxDurationMs = 460_000,
         entranceTimeoutMs = 20_000,
         rollingStart = false,
+        initialSpeedMps = 50 * 0.44704,
         reverseRoads = [],
         laneGuides = {},
         speedLimits = {},
@@ -1087,7 +1123,7 @@ async function main() {
               id: "sample-upper-deck",
               name: "Upper deck test start",
               surfaceId: sections[0].id,
-              initialSpeed: 50 * 0.44704,
+              initialSpeed: initialSpeedMps,
             }
           : null;
         if (candidate || place)

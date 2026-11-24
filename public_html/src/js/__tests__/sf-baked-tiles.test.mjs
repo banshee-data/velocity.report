@@ -298,6 +298,50 @@ test("US 101 reaches Potrero and joins the existing eastbound I-80 deck", () => 
   assert.ok(rampZ - groundAtWorld(tiles, rampX, rampY, true) > 9);
 });
 
+test("US 101 viaduct contact spans both tiles and forks to Ninth Street and Octavia", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7e2c", "808f7e34"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = tiles.flatMap((tile) => tile.playableRoads);
+  const road = (id) => roads.find(({ id: key }) => key === `sf-contact/${id}`);
+  const viaduct = road("us101-north-central-viaduct");
+  const exit = road("us101-north-ninth-bryant-exit");
+  const merge = road("us101-north-central-merge");
+
+  assert.deepEqual(
+    tiles[1].playableRoads.find(({ id }) => id === viaduct.id),
+    viaduct,
+  );
+  for (const [before, after] of [
+    [road("us101-north-i80-approach"), viaduct],
+    [viaduct, exit],
+    [viaduct, merge],
+    [merge, road("central-freeway-east-northbound")],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0], after.id);
+    assert.deepEqual(before.seams.end, after.seams.start, after.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+
+  const { surface } = buildBakedRoadContact(viaduct);
+  const crossing = [2922.0769, 994.6148];
+  assert.ok(surface.heightAt(...crossing) < 14.6);
+  assert.ok(
+    surface.heightAt(...crossing) - groundAtWorld(tiles, ...crossing, true) > 8,
+  );
+  assert.deepEqual(exit.groundEnds, ["end"]);
+  const [x, y, z] = exit.points.at(-1);
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+});
+
 test("tiled right-only guard rail bounces on the right and leaves the left edge open", () => {
   const road = {
     id: "test-highway-exit",
