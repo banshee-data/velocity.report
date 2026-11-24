@@ -395,7 +395,11 @@ function applyLaneDetours(path, detours) {
   let station = 0;
   return shifted.map((point, i) => {
     if (i) station += distance(shifted[i - 1], point);
-    return { ...point, s: station };
+    return {
+      ...point,
+      s: station,
+      z: courseHeight(point.road, point.x, point.y),
+    };
   });
 }
 

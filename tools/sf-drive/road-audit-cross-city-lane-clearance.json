@@ -1,0 +1,37 @@
+{
+  "manifestSha256": "20a1c8743338cc9e5e9827ba2c91fc2c7fc1cbeadda661d1990df74baa5ca9ce",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "expectCompletion": false,
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "dogpatch-to-potrero",
+      "from": "🚚",
+      "to": "🧁",
+      "contact": {
+        "roads": ["sf-contact/dogpatch-23rd-lower"],
+        "reverse": true,
+        "entry": [4257, -535, "23rd St"],
+        "exit": [4151, -543, "23rd St"],
+        "beforeVia": [
+          [4619.4, -1078.9, "Cesar Chavez St"],
+          [4582.4, -509.9, "3rd St"]
+        ],
+        "afterGuide": [[4158.5, -542.4]]
+      },
+      "expectContactExit": true
+    },
+    {
+      "id": "lake-street-to-presidio",
+      "from": "🚲",
+      "to": "🥾"
+    },
+    {
+      "id": "ocean-beach-to-fort-funston",
+      "from": "🐚",
+      "to": "🪂",
+      "laneDetours": [[-5294.0, -4708.0, -2.9]]
+    }
+  ]
+}
