@@ -166,7 +166,7 @@ Kept by: `make check-agent-drift` as a failing CI step. The target exists but on
 
 ### D-26 — Static linux binaries: zig + musl in Docker
 
-Ship the radar binary as a fully-static linux/{amd64,arm64} ELF via `make build-radar-static`. Toolchain is `zig cc -target <arch>-linux-musl` + a static `libpcap.a` built from the vendored upstream submodule pinned to `libpcap-1.10.6`. The build runs entirely inside a hermetic Docker image ([image/Dockerfile.static-build](../image/Dockerfile.static-build)) with pinned base image digest and SHA-256-verified toolchain tarballs. Contributors need only `docker` and `git`.
+Ship the `velocity` binary as a fully static linux/{amd64,arm64} ELF via `make build-velocity-static`. Toolchain is `zig cc -target <arch>-linux-musl` + a static `libpcap.a` built from the vendored upstream submodule pinned to `libpcap-1.10.6`. The build runs entirely inside a hermetic Docker image ([image/Dockerfile.static-build](../image/Dockerfile.static-build)) with pinned base image digest and SHA-256-verified toolchain tarballs. Contributors need only `docker` and `git`.
 
 **Why zig over gcc:** stock `gcc-aarch64-linux-gnu` is glibc-based; glibc's NSS plugins force dynamic linking even for "static" binaries. Musl-targeting gcc exists (musl-cross-make, Alpine cross packages) but is either heavyweight to build or runs under qemu emulation. Zig is a single ~50 MB binary that cross-compiles to both arches at host speed and ships musl headers. The "another toolchain on contributor machines" objection is neutralised by the Docker hermeticism.
 

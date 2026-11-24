@@ -307,7 +307,7 @@ The project roadmap lives in
 
 - **Go 1.26+**: server development
 - **Python 3.11+**: developer tooling and scripts
-- **Node.js 20.19+** with pnpm 10+: web frontend, public docs, and embedded offline docs
+- **Node.js 20.19+** with pnpm 10+: web frontend and public site. The embedded offline docs require Node.js 22+.
 - **SQLite3**: database (also the entire database strategy, which is
   one of the nicer things about the project)
 
@@ -320,7 +320,7 @@ cd velocity.report
 make build-radar-local   # Go server
 make install-python      # Python environment
 make install-web         # Web frontend
-make install-docs        # Public docs site
+make install-public-html        # Public site
 ```
 
 See the [README](README.md) for the full story.

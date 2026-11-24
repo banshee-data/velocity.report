@@ -39,7 +39,7 @@ For the tool kinds the worker needs `git`, a Go toolchain and libpcap's headers,
 builds `cmd/tools/<tool>` from the staged commit with `-tags pcap`. Built tools are cached under
 `<work-dir>/tools` by commit.
 
-The binary for a Linux worker comes from `make build-radar-static` (the same static build as the
+The binary for a Linux worker comes from `make build-velocity-static` (the same static build as the
 Pi), or from `go build -tags pcap ./cmd/velocity` on the worker itself.
 
 ## Submitting a job

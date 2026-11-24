@@ -1,0 +1,2 @@
+- Standardised the public-site Make commands on `public-html`, documented the compatibility aliases, and distinguished the public site, embedded repository docs, and web app in `make help`. Added a CI check that builds and verifies the Pi image variant after the hosted build.
+- Renamed the static binary Make commands to use `velocity`, moved the build, QEMU VM, and golden PCAP CI steps to those commands, and recorded the remaining release, local build, and alias work in the [backlog](../../BACKLOG.md#parked-outside-the-slot-cap).

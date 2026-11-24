@@ -55,41 +55,64 @@ help:
 	@echo "velocity.report - Make Targets"
 	@echo "=============================="
 	@echo ""
-	@echo "Pattern: <action>-<subsystem>[-<variant>]"
+	@echo "Most targets follow <action>-<subsystem>[-<variant>]."
+	@echo "Run make format, make lint, and make test for the local quality checks."
 	@echo ""
-	@echo "BUILD TARGETS (Go cross-compilation):"
-	@echo "  build-velocity       Build the single multi-call velocity binary (local, pcap)"
+	@echo "GO SERVER AND SVELTEKIT WEB APP:"
+	@echo "  dev-go               Start the background Go server on port 8080 (radar disabled)"
+	@echo "  dev-go-lidar         Start the Go server with LiDAR and gRPC forwarding"
+	@echo "  dev-go-lidar-trace   Start dev-go-lidar with trace logging"
+	@echo "  dev-go-lidar-both    Start the Go server with LiDAR, gRPC and UDP (foreground UDP on port 2370)"
+	@echo "  dev-go-kill-server   Stop the background Go server"
+	@echo "  install-web          Install SvelteKit dependencies (shared cache via pnpm, local via npm)"
+	@echo "  dev-web              Start the SvelteKit dev server on port 5173"
+	@echo "  build-web            Build the SvelteKit app into web/build/"
+	@echo "  activate-web-cache   Link this worktree to the shared web dependency cache"
+	@echo ""
+	@echo "PUBLIC SITE (public_html/):"
+	@echo "  install-public-html           Install public site dependencies"
+	@echo "  dev-public-html               Start the public site preview on port 8090"
+	@echo "  dev-public-html-kill          Stop public site preview processes"
+	@echo "  build-public-html             Build into public_html/_site/ for hosting at /"
+	@echo "  test-public-html              Run the public site's scene-viewer tests"
+	@echo "  build-public-html-image       Build and verify the Pi image's copy for /public_html/"
+	@echo "  verify-public-html-image-build Verify the generated Pi image site without rebuilding it"
+	@echo ""
+	@echo "EMBEDDED REPOSITORY DOCS (docs_html/):"
+	@echo "  install-docs-offline   Install offline docs dependencies in docs_html/"
+	@echo "  dev-docs-offline       Start the repository docs preview on port 8093"
+	@echo "  dev-docs-offline-kill  Stop repository docs preview processes"
+	@echo "  build-docs-offline     Build docs_html/_site/ for embedding at /docs/"
+	@echo "  test-docs-offline      Run the repository docs tests"
+	@echo "  test-docs-offline-cov  Run the repository docs tests with 98% line thresholds"
+	@echo "  test-docs-offline-routes Check the built site through the embedded /docs/ handler"
+	@echo "  lint-docs-offline      Check links in the generated repository docs"
+	@echo "  check-docs-embed-context Check that the built docs survive the static build's Docker context"
+	@echo ""
+	@echo "VELOCITY BINARIES AND RASPBERRY PI IMAGES:"
+	@echo "  build-velocity       Build the multi-call binary at ./velocity (local, libpcap)"
+	@echo "  build-radar-local    Build the local dev binary (default: velocity-report-local, libpcap)"
 	@echo "  build-velocity-linux Build velocity for Linux ARM64 with pcap"
 	@echo "  build-velocity-mac   Build velocity for macOS ARM64 with pcap"
-	@echo "  build-radar-linux    (alias) Build velocity for Linux ARM64 with pcap"
-	@echo "  build-radar-linux-docker Build static Linux ARM64 image binary (outputs to image/velocity-binaries/)"
-	@echo "  build-radar-mac      (alias) Build velocity for macOS ARM64 with pcap"
-	@echo "  build-radar-mac-intel (alias) Build velocity for macOS AMD64 with pcap"
-	@echo "  build-radar-local    (alias) Build velocity for local development with pcap"
-	@echo "  build-tools          (alias) Build velocity (sweep is now 'velocity tune sweep')"
-	@echo "  build-radar-static       Build fully static linux/amd64 + linux/arm64 (zig+musl+libpcap.a)"
-	@echo "  build-radar-static-amd64 Build fully static linux/amd64 only"
-	@echo "  build-radar-static-arm64 Build fully static linux/arm64 only"
+	@echo "  build-velocity-mac-intel Build velocity for macOS AMD64 with pcap"
+	@echo "  build-velocity-linux-docker Stage the static ARM64 binary in image/velocity-binaries/"
+	@echo "  build-velocity-static       Build fully static linux/amd64 + linux/arm64 (zig+musl+libpcap.a)"
+	@echo "  build-velocity-static-amd64 Build fully static linux/amd64 only"
+	@echo "  build-velocity-static-arm64 Build fully static linux/arm64 only"
+	@echo "  test-velocity-static-arm64-vm    Test the static ARM64 binary in a QEMU VM"
+	@echo "  test-velocity-static-golden-pcap Test the static AMD64 binary against the canonical LiDAR capture"
 	@echo "  release-build-linux-binaries Build release Linux ARM64 binaries and embedded assets"
-	@echo "  release-radar-remote Build release Linux ARM64 binary and deploy it to DEPLOY_HOST (default velocity.local)"
-	@echo "  release-build-darwin-radar Build release macOS ARM64 radar binary and embedded assets"
+	@echo "  release-radar-remote Build the release binary and deploy it to DEPLOY_HOST (default velocity.local)"
+	@echo "  release-build-darwin-radar Build the macOS ARM64 velocity release and embedded assets"
 	@echo "  release-build-image-from-staged-binaries Build release image from downloaded binaries"
-	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
-	@echo "  build-pcap-split     Build the pcap-split motion/static segmentation tool"
-	@echo "  run-pcap-split       Split a PCAP into motion/static segments (PCAP=path)"
-	@echo "  build-ctl            (alias) Build velocity (device tools folded in)"
-	@echo "  build-ctl-linux      (alias) Build velocity for Linux ARM64"
+	@echo "  build-image-deps     Check host tools required to build the Pi image"
 	@echo "  build-image          Build RPi image with static ARM64 image binary"
 	@echo "  flash-image          Flash latest image to SD card (DISK=/dev/diskN, macOS)"
 	@echo "  clean-images         Remove old images, keeping only the latest build"
 	@echo "  build-embedded-assets Build static assets embedded in release binaries"
-	@echo "  build-web            Build web frontend (SvelteKit)"
-	@echo "  build-docs           Build documentation site (Eleventy)"
-	@echo "  build-docs-offline   Build embedded offline docs site (Eleventy)"
-	@echo "  check-devlog         Validate development log fragments"
-	@echo "  test-devlog          Test development log tooling"
-	@echo "  devlog-consolidate   Fold landed fragments into the journal (requires gh)"
 	@echo "  wiring               Generate radar wiring diagram (WireViz)"
+	@echo ""
+	@echo "MACOS VISUALISER:"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
 	@echo "  dmg-mac              Create versioned DMG (includes git SHA)"
 	@echo "  dmg-mac-release      Create release DMG (version only, no SHA)"
@@ -98,7 +121,7 @@ help:
 	@echo "  verify-mac           Verify codesign, Gatekeeper, and staple"
 	@echo "  verify-mac-dmg       Verify downloaded DMG (DMG=/path/to/file.dmg)"
 	@echo "  release-mac          Full release: build, sign, DMG, notarise, verify"
-	@echo "  clean-mac            Clean macOS visualiser build artifacts"
+	@echo "  clean-mac            Clean macOS visualiser build artefacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
 	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
 	@echo "  debug-mac-cycles     Run under lldb, logging the stack behind every AttributeGraph cycle"
@@ -111,32 +134,18 @@ help:
 	@echo "  proto-gen-swift      Generate Swift protobuf stubs (macOS visualiser)"
 	@echo ""
 	@echo "INSTALLATION:"
-	@echo "  install-python       Set up Python developer-tooling venv (local dev only; not used in production/RPi images)"
+	@echo "  install-python       Set up the Python developer-tooling virtual environment"
 	@echo "  install-typst        Install host Typst binary into ./bin for local report generation"
-	@echo "  install-web          Install web dependencies (shared cache via pnpm; local via npm)"
-	@echo "  activate-web-cache  Link this worktree to the shared web dependency cache"
-	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
-	@echo "  install-docs-offline Install offline docs dependencies (pnpm/npm)"
 	@echo "  install-scene-capture        Install scene-capture tool dependencies (pnpm/npm)"
 	@echo "  install-scene-capture-browser Also download the pinned headless Chromium (large download)"
 	@echo "  install-transcribe   Install the two speech-recognition engines for podcast-transcribe (pipx)"
 	@echo ""
-	@echo "DEVELOPMENT SERVERS:"
-	@echo "  dev-go               Start Go server (radar disabled, Typst PDF reports)"
-	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (gRPC mode, Typst PDF reports)"
-	@echo "  dev-go-lidar-both    Start Go server with LiDAR (both gRPC and 2370 forward, Typst PDF reports)"
-	@echo "  dev-go-kill-server   Stop background Go server"
-	@echo "  dev-web              Start web dev server"
-	@echo "  dev-docs             Start docs dev server"
-	@echo "  dev-docs-offline     Start embedded offline docs dev server"
-	@echo "  dev-docs-kill        Stop stale docs dev server processes"
-	@echo "  dev-docs-offline-kill Stop stale offline docs dev server processes"
-	@echo "  dev-vis-server       Start visualiser gRPC server (VIS_MODE=synthetic)"
+	@echo "DEVICE ACCESS:"
 	@echo "  dev-ssh              SSH to velocity@velocity.local (refreshes known_hosts if key rotated)"
 	@echo "  dev-ssh-audit        Remote health-check on a freshly booted Pi (9-step audit)"
-	@echo "                       VIS_MODE: synthetic, replay (requires VIS_LOG), live"
 	@echo ""
 	@echo "VISUALISER TOOLS:"
+	@echo "  dev-vis-server       Start a gRPC server (VIS_MODE=synthetic|replay|live, replay requires VIS_LOG)"
 	@echo "  record-sample        Generate sample .vrlog file for testing"
 	@echo "  vrlog-analyse        Generate analysis.json for a .vrlog (VRLOG=path)"
 	@echo "  vrlog-compare        Compare two .vrlog analyses (VRLOG_A=path VRLOG_B=path)"
@@ -145,7 +154,7 @@ help:
 	@echo "  serial-harness       Probe /api/serial/* directly (HOST=, CMD=devices|diagnose|test, ARGS=)"
 	@echo ""
 	@echo "TESTING:"
-	@echo "  test                 Run all tests (Go + Python + Web + public site + offline docs + macOS)"
+	@echo "  test                 Run maintained suites (Go, Python, web, both sites, macOS, and scene tools)"
 	@echo "  test-go              Run Go unit tests"
 	@echo "  test-go-cov          Run Go tests with coverage"
 	@echo "  test-go-cov-pcap     Go coverage profile (pcap tag, no internal/api) for the LOC chart"
@@ -156,14 +165,9 @@ help:
 	@echo "  test-python-cov      Run Python script/tool tests with coverage"
 	@echo "  test-web             Run web tests (Jest)"
 	@echo "  test-web-cov         Run web tests with coverage"
-	@echo "  test-public-html     Run public site (public_html) scene-viewer tests"
-	@echo "  test-docs-offline    Run embedded offline docs tests"
-	@echo "  test-docs-offline-cov Run embedded offline docs tests with 98% line thresholds"
-	@echo "  test-docs-offline-routes Serve the built docs through the embedded /docs/ handler; check every page and link"
-	@echo "  check-docs-embed-context Check every built docs file survives the static build's Docker context"
 	@echo "  test-mac             Run macOS visualiser tests (XCTest)"
 	@echo "  test-mac-cov         Run macOS tests with coverage"
-	@echo "  coverage             Generate coverage reports for all components"
+	@echo "  coverage             Run coverage for Go, Python, web, offline docs, and macOS"
 	@echo "  loc-coverage-chart   Render LOC + coverage SVG to dist/loc-coverage.svg"
 	@echo ""
 	@echo "PERFORMANCE:"
@@ -175,12 +179,10 @@ help:
 	@echo ""
 	@echo "EVIDENCE:"
 	@echo "  evidence-run         Replay the corpus, writing immutable observations (RUN=, CASE=, EVIDENCE_DURATION=)"
-	@echo "  evidence-paths       Show the capture, recording, evidence, vrlog and plot paths"
+	@echo "  evidence-paths       Show capture, evidence, recording, plot, and annotation paths"
 	@echo "  run-settling-eval    Measure a capture's convergence frame (PCAP=)"
 	@echo ""
-	@echo "  Captures are read from LIDAR_PCAP_DIR; recordings, evidence and plots are"
-	@echo "  written under LIDAR_DATA_DIR so a replay does not contend with its own"
-	@echo "  reads. Set either in local.mk (untracked) or on the command line."
+	@echo "    Use evidence-paths to check defaults before overriding paths in local.mk."
 	@echo ""
 	@echo "DATABASE MIGRATIONS:"
 	@echo "  migrate-up           Apply all pending migrations"
@@ -210,23 +212,27 @@ help:
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
+	@echo "  lint-docs            Run repository Markdown and documentation checks"
+	@echo "  check-md-links       Check relative Markdown links and backtick paths"
 	@echo "  check-docs-format    Check Markdown formatting with the pinned prettier"
+	@echo "  check-devlog         Validate development log fragments"
+	@echo "  check-no-results     Reject experiment result directories in the Git index"
 	@echo "  check-prose-width    Advisory: report prose lines over 99 columns"
 	@echo "  check-geometry-wording Reject wording that describes measured geometry as models or plans (D-38)"
+	@echo ""
+	@echo "TUNING CONFIGURATION:"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
 	@echo "  selectors-validate   Validate a segment selector file (SELECTORS=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
 	@echo "  check-config-maths   Validate config maths keys across docs, tuning JSON, and Go surfaces"
-	@echo "  check-config-maths-strict Validate config maths keys with strict webserver parity"
 	@echo ""
 	@echo "DIAGRAMS:"
 	@echo "  install-diagrams     Install build123d (3D CAD kernel) into shared venv"
 	@echo "  render-diagrams      Generate rack-mount SVG sheets (front, ortho, isometric)"
 	@echo "  render-overlays      Generate guide-image SVG overlays (beam cones, annotations)"
 	@echo "  render               Run all render targets (diagrams + overlays)"
-	@echo "  render-scene-map-mac|-linux  Rebuild the scene index, map and pages from the archive at its Mac or Linux path"
 	@echo "  render-scene-data    Re-apply marks and overrides to the site index, page data and map (no archive needed)"
 	@echo "  check-scene-data     Fail if the generated scene files differ from what the generator writes"
 	@echo "  render-s2-hilbert    Generate S2 Hilbert-curve SVG assets for the docs infographic"
@@ -234,6 +240,9 @@ help:
 	@echo "  test-s2-hilbert      Run the S2 Hilbert generator test suite"
 	@echo ""
 	@echo "SCENE WEB ASSETS (from the S2 corpus of trimmed captures):"
+	@echo "  render-scene-map     Rebuild the scene index, map and pages from the configured archive"
+	@echo "  render-scene-map-mac Rebuild from the default macOS archive path (SCENE_ARCHIVE_MAC)"
+	@echo "  render-scene-map-linux Rebuild from the default Linux archive path (SCENE_ARCHIVE_LINUX)"
 	@echo "  scene-assets         Rebuild every outstanding scene recording, then the pages"
 	@echo "  scene-assets-status  What is outstanding and roughly how long it will take"
 	@echo "  scene-assets-clean   Drop the .rebuilt markers so a rebuild runs again"
@@ -248,6 +257,8 @@ help:
 	@echo "  test-scene-capture              Run the scene-capture tool's own test suite"
 	@echo ""
 	@echo "UTILITIES:"
+	@echo "  test-devlog          Test development log tooling"
+	@echo "  devlog-consolidate   Fold landed fragments into the journal (requires gh)"
 	@echo "  version-exact        Update version across codebase (VER=0.5.1 [TARGETS=...])"
 	@echo "  update-release-json  Refresh release.json/os-list from GitHub Releases (ARGS='--ci --channel prerelease --validate')"
 	@echo "  log-go-tail          Tail most recent Go server log"
@@ -255,7 +266,9 @@ help:
 	@echo "  log-go-tail-all      Tail most recent Go server log plus debug log"
 	@echo "  git-fs               Show the git files that differ from main"
 	@echo ""
-	@echo "DATA VISUALIZATION:"
+	@echo "CAPTURE ANALYSIS AND PLOTTING:"
+	@echo "  build-pcap-split     Build the PCAP motion/static segmentation tool"
+	@echo "  run-pcap-split       Split a PCAP into motion/static segments (PCAP=path)"
 	@echo "  plot-noise-sweep     Generate noise sweep line plot (FILE=data.csv)"
 	@echo "  plot-multisweep      Generate multi-parameter grid (FILE=data.csv)"
 	@echo "  plot-noise-buckets   Generate per-noise bar charts (FILE=data.csv)"
@@ -281,7 +294,32 @@ help:
 	@echo "  api-stop-pcap        Stop PCAP replay"
 	@echo "  api-switch-data-source Switch live/pcap (SOURCE=live|pcap)"
 	@echo ""
-	@echo "For detailed information, see README.md or inspect the Makefile"
+	@echo "DEPRECATED PUBLIC SITE ALIASES (use the target on the right):"
+	@echo "  install-docs                  -> install-public-html"
+	@echo "  dev-docs                      -> dev-public-html"
+	@echo "  dev-docs-kill                 -> dev-public-html-kill"
+	@echo "  build-docs                    -> build-public-html"
+	@echo "  build-docs-public-html        -> build-public-html-image"
+	@echo "  verify-docs-public-html-build -> verify-public-html-image-build"
+	@echo ""
+	@echo "DEPRECATED STATIC BINARY ALIASES:"
+	@echo "  build-radar-static            -> build-velocity-static"
+	@echo "  build-radar-static-amd64      -> build-velocity-static-amd64"
+	@echo "  build-radar-static-arm64      -> build-velocity-static-arm64"
+	@echo "  build-radar-linux-docker      -> build-velocity-linux-docker"
+	@echo "  test-radar-static-arm64-vm    -> test-velocity-static-arm64-vm"
+	@echo "  test-radar-static-golden-pcap -> test-velocity-static-golden-pcap"
+	@echo ""
+	@echo "OTHER COMPATIBILITY ALIASES:"
+	@echo "  build-radar-linux     -> build-velocity-linux"
+	@echo "  build-radar-mac       -> build-velocity-mac"
+	@echo "  build-radar-mac-intel -> build-velocity-mac-intel"
+	@echo "  build-ctl             -> build-velocity"
+	@echo "  build-ctl-linux       -> build-velocity-linux"
+	@echo "  build-tools           -> build-velocity"
+	@echo "  check-config-maths-strict -> check-config-maths"
+	@echo ""
+	@echo "See COMMANDS.md for workflows and the Makefile for internal targets."
 
 .DEFAULT_GOAL := help
 
@@ -384,8 +422,8 @@ build-lidar-eval: ## Build the offline labelled evaluation CLI with source stamp
 	@mkdir -p "$(dir $(LIDAR_EVAL_BIN))"
 	go build -ldflags "$(LDFLAGS)" -o "$(LIDAR_EVAL_BIN)" ./cmd/tools/lidar-ground-truth-eval
 
-.PHONY: build-radar-linux-docker
-build-radar-linux-docker:
+.PHONY: build-velocity-linux-docker
+build-velocity-linux-docker:
 	@VERSION="$(VERSION)" BUILD_TIME="$(BUILD_TIME)" GIT_SHA="$(GIT_SHA)" ./image/scripts/build-image.sh --binaries-only
 	@echo "Binaries available:"; ls -l image/velocity-binaries || true
 
@@ -429,28 +467,37 @@ install-typst:
 #
 # BUILD_TIME defaults to the HEAD commit's committer date (UTC), so the
 # same source produces the same binary regardless of when you build.
-.PHONY: build-radar-static build-radar-static-amd64 build-radar-static-arm64 test-radar-static-arm64-vm test-radar-static-golden-pcap
+.PHONY: build-velocity-static build-velocity-static-amd64 build-velocity-static-arm64 test-velocity-static-arm64-vm test-velocity-static-golden-pcap
 # BUILD_TIME is intentionally not forwarded — the script defaults it to
 # the HEAD commit's committer date so the same source produces the same
 # binary. Override by exporting BUILD_TIME in the environment.
-build-radar-static:
+build-velocity-static:
 	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ./scripts/build-radar-static.sh
 
-build-radar-static-amd64:
+build-velocity-static-amd64:
 	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ARCHES=amd64 ./scripts/build-radar-static.sh
 
-build-radar-static-arm64:
+build-velocity-static-arm64:
 	@VERSION="$(VERSION)" GIT_SHA="$(GIT_SHA)" ARCHES=arm64 ./scripts/build-radar-static.sh
 
-test-radar-static-arm64-vm:
+test-velocity-static-arm64-vm:
 	@bin=$$(find build/static -maxdepth 1 -type f -name 'velocity-report-*-linux-arm64-*-static' -print | head -n1); \
-	[ -n "$$bin" ] || { echo "no ARM64 static binary found; run make build-radar-static-arm64" >&2; exit 1; }; \
+	[ -n "$$bin" ] || { echo "no ARM64 static binary found; run make build-velocity-static-arm64" >&2; exit 1; }; \
 	./scripts/test-static-arm64-vm.sh "$$bin"
 
-test-radar-static-golden-pcap:
+test-velocity-static-golden-pcap:
 	@bin=$$(find build/static -maxdepth 1 -type f -name 'velocity-report-*-linux-amd64-*-static' -print | head -n1); \
-	[ -n "$$bin" ] || { echo "no AMD64 static binary found; run make build-radar-static-amd64" >&2; exit 1; }; \
+	[ -n "$$bin" ] || { echo "no AMD64 static binary found; run make build-velocity-static-amd64" >&2; exit 1; }; \
 	./scripts/test-static-golden-pcap.sh "$$bin"
+
+# Deprecated static binary commands. Keep these aliases during migration.
+.PHONY: build-radar-static build-radar-static-amd64 build-radar-static-arm64 build-radar-linux-docker test-radar-static-arm64-vm test-radar-static-golden-pcap
+build-radar-static: build-velocity-static
+build-radar-static-amd64: build-velocity-static-amd64
+build-radar-static-arm64: build-velocity-static-arm64
+build-radar-linux-docker: build-velocity-linux-docker
+test-radar-static-arm64-vm: test-velocity-static-arm64-vm
+test-radar-static-golden-pcap: test-velocity-static-golden-pcap
 
 # Run settling-eval convergence evaluation against a PCAP file.
 # Defaults to the kirk0 perf baseline capture (port 2369). Override any variable as needed.
@@ -662,35 +709,46 @@ ensure-dev-web-build:
 		$(MAKE) build-web; \
 	fi
 
-.PHONY: build-docs build-docs-public-html verify-docs-public-html-build
-build-docs:
-	@echo "Building documentation site..."
+.PHONY: build-public-html build-public-html-image verify-public-html-image-build
+# Both variants replace public_html/_site so generated files from one variant
+# cannot leak into the other (for example, the hosted reference graph page).
+build-public-html:
+	@echo "Building public site..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
-		pnpm run build; \
+		pnpm run clean && pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
-		npm run build; \
+		npm run clean && npm run build; \
 	else \
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
-	@echo "✓ Docs build complete: public_html/_site/"
+	@echo "✓ Public site build complete: public_html/_site/"
 
 # The Pi image serves the public site beneath /public_html/. Keep this as a
 # separate target so normal public-site builds continue to target the origin.
-build-docs-public-html:
-	@echo "Building offline homepage site..."
+build-public-html-image:
+	@echo "Building public site for the Pi image..."
 	@cd public_html && export VELOCITY_PUBLIC_HTML_PATH_PREFIX="/public_html/" && if command -v pnpm >/dev/null 2>&1; then \
-		pnpm run build; \
+		pnpm run clean && pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
-		npm run build; \
+		npm run clean && npm run build; \
 	else \
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
 	@printf '%s\n' "/public_html/" > public_html/_site/.velocity-public-html-path-prefix
-	@$(MAKE) verify-docs-public-html-build
-	@echo "✓ Offline homepage build complete: public_html/_site/"
+	@$(MAKE) verify-public-html-image-build
+	@echo "✓ Public site image build complete: public_html/_site/"
 
-verify-docs-public-html-build:
+verify-public-html-image-build:
 	@python3 scripts/verify-public-html-build.py
+
+# Deprecated public-site names. Keep these aliases for existing callers.
+.PHONY: install-docs dev-docs dev-docs-kill build-docs build-docs-public-html verify-docs-public-html-build
+install-docs: install-public-html
+dev-docs: dev-public-html
+dev-docs-kill: dev-public-html-kill
+build-docs: build-public-html
+build-docs-public-html: build-public-html-image
+verify-docs-public-html-build: verify-public-html-image-build
 
 .PHONY: build-docs-offline
 build-docs-offline:
@@ -1089,7 +1147,7 @@ FORCE:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs install-docs-offline install-scene-capture install-scene-capture-browser install-transcribe install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
+.PHONY: install-python install-web install-public-html install-docs-offline install-scene-capture install-scene-capture-browser install-transcribe install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -1220,8 +1278,8 @@ ensure-web-cache:
 
 codex-setup: activate-web-cache
 
-install-docs:
-	@echo "Installing docs dependencies..."
+install-public-html:
+	@echo "Installing public site dependencies..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm install --frozen-lockfile; \
 		elif command -v npm >/dev/null 2>&1; then \
@@ -1295,7 +1353,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: debug-grpc-probe debug-grpc-soak debug-mac-cycles dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
+.PHONY: debug-grpc-probe debug-grpc-soak debug-mac-cycles dev-go dev-go-lidar dev-go-lidar-trace dev-go-lidar-both dev-go-kill-server dev-web dev-public-html dev-public-html-kill dev-docs-offline dev-docs-offline-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit serial-harness
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -1384,8 +1442,8 @@ dev-web:
 			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
 		fi
 
-dev-docs-kill:
-	@echo "Stopping stale docs dev server processes..."
+dev-public-html-kill:
+	@echo "Stopping stale public site dev server processes..."
 	@pids=$$(ps ax -o pid,args | grep 'public_html/node_modules/.*\(eleventy\|tailwindcss\|npm-run-all\)' | grep -v grep | awk '{print $$1}'); \
 	if [ -n "$$pids" ]; then \
 		echo "Killing PIDs: $$pids"; \
@@ -1394,8 +1452,8 @@ dev-docs-kill:
 		echo "No stale processes found."; \
 	fi
 
-dev-docs: dev-docs-kill
-	@echo "Starting docs dev server..."
+dev-public-html: dev-public-html-kill
+	@echo "Starting public site dev server (http://localhost:8090)..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run dev; \
 		elif command -v npm >/dev/null 2>&1; then \
@@ -1605,7 +1663,7 @@ test-web-cov:
 # built-in test runner. The tests import three.js, so dependencies are
 # installed first when missing.
 test-public-html:
-	@if [ ! -d public_html/node_modules ]; then $(MAKE) install-docs; fi
+	@if [ ! -d public_html/node_modules ]; then $(MAKE) install-public-html; fi
 	@echo "Running public site (public_html) tests..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run test; \
@@ -2315,8 +2373,7 @@ config-order-sync: sync-config-order
 check-config-maths:
 	@./scripts/readme-maths-check
 
-check-config-maths-strict:
-	@./scripts/readme-maths-check
+check-config-maths-strict: check-config-maths
 
 readme-maths-check: check-config-maths
 
@@ -2461,7 +2518,7 @@ site-index-clips:
 render-scene-map: install-s2-hilbert site-index
 	@echo "Deriving the scene page data and the scene map..."
 	@pnpm run --silent s2-hilbert:scene-map
-	@$(MAKE) --no-print-directory build-docs
+	@$(MAKE) --no-print-directory build-public-html
 	@echo "✓ index, scene pages, map and site rebuilt — every published scene has a URL"
 
 # The analysis the index is built from lives in the archive, and each machine

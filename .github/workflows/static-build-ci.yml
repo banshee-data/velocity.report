@@ -193,7 +193,7 @@ jobs:
           if [[ "$GO_CACHE_SAVE" == "true" ]]; then
             export GO_BUILD_CACHE_TO="$GO_CACHE.new"
           fi
-          make "build-radar-static-$ARCH"
+          make "build-velocity-static-$ARCH"
 
       - name: Verify embedded docs routes in the binary
         if: matrix.arch == 'amd64'
@@ -216,9 +216,7 @@ jobs:
 
       - name: Validate canonical LiDAR capture with release binary
         if: matrix.arch == 'amd64'
-        run: |
-          bin=$(ls build/static/velocity-report-*-linux-amd64-*-static | head -1)
-          ./scripts/test-static-golden-pcap.sh "$bin"
+        run: make test-velocity-static-golden-pcap
 
       - name: Test ARM64 binary under the runner's ARM64 kernel
         if: matrix.arch == 'arm64'
@@ -236,7 +234,7 @@ jobs:
           BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
           sha256sum build/static/velocity-report-*-static > "$RUNNER_TEMP/velocity-static.sha256"
-          make "build-radar-static-$ARCH"
+          make "build-velocity-static-$ARCH"
           sha256sum -c "$RUNNER_TEMP/velocity-static.sha256"
 
       - name: Prepare caches for saving
@@ -334,6 +332,5 @@ jobs:
       # Artifacts do not keep file modes, so restore the executable bit.
       - name: Test ARM64 binary under an ARM64 VM kernel
         run: |
-          bin=$(ls build/static/velocity-report-*-linux-arm64-*-static | head -1)
-          chmod +x "$bin"
-          ./scripts/test-static-arm64-vm.sh "$bin"
+          chmod +x build/static/velocity-report-*-linux-arm64-*-static
+          make test-velocity-static-arm64-vm

@@ -180,7 +180,7 @@ if grep -q "Web Frontend Not Built" web/build/index.html 2>/dev/null; then
 fi
 
 # Build the same static ARM64 artifact used by image/release packaging
-make build-radar-static-arm64
+make build-velocity-static-arm64
 
 # Sanity-check the artifact
 BINARY=$(ls -t build/static/velocity-report-*-linux-arm64-*-static 2>/dev/null | head -1)
@@ -247,7 +247,7 @@ export TARGET_REF=<tag-or-sha>
 cd /path/to/velocity.report
 git status --short
 git checkout "$TARGET_REF"
-make build-radar-static-arm64
+make build-velocity-static-arm64
 BINARY=$(ls -1t build/static/velocity-report-*-linux-arm64-*-static 2>/dev/null | head -1)
 if [ -z "$BINARY" ]; then
   echo "No matching static linux-arm64 velocity-report binary found after build."

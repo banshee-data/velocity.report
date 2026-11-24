@@ -1,4 +1,4 @@
-name: Deploy Docs to GitHub Pages
+name: Deploy Public Site to GitHub Pages
 
 on:
   push:
@@ -23,9 +23,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./public_html
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -36,7 +33,7 @@ jobs:
           working-directory: public_html
 
       - name: Build site
-        run: pnpm build
+        run: make build-public-html
 
       - name: Setup Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0

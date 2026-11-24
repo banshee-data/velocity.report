@@ -176,7 +176,7 @@ The [full PDF is available at banshee-data.com](https://banshee-data.com/velocit
 
 ## Quick start
 
-Requires Go 1.26+, Node.js 20.19+, and pnpm 10+ for the web and Eleventy docs builds.
+Requires Go 1.26+, Node.js 22+, and pnpm 10+ for the web app and embedded repository docs builds.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for full prerequisites.
 
 ```sh
@@ -227,7 +227,7 @@ Sensor fusion plans live in [VISION.md](docs/VISION.md).
 Every contribution needs three commands:
 
 ```sh
-make format    # auto-fix all formatting (Go, Python, Web)
+make format    # format Go, web, macOS, Markdown, and SQL
 make lint      # check formatting, code quality, and repo hygiene
 make test      # run all test suites
 ```
@@ -238,7 +238,8 @@ but pull requests may also run additional repository or documentation checks.
 Check out [docs/plans](docs/plans/) and [BACKLOG.md](docs/BACKLOG.md) for any work that catches your eye.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for dev environment setup, coding standards,
-and pull request workflow. All make targets are documented in [COMMANDS.md](COMMANDS.md).
+and pull request workflow. [COMMANDS.md](COMMANDS.md) lists common Make workflows. Use
+`make dev-public-html` for the public site and `make dev-docs-offline` for the repository docs preview.
 
 Use the [decision-review workflow](docs/platform/operations/decision-review.md) to prepare open
 project, schema, maths, and research questions, discuss them by voice, and carry confirmed

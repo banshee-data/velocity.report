@@ -63,6 +63,21 @@ The February candidates are done or carried below: the deploy targets (`setup-ra
 `deploy-*`, `build-deploy*`) were removed in v0.5.1, and none remains. The plot, stats and API
 wrappers are still present, and the Makefile has grown around them.
 
+The public site uses `public-html` as its Make subsystem, matching `test-public-html`.
+[COMMANDS.md](../../COMMANDS.md#public-site-and-offline-docs) records the compatibility aliases
+and their replacements. `build-public-html-image` builds and verifies the Pi variant for
+`/public_html/`. These targets supersede the public-site naming and image-build fold in the
+October inventory below.
+
+Static binary builds and checks now use `velocity` in their Make target names. Static build CI
+uses the new build, VM, and golden PCAP targets. See the
+[static binary target map](../../COMMANDS.md#static-linux-binaries).
+
+The [parked backlog](../BACKLOG.md#parked-outside-the-slot-cap) tracks release command names,
+the local development binary target, and alias retirement as individual items. The proposed
+`build-velocity-local` retains the local build's default `velocity-report-local` name and
+`VELOCITY_LOCAL_BIN` override.
+
 #### Re-baseline (October 19, 2026)
 
 | Measure                                                                      | Value                                                                   |
@@ -105,9 +120,9 @@ budget of 150.
 3. **CI calls Make.** The 27 direct steps move to targets, most of which already exist: `check-md-links` for the two link checkers, `lint-web`, `test-web` and `build-web` for the web steps, the static VM test for the image workflow, and a `check-lfs` target for the four LFS validations.
 4. **Includes after the trim.** Splitting the Makefile into one include per concern under `mk/` is worth doing once the file is smaller; doing it first would turn every deletion into a cross-file conflict.
 
-Under D-20, Make targets sit inside the release unit: the docs, skills and workflows that call
-them change in the same commit. They never need an alias, only a tombstone for the person who
-types the old name.
+Under D-20, Make targets sit inside the release unit. The docs, skills, and workflows that call
+them change together. The alias retirement item covers transitional aliases and one-release
+errors that point callers at the replacement command.
 
 ### 2) `cmd/` app and tool candidates
 

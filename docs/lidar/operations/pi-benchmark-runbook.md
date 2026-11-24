@@ -109,7 +109,7 @@ cd ~/velocity.report && go build -tags pcap -o lidar-bench ./cmd/tools/lidar-ben
 ```
 
 There is currently no cross-compiled or statically-linked `lidar-bench` artifact — unlike the
-`velocity` server binary, which ships via the hermetic `build-radar-static` Docker pipeline.
+`velocity` server binary, which ships via the hermetic `build-velocity-static` Docker pipeline.
 Building on-device with `apt`'s `libpcap-dev` is the only path today. See
 [Known gaps](#known-gaps) below.
 
@@ -186,7 +186,7 @@ before believing a change is safe on the deployment target. A change that passes
 - **No automation.** Nothing runs this on a schedule. The device must be reachable and free,
   and a person must run the steps above. Wiring this into CI would need a self-hosted runner
   attached to a Pi, or a webhook-triggered job — tracked in the backlog, not built.
-- **No dependency-free `lidar-bench` binary.** `build-radar-static` (the hermetic
+- **No dependency-free `lidar-bench` binary.** `build-velocity-static` (the hermetic
   zig+musl+libpcap.a Docker pipeline) produces the `velocity` server binary only. Extending it
   to also emit a statically-linked `lidar-bench` would remove the `apt install libpcap-dev`
   step and produce a binary with the same linking characteristics as what actually ships —
