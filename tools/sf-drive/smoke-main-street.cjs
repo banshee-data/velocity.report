@@ -19,6 +19,8 @@ async function controls(canvas, checkpoint) {
     const direction = [Math.cos(heading), Math.sin(heading)];
     const heights = [];
     let throttle;
+    let lastGrounded = start;
+    let longestAirborneMs = 0;
     const accelerate = (enabled) => {
       if (throttle === enabled) return;
       throttle = enabled;
@@ -36,10 +38,21 @@ async function controls(canvas, checkpoint) {
       const dy = +d.north - y;
       const distance = dx * direction[0] + dy * direction[1];
       const lateral = dy * direction[0] - dx * direction[1];
-      const seconds = (performance.now() - start) / 1000;
-      if (d.contact !== "grounded" || d.surfaceId || Math.abs(lateral) > 3) {
+      const now = performance.now();
+      const seconds = (now - start) / 1000;
+      if (d.contact === "grounded") lastGrounded = now;
+      longestAirborneMs = Math.max(longestAirborneMs, now - lastGrounded);
+      if (d.surfaceId || Math.abs(lateral) > 3 || longestAirborneMs > 250) {
         accelerate(false);
-        return { distance, seconds, streetContact: false, lateral };
+        return {
+          distance,
+          seconds,
+          streetContact: false,
+          lateral,
+          surfaceId: d.surfaceId,
+          contact: d.contact,
+          longestAirborneMs,
+        };
       }
       heights.push(+d.altitude);
       if (distance >= 78 || seconds > 22 || d.replay === "crash") {
@@ -48,6 +61,7 @@ async function controls(canvas, checkpoint) {
           distance,
           seconds,
           streetContact: true,
+          longestAirborneMs,
           minZ: Math.min(...heights),
           maxZ: Math.max(...heights),
           crashed: d.replay === "crash",
