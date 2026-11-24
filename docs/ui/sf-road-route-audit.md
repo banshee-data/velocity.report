@@ -1669,10 +1669,12 @@ overhead probes. Chrome kept the car visible and grounded on the lower road
 and retained the exterior view on the upper road.
 
 The 20 frozen emoji courses finished over 52.43 km in 83.8 minutes of
-simulation. Five routes used highways and none used a tunnel. Across 50
-driven joins, the maximum seam step was 6.1 cm. Route sampling flagged
-seven depressions greater than 0.5 m; the driven traces recorded zero.
-The highest driven grade was 26.2% on Ordway Street.
+simulation. Five routes used highways. Three used baked tunnel contact,
+including both Stockton directions and the toll plaza eastbound. Across
+50 driven joins, the maximum seam step was 6.1 cm. Route sampling flagged
+seven depressions on the southbound I-280 course, up to 0.82 m at Alemany
+Boulevard. The driven traces recorded zero dips greater than 0.5 m. The
+highest driven grade was 26.2% on Ordway Street.
 
 ```sh
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
