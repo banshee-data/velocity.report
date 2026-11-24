@@ -825,6 +825,7 @@ for (const reverse of [false, true]) {
     speed: 13,
     groundApproachMetres: 9,
     maxAirborneMetres: 5,
+    groundedHandoff: true,
     connectByGround: true,
     reverseRoads: reverse ? [macarthur] : [],
     laneGuides: { [macarthur]: { lane: reverse ? 4.2 : -4.2 } },
@@ -832,7 +833,6 @@ for (const reverse of [false, true]) {
       {
         after: prefix + roads[0],
         via: [],
-        minimumMetres: 2,
       },
     ],
   };
@@ -3083,6 +3083,7 @@ async function drive(
       let groundMetres = 0;
       let groundedMetres = 0;
       let airborneMetres = 0;
+      let airborneBeforeLastRoad = false;
       return new Promise((resolve) => {
         function finish(status) {
           for (const code of held) key(code, false);
@@ -3096,6 +3097,7 @@ async function drive(
             groundMetres: Math.round(groundMetres * 10) / 10,
             groundedMetres: Math.round(groundedMetres * 10) / 10,
             airborneMetres: Math.round(airborneMetres * 100) / 100,
+            airborneBeforeLastRoad,
             ...(groundTurn && { reversedOnGround }),
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
@@ -3126,6 +3128,12 @@ async function drive(
           maxSpeed = Math.max(maxSpeed, pose.v);
           if (surfaceId && !ids.includes(surfaceId))
             return finish("wrong road");
+          if (
+            d.contact === "airborne" &&
+            seen.size > 0 &&
+            seen.size < ids.length
+          )
+            airborneBeforeLastRoad = true;
           if (surfaceId && !seen.has(surfaceId)) seen.set(surfaceId, pose);
           if (surfaceId && pose.grounded) lastSupported = pose;
           if (
@@ -3264,6 +3272,7 @@ async function main() {
         groundConnection,
         groundDeparture,
         groundArrival,
+        groundedHandoff = false,
         finishOnDeck = false,
         finishDistance,
         maxDurationMs = 460_000,
@@ -3504,6 +3513,12 @@ async function main() {
         );
         assert.equal(result.exit.camera, cases[name].exitCamera ?? "exterior");
         assert.ok(result.exit.grounded);
+        if (groundedHandoff)
+          assert.equal(
+            result.airborneBeforeLastRoad,
+            false,
+            "Lost ground contact before entering the next road",
+          );
         if (maxAirborneMetres !== undefined) {
           assert.ok(
             result.airborneMetres <= maxAirborneMetres,
@@ -3520,7 +3535,7 @@ async function main() {
         }
         if (Array.isArray(groundConnection)) {
           const minimum = groundConnection.reduce(
-            (sum, link) => sum + link.minimumMetres,
+            (sum, link) => sum + (link.minimumMetres ?? 0),
             0,
           );
           assert.ok(

@@ -2880,7 +2880,10 @@ All 666 sampled centre and lateral collision poses cleared.
 | Southbound through the tunnel and across SR 1 | 63.4 s |   1.69 m |
 
 Both cars crossed the short pavement handoff grounded and
-finished on exterior street pavement. The maximum fitted grade is
+finished on exterior street pavement. The game can transfer directly
+between the approach and tunnel contacts in adjacent rendered frames.
+The browser check verifies the contact order and grounded state through
+that handoff. The maximum fitted grade is
 8.50% northbound and 7.20% southbound. The largest local dip across
 a chord of about 20 m is 6.7 cm.
 
