@@ -459,6 +459,7 @@ for (const direction of ["exit", "through"]) {
     ],
     owners: ["808f7ef4", "808f7efc", "808f7e54", "808f7e4c"],
     speed: 17,
+    finishOnDeck: direction === "through",
     speedLimits: {
       "i280-north-alemany-entry": 11,
       "i280-to-101-north-connector": 13,
@@ -495,6 +496,74 @@ for (const direction of ["exit", "through"]) {
     },
   };
 }
+const us101Through = cases["alemany-to-us101-through"];
+const bayEast = cases["central-to-lower-bridge"];
+const bayRoads = bayEast.roads.slice(
+  bayEast.roads.indexOf("i80-eastbound-interchange"),
+);
+const us101Potrero = {
+  ...us101Through,
+  roads: [...us101Through.roads, "us101-north-potrero-approach"],
+  owners: [...us101Through.owners, "808f7e34", "808f7e2c"],
+  speedLimits: {
+    ...us101Through.speedLimits,
+    "us101-north-potrero-approach": 15,
+  },
+  laneGuides: {
+    ...us101Through.laneGuides,
+    "us101-north-potrero-approach": {
+      clearance: [
+        { offset: 2.15, station: 183, length: 40 },
+        { offset: 1.9, station: 372, length: 31 },
+        { offset: -1.25, station: 458, length: 25 },
+        { offset: -1.55, station: 842, length: 24 },
+        { offset: 1.95, station: 886, length: 32 },
+        { offset: -1.55, station: 992, length: 29 },
+      ],
+    },
+  },
+};
+cases["alemany-to-potrero-exit"] = {
+  ...us101Potrero,
+  roads: [...us101Potrero.roads, "us101-north-potrero-exit"],
+  speedLimits: { ...us101Potrero.speedLimits, "us101-north-potrero-exit": 11 },
+  laneGuides: {
+    ...us101Potrero.laneGuides,
+    "us101-north-potrero-exit": {
+      clearance: [
+        { offset: 1.7, station: 101, length: 25 },
+        { offset: 1.55, station: 152, length: 19 },
+      ],
+    },
+  },
+  forks: [
+    ...us101Potrero.forks,
+    ["us101-north-potrero-approach", "us101-north-potrero-exit", -1.5],
+  ],
+};
+cases["alemany-to-i80-lower-bay"] = {
+  ...us101Potrero,
+  roads: [
+    ...us101Potrero.roads,
+    "us101-north-i80-approach",
+    "us101-north-i80-east-connector",
+    ...bayRoads,
+  ],
+  owners: [...new Set([...us101Potrero.owners, ...bayEast.owners])],
+  speed: 19,
+  speedLimits: {
+    ...us101Potrero.speedLimits,
+    "us101-north-i80-east-connector": 15,
+  },
+  laneGuides: { ...us101Potrero.laneGuides, ...bayEast.laneGuides },
+  finishOnDeck: true,
+  entranceTimeoutMs: 50_000,
+  maxDurationMs: 880_000,
+  forks: [
+    ...us101Potrero.forks,
+    ["us101-north-potrero-approach", "us101-north-i80-approach", 1.4],
+  ],
+};
 for (const reverse of [false, true]) {
   cases[
     reverse ? "dogpatch-twentieth-eastbound" : "dogpatch-twentieth-westbound"

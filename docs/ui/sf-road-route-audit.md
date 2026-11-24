@@ -898,3 +898,27 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `cc8ae31fc12ebf5281e9762a35ffee38b77761d1538400d8be3561ca1ce6160f`.
 - Contact SHA-256 `f499a5ca7f62bbff6267dcd89cc080c5d0f9322f6f5bc308d61e7c6d53a12e84`.
 - The bake changes four tiles and preserves the existing emoji placement revision.
+
+## Northbound US 101 through Potrero to eastbound I-80
+
+Four sections add 2.26 km from the Bayshore through lane to Potrero
+and eastbound I-80. The Potrero exit returns to street level at
+33.53 m NAVD88. The through route joins the previously verified
+eastbound contact at 17.58 m. Both the Central Freeway and US 101
+approaches reach that same I-80 surface. The nearby ground is
+independent, around 10 m below the interchange fork.
+
+The fit uses 219 pinned depth-12 EPT nodes. The maximum longitudinal
+grade of the new sections is 5.4%. The fixed-step drive reached the
+Potrero street handoff in 281.4 s. A second run followed all 19 sections
+from ordinary Alemany pavement onto US 101, across the lower Bay Bridge
+and through Yerba Buena, ending on the eastern approach in 687.6 s.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  alemany-to-potrero-exit alemany-to-i80-lower-bay
+```
+
+- Game manifest SHA-256 `5cc3b7b5845630b4342b02c6cbd67231d6a2623ce061d63ce1ae9e4788a99f04`.
+- Contact SHA-256 `0f96a86ac97f2ae4903b4704a1c0235ee280f4fb5502c7bdd0a19d64c8f54024`.
+- The bake changes four tiles and preserves the existing emoji placement revision.

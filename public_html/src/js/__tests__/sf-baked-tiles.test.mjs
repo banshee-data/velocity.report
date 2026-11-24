@@ -238,11 +238,10 @@ test("Alemany connects to US 101 and leaves the original I-280 branch available"
       ),
     );
   }
-  for (const branch of [exit, through]) {
-    assert.deepEqual(branch.groundEnds, ["end"]);
-    const [x, y, z] = branch.points.at(-1);
-    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03, branch.id);
-  }
+  assert.deepEqual(exit.groundEnds, ["end"]);
+  assert.deepEqual(through.groundEnds, []);
+  const [endX, endY, endZ] = exit.points.at(-1);
+  assert.ok(Math.abs(groundAtWorld(tiles, endX, endY, true) - endZ) < 0.03);
   const { surface } = buildBakedRoadContact(through);
   const crossing = [3199.64, -1212.11];
   assert.ok(
@@ -255,6 +254,48 @@ test("Alemany connects to US 101 and leaves the original I-280 branch available"
   const [x, y, z] = connector.points.at(-1);
   assert.equal(collisionAt(obstacles, { x, y, z, heading: 1.67 }, z), null);
   assert.equal(roadBake.overheadBuildingPatches["808f7e54"], 1);
+});
+
+test("US 101 reaches Potrero and joins the existing eastbound I-80 deck", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7e2c", "808f7e34", "808f7e4c", "808f7e54"];
+  const tiles = tokens.map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const byId = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const road = (id) => byId.get(`sf-contact/${id}`);
+  const incoming = road("us101-north-bayshore-through");
+  const potrero = road("us101-north-potrero-approach");
+  const exit = road("us101-north-potrero-exit");
+  const i80Approach = road("us101-north-i80-approach");
+  const ramp = road("us101-north-i80-east-connector");
+  const i80 = road("i80-eastbound-interchange");
+  for (const [before, after] of [
+    [incoming, potrero],
+    [potrero, exit],
+    [potrero, i80Approach],
+    [i80Approach, ramp],
+    [ramp, i80],
+    [road("central-freeway-i80-east-connector"), i80],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0], after.id);
+    assert.deepEqual(before.seams.end, after.seams.start, after.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(exit.groundEnds, ["end"]);
+  const [x, y, z] = exit.points.at(-1);
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  const [rampX, rampY, rampZ] = ramp.points[0];
+  assert.ok(rampZ - groundAtWorld(tiles, rampX, rampY, true) > 9);
 });
 
 test("tiled right-only guard rail bounces on the right and leaves the left edge open", () => {
