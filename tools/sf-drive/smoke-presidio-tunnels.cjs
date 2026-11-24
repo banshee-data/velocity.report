@@ -80,10 +80,17 @@ cases["i280-mainline"] = {
     ...dogpatchApproach,
     "i280-south-through-dogpatch",
     "i280-south-beyond-dogpatch",
+    "i280-south-alemany-merge-tail",
+    "i280-south-alemany-through",
+    "i280-south-alemany-exit",
   ],
-  owners: dogpatchOwners,
+  owners: [...dogpatchOwners, "808f7ef4"],
   speed: 22,
-  speedLimits: { "i280-south-through-dogpatch": 16 },
+  speedLimits: {
+    "i280-south-through-dogpatch": 16,
+    "i280-south-alemany-exit": 11,
+  },
+  forks: [["i280-south-alemany-through", "i280-south-alemany-exit", -1.6]],
   laneGuides: {
     "i280-dogpatch-approach": { approach: 1.25, holdApproach: true },
     "i280-south-through-dogpatch": { entranceEast: 1.25, entranceMetres: 20 },
@@ -664,6 +671,7 @@ for (const direction of ["north", "south"]) {
     roads: [entry, "i280-dogpatch-on-ramp", "i280-south-beyond-dogpatch"],
     owners: dogpatchOwners,
     speed: 18,
+    finishOnDeck: true,
     speedLimits: { [entry]: 9, "i280-dogpatch-on-ramp": 13 },
     laneGuides: { "i280-south-beyond-dogpatch": dogpatchClearance },
   };
@@ -846,6 +854,103 @@ for (const [destination, offset] of [
         : harrisonSouth.laneGuides,
   };
 }
+
+const us101SouthSpine = [
+  "us101-south-cesar-through",
+  "us101-south-silver-through",
+  "us101-south-to-i280-south-approach",
+];
+const alemanyLaneGuides = {
+  "us101-south-cesar-through": {
+    clearance: { offset: -1.3, station: 492, length: 24 },
+  },
+  "us101-south-silver-through": {
+    clearance: [
+      { offset: 2.35, station: 95, length: 28 },
+      { offset: -1.4, station: 148, length: 22 },
+      { offset: -1.85, station: 230, length: 24 },
+      { offset: 1.4, station: 646, length: 23 },
+    ],
+  },
+  "us101-south-to-i280-south-approach": {
+    clearance: { offset: -1.5, station: 14, length: 14 },
+  },
+  "i280-south-alemany-entry": {
+    clearance: { offset: -2.05, station: 174, length: 37 },
+  },
+  "i280-south-beyond-alemany": {
+    clearance: [
+      { offset: 3.5, station: 32, length: 27 },
+      { offset: 1.3, station: 75, length: 26 },
+    ],
+  },
+};
+const us101Alemany = {
+  laneGuides: alemanyLaneGuides,
+  owners: ["808f7e4c", "808f7e54", "808f7efc", "808f7ef4", "808f7e64"],
+  rollingStart: true,
+  initialSpeedMps: 18,
+  speed: 18,
+  maxDurationMs: 540_000,
+};
+cases["us101-south-to-i280-through-alemany"] = {
+  ...us101Alemany,
+  roads: [
+    ...us101SouthSpine,
+    "us101-south-to-i280-south-merge",
+    "i280-south-alemany-through",
+    "i280-south-alemany-main",
+    "i280-south-beyond-alemany",
+  ],
+  finishOnDeck: true,
+  speedLimits: {
+    "us101-south-to-i280-south-approach": 14,
+    "us101-south-to-i280-south-merge": 14,
+  },
+  forks: [
+    [us101SouthSpine.at(-1), "us101-south-to-i280-south-merge", 1.6],
+    ["i280-south-alemany-through", "i280-south-alemany-main", 1.55],
+  ],
+};
+cases["us101-alemany-i280-roundtrip"] = {
+  ...us101Alemany,
+  roads: [
+    ...us101SouthSpine,
+    "us101-south-alemany-east-exit",
+    "i280-south-alemany-entry",
+    "i280-south-beyond-alemany",
+  ],
+  finishOnDeck: true,
+  connectByGround: true,
+  groundConnection: {
+    after: "sf-contact/us101-south-alemany-east-exit",
+    via: [
+      [2563.9, -2803.64],
+      [2307.73, -2965.33],
+      [2239.27, -3008.58],
+      [2158.34, -3047.89],
+      [2068.91, -3072.63],
+      [1988.66, -3083.75],
+    ],
+  },
+  speedLimits: {
+    "us101-south-to-i280-south-approach": 14,
+    "us101-south-alemany-east-exit": 10,
+    "i280-south-alemany-entry": 15,
+  },
+  forks: [[us101SouthSpine.at(-1), "us101-south-alemany-east-exit", -1.6]],
+};
+cases["i280-south-ellsworth-exit"] = {
+  ...us101Alemany,
+  roads: [
+    "i280-south-alemany-merge-tail",
+    "i280-south-alemany-through",
+    "i280-south-alemany-exit",
+  ],
+  speed: 16,
+  speedLimits: { "i280-south-alemany-exit": 11 },
+  forks: [["i280-south-alemany-through", "i280-south-alemany-exit", -1.6]],
+};
 
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
@@ -1043,6 +1148,7 @@ async function drive(
       let lastSupported;
       let groundPose;
       let groundMetres = 0;
+      let groundedMetres = 0;
       return new Promise((resolve) => {
         function finish(status) {
           for (const code of held) key(code, false);
@@ -1053,6 +1159,7 @@ async function drive(
             exit: pose,
             lastSupported,
             groundMetres: Math.round(groundMetres * 10) / 10,
+            groundedMetres: Math.round(groundedMetres * 10) / 10,
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
           });
@@ -1079,14 +1186,17 @@ async function drive(
           if (surfaceId && pose.grounded) lastSupported = pose;
           if (
             !surfaceId &&
-            pose.grounded &&
+            d.contact !== "loading" &&
             groundHints.get(seen.size) === "between-streets"
           ) {
-            if (groundPose)
-              groundMetres += Math.hypot(
+            if (groundPose) {
+              const run = Math.hypot(
                 pose.x - groundPose.x,
                 pose.y - groundPose.y,
               );
+              groundMetres += run;
+              if (groundPose.grounded && pose.grounded) groundedMetres += run;
+            }
             groundPose = pose;
           } else {
             groundPose = undefined;
@@ -1381,6 +1491,7 @@ async function main() {
             result.groundMetres >= distance - 6,
             "Incomplete drive on city pavement",
           );
+          assert.ok(result.groundedMetres > 0, "No contact with city pavement");
         }
         if (process.env.SF_SCREENSHOT_DIR)
           await page.screenshot({
