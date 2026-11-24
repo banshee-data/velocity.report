@@ -764,7 +764,13 @@ for (const direction of ["northbound", "southbound"]) {
   cases[`macarthur-kobbe-${direction}`] = kobbe;
   cases[`macarthur-ruckman-${direction}`] = {
     ...kobbe,
-    roads: northbound ? [...kobbe.roads, ruckman] : [ruckman, ...kobbe.roads],
+    roads: northbound
+      ? [...kobbe.roads, ruckman, "sr1-north-to-golden-gate-approach"]
+      : [ruckman, ...kobbe.roads],
+    forks: northbound
+      ? [[ruckman, "sr1-north-to-golden-gate-approach", 2.1]]
+      : [],
+
     owners: [...kobbe.owners, "808586dc"],
   };
 }
@@ -1279,6 +1285,37 @@ cases["silliman-roundtrip"] = {
   },
 };
 
+const sr1Kobbe = "kobbe-viaduct-northbound";
+const ruckmanNorth = "ruckman-viaduct-northbound";
+const sr1City = "sr1-north-to-presidio-southbound";
+const sr1Bridge = "sr1-north-to-golden-gate-approach";
+const sr1Start = {
+  roads: [sr1Kobbe, ruckmanNorth, sr1Bridge],
+  owners: [...new Set([...owners, "808586e4"])],
+  rollingStart: true,
+  initialSpeedMps: 16,
+  speed: 18,
+  speedLimits: { [sr1City]: 12, [sr1Bridge]: 12, [ruckmanNorth]: 15 },
+  connectByGround: true,
+  groundConnection: {
+    after: "sf-contact/" + sr1Kobbe,
+    minimumMetres: 47,
+    via: [
+      [-2590.83, 4396.3],
+      [-2590.2, 4423.0],
+    ],
+  },
+};
+cases["sr1-kobbe-to-golden-gate"] = {
+  ...sr1Start,
+  forks: [[ruckmanNorth, sr1Bridge, 2.1]],
+};
+cases["sr1-kobbe-to-presidio"] = {
+  ...sr1Start,
+  roads: [sr1Kobbe, ruckmanNorth, sr1City, ...cases.southbound.roads],
+  forks: [[ruckmanNorth, sr1City, -0.75]],
+};
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
@@ -1388,12 +1425,11 @@ function withGroundConnections(roads, connection) {
     ground("approach", extension(start, next, -14), start),
     ...roads.flatMap((road, i) => {
       const next = roads[i + 1];
-      return next
-        ? [
-            road,
-            ground(`between-${i}`, road.positions.at(-1), next.positions[0]),
-          ]
-        : [road];
+      if (!next) return [road];
+      const from = road.positions.at(-1);
+      const to = next.positions[0];
+      if (Math.hypot(from[0] - to[0], from[1] - to[1]) < 0.05) return [road];
+      return [road, ground(`between-${i}`, from, to)];
     }),
     ground("departure", end, extension(end, previous, -16)),
   ];
