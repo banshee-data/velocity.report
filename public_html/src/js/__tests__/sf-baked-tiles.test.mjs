@@ -1231,6 +1231,46 @@ test("Central Freeway connects Fourth Street, 13th, Octavia and South Van Ness",
   assert.ok(!tiles[2].playableRoads?.some(({ id }) => id === exit.id));
 });
 
+test("Central Freeway and Tenth Street join southbound US 101 while I-80 stays connected", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7e2c", "808f7e34"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const road = (tile, slug) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
+  const central = road(tiles[0], "central-freeway-east-southbound");
+  const i80 = road(tiles[0], "central-freeway-i80-east-connector");
+  const viaduct = road(tiles[0], "us101-south-central-viaduct");
+  const entry = road(tiles[0], "us101-south-tenth-bryant-entry");
+  const merge = road(tiles[0], "us101-south-central-merge");
+  const south = road(tiles[1], "us101-south-potrero-main");
+  assert.deepEqual(merge, road(tiles[1], "us101-south-central-merge"));
+  assert.deepEqual(merge.owners, ["808f7e2c", "808f7e34"]);
+  for (const [from, to] of [
+    [central, i80],
+    [central, viaduct],
+    [viaduct, merge],
+    [entry, merge],
+    [merge, south],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${from.id}:end` &&
+          edge.to === `${to.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  const { portals } = buildBakedRoadContact(entry);
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  assert.equal(buildBakedRoadContact(merge).portals.length, 0);
+});
+
 test("the Branch East exit and northbound I-280 keep their own road levels", () => {
   const tiles = ["808f7e7c", "808f7e64"].map((t) =>
     JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
