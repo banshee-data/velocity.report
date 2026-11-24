@@ -922,3 +922,33 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `5cc3b7b5845630b4342b02c6cbd67231d6a2623ce061d63ce1ae9e4788a99f04`.
 - Contact SHA-256 `0f96a86ac97f2ae4903b4704a1c0235ee280f4fb5502c7bdd0a19d64c8f54024`.
 - The bake changes four tiles and preserves the existing emoji placement revision.
+
+## Northbound US 101 to Ninth Street and Octavia
+
+Three new contact sections run 1.15 km from the US 101 and I-80 split
+across the Central Freeway viaduct to two destinations. The Ninth Street
+and Bryant exit drops to 6.262 m NAVD88 at city pavement. The merge
+continues onto the existing Central Freeway deck at 16.07 m. The whole
+viaduct is identical in both owning L13 tiles. A lower crossing keeps its
+own level at about 14.4 m, around 9 m above the local ground.
+
+The source fit pins 110 depth-12 EPT nodes. Two unsupported 4 m stations
+at the lower crossing are bracketed by measured side returns. The new
+viaduct peaks at 5.9% longitudinal grade and the Ninth Street ramp at 7.0%.
+The 120 Hz drives from Alemany reached Ninth Street in 341.3 s and Octavia
+in 429.3 s. Chrome reached ordinary pavement at Octavia from Alemany in
+436.2 s. Separate Chrome drives from the US 101 approach reached Ninth
+Street in 84.0 s and Octavia in 167.6 s. An earlier long approach to Ninth
+Street hit a roadside tree on the Silver Avenue section. The shorter
+verification starts on the supported US 101 approach. All 20 frozen
+emoji routes passed again over 52.45 km, with zero dips deeper than 0.5 m
+and a maximum driven tile-seam step of 6.1 cm.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  us101-to-ninth-bryant us101-to-octavia
+```
+
+- Game manifest SHA-256 `c63a335182fdbe343fed759232c8a1efec1dfe3e4569ee3083c95630ecf5470b`.
+- Contact SHA-256 `1d6efdf91da34f3a2f8ba45ad802bb18659226e62ccbad73298111597aee1519`.
+- The bake changes two tiles and preserves the existing emoji placement revision.
