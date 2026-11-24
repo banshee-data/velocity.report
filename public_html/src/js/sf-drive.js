@@ -3453,7 +3453,19 @@ export async function startDrive({
         : elevated
           ? "Next · cross street unavailable on this level"
           : "Next · cross street unavailable";
-      hud.notice.textContent = now < messageUntil ? hud.status.textContent : "";
+      if (completedCityDrive) {
+        const highway = [BAY_BRIDGE_CITY_DRIVE, BRIDGE_SURVEY_DRIVE].includes(
+          gameDrive.start.id,
+        );
+        const deliveries = deliveryDrive()
+          ? ` · ${insurance.delivered}/${insurance.stops.length} deliveries`
+          : "";
+        hud.notice.textContent = `Route complete${highway ? " · back on I-80" : ""}${deliveries}`;
+      } else if (now < messageUntil)
+        hud.notice.textContent = hud.status.textContent;
+      else if (trial.status === "finished")
+        hud.notice.textContent = `Finished! ${trial.crashes} crashes`;
+      else hud.notice.textContent = "";
       hud.next.title = hud.next.textContent;
       hud.driveBar.dataset.crash = String(!!crash);
       hud.speed.textContent = grounded
