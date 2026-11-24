@@ -1,0 +1,1 @@
+- Baked both Golden Gate carriageways and three Marin approach cells into the SF game. The [road route audit](../../ui/sf-road-route-audit.md#golden-gate-bridge-between-the-presidio-and-marin) records the manual crossings, grade checks, scenery corrections and retained emoji progress.

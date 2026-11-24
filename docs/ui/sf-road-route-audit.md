@@ -2249,3 +2249,49 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-yerba-buena.cjs
 - Contact SHA-256 `3282852cb38e38683da188445b5216cc1e515021c8daa78f3704d8a62dc15693`.
 - Guide SHA-256 `eaff6101e3f54c0534f46e8a85a0054bd3760a16b5a09961e5cc6984cb2e7c72`.
 - The bake changes one L13 tile and retains the emoji placement revision.
+
+## Golden Gate Bridge between the Presidio and Marin
+
+The previous game stopped its playable road near the south approach. At
+(-3284.545, 5511.667), the car selected ground at 27.427 m NAVD88, 34.688 m
+below the observed bridge contact. Three L13 cells were also missing along
+the crossing.
+
+The new bake adds a connected contact surface from the Doyle mainline to
+Vista Point in both directions. It streams the bridge and the three new
+cells from the game's static tiles. The original 137 emoji targets and
+their placement hash are preserved. The three new cells have no
+signposted intersection. [Golden Gate carriageway survey and bake](https://github.com/banshee-data/gerardus/blob/f942c46bb0e27858be1fe6cc56bd8cf04ce288a6/docs/roads/SF-PRESIDIO-DOYLE-MAINLINE-CONTACT.md#golden-gate-bridge-to-marin)
+
+| Carriageway | Fit including approaches | Maximum grade | 95th percentile grade | Maximum local depression |
+| ----------- | ------------------------ | ------------- | --------------------- | ------------------------ |
+| Northbound  | 3,349.10 m               | 3.25%         | 3.03%                 | 4.6 cm                   |
+| Southbound  | 3,424.99 m               | 4.49%         | 2.98%                 | 4.4 cm                   |
+
+The grade uses consecutive two-metre contact samples. The depression is
+the difference between the pavement and the midpoint of the elevation
+chord ten metres to each side. No fitted sample falls more than 5 cm
+below that chord. The rendered strip is 9.4 m wide on each carriageway.
+The model uses a fixed three-lane allocation in each direction. The
+bridge operator changes the lane allocation in service. [Golden Gate Bridge lane management](https://www.goldengate.org/bridge/bridge-operations/traffic-management/)
+
+The initial Chrome drives proved both lanes had inferred scenery that
+overlapped the pavement. The correction clears 10,173 poses at the
+centreline and 2.9 m to each side. It keeps the original Toll Plaza roof
+over the southbound lane. Two pavement stations under that roof were
+interpolated from adjacent survey returns.
+
+The keyboard smoke drives use the regular manual takeover and assert
+grounded contact through all six sections in each direction. The
+northbound drive finishes grounded at Vista Point in 195.6 s. The
+southbound drive continues onto the Doyle approach in 183.4 s. Both
+drives reached approximately 52 mph.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  golden-gate-presidio-to-marin golden-gate-marin-to-presidio
+```
+
+- Game manifest SHA-256 `97122290264b0e0ef3d6e9e68b2a019e8c17ad0d09f9618b8ed43eab2c8d8bd5`.
+- Contact SHA-256 `6582c5fb1b21db39514f8cbbc06f97285bd3e9f580b7acf7d911c6a710d446d6`.
+- Source road revision `sf-city-roads-08b5bb95deebcba7b7d9ed745f230eb1e753fad73169487edee67c66b11b516a`.

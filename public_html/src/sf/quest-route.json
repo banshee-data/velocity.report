@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "manifestSha256": "492001a86938d762ed9fa4184e86c7d5722cba37f19c230c02c69106fff38fe2",
+  "manifestSha256": "97122290264b0e0ef3d6e9e68b2a019e8c17ad0d09f9618b8ed43eab2c8d8bd5",
   "placementSha256": "bcc1a3f4116282e4aefbfa4299731cef517e9c6ad0521a97c5fa30313eb5c64d",
   "targets": [
     {
@@ -1120,6 +1120,9 @@
     { "t": "808f7f4c", "reason": "No signposted intersection" },
     { "t": "808f7f54", "reason": "No signposted intersection" },
     { "t": "808f7f64", "reason": "No signposted intersection" },
-    { "t": "808f7f9c", "reason": "No signposted intersection" }
+    { "t": "808f7f9c", "reason": "No signposted intersection" },
+    { "t": "8085869c", "reason": "No signposted intersection" },
+    { "t": "80858424", "reason": "No signposted intersection" },
+    { "t": "8085842c", "reason": "No signposted intersection" }
   ]
 }

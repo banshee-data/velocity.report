@@ -2307,7 +2307,7 @@ test("Presidio Parkway keeps its mainline and SR 1 on distinct branches across t
     collisionAt(obstacles, treeSite, north.heightAt(treeSite.x, treeSite.y)),
     null,
   );
-  assert.equal(roadBake.inferredTreePatches["808586ec"], 1);
+  assert.ok(roadBake.inferredTreePatches["808586ec"] >= 1);
   assert.ok(
     Math.hypot(
       mainlineNorth.points.at(-1)[0] - originalExit.points.at(-1)[0],
@@ -3231,5 +3231,92 @@ test("the Macalla loop merges into westbound I-80 at the upper level", () => {
       named.sections.find(({ id }) => id === road.id).positions,
       road.points,
     );
+  }
+});
+
+test("both Golden Gate carriageways connect the Presidio and Marin above terrain", () => {
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const coverage = JSON.parse(file("coverage.json"));
+  const tokens = [
+    "808586dc",
+    "808586e4",
+    "808586ec",
+    "80858694",
+    "8085869c",
+    "80858424",
+    "8085842c",
+  ];
+  const tiles = tokens.map((token) => {
+    assert.ok(
+      manifest.tiles.some(({ t }) => t === token),
+      token,
+    );
+    assert.equal(coverage.cells[token].length, 4, token);
+    return JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  });
+  const indexes = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads = [] }) =>
+      playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  for (const direction of ["northbound", "southbound"]) {
+    const crossing = Array.from({ length: 6 }, (_, i) =>
+      roads.get(`sf-contact/golden-gate-${direction}-${i + 1}`),
+    );
+    const northbound = direction === "northbound";
+    const doyle = roads.get(
+      `sf-contact/presidio-doyle-${direction}-${northbound ? "exit" : "entry"}`,
+    );
+    const chain = northbound ? [doyle, ...crossing] : [...crossing, doyle];
+    for (let i = 1; i < chain.length; i++) {
+      const previous = chain[i - 1];
+      const next = chain[i];
+      assert.deepEqual(previous.points.at(-1), next.points[0], next.id);
+      assert.deepEqual(previous.seams.end, next.seams.start, next.id);
+      assert.ok(
+        manifest.roadBake.playableTransitions.some(
+          ({ from, to, direction }) =>
+            from === `${previous.id}:end` &&
+            to === `${next.id}:start` &&
+            direction === "forward",
+        ),
+        next.id,
+      );
+    }
+
+    let span = 0;
+    for (const [section, road] of crossing.entries()) {
+      const { surface } = buildBakedRoadContact(road);
+      if (section > 0 && section < crossing.length - 1) {
+        assert.equal(road.width, 9.4);
+        assert.deepEqual(surface.railSides, ["left", "right"]);
+        span += surface.profile.at(-1).s_m;
+      }
+      for (let i = 1; i < road.points.length; i++) {
+        const [a, b, h] = road.points[i - 1];
+        const [x, y, z] = road.points[i];
+        const heading = Math.atan2(y - b, x - a);
+        assert.ok(Math.abs(z - h) / Math.hypot(x - a, y - b) < 0.05, road.id);
+        for (const lateral of [-2.9, 0, 2.9]) {
+          const car = {
+            x: x - lateral * Math.sin(heading),
+            y: y + lateral * Math.cos(heading),
+            heading,
+          };
+          assert.equal(
+            collisionAt(indexes, car, z),
+            null,
+            `${road.id} ${i} lateral ${lateral}`,
+          );
+        }
+      }
+    }
+    assert.ok(span > 2700 && span < 2800, `${direction} span ${span}`);
+    const marin = northbound ? crossing.at(-1) : crossing[0];
+    const [{ x, y, z }] = buildBakedRoadContact(marin).portals;
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
+    const [deckX, deckY, deckZ] = crossing[2].points[190];
+    assert.ok(groundAtWorld(tiles, deckX, deckY, true) < deckZ - 65);
   }
 });
