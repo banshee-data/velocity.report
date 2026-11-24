@@ -1651,3 +1651,31 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 
 - Game manifest SHA-256 `607c547132d5f7680d446268dc93a67db93dcbcf034f0656e0cc2c4c25a983c8`.
 - Contact SHA-256 `b4d9f136ccaa8570629c39540c6f357c6cef418400bd0d61c301c95d7420c307`.
+
+### Northbound US 101 to southbound I-280
+
+The lower connector adds 1.64 km of contact from the Paul Avenue fork to
+southbound I-280. It uses 405 stations from the pinned survey and interpolates
+six 8–12 m intervals between measured bounds. Baked absolute grade peaks at
+6.9%, with a 95th percentile of 5.8%. Three tiles carry the complete contact
+strip. At two stacked crossings, the game samples the upper pavement 7.5–7.6 m
+above the lower connector at the same horizontal coordinates.
+
+Chrome drove the full connector and merged onto southbound I-280. Separate
+drives stayed on the upper connector and continued north on US 101 at the fork.
+At a later crossing the first drive held lower contact while the upper deck
+hid the car. The revised chase camera uses the selected road height for its
+overhead probes. Chrome kept the car visible and grounded on the lower road
+and retained the exterior view on the upper road.
+
+The 20 frozen emoji courses finished over 52.43 km, with a maximum driven
+seam step of 6.1 cm and zero driven dips greater than 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  northbound-us101-to-southbound-i280 alemany-upper-over-northbound-connector \
+  alemany-late-lower-crossings-camera northbound-us101-through-alemany-fork
+```
+
+- Game manifest SHA-256 `f19e6efca4c6389c0df1a86fea8eb61795b5810fc24b1cf898b777ee73caef9d`.
+- Contact SHA-256 `4c3029a0e9492df076e1abda7e797087b0c203b78249863a6fade74774969ef4`.

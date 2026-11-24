@@ -83,6 +83,21 @@ test("a deck over a city street lowers only the chase camera beneath it", () => 
   assert.equal(overheadDeckBlend({ ...car, x: 145 }, 14.5, street, ceiling), 0);
 });
 
+test("stacked ramp probes lower the camera only on the supported lower level", () => {
+  const lowRamp = (x) => (x >= 85 && x <= 112 ? 22 - (x - 100) * 0.1 : null);
+  const highRamp = (x) => (x >= 91 && x <= 108 ? 29 : null);
+  const indexCeiling = (x, y, base) =>
+    Math.min(
+      ...[lowRamp(x), highRamp(x)].filter((z) => z !== null && z >= base),
+    );
+  assert.equal(overheadDeckBlend(car, 22, lowRamp, indexCeiling), 1);
+  assert.equal(overheadDeckBlend(car, 29, highRamp, indexCeiling), 0);
+  assert.equal(
+    overheadDeckBlend({ ...car, x: 115 }, 20.5, () => null, indexCeiling),
+    0,
+  );
+});
+
 test("overhead looks straight down and keeps forward up in every quadrant", () => {
   for (const heading of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
     const pose = driveCameraPose("overhead", { ...car, heading }, 10);
