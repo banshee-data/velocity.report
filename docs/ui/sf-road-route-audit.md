@@ -2513,6 +2513,11 @@ errors. The separate northbound exit also passed from a 49.9 mph rolling
 start. Both through runs stayed on the lower carriageways beneath the
 crossings. These results cover the Geneva corridor in the game.
 
+The public build repeated the Geneva exit and re-entry in 106.5 s from
+49.8 mph. It travelled 71.1 m between ramp contacts, with 47.6 m grounded
+on city pavement. Chrome also restored all three airtimes and an emoji
+collected after an offline restart.
+
 - Game manifest SHA-256 `c91251bb788c18768ae9c270546820c0c5ded07297f35286aeb1c0d0b2abc29b`.
 - Contact SHA-256 `57ce52172d15bc6c3b0908ee7f806b11466c29d25b9e2a18b39472576b4d0d5c`.
 - [Gerardus source and survey provenance](https://github.com/banshee-data/gerardus/pull/164).
@@ -2522,4 +2527,42 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   geneva-northbound-through geneva-southbound-through \
   geneva-northbound-entry geneva-southbound-entry \
   geneva-northbound-exit-rolling geneva-southbound-exit geneva-exit-and-reentry
+```
+
+## Blanken Avenue below US 101
+
+The citywide ground screen on the Geneva game revision flagged 408
+intervals above 50% grade. The largest flag was at Blanken Avenue,
+where the draped street climbed to about 21 m on the freeway level.
+Local survey observations put the pavement near 8.6 m and 7.7 m on
+the two approaches. San Francisco Planning confirms the underpass
+and shows a posted clearance of 14 ft 9 in.
+[Visitacion Valley workshop, July 2018](https://sfplanning.s3.amazonaws.com/default/files/Citywide/Visitacion_Valley/vis_val_workshop_presentation-072818.pdf)
+
+The bake adds 106.16 m of road contact and removes the obsolete ground
+paint where it crossed the freeway. The interior profile interpolates
+between surveyed approaches across a 56 m shadow. Its fitted peak
+grade is 3.90%, and its deepest local dip is 0.034 m on an approximately
+20 m chord. The game uses a 4.5 m clearance and an estimated 8.8 m
+width. The static check found clear contact at the centre and two
+lateral offsets across the whole strip. Chrome preview drives passed
+eastbound and westbound and returned to street pavement at both ends.
+
+The exact candidate repeated both directions in 14.4 s and 13.6 s,
+respectively. Both US 101 drives stayed on their upper pavement at
+roughly 50 mph. The static contact separation was 12.3 m southbound and
+13.0 m northbound at the checked crossing positions. The updated ground
+screen flags 392 intervals above 50%
+grade. It now examines the open Blanken approaches and omits the
+replaced draped segment. Green Street remains the highest ground flag,
+at 115.4% over a short interval.
+
+- Game manifest SHA-256 `b5a172e6d1d85cabce7d6f372dc77e9006319eedcf3d7731ebd7afdcb56435a9`.
+- Contact SHA-256 `a7cf84c374804fce23c29c778e9cfb277fc8e9381ecad44e70cb36b8b682a939`.
+- [Gerardus source and survey provenance](https://github.com/banshee-data/gerardus/pull/165).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  blanken-underpass-eastbound blanken-underpass-westbound \
+  blanken-us101-northbound blanken-us101-southbound
 ```

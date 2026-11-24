@@ -2560,6 +2560,31 @@ cases["geneva-exit-and-reentry"] = {
   speed: 12,
   maxDurationMs: 165_000,
 };
+for (const reverse of [false, true]) {
+  cases[`blanken-underpass-${reverse ? "westbound" : "eastbound"}`] = {
+    owners: ["808f7f2c"],
+    roads: ["blanken-avenue-underpass"],
+    reverse,
+    groundApproachMetres: 7,
+    speed: 9,
+    maxDurationMs: 40_000,
+  };
+}
+for (const [direction, road, start, finish] of [
+  ["northbound", "us101-north-city-edge-to-hester", 250, 380],
+  ["southbound", "us101-south-hester-to-city-edge", 460, 585],
+]) {
+  cases[`blanken-us101-${direction}`] = {
+    owners: ["808f7f2c", "808f7f24"],
+    roads: [road],
+    rollingStart: true,
+    rollingStartMetres: start,
+    finishOnDeck: true,
+    finishDistance: finish,
+    speed: 19,
+    maxDurationMs: 35_000,
+  };
+}
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];

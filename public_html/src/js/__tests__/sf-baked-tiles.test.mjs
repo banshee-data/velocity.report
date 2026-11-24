@@ -3649,3 +3649,54 @@ test("Geneva keeps both I-280 carriageways and their four ramps connected", () =
     assert.ok(groundAtWorld(tiles, x, y, true) - z > 1.5, item.id);
   }
 });
+
+test("Blanken Avenue crosses below US 101 and releases at both street portals", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7f2c.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/blanken-avenue-underpass",
+  );
+  const { surface, portals, appearance } = buildBakedRoadContact(road);
+  assert.equal(appearance.clearance, 4.5);
+  assert.equal(portals.length, 2);
+  assert.ok(appearance.interior[1] - appearance.interior[0] > 55);
+  for (const { x, y, z } of portals) {
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.02);
+  }
+  const [x, y, z] = road.points[Math.floor(road.points.length / 2)];
+  assert.ok(groundAtWorld([tile], x, y, true) - z > 10);
+  assert.ok(Math.abs(surface.heightAt(x, y) - z) < 0.01);
+  for (const [slug, east, north] of [
+    ["us101-north-city-edge-to-hester", 3930, -5446.5],
+    ["us101-south-hester-to-city-edge", 3907, -5447.5],
+  ]) {
+    const upper = buildBakedRoadContact(
+      tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`),
+    ).surface.heightAt(east, north);
+    const lower = surface.heightAt(east, north);
+    assert.ok(Number.isFinite(upper) && Number.isFinite(lower));
+    assert.ok(upper - lower > 11, slug);
+  }
+  const paint = tile.r.filter(([name]) => tile.n[name] === "Blanken Ave");
+  assert.ok(paint.length > 1);
+  const tileEast = Math.round((x - tile.o[0]) * 10);
+  for (const [, , , line] of paint) {
+    const east = line.filter((_, i) => i % 2 === 0);
+    assert.ok(Math.max(...east) < tileEast || Math.min(...east) > tileEast);
+  }
+
+  const obstacles = [buildCollisionIndex(tile, tile.t)];
+  for (const [i, [x, y, z]] of road.points.entries()) {
+    if (!i) continue;
+    const [a, b, h] = road.points[i - 1];
+    const heading = Math.atan2(y - b, x - a);
+    assert.ok(Math.abs(z - h) / Math.hypot(x - a, y - b) < 0.05);
+    for (const offset of [-2.5, 0, 2.5]) {
+      const car = {
+        x: x - offset * Math.sin(heading),
+        y: y + offset * Math.cos(heading),
+        heading,
+      };
+      assert.equal(collisionAt(obstacles, car, z), null, `point ${i}`);
+    }
+  }
+});
