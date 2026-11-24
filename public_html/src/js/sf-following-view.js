@@ -6,6 +6,7 @@ import {
   following,
   signalAt,
 } from "./sf-following.js";
+import { updateFollowingKey } from "./sf-following-input.js";
 import { bindDrivingPad } from "./sf-touch-controls.js";
 import { SCENE_CSS_COLOURS as colours } from "./scene-colours.js";
 const $ = (id) => document.getElementById(id);
@@ -31,16 +32,7 @@ const clear = () => {
 window.addEventListener("blur", clear);
 document.addEventListener("visibilitychange", clear);
 for (const type of ["keydown", "keyup"])
-  window.addEventListener(type, (e) => {
-    if (
-      !["ArrowUp", "ArrowDown", "Space"].includes(e.code) ||
-      e.target.closest("button, a")
-    )
-      return;
-    e.preventDefault();
-    if (type === "keydown") keys.add(e.code);
-    else keys.delete(e.code);
-  });
+  window.addEventListener(type, (e) => updateFollowingKey(keys, e));
 $("start").onclick = () => {
   clear();
   run = createApproach();

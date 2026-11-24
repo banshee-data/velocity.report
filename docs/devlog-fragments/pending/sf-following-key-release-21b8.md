@@ -1,0 +1,1 @@
+- Fixed downhill-practice throttle and brake keys remaining held when keyboard focus moved to a button or link before release; added regressions for all three driving keys while preserving focused controls' own keyboard actions.
