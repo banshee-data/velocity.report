@@ -1,0 +1,1 @@
+- Baked the Alemany connector from northbound I-280 to southbound US 101 and removed one inferred trunk from the lower ramp. The [road route audit](../../ui/sf-road-route-audit.md#alemany-from-northbound-i-280-to-southbound-us-101) records the road survey and drive checks.

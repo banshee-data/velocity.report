@@ -1487,3 +1487,35 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `95e34b1d79f62f80679d67e7de4db960c954283208f41af326061189ef14005d`.
 - Contact SHA-256 `9aaa7d474db6e8f5dfe512edfb86561f083662166bc3c7cec1e99760ad077c22`.
 - The bake changes two tiles and preserves emoji placement.
+
+## Alemany from northbound I-280 to southbound US 101
+
+The new connector climbs from the existing Alemany fork at 14.99 m
+NAVD88 to 38.86 m. The descent rejoins southbound US 101 at the Paul
+Avenue approach at 21.94 m. The two sections cover 1.74 km and reach
+7.1% grade. Each owning tile carries the complete contact through its
+boundary. The I-280 through branch remains available at the same fork.
+
+Lower shoulder returns constrain the short section under the first
+deck. A 13-node clearance crop found open pavement where the game had
+placed a trunk in the lane. The bake removes that one inferred tree.
+Chrome reached the Paul Avenue approach in 143.2 s and cleared the
+separate northbound fork in 29.3 s. Both drives finished grounded.
+A centre-lane fixed-step drive reached Paul Avenue in 166.0 s.
+All 20 frozen emoji routes finished
+across 52.43 km. The largest driven seam step was 6.1 cm and the
+driven traces had no dips over 0.5 m.
+
+The separate citywide screen on the preceding Fifth and Harrison
+release still flagged 451 ground-draped intervals above 50% grade
+and 51 missing intervals. Those figures describe terrain lookup
+along street rows, including local terrain under elevated roads.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  alemany-to-southbound-us101 alemany-northbound-through-fork
+```
+
+- Game manifest SHA-256 `4d67c35c0b2884125f40bae54718257a03e9a06b914315c843c89318f5f30af1`.
+- Contact SHA-256 `f29bad47859811b7dc7fce6b16f7f38796e3119ba7a5603ac16ee21d35e093bf`.
+- The bake changes three tiles and preserves emoji placement.

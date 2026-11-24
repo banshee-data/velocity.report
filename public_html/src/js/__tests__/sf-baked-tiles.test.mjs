@@ -2119,3 +2119,55 @@ test("the westbound Fifth exit crosses below the continuing freeway and reaches 
   assert.equal(collisionAt(indexes, pose, pz), null);
   assert.equal(roadBake.overheadBuildingPatches["8085807c"], 2);
 });
+
+test("the Alemany fork carries both I-280 through traffic and the ramp to southbound US 101", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7ef4", "808f7efc", "808f7ee4"];
+  const tiles = new Map(
+    tokens.map((token) => [
+      token,
+      JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+    ]),
+  );
+  const route = (token, id) =>
+    tiles
+      .get(token)
+      .playableRoads.find((road) => road.id === `sf-contact/${id}`);
+  const approach = route(tokens[0], "i280-north-alemany-west-approach");
+  const entry = route(tokens[0], "i280-north-alemany-entry");
+  const through = route(tokens[0], "i280-north-alemany-main");
+  const connector = route(tokens[0], "i280-north-to-us101-south-connector");
+  const descent = route(tokens[1], "i280-to-us101-south-descent");
+  const onward = route(tokens[2], "us101-south-paul-approach");
+  for (const [before, after] of [
+    [approach, through],
+    [approach, connector],
+    [entry, connector],
+    [connector, descent],
+    [descent, onward],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${before.id}:end` &&
+          edge.to === `${after.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(
+    route(tokens[1], "i280-north-to-us101-south-connector"),
+    connector,
+  );
+  assert.deepEqual(route(tokens[2], "i280-to-us101-south-descent"), descent);
+  assert.equal(connector.points.at(-1)[2], 38.86);
+  assert.equal(descent.points.at(-1)[2], 21.94);
+  const x = 2336.03;
+  const y = -3057.44;
+  const z = buildBakedRoadContact(connector).surface.heightAt(x, y);
+  assert.ok(Math.abs(z - 11.29) < 0.05);
+  const index = buildCollisionIndex(tiles.get(tokens[0]), tokens[0]);
+  assert.equal(collisionAt([index], { x, y, heading: 0.45 }, z), null);
+});

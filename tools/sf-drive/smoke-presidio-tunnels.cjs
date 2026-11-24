@@ -438,6 +438,10 @@ cases["dogpatch-to-fifth-northbound"] = {
   roads: [...dogpatchNorth.roads.slice(0, -1), "i280-north-fifth-exit"],
   forks: [["i280-mariposa-northbound", "i280-north-fifth-exit", 1.65]],
 };
+const alemanyWest = "i280-north-alemany-west-approach";
+const alemanyThrough = "i280-north-alemany-main";
+const alemanyStayNorth = ["i280-north-alemany-entry", alemanyThrough, 1.6];
+const alemanyWestThrough = [alemanyWest, alemanyThrough, 1.6];
 const alemanyNorthApproach = [
   "i280-north-alemany-entry",
   "i280-north-alemany-main",
@@ -461,6 +465,7 @@ for (const branch of ["fifth", "sixth"]) {
     },
     forks: [
       ...exit.forks,
+      alemanyStayNorth,
       ["i280-north-alemany-main", "i280-north-alemany-climb", -1.5],
       ["i280-north-alemany-climb", "i280-north-lower-viaduct", -1.35],
       ["i280-north-lower-viaduct", "i280-north-south-dogpatch", 1.55],
@@ -495,6 +500,7 @@ cases["alemany-to-cesar-chavez-northbound"] = {
     "i280-north-cesar-chavez-exit": 11,
   },
   forks: [
+    alemanyStayNorth,
     ["i280-north-alemany-main", "i280-north-alemany-climb", -1.5],
     ["i280-north-alemany-climb", "i280-north-lower-viaduct", -1.35],
     ["i280-north-lower-viaduct", "i280-north-cesar-chavez-exit", -1.4],
@@ -550,6 +556,7 @@ for (const direction of ["exit", "through"]) {
     },
     entranceTimeoutMs: 45_000,
     forks: [
+      alemanyStayNorth,
       ["i280-north-alemany-main", "i280-to-101-north-connector", 1.5],
       ["us101-north-silver-approach", branch, direction === "exit" ? -2 : 1.55],
     ],
@@ -1123,6 +1130,7 @@ cases["i280-monterey-entry"] = {
   rollingStart: false,
   roads: montereyReturn,
   finishOnDeck: true,
+  forks: [alemanyWestThrough],
 };
 cases["i280-ocean-exit"] = {
   ...montereyRolling,
@@ -1139,6 +1147,7 @@ cases["i280-ocean-exit"] = {
 cases["i280-monterey-roundtrip"] = {
   ...cases["i280-monterey-exit"],
   roads: [montereyTail, montereyExit, ...montereyReturn],
+  forks: [...cases["i280-monterey-exit"].forks, alemanyWestThrough],
   connectByGround: true,
   finishOnDeck: true,
   laneGuides: {
@@ -1533,6 +1542,36 @@ cases["i80-westbound-over-fifth"] = {
   finishOnDeck: true,
   finishDistance: 510,
   covered: [],
+};
+
+const alemanySouthConnector = "i280-north-to-us101-south-connector";
+const alemanySouthOwners = ["808f7ef4", "808f7efc", "808f7ee4"];
+const alemanyForkStart = {
+  owners: alemanySouthOwners,
+  rollingStart: true,
+  rollingStartMetres: 675,
+  initialSpeedMps: 16,
+  speed: 18,
+  finishOnDeck: true,
+};
+cases["alemany-to-southbound-us101"] = {
+  ...alemanyForkStart,
+  roads: [
+    alemanyWest,
+    alemanySouthConnector,
+    "i280-to-us101-south-descent",
+    "us101-south-paul-approach",
+  ],
+  speedLimits: {
+    [alemanySouthConnector]: 14,
+    "i280-to-us101-south-descent": 16,
+  },
+  forks: [[alemanyWest, alemanySouthConnector, -1.6]],
+};
+cases["alemany-northbound-through-fork"] = {
+  ...alemanyForkStart,
+  roads: [alemanyWest, alemanyThrough],
+  forks: [alemanyWestThrough],
 };
 
 async function asset(pathname) {
