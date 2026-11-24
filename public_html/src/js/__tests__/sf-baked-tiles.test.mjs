@@ -111,6 +111,38 @@ test("Lyell Street retains smooth contact beneath both I-280 carriageways", () =
   assert.ok(terrain < after && after - terrain < 0.08);
 });
 
+test("Beale stays at street level under Harrison's independently baked deck", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/8085807c.json.gz")));
+  const surfaceFor = (slug) =>
+    buildBakedRoadContact(
+      tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`),
+    );
+  const lower = surfaceFor("beale-street-under-harrison");
+  const upper = surfaceFor("harrison-beale-bridge");
+  assert.equal(lower.portals.length, 2);
+  for (const portal of lower.portals) {
+    assert.ok(
+      Math.abs(groundAtWorld([tile], portal.x, portal.y, true) - portal.z) <
+        0.025,
+    );
+  }
+  const crossing = [4300.061, 3048.916];
+  const elevation = lower.surface.heightAt(...crossing);
+  assert.ok(elevation > 4.9 && elevation < 5.4);
+  assert.ok(upper.surface.heightAt(...crossing) - elevation > 10);
+  assert.ok(
+    Math.abs(groundAtWorld([tile], ...crossing, true) - elevation) < 0.08,
+  );
+  for (const [name, , , points] of tile.r) {
+    if (tile.n[name] !== "Harrison St" && tile.n[name] !== "Beale St") continue;
+    for (let i = 0; i < points.length; i += 2) {
+      const x = tile.o[0] + points[i] / 10;
+      const y = tile.o[1] + points[i + 1] / 10;
+      assert.ok(Math.hypot(x - crossing[0], y - crossing[1]) > 20);
+    }
+  }
+});
+
 test("Dogpatch northbound runs below 18th Street and keeps 20th Street on its own deck", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808f7fb4", "808f7fbc", "808f7fcc", "808f7fd4"].map((t) =>
@@ -2585,7 +2617,7 @@ test("Harrison and Silver Avenue decks span the lower roads at independent heigh
       4300.061,
       3048.916,
       15.58,
-      8.0,
+      5.13,
       0.075,
     ],
     [

@@ -3140,3 +3140,39 @@ was 6.1 cm and no driven dip exceeded 0.5 m over an 8 m chord.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   lyell-street-under-i280-northbound lyell-street-under-i280-southbound
 ```
+
+## Beale Street beneath Harrison Street
+
+The previous lower Beale Street followed an artificial rise in the
+ground grid to 8.00 m at the crossing. Chrome recorded 10.85 m and
+20.82 m of airborne travel in the southeast and northwest lanes. On
+the northwest drive, the simulated car reached 9.22 m while airborne.
+The April 2023 survey observes the lower road at about 5.2 m on both
+sides, with a 21 m aerial shadow beneath the Harrison deck.
+
+The new 66 m lower contact fits 17 of 23 stations directly and
+interpolates the lower elevation through the shadow. The terrain in the
+travel strip follows the lower contact. The Harrison deck continues at
+about 15.58 m at the crossing. The bake clips the old draped paint from
+both streets inside their respective contact extents.
+
+Chrome drove both levels in both directions, entering from each street
+and handing off grounded. All four drives reported zero airborne
+distance. Peak speeds were 27.1 and 27.3 mph on Beale and 29.2 and
+29.9 mph on Harrison. The covered camera remained in use at both Beale
+handoffs as its view still extended beneath an overhead deck.
+
+All 23 fixed-step emoji routes completed over 67.59 km. The largest
+observed tile seam was 6.1 cm and no driven dip exceeded 0.5 m over an
+8 m chord. The separate citywide draped-road screen flagged 384
+intervals over 50% grade, down from 392 on the preceding bake.
+
+- Game manifest SHA-256 `25fb1b3c000dc572d5b8c3358465866c329922b46b67f4e7b25ab045c5be2148`.
+- Contact SHA-256 `f17402cba2493e85d9818e10bdbce5f8ef52feeb0f604f53f35554b35c945e76`.
+- [Gerardus recipe and survey provenance](https://github.com/banshee-data/gerardus/pull/177).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  harrison-beale-bridge-southwestbound harrison-beale-bridge-northeastbound \
+  beale-street-under-harrison-southeastbound beale-street-under-harrison-northwestbound
+```

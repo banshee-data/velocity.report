@@ -2896,6 +2896,33 @@ for (const reverse of [false, true]) {
     maxDurationMs: 35_000,
   };
 }
+for (const reverse of [false, true]) {
+  const bridge = "harrison-beale-bridge";
+  cases[`${bridge}-${reverse ? "northeast" : "southwest"}bound`] = {
+    owners: ["8085807c"],
+    roads: [bridge],
+    speed: 12,
+    reverse,
+    laneGuides: { [bridge]: { lane: reverse ? 1.4 : -1.4 } },
+    groundApproachMetres: 8,
+    exitCamera: reverse ? "covered" : "exterior",
+    maxAirborneMetres: 0,
+    maxDurationMs: 35_000,
+  };
+  const street = "beale-street-under-harrison";
+  cases[`${street}-${reverse ? "northwest" : "southeast"}bound`] = {
+    owners: ["8085807c"],
+    roads: [street],
+    speed: 11,
+    reverse,
+    laneGuides: { [street]: { lane: reverse ? 1.5 : -1.5 } },
+    groundApproachMetres: 8,
+    covered: [prefix + street],
+    exitCamera: "covered",
+    maxAirborneMetres: 0,
+    maxDurationMs: 35_000,
+  };
+}
 const sr82Owners = ["808f7c24", "808f7c2c", "808f7c34", "808f7c3c", "808f7e84"];
 const southGenevaTail = "i280-south-beyond-geneva";
 const southSr82Main = "i280-south-geneva-to-sr82";
