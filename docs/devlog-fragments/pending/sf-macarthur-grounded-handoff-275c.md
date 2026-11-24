@@ -1,0 +1,1 @@
+- Checked grounded contact through the MacArthur Tunnel handoff when the approach and tunnel contacts appear in adjacent browser frames. Recorded the check in the [SF road route audit](../../ui/sf-road-route-audit.md#sr-1-south-of-macarthur-tunnel).
