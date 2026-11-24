@@ -2174,3 +2174,40 @@ westbound route from North Point and Kearny to Lombard and Scott covered
 release reopened the Bay Bridge and Embarcadero offline, saved a new
 emoji pickup and restored it with all three airtime records on another
 offline reload.
+
+## Minna Street beneath the Chronicle building bridge
+
+The southbound Stockton course crossed the tunnel before crashing on
+Minna Street near Fifth. The planning record documents a street passage
+under the connection between the Chronicle and Examiner buildings.
+The April 2023 survey measures the opening approaches at 8.22 m and
+8.78 m NAVD88 and a roof near 23.6 m over the passage. The roof obscures
+the middle of the street from the aerial survey.
+[5M design for development](https://default.sfplanning.org/devagreements/Draft_5M_D4D_07.07.2015.pdf)
+
+The bake restores the passage across two inferred building volumes in
+one tile. It retains the roofs and side walls and uses an inferred
+underside at 12.3 m NAVD88. The existing game pavement along the
+centreline ranges from 8.22 m to 8.92 m, reaches 4.2% grade at its
+steepest one-metre step and has a maximum eight-metre chord departure
+of 5.9 cm below the chord. These are samples of the game pavement.
+The actual underside height and pavement within the survey shadow
+remain unmeasured.
+
+The collision regression failed against the earlier bake at the Fifth
+Street entrance. It now checks 219 ground poses across three lines
+through the opening, including contact with the roofs above and
+buildings beside the lane. The scheduled SoMa survey drives identify
+their scenery exclusions by footprint so the added building rows
+preserve the existing route past Fifth and Howard.
+
+- Game manifest SHA-256 `705747ae7596eb487cad7f8744af8d9627feb5fb8504ffa50e74d0e20feb56c4`.
+- Contact SHA-256 `dacfc7e00883cb32a76bf25457520ed8a3240abc92d839bfdb249bbbeb0c690e`.
+
+Chrome repeated Chinatown south via Stockton using the same two emoji
+targets and traced 3.11 km in 328.6 s. It completed the Stockton bore and
+the Minna passage, collected both emojis, and finished grounded. The
+highest driven sampled grade was 38.9% near (1898, 4021), well before
+Minna. The route had no sampled dip over 0.5 m. Including the earlier
+Mission Bay retry, 14 of the original 20 emoji pairs have now finished
+at least once.

@@ -53,7 +53,12 @@ function roundedStreet(junctions) {
 }
 
 const surveyScenery = {
-  80858084: { b: { 954: [62, 60, 1], 962: [71, 71, 1] } },
+  80858084: {
+    buildingFootprints: [
+      { signature: [62, 60, 1], firstPoint: [1452, 391, 735] },
+      { signature: [71, 71, 1], firstPoint: [1612, 1131, 800] },
+    ],
+  },
 };
 
 export function somaSurveyDrive() {
@@ -130,10 +135,8 @@ export function bridgeSurveyDrive(bridge) {
     scene_exclusions: {
       ...bridge.scene_exclusions,
       80858084: {
-        b: {
-          ...bridge.scene_exclusions[80858084].b,
-          ...surveyScenery[80858084].b,
-        },
+        ...bridge.scene_exclusions[80858084],
+        ...surveyScenery[80858084],
       },
     },
     sections: bridge.sections.flatMap((span) =>

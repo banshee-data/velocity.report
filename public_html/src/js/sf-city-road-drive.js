@@ -63,21 +63,32 @@ const bearing = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
 const angle = (value) => Math.atan2(Math.sin(value), Math.cos(value));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
+function sameScenerySignature(actual, expected) {
+  return (
+    expected?.length === actual.length &&
+    actual.every((value, index) => value === expected[index])
+  );
+}
+
 export function applyCityDriveScenery(tile, exclusions) {
   if (!exclusions) return;
   for (const layer of ["b", "tr"]) {
     const records = exclusions[layer];
-    if (!records) continue;
+    const footprints =
+      layer === "b" ? exclusions.buildingFootprints : undefined;
+    if (!records && !footprints) continue;
     tile[layer] = tile[layer].filter((record, index) => {
-      const expected = records[index];
-      if (!expected) return true;
       const signature =
         layer === "b"
           ? [record[0], record[1].length, record[2] ?? null]
           : record;
-      return (
-        signature.length !== expected.length ||
-        signature.some((value, i) => value !== expected[i])
+      if (sameScenerySignature(signature, records?.[index])) return false;
+      return !footprints?.some(
+        ({ signature: expected, firstPoint }) =>
+          sameScenerySignature(signature, expected) &&
+          firstPoint.every(
+            (coordinate, axis) => coordinate === record[1][0]?.[0]?.[axis],
+          ),
       );
     });
   }
