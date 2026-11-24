@@ -1957,6 +1957,7 @@ cases["northbound-i280-below-alemany-left-exit"] = {
   laneGuides: alemanyToSixth.laneGuides,
   maxAirborneMetres: 0,
   covered: [prefix + northAlemanyClimb, prefix + northAlemanyLower],
+  exitCamera: "covered",
   maxDurationMs: 55_000,
 };
 cases["northbound-us101-through-alemany-fork"] = {
