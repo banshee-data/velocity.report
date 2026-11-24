@@ -1466,6 +1466,9 @@ cases["us101-south-bayshore-north-turn"] = {
     "us101-south-bayshore-exit-approach": 12,
     "us101-south-bayshore-north-turn-exit": 12,
   },
+  forks: [
+    ["us101-south-potrero-exit", "us101-south-bayshore-exit-approach", 1.65],
+  ],
   covered: ["sf-contact/us101-south-bayshore-north-turn-exit"],
 };
 
@@ -1480,6 +1483,29 @@ cases["us101-south-over-bayshore-exit"] = {
   finishOnDeck: true,
   finishDistance: 120,
   covered: [],
+};
+
+const southTurn = "us101-south-bayshore-south-turn-exit";
+cases["us101-south-bayshore-south-turn"] = {
+  ...cases["us101-south-bayshore-north-turn"],
+  roads: [
+    "us101-south-potrero-exit",
+    "us101-south-bayshore-exit-approach",
+    southTurn,
+  ],
+  forks: [
+    ...cases["us101-south-bayshore-north-turn"].forks,
+    ["us101-south-bayshore-exit-approach", southTurn, -1],
+  ],
+  speedLimits: { "us101-south-bayshore-exit-approach": 12, [southTurn]: 12 },
+  covered: ["sf-contact/" + southTurn],
+  groundDeparture: [
+    [3194.17, -1341.23, 6.8],
+    [3193.76, -1349.22, 6.89],
+    [3193.35, -1357.21, 7.04],
+    [3192.94, -1365.2, 7.05],
+    [3192.53, -1373.19, 7.06],
+  ],
 };
 
 async function asset(pathname) {

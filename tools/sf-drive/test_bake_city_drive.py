@@ -197,3 +197,30 @@ def test_bundled_approach_requires_exact_parent_and_preserves_original_sections(
     path.write_bytes(raw)
     with pytest.raises(ValueError, match="replace_sections must be a boolean"):
         with_drive_approaches(drives, path, digest(raw))
+
+
+def test_bake_adds_a_pinned_terrain_detail_without_replacing_the_coarse_grid():
+    grid = {"x0": -8, "y0": -8, "s": 8, "n": 4, "z": [60] * 16}
+    z = [60] * 25
+    z[12] = 53
+    detail = {"x0": 0, "y0": 0, "s": 2, "columns": 5, "rows": 5, "z": z}
+    patch = {"base_tile_sha256": "tile-sha", "detail": detail}
+    add_detail = road_layers["patch_terrain_detail"]
+
+    patched = add_detail(grid, patch, "tile-sha")
+    assert patched == {**grid, "detail": detail}
+    assert patched["z"] is grid["z"]
+    assert "detail" not in grid
+
+    with pytest.raises(ValueError, match="does not match an unrefined base"):
+        add_detail(grid, patch, "other-sha")
+    with pytest.raises(ValueError, match="does not match an unrefined base"):
+        add_detail(patched, patch, "tile-sha")
+    with pytest.raises(ValueError, match="must align with the coarse grid"):
+        add_detail(grid, {**patch, "detail": {**detail, "x0": 1}}, "tile-sha")
+    with pytest.raises(ValueError, match="must align with the coarse grid"):
+        add_detail(grid, {**patch, "detail": {**detail, "z": []}}, "tile-sha")
+    shifted_edge = z.copy()
+    shifted_edge[1] = 61
+    with pytest.raises(ValueError, match="boundary differs"):
+        add_detail(grid, {**patch, "detail": {**detail, "z": shifted_edge}}, "tile-sha")
