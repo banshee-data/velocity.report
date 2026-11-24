@@ -2678,6 +2678,13 @@ test("northbound Hester retains the mainline and both exits reach city pavement"
     assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.02);
   }
   const obstacles = [buildCollisionIndex(tile, token)];
+  const throughPose = { x: 3728.98, y: -5012.988, heading: 2.0099 };
+  const throughHeight = buildBakedRoadContact(mainline).surface.heightAt(
+    throughPose.x,
+    throughPose.y,
+  );
+  assert.ok(Number.isFinite(throughHeight));
+  assert.equal(collisionAt(obstacles, throughPose, throughHeight), null);
   const reentry = buildBakedRoadContact(road("us101-south-hester-third-entry"));
   for (const [x, y, heading] of [
     [3678.8, -4457.4, 3.46],

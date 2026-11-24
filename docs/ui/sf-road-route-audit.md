@@ -1748,10 +1748,11 @@ that alignment the surveyed street above it is about 4.2 m higher.
 The largest baked grade is 9.3% on the Third Street branch.
 
 The bake adjusts the terrain within the lower ramp corridor and removes
-five inferred trunks where the survey indicates pavement or clear
-space, including two on the southbound Third Street re-entry. The largest residual terrain protrusion is 0.38 m at one fork
-sample. A collision scan along the centreline and at lateral offsets of 0.75 m
-returned zero hits across four tiles.
+six inferred trunks where the survey indicates pavement or clear space.
+Two were on the southbound Third Street re-entry and one was on the
+northbound mainline at the fork. The largest residual terrain protrusion
+is 0.38 m at one fork sample. A collision scan along the ramps and at
+lateral offsets of 0.75 m returned zero hits across four tiles.
 
 Chrome used the game's steering inputs to drive to Third Street in
 47.5 s, reach Bayshore Boulevard in 46.6 s, and stay on northbound
@@ -1773,5 +1774,5 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   northbound-hester-stays-on-us101 hester-third-street-exit-and-reentry
 ```
 
-- Game manifest SHA-256 `0e41779ec7493889754de763ca25deb37b785817c970125184d1c3b89e0665c1`.
-- Contact SHA-256 `269c9b3e1931f0ca6ece70e095a73cef5efd3232f31082212106eee6eca0170d`.
+- Game manifest SHA-256 `61dad03f1bfc517a73b9e3dc773db675563033016f70ae5622ab2a7c38bcbccf`.
+- Contact SHA-256 `de316cc5cef51e5c582be75acea8db0d385b5079dc1dba1db05bf5516b20f542`.
