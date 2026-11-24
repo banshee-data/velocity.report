@@ -1996,3 +1996,74 @@ surface establish which level needs correction.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   island-east-eastbound-exit island-east-lower-mainline
 ```
+
+## Twenty cross-city drives in Chrome
+
+The [cross-city course set](../../tools/sf-drive/road-audit-cross-city-routes.json)
+was driven with the site's manual keyboard controls and saved emoji pickups.
+Chrome attempted all 20 pairs, covered **49.12 km in 84.2 minutes of driving**
+and collected both endpoints on 12 courses. Four stalled, three left the test
+line and one crashed. The table gives one outcome per itinerary. The Broadway,
+Dogpatch and Hester rows use repeat drives after the first bake. Targeted ramp
+checks and incomplete runs interrupted by a site deployment are outside the
+campaign totals.
+
+The median course 95th-percentile longitudinal grade was **9.2%**. The
+largest observed one-metre step was 50.6% on the southbound Stockton
+itinerary, which completed the tunnel and reached Minna before the crash.
+That grade covers the whole drive. The peak position was unavailable in
+that recording. The fitted Stockton bore peaks at 4.7% on the fixed-step
+check. Grade samples cover intervals when both surrounding
+browser frames reported ground contact.
+
+| Emoji course                   | Endpoints | Bake | Driven km | Grade p95 / peak | Browser outcome         |
+| ------------------------------ | --------- | ---- | --------: | ---------------: | ----------------------- |
+| Chinatown north via Stockton   | 🏙️ → 🍫   | A    |      3.73 |      6.5% / 8.8% | Both collected          |
+| Chinatown south via Stockton   | 🛤️ → 🎭   | A    |      2.80 |    15.1% / 50.6% | Crash after tunnel      |
+| Broadway to the Marina         | ⚓ → 🎟️   | B    |      0.54 |    21.4% / 22.6% | Stalled before tunnel   |
+| Presidio toll underpass        | 🚪 → 🌁   | A    |      3.45 |     9.5% / 21.9% | Both collected          |
+| Mission Bay to Pennsylvania    | ⚾ → 🚂   | A    |      0.02 |      1.9% / 2.5% | Left course             |
+| Mission Bay to Alemany         | 🏀 → 🌺   | A    |      9.49 |     6.6% / 17.5% | Both collected          |
+| Silver Avenue to Hunters Point | 🧰 → 🌺   | A    |      3.39 |     9.0% / 17.5% | Both collected          |
+| Hester to Bayshore             | 🚸 → 🚊   | B    |      3.21 |     9.6% / 27.0% | Both collected          |
+| Dogpatch to Potrero            | 🚚 → 🧁   | B    |      1.60 |    17.7% / 21.2% | Left course after Evans |
+| Embarcadero to SoMa            | 🌉 → 🎭   | A    |      0.17 |      2.9% / 3.0% | Stalled                 |
+| Lake Street to the Presidio    | 🚲 → 🥾   | A    |      0.02 |      0.8% / 1.2% | Left course             |
+| Lands End to Outer Richmond    | 🖼️ → 🔭   | A    |      2.44 |     9.8% / 17.5% | Both collected          |
+| Richmond to Golden Gate Park   | 🎬 → 🦬   | B    |      2.27 |     7.5% / 10.0% | Both collected          |
+| Upper Haight to Inner Sunset   | ☮️ → ☕   | B    |      1.93 |      3.8% / 5.2% | Both collected          |
+| Ocean Beach to Fort Funston    | 🐚 → 🪂   | B    |      0.69 |      4.0% / 5.2% | Stalled                 |
+| Lake Merced to Ingleside       | 🛶 → 🧸   | C    |      3.46 |    17.5% / 23.8% | Both collected          |
+| West Portal to Sunnyside       | 🚇 → 🎨   | C    |      1.88 |    12.2% / 14.0% | Stalled                 |
+| Twin Peaks to Bernal           | 📷 → 📚   | C    |      4.16 |    19.8% / 27.8% | Both collected          |
+| Excelsior to Visitacion Valley | 🗺️ → 🐕   | D    |      2.46 |    11.9% / 21.2% | Both collected          |
+| Treasure Island north          | 🧭 → 🪁   | A    |      1.43 |      2.4% / 7.9% | Both collected          |
+
+The table's traces record zero dips deeper than 0.5 m relative to an
+eight-metre chord. The prior Dogpatch repeat measured a 0.90 m dip on Evans
+Avenue. After correction, the browser cleared that part of the itinerary
+without a dip over the threshold. The Mission Bay to Alemany course used
+the southbound I-280 mainline, an exit and the existing Alemany overpass.
+The Hester course used the southbound US 101 entrance and Bayshore exit.
+The northbound Stockton and Presidio toll courses each passed their
+baked tunnel. The Broadway approach remains a separate city-street repro.
+
+The parallel 120 Hz runs on bake C covered 38.96 km, collected both emojis
+on eight courses and flagged eight planned dip samples. Six were on the
+planned Alemany path and two on the Dogpatch path. The portions actually
+driven had zero dips over the same threshold. The different completion
+counts reflect differences in steering, contact selection and game traffic.
+A stall or course departure calls for a local reproduction before it can
+establish a pavement defect. Browser sampling also leaves shorter events
+between rendered frames unresolved.
+
+| Bake | Static game manifest SHA-256                                       | Release                                                                                       |
+| ---- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| A    | `d5b7a53795a748fb7a69e5473233da3e343d3410f49bf59f7a73b0ceddfe3e8f` | [West Yerba Buena ramps](https://github.com/banshee-data/velocity.report/pull/1192)           |
+| B    | `e1812dbb4ec28ac5b630de86de90d89472d8d76d7ffc3d79cda9f5696411ea9a` | [East entrance and Evans Avenue](https://github.com/banshee-data/velocity.report/pull/1194)   |
+| C    | `e06d3eb6ef17c50ecbb6a0eb7725dd1416c5c776828e4a2ed6d75f71151cc3e6` | [23rd Street over US 101](https://github.com/banshee-data/velocity.report/pull/1195)          |
+| D    | `64a72513acc46128fc1ebf4e7265ed9e86a53f363aed488293bf01a8db73ebba` | [Lower eastbound Yerba Buena exit](https://github.com/banshee-data/velocity.report/pull/1196) |
+
+Chrome 157.0.8103.80 checked the manifest loaded at the start of each
+itinerary and recorded no requests to Arrow-worker. The tooling commands
+above reproduce a course when its matching static game bundle is served.
