@@ -3202,6 +3202,13 @@ Both exit turns reached exterior street contact with zero airborne
 distance on the staged bake. The eastbound chase camera returned to
 its exterior view on the open street beyond the deck.
 
+Both full Fifth Street drives reached the westbound landing grounded.
+One full run recorded 3.72 m airborne outside the intermediate
+surface handoffs. The instrumented repeat recorded zero. The full
+test checks uninterrupted contact between the elevated sections.
+The two exit tests separately require zero airborne distance from
+the off-ramp through the final street handoff.
+
 All 23 fixed-step emoji routes completed over 67.59 km. The largest
 observed tile seam was 6.1 cm and no driven dip exceeded 0.5 m over an
 8 m chord.

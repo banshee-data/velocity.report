@@ -146,7 +146,7 @@ cases["i280-18th"] = {
   speed: 12,
   speedLimits: eighteenthExitLimits,
   rampApproach: true,
-  maxAirborneMetres: 0,
+  groundedHandoff: true,
 };
 for (const [name, roads, reverseRoads] of [
   ["westbound", eighteenthWestExit, []],
