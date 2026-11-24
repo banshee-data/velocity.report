@@ -2898,3 +2898,42 @@ The largest driven seam step was 6.1 cm, and no driven dip exceeded
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   macarthur-and-south-crossing-northbound macarthur-and-south-crossing-southbound
 ```
+
+### Southbound I-280 left exit to southbound US 101
+
+The bake adds 696 m of upper-deck contact for the left exit at Alemany.
+Southbound I-280 continues past the fork and the new ramp joins the
+existing southbound US 101 descent. The northbound I-280 viaduct stays
+on its lower contact. Each tile touched by the added ramp carries the
+complete strip. The 8.5 m ramp tapers into the adjoining widths.
+
+The fitted upper strip reaches a 3.49% longitudinal grade. Its largest
+local dip is 3.2 cm over an approximately 20 m chord. These are
+measurements of the game contact, which uses the 2023 aerial survey
+returns on the upper pavement. [Gerardus survey recipe](https://github.com/banshee-data/gerardus/pull/174).
+
+| Chrome keyboard drive                 |   Time | Airborne |
+| ------------------------------------- | -----: | -------: |
+| Southbound I-280 left exit to US 101  | 87.4 s |      0 m |
+| Southbound I-280 through the new fork | 21.2 s |      0 m |
+| Existing upper approach to US 101     | 16.6 s |      0 m |
+| Northbound I-280 beneath the exit     | 20.9 s |      0 m |
+
+All twenty fixed-step emoji courses collected both pickups over
+52.43 km. The I-280 course stayed on the mainline through the new
+fork and reached the existing Alemany Boulevard exit. Across 50
+tile crossings, the largest measured vertical step was 6.1 cm.
+The ground-contact grade p95 had a median of 9.54% across the
+twenty routes. None of the driven traces had a dip deeper than
+0.5 m against an eight-metre chord. The separate citywide screen
+flagged 392 intervals over 50% grade and 51 missing intervals among
+the ground-draped road samples.
+
+- Game manifest SHA-256 `b40ff3d8219a460bb4e94181ff73f6ab8a84e238863ec8b508b64b30eea8634d`.
+- Contact SHA-256 `568875445fa6ea64f7d0f509c5f92271ac313904f7eac7290f9245ec46d418da`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  southbound-i280-left-exit-to-us101 southbound-i280-through-left-exit-fork \
+  alemany-upper-over-northbound-connector northbound-i280-below-alemany-left-exit
+```

@@ -527,7 +527,14 @@ test("Seventh Street and southbound US 101 meet ordinary pavement only at their 
 
 test("Alemany keeps both I-280 merges connected and their city portals at street level", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
-  const tokens = ["808f7e4c", "808f7e54", "808f7e64", "808f7ef4", "808f7efc"];
+  const tokens = [
+    "808f7e4c",
+    "808f7e54",
+    "808f7e64",
+    "808f7ef4",
+    "808f7efc",
+    "808f7f04",
+  ];
   const tiles = tokens.map((token) =>
     JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
   );
@@ -536,6 +543,7 @@ test("Alemany keeps both I-280 merges connected and their city portals at street
   );
   const road = (name) => roads.get(`sf-contact/${name}`);
   const dogpatch = road("i280-south-beyond-dogpatch");
+  const southMainline = road("i280-south-to-alemany-mainline");
   const tail = road("i280-south-alemany-merge-tail");
   const approach = road("us101-south-to-i280-south-approach");
   const merge = road("us101-south-to-i280-south-merge");
@@ -546,7 +554,8 @@ test("Alemany keeps both I-280 merges connected and their city portals at street
   const eastExit = road("us101-south-alemany-east-exit");
   const westExit = road("i280-south-alemany-exit");
   for (const [before, after] of [
-    [dogpatch, tail],
+    [dogpatch, southMainline],
+    [southMainline, tail],
     [approach, merge],
     [approach, eastExit],
     [merge, through],
@@ -2719,6 +2728,63 @@ test("the Alemany fork carries both I-280 through traffic and the ramp to southb
   assert.ok(Math.abs(z - 11.29) < 0.05);
   const index = buildCollisionIndex(tiles.get(tokens[0]), tokens[0]);
   assert.equal(collisionAt([index], { x, y, heading: 0.45 }, z), null);
+});
+
+test("the southbound I-280 left exit stays on the upper deck and joins southbound US 101", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7ef4", "808f7efc", "808f7f04"];
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) =>
+      playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  const road = (name) => roads.get(`sf-contact/${name}`);
+  const approach = road("i280-south-beyond-dogpatch");
+  const mainline = road("i280-south-to-alemany-mainline");
+  const exit = road("i280-south-to-us101-south-exit");
+  const descent = road("i280-to-us101-south-descent");
+  const lower = road("i280-north-lower-viaduct");
+  for (const [before, after] of [
+    [approach, mainline],
+    [approach, exit],
+    [exit, descent],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(exit.groundEnds, []);
+  assert.ok(exit.profiles.length > 0);
+  assert.ok(exit.profiles.every((id) => roadBake.playableReplaces.includes(id)));
+  const copies = tiles.flatMap(({ playableRoads }) =>
+    playableRoads.filter(({ id }) => id === exit.id),
+  );
+  assert.ok(copies.length >= 2);
+  for (const copy of copies) assert.deepEqual(copy, exit);
+  const lowerSurface = buildBakedRoadContact(lower).surface;
+  assert.ok(
+    exit.points.some(([east, north, upper]) => {
+      const height = lowerSurface.heightAt(east, north);
+      return height !== null && upper - height > 6;
+    }),
+  );
+  assert.ok(
+    roadBake.playableTransitions.every(
+      ({ from, to }) =>
+        ![from, to].some((end) => end.startsWith(`${exit.id}:`)) ||
+        [from, to].every((end) => !end.startsWith(`${lower.id}:`)),
+    ),
+  );
 });
 
 test("outer lanes keep momentum across the 12 m Dogpatch seam", async () => {
