@@ -2067,3 +2067,36 @@ between rendered frames unresolved.
 Chrome 157.0.8103.80 checked the manifest loaded at the start of each
 itinerary and recorded no requests to Arrow-worker. The tooling commands
 above reproduce a course when its matching static game bundle is served.
+
+## Hillcrest eastbound entrance
+
+The DataSF `14214000` entrance climbs from Hillcrest pavement at 48.63 m
+NAVD88 to the lower eastbound deck at 52.40 m. The 171 m strip follows
+April 2023 survey returns. Interpolation covers source stations 92–112 m
+in the survey shadow. The peak grade is 4.51%. The game uses the upper
+road footprint for the covered camera view while the car stays on the
+lower pavement.
+
+The lower through drive and the entrance share the same forward deck
+seam. Both named eastbound starts use this join. The game regression
+checks the city pavement handoff, the shared deck seam, the grade and
+more than 7 m of separation beneath the upper road. On the canonical
+package, Chrome reached the deck from Hillcrest in 26.6 s and drove
+through from the lower tunnel in 25.5 s. Both finished grounded.
+
+- Game manifest SHA-256 `f50b36f76a7f4a4b0d2c6fb15a309b5fc3aee0775ff4652007c87012a2b05453`.
+- Contact SHA-256 `724e07c4c529ed4b480d15be570b2cbf8a6173af746d2ce2a0d838aad60bc235`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-east-eastbound-entry island-east-lower-mainline island-east-eastbound-exit
+```
+
+A separate retry from Mission Bay used the corrected starting heading
+on the preceding lower-exit revision. Chrome collected both emojis
+in 262.2 s after 2.96 km, using the southbound I-280 entrance, the
+18th Street split and the Pennsylvania Avenue exit. The largest driven
+grade was 13.1% and the trace had zero dips deeper than 0.5 m. A
+Lake Street to Presidio retry then covered 4.56 km, with 16.4% peak
+grade and zero dips over the same threshold. It stalled at
+(−1034.6, 4052.6), near the destination.

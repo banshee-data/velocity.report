@@ -72,6 +72,7 @@ const { chromium } = require("playwright");
         "yerba-buena-lower-tunnel",
         "yerba-buena-lower-tunnel-east-of-exit",
         "yerba-buena-lower-east-approach",
+        "yerba-buena-lower-east-after-entry",
       ]) {
         await waitForStart(start, surface, null, 220_000);
         if (surface.startsWith("yerba-buena-lower-tunnel")) {
