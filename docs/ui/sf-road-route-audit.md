@@ -1609,7 +1609,7 @@ NAVD88 and a 117.9 m shared merge. The entrance reaches 9.1% grade and the
 new mainline reaches 5.2%. Shared endpoints have identical coordinates and
 elevations on both sides of every join.
 
-The first Chrome run crashed at a tile roof extrusion that filled the
+The first Chrome run crashed at an inferred building volume that filled the
 lower highway at Hester. The Arrow crop identified the upper pavement
 between 48 and 50 m and lower roadway returns on the exposed shoulder.
 The follow-up keeps the upper surface and gives its inferred underside
