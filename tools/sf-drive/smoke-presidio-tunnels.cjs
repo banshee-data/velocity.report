@@ -2007,22 +2007,11 @@ cases["island-west-exit-and-reentry"] = {
   groundConnection: {
     after: prefix + islandWestExit,
     via: [
-      [6176, 5478.75],
-      [6171, 5480],
-      [6166, 5481.1],
-      [6162, 5482.6],
-      [6157, 5484],
-      [6153.5, 5484.3],
-      [6150.8, 5482.5],
-      [6149.9, 5479.9],
-      [6151, 5477.2],
-      [6154, 5476.8],
-      [6157.8, 5478.8],
-      [6161, 5479.8],
-      [6164.2, 5479.2],
+      [6174, 5479.2],
+      [6162, 5480.86],
     ],
-    minimumMetres: 35,
-    speed: 4,
+    minimumMetres: 31,
+    turn: { east: 6162, north: 5480.86, direction: -1 },
   },
   finishOnDeck: true,
   finishDistance: 155,
@@ -2144,7 +2133,7 @@ function withGroundConnections(roads, connection) {
         kind: "ground",
         positions,
         width_m: 7,
-        speed_mps: connection.speed ?? 8,
+        speed_mps: 8,
         sources: [],
       },
       ...roads.slice(index),
@@ -2190,6 +2179,7 @@ async function drive(
   finishOnDeck,
   maxDurationMs,
   entranceTimeoutMs,
+  groundTurn,
 ) {
   return page.evaluate(
     async ({
@@ -2199,6 +2189,7 @@ async function drive(
       finishOnDeck,
       maxDurationMs,
       entranceTimeoutMs,
+      groundTurn,
     }) => {
       const driveModule = performance
         .getEntriesByType("resource")
@@ -2232,6 +2223,60 @@ async function drive(
       const guide = sections.length < 2 ? [...sections, exterior] : sections;
       const course = buildCityGameDrive({ sections: guide }, () => null);
       course.speed.fill(5, Math.max(0, course.speed.length - 8));
+
+      let turnPhase = 0;
+      let turnHeading;
+      let reversedOnGround = false;
+      // Use a three-point turn where the narrow island junction has no room
+      // for a continuous steering arc. All phases operate the normal keys.
+      function steerToward(x, y) {
+        const rotation = Math.atan2(y - pose.y, x - pose.x) - pose.heading;
+        const demand = Math.atan(
+          (5.4 * Math.sin(rotation)) /
+            Math.max(1, Math.hypot(x - pose.x, y - pose.y)),
+        );
+        return Math.abs(demand) > 0.18 * (0.58 / (1 + Math.abs(pose.v) / 20))
+          ? Math.sign(demand)
+          : 0;
+      }
+      function turnaround() {
+        const { east, north, direction, entrance } = groundTurn;
+        const angle =
+          direction * (pose.heading - (turnHeading ?? pose.heading));
+        let steer = direction;
+        let gear = 1;
+        let limit = 2.3;
+        const braking = turnPhase === 2 || turnPhase === 4;
+        if (turnPhase === 0) {
+          steer = steerToward(east - 1, north);
+          limit = pose.x > east + 6 ? 4 : 2;
+          if (pose.x <= east) {
+            turnHeading = pose.heading;
+            turnPhase = 1;
+          }
+        } else if (turnPhase === 1 && angle >= 1.1) {
+          turnPhase = 2;
+        } else if (turnPhase === 2 && Math.abs(pose.v) < 0.12) {
+          turnPhase = 3;
+        } else if (turnPhase === 3) {
+          steer = -direction;
+          gear = -1;
+          if (angle >= 2.05) turnPhase = 4;
+        } else if (turnPhase === 4) {
+          steer = -direction;
+          if (Math.abs(pose.v) < 0.12) turnPhase = 5;
+        } else if (turnPhase === 5) {
+          steer = steerToward(...entrance);
+        }
+        const brake = braking || Math.abs(pose.v) > limit + 0.45;
+        const moving = !brake && Math.abs(pose.v) < limit;
+        key("ArrowLeft", steer > 0);
+        key("ArrowRight", steer < 0);
+        key("ArrowUp", moving && gear > 0);
+        key("ArrowDown", moving && gear < 0);
+        key("Space", brake);
+        if (pose.v < -0.45 && pose.grounded) reversedOnGround = true;
+      }
 
       const held = new Set();
       function key(code, pressed) {
@@ -2272,6 +2317,7 @@ async function drive(
             lastSupported,
             groundMetres: Math.round(groundMetres * 10) / 10,
             groundedMetres: Math.round(groundedMetres * 10) / 10,
+            ...(groundTurn && { reversedOnGround }),
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
           });
@@ -2335,7 +2381,16 @@ async function drive(
           if (blocked >= 10) return finish("blocked");
           if (now - started > maxDurationMs) return finish("timed out");
 
-          if (now - last >= 27) {
+          if (
+            now - last >= 27 &&
+            groundTurn &&
+            !surfaceId &&
+            groundHints.has(seen.size)
+          ) {
+            turnaround();
+            last = now;
+          } else if (now - last >= 27) {
+            key("ArrowDown", false);
             const input = cityDriveControls(course, {
               ...pose,
               surfaceId: surfaceId || groundHints.get(seen.size) || ids[0],
@@ -2374,6 +2429,7 @@ async function drive(
       finishOnDeck,
       maxDurationMs,
       entranceTimeoutMs,
+      groundTurn,
     },
   );
 }
@@ -2599,6 +2655,23 @@ async function main() {
         await page.bringToFront();
         await canvas.focus();
         await confirmManualTakeover(page);
+        const turn = groundConnection?.turn;
+        let groundTurn;
+        if (turn) {
+          const street = sections.findIndex(
+            ({ id }) => id === "between-streets",
+          );
+          const [start, next] = sections[street + 1].positions;
+          const length = Math.hypot(next[0] - start[0], next[1] - start[1]);
+          groundTurn = {
+            ...turn,
+            entrance: start
+              .slice(0, 2)
+              .map(
+                (value, axis) => value + (6 * (next[axis] - value)) / length,
+              ),
+          };
+        }
         const result = await drive(
           page,
           sections,
@@ -2607,9 +2680,11 @@ async function main() {
           finishOnDeck,
           maxDurationMs,
           entranceTimeoutMs,
+          groundTurn,
         );
         console.log(JSON.stringify({ name, contactHash, ...result, errors }));
         assert.deepEqual(errors, []);
+        if (turn) assert.ok(result.reversedOnGround);
         assert.deepEqual(
           result.seen.map(({ surfaceId }) => surfaceId),
           contactSections.map(({ id }) => id),

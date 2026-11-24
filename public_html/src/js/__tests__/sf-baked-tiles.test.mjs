@@ -2762,4 +2762,23 @@ test("west Yerba Buena ramps join the island to the correct Bay Bridge decks", (
     assert.equal(collisionAt(obstacles, { x, y, heading: 1.01 }, bottom), null);
     assert.equal(collisionAt(obstacles, { x, y, heading: -2.1 }, top), null);
   }
+  const upperPoints = fromIsland.points;
+  let station = 0;
+  let probes = 0;
+  for (let i = 1; i < upperPoints.length; i++) {
+    const [a, b] = upperPoints[i - 1];
+    const [x, y] = upperPoints[i];
+    const distance = Math.hypot(x - a, y - b);
+    station += distance;
+    if (station < 220 || station > 308) continue;
+    for (const offset of [-2.65, 2.65]) {
+      const east = x - (offset * (y - b)) / distance;
+      const north = y + (offset * (x - a)) / distance;
+      const deck = upper.surface.heightAt(east, north);
+      assert.ok(Number.isFinite(deck));
+      assert.ok(groundAtWorld(tiles, east, north, true) - deck < 0.1);
+      probes++;
+    }
+  }
+  assert.ok(probes > 60);
 });

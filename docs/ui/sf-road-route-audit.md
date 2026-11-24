@@ -1788,17 +1788,20 @@ open. Two tiles include the contact, terrain and scenery changes.
 The April 2023 survey shows the upper ramp directly. The lower ramp
 uses two inferred intervals beneath the upper deck, extending 64 m from
 the split and from station 244 m to 272 m. The terrain refinement follows
-the lower road within the island. A survey check cleared two inferred
-building volumes and one inferred trunk from the pavement. The corrected
+both ramp levels within the island. A survey check cleared two inferred
+building volumes and two inferred trunks from the pavement. The corrected
 collision scan returned no hits along either centreline or at lateral
-offsets of one metre across four nearby tiles. The survey predates the
+offsets up to 2.65 m across four nearby tiles. The upper ramp cleared all
+sampled terrain across that width. One lateral sample at the lower road's
+ground handoff retained 0.26 m of terrain above the contact surface. The survey predates the
 West Side Bridges Retrofit. [SFCTA project record](https://www.sfcta.org/westsidebridges)
 
-| Browser drive                    | Elapsed | Finish                                |
-| -------------------------------- | ------: | ------------------------------------- |
-| Eastbound exit                   |  44.9 s | Grounded on island pavement           |
-| Westbound entrance               |  50.2 s | Grounded on the upper Bay Bridge deck |
-| Lower mainline through the split |  16.6 s | Grounded beneath the upper deck       |
+| Browser drive                     | Elapsed | Finish                                                        |
+| --------------------------------- | ------: | ------------------------------------------------------------- |
+| Eastbound exit                    |  44.9 s | Grounded on island pavement                                   |
+| Westbound entrance                |  50.2 s | Grounded on the upper Bay Bridge deck                         |
+| Lower mainline through the split  |  16.6 s | Grounded beneath the upper deck                               |
+| Continuous island turn and return | 118.3 s | Grounded on the upper deck after reversing on island pavement |
 
 The 20 frozen emoji routes collected both targets across 52.43 km.
 Their largest driven seam step was 6.1 cm across 50 crossings, with no
@@ -1812,5 +1815,5 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   island-west-eastbound-through island-west-exit-and-reentry
 ```
 
-- Game manifest SHA-256 `bd98d026cf3bf1dca4a0efdf2c9d5f4ffe8a101279394dd93b3712b1b176a78a`.
-- Contact SHA-256 `4af4d69b2c7581bde7277dfee4714edce60d3e632d70924d3f34875192ec991a`.
+- Game manifest SHA-256 `d5b7a53795a748fb7a69e5473233da3e343d3410f49bf59f7a73b0ceddfe3e8f`.
+- Contact SHA-256 `ca2e756da459ff0e802399f6373f68000c08f1adfed1f1972d34bca637340902`.
