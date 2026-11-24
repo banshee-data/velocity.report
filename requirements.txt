@@ -18,7 +18,7 @@ coverage[toml]==7.10.7
     # via pytest-cov
 cycler==0.12.1
     # via matplotlib
-drawsvg==2.4.2
+drawsvg==2.5.1
     # via -r requirements.in
 fonttools==4.68.0
     # via
@@ -34,7 +34,7 @@ matplotlib==3.11.2
     # via -r requirements.in
 mypy-extensions==1.1.0
     # via black
-numpy==2.5.4
+numpy==2.5.5
     # via
     #   -r requirements.in
     #   contourpy
@@ -75,11 +75,11 @@ python-dateutil==2.9.0.post0
     #   pandas
 pytokens==0.4.1
     # via black
-pyyaml==6.0.3
+pyyaml==6.0.4
     # via -r requirements.in
 requests==2.34.2
     # via -r requirements.in
-ruff==0.17.5
+ruff==0.17.6
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
