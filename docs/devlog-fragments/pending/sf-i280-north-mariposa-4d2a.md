@@ -1,0 +1,1 @@
+- Baked the measured northbound I‑280 exit to Mariposa Street, verified the grounded handoff in Chrome and repeated all 20 [emoji route checks](../../ui/sf-road-route-audit.md#northbound-i-280-exit-to-mariposa-street).

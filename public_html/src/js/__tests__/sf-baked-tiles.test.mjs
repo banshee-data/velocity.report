@@ -70,6 +70,39 @@ test("Dogpatch northbound runs below 18th Street and keeps 20th Street on its ow
   assert.ok(roadBake.coveredGroundRoadPatches["808f7fb4"] >= 1);
 });
 
+test("northbound I-280 branches onto the lower Mariposa exit and hands off to street pavement", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7fb4", "808f7fcc"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const incoming = roads.get("sf-contact/i280-dogpatch-northbound");
+  const ramp = roads.get("sf-contact/i280-north-mariposa-exit");
+  const through = roads.get("sf-contact/i280-south-of-eighteenth-northbound");
+  for (const branch of [ramp, through]) {
+    assert.deepEqual(incoming.points.at(-1), branch.points[0]);
+    assert.deepEqual(incoming.seams.end, branch.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${incoming.id}:end` &&
+          to === `${branch.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(ramp.groundEnds, ["end"]);
+  assert.deepEqual(ramp.widthTransitionMetres, { start: 24 });
+  const { surface, portals } = buildBakedRoadContact(ramp);
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  const floor = surface.heightAt(4201.4533, 303.8024);
+  assert.ok(floor > 18 && floor < 19, floor);
+});
+
 test("northbound I-280 keeps both city exits connected across tile owners", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808f7fcc", "808f7fd4"].map((t) =>

@@ -1119,6 +1119,22 @@ cases["i280-monterey-roundtrip"] = {
   },
 };
 
+const mariposaMain = "i280-dogpatch-northbound";
+const mariposaExit = "i280-north-mariposa-exit";
+cases["i280-mariposa-exit"] = {
+  ...dogpatchNorth,
+  roads: [...dogpatchNorth.roads.slice(0, 2), mariposaExit],
+  forks: [[mariposaMain, mariposaExit, -2.2]],
+  speedLimits: { ...dogpatchNorth.speedLimits, [mariposaExit]: 12 },
+};
+cases["dogpatch-to-sixth-northbound"] = {
+  ...dogpatchNorth,
+  forks: [
+    [mariposaMain, "i280-south-of-eighteenth-northbound", 2.2],
+    ...dogpatchNorth.forks,
+  ],
+};
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
