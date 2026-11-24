@@ -1599,3 +1599,34 @@ visible under the deck at 16 mph.
 
 - Game manifest SHA-256 `45c8fe622fe1043a39813d59dac254a0c0c4d6cd0e275708e28068307dd287e2`.
 - Contact SHA-256 `74d6fddf88106627e63c5b629ee86e6afd641132792d91c178cdc765be25c4a0`.
+
+## Southern northbound US 101 and the Alemany entrance
+
+The bake joins approximately 3.72 km of northbound US 101 from the
+southern game boundary to the existing Silver Avenue approach. It adds a
+309.7 m entrance from Alemany Boulevard climbing from 6.02 m to 13.65 m
+NAVD88 and a 117.9 m shared merge. The entrance reaches 9.1% grade and the
+new mainline reaches 5.2%. Shared endpoints have identical coordinates and
+elevations on both sides of every join.
+
+The first Chrome run crashed at a tile roof extrusion that filled the
+lower highway at Hester. The Arrow crop identified the upper pavement
+between 48 and 50 m and lower roadway returns on the exposed shoulder.
+The follow-up keeps the upper surface and gives its inferred underside
+clearance over the lower lanes. The central lower interval under the
+deck interpolates between observed pavement on either side.
+
+On the revised bake, Chrome drove all seven sections from the city edge
+through Hester to Silver in 200 s, reached 49.6 mph, and finished grounded.
+The Alemany entrance drive on the same bake reached Silver in 51.1 s. The 20 frozen
+emoji courses finished over 52.43 km. The maximum driven seam step was
+6.1 cm and no driven dip exceeded 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  southern-city-edge-to-northbound-us101 alemany-street-to-northbound-us101
+```
+
+- Game manifest SHA-256 `7496a0cc1eec79c5bd0f24d3e507ebb47af8481012691d182339caa9cf49c0d0`.
+- Contact SHA-256 `a1fc582ad0ccc4cd9774714634de671fa57803f5933c0079f3b00b9ccbe64cb7`.
+- Six tiles changed. Each tile intersecting a new road carries the complete strip.
