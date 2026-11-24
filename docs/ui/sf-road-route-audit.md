@@ -1194,3 +1194,31 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `ec425a74f03e286d1fc876a27e54bcb813597f0c2cb76cba1d2b68c73a30c67e`.
 - Contact SHA-256 `d90935aee8175c6c6dde4d9db56727d20803cf82635f82f089115c49d2edf5fd`.
 - The bake changes one tile and preserves the existing emoji placement revision.
+
+## Northbound I-280 exit to Mariposa Street
+
+Half-metre sampling of the April 2023 3DEP survey found lower pavement
+returns at stations 205 and 225 m. The samples bound the gap at 20 m within
+the existing 22 m interpolation limit. The southbound entrance still has
+a 55.5 m gap and remains provisional.
+
+The 354.38 m ramp leaves the Dogpatch northbound section at 24.47 m NAVD88
+and joins Mariposa Street at 11.36 m. Its maximum fitted grade is 6.98%.
+The 8 m ramp tapers from the shared 12 m section over its first 24 m.
+The existing mainline branches separately towards 18th Street.
+
+Chrome drove from the east Dogpatch entrance to Mariposa Street in 97.3 s
+using keyboard inputs in manual mode. At the street handoff the car was
+grounded, travelled at 12.4 mph and had no selected elevated surface.
+The separate fixed-step drive completed the same route in 99.0 s. The 20
+frozen emoji routes again covered 52.43 km and reached all targets. The
+largest driven tile seam remained 6.1 cm. No driven dip exceeded 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-mariposa-exit dogpatch-to-sixth-northbound
+```
+
+- Game manifest SHA-256 `fc4b55cf6a0f297a9c36a2bf2d5a4268a99ba8282f313644d9121b150543e68a`.
+- Contact SHA-256 `c47287e09f6c14fc2e5c2efb2d8326fbb236b8c423edda790c8e16866015a9b7`.
+- The bake changes one tile and preserves the existing emoji placement revision.
