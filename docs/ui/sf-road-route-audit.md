@@ -952,3 +952,37 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `c63a335182fdbe343fed759232c8a1efec1dfe3e4569ee3083c95630ecf5470b`.
 - Contact SHA-256 `1d6efdf91da34f3a2f8ba45ad802bb18659226e62ccbad73298111597aee1519`.
 - The bake changes two tiles and preserves the existing emoji placement revision.
+
+## SoMa ramps at Bryant, Fourth, Fifth and Harrison
+
+Four directed ramps add 1.51 km of contact. The eastbound Fourth Street
+exit reaches ordinary pavement at 4.10 m NAVD88. The Bryant and Fifth
+Street entrances climb onto the existing eastbound game lanes. The
+Harrison Street entrance joins the westbound deck. The highest fitted
+longitudinal grade is 7.1%.
+
+An 8 m ramp now blends into its existing 11 or 12 m merge cross-section
+over 24 m. The optional `widthTransitionMetres` field gives the taper
+length per terminal, while the existing seam still supplies the shared
+width and bearing. The bake and browser check the width contract before
+accepting the contact.
+
+The fit pins 154 depth-12 EPT nodes. A false roof volume on the Fifth
+Street entrance occupied the measured pavement. A separate 23-node
+check found at least 47 road-level returns at each sampled lane point.
+The tile edit trims 192.9 m² of inferred roof faces within that corridor.
+It retains the original roof geometry and base outside the measured lane.
+
+All four 120 Hz drives completed. Fourth Street reached the street in
+52.6 s. Bryant, Fifth Street and Harrison reached their assigned decks
+in 67.4 s, 78.2 s and 49.0 s respectively. Chrome finished the same four
+drives grounded in 49.8 s, 67.3 s, 81.0 s and 49.4 s.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i80-fourth-bryant-exit i80-bryant-entry i80-fifth-bryant-entry i80-harrison-entry
+```
+
+- Game manifest SHA-256 `6c3972a007c14ff422144d7a51fb2d2d70c60088600818d26ce8dbea52e9189a`.
+- Contact SHA-256 `82435df883f9bc57e9961c19664867f98762478b72d798d0eb55ae8d87ef6e48`.
+- The bake changes four tiles and preserves the existing emoji placement revision.

@@ -600,6 +600,37 @@ cases["us101-to-octavia"] = {
   ],
   forks: [centralFork, [centralViaduct[1], "us101-north-central-merge", 1.6]],
 };
+const somaRampOwners = ["8085807c", "80858084", "808f7fd4", "808f7e2c"];
+cases["i80-fourth-bryant-exit"] = {
+  owners: somaRampOwners,
+  speed: 16,
+  rollingStart: true,
+  initialSpeedMps: 16,
+  roads: ["i80-eastbound-fourth", "i80-eastbound-fourth-bryant-exit"],
+  speedLimits: { "i80-eastbound-fourth-bryant-exit": 11 },
+  forks: [["i80-eastbound-fourth", "i80-eastbound-fourth-bryant-exit", -1.7]],
+};
+for (const [name, ramp, deck] of [
+  ["i80-bryant-entry", "i80-eastbound-bryant-entry", "i80-eastbound-fourth"],
+  [
+    "i80-fifth-bryant-entry",
+    "i80-eastbound-fifth-bryant-entry",
+    "i80-eastbound-lower-climb",
+  ],
+  [
+    "i80-harrison-entry",
+    "i80-westbound-harrison-entry",
+    "i80-westbound-interchange",
+  ],
+]) {
+  cases[name] = {
+    owners: somaRampOwners,
+    speed: 14,
+    finishOnDeck: true,
+    roads: [ramp, deck],
+    speedLimits: { [ramp]: 11 },
+  };
+}
 for (const reverse of [false, true]) {
   cases[
     reverse ? "dogpatch-twentieth-eastbound" : "dogpatch-twentieth-westbound"

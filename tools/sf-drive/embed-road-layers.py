@@ -91,6 +91,29 @@ def supported_runs(rows):
         yield points, sorted(owners), sorted(profiles)
 
 
+def valid_width_transitions(road):
+    seams = road.get("seams", {})
+    transitions = road.get("widthTransitionMetres", {})
+    if not isinstance(seams, dict) or not isinstance(transitions, dict):
+        return False
+    if not transitions.keys() <= seams.keys() <= {"start", "end"}:
+        return False
+    for label, seam in seams.items():
+        if (
+            not math.isfinite(seam["bearing"])
+            or not 2.5 <= seam["width"] <= 30
+            or (seam["width"] > road["width"] and label not in transitions)
+        ):
+            return False
+    if not all(math.isfinite(length) and length > 0 for length in transitions.values()):
+        return False
+    if not transitions:
+        return True
+    points = road["points"]
+    length = sum(math.dist(a[:2], b[:2]) for a, b in zip(points, points[1:]))
+    return sum(transitions.values()) <= length
+
+
 def playable_product(path, sha256, base_hash, revision, manifest):
     raw = path.read_bytes()
     if digest(raw) != sha256:
@@ -131,6 +154,7 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             or road["kind"] not in {"ramp", "bridge_deck", "tunnel"}
             or not set(road["groundEnds"]) <= {"start", "end"}
             or road["owners"] != [owner(points[0]), owner(points[-1])]
+            or not valid_width_transitions(road)
         ):
             raise ValueError(f"Invalid playable road {road['id']}")
         for label, point in (("start", points[0]), ("end", points[-1])):

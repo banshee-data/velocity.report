@@ -119,6 +119,19 @@ def test_scenery_patches_can_belong_to_a_neighbouring_tile(
         playable_product(path, digest(payload), "base", "revision", {"tiles": []})
 
 
+def test_bake_requires_a_transition_for_a_wider_seam():
+    valid = road_layers["valid_width_transitions"]
+    road = {
+        "width": 8,
+        "points": [[0, 0, 0], [20, 0, 1], [40, 0, 2]],
+        "seams": {"end": {"bearing": 0, "width": 12}},
+    }
+    assert not valid(road)
+    assert valid({**road, "widthTransitionMetres": {"end": 24}})
+    assert not valid({**road, "widthTransitionMetres": {"start": 24}})
+    assert not valid({**road, "widthTransitionMetres": {"end": 41}})
+
+
 def test_bundled_approach_requires_exact_parent_and_preserves_original_sections(
     tmp_path,
 ):
