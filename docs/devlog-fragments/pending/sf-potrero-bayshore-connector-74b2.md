@@ -1,0 +1,1 @@
+- Baked the Potrero Avenue connector and joined both arriving ramps to the shared lower Bayshore pavement. Recorded the freeway separation, survey fit and route checks in the [SF road route audit](../../ui/sf-road-route-audit.md#potrero-avenue-and-the-lower-bayshore-route).

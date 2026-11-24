@@ -2787,3 +2787,48 @@ measured seam step was 6.1 cm, and no driven dip exceeded 0.5 m.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   branch-east-ramp monterey-to-san-jose san-jose-to-monterey
 ```
+
+## Potrero Avenue and the lower Bayshore route
+
+The first connector preview returned to terrain before the freeway
+shadow. Chrome reached Bayshore Boulevard after 4.29 to 5.73 m of
+airborne travel on the lower street. A traced run located three short
+flights beneath the freeway and near the far side of the underpass.
+
+The next bake fits 212.4 m from the Potrero Avenue fork to the lower
+Bayshore junction. It joins the 59.9 m continuation of the existing
+US 101 southbound exit, and the two approaches share that pavement
+through the shadow. The lower junction is 8.20 m below upper US 101
+in the game. The curve reaches an 8.92% peak grade. The deepest
+fitted dip across a chord of about 20 m is 19 cm on the new connector.
+[Gerardus survey recipe](https://github.com/banshee-data/gerardus/pull/171).
+
+All 248 centreline collision poses cleared on the three affected
+strips. On the sampled offsets, three poses touched one retained
+roadside tree near the lower exit. The fit used 68 observed stations,
+with the final 10.3 m interpolated from lower-elevation returns to
+the known junction under the freeway.
+
+| Chrome keyboard drive                    |   Time | Airborne |
+| ---------------------------------------- | -----: | -------: |
+| Potrero Avenue to lower Bayshore         | 47.0 s |   2.79 m |
+| US 101 southbound exit to lower Bayshore | 57.6 s |    1.2 m |
+| Potrero Avenue entrance to US 101 south  | 55.8 s |      0 m |
+| US 101 south above the Bayshore junction | 21.6 s |      0 m |
+
+Both lower drives entered the covered camera and then reached
+exterior street pavement. The freeway entrance and through lane
+finished grounded on the upper carriageway.
+
+The 20 fixed-step emoji courses collected both pickups on this manifest.
+They covered 52.43 km in 83.8 simulated minutes. The largest driven seam
+step was 6.1 cm, and no driven dip exceeded 0.5 m.
+
+- Game manifest SHA-256 `d25cfa374e8b12a83f2e982f916db66c0f8a67903143d5322350c345ea7ad193`.
+- Contact SHA-256 `bda38c25f1ad80d830e1adaf94151148e9cf2dffc5fc2b1f61dad7732c4d2a9e`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  potrero-avenue-to-bayshore us101-south-bayshore-south-turn \
+  potrero-avenue-to-us101-south us101-south-over-bayshore-exit
+```

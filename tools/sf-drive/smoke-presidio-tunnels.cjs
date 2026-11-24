@@ -1573,26 +1573,40 @@ cases["us101-south-over-bayshore-exit"] = {
 };
 
 const southTurn = "us101-south-bayshore-south-turn-exit";
+const bayshoreLower = "bayshore-boulevard-under-us101";
+const potreroBayshore = "potrero-to-bayshore-boulevard";
+const bayshoreSouthDeparture = [
+  [3194.17, -1341.23, 6.8],
+  [3193.76, -1349.22, 6.89],
+  [3193.35, -1357.21, 7.04],
+  [3192.94, -1365.2, 7.05],
+  [3192.53, -1373.19, 7.06],
+];
 cases["us101-south-bayshore-south-turn"] = {
   ...cases["us101-south-bayshore-north-turn"],
   roads: [
     "us101-south-potrero-exit",
     "us101-south-bayshore-exit-approach",
     southTurn,
+    bayshoreLower,
   ],
   forks: [
     ...cases["us101-south-bayshore-north-turn"].forks,
     ["us101-south-bayshore-exit-approach", southTurn, -1],
   ],
   speedLimits: { "us101-south-bayshore-exit-approach": 12, [southTurn]: 12 },
-  covered: ["sf-contact/" + southTurn],
-  groundDeparture: [
-    [3194.17, -1341.23, 6.8],
-    [3193.76, -1349.22, 6.89],
-    [3193.35, -1357.21, 7.04],
-    [3192.94, -1365.2, 7.05],
-    [3192.53, -1373.19, 7.06],
-  ],
+  covered: [southTurn, bayshoreLower].map((road) => prefix + road),
+  groundDeparture: bayshoreSouthDeparture,
+};
+cases["potrero-avenue-to-bayshore"] = {
+  owners: ["808f7e4c"],
+  speed: 11.5,
+  roads: [potreroCity, potreroBayshore, bayshoreLower],
+  forks: [[potreroCity, potreroBayshore, 1.9]],
+  covered: [potreroBayshore, bayshoreLower].map((road) => prefix + road),
+  connectByGround: true,
+  groundDeparture: bayshoreSouthDeparture,
+  maxAirborneMetres: 3,
 };
 
 const fifthRamp = "i80-westbound-fifth-harrison-exit";
