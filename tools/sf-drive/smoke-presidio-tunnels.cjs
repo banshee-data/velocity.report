@@ -2478,7 +2478,9 @@ cases["geneva-northbound-through"] = {
     "i280-north-geneva-to-ocean",
     "i280-north-ocean-mainline",
   ],
-  groundApproachMetres: 8,
+  rollingStart: true,
+  rollingStartMetres: 3,
+  initialSpeedMps: 10,
   finishOnDeck: true,
   finishDistance: 160,
   speed: 18,
@@ -2517,7 +2519,9 @@ cases["geneva-northbound-entry"] = {
 cases["geneva-northbound-exit"] = {
   owners: genevaOwners,
   roads: ["i280-north-geneva-approach", "i280-north-geneva-exit"],
-  groundApproachMetres: 8,
+  rollingStart: true,
+  rollingStartMetres: 3,
+  initialSpeedMps: 10,
   forks: [["i280-north-geneva-approach", "i280-north-geneva-exit", -3.1]],
   speed: 12,
   maxDurationMs: 90_000,
@@ -2585,6 +2589,99 @@ for (const [direction, road, start, finish] of [
     maxDurationMs: 35_000,
   };
 }
+const sr82Owners = ["808f7c24", "808f7c2c", "808f7c34", "808f7c3c", "808f7e84"];
+const southGenevaTail = "i280-south-beyond-geneva";
+const southSr82Main = "i280-south-geneva-to-sr82";
+const southSr82Exit = "i280-south-sr82-exit";
+const southEdgeExit = "i280-south-edge-exit";
+const northSr82Main = "i280-north-sr82-to-geneva";
+cases["i280-sr82-northbound-through"] = {
+  owners: sr82Owners,
+  roads: [
+    "i280-north-edge-to-sr82",
+    northSr82Main,
+    "i280-north-geneva-approach",
+    "i280-north-geneva-to-ocean",
+  ],
+  rollingStart: true,
+  rollingStartMetres: 665,
+  finishOnDeck: true,
+  finishDistance: 130,
+  speed: 20,
+  maxDurationMs: 195_000,
+};
+cases["i280-sr82-southbound-through"] = {
+  owners: sr82Owners,
+  roads: [southGenevaTail, southSr82Main, "i280-south-sr82-to-edge"],
+  rollingStart: true,
+  rollingStartMetres: 475,
+  speed: 20,
+  maxDurationMs: 195_000,
+};
+cases["i280-sr82-northbound-entry"] = {
+  owners: sr82Owners,
+  roads: ["i280-north-sr82-entry", northSr82Main],
+  groundApproachMetres: 6,
+  finishOnDeck: true,
+  finishDistance: 150,
+  speed: 15,
+  maxDurationMs: 100_000,
+};
+cases["i280-sr82-southbound-exit"] = {
+  owners: sr82Owners,
+  roads: [southGenevaTail, southSr82Exit],
+  forks: [[southGenevaTail, southSr82Exit, -3.1]],
+  rollingStart: true,
+  rollingStartMetres: 470,
+  speed: 14,
+  maxDurationMs: 100_000,
+};
+cases["i280-sr82-southbound-edge-exit"] = {
+  owners: sr82Owners,
+  roads: [southSr82Main, southEdgeExit],
+  forks: [[southSr82Main, southEdgeExit, -3.1]],
+  rollingStart: true,
+  rollingStartMetres: 1220,
+  speed: 17,
+  maxDurationMs: 100_000,
+};
+cases["i280-sr82-exit-and-reentry"] = {
+  ...cases["i280-sr82-southbound-exit"],
+  roads: [
+    southGenevaTail,
+    southSr82Exit,
+    "i280-north-sr82-entry",
+    northSr82Main,
+  ],
+  connectByGround: true,
+  groundConnection: {
+    after: `sf-contact/${southSr82Exit}`,
+    minimumMetres: 390,
+    via: [
+      [-1374.3, -5385.7],
+      [-1388.0, -5400.3],
+      [-1392.5, -5410.0],
+      [-1392.8, -5414.1],
+      [-1385.8, -5421.5],
+      [-1336.0, -5472.3],
+      [-1311.9, -5496.5],
+      [-1286.9, -5522.0],
+      [-1285.3, -5526.8],
+      [-1289.1, -5533.2],
+      [-1388.5, -5632.5],
+      [-1393.5, -5635.2],
+      [-1399.2, -5631.7],
+      [-1480.6, -5562.6],
+      [-1499.5, -5543.1],
+      [-1500.5, -5538.9],
+      [-1497.9, -5535.3],
+      [-1494.1, -5532.8],
+    ],
+  },
+  finishOnDeck: true,
+  finishDistance: 150,
+  maxDurationMs: 245_000,
+};
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
