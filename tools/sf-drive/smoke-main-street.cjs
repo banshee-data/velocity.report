@@ -21,6 +21,9 @@ async function controls(canvas, checkpoint) {
     let throttle;
     let lastGrounded = start;
     let longestAirborneMs = 0;
+    let maxHeightDeviation = 0;
+    const initialZ = +element.dataset.altitude;
+    const slope = direction[0] < 0 ? 0.032 : -0.032;
     const accelerate = (enabled) => {
       if (throttle === enabled) return;
       throttle = enabled;
@@ -42,7 +45,13 @@ async function controls(canvas, checkpoint) {
       const seconds = (now - start) / 1000;
       if (d.contact === "grounded") lastGrounded = now;
       longestAirborneMs = Math.max(longestAirborneMs, now - lastGrounded);
-      if (d.surfaceId || Math.abs(lateral) > 3 || longestAirborneMs > 250) {
+      // Terrain contact can briefly disengage at a mesh seam. The altitude
+      // over the sampled street profile must still stay near lane level.
+      maxHeightDeviation = Math.max(
+        maxHeightDeviation,
+        Math.abs(+d.altitude - initialZ - slope * distance),
+      );
+      if (d.surfaceId || Math.abs(lateral) > 3 || maxHeightDeviation > 0.55) {
         accelerate(false);
         return {
           distance,
@@ -52,6 +61,7 @@ async function controls(canvas, checkpoint) {
           surfaceId: d.surfaceId,
           contact: d.contact,
           longestAirborneMs,
+          maxHeightDeviation,
         };
       }
       heights.push(+d.altitude);
@@ -62,6 +72,7 @@ async function controls(canvas, checkpoint) {
           seconds,
           streetContact: true,
           longestAirborneMs,
+          maxHeightDeviation,
           minZ: Math.min(...heights),
           maxZ: Math.max(...heights),
           crashed: d.replay === "crash",
