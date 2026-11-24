@@ -1,0 +1,1 @@
+- Prepared a development-only [DRAC review handoff](../../lidar/operations/drac-diagnostic-packet.md) with twelve reserved slots, source/v2 bindings, reviewer classifications and exact missing-export/Mac dependencies; no windows were selected or physically reviewed and no held-out data was read.

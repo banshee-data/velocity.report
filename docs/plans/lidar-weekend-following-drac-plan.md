@@ -461,3 +461,7 @@ Explain a supported value and an ambiguous or suppressed case where evidence per
 otherwise show why no physical value qualifies. State separately which engineering checks
 passed and what remains missing for physical publication. A geometry screen reports its actual
 status, including insufficient evidence, rather than implying a completed facet comparison.
+
+## Cloud diagnostic handoff
+
+The [twelve-window handoff](../lidar/operations/drac-diagnostic-packet.md) pins the three development source/v2 identities and review criteria. Selection is awaiting the retained campaign exports; its twelve slots are not completed reviews.
