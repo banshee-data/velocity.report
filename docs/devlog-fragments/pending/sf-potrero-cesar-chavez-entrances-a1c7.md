@@ -1,0 +1,1 @@
+- Baked the Potrero Avenue and Cesar Chavez Street entrances onto southbound US 101, with a shared elevated merge recorded in the [road route audit](../../ui/sf-road-route-audit.md#potrero-avenue-and-cesar-chavez-street-entrances-to-us-101).
