@@ -53,7 +53,8 @@ var eligibilityCoverage = []EntryPointCoverage{
 	{"lidar-state-estimation-baseline", "development_evaluation", "enforced", "every case's captures, before they are read; a held-out score names its split"},
 	{"lidar-refinement-eval", "development_evaluation", "enforced", "the case's capture, before it is replayed"},
 	{"Labelling workspace detail", "developer_diagnostic", "enforced", "qualification items are served as counts only; no labels, objects or previews"},
-	{"Other evaluators (lidar-box-eval, lidar-near-face-eval, lidar-ground-truth-eval, settling-eval, lidar-fg-diag, lidar-track-scorecard, lidar-evidence-oracle, lidar-closeness-audit, lidar-bench, vrlog-analyse)", "development_evaluation", "not_yet", "they read a split when given one; a run without one is not checked"},
+	{"lidar-box-eval, settling-eval, lidar-bench, jobs benchmark, lidar-fg-diag replay", "development_evaluation", "enforced", "every raw capture before packet parsing and output creation; the benchmark worker is guarded independently"},
+	{"Other evaluators (lidar-near-face-eval, lidar-ground-truth-eval, lidar-fg-diag vrlog, lidar-track-scorecard, lidar-evidence-oracle, lidar-closeness-audit, vrlog-analyse)", "development_evaluation", "not_yet", "they read a split when given one; a run without one is not checked"},
 	{"Tracks, Runs and scene pages", "developer_diagnostic", "not_yet", "they show any run the database holds"},
 	{"velocity lidar annotation-split freeze / verify", "annotation_review", "not_gated", "the frozen-split rules apply as before"},
 }

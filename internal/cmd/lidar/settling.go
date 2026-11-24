@@ -11,6 +11,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/compatibility"
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/settlingeval"
 )
@@ -22,6 +23,7 @@ import (
 // cmd/tools/settling-eval wrapper.
 func SettlingEvalMain(args []string) int {
 	fs := flag.NewFlagSet("velocity-lidar-settling-eval", flag.ContinueOnError)
+	guard := eligibilitycli.RegisterFlags(fs)
 	output := fs.String("output", "", "output JSON path (default: stdout)")
 	sensor := fs.String("sensor", "pcap-eval", "sensor ID")
 	var configPath string
@@ -50,6 +52,10 @@ func SettlingEvalMain(args []string) int {
 		return 2
 	}
 	pcapFile := fs.Arg(0)
+	if err := guard.AuthorizeCaptures("settling-eval", []string{pcapFile}); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
 	port := resolveUDPPort(*udpPort, pcapFile)
 	if port < 0 {
 		return 1

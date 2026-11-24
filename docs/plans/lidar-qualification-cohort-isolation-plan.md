@@ -46,13 +46,21 @@ Any reclassification is a separate, explicit site-wide decision, not a metadata 
 
 ## Delivery state (2026-11-05)
 
-| Step | State                                                                                                                                                                                                                                                 |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Audited; the coverage table is in the [workspace guide](../lidar/operations/labelling-workspace.md#enforcement-coverage). Ten evaluators and the Tracks and Runs pages are not yet guarded                                                            |
-| 2    | Delivered: `internal/lidar/eligibility` (manifest schema version 1, parser, site/capture consistency, synthetic fixtures in `eligibilitytest`)                                                                                                        |
-| 3    | Partly: sweeps, auto-tune, HINT, experiment-arm replays, `lidar-state-estimation-baseline` and `lidar-refinement-eval`. Frozen splits are read globally, so a run that names no split, or a new lineage, is still held to every split's held-out data |
-| 4    | Not started: no storage-level access controls exist, so qualification review and evaluation are refused rather than isolated                                                                                                                          |
-| 5    | CI tests for positive and negative paths, including a renamed capture, a new run ID and a client-claimed purpose; no pilot, and no assignments frozen                                                                                                 |
+| Step | State                                                                                                                                                                                                                                                                                 |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Audited; the coverage table is in the [workspace guide](../lidar/operations/labelling-workspace.md#enforcement-coverage). The [follow-up audit](../lidar/operations/qualification-perimeter-audit.md) identifies remaining derived-data evaluators and Tracks/ Runs/scene diagnostics |
+| 2    | Delivered: `internal/lidar/eligibility` (manifest schema version 1, parser, site/capture consistency, synthetic fixtures in `eligibilitytest`)                                                                                                                                        |
+| 3    | Partly: sweeps, auto-tune, HINT, experiment-arm replays, `lidar-state-estimation-baseline` and `lidar-refinement-eval`. Frozen splits are read globally, so a run that names no split, or a new lineage, is still held to every split's held-out data                                 |
+| 4    | Not started: no storage-level access controls exist, so qualification review and evaluation are refused rather than isolated                                                                                                                                                          |
+| 5    | CI tests for positive and negative paths, including a renamed capture, a new run ID and a client-claimed purpose; no pilot, and no assignments frozen                                                                                                                                 |
+
+## Raw-capture perimeter extension
+
+The [loader audit](../lidar/operations/qualification-perimeter-audit.md) adds guards for
+box evaluation, settling evaluation, foreground replay diagnostics and benchmarking, including
+the worker benchmark executor. Synthetic bypass regressions exercise actual command entry points.
+Derived-data loaders and diagnostic pages remain outstanding; this extension does not complete
+steps 1, 3 or 4, and does not claim storage-level isolation.
 
 ## Acceptance
 

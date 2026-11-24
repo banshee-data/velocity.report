@@ -11,6 +11,7 @@ import (
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/lidarbench"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
@@ -25,6 +26,7 @@ func BenchMain(args []string) int {
 	var cfg lidarbench.Config
 
 	fs := flag.NewFlagSet("lidar-bench", flag.ContinueOnError)
+	guard := eligibilitycli.RegisterFlags(fs)
 	configPath := fs.String("config", config.DefaultConfigPath, "Path to JSON tuning config (falls back to the embedded defaults)")
 	fs.StringVar(&cfg.PCAPFile, "pcap", "", "Path to PCAP file (required)")
 	fs.Float64Var(&cfg.StartSeconds, "start-seconds", 0, "Start replay at this capture offset in seconds")
@@ -124,6 +126,10 @@ func BenchMain(args []string) int {
 	}
 	if cfg.Quiet {
 		cfg.ProgressSecs = 0
+	}
+	if err := guard.AuthorizeCaptures("lidar-bench", []string{cfg.PCAPFile}); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
 	cfg.UDPPort = resolveUDPPort(cfg.UDPPort, cfg.PCAPFile)
 	if cfg.UDPPort < 0 {

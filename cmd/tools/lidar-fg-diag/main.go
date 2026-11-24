@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
@@ -166,6 +167,7 @@ func runVRLOG(args []string) error {
 
 func runReplay(args []string) error {
 	fs := flag.NewFlagSet("replay", flag.ExitOnError)
+	guard := eligibilitycli.RegisterFlags(fs)
 	pcap := fs.String("pcap", "", "capture")
 	tuning := fs.String("tuning", "config/tuning.defaults.json", "tuning file")
 	experiment := fs.String("experiment", "", "comma-separated replay experiments")
@@ -180,6 +182,9 @@ func runReplay(args []string) error {
 	summary := fs.String("summary", "", "per-frame decision count CSV")
 	oraclePath := fs.String("oracle", "", "oracle file, to label dumped returns")
 	fs.Parse(args)
+	if err := guard.AuthorizeCaptures("lidar-fg-diag replay", []string{*pcap}); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(*out, 0o755); err != nil {
 		return err
 	}
