@@ -36,6 +36,51 @@ const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
+test("local bridges carry the car above the ground grid and meet street pavement", () => {
+  const specifications = [
+    ["8085876c", "crossover-drive-over-jfk", [-3462, 1194.7], 6],
+    ["808f7fa4", "islais-creek-third-street", [4638, -1397], 1],
+    ["808f7fa4", "islais-creek-illinois-street", [4737, -1359], 3.5],
+    ["808f7fd4", "mission-creek-fourth-street", [4203, 1664], 0.9],
+  ];
+  for (const [token, slug, [x, y], gap] of specifications) {
+    const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+    const road = tile.playableRoads.find(
+      ({ id }) => id === `sf-contact/${slug}`,
+    );
+    const { surface, portals } = buildBakedRoadContact(road);
+    assert.equal(surface.kind, "bridge_deck");
+    assert.equal(portals.length, 2);
+    for (const portal of portals) {
+      assert.ok(
+        Math.abs(groundAtWorld([tile], portal.x, portal.y, true) - portal.z) <
+          0.025,
+        slug,
+      );
+    }
+    const separation =
+      surface.heightAt(x, y) - groundAtWorld([tile], x, y, true);
+    assert.ok(separation > gap, `${slug}: ${separation} m`);
+  }
+  const park = JSON.parse(gunzipSync(file("tiles/8085876c.json.gz")));
+  const surfaceFor = (id) =>
+    buildBakedRoadContact(
+      park.playableRoads.find((road) => road.id === `sf-contact/${id}`),
+    );
+  const bridge = surfaceFor("crossover-drive-over-jfk").surface;
+  const lower = surfaceFor("jfk-drive-under-crossover");
+  const crossing = [-3461.12, 1188.53];
+  const floor = lower.surface.heightAt(...crossing);
+  assert.ok(floor > 72 && floor < 74);
+  assert.ok(bridge.heightAt(...crossing) - floor > 5.5);
+  for (const portal of lower.portals) {
+    assert.ok(
+      Math.abs(groundAtWorld([park], portal.x, portal.y, true) - portal.z) <
+        0.025,
+    );
+  }
+});
+
 test("Dogpatch northbound runs below 18th Street and keeps 20th Street on its own deck", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808f7fb4", "808f7fbc", "808f7fcc", "808f7fd4"].map((t) =>

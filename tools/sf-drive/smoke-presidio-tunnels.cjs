@@ -2827,6 +2827,49 @@ for (const [direction, road, start, finish] of [
     maxDurationMs: 35_000,
   };
 }
+for (const [road, owners, speed, offset] of [
+  ["crossover-drive-over-jfk", ["8085876c"], 16, 2],
+  ["islais-creek-third-street", ["808f7fa4"], 12, 3],
+  ["islais-creek-illinois-street", ["808f7fa4"], 11, 1.35],
+  ["mission-creek-fourth-street", ["808f7fd4"], 11, 1.8],
+]) {
+  for (const reverse of [false, true]) {
+    cases[`${road}-${reverse ? "northbound" : "southbound"}`] = {
+      owners,
+      roads: [road],
+      speed,
+      reverse,
+      laneGuides: { [road]: { lane: reverse ? offset : -offset } },
+      groundApproachMetres: 9,
+      maxAirborneMetres: 0,
+      maxDurationMs: 60_000,
+    };
+  }
+}
+for (const reverse of [false, true]) {
+  const road = "jfk-drive-under-crossover";
+  cases[`${road}-${reverse ? "eastbound" : "westbound"}`] = {
+    owners: ["8085876c"],
+    roads: [road],
+    speed: 11,
+    reverse,
+    laneGuides: { [road]: { lane: reverse ? 1.5 : -1.5 } },
+    groundApproachMetres: 9,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [
+          [-3415.08, 1208.22, 74.48],
+          [-3392.95, 1219.86, 75.31],
+        ]
+      : [
+          [-3509.49, 1169.39, 70.06],
+          [-3513.16, 1167.82, 69.85],
+        ],
+    covered: [prefix + road],
+    maxAirborneMetres: 0,
+    maxDurationMs: 45_000,
+  };
+}
 const sr82Owners = ["808f7c24", "808f7c2c", "808f7c34", "808f7c3c", "808f7e84"];
 const southGenevaTail = "i280-south-beyond-geneva";
 const southSr82Main = "i280-south-geneva-to-sr82";
