@@ -1,0 +1,1 @@
+- Cleared the inferred bridge volume from the Main Street lanes. Both street-level directions passed in Chrome beneath the two Bay Bridge decks. The [route audit](../../ui/sf-road-route-audit.md#main-street-beneath-the-bay-bridge) records the crossing and the next stop on the longer itinerary.
