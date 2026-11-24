@@ -1222,3 +1222,45 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `fc4b55cf6a0f297a9c36a2bf2d5a4268a99ba8282f313644d9121b150543e68a`.
 - Contact SHA-256 `c47287e09f6c14fc2e5c2efb2d8326fbb236b8c423edda790c8e16866015a9b7`.
 - The bake changes one tile and preserves the existing emoji placement revision.
+
+## Southbound US 101 from Silver Avenue to San Bruno Avenue
+
+This bake adds ten directed sections, including the Industrial Street
+entrance, separate Silliman exit and entrance contacts, and the San Bruno
+Avenue exit. It keeps the I-280 branch at Silver Avenue and carries the
+mainline across four tile owners. The city ramps are 8 m wide. The
+through contacts widen to 13 m. The four ramp tapers run for 24 m.
+
+The fit used 254 depth-12 nodes from the April 2023 3DEP survey. The
+highest fitted grade is 9.27% on the San Bruno exit. The lowest city
+handoff is Industrial Street at 6.75 m NAVD88. Both Silliman contacts
+meet street pavement at 24.23 m, with separate directions into the
+intersection. The San Bruno exit reaches 38.13 m.
+
+The fixed-step car took the Silliman exit, drove 442.0 m on Silliman
+Street, Girard Street, Silver Avenue and San Bruno Avenue, re-entered
+US 101, and exited at San Bruno in 271.5 s. The Chrome keyboard runs
+separately confirmed the Industrial entrance to Silliman in 67.5 s,
+the Silliman entrance to San Bruno in 86.7 s, and the Silver approach
+to Silliman in 125.9 s. The through route reached the end of the bake
+in 188.2 s. The steering line stays inside the contact
+strip at Industrial Street where a baked building footprint intersects
+the test centreline. The building evidence needs a separate review.
+
+All 20 frozen emoji routes reached both targets over 52.43 km. The
+largest driven tile seam was 6.1 cm. No driven dip exceeded 0.5 m.
+The highest driven grade was 26.18% on Ordway Street.
+
+A separate check of the westbound I-80 loop to Harrison and Fremont
+found a 25.5 m shadow in the lower return band from station 349.0 m
+to 374.5 m, even with sampling every 0.5 m. The loop stays provisional
+under the 22 m limit.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  industrial-to-silliman silliman-roundtrip silver-through-san-bruno
+```
+
+- Game manifest SHA-256 `0258e1b19df5d4acded858f4b18169cf4ff1238e8501e380d4a12bbdb8d2b8f0`.
+- Contact SHA-256 `62b4b84067dc2c069b9158e7c65802f0721d91f78dd3c489fd9cef92de9a669d`.
+- The bake changes four tiles and preserves emoji placement.

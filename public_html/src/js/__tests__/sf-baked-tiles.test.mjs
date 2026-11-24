@@ -1265,6 +1265,77 @@ test("Central Freeway connects Fourth Street, 13th, Octavia and South Van Ness",
   assert.ok(!tiles[2].playableRoads?.some(({ id }) => id === exit.id));
 });
 
+test("southbound US 101 keeps the Silver fork, Industrial merge and Silliman street handoffs", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7e54", "808f7efc", "808f7ee4", "808f7f24"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) => playableRoads.map((r) => [r.id, r])),
+  );
+  const road = (id) => roads.get(`sf-contact/us101-south-${id}`);
+  const assertJoin = (source, destination) => {
+    const from = road(source);
+    const to = road(destination);
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${from.id}:end` &&
+          edge.to === `${to.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  };
+  for (const [from, to] of [
+    ["silver-through", "to-i280-south-approach"],
+    ["silver-through", "silver-to-industrial"],
+    ["silver-to-industrial", "industrial-to-silliman"],
+    ["industrial-entry", "industrial-to-silliman"],
+    ["industrial-to-silliman", "silliman-exit"],
+    ["industrial-to-silliman", "silliman-mainline"],
+    ["silliman-mainline", "silliman-to-paul"],
+    ["silliman-entry", "silliman-to-paul"],
+    ["silliman-to-paul", "paul-approach"],
+    ["paul-approach", "san-bruno-exit"],
+    ["paul-approach", "paul-mainline"],
+  ]) {
+    assertJoin(from, to);
+  }
+  const exit = road("silliman-exit");
+  const entry = road("silliman-entry");
+  assert.deepEqual(exit.points.at(-1), entry.points[0]);
+  assert.ok(
+    !roadBake.playableTransitions.some(
+      (edge) => edge.from === `${exit.id}:end`,
+    ),
+  );
+  for (const [id, groundEnd] of [
+    ["industrial-entry", "start"],
+    ["silliman-entry", "start"],
+    ["silliman-exit", "end"],
+    ["san-bruno-exit", "end"],
+    ["paul-mainline", "end"],
+  ]) {
+    const surface = road(id);
+    assert.deepEqual(surface.groundEnds, [groundEnd]);
+    const { portals } = buildBakedRoadContact(surface);
+    assert.equal(portals.length, 1);
+    const [{ x, y, z }] = portals;
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03, id);
+  }
+  const acrossTiles = road("silliman-to-paul");
+  assert.deepEqual(acrossTiles.owners, ["808f7efc", "808f7ee4"]);
+  for (const token of acrossTiles.owners) {
+    const tile = tiles.find(({ t }) => t === token);
+    assert.deepEqual(
+      tile.playableRoads.find(({ id }) => id === acrossTiles.id),
+      acrossTiles,
+    );
+  }
+});
+
 test("Monterey keeps its ramp mouths separate and Ocean Avenue reaches city pavement", () => {
   const tokens = ["808f7e64", "808f7e7c", "808f7ef4", "808f7e84", "808f7c2c"];
   const tiles = tokens.map((token) =>
