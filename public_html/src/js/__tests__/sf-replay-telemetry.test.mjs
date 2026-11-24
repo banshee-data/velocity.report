@@ -96,3 +96,11 @@ test("airtime slows on both event markers and holds for two real seconds", () =>
   const short = { impact: null, takeoff: 0, touchdown: 24, end: 264 };
   assert.equal(advanceReplay(short, 0, 0.4), 24);
 });
+
+test("a sideways impulse and torque use vehicle axes and changes in solver momentum", () => {
+  const poses = [
+    { q: [0, 0, 0, 1], velocity: [20, 1, 0], momentum: [0, 0, 0.5] },
+  ];
+  const [bin] = replayTelemetry(poses, 0, [20, 0, 0], [0, 0, 0]);
+  assert.deepEqual(bin.slice(3), [122, 77, 122]);
+});

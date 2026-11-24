@@ -519,7 +519,7 @@ export function formatBytes(bytes) {
 }
 
 /** 32 m spatial buckets avoid testing the whole city's buildings on every physics tick. */
-export function buildCollisionIndex(tile, token, damage) {
+export function buildCollisionIndex(tile, token, damage, ceiling) {
   const cells = new Map();
   const add = (shape, minX, minY, maxX, maxY) => {
     for (let x = Math.floor(minX / 32); x <= Math.floor(maxX / 32); x++)
@@ -539,6 +539,8 @@ export function buildCollisionIndex(tile, token, damage) {
     add(
       {
         kind: "tree",
+        ceiling,
+        height: h,
         x: wx,
         y: wy,
         radius,

@@ -200,6 +200,7 @@ export function buildCityGameDrive(drive, groundHeight) {
       profile,
       end_ids,
       end_tiles: ["game", "game"],
+      terminalHalfWidths: [fromWidth / 2, toWidth / 2],
       terminalBearings: [tangents[start] + Math.PI, tangents[end]],
       ...(kind === "tunnel" && {
         appearance: { interior: [0, profile.at(-1).s_m], clearance },

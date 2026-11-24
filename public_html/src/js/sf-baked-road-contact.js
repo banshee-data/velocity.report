@@ -136,6 +136,10 @@ export function buildBakedRoadContact(road) {
     profile,
     end_ids,
     end_tiles: owners,
+    terminalHalfWidths: [
+      (seams.start?.width ?? width) / 2,
+      (seams.end?.width ?? width) / 2,
+    ],
     terminalBearings: [tangents[0] + Math.PI, tangents.at(-1)],
     heightAt: indexRoadContact(contact),
     railSides,

@@ -412,3 +412,38 @@ test("settling requires sustained supported rest and falling ends with a separat
     stepCrash(falling, () => null);
   assert.equal(falling.outcome, "lost ground");
 });
+
+test("off-centre yielding trunk transfers momentum and turns the crash trajectory", () => {
+  const incoming = { ...car, v: 24, slip: 0 };
+  const index = buildCollisionIndex(
+    { o: [0, 0], b: [], tr: [[23, 7, 5, 2]] },
+    "fixture",
+  );
+  const hit = obstacleContact([index], drivingHull(incoming));
+  const tree = hit.tree,
+    damage = treeDamageForImpact(tree, 1280, 24, hit.nx, hit.ny);
+  assert.equal(damage.stage, "broken");
+  const crash = beginCrash(
+    incoming,
+    "tree",
+    { ...hit, yielded: damage.absorbed },
+    flat,
+  );
+  assert.ok(crash.velocity.x < incoming.v - 1 && crash.velocity.x > 0);
+  assert.ok(Math.abs(crash.momentum.z) > 0.5);
+  assert.ok(crash.velocity.y < incoming.slip);
+  const clearIndex = buildCollisionIndex(
+    { o: [0, 0], b: [], tr: [[23, 7, 5, 2]] },
+    "fixture",
+    null,
+    () => 0.5,
+  );
+  assert.equal(
+    obstacleContact([clearIndex], drivingHull({ ...incoming, z: 1 })),
+    null,
+  );
+  assert.equal(
+    obstacleContact([clearIndex], drivingHull({ ...incoming, z: 0 })).kind,
+    "tree",
+  );
+});

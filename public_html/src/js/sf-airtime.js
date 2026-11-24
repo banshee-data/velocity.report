@@ -179,7 +179,9 @@ export function createAirtimeHud(panel, template, onLanding) {
   const timeline = createFlightTimeline(onLanding);
   const elements = new Map();
   function draw(now) {
-    const visible = timeline.visible(now);
+    const visible = [...timeline.visible(now)].sort(
+      (a, b) => b.seconds - a.seconds,
+    );
     for (const [flight, card] of elements) {
       if (visible.includes(flight)) continue;
       card.element.remove();
@@ -201,6 +203,10 @@ export function createAirtimeHud(panel, template, onLanding) {
         elements.set(flight, card);
         panel.append(element);
       }
+      const depth = visible.indexOf(flight);
+      card.element.style.zIndex = visible.length - depth;
+      card.element.style.setProperty("--depth", Math.min(depth, 2));
+      card.element.setAttribute("aria-hidden", String(depth > 0));
       if (card.label !== flight.label || card.samples !== flight.trace.length) {
         drawCard(card, flight);
         card.label = flight.label;

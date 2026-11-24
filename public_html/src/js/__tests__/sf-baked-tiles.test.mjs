@@ -2171,3 +2171,65 @@ test("the Alemany fork carries both I-280 through traffic and the ramp to southb
   const index = buildCollisionIndex(tiles.get(tokens[0]), tokens[0]);
   assert.equal(collisionAt([index], { x, y, heading: 0.45 }, z), null);
 });
+
+test("outer lanes keep momentum across the 12 m Dogpatch seam", async () => {
+  const { driveOnRoadNetwork, indexRoadNetwork } =
+    await import("../sf-road-network.js");
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7fcc.json.gz")));
+  const pieces = [
+    "i280-dogpatch-northbound",
+    "i280-south-of-eighteenth-northbound",
+  ].map((name) =>
+    buildBakedRoadContact(
+      tile.playableRoads.find((r) => r.id === "sf-contact/" + name),
+    ),
+  );
+  const [from, to] = pieces.map((p) => p.surface);
+  const graph = indexRoadNetwork([{ id: "fixture", status: "joined" }]);
+  graph.add({
+    endpoints: pieces.flatMap((p) => p.endpoints),
+    transitions: [
+      {
+        id: "fixture",
+        from: from.end_ids[1],
+        to: to.end_ids[0],
+        support: "observed",
+        direction: "both",
+      },
+    ],
+  });
+  const surfaces = new Map(pieces.map((p) => [p.surface.id, p.surface]));
+  const [x, y, z] = from.profile.at(-1).position,
+    bearing = from.terminalBearings[1];
+  for (const side of [-4.4, 4.4])
+    for (const direction of [-1, 1]) {
+      const heading = bearing + (direction < 0 ? Math.PI : 0);
+      let c = {
+        x: x - 3 * Math.cos(heading) - side * Math.sin(bearing),
+        y: y - 3 * Math.sin(heading) + side * Math.cos(bearing),
+        z,
+        v: 12,
+        heading,
+        grounded: true,
+        surfaceId: (direction > 0 ? from : to).id,
+      };
+      for (let n = 0; n < 65; n++) {
+        c = driveOnRoadNetwork(
+          c,
+          {},
+          1 / 120,
+          surfaces.get(c.surfaceId),
+          surfaces,
+          graph,
+          () => false,
+        );
+        assert.equal(
+          c.blocked,
+          false,
+          `side ${side}, direction ${direction}, step ${n}`,
+        );
+      }
+      assert.equal(c.surfaceId, (direction > 0 ? to : from).id);
+      assert.ok(c.v > 10);
+    }
+});

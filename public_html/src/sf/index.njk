@@ -149,7 +149,7 @@ eleventyExcludeFromCollections: true
   }
   body[data-solo="true"] .seeker, body[data-solo="true"] .map,
   body[data-solo="true"] #desktopMap, body[data-solo="true"] .details,
-  body[data-solo="true"] #places, body[data-solo="true"] label[for="places"] { display: none; }
+  body[data-solo="true"] .sources { display: none; }
   body:not([data-solo="true"]) #soloDetails { display: none; }
   #soloTrace { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
   body[data-bridge="true"] .seeker, body[data-bridge="true"] .details { display: none; }
@@ -177,6 +177,30 @@ eleventyExcludeFromCollections: true
   @media (pointer: coarse), (max-width: 760px) {
     .airtime { right: 8px; bottom: 82px; max-height: calc(100dvh - 150px); }
   }
+  #menuBtn { width: auto; padding: 0 10px; font-size: 14px; font-weight: 700; }
+  .survey-cue { white-space: nowrap; font: 600 12px var(--mono); }
+  .survey-cue i { display: inline-block; font-style: normal; color: var(--accent); }
+  #startScenario { background:var(--accent); color:var(--bg); font-weight:700; }
+  .hud-field { position:fixed; inset:calc(max(8px,env(safe-area-inset-top)) + 56px) 8px calc(var(--hud-bottom) + 8px); display:flex; justify-content:space-between; pointer-events:none; }
+  .hud-lane { display:flex; flex-direction:column; justify-content:flex-end; gap:6px; max-width:calc(50% - 6px); min-height:0; }
+  .hud-lane > * { position:static !important; max-width:100%; }
+  .left-lane { width:204px; align-items:flex-start; }
+  .right-lane { width:280px; align-items:flex-end; }
+  .hud-lane .seeker { margin-bottom:auto; flex-shrink:0; }
+  .survey-overlay { overflow:auto; pointer-events:auto; }
+  .hud-lane .airtime:not([hidden]) { display:grid; isolation:isolate; padding:0 6px 6px 0; }
+  .airtime-card { grid-area:1/1; transform:translate(calc(var(--depth)*3px),calc(var(--depth)*3px)); }
+  body:has(#replayPanel:not([hidden])) :is(.hud-field,.mirror) { visibility:hidden; }
+  @media (pointer: coarse), (max-width:760px) {
+    .hud-field { bottom:calc(var(--hud-bottom) + var(--pad-size) + 8px); }
+    .insurance { max-height:var(--pad-size); overflow:auto; pointer-events:auto; bottom:var(--hud-bottom); width:calc(100vw - 4 * var(--pad-size) - 2 * var(--pad-gap) - 2 * max(var(--steering-inset),var(--pedal-inset)) - 12px); }
+    #desktopMap { display:none; }
+  }
+  @media (max-height:500px) { .hud-lane .seeker { height:auto; } .seeker-copy #seekerTurn,.seeker-copy #seekerScope { display:none; } }
+  @media (pointer:fine) and (min-width:761px) { .hud-lane { max-width:calc(50vw - 125px); } }
+#replayGraphs.severe { border-color:#f87171; } #replayGraphs .severe-load { color:#fca5a5; font-weight:bold; } #replayGraphs a {color:var(--accent)}
+#driveNotice {font-size:10px;color:var(--dash);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .drive-bar {height:52px;}
+  body:has(.mirror:not([hidden])) .hud-lane { max-width:calc((100% - min(220px, 25vw - 8px)) / 2 - 8px); }
 </style>
 </head>
 <body>
@@ -186,14 +210,14 @@ eleventyExcludeFromCollections: true
 <header class="panel drive-bar" id="driveBar" aria-label="Driving status">
   <div class="where">
     <div class="street" id="street">Loading the city…</div>
-    <div class="next" id="next" role="status"></div>
+    <div class="next" id="next"></div><div id="driveNotice" role="status"></div>
   </div>
   <span class="speed"><span id="speed">0</span><small>mph</small></span>
   <div class="run">
     <span class="timer" id="timer" role="timer" aria-label="Elapsed trial time">0:00.00</span>
     <span id="progress">0 emojis</span>
   </div>
-  <button type="button" class="icon-button" id="menuBtn" aria-label="Map and game settings" aria-haspopup="dialog" aria-controls="gameMenu" aria-expanded="false">☰</button>
+  <button type="button" class="icon-button" id="menuBtn" aria-label="Modes, map and settings" aria-haspopup="dialog" aria-controls="gameMenu" aria-expanded="false">Modes</button>
 </header>
 <section class="panel insurance" id="insuranceHud" aria-label="Delivery insurance" hidden>
   <div id="insuranceMeter" hidden>
@@ -207,14 +231,15 @@ eleventyExcludeFromCollections: true
   <div id="insuranceInfractions"></div>
 </section>
 <dialog id="takeoverDialog" class="panel" aria-labelledby="takeoverTitle">
-  <h2 id="takeoverTitle">Switch to Meat mode?</h2>
+  <h2 id="takeoverTitle">Switch to free drive?</h2>
   <p>Manual driving costs 0.12¢ per second in game. Survey bonuses can lower your rate.</p>
   <form method="dialog" class="row">
     <button value="cancel" autofocus>Cancel</button>
     <button value="manual">Take manual control</button>
   </form>
 </dialog>
-<div class="seeker" aria-label="Direction to next emoji">
+<div class="hud-field">
+  <div class="hud-lane left-lane"><div class="seeker" aria-label="Direction to next emoji">
   <canvas id="seekerCompass" width="144" height="144" role="img" aria-label="Direction to the next emoji, relative to the car"></canvas>
   <div class="seeker-copy">
     <strong id="seekerTurn">Follow arrow</strong>
@@ -226,18 +251,22 @@ eleventyExcludeFromCollections: true
 <div class="panel survey-overlay survey-approach" id="surveyApproach" hidden>
   <div class="survey-approach-line">
     <span class="survey-approach-label"><span aria-hidden="true">◆</span> Survey ahead</span>
-    <span id="surveyApproachDistance"></span>
+    <span class="survey-cue" id="surveyApproachDistance"><i aria-hidden="true">↑</i> <span></span></span>
   </div>
   <strong id="surveyApproachTitle" role="status" aria-label="Survey ahead"></strong>
 </div>
 <aside class="panel survey-overlay survey-card" id="surveyCard" aria-labelledby="surveyTitle" hidden>
-  <div class="survey-status" id="surveyStatus" role="status"></div>
+  <div class="survey-approach-line"><span class="survey-status" id="surveyStatus" role="status"></span><span class="survey-cue" id="surveyCardCue"><i aria-hidden="true">↑</i> <span></span></span></div>
   <h2 id="surveyTitle"></h2>
   <div class="survey-metric"><span>Peak speeds</span><strong id="surveyP85"></strong></div>
   <div class="survey-chart" id="surveyChart"></div>
   <a id="surveyLink" target="_blank" rel="noopener" aria-label="View survey (opens in a new tab)">View survey <span aria-hidden="true">→</span></a>
 </aside>
-<canvas class="panel" id="desktopMap" role="img" aria-label="City coverage showing the coastline, parks, major roads, S2 tiles and your car."></canvas>
+</div>
+  <div class="hud-lane right-lane"><canvas class="panel" id="desktopMap" role="img" aria-label="City coverage showing the coastline, parks, major roads, S2 tiles and your car."></canvas>
+<section class="airtime" id="airtime" aria-label="Airtime and road elevation" hidden></section>
+</div>
+</div>
 <section class="panel" id="replayPanel" aria-label="Replay controls" hidden>
   <div>
     <span id="replayStatus" role="status"></span> <span id="replayRate"></span>
@@ -251,10 +280,13 @@ eleventyExcludeFromCollections: true
   <figure><figcaption>Speed <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Speed" data-unit="mph"></canvas></figure>
   <figure><figcaption>Vehicle deceleration <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Vehicle deceleration" data-unit="m/s²"></canvas></figure>
   <figure><figcaption>Vehicle jerk <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Vehicle jerk" data-unit="m/s³"></canvas></figure>
+  <figure><figcaption>Lateral acceleration <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Lateral acceleration" data-scale="10" data-unit="g"></canvas></figure>
+  <figure><figcaption>Spin torque <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Net spin torque" data-unit="kN·m"></canvas></figure>
+  <figure><figcaption>Resultant acceleration <output></output></figcaption><canvas width="320" height="35" role="img" data-label="Resultant acceleration" data-scale="10" data-unit="g"></canvas></figure>
+  <p class="severe-load" hidden>Extreme chassis load · potentially life-threatening impact</p>
   <p>Peak per 100 ms · purple take-off · green touchdown · orange impact</p>
-  <p>Human survival threshold unavailable. The game simulates the car, with no occupant model.</p>
+  <p class="injury-reference">Injury reference · <a href="https://www.ecfr.gov/current/title-49/section-571.208#p-571.208(S6.3)">FMVSS 208 S6.3</a> sets a 60 g dummy chest limit with a 3 ms duration exception. Red flags a 60 g chassis sample. Occupant injury and survival cannot be determined from these vehicle traces.</p>
 </details>
-<section class="airtime" id="airtime" aria-label="Airtime and road elevation" hidden></section>
 <template id="airtimeCard">
   <article class="panel airtime-card">
     <strong class="airtime-readout"></strong>
@@ -267,12 +299,16 @@ eleventyExcludeFromCollections: true
     <form method="dialog"><button class="icon-button" aria-label="Close settings">×</button></form>
   </div>
   <div class="tools">
+    <label for="driveMode">Driving mode</label>
+    <select id="driveMode"><option value="auto">Self driving</option><option value="free">Free drive</option><option value="school">Driving school</option></select>
+    <label for="places">Location or scenario</label>
+    <select id="places"></select>
+    <button id="startScenario" type="button">Start scenario</button>
     <label for="viewMode">Camera <output id="cameraName" for="viewMode">Zoomed out</output></label>
     <input type="range" id="viewMode" min="0" max="2" step="1" value="0" aria-valuetext="Zoomed out">
     <div class="camera-stops" aria-hidden="true"><span>Zoomed out</span><span>Overhead</span><span>In car</span></div>
     <button type="button" id="mirrorBtn" aria-pressed="true" hidden>Rear-view mirror</button>
-    <label for="places">Start from</label>
-    <select id="places"></select>
+
     <a href="?at=embarcadero" id="recoveryStart" hidden>Try the Embarcadero start</a>
     <button type="button" id="followCityDrive" hidden>Take manual control</button>
     <div class="row">
@@ -280,7 +316,7 @@ eleventyExcludeFromCollections: true
       <button type="button" id="respawnBtn">Reset car</button>
     </div>
   </div>
-  <p><a href="{{ '/sf/following/' | url }}">Downhill following practice</a> · authored scenario</p>
+
   <section id="soloDetails" aria-labelledby="soloTitle">
     <h2 id="soloTitle">Solo safety practice</h2>
     <p>Drive east over the crest to the white finish line, 300 m from the start. Close this menu and accelerate to begin. Stay on the road; there is no reward for faster time.</p>
@@ -431,8 +467,8 @@ eleventyExcludeFromCollections: true
     surveySites: JSON.parse($("surveySites").textContent),
     hud: {
       emojiFocus: $("emojiFocus"), cameraName: $("cameraName"), soloSummary: $("soloSummary"), soloTrace: $("soloTrace"), soloPrevious: $("soloPrevious"),
-      street: $("street"), next: $("next"), speed: $("speed"), compass: $("compass"), tiles: $("tiles"),
-      places: $("places"), mirrorBtn: $("mirrorBtn"), viewMode: $("viewMode"), mirrorFrame: $("mirrorFrame"),
+      street: $("street"), notice: $("driveNotice"), next: $("next"), speed: $("speed"), compass: $("compass"), tiles: $("tiles"),
+      mode: $("driveMode"), startScenario: $("startScenario"), places: $("places"), mirrorBtn: $("mirrorBtn"), viewMode: $("viewMode"), mirrorFrame: $("mirrorFrame"),
       menu: $("gameMenu"), menuBtn: $("menuBtn"), driveBar: $("driveBar"),
       restartBtn: $("restartBtn"), respawnBtn: $("respawnBtn"), minimap: $("minimap"), desktopMap: $("desktopMap"),
       timer: $("timer"), progress: $("progress"), progressBar: $("progressBar"), target: $("target"),
@@ -450,7 +486,7 @@ eleventyExcludeFromCollections: true
       insuranceDeliveries: $("insuranceDeliveries"), insuranceInfractions: $("insuranceInfractions"),
       touchButtons: document.querySelectorAll(".pad button"),
       survey: {
-        approach: $("surveyApproach"), approachTitle: $("surveyApproachTitle"), approachDistance: $("surveyApproachDistance"),
+        approach: $("surveyApproach"), approachTitle: $("surveyApproachTitle"), approachCue: $("surveyApproachDistance"), cardCue: $("surveyCardCue"),
         card: $("surveyCard"), status: $("surveyStatus"), title: $("surveyTitle"),
         p85: $("surveyP85"), chart: $("surveyChart"), link: $("surveyLink"),
       },

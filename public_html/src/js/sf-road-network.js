@@ -8,6 +8,19 @@ const supported = (value) => ["observed", "interpolated"].includes(value);
 const seamReachM = 4;
 const ownerPreloadM = 12;
 
+// Distance to the finite transverse join. A lane can sit several metres
+// from its centre while its front and rear axles straddle the same seam.
+function nearJoin(car, seam, radius) {
+  const x = car.x - seam.point[0],
+    y = car.y - seam.point[1];
+  const along = x * seam.dx + y * seam.dy;
+  const beyond = Math.max(
+    0,
+    Math.abs(y * seam.dx - x * seam.dy) - seam.halfWidth,
+  );
+  return Math.hypot(along, beyond) <= radius;
+}
+
 export const SIXTH_RAMP_DRIVE = "sixth-brannan-ramp-approach";
 export const SIXTH_RAMP_NAME = "6th–Brannan · game ramp approach";
 export const SIXTH_RAMP_OWNER = "808f7fd4";
@@ -206,6 +219,7 @@ function terminals(surface) {
     const bearing = surface.terminalBearings?.[end];
     return {
       id: surface.end_ids[end],
+      halfWidth: surface.terminalHalfWidths?.[end] ?? 0,
       owner: surface.end_tiles[end],
       point,
       dx: bearing === undefined ? dx / length : Math.cos(bearing),
@@ -238,15 +252,13 @@ export function driveOnRoadNetwork(
   requestOwner,
 ) {
   const prior = car.seam && surfaces.get(car.seam.surfaceId);
-  const near = (car, point, radius) =>
-    Math.hypot(car.x - point[0], car.y - point[1]) <= radius;
-  const sharedContact = (first, second, point) => (x, y) =>
+  const sharedContact = (first, second, join) => (x, y) =>
     first.heightAt(x, y) ??
-    (near({ x, y }, point, seamReachM) ? second.heightAt(x, y) : null);
+    (nearJoin({ x, y }, join, seamReachM) ? second.heightAt(x, y) : null);
   let next = driveOnRoadSurface(car, input, dt, surface);
-  if (next.blocked && prior && near(car, car.seam.point, seamReachM)) {
+  if (next.blocked && prior && nearJoin(car, car.seam, seamReachM)) {
     const straddling = driveOnRoadSurface(car, input, dt, {
-      heightAt: sharedContact(surface, prior, car.seam.point),
+      heightAt: sharedContact(surface, prior, car.seam),
     });
     if (surface.heightAt(straddling.x, straddling.y) !== null)
       next = straddling;
@@ -261,7 +273,7 @@ export function driveOnRoadNetwork(
   let waiting = false;
   for (const terminal of terminals(surface)) {
     const { id, owner, point, dx, dy } = terminal;
-    if (!near(car, point, ownerPreloadM) || !(hx * dx + hy * dy > 0.25))
+    if (!nearJoin(car, terminal, ownerPreloadM) || !(hx * dx + hy * dy > 0.25))
       continue;
     waiting = requestOwner(owner) || waiting;
     const candidates = [];
@@ -277,10 +289,10 @@ export function driveOnRoadNetwork(
         continue;
       waiting = requestOwner(destination.surface_owner) || waiting;
       const target = surfaces.get(destination.surface_id);
-      if (!target?.end_ids.includes(to) || !near(car, point, seamReachM))
+      if (!target?.end_ids.includes(to) || !nearJoin(car, terminal, seamReachM))
         continue;
       const candidate = driveOnRoadSurface(car, input, dt, {
-        heightAt: sharedContact(surface, target, point),
+        heightAt: sharedContact(surface, target, terminal),
       });
       if (candidate.blocked) continue;
       const z = target.heightAt(candidate.x, candidate.y);
@@ -292,7 +304,7 @@ export function driveOnRoadNetwork(
             ...candidate,
             z,
             surfaceId: target.id,
-            seam: { surfaceId: surface.id, point },
+            seam: { surfaceId: surface.id, ...terminal },
           },
           miss: branchMiss(candidate, target, to, travel),
         });
@@ -315,6 +327,6 @@ export function driveOnRoadNetwork(
   if (next.blocked) return { ...next, waiting };
   return {
     ...next,
-    seam: prior && near(next, car.seam.point, seamReachM) ? car.seam : null,
+    seam: prior && nearJoin(next, car.seam, seamReachM) ? car.seam : null,
   };
 }
