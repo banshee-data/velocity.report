@@ -2246,6 +2246,37 @@ cases["island-east-westbound-through-exit"] = {
   finishDistance: 77,
   maxDurationMs: 125_000,
 };
+cases["macalla-westbound-roundtrip"] = {
+  ...cases["island-east-westbound-exit"],
+  roads: [eastSpan, westExit, macallaEntrance, ...upperFromIsland.slice(1, 5)],
+  speedLimits: { [westExit]: 9, [macallaEntrance]: 11 },
+  groundDeparture: undefined,
+  groundConnection: {
+    after: prefix + westExit,
+    via: [
+      [6631, 5767],
+      [6623, 5770],
+      [6622, 5765],
+      [6632, 5764],
+      [6642, 5762.3],
+      [6647.5, 5761.5],
+    ],
+    minimumMetres: 38,
+    turn: {
+      east: 6623,
+      north: 5770,
+      direction: 1,
+      returnVia: [
+        [6630.5, 5764.9],
+        [6641.5, 5762.6],
+        [6648.4, 5761.0],
+      ],
+    },
+  },
+  finishOnDeck: true,
+  finishDistance: 77,
+  maxDurationMs: 195_000,
+};
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
@@ -2453,6 +2484,7 @@ async function drive(
       course.speed.fill(5, Math.max(0, course.speed.length - 8));
 
       let turnPhase = 0;
+      let returnPoint = 0;
       let turnHeading;
       let reversedOnGround = false;
       // Use a three-point turn where the narrow island junction has no room
@@ -2494,7 +2526,11 @@ async function drive(
           steer = -direction;
           if (Math.abs(pose.v) < 0.12) turnPhase = 5;
         } else if (turnPhase === 5) {
-          steer = steerToward(...entrance);
+          const points = groundTurn.returnVia ?? [];
+          const [x, y] = points[returnPoint] ?? entrance;
+          if (Math.hypot(pose.x - x, pose.y - y) < 1.6)
+            returnPoint = Math.min(returnPoint + 1, points.length);
+          steer = steerToward(...(points[returnPoint] ?? entrance));
         }
         const brake = braking || Math.abs(pose.v) > limit + 0.45;
         const moving = !brake && Math.abs(pose.v) < limit;

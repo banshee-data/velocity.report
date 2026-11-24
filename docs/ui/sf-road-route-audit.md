@@ -2231,12 +2231,17 @@ USGS 3DEP survey. [OpenStreetMap data licence](https://www.openstreetmap.org/cop
 Chrome drove 31.9 m on the approach to the loop, with 24.2 m recorded
 as grounded at both sample endpoints. It merged, passed through both
 upper bore sections and reached the West Span grounded in 57.0 s. The
-separate through drive finished in 26.5 s. The automatic named start
-reached Fremont and returned to westbound I‑80 at Fourth.
+separate through drive finished in 26.5 s. From the regular 50 mph
+start, a single manual drive exited at Macalla, made a three-point turn
+on the street, re-entered westbound I-80 and reached the West Span in
+127.1 s. Chrome recorded 62.6 m between the ramps, with 57.4 m grounded
+at both sample endpoints. The automatic named start reached Fremont and
+returned to westbound I‑80 at Fourth.
 
 ```sh
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
-  macalla-to-westbound-i80 island-east-upper-mainline island-east-westbound-exit
+  macalla-to-westbound-i80 macalla-westbound-roundtrip \
+  island-east-upper-mainline island-east-westbound-exit
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-yerba-buena.cjs
 ```
 
