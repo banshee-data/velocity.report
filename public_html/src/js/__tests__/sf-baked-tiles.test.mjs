@@ -81,6 +81,36 @@ test("local bridges carry the car above the ground grid and meet street pavement
   }
 });
 
+test("Lyell Street retains smooth contact beneath both I-280 carriageways", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e64.json.gz")));
+  const surfaceFor = (slug) =>
+    buildBakedRoadContact(
+      tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`),
+    );
+  const lower = surfaceFor("lyell-street-under-i280");
+  assert.equal(lower.portals.length, 2);
+  for (const portal of lower.portals) {
+    assert.ok(
+      Math.abs(groundAtWorld([tile], portal.x, portal.y, true) - portal.z) <
+        0.025,
+    );
+  }
+  for (const [slug, crossing] of [
+    ["i280-north-monterey-to-alemany", [728.19, -3098.15]],
+    ["i280-south-monterey-mainline", [724.13, -3078.01]],
+  ]) {
+    const floor = lower.surface.heightAt(...crossing);
+    const deck = surfaceFor(slug).surface.heightAt(...crossing);
+    assert.ok(floor > 36 && floor < 40, `${slug}: ${floor}`);
+    assert.ok(deck - floor > 9, `${slug}: ${deck - floor}`);
+  }
+  const before = lower.surface.heightAt(727.15, -3093.03);
+  const after = lower.surface.heightAt(725.13, -3083.23);
+  assert.ok(after - before > 0 && after - before < 0.9);
+  const terrain = groundAtWorld([tile], 725.13, -3083.23, true);
+  assert.ok(terrain < after && after - terrain < 0.08);
+});
+
 test("Dogpatch northbound runs below 18th Street and keeps 20th Street on its own deck", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808f7fb4", "808f7fbc", "808f7fcc", "808f7fd4"].map((t) =>
