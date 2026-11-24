@@ -1,7 +1,7 @@
 async function confirmManualTakeover(page) {
-  if ((await page.locator("#insuranceMode").textContent()) === "Meat mode")
-    return;
-  const dialog = page.getByRole("dialog", { name: "Switch to Meat mode?" });
+  const manualMode = page.locator('#insuranceHud[data-mode="manual"]');
+  if ((await manualMode.count()) > 0) return;
+  const dialog = page.locator("#takeoverDialog");
   await page.keyboard.down("ArrowUp");
   try {
     await dialog.waitFor();
@@ -9,9 +9,7 @@ async function confirmManualTakeover(page) {
     await page.keyboard.up("ArrowUp");
   }
   await dialog.getByRole("button", { name: "Take manual control" }).click();
-  await page.waitForFunction(
-    () => document.querySelector("#insuranceMode").textContent === "Meat mode",
-  );
+  await manualMode.waitFor();
 }
 
 module.exports = { confirmManualTakeover };
