@@ -336,6 +336,9 @@ scored its pairs.
   are background), the deadlock breaker that absorbs a slow body, and DBSCAN's single `eps`
   with no gap tolerance across a dropped band of returns. D3's near-merge cases are the same
   measure read the other way, and belong in it.
+  The [fixture-backed membership diagnostic](../lidar/operations/w3-membership-diagnostic.md)
+  separates main and secondary retained membership from L3 and L4 losses in the
+  existing `fate` command; it adds no corpus result and leaves W3 acceptance open.
 - **Identity under A2.** A2 gates association on the body's prediction, so every geometry change
   moves identity. Deliver both models on the shadow first, where identity cannot move, and score
   the physical gain there; then A2, with the identity level above as its own gate. The

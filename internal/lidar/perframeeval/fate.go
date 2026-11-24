@@ -281,6 +281,43 @@ type FateCluster struct {
 	ClusterPoints int `json:"cluster_points"`
 }
 
+// FateMembership partitions reviewed returns without conflating an L3 loss,
+// an L4 rejection and membership outside the largest fragment. Main is chosen
+// independently per instant by reviewed-return count, not cluster population or
+// tracker association. OtherFrame and Unresolved are not attributed as losses.
+type FateMembership struct {
+	Main         int `json:"main_cluster"`
+	Secondary    int `json:"secondary_clusters"`
+	L3Background int `json:"l3_background"`
+	L4Rejected   int `json:"l4_rejected"`
+	OtherFrame   int `json:"other_frame"`
+	Unresolved   int `json:"unresolved"`
+}
+
+func membershipOf(in FateInstant) FateMembership {
+	var m FateMembership
+	for _, c := range in.Clusters {
+		m.Main = max(m.Main, c.Points)
+	}
+	m.Secondary = in.Fates[FateClustered] - m.Main
+	m.L3Background = in.Fates[FateL3Background]
+	for f := fateHeightBand; f <= fateRejectionUnknown; f++ {
+		m.L4Rejected += in.Fates[fateNames[f]]
+	}
+	m.OtherFrame = in.Fates[FateOtherFrame]
+	m.Unresolved = in.Fates[FateUnresolved]
+	return m
+}
+
+func (m *FateMembership) add(other FateMembership) {
+	m.Main += other.Main
+	m.Secondary += other.Secondary
+	m.L3Background += other.L3Background
+	m.L4Rejected += other.L4Rejected
+	m.OtherFrame += other.OtherFrame
+	m.Unresolved += other.Unresolved
+}
+
 // FateInstant is one object in one measured frame.
 type FateInstant struct {
 	SampleID      int    `json:"sample_id"`
@@ -293,6 +330,8 @@ type FateInstant struct {
 	RangeM  float64 `json:"range_m"`
 	Band    string  `json:"range_band"`
 	Returns int     `json:"returns"`
+	// Membership partitions the reviewed returns in this instant.
+	Membership FateMembership `json:"membership"`
 	// Fates counts the returns by fate; fates with none are left out.
 	Fates    map[string]int `json:"fates"`
 	Clusters []FateCluster  `json:"clusters,omitempty"`
@@ -308,6 +347,8 @@ type FateSummary struct {
 	Objects  int    `json:"objects"`
 	Instants int    `json:"instants"`
 	Returns  int    `json:"returns"`
+	// Membership sums per-instant partitions, never choosing a cluster across frames.
+	Membership FateMembership `json:"membership"`
 	// Fates and Shares cover every fate; shares are of Returns.
 	Fates  map[string]int     `json:"fates"`
 	Shares map[string]float64 `json:"shares"`
@@ -946,6 +987,7 @@ func (m *fateMeasurer) measure(g fateGroup, prev, cur, next *fateFrame) error {
 			c := rec.Clusters[s]
 			in.Clusters = append(in.Clusters, FateCluster{ClusterID: c.ClusterID, Points: bySlot[s], ClusterPoints: len(c.Members)})
 		}
+		in.Membership = membershipOf(in)
 		m.report.Instants = append(m.report.Instants, in)
 	}
 	return nil
@@ -997,6 +1039,7 @@ func (a *fateAccum) add(in FateInstant) {
 	a.objects[in.ObjectID] = true
 	a.s.Instants++
 	a.s.Returns += in.Returns
+	a.s.Membership.add(in.Membership)
 	var t [numFates]int
 	for f, name := range fateNames {
 		t[f] = in.Fates[name]
