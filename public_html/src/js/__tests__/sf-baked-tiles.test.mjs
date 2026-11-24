@@ -11,6 +11,7 @@ import {
 import {
   buildCollisionIndex,
   collisionAt,
+  contactStep,
   groundAtWorld,
 } from "../sf-drive-core.js";
 import { coveredRoadBlend, driveCameraPose } from "../sf-drive-camera.js";
@@ -2330,17 +2331,26 @@ test("Mariposa Street stays at the lower level through the viaduct and connects 
     v: 0,
     grounded: true,
   };
+  let airborneSteps = 0;
   for (let frame = 0; frame < 120 * 25 && car.x < 4185; frame++) {
-    car = driveOnRoadSurface(
+    car = contactStep(
       car,
       { steer: 0, throttle: car.v < 5.5 ? 1 : 0, brake: 0 },
       1 / 120,
-      { heightAt },
+      (x, y) => ({ height: heightAt(x, y), drivable: true }),
+      1.35,
     );
-    assert.ok(car.grounded);
+    if (!car.grounded) {
+      airborneSteps++;
+      assert.ok(car.z - heightAt(car.x, car.y) < 0.001);
+    }
     assert.ok(car.z > 11.25 && car.z < 13.25);
     assert.equal(collisionAt([index], car, car.z), null);
   }
+  assert.ok(
+    airborneSteps <= 2,
+    `Lost ground contact for ${airborneSteps} steps`,
+  );
   assert.ok(car.x >= 4185);
   assert.ok(roadBake.terrainDetailPatches[token]);
   assert.ok(!tile.tr.some(([x, y]) => x === 2480 && y === -2627));

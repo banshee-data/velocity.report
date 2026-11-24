@@ -1579,3 +1579,23 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `bad1f9e8d08b7af1412cc795971a3b0290260f8b97c57a414857c0c588f67347`.
 - Contact SHA-256 `210ac5a5150892a7d31eda7fba29eb51fe649c43bb0844113e018cf210b05df6`.
 - The bake changes one tile and preserves emoji placement.
+
+### Street grade and camera follow-up
+
+The live through drive revealed a brief hop near the eastern end at about
+15 mph. The change in grade peaked at 2.8 percentage points between
+consecutive one-metre samples. The revised fit uses a continuous slope
+through the edges of the surveyed ramp shadow. Over the same street
+interval, the maximum grade fell from 10.1% to 8.2% and the largest change
+between samples fell to 1.1 percentage points. The western pavement
+also blends into the terrain over the observed approach. The test uses
+the game's ground contact solver and axle spacing. It permits at most
+two 120 Hz steps within 1 mm of the pavement.
+
+The default chase camera now queries elevated pavement along its path on
+the street and lowers beneath the deck. During the private Chrome crossing
+the car remained grounded from start to finish, with the street and car
+visible under the deck at 16 mph.
+
+- Game manifest SHA-256 `45c8fe622fe1043a39813d59dac254a0c0c4d6cd0e275708e28068307dd287e2`.
+- Contact SHA-256 `74d6fddf88106627e63c5b629ee86e6afd641132792d91c178cdc765be25c4a0`.

@@ -1,0 +1,1 @@
+- Lowered the chase camera under elevated pavement on city streets and smoothed the east side of the Mariposa crossing, keeping the car visible and grounded in the browser replay.

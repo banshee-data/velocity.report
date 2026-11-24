@@ -7,6 +7,7 @@ import {
   coveredRoadBlend,
   driveCameraPose,
   incarRoll,
+  overheadDeckBlend,
 } from "../sf-drive-camera.js";
 
 const car = { x: 100, y: 200, heading: 0 };
@@ -53,6 +54,33 @@ test("the chase camera lowers before a covered span and rises after it", () => {
       driveCameraPose(view, car, 10),
     );
   }
+});
+
+test("a deck over a city street lowers only the chase camera beneath it", () => {
+  const street = (x) => 10 + (x - car.x) * 0.1;
+  const ceiling = (x, y, base) => {
+    const deck = x >= 95 && x <= 106 && y >= 195 && y <= 205 ? 12.5 : Infinity;
+    return deck >= base - 0.37 ? deck : Infinity;
+  };
+  const preceding = overheadDeckBlend({ ...car, x: 80 }, 8, street, ceiling);
+  assert.ok(preceding > 0 && preceding < 1);
+  const blend = overheadDeckBlend(car, 10, street, ceiling);
+  assert.equal(blend, 1);
+  const pose = driveCameraPose(
+    "zoomed",
+    { ...car, x: 104 },
+    10.4,
+    street,
+    0,
+    0,
+    blend,
+    ceiling,
+  );
+  assert.deepEqual(pose.position, [96.5, 200, 12]);
+  assert.equal(pose.hideCar, false);
+  assert.equal(overheadDeckBlend({ ...car, y: 210 }, 10, street, ceiling), 0);
+  assert.equal(overheadDeckBlend(car, 13, street, ceiling), 0);
+  assert.equal(overheadDeckBlend({ ...car, x: 145 }, 14.5, street, ceiling), 0);
 });
 
 test("overhead looks straight down and keeps forward up in every quadrant", () => {
