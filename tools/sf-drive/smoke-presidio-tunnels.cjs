@@ -2199,6 +2199,35 @@ for (const reverse of [false, true]) {
     maxDurationMs: 105_000,
   };
 }
+const eastSpan = "yerba-buena-upper-east-span";
+const westExit = "yerba-buena-east-westbound-off-ramp";
+const eastThrough = "yerba-buena-upper-east-through";
+cases["island-east-westbound-exit"] = {
+  owners: islandEastOwners,
+  roads: [eastSpan, westExit],
+  rollingStart: true,
+  rollingStartMetres: 5,
+  speed: 14,
+  speedLimits: { [westExit]: 9 },
+  forks: [[eastSpan, westExit, -2.25]],
+  connectByGround: true,
+  groundDeparture: [
+    [6628, 5768, 56],
+    [6618, 5772, 54.9],
+  ],
+  maxDurationMs: 120_000,
+};
+cases["island-east-westbound-through-exit"] = {
+  owners: islandEastOwners,
+  roads: [eastSpan, eastThrough, ...upperFromIsland.slice(0, 4)],
+  rollingStart: true,
+  rollingStartMetres: 5,
+  speed: 18,
+  forks: [[eastSpan, eastThrough, 2]],
+  finishOnDeck: true,
+  finishDistance: 77,
+  maxDurationMs: 125_000,
+};
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];

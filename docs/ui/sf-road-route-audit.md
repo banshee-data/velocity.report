@@ -2131,3 +2131,39 @@ emoji route stalled before reaching the bore.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   broadway-westbound broadway-eastbound
 ```
+
+## Westbound East Span exit to Macalla Road
+
+The westbound East Span now has a 143 m supported lead-in before its
+Yerba Buena fork. The existing westbound selector starts there at
+50 mph. Continuing on I-80 takes the upper bore to the West Span.
+Taking the fork uses the 312 m ramp to Macalla Road. The ramp peaks at
+7.77% grade and hands off to ground at 54.76 m NAVD88. The two forward
+choices share one seam at 60.50 m. The active exit is shown in the
+[transportation authority's interchange map](https://www.sfcta.org/projects/i-80-east-side-ramps-project).
+
+The first rolling drive on the longer lead-in collided with an inferred
+building volume at 59.4 m. The survey tracks pavement near 59.5 m and
+separate overhead bands at 66–70 m. A local clearance keeps the high
+face with a game underside of 63.8 m and leaves the outside footprints
+in place. The contact regression reproduced the old building strike
+and passed after the clearance bake. Chrome repeated the exit from a
+49.9 mph rolling start, reached Macalla in 48.9 s and finished grounded.
+
+- Game manifest SHA-256 `44c066ef6d38704c26e4278c1b06da5d49627d9c717100d481fb2e26bdcddccd`.
+- Contact SHA-256 `a42dad8f53fb42f40c58306088e3b4cd83186c8e9ae21783b87be70e28c5b38b`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-east-westbound-exit island-east-westbound-through-exit
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-yerba-buena.cjs
+```
+
+On the published Broadway clearance release, two further Chrome emoji
+routes used the two bores and collected both endpoints. The eastbound
+route from Broadway and Hyde to Grant and Green covered 1.55 km. The
+westbound route from North Point and Kearny to Lombard and Scott covered
+4.75 km. Neither trace flagged a dip deeper than 0.5 m. The same public
+release reopened the Bay Bridge and Embarcadero offline, saved a new
+emoji pickup and restored it with all three airtime records on another
+offline reload.
