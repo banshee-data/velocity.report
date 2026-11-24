@@ -1519,3 +1519,32 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `4d67c35c0b2884125f40bae54718257a03e9a06b914315c843c89318f5f30af1`.
 - Contact SHA-256 `f29bad47859811b7dc7fce6b16f7f38796e3119ba7a5603ac16ee21d35e093bf`.
 - The bake changes three tiles and preserves emoji placement.
+
+## Marin Street and Cesar Chavez Street to northbound US 101
+
+The new Marin Street and Cesar Chavez Street entrances climb from
+6.65 m and 7.25 m NAVD88 to the same junction at 17.14 m. A shared
+ramp connects them to the Potrero approach at 20.07 m. The three
+sections cover 742.83 m. The highest fitted grade is 7.34%.
+
+The classified aerial survey supports the ramp heights. At the
+shared crossing, the fit uses exposed lower shoulder returns and
+applies the measured crossfall. Five inferred trunks were removed
+where separate survey crops identified pavement and clearance.
+The drive from Cesar Chavez uses the open side of its entrance lane
+around an obstruction whose lower returns remain ambiguous.
+
+Chrome drove from Marin to US 101 in 47.4 s and from Cesar Chavez
+in 35.0 s on the exact bake. Both runs stayed grounded on the
+shared ramp and reached the Potrero approach. The 20 frozen emoji
+replays all finished over 52.43 km. The maximum driven seam step
+was 6.1 cm, and no driven dip exceeded 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  marin-to-northbound-us101 cesar-chavez-to-northbound-us101
+```
+
+- Game manifest SHA-256 `227768ae526cb2b8d7fc57e725e5a2076ecb14eacdcd570c2a5309556a5bb28f`.
+- Contact SHA-256 `df69a792b18b91dcc7ead69e3812d162ff0a644644c5496375926e9d9edf838f`.
+- The bake changes one tile and preserves emoji placement.
