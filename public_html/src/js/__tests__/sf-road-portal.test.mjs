@@ -104,6 +104,37 @@ test("a sideways, airborne or wrong-level crossing cannot acquire a road portal"
   assert.equal(cross({ ...flatCar(-0.01, 0, 0), grounded: false }), null);
 });
 
+test("an exit-only ramp hands off to pavement without capturing through traffic", () => {
+  const road = {
+    id: "signed-exit",
+    kind: "ramp",
+    width: 6,
+    points: [
+      [0, 0, 3],
+      [25, 0, 1],
+      [40, 0, 0],
+    ],
+    owners: ["808f7fd4", "808f7fcc"],
+    groundEnds: ["end"],
+    groundExitOnly: ["end"],
+  };
+  const { portals } = buildBakedRoadContact(road);
+  const move = (car) =>
+    driveThroughRoadPortal(car, { throttle: 1 }, DT, [portals], () => 0);
+
+  assert.equal(move(flatCar(40.01, 0, Math.PI)), null);
+  const departing = move({
+    ...flatCar(39.99, 0, 0, 0.001),
+    surfaceId: road.id,
+  });
+  assert.ok(departing?.grounded);
+  assert.equal(departing.surfaceId, undefined);
+  assert.equal(
+    buildBakedRoadContact({ ...road, groundExitOnly: ["start"] }),
+    null,
+  );
+});
+
 test("a portal without terrain support or with two eligible targets stays unselected", () => {
   const surface = section(3);
   const entry = flatCar(-0.01, 0, 0);
