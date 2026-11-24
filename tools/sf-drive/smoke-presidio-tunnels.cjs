@@ -216,11 +216,13 @@ const centralEast = [
   "central-freeway-i80-east-connector",
   "i80-eastbound-interchange",
 ];
+const centralEastFork = [centralEast[0], centralEast[1], 1.5];
 cases["central-octavia-entry"] = {
   roads: ["central-freeway-octavia-entry", ...centralEast],
   owners: centralOwners,
   speed: 19,
   finishOnDeck: true,
+  forks: [centralEastFork],
   laneGuides: {
     "central-freeway-octavia-entry": {
       clearance: { offset: 1.8, station: 103, length: 25 },
@@ -852,6 +854,40 @@ for (const [destination, offset] of [
             },
           }
         : harrisonSouth.laneGuides,
+  };
+}
+
+const centralSouthViaduct = "us101-south-central-viaduct";
+const centralSouthMerge = "us101-south-central-merge";
+const tenthBryant = "us101-south-tenth-bryant-entry";
+for (const [name, approach, destination, approachForks] of [
+  [
+    "octavia-to-cesar-chavez",
+    ["central-freeway-octavia-entry", centralEast[0], centralSouthViaduct],
+    "cesar-chavez",
+    [[centralEast[0], centralSouthViaduct, -1.6]],
+  ],
+  ["tenth-bryant-to-potrero-avenue", [tenthBryant], "potrero-avenue", []],
+]) {
+  const exit = cases[`harrison-to-${destination}`];
+  cases[name] = {
+    ...exit,
+    roads: [...approach, centralSouthMerge, ...exit.roads.slice(3)],
+    owners: [...new Set([...exit.owners, ...centralOwners])],
+    speed: 16,
+    forks: [
+      ...approachForks,
+      ["us101-south-potrero-main", "us101-south-potrero-exit", -1.6],
+      ...exit.forks.slice(1),
+    ],
+    speedLimits: { ...exit.speedLimits, [tenthBryant]: 11 },
+    laneGuides: {
+      ...exit.laneGuides,
+      ...cases["central-octavia-entry"].laneGuides,
+      [tenthBryant]: {
+        clearance: { offset: -2.15, station: 145, length: 36 },
+      },
+    },
   };
 }
 

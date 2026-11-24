@@ -1059,3 +1059,38 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `7bbdb55535b00ac79ae210565235f57e2da69b64196603a336b849a253f5d9e0`.
 - Contact SHA-256 `3a03b874d072e1964ac5b0750c80634fe919d1d71a08a6ccdc41c6825e09f2bf`.
 - The bake changes seven tiles and preserves the existing emoji placement revision.
+
+## Central Freeway and Tenth Street to southbound US 101
+
+The Central Freeway fork keeps its eastbound I-80 branch and adds a
+southbound branch to US 101. Tenth and Bryant provides a second entrance.
+Both southbound approaches join at 15.18 m NAVD88 and continue through
+the same contact strip to the Potrero mainline at 20.37 m. The start of
+the Tenth Street ramp joins ordinary street pavement at 5.3541 m.
+
+The three sections cover 934.3 m. The fit pins 104 depth-12 EPT survey
+nodes. Four Tenth Street stations between 293 m and 306 m interpolate
+between observed lower pavement returns. The maximum fitted grade is
+6.68%. The merge is present in both owner tiles with identical points
+and cross-sections.
+
+The fixed-step drives from ordinary Octavia and Tenth Street pavement
+reached Cesar Chavez in 294.4 s and Potrero Avenue in 210.0 s. The
+existing path from Octavia to eastbound I-80 passed in 171.2 s.
+Chrome drove the two new routes on the static build using keyboard
+controls and reached ordinary pavement in 271.2 s and 207.3 s.
+
+The 20 frozen emoji pairs also finished over 52.43 km. No driven dip
+exceeded 0.5 m. The largest driven seam step was 6.1 cm. The steepest
+driven sample was 26.18% on Ordway Street. The
+[course set](../../tools/sf-drive/road-audit-alemany-routes.json) used
+the same routes and speeds with its manifest SHA updated to this release.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  octavia-to-cesar-chavez tenth-bryant-to-potrero-avenue central-octavia-entry
+```
+
+- Game manifest SHA-256 `c9b648b5490a0e5a045983a4bb45af6afbb1a581620324526bcb632a5f1f3756`.
+- Contact SHA-256 `f410a1d4c9da14d1f3dcff94aa8df5cdfbba3feac995b0424f74d062c59680e8`.
+- The bake changes two tiles and preserves the emoji placement revision.
