@@ -1455,3 +1455,35 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `cda5d8bf606b92e51c36f40d486c47d126e5ccc518edd3157b1fbd677eaca972`.
 - Contact SHA-256 `f8bc6ecd44262d161f66d48b9ef2062a829c7d42dab0b438576eef4657ffe87c`.
 - The bake changes one tile and preserves emoji placement.
+
+## Westbound I-80 exit to Fifth and Harrison
+
+The Fifth Street exit now branches from the upper westbound carriageway
+at 19.02 m NAVD88. It runs below the continuing freeway and reaches
+Fifth and Harrison Streets at 3.38 m. The fitted strip is 515.97 m
+long and reaches 5.50% grade. Both tiles carry the same complete strip
+across their shared boundary.
+
+The fit uses 114 classified survey nodes and 26 finer nodes around the
+underpass. Lower pavement at stations 418 and 434 m bounds a 16 m
+inferred stretch. The two roads differ by about 6.2 to 6.5 m where the
+exit passes underneath. A separate 16-node crop supports the open
+through lane. The bake trims a previously inferred solid inside that
+lane while preserving its exterior.
+
+Chrome drove the lower branch to Harrison Street in 48.3 s. The chase
+view stayed low through the crossing and switched back on the way out.
+Chrome drove the independent through carriageway in 38.2 s with the
+exterior view. Both runs finished grounded with the game’s route assist
+disabled. The fixed-step lower drive stayed grounded for 49.7 s. All
+20 frozen emoji routes completed across 52.43 km, with a largest driven
+seam step of 6.1 cm and no driven dips over 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i80-westbound-fifth-harrison i80-westbound-over-fifth
+```
+
+- Game manifest SHA-256 `95e34b1d79f62f80679d67e7de4db960c954283208f41af326061189ef14005d`.
+- Contact SHA-256 `9aaa7d474db6e8f5dfe512edfb86561f083662166bc3c7cec1e99760ad077c22`.
+- The bake changes two tiles and preserves emoji placement.
