@@ -456,3 +456,59 @@ and drops tiles more than 1.6 km past their edge.
   crown that the City would have pruned clear of the sign.
 - The tiles are baked outside this repository from Gerardus's caches; the manifest records the inputs
   and the build.
+
+## Authored downhill following slice
+
+Open **Downhill following practice** from the `/sf/` settings, or visit
+`/sf/following/`. This optional Milestone 2 slice leaves the city and solo modes
+available. It uses an explicitly authored local approach, not SF street controls
+or surveyed geometry. No real-world accuracy, general traffic or safety score is claimed.
+
+- **World:** one locked lane, constant −6% grade, 4.6m cars, limit line at local
+  longitudinal 110m, crosswalk beginning at 118m, route end at 145m. Car positions
+  are centres; line/crosswalk outcomes use the front bumper. Exactly on the line
+  is not past it; exactly at the crosswalk counts as entering. No map tiles are required.
+- **Traffic:** the player starts at 0m and the lead at 80m, both at 10m/s.
+  The lead uses its exact current speed and scenario clock with no noise, age or
+  occlusion. It coasts with a speed-dependent throttle demand until 6s, then holds
+  35% braking. The authored signal is green until 3s, amber until 6s, then red;
+  the lead clears the line on green. This is a fixed script, not hazard perception
+  or a responsive traffic policy. The player sees both cars and the signal.
+- **Physics:** both actors use the existing `carStep` at 120Hz on the same grade.
+  Brake wins over throttle. Steering and reverse are unavailable in this lane exercise.
+  Bumper contact ends the attempt without classifying the impact as a braking stop.
+- **Data:** same-path bumper gap in metres, time headway (gap/player speed) in
+  seconds while moving, relative closing speed in m/s and experimental DRAC in
+  m/s² (closing speed squared divided by twice positive gap). DRAC assumes
+  constant lead speed and is unavailable for non-closing, contact or unsupported
+  pairs (relative speeds below 1e-6m/s are numerical zero); these conditions are not reported as measured safe values. The live gap
+  at rest is the stopped gap. Traces retain exact simulated states, inputs and signals.
+- **UI and Goals:** Start resets the fixed scenario. Arrow Up accelerates; Space
+  or Arrow Down brakes. Touch pedals support held input, cancellation and simultaneous
+  braking priority. Hold the brake at rest on the hill. Blur/hidden-page transitions
+  clear held input; hidden time is not simulated. Contact, route end or 90 simulation
+  seconds ends an attempt. No score rewards speed or gentle emergency braking.
+
+The first brake input above 0.05m/s starts the one annotated event, ending at
+actual zero speed. A released brake keeps that event open until rest. Onset time
+and speed, travelled distance, elapsed time, peak deceleration and peak absolute
+jerk are reported. Jerk is the difference between consecutive 120Hz longitudinal
+accelerations divided by the step, including pedal transitions and the stop; it
+is not a filtered comfort measurement. Contact leaves the event incomplete.
+
+Recorded states are retained at 20Hz for at most 90s in memory, with the exact
+stop appended. Replay uses those recorded states, not re-simulation, and is
+available only at zero speed after a completed event. Physics continues while
+watching; any renewed movement closes replay. Replay stops at its final frame.
+The annotation identifies recorded time, gap and brake state alongside the event
+summary. Reset clears the trace. Broader event aggregation and score calibration
+remain outside this bounded slice.
+
+Validation for this slice includes fixed-input determinism, supported and missing
+lead observations, stopped/closing pairs, incomplete braking and contact, replay
+movement dismissal, and actual simulated early, line-only and crossing stops.
+Cloud Chromium exercised the built `/sf/following/` page at 390×844 with keyboard
+and CDP touch input: all three stop outcomes, held braking, touch cancellation,
+replay and renewed movement passed without horizontal overflow. The existing
+`/sf/?mode=solo` entry loaded and accelerated. These are software checks, not
+independent physical validation.
