@@ -1548,3 +1548,34 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `227768ae526cb2b8d7fc57e725e5a2076ecb14eacdcd570c2a5309556a5bb28f`.
 - Contact SHA-256 `df69a792b18b91dcc7ead69e3812d162ff0a644644c5496375926e9d9edf838f`.
 - The bake changes one tile and preserves emoji placement.
+
+## Mariposa Street beneath I-280 and the southbound entrance
+
+The 353.59 m southbound entrance connects Mariposa Street at
+12.97 m NAVD88 to the existing Dogpatch approach at 24.40 m.
+The fitted strip reaches 6.22% grade. It runs below the existing
+18th Street exit and viaduct.
+
+The fit uses exposed lower shoulders. Stations 112 to 152 m on
+the ramp and stations 12 to 52 m on the eastern street stretch
+are inferred between measured returns. The one-metre terrain
+detail joins the existing coarse-grid boundary and removes the
+false slope through the lower street. Along the driven crossing,
+the maximum sampled terrain grade fell from 53.4% to 10.1%.
+A separate crop supports removing one inferred trunk from the
+travel lane.
+
+Chrome drove the west-side turn onto southbound I-280 and drove
+straight under the viaduct on the same tile. The straight replay
+stayed at the lower street level between 11.33 and 12.98 m. All
+20 emoji courses finished over 52.43 km. The maximum driven seam
+step was 6.1 cm and no driven dip exceeded 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  mariposa-west-to-southbound-i280 mariposa-upper-18th-viaduct i280-mariposa-exit
+```
+
+- Game manifest SHA-256 `bad1f9e8d08b7af1412cc795971a3b0290260f8b97c57a414857c0c588f67347`.
+- Contact SHA-256 `210ac5a5150892a7d31eda7fba29eb51fe649c43bb0844113e018cf210b05df6`.
+- The bake changes one tile and preserves emoji placement.
