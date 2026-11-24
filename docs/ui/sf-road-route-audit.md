@@ -1705,3 +1705,35 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 
 - Game manifest SHA-256 `2ae88d9c134d47550d35a783cfb13067e1e70c8e43d5673fe33c5e59a656cb13`.
 - Contact SHA-256 `aeb2071d9a4dbacd0ac62d9b6d74754e32099234458c11b37718376f7b3a0d35`.
+
+### Third Street and Salinas entrances at Hester
+
+One tile adds 275.7 m of Third Street ramp, 265.0 m of Salinas ramp and
+192.0 m of shared collector. The two entrances lead to both the southbound
+US 101 merge and the Bayshore exit. The lower junction is inferred at
+34.20 m NAVD88 from visible bounds on both entrances and beyond the upper
+decks. The longest interval between visible bounds is approximately 73 m.
+At one shared horizontal position the northbound pavement is 8.7 m above
+the Third Street ramp. The largest baked grade is 7.9% on that ramp.
+
+Chrome approached on Third Street, turned on 31.9 m of city pavement and
+reached southbound US 101 in 87.9 s. The Salinas drive followed the same
+lower collector back to Bayshore pavement in 67.2 s. The chase camera
+lowered under the upper deck on both drives and kept the exterior view
+on the northbound freeway above them.
+
+The fixed-step driver collected the Meade and Arleta emojis over 2.12 km
+in 245.4 s.
+The harness now uses the game's baked deck clearance when it checks trees.
+The 20 frozen courses also finished over 52.43 km, with a largest driven
+seam step of 6.1 cm and zero driven dips greater than 0.5 m.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  hester-third-street-to-southbound-us101 hester-salinas-to-bayshore \
+  hester-upper-northbound-over-entrances
+node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-hester-south-entrances.json
+```
+
+- Game manifest SHA-256 `fc5addac6d395951d1b9b22d5eb7bbc16b9d5178da2a62e149c3eaaf9b121dcc`.
+- Contact SHA-256 `dac34f71c92183e2ecee256ef159ea4079c9f0126e1f4688272f36f9b42b0c78`.

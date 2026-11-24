@@ -1615,7 +1615,12 @@ cases["mariposa-west-to-southbound-i280"] = {
     [4115, 455],
     [4125.4, 456.4],
   ],
-  covered: ["sf-contact/i280-south-mariposa-entry"],
+  // The finish is within the chase-camera clearance of the 20th Street deck.
+  covered: [
+    "sf-contact/i280-south-mariposa-entry",
+    "sf-contact/i280-dogpatch-approach",
+  ],
+  exitCamera: "covered",
 };
 
 cases["mariposa-upper-18th-viaduct"] = {
@@ -1822,6 +1827,48 @@ cases["bayshore-hester-entry-us101"] = {
   finishOnDeck: true,
   finishDistance: 70,
   maxDurationMs: 130_000,
+};
+
+const hesterThirdEntry = "us101-south-hester-third-entry";
+const hesterSalinasEntry = "us101-south-hester-salinas-entry";
+const hesterLowerEntrance = "us101-south-hester-entrance-collector";
+const hesterStreetEntries = {
+  owners: ["808f7f24", "808f7f1c", "808f7f2c", "808f7ee4"],
+  speed: 11,
+  groundApproachMetres: 12,
+  maxDurationMs: 145_000,
+};
+cases["hester-third-street-to-southbound-us101"] = {
+  ...hesterStreetEntries,
+  roads: [hesterThirdEntry, hesterLowerEntrance, hesterReturn, hesterEdge],
+  groundApproachMetres: 0,
+  groundArrival: [
+    [3825.8, -4439.3],
+    [3826.2, -4422],
+    [3823, -4413.1],
+  ],
+  speedLimits: { [hesterEdge]: 16 },
+  forks: [[hesterLowerEntrance, hesterReturn, 1.65]],
+  finishOnDeck: true,
+  finishDistance: 150,
+};
+cases["hester-salinas-to-bayshore"] = {
+  ...hesterStreetEntries,
+  roads: [hesterSalinasEntry, hesterLowerEntrance, hesterRoad],
+  forks: [[hesterLowerEntrance, hesterRoad, -1.6]],
+  laneGuides: hesterStart.laneGuides,
+};
+
+cases["hester-upper-northbound-over-entrances"] = {
+  ...hesterStreetEntries,
+  roads: [northboundUs101Hester],
+  speed: 15,
+  rollingStart: true,
+  rollingStartMetres: 472,
+  initialSpeedMps: 14,
+  finishOnDeck: true,
+  finishDistance: 600,
+  covered: [],
 };
 
 function fromGround(points, firstRoad) {
@@ -2429,7 +2476,10 @@ async function main() {
         if (groundArrival) {
           assert.ok(result.groundMetres > 20);
           assert.ok(result.groundedMetres > 18);
-          assert.ok(Math.abs(result.seen[0].z - 12.97) < 0.15);
+          assert.ok(
+            Math.abs(result.seen[0].z - contactSections[0].positions[0][2]) <
+              0.15,
+          );
         }
         if (Array.isArray(groundConnection)) {
           const minimum = groundConnection.reduce(

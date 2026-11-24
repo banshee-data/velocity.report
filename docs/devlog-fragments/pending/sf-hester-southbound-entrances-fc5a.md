@@ -1,0 +1,1 @@
+- Baked the Third Street and Salinas entrances below US 101 at Hester and verified both collector outlets.

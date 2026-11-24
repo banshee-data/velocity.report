@@ -1,0 +1,40 @@
+{
+  "manifestSha256": "fc5addac6d395951d1b9b22d5eb7bbc16b9d5178da2a62e149c3eaaf9b121dcc",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "streetMph": 18,
+  "highwayMph": 24,
+  "routes": [
+    {
+      "id": "meade-to-arleta-via-hester",
+      "from": "🚵",
+      "to": "🥬",
+      "expectContactExit": true,
+      "contact": {
+        "roads": [
+          "sf-contact/us101-south-hester-third-entry",
+          "sf-contact/us101-south-hester-entrance-collector",
+          "sf-contact/us101-south-hester-bayshore-exit"
+        ],
+        "entry": [3825.3617, -4412.7694, "3rd St"],
+        "exit": [3616.35, -4955.8723, "Bay Shore Blvd"],
+        "laneGuides": {
+          "sf-contact/us101-south-hester-entrance-collector": {
+            "approach": -1.6,
+            "holdApproach": true
+          },
+          "sf-contact/us101-south-hester-bayshore-exit": {
+            "clearance": {
+              "offset": 1.7,
+              "station": 24,
+              "length": 22
+            },
+            "entranceEast": -1.5799,
+            "entranceNorth": -0.253,
+            "entranceMetres": 21
+          }
+        }
+      }
+    }
+  ],
+  "expectCompletion": true
+}
