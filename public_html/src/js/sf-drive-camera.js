@@ -16,6 +16,7 @@ export const MIRROR_VIEW_RANGE = {
   fogNear: 55,
   fogFar: 140,
 };
+const CHASE_DISTANCE = 34;
 
 // Body roll leans outward from the turn. Damp the response so changing the
 // steering input or crossing onto dirt does not snap the horizon.
@@ -31,6 +32,7 @@ export function coveredRoadBlend(surface, { x, y }) {
   const [start, end] = range;
   const profile = surface.profile;
   let distanceSquared = Infinity;
+  let lateralSquared = Infinity;
   let station = 0;
   for (let i = 1; i < profile.length; i++) {
     const a = profile[i - 1];
@@ -38,18 +40,25 @@ export function coveredRoadBlend(surface, { x, y }) {
     const [east, north] = a.position;
     const dx = b.position[0] - east;
     const dy = b.position[1] - north;
-    const fraction = Math.min(
-      1,
-      Math.max(0, ((x - east) * dx + (y - north) * dy) / (dx * dx + dy * dy)),
-    );
+    const projected =
+      ((x - east) * dx + (y - north) * dy) / (dx * dx + dy * dy);
+    const fraction = Math.min(1, Math.max(0, projected));
     const score =
       (x - east - dx * fraction) ** 2 + (y - north - dy * fraction) ** 2;
     if (score < distanceSquared) {
       distanceSquared = score;
-      station = a.s_m + (b.s_m - a.s_m) * fraction;
+      // The chase camera may still be under the deck after the car hands
+      // off to city terrain. Extend the last tangent for that departure.
+      const along =
+        i === profile.length - 1 ? Math.max(fraction, projected) : fraction;
+      station = a.s_m + (b.s_m - a.s_m) * along;
+      lateralSquared =
+        (x - east - dx * along) ** 2 + (y - north - dy * along) ** 2;
     }
   }
-  const distance = Math.max(0, start - station, station - end);
+  // Retire the covered view when a car leaves the corridor sideways.
+  if (lateralSquared > 20 ** 2) return 0;
+  const distance = Math.max(0, start - station, station - end - CHASE_DISTANCE);
   const fraction = Math.max(0, 1 - distance / 24);
   return fraction * fraction * (3 - 2 * fraction);
 }
@@ -94,7 +103,7 @@ export function driveCameraPose(
       mirror: true,
     };
   }
-  const followDistance = 34 - 26.5 * coveredBlend;
+  const followDistance = CHASE_DISTANCE - 26.5 * coveredBlend;
   const lift = 26 - 22.6 * coveredBlend;
   const lookDistance = 14 - 5 * coveredBlend;
   const x = car.x - hx * followDistance;

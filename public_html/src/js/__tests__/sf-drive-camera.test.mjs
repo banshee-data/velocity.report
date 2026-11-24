@@ -28,15 +28,17 @@ test("the chase camera lowers before a covered span and rises after it", () => {
     profile: [
       { position: [0, 0, 10], s_m: 0 },
       { position: [44, 0, 10], s_m: 44 },
-      { position: [44, 104, 10], s_m: 148 },
+      { position: [44, 72, 10], s_m: 116 },
     ],
   };
   const probe = (x, y) => coveredRoadBlend(surface, { x, y });
   near(probe(20, 0), 0);
   near(probe(32, -1), 0.5);
   near(probe(43, 15), 1);
-  near(probe(43, 42), 0.5);
-  near(probe(43, 54), 0);
+  near(probe(43, 42), 1);
+  near(probe(43, 76), 0.5);
+  near(probe(43, 88), 0);
+  near(probe(66, 15), 0);
   near(coveredRoadBlend(null, car), 0);
   near(coveredRoadBlend({ profile: [] }, car), 0);
 

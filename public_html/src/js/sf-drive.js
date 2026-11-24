@@ -1574,6 +1574,7 @@ export async function startDrive({
       DRIVE_VIEWS[(DRIVE_VIEWS.indexOf(state.view) + 1) % DRIVE_VIEWS.length],
     );
   const reset = (p = selectedStart, keepAirtime = false) => {
+    cameraCoveredRoad = null;
     clearEmojiFocus();
     car = startingCar(p);
     grounded = false;
@@ -2473,6 +2474,7 @@ export async function startDrive({
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   let cameraRoll = 0;
   let camInit = false;
+  let cameraCoveredRoad = null;
   if (params.get("mode") === "solo") enterSolo();
   setView(state.view);
   let roadAt = 0,
@@ -3204,8 +3206,10 @@ export async function startDrive({
         ? incarRoll(cameraRoll, car.lateralAcceleration || 0, dt)
         : 0;
     // Keep the horizon and view direction steady while the chassis tumbles.
-    const coveredBlend =
-      state.view === "zoomed" ? coveredRoadBlend(surface, car) : 0;
+    if (surface) cameraCoveredRoad = surface.coveredRange ? surface : null;
+    const crossingBlend = coveredRoadBlend(cameraCoveredRoad, car);
+    if (!surface && crossingBlend === 0) cameraCoveredRoad = null;
+    const coveredBlend = state.view === "zoomed" ? crossingBlend : 0;
     const view = driveCameraPose(
       surface?.kind === "tunnel"
         ? "incar"

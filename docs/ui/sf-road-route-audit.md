@@ -1404,11 +1404,13 @@ survey shows lower pavement and separate high returns in those columns,
 so the bake drops the two offending game rows.
 
 The default chase camera begins to lower on the approach to the covered
-interval, stays below the upper deck at the crossing, and returns to its
-ordinary height on the way out. Chrome drove that lower exit in 43.2 s
-with route assist disabled and verified the normal camera and grounded
-contact at the street. The independent southbound drive on the deck above
-passed in 21.7 s and kept its exterior camera. The fixed-step lower drive
+interval and keeps the trailing view below the deck until the camera
+and car both clear it. With route assist disabled, Chrome drove the
+lower exit and continued onto city pavement in 50.5 s. It observed
+grounded contact at the handoff and restored the ordinary camera on
+the street. A regression test projects the camera sightline through
+both upper decks along the exit. The independent southbound drive on the deck above
+passed in 21.3 s and kept its exterior camera. The fixed-step lower drive
 stayed grounded for 46.5 s. All 20 frozen emoji routes finished across
 52.43 km with a largest driven seam step of 6.1 cm and no driven dips over
 0.5 m.

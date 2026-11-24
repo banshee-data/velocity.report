@@ -1449,6 +1449,14 @@ cases["us101-south-bayshore-north-turn"] = {
   rollingStart: true,
   rollingStartMetres: 8,
   initialSpeedMps: 15.7,
+  connectByGround: true,
+  groundDeparture: [
+    [3219.62, -1213.0, 6.2],
+    [3223.2, -1201.54, 6.47],
+    [3225.33, -1197.78, 6.54],
+    [3231.4, -1193.43, 6.64],
+    [3237.9, -1188.76, 6.85],
+  ],
   roads: [
     "us101-south-potrero-exit",
     "us101-south-bayshore-exit-approach",
@@ -1828,6 +1836,7 @@ async function main() {
         rampApproach,
         connectByGround = false,
         groundConnection,
+        groundDeparture,
         finishOnDeck = false,
         finishDistance,
         maxDurationMs = 460_000,
@@ -1891,9 +1900,24 @@ async function main() {
         assert.ok(finish > 0, "Deck finish must be inside the last section");
         last.positions = last.positions.slice(0, finish + 1);
       }
-      const sections = connectByGround
-        ? withGroundConnections(contactSections, groundConnection)
-        : contactSections;
+      const sections = groundDeparture
+        ? [
+            ...contactSections,
+            {
+              id: "departure",
+              kind: "ground",
+              width_m: 8,
+              speed_mps: 8,
+              positions: [
+                contactSections.at(-1).positions.at(-1),
+                ...groundDeparture,
+              ],
+              sources: [],
+            },
+          ]
+        : connectByGround
+          ? withGroundConnections(contactSections, groundConnection)
+          : contactSections;
       for (let i = 1; i < sections.length; i++) {
         const previous = sections[i - 1].positions.at(-1);
         const [x, y, z] = sections[i].positions[0];

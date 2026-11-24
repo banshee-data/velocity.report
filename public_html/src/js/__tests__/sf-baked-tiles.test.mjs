@@ -13,6 +13,7 @@ import {
   collisionAt,
   groundAtWorld,
 } from "../sf-drive-core.js";
+import { coveredRoadBlend, driveCameraPose } from "../sf-drive-camera.js";
 import {
   highwayRailSegments,
   leaveRoadSide,
@@ -1530,12 +1531,14 @@ test("the Bayshore exit passes below both freeway directions and keeps its city 
     buildBakedRoadContact({ ...exit, covered_range_m: [136, 200] }),
     null,
   );
-  const decks = [
+  const deckNames = [
     ["us101-south-cesar-through", 145],
     ["us101-north-bayshore-through", 164],
   ];
-  for (const [id, crossing] of decks) {
+  const decks = [];
+  for (const [id, crossing] of deckNames) {
     const upper = buildBakedRoadContact(road(id)).surface;
+    decks.push(upper);
     const {
       position: [x, y, z],
     } = surface.profile.find(({ s_m }) => s_m >= crossing);
@@ -1543,6 +1546,41 @@ test("the Bayshore exit passes below both freeway directions and keeps its city 
     assert.ok(above - z > 7, id);
     assert.equal(surface.heightAt(x, y), z);
     assert.equal(upper.coveredRange, undefined);
+  }
+  const profile = surface.profile;
+  for (let i = 1; i < profile.length; i++) {
+    const {
+      s_m,
+      position: [x, y, z],
+    } = profile[i];
+    if (s_m < 134) continue;
+    const [px, py] = profile[i - 1].position;
+    const car = { x, y, heading: Math.atan2(y - py, x - px) };
+    const { position } = driveCameraPose(
+      "zoomed",
+      car,
+      z,
+      surface.heightAt,
+      0,
+      0,
+      coveredRoadBlend(surface, car),
+    );
+    const [cx, cy, cz] = position;
+    const samples = Math.ceil(Math.hypot(cx - x, cy - y) / 0.25);
+    for (let step = 0; step <= samples; step++) {
+      const t = step / samples;
+      const sx = cx + (x - cx) * t;
+      const sy = cy + (y - cy) * t;
+      const sightline = cz + (z + 0.8 - cz) * t;
+      for (const deck of decks) {
+        const height = deck.heightAt(sx, sy);
+        if (height === null) continue;
+        assert.ok(
+          height - sightline > 0.5,
+          `Camera under ${deck.id} at ${s_m.toFixed(1)} m`,
+        );
+      }
+    }
   }
   assert.equal(portals.length, 1);
   const [{ x, y, z }] = portals;
