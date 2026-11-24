@@ -1585,7 +1585,12 @@ test("the Bayshore exit passes below both freeway directions and keeps its city 
   assert.equal(portals.length, 1);
   const [{ x, y, z }] = portals;
   assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
-  assert.equal(roadBake.inferredTreePatches["808f7e4c"], 2);
+  for (const [px, py] of [
+    [2972, -1960],
+    [3012, -3560],
+  ]) {
+    assert.ok(!tile.tr.some(([tx, ty]) => tx === px && ty === py));
+  }
 });
 
 test("Monterey keeps its ramp mouths separate and Ocean Avenue reaches city pavement", () => {
@@ -2170,4 +2175,49 @@ test("the Alemany fork carries both I-280 through traffic and the ramp to southb
   assert.ok(Math.abs(z - 11.29) < 0.05);
   const index = buildCollisionIndex(tiles.get(tokens[0]), tokens[0]);
   assert.equal(collisionAt([index], { x, y, heading: 0.45 }, z), null);
+});
+
+test("Marin and Cesar Chavez climb from street level into the northbound Bayshore merge", () => {
+  const token = "808f7e4c";
+  const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const route = (id) =>
+    tile.playableRoads.find((r) => r.id === `sf-contact/${id}`);
+  const ramps = [
+    route("us101-north-marin-entry"),
+    route("us101-north-cesar-chavez-entry"),
+  ];
+  const merge = route("us101-north-bayshore-entry-merge");
+  const through = route("us101-north-potrero-approach");
+  for (const ramp of ramps) {
+    const { portals } = buildBakedRoadContact(ramp);
+    const [{ x, y, z }] = portals;
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+    assert.ok(ramp.points.at(-1)[2] - z > 9);
+  }
+  for (const [from, to] of [
+    ...ramps.map((ramp) => [ramp, merge]),
+    [merge, through],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${from.id}:end` &&
+          edge.to === `${to.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  const { surface } = buildBakedRoadContact(merge);
+  const x = 3284.69;
+  const y = -851.62;
+  const z = surface.heightAt(x, y);
+  assert.ok(Math.abs(z - 19.91) < 0.1);
+  assert.equal(
+    collisionAt([buildCollisionIndex(tile, token)], { x, y, heading: 1.69 }, z),
+    null,
+  );
+  assert.equal(roadBake.inferredTreePatches[token], 7);
 });
