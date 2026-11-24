@@ -3320,3 +3320,35 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
     assert.ok(groundAtWorld(tiles, deckX, deckY, true) < deckZ - 65);
   }
 });
+
+test("Main Street stays open beneath both Bay Bridge decks", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/80858074.json.gz")));
+  const obstacles = [buildCollisionIndex(tile, tile.t)];
+  const heading = (3 * Math.PI) / 4;
+  const pose = (x, offset) => ({
+    x: x - offset * Math.sin(heading),
+    y: 7499.4 - x + offset * Math.cos(heading),
+    heading,
+  });
+  const hit = (car) =>
+    collisionAt(obstacles, car, groundAtWorld([tile], car.x, car.y, true));
+  for (let x = 4439; x <= 4478; x += 0.5) {
+    for (const offset of [-3, 0, 3]) {
+      assert.equal(
+        hit(pose(x, offset)),
+        null,
+        `Main Street at ${x}, ${offset}`,
+      );
+    }
+  }
+  assert.equal(hit(pose(4467, -9)), "building");
+  assert.equal(hit(pose(4467, 9)), "building");
+  const { x, y } = pose(4461, 0);
+  const height = (id) =>
+    buildBakedRoadContact(
+      tile.playableRoads.find((road) => road.id === id),
+    ).surface.heightAt(x, y);
+  assert.ok(groundAtWorld([tile], x, y, true) < 6);
+  assert.ok(Math.abs(height("sf-eastbound-lower-approach") - 41.39) < 0.02);
+  assert.ok(Math.abs(height("city-approach") - 50.18) < 0.02);
+});

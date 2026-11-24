@@ -2295,3 +2295,32 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `97122290264b0e0ef3d6e9e68b2a019e8c17ad0d09f9618b8ed43eab2c8d8bd5`.
 - Contact SHA-256 `6582c5fb1b21db39514f8cbbc06f97285bd3e9f580b7acf7d911c6a710d446d6`.
 - Source road revision `sf-city-roads-08b5bb95deebcba7b7d9ed745f230eb1e753fad73169487edee67c66b11b516a`.
+
+## Main Street beneath the Bay Bridge
+
+The Embarcadero-to-SoMa run stalled at (4469.063, 3031.251) on Main Street.
+The car stayed at 4.83 m NAVD88. An inferred volume reached from the overhead
+bridge to the ground and blocked the traffic lanes. The street continues
+between Bryant and Harrison beside the bridge footings. [SFMTA Main Street striping plan](https://www.sfmta.com/sites/default/files/reports-and-documents/2023/02/item_12_tasc_packet_main_st_combined.pdf)
+
+The correction raises the inferred volume only within the lane corridor.
+At the crossing the lower and upper bridge surfaces remain at approximately
+41.39 m and 50.18 m NAVD88. The fixed-step collision scan cleared all 237
+street poses across three lines. The old scene collided at 88 of those
+poses. The new scene still detects the inferred pier-side volumes outside
+the corridor. [Gerardus survey provenance](https://github.com/banshee-data/gerardus/blob/733ce31394e9511b7d0d71ce864bbc55e39ebff9/docs/roads/SF-ESSEX-LOWER-BAY-BRIDGE-CONTACT.md#main-street-beneath-the-city-approach)
+
+Chrome completed both 78 m passes at street level, with no crash or
+switch to a bridge deck. The longer Embarcadero-to-SoMa replay cleared
+Main Street and continued to Harrison and Fourth. It travelled 1.44 km
+with a 7.84% grade p95, an 8.87% peak and no sampled dip over 0.5 m. It
+stopped at the Fourth Street entrance after selecting the entrance
+surface while following the street course.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-main-street.cjs
+```
+
+- Game manifest SHA-256 `65317b86333c38ce22ef685372e629071af9407a2b7a28dcfa4d1ba4643e2db9`.
+- Contact SHA-256 `b3aa6a3b99df652fddd86eba1ab07a45dd897be92c9c8426f262795568b6791d`.
+- One L13 tile changed. The emoji placement revision was preserved.
