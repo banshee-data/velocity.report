@@ -997,9 +997,19 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
   assert.equal(selected.initial_speed_mps, 50 * 0.44704);
   assert.equal(cityDriveApproach(drive, "fremont-exit"), drive);
   assert.equal(drive.sections[0].id, "bay-bridge-westbound");
-  assert.deepEqual(selected.sections.slice(7), drive.sections);
-  const [span, through, approach, merged, firstBore, sharedBore, exit, bridge] =
-    selected.sections;
+  assert.deepEqual(selected.sections.slice(8), drive.sections);
+  const [
+    outerSpan,
+    span,
+    through,
+    approach,
+    merged,
+    firstBore,
+    sharedBore,
+    exit,
+    bridge,
+  ] = selected.sections;
+  assert.equal(outerSpan.id, "sf-contact/bay-bridge-east-span-westbound");
   assert.equal(span.id, "sf-contact/yerba-buena-upper-east-span");
   assert.equal(through.id, "sf-contact/yerba-buena-upper-east-through");
   const tunnels = [firstBore, sharedBore];
@@ -1009,6 +1019,7 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
     assert.equal(tunnel.width_m, 16);
   }
   for (const [before, after] of [
+    [outerSpan, span],
     [span, through],
     [through, approach],
     [approach, merged],
@@ -1030,6 +1041,67 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
     }
   }
   assert.ok(length > 164 && length < 166);
+});
+
+test("both East Span carriageways reach the map edge on separate surveyed contacts", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/80858024.json.gz")));
+  const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
+  const east = roads.get("sf-contact/bay-bridge-east-span-eastbound");
+  const west = roads.get("sf-contact/bay-bridge-east-span-westbound");
+  const lower = roads.get("yerba-buena-lower-east-after-entry");
+  const upper = roads.get("sf-contact/yerba-buena-upper-east-span");
+
+  for (const [before, after] of [
+    [lower, east],
+    [west, upper],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+
+  assert.ok(lower.points.at(-1)[2] > 53.6 && lower.points.at(-1)[2] < 54);
+  assert.ok(east.points.at(-1)[0] >= 7630);
+  assert.ok(west.points[0][0] >= 7630);
+  assert.ok(west.points[0][1] - east.points.at(-1)[1] > 40);
+  for (const [road, opposing] of [
+    [east, west],
+    [west, east],
+  ]) {
+    assert.equal(road.width, 20);
+    assert.deepEqual(road.groundEnds, []);
+    assert.ok(
+      road.profiles.every((id) => roadBake.playableReplaces.includes(id)),
+    );
+    const { surface } = buildBakedRoadContact(road);
+    assert.ok(surface.profile.at(-1).s_m > 780);
+    const [x, y, z] = road.points[Math.floor(road.points.length / 2)];
+    const [a, b] = road.points[Math.floor(road.points.length / 2) - 1];
+    const heading = Math.atan2(y - b, x - a);
+    for (const offset of [-8, 0, 8]) {
+      const height = surface.heightAt(
+        x - offset * Math.sin(heading),
+        y + offset * Math.cos(heading),
+      );
+      assert.ok(Math.abs(height - z) < 0.1);
+    }
+    const [oppositeX, oppositeY] =
+      opposing.points[Math.floor(opposing.points.length / 2)];
+    assert.equal(surface.heightAt(oppositeX, oppositeY), null);
+    for (let i = 1; i < road.points.length; i++) {
+      const [ax, ay, az] = road.points[i - 1];
+      const [bx, by, bz] = road.points[i];
+      assert.ok(Math.abs(bz - az) / Math.hypot(bx - ax, by - ay) < 0.025);
+    }
+  }
 });
 
 test("the upper East Span forks to Macalla Road without crossing the lower deck", () => {
@@ -1132,7 +1204,7 @@ test("the eastbound bridge start connects First Street to the lower bore and eas
   }
   assert.equal(
     selected.sections.at(-1).id,
-    "yerba-buena-lower-east-after-entry",
+    "sf-contact/bay-bridge-east-span-eastbound",
   );
 });
 

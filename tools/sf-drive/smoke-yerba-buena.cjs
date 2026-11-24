@@ -25,7 +25,9 @@ async function checkRoute() {
     });
     const start = "yerba-buena-westbound";
     await page.goto(`${origin}/sf/?at=${start}`);
+    const eastSpan = "sf-contact/bay-bridge-east-span-westbound";
     for (const [id, min, max] of [
+      [eastSpan, 48, 49],
       ["sf-contact/yerba-buena-upper-east-span", 58.5, 60.6],
       ["sf-contact/yerba-buena-upper-east-through", 60.3, 61.5],
       ["yerba-buena-east-approach", 57.4, 61.0],
@@ -59,7 +61,7 @@ async function checkRoute() {
       await handle.dispose();
       assert.ok(z >= min && z <= max, `${id}: ${z} m`);
       assert.ok(speed > 0, id);
-      if (id === "sf-contact/yerba-buena-upper-east-span") {
+      if (id === eastSpan) {
         assert.equal(await page.locator("#places").inputValue(), start);
         assert.ok(speed >= 45 * 0.44704, `Rolling start: ${speed} m/s`);
       }

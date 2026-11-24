@@ -73,6 +73,7 @@ const { chromium } = require("playwright");
         "yerba-buena-lower-tunnel-east-of-exit",
         "yerba-buena-lower-east-approach",
         "yerba-buena-lower-east-after-entry",
+        "sf-contact/bay-bridge-east-span-eastbound",
       ]) {
         await waitForStart(start, surface, null, 220_000);
         if (surface.startsWith("yerba-buena-lower-tunnel")) {
@@ -85,11 +86,11 @@ const { chromium } = require("playwright");
       }
       await page.waitForFunction(() => {
         const { north, contact } = document.querySelector("#drive").dataset;
-        return Number(north) > 5870 && contact === "grounded";
+        return Number(north) > 6410 && contact === "grounded";
       });
       assert.deepEqual(errors, []);
       console.log(
-        "The eastbound drive reached the lower east approach from First Street.",
+        "The eastbound drive reached the East Span map boundary from First Street.",
       );
     }
   } finally {

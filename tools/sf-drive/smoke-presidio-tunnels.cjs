@@ -20,6 +20,8 @@ const lowerBridgeOwners = [
 ];
 const tilePath = (token) => `tiles/${token}.json.gz`;
 const prefix = "sf-contact/";
+const eastSpanEastbound = "bay-bridge-east-span-eastbound";
+const eastSpanWestbound = "bay-bridge-east-span-westbound";
 const cases = {
   northbound: {
     roads: [
@@ -192,6 +194,7 @@ for (const [name, entry] of [
       "yerba-buena-lower-tunnel-east-of-exit",
       "yerba-buena-lower-east-approach",
       "yerba-buena-lower-east-after-entry",
+      eastSpanEastbound,
     ],
     owners: lowerBridgeOwners,
     speed: 22,
@@ -2219,12 +2222,19 @@ for (const reverse of [false, true]) {
     maxDurationMs: 105_000,
   };
 }
+cases["east-span-eastbound"] = {
+  roads: ["yerba-buena-lower-east-after-entry", eastSpanEastbound],
+  owners: islandEastOwners,
+  speed: 22,
+  rollingStart: true,
+  finishOnDeck: true,
+};
 const eastSpan = "yerba-buena-upper-east-span";
 const westExit = "yerba-buena-east-westbound-off-ramp";
 const eastThrough = "yerba-buena-upper-east-through";
 cases["island-east-westbound-exit"] = {
   owners: islandEastOwners,
-  roads: [eastSpan, westExit],
+  roads: [eastSpanWestbound, eastSpan, westExit],
   rollingStart: true,
   startPlace: "yerba-buena-westbound",
   speed: 14,
@@ -2235,7 +2245,7 @@ cases["island-east-westbound-exit"] = {
     [6628, 5768, 56],
     [6618, 5772, 54.9],
   ],
-  maxDurationMs: 120_000,
+  maxDurationMs: 165_000,
 };
 cases["island-east-westbound-through-exit"] = {
   owners: islandEastOwners,
@@ -2250,7 +2260,13 @@ cases["island-east-westbound-through-exit"] = {
 };
 cases["macalla-westbound-roundtrip"] = {
   ...cases["island-east-westbound-exit"],
-  roads: [eastSpan, westExit, macallaEntrance, ...upperFromIsland.slice(1, 5)],
+  roads: [
+    eastSpanWestbound,
+    eastSpan,
+    westExit,
+    macallaEntrance,
+    ...upperFromIsland.slice(1, 5),
+  ],
   speedLimits: { [westExit]: 9, [macallaEntrance]: 11 },
   groundDeparture: undefined,
   groundConnection: {

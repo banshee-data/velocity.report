@@ -2602,3 +2602,37 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   i280-sr82-northbound-entry i280-sr82-southbound-exit \
   i280-sr82-southbound-edge-exit
 ```
+
+## East Span from Yerba Buena to the map edge
+
+The lower eastbound approach previously ended just beyond the Hillcrest
+merge. At 45.6 mph the live game lost continuous contact and stopped.
+The two source centre lines also diverged from the observed decks
+over the water. The new package refits the lead-ins and carries each
+direction to the existing game map boundary.
+
+| Direction | Added contact | Peak grade | Deepest dip over about 20 m |
+| --------- | ------------: | ---------: | --------------------------: |
+| Eastbound |       906.7 m |      1.98% |                     0.016 m |
+| Westbound |       785.0 m |      1.85% |                     0.020 m |
+
+April 2023 3DEP observations supported all 609 fitting stations. The new
+road surfaces are 20 m wide in the game. They taper into the existing
+approaches over 32 m. An obstacle check exercised the centre and two
+lateral offsets on both extensions and lead-ins. All 3,018 poses were
+clear. The width and grade describe game contact. The game map ends
+over water before the Oakland landing.
+
+The First Street and Essex starts both continue onto the new eastbound
+contact. The westbound start begins at 50 mph near the eastern map
+boundary. The static game package carries both deck strips and their
+directed joins in the existing island tile.
+
+- Game manifest SHA-256 `da99f3fb3a282ae685a893b993240c071832cfe3841483095eb4d45c6dd2dd9c`.
+- Contact SHA-256 `0ca165ab974f22961950439a6f6352524cad87565e36a3149db64ebc93d858ad`.
+- [Gerardus recipe and provenance](https://github.com/banshee-data/gerardus/pull/167).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  east-span-eastbound island-east-westbound-exit macalla-westbound-roundtrip
+```
