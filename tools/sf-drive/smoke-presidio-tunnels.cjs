@@ -812,8 +812,10 @@ cases["branch-east-ramp"] = {
   speed: 15,
 };
 cases["branch-east-upper"] = {
-  roads: ["branch-east-i280-northbound"],
+  roads: ["branch-east-i280-northbound", "i280-north-monterey-merge"],
   owners: ["808f7e7c", "808f7e64"],
+  finishOnDeck: true,
+  finishDistance: 80,
   speed: 18,
 };
 cases["branch-east-san-jose"] = {
@@ -2333,6 +2335,121 @@ for (const street of ["richland", "highland"]) {
     };
   }
 }
+const oceanOwners = [
+  "808f7c2c",
+  "808f7e84",
+  "808f7e7c",
+  "808f7e64",
+  "808f7ef4",
+];
+const oceanNorthbound = [
+  "i280-north-ocean-entry",
+  "i280-north-ocean-connector",
+  "i280-north-ocean-mainline",
+  "i280-north-ocean-monterey",
+  "branch-east-i280-northbound",
+  "i280-north-monterey-merge",
+  "i280-north-monterey-to-alemany",
+];
+for (const [direction, reverse] of [
+  ["eastbound", true],
+  ["westbound", false],
+]) {
+  cases[`ocean-avenue-bridge-${direction}`] = {
+    owners: oceanOwners,
+    roads: ["ocean-avenue-bridge"],
+    reverse,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [
+          [-633, -4111.55, 69.3],
+          [-624, -4111.6, 68.5],
+        ]
+      : [
+          [-747, -4111.07, 74.1],
+          [-754, -4111.05, 74.45],
+        ],
+    exitCamera: reverse ? "covered" : "exterior",
+    groundApproachMetres: 6,
+    speed: 8,
+  };
+}
+cases["i280-ocean-northbound-entry"] = {
+  owners: oceanOwners,
+  roads: oceanNorthbound,
+  groundApproachMetres: 4,
+  finishOnDeck: true,
+  finishDistance: 80,
+  speed: 19,
+  speedLimits: { "i280-north-ocean-entry": 9 },
+};
+cases["ocean-bridge-to-i280-northbound"] = {
+  owners: oceanOwners,
+  roads: ["ocean-avenue-bridge", ...oceanNorthbound.slice(0, 1)],
+  reverseRoads: ["ocean-avenue-bridge"],
+  connectByGround: true,
+  groundConnection: {
+    after: "sf-contact/ocean-avenue-bridge",
+    via: [
+      [-637.7, -4110.2],
+      [-635.8, -4106.8],
+    ],
+    minimumMetres: 7,
+  },
+  groundApproachMetres: 6,
+  finishOnDeck: true,
+  finishDistance: 85,
+  maxDurationMs: 55_000,
+  speed: 8,
+};
+cases["i280-ocean-exit-and-reentry"] = {
+  ...cases["i280-ocean-northbound-entry"],
+  roads: [
+    "i280-south-ocean-approach",
+    "i280-south-ocean-exit",
+    "ocean-avenue-bridge",
+    ...oceanNorthbound,
+  ],
+  rollingStart: true,
+  rollingStartMetres: 24,
+  reverseRoads: ["ocean-avenue-bridge"],
+  connectByGround: true,
+  groundConnection: [
+    {
+      after: "sf-contact/i280-south-ocean-exit",
+      minimumMetres: 420,
+      via: [
+        [-840, -4108.7],
+        [-869, -4103.2],
+        [-929, -4099.4],
+        [-996, -4098.3],
+        [-1031, -4105.8],
+        [-1075, -4098.8],
+        [-1083, -4103.2],
+        [-1079, -4107],
+        [-1064.6, -4118.6],
+        [-1014.4, -4151.7],
+        [-960.4, -4179.4],
+        [-907, -4206.7],
+        [-894.1, -4210],
+        [-887.8, -4202.3],
+        [-869.7, -4165.2],
+        [-847, -4120.4],
+        [-839, -4114.7],
+        [-800, -4115.7],
+        [-770, -4115.7],
+        [-745, -4113],
+      ],
+    },
+    cases["ocean-bridge-to-i280-northbound"].groundConnection,
+  ],
+  speedLimits: {
+    "i280-south-ocean-approach": 12,
+    "i280-south-ocean-exit": 11,
+    "ocean-avenue-bridge": 8,
+    "i280-north-ocean-entry": 9,
+  },
+};
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
