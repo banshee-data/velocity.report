@@ -102,15 +102,71 @@ const southAlemanyLeftExit = "i280-south-to-us101-south-exit";
 const southAlemanyMainlineClearance = {
   clearance: { ...dogpatchClearance.clearance, station: 224 },
 };
-for (const [name, exit] of [
-  ["i280-pennsylvania", "i280-pennsylvania-exit"],
-  ["i280-18th", "i280-18th-exit"],
+const eighteenthOffRamp = "i280-18th-off-ramp";
+const eighteenthExit = "i280-18th-exit";
+const eighteenthWestTurn = "i280-18th-exit-west-turn";
+const eighteenthEastTurn = "i280-18th-exit-east-turn";
+const eighteenthEastDeck = "eighteenth-east-viaduct";
+const eighteenthWestDeck = "eighteenth-west-viaduct";
+const eighteenthJunction = "eighteenth-viaduct-junction";
+const eighteenthLanding = "eighteenth-west-landing";
+const eighteenthEastDeparture = [
+  [4344.2, 326.4, 12.795],
+  [4356.3, 327.3, 12.439],
+  [4374.6, 328.8, 11.235],
+];
+const eighteenthWestExit = [
+  eighteenthOffRamp,
+  eighteenthExit,
+  eighteenthWestTurn,
+  eighteenthLanding,
+];
+const eighteenthEastExit = [
+  eighteenthOffRamp,
+  eighteenthExit,
+  eighteenthEastTurn,
+  eighteenthWestDeck,
+  eighteenthEastDeck,
+];
+const eighteenthExitLimits = {
+  [eighteenthExit]: 6,
+  [eighteenthWestTurn]: 5,
+  [eighteenthEastTurn]: 5,
+  [eighteenthLanding]: 7,
+};
+cases["i280-pennsylvania"] = {
+  roads: [...i280Approach, eighteenthOffRamp, "i280-pennsylvania-exit"],
+  owners: i280Owners,
+  speed: 12,
+  rampApproach: true,
+};
+cases["i280-18th"] = {
+  roads: [...i280Approach, ...eighteenthWestExit],
+  owners: i280Owners,
+  speed: 12,
+  speedLimits: eighteenthExitLimits,
+  rampApproach: true,
+  maxAirborneMetres: 0,
+};
+for (const [name, roads, reverseRoads] of [
+  ["westbound", eighteenthWestExit, []],
+  ["eastbound", eighteenthEastExit, [eighteenthWestDeck, eighteenthEastDeck]],
 ]) {
-  cases[name] = {
-    roads: [...i280Approach, "i280-18th-off-ramp", exit],
+  cases[`i280-18th-exit-${name}`] = {
+    roads,
+    reverseRoads,
     owners: i280Owners,
-    speed: 12,
-    rampApproach: true,
+    speed: 9,
+    speedLimits: eighteenthExitLimits,
+    rollingStart: true,
+    rollingStartMetres: 305,
+    initialSpeedMps: 9,
+    ...(name === "eastbound" && {
+      connectByGround: true,
+      groundDeparture: eighteenthEastDeparture,
+    }),
+    maxAirborneMetres: 0,
+    maxDurationMs: 65_000,
   };
 }
 cases["i280-mainline"] = {
@@ -143,15 +199,14 @@ cases["sixth-southbound"] = {
   roads: [
     "i280-sixth-southbound",
     "i280-king-to-mariposa",
-    "i280-18th-off-ramp",
-    "i280-18th-exit",
+    ...eighteenthWestExit,
   ],
   owners: i280Owners,
   speed: 16,
   speedLimits: {
     "i280-king-to-mariposa": 14,
     "i280-18th-off-ramp": 12,
-    "i280-18th-exit": 8,
+    ...eighteenthExitLimits,
   },
   rampApproach: true,
 };
@@ -182,12 +237,21 @@ cases["sixth-northbound"] = {
   },
 };
 for (const reverse of [false, true]) {
-  const viaducts = ["eighteenth-east-viaduct", "eighteenth-west-viaduct"];
+  const viaducts = [
+    eighteenthEastDeck,
+    eighteenthWestDeck,
+    eighteenthJunction,
+    eighteenthLanding,
+  ];
   cases[reverse ? "eighteenth-eastbound" : "eighteenth-westbound"] = {
     roads: reverse ? viaducts.toReversed() : viaducts,
     owners: i280Owners,
     speed: 8,
     reverse,
+    ...(reverse && {
+      connectByGround: true,
+      groundDeparture: eighteenthEastDeparture,
+    }),
   };
 }
 for (const [name, entry] of [

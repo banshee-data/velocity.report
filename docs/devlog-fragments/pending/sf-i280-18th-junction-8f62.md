@@ -1,0 +1,1 @@
+- Connected the southbound I-280 exit to both directions of the 18th Street viaduct and added a check that every declared ground portal meets the baked terrain. Recorded the survey and drives in the [SF road route audit](../../ui/sf-road-route-audit.md#southbound-i-280-exit-onto-the-18th-street-viaduct).

@@ -1506,16 +1506,16 @@ test("the rebake keeps tunnel alignments off the aerial ground while retaining T
   assert.ok(tunnelAvenue);
 });
 
-test("the playable I-280 parts keep identical contact across neighbouring owners", () => {
+test("baked roads agree across tile owners and reach their declared ground portals", () => {
   const { tiles, roadBake } = JSON.parse(file("tiles/manifest.json"));
   assert.match(roadBake.playableSha256, /^[0-9a-f]{64}$/);
   const roads = new Map();
   const duplicated = new Set();
   const terminals = new Map();
-  for (const { t } of tiles) {
-    const { playableRoads = [] } = JSON.parse(
-      gunzipSync(file(`tiles/${t}.json.gz`)),
-    );
+  const loaded = tiles.map(({ t }) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  for (const { playableRoads = [] } of loaded) {
     for (const road of playableRoads) {
       if (roads.has(road.id)) {
         assert.deepEqual(road, roads.get(road.id), road.id);
@@ -1534,6 +1534,17 @@ test("the playable I-280 parts keep identical contact across neighbouring owners
     assert.ok(terminal?.[1], from);
     assert.deepEqual(terminal, terminals.get(to));
   }
+  for (const road of roads.values()) {
+    for (const end of road.groundEnds ?? []) {
+      const [x, y, z] =
+        road.points[end === "start" ? 0 : road.points.length - 1];
+      const ground = groundAtWorld(loaded, x, y, true);
+      assert.ok(
+        ground !== null && Math.abs(ground - z) <= 0.22,
+        `${road.id}:${end}`,
+      );
+    }
+  }
   const fork = "sf-contact/i280-18th-off-ramp:end";
   const exits = [
     "sf-contact/i280-18th-exit",
@@ -1546,8 +1557,8 @@ test("the playable I-280 parts keep identical contact across neighbouring owners
       .sort(),
     exits.map((exit) => `${exit}:start`),
   );
-  for (const exit of exits)
-    assert.deepEqual(roads.get(exit).groundEnds, ["end"]);
+  assert.deepEqual(roads.get(exits[0]).groundEnds, []);
+  assert.deepEqual(roads.get(exits[1]).groundEnds, ["end"]);
   const stockton = roads.get("sf-contact/stockton-tunnel");
   assert.deepEqual(stockton.groundEnds, ["start", "end"]);
   assert.equal(stockton.kind, "tunnel");
@@ -1819,6 +1830,11 @@ test("Sixth Street reaches both I-280 levels through continuous paved approaches
   const north = road("i280-sixth-northbound");
   const east = road("eighteenth-east-viaduct");
   const west = road("eighteenth-west-viaduct");
+  const junction = road("eighteenth-viaduct-junction");
+  const landing = road("eighteenth-west-landing");
+  const exit = road("i280-18th-exit");
+  const exitEast = road("i280-18th-exit-east-turn");
+  const exitWest = road("i280-18th-exit-west-turn");
   const ramp = road("i280-eighteenth-north-entry");
   const mariposa = road("i280-mariposa-northbound");
   assert.deepEqual(south, road("i280-sixth-southbound", tiles[1]));
@@ -1827,6 +1843,11 @@ test("Sixth Street reaches both I-280 levels through continuous paved approaches
   for (const [from, to] of [
     [south, road("i280-king-to-mariposa")],
     [east, west],
+    [west, junction],
+    [junction, landing],
+    [exit, exitEast],
+    [exit, exitWest],
+    [exitWest, landing],
     [east, ramp],
     [ramp, mariposa],
     [mariposa, north],
@@ -1840,7 +1861,17 @@ test("Sixth Street reaches both I-280 levels through continuous paved approaches
       ),
     );
   }
-  for (const deck of [north, south, east, west]) {
+  assert.deepEqual(exitEast.points.at(-1), west.points.at(-1));
+  assert.deepEqual(exitEast.seams.end, west.seams.end);
+  assert.ok(
+    roadBake.playableTransitions.some(
+      ({ from, to, direction }) =>
+        from === `${exitEast.id}:end` &&
+        to === `${west.id}:end` &&
+        direction === "forward",
+    ),
+  );
+  for (const deck of [north, south, east, landing]) {
     const { portals } = buildBakedRoadContact(deck);
     assert.equal(portals.length, 1);
     const [{ x, y, z }] = portals;

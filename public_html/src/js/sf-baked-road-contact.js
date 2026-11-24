@@ -29,6 +29,21 @@ function crossSectionAt(sections, station, width) {
   return blendWidths(previous.slice(1), following.slice(1), fraction);
 }
 
+function seamInTravelOrder(seam, a, b) {
+  if (!seam) return null;
+  const alignment =
+    (b[0] - a[0]) * Math.cos(seam.bearing) +
+    (b[1] - a[1]) * Math.sin(seam.bearing);
+  if (alignment >= 0) return seam;
+  // A shared transverse section can join two roads digitized toward it.
+  return {
+    ...seam,
+    bearing: seam.bearing + Math.PI,
+    leftWidth:
+      seam.leftWidth === undefined ? undefined : seam.width - seam.leftWidth,
+  };
+}
+
 export function buildBakedRoadContact(road) {
   const {
     id,
@@ -143,6 +158,8 @@ export function buildBakedRoadContact(road) {
   const measuredWidths =
     widthSections ||
     Object.values(seams).some((seam) => seam.leftWidth !== undefined);
+  const startSeam = seamInTravelOrder(seams.start, points[0], points[1]);
+  const endSeam = seamInTravelOrder(seams.end, points.at(-2), points.at(-1));
   for (const [i, point] of points.entries()) {
     const station = stations[i];
     const remaining = distance - station;
@@ -153,15 +170,15 @@ export function buildBakedRoadContact(road) {
     const length = Math.hypot(dx, dy);
     if (length < 0.002) return null;
     const last = i === points.length - 1;
-    const seam = i === 0 ? seams.start : last ? seams.end : null;
+    const seam = i === 0 ? startSeam : last ? endSeam : null;
     const bearing = seam?.bearing ?? Math.atan2(dy, dx);
     let section = crossSectionAt(widthSections, station, width);
     if (seam) {
       section = edgeWidths(seam.width, seam.leftWidth);
     } else if (station < startTaper) {
-      section = taperedWidths(section, seams.start, station, startTaper);
+      section = taperedWidths(section, startSeam, station, startTaper);
     } else if (remaining < endTaper) {
-      section = taperedWidths(section, seams.end, remaining, endTaper);
+      section = taperedWidths(section, endSeam, remaining, endTaper);
     }
     const [leftWidth, rightWidth] = section;
     const nx = -Math.sin(bearing);

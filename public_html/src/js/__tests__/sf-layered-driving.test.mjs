@@ -301,6 +301,72 @@ test("steering chooses the aligned branch and a tied fork carries the same road 
   }
 });
 
+test("two roads digitized toward a shared seam meet across its asymmetric width", () => {
+  const baked = (id, points) =>
+    buildBakedRoadContact({
+      id,
+      kind: "ramp",
+      width: 8,
+      owners: ["808f7fcc", "808f7fcc"],
+      points,
+      seams: { end: { bearing: 0, width: 8, leftWidth: 5 } },
+      widthTransitionMetres: { end: 6 },
+    });
+  const approach = baked("approach", [
+    [-12, 0, 26],
+    [-6, 0, 26],
+    [0, 0, 26],
+  ]);
+  const street = baked("street", [
+    [12, 0, 26],
+    [6, 0, 26],
+    [0, 0, 26],
+  ]);
+  for (const y of [-2.8, 4.8]) {
+    assert.equal(approach.surface.heightAt(0, y), 26);
+    assert.equal(street.surface.heightAt(0, y), 26);
+  }
+  assert.equal(street.surface.heightAt(0, -3.2), null);
+  const transitions = [
+    {
+      id: "approach-joins-street",
+      from: "approach:end",
+      to: "street:end",
+      direction: "forward",
+      support: "interpolated",
+      status: "joined",
+    },
+  ];
+  const network = indexRoadNetwork(transitions);
+  const pieces = [approach, street];
+  network.add({
+    endpoints: pieces.flatMap((piece) => piece.endpoints),
+    transitions,
+  });
+  const surfaces = new Map(pieces.map(({ surface }) => [surface.id, surface]));
+  const car = {
+    x: -0.02,
+    y: 1,
+    z: 26,
+    v: 6,
+    heading: 0,
+    grounded: true,
+    surfaceId: "approach",
+  };
+  const next = driveOnRoadNetwork(
+    car,
+    { throttle: 0 },
+    1 / 120,
+    approach.surface,
+    surfaces,
+    network,
+    () => false,
+  );
+  assert.equal(next.surfaceId, "street");
+  assert.ok(next.x > 0);
+  assert.equal(next.z, 26);
+});
+
 test("manual pavement can leave the guide, brake to rest, and self-driving rejoins without a reset", () => {
   const ground = () => 2;
   const section = (id, kind, start) => ({
