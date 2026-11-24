@@ -7,6 +7,7 @@ import { Raycaster, Vector3 } from "../../vendor/three/three.module.js";
 import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
 import {
   BAY_BRIDGE_CITY_DRIVE,
+  buildRaisedRoad,
   cityDriveApproach,
 } from "../sf-city-road-drive.js";
 import {
@@ -1676,7 +1677,7 @@ test("Ruckman keeps both SR 1 decks above the street and branches at the northbo
     );
   }
   assert.deepEqual(north.groundEnds, ["start"]);
-  assert.deepEqual(goldenGate.groundEnds, ["end"]);
+  assert.deepEqual(goldenGate.groundEnds, []);
   for (const [direction, x] of [
     ["northbound", -2589],
     ["southbound", -2596.4],
@@ -1687,7 +1688,7 @@ test("Ruckman keeps both SR 1 decks above the street and branches at the northbo
         : [road("ruckman-viaduct-southbound")];
     const contact = decks.map(buildBakedRoadContact);
     const portals = contact.flatMap((deck) => deck.portals);
-    assert.equal(portals.length, 2);
+    assert.equal(portals.length, 1);
     for (const { x, y, z } of portals) {
       assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
     }
@@ -2306,7 +2307,10 @@ test("Presidio's four bores turn into continuous contact at their portals", () =
     ["sb", ["battery-southbound", "main-post-southbound"]],
   ]) {
     const start = `sf-contact/presidio-${direction}-entry`;
-    const end = `sf-contact/presidio-${direction}-exit`;
+    const end =
+      direction === "nb"
+        ? "sf-contact/ruckman-viaduct-southbound"
+        : "sf-contact/presidio-sb-exit";
     let id = start;
     const tunnels = [];
     const visited = new Set();
@@ -2413,6 +2417,37 @@ test("Presidio Parkway keeps its mainline and SR 1 on distinct branches across t
   const viaductSouth = road(tiles[0], "presidio-sb-viaduct");
   const viaductNorth = road(tiles[0], "presidio-nb-viaduct");
   const originalExit = road(tiles[0], "presidio-nb-exit");
+  const ruckman = road(tiles[0], "ruckman-viaduct-southbound");
+  const northLoop = road(tiles[1], "presidio-nb-loop-to-sr1-south");
+  const southExit = road(tiles[1], "presidio-southbound-to-sr1-exit");
+  const sr1SouthMerge = road(tiles[0], "presidio-to-sr1-south-merge");
+  const sr1NorthEntry = road(tiles[0], "sr1-north-to-golden-gate-approach");
+  const sr1NorthMerge = road(tiles[1], "sr1-north-to-doyle-merge");
+  const goldenNorth = road(tiles[1], "golden-gate-northbound-1");
+  const goldenSouth = road(tiles[1], "golden-gate-southbound-6");
+  assert.deepEqual(originalExit.groundEnds, []);
+  assert.deepEqual(ruckman.groundEnds, ["end"]);
+  const replaced = new Set(roadBake.playableReplaces);
+  for (const id of [
+    "overpass/19187000/forward/1",
+    "overpass/19187000/forward/2",
+    "overpass/15224000/forward/1",
+  ]) {
+    const preview = tiles
+      .flatMap((tile) => tile.raisedRoads)
+      .find((road) => road.id === id);
+    assert.ok(preview, id);
+    assert.equal(buildRaisedRoad(preview, replaced), null, id);
+  }
+  for (const crossing of [northLoop, sr1NorthMerge]) {
+    assert.deepEqual([...new Set(crossing.owners)].sort(), tileOwners);
+    for (const tile of tiles) {
+      assert.deepEqual(
+        tile.playableRoads.find(({ id }) => id === crossing.id),
+        crossing,
+      );
+    }
+  }
   for (const mainline of [mainlineSouth, mainlineNorth]) {
     assert.deepEqual(
       mainline,
@@ -2428,6 +2463,13 @@ test("Presidio Parkway keeps its mainline and SR 1 on distinct branches across t
     [mainlineSouth, viaductSouth],
     [viaductNorth, mainlineNorth],
     [viaductNorth, originalExit],
+    [originalExit, northLoop],
+    [northLoop, sr1SouthMerge],
+    [goldenSouth, southExit],
+    [southExit, sr1SouthMerge],
+    [sr1SouthMerge, ruckman],
+    [sr1NorthEntry, sr1NorthMerge],
+    [sr1NorthMerge, goldenNorth],
   ]) {
     assert.deepEqual(from.points.at(-1), to.points[0]);
     assert.deepEqual(from.seams.end, to.seams.start);
