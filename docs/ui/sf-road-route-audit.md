@@ -2299,8 +2299,8 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 ## Main Street beneath the Bay Bridge
 
 The Embarcadero-to-SoMa run stalled at (4469.063, 3031.251) on Main Street.
-The car stayed at 4.83 m NAVD88. The bake had extruded part of the overhead
-bridge volume to ground and blocked the traffic lanes. The street continues
+The car stayed at 4.83 m NAVD88. An inferred volume reached from the overhead
+bridge to the ground and blocked the traffic lanes. The street continues
 between Bryant and Harrison beside the bridge footings. [SFMTA Main Street striping plan](https://www.sfmta.com/sites/default/files/reports-and-documents/2023/02/item_12_tasc_packet_main_st_combined.pdf)
 
 The correction raises the inferred volume only within the lane corridor.
