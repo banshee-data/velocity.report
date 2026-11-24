@@ -53,6 +53,14 @@ func RenderFateMarkdown(r FateReport) string {
 	b.WriteString("\n")
 	writeFateTable(&b, "Object", r.ByObject, cols, true)
 
+	b.WriteString("\n## Retained membership versus dropped returns\n\n")
+	b.WriteString("Counts partition each group's reviewed returns. Main is the cluster holding most reviewed returns in each instant; secondary counts retained returns in the other clusters. It is not a tracker association or a cab label. L4 rejected includes height/surface filters, voxel reduction, input cap, noise, shape and unknown rejection. Other-frame and unresolved returns are not attributed as losses.\n\n")
+	writeMembershipTable(&b, "Group", append([]FateSummary{r.Total}, r.ByClass...))
+	b.WriteString("\n")
+	writeMembershipTable(&b, "Range band", r.ByRange)
+	b.WriteString("\n")
+	writeMembershipTable(&b, "Object", r.ByObject)
+
 	b.WriteString("\n## What the gaps between fragments are made of\n\n")
 	b.WriteString("For each instant split over two clusters or more, the object's returns that are in none of its fragments, by fate.\n\n")
 	gapCols := fateColumns(r.Total.GapFates)
@@ -160,5 +168,14 @@ func writeGapTable(b *strings.Builder, first string, rows []FateSummary, cols []
 			fmt.Fprintf(b, " %s |", shareOrDash(s.GapShares[c], s.GapReturns))
 		}
 		b.WriteString("\n")
+	}
+}
+
+func writeMembershipTable(b *strings.Builder, first string, rows []FateSummary) {
+	fmt.Fprintf(b, "| %s | Returns | Main cluster | Secondary clusters | L3 background | L4 rejected | Other frame | Unresolved |\n", first)
+	b.WriteString("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+	for _, s := range rows {
+		m := s.Membership
+		fmt.Fprintf(b, "| %s | %d | %d | %d | %d | %d | %d | %d |\n", s.Name, s.Returns, m.Main, m.Secondary, m.L3Background, m.L4Rejected, m.OtherFrame, m.Unresolved)
 	}
 }

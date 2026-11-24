@@ -1,0 +1,1 @@
+- Added a [W3 membership diagnostic](../../lidar/operations/w3-membership-diagnostic.md) to the existing return-fate scorer, separating main and secondary retained membership from L3 loss, L4 rejection and unresolved identities; synthetic fixture and command tests distinguish joining from dropping a fragment, without claiming a new corpus result or changing production defaults.

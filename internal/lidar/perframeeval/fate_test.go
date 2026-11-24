@@ -411,3 +411,64 @@ func TestFateOptionsValidate(t *testing.T) {
 		}
 	}
 }
+
+func TestFateMembershipSeparatesLossFromJoining(t *testing.T) {
+	f := fateFixture(t)
+	for _, tc := range []struct {
+		name string
+		edit func(*evalfixture.FateScenario)
+		want FateMembership
+	}{
+		{"split", func(s *evalfixture.FateScenario) {}, FateMembership{Main: 2, Secondary: 1, L3Background: 1}},
+		{"joined", func(s *evalfixture.FateScenario) {
+			for i := range s.Frames[1].Domain {
+				if s.Frames[1].Domain[i].Cluster == 2 {
+					s.Frames[1].Domain[i].Cluster = 1
+				}
+			}
+		}, FateMembership{Main: 3, L3Background: 1}},
+		{"lost to L3", func(s *evalfixture.FateScenario) {
+			s.Frames[1].Domain = slices.DeleteFunc(s.Frames[1].Domain, func(r evalfixture.FateReturn) bool { return r.Cluster == 2 })
+		}, FateMembership{Main: 2, L3Background: 2}},
+		{"lost to L4", func(s *evalfixture.FateScenario) {
+			for i := range s.Frames[1].Domain {
+				r := &s.Frames[1].Domain[i]
+				if r.Cluster == 2 {
+					r.Cluster = 0
+					r.Reason = l4bobserve.RejectionClusterNoise
+				}
+			}
+		}, FateMembership{Main: 2, L3Background: 1, L4Rejected: 1}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := measureFate(t, writeVariant(t, f, tc.edit))
+			in := instantAt(t, r, 1)
+			if in.Membership != tc.want {
+				t.Fatalf("membership = %+v, want %+v", in.Membership, tc.want)
+			}
+			for _, in := range r.Instants {
+				m := in.Membership
+				if m.Main+m.Secondary+m.L3Background+m.L4Rejected+m.OtherFrame+m.Unresolved != in.Returns {
+					t.Fatalf("sample %d: partition %+v does not conserve %d returns", in.SampleID, m, in.Returns)
+				}
+			}
+		})
+	}
+}
+
+func TestFateMembershipUsesReviewedSizeAndHandlesTies(t *testing.T) {
+	for _, clusters := range [][]FateCluster{
+		{{ClusterID: 1, Points: 1, ClusterPoints: 100}, {ClusterID: 2, Points: 3, ClusterPoints: 3}},
+		{{ClusterID: 2, Points: 3, ClusterPoints: 3}, {ClusterID: 1, Points: 1, ClusterPoints: 100}},
+		{{ClusterID: 1, Points: 2, ClusterPoints: 100}, {ClusterID: 2, Points: 2, ClusterPoints: 2}},
+	} {
+		got := membershipOf(FateInstant{Returns: 4, Fates: map[string]int{FateClustered: 4}, Clusters: clusters})
+		wantMain := 3
+		if clusters[0].Points == 2 {
+			wantMain = 2
+		}
+		if got != (FateMembership{Main: wantMain, Secondary: 4 - wantMain}) {
+			t.Errorf("clusters %+v: membership %+v", clusters, got)
+		}
+	}
+}

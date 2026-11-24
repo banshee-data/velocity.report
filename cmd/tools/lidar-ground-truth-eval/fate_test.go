@@ -39,10 +39,14 @@ func TestFateWritesMarkdownAndJSON(t *testing.T) {
 	}
 	md := stdout.String()
 	for _, want := range []string{"# Fate of every reviewed return", "match rate 0.7000", "| all | 5 | 20 |",
-		"| obj_car_a | car | 5 | 20 |", "## Comparable with the retention measure"} {
+		"| obj_car_a | car | 5 | 20 |", "## Comparable with the retention measure", "## Retained membership versus dropped returns", "| all | 20 | 4 | 1 | 1 | 8 | 1 | 5 |"} {
 		if !strings.Contains(md, want) {
 			t.Fatalf("summary lacks %q:\n%s", want, md)
 		}
+	}
+	// Exercise dispatch with the same synthetic evidence, then verify its JSON.
+	if code := run(append([]string{"fate"}, append(args, "-json", jsonPath)...)); code != 0 {
+		t.Fatalf("fate through run: exit %d", code)
 	}
 	b, err := os.ReadFile(jsonPath)
 	if err != nil {
@@ -51,6 +55,18 @@ func TestFateWritesMarkdownAndJSON(t *testing.T) {
 	var r perframeeval.FateReport
 	if err := json.Unmarshal(b, &r); err != nil {
 		t.Fatal(err)
+	}
+	wantMembership := perframeeval.FateMembership{Main: 4, Secondary: 1, L3Background: 1, L4Rejected: 8, OtherFrame: 1, Unresolved: 5}
+	for _, summary := range []perframeeval.FateSummary{r.Total, r.ByClass[0], r.ByRange[0], r.ByObject[0]} {
+		if summary.Membership != wantMembership {
+			t.Errorf("%s membership = %+v, want %+v", summary.Name, summary.Membership, wantMembership)
+		}
+	}
+	if r.Instants[0].Membership != (perframeeval.FateMembership{Main: 2, Secondary: 1, L3Background: 1}) {
+		t.Errorf("instant membership = %+v", r.Instants[0].Membership)
+	}
+	if r.ByRange[1].Membership != (perframeeval.FateMembership{}) {
+		t.Errorf("empty band membership = %+v", r.ByRange[1].Membership)
 	}
 	if r.Schema != perframeeval.FateSchema || len(r.Instants) != 5 || r.Total.Fates[perframeeval.FateClustered] != 5 ||
 		r.Join.Matched != 13 || r.Total.Fragmented != 1 || r.Total.GapFates[perframeeval.FateL3Background] != 1 {
