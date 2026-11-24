@@ -3042,3 +3042,65 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   doyle-northbound-loop-to-sr1 golden-gate-southbound-exit-to-sr1 \
   ruckman-northbound-to-golden-gate
 ```
+
+## Local bridge decks in Golden Gate Park and on the waterfront
+
+The current terrain grid followed the lower elevation where four
+roadways crossed a gap. Chrome manual drives reproduced the falls on
+the public bake. The April 2023 survey provided an exposed pavement
+profile for each deck. Illinois Street uses a surveyed lateral approach
+because the street inventory centreline approaches the bridge from the
+lower side of the embankment. The three affected tiles carry the complete
+contacts and retain the open ground approaches at both ends.
+
+| Crossing                           | Lowest altitude in the original Chrome drive | Airborne distance in the original drive |
+| ---------------------------------- | -------------------------------------------: | --------------------------------------: |
+| Crossover Drive above JFK Drive    |                                      72.63 m |                                 23.05 m |
+| Illinois Street above Islais Creek |                                       0.30 m |                                 15.28 m |
+| Third Street above Islais Creek    |                                       3.49 m |                                 11.83 m |
+| Fourth Street above Mission Creek  |                                       2.71 m |                                  6.49 m |
+
+Those altitudes describe the simulated car. The survey found the
+Crossover roadway near 79.5 m and the Illinois span near 4.4 m across
+these traces. The game now carries each bridge on its own contact surface.
+At Crossover, the lower JFK Drive contact follows its measured approaches
+and interpolates their connection through the short aerial survey shadow.
+The city lists Crossover Drive and the western section of JFK Drive as
+open to vehicles. [Golden Gate Park road access](https://www.sfrecpark.org/1618/Getting-to-Golden-Gate-Park-by-Car).
+
+The five contacts total 598.92 m. The largest difference between fitted
+pavement and the underlying terrain was 6.89 m on Crossover Drive.
+Illinois Street's largest difference was 4.16 m. In Chrome both lower JFK
+lanes stayed on the lower contact, used the covered camera, and returned
+to open pavement grounded. The westbound handoff extends past the first
+street grade break. Its earlier portal allowed a 4.62 m bounce after
+leaving the contact. The extended contact covers that break.
+
+| Contact                            |   Length | Peak fitted grade |
+| ---------------------------------- | -------: | ----------------: |
+| Crossover Drive                    |  99.00 m |             2.91% |
+| JFK Drive below Crossover          |  83.00 m |             6.40% |
+| Third Street above Islais Creek    | 111.00 m |             2.35% |
+| Illinois Street above Islais Creek | 241.92 m |             2.83% |
+| Fourth Street above Mission Creek  |  64.00 m |             1.87% |
+
+The lower JFK profile interpolates 26.68 m between the two surveyed
+approaches inside the aerial shadow. The other four contacts have
+observations at every fitting station with a maximum spacing of 3 m.
+[Gerardus recipe and provenance](https://github.com/banshee-data/gerardus/pull/177).
+
+All 23 fixed-step emoji routes reached both pickups on this bake. They
+covered 67.59 km and crossed 63 tile seams. The largest observed seam
+step was 6.1 cm and no local dip exceeded 0.5 m.
+
+- Game manifest SHA-256 `20b637a302983dced7779cd75c09927284c805356f971f2e85798602a3e5c980`.
+- Contact SHA-256 `949ce7fdbe9fc11a7128e0a5357f18d526b1aae818b78ae758516d2f0fac5261`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  crossover-drive-over-jfk-southbound crossover-drive-over-jfk-northbound \
+  jfk-drive-under-crossover-westbound jfk-drive-under-crossover-eastbound \
+  islais-creek-third-street-southbound islais-creek-third-street-northbound \
+  islais-creek-illinois-street-southbound islais-creek-illinois-street-northbound \
+  mission-creek-fourth-street-southbound mission-creek-fourth-street-northbound
+```
