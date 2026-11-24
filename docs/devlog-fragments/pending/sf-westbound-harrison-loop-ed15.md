@@ -1,0 +1,1 @@
+- Baked the westbound I‑80 loop to Harrison and Fremont below both Bay Bridge approaches and drove both branches in the [road route audit](../../ui/sf-road-route-audit.md#westbound-i-80-loop-to-harrison-and-fremont).

@@ -352,6 +352,7 @@ cases["upper-to-octavia"] = {
   },
   forks: [
     ["city-approach", "i80-westbound-fremont-split", 1.3],
+    ["i80-westbound-fremont-split", "i80-westbound-upper-soma", -1.8],
     ...cases["central-from-fourth"].forks,
   ],
   laneGuides: {
@@ -361,6 +362,48 @@ cases["upper-to-octavia"] = {
     },
   },
 };
+const harrisonFork = "i80-westbound-fremont-split";
+const harrisonLoop = "i80-westbound-harrison-loop";
+const somaUpper = "i80-westbound-upper-soma";
+cases["westbound-harrison-loop"] = {
+  roads: [harrisonFork, harrisonLoop],
+  owners: upperOwners,
+  speed: 17,
+  initialSpeedMps: 16,
+  rollingStart: true,
+  speedLimits: { [harrisonLoop]: 12 },
+  forks: [[harrisonFork, harrisonLoop, 1.65]],
+  laneGuides: {
+    [harrisonLoop]: {
+      clearance: [
+        { offset: -2.05, station: 289, length: 24 },
+        { offset: -2.15, station: 376, length: 23 },
+      ],
+    },
+  },
+};
+cases["westbound-harrison-fork-through"] = {
+  roads: [harrisonFork, somaUpper],
+  owners: upperOwners,
+  speed: 17,
+  initialSpeedMps: 16,
+  rollingStart: true,
+  finishOnDeck: true,
+  finishDistance: 330,
+  forks: [[harrisonFork, somaUpper, -1.8]],
+  laneGuides: cases["upper-to-octavia"].laneGuides,
+};
+cases["upper-to-harrison-loop"] = {
+  ...cases["westbound-harrison-loop"],
+  roads: [...upperFromIsland, harrisonFork, harrisonLoop],
+  speed: 22,
+  initialSpeedMps: 50 * 0.44704,
+  forks: [
+    ["city-approach", harrisonFork, 1.3],
+    [harrisonFork, harrisonLoop, 1.65],
+  ],
+};
+
 cases["dogpatch-to-sixth-northbound"] = {
   roads: [
     "i280-dogpatch-east-north-entry",
