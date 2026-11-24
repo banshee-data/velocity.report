@@ -2150,6 +2150,13 @@ in place. The contact regression reproduced the old building strike
 and passed after the clearance bake. Chrome repeated the exit from a
 49.9 mph rolling start, reached Macalla in 48.9 s and finished grounded.
 
+The normal named start originally exposed only its automatic through
+route to the manual driver. The manual junction graph now also offers
+baked transitions where both levels and endpoint coordinates agree
+with the authored road. Chrome selected the ordinary westbound start,
+took manual control at about 50 mph, used the ramp and finished on
+Macalla Road in 48.4 s.
+
 - Game manifest SHA-256 `44c066ef6d38704c26e4278c1b06da5d49627d9c717100d481fb2e26bdcddccd`.
 - Contact SHA-256 `a42dad8f53fb42f40c58306088e3b4cd83186c8e9ae21783b87be70e28c5b38b`.
 

@@ -2206,7 +2206,7 @@ cases["island-east-westbound-exit"] = {
   owners: islandEastOwners,
   roads: [eastSpan, westExit],
   rollingStart: true,
-  rollingStartMetres: 5,
+  startPlace: "yerba-buena-westbound",
   speed: 14,
   speedLimits: { [westExit]: 9 },
   forks: [[eastSpan, westExit, -2.25]],
@@ -2655,6 +2655,9 @@ async function main() {
   const patchedPaths = [
     "tiles/manifest.json",
     "quest-route.json",
+    ...(names.some((name) => cases[name].startPlace)
+      ? ["gamedrives.json"]
+      : []),
     ...tokens.map(tilePath),
   ];
   const snapshots = new Map(
@@ -2692,6 +2695,7 @@ async function main() {
         rollingStart = false,
         initialSpeedMps = 50 * 0.44704,
         rollingStartMetres,
+        startPlace,
         groundApproachMetres,
         reverseRoads = [],
         laneGuides = {},
@@ -2779,7 +2783,7 @@ async function main() {
         sections[i].positions = [previous, ...sections[i].positions.slice(1)];
       }
       const first = sections[0].positions;
-      let startIndex = rollingStart ? 2 : 0;
+      let startIndex = rollingStart && !startPlace ? 2 : 0;
       if (rollingStart && rollingStartMetres) {
         let station = 0;
         startIndex = first.findIndex(([x, y], i) => {
@@ -2806,15 +2810,16 @@ async function main() {
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       try {
-        const place = rollingStart
-          ? {
-              ...checkpoint,
-              id: "sample-upper-deck",
-              name: "Upper deck test start",
-              surfaceId: sections[0].id,
-              initialSpeed: initialSpeedMps,
-            }
-          : null;
+        const place =
+          rollingStart && !startPlace
+            ? {
+                ...checkpoint,
+                id: "sample-upper-deck",
+                name: "Upper deck test start",
+                surfaceId: sections[0].id,
+                initialSpeed: initialSpeedMps,
+              }
+            : null;
         if (candidate || place)
           await page.route("**/sf/**", (route) => {
             const path = new URL(route.request().url()).pathname.slice(4);
@@ -2846,7 +2851,9 @@ async function main() {
             checkpoint,
           },
         );
-        await page.goto(`${origin}/sf/?at=${place?.id ?? "downtown"}`);
+        await page.goto(
+          `${origin}/sf/?at=${startPlace ?? place?.id ?? "downtown"}`,
+        );
         const canvas = page.locator('#drive[data-contact="grounded"]');
         await canvas.waitFor({ timeout: 60_000 });
         const initial = await canvas.evaluate((el) => ({ ...el.dataset }));
@@ -2854,9 +2861,13 @@ async function main() {
           Math.hypot(
             +initial.east - checkpoint.x,
             +initial.north - checkpoint.y,
-          ) < (place ? 24 : 1),
+          ) < (place || startPlace ? 24 : 1),
         );
         if (place) assert.equal(initial.surfaceId, place.surfaceId);
+        if (startPlace) {
+          assert.equal(initial.surfaceId, sections[0].id);
+          assert.ok(Number(initial.speedMps) >= initialSpeedMps * 0.9);
+        }
         const contactHash = await page.evaluate(async () => {
           const response = await fetch("/sf/tiles/manifest.json");
           return (await response.json()).roadBake.playableSha256;

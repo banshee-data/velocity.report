@@ -346,10 +346,19 @@ export function driveOnCityRoute(
   surfaces,
   network,
   pavement,
+  requestOwner = () => false,
 ) {
   const next =
     strikeHighwayRail(car, input, dt, surface) ||
-    driveOnRoadNetwork(car, input, dt, surface, surfaces, network, () => false);
+    driveOnRoadNetwork(
+      car,
+      input,
+      dt,
+      surface,
+      surfaces,
+      network,
+      requestOwner,
+    );
   if (!next.blocked || next.waiting || surface.kind === "tunnel") return next;
   if (surface.kind !== "ground")
     return leaveRoadSide(car, input, dt, surface) || next;

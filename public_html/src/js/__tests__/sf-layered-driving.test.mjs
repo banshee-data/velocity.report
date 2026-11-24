@@ -29,6 +29,7 @@ import {
 import {
   crossRampEntrance,
   driveOnRoadNetwork,
+  indexManualRoadNetwork,
   indexRoadNetwork,
   regionalStart,
 } from "../sf-road-network.js";
@@ -43,6 +44,45 @@ import {
   strikeHighwayRail,
 } from "../sf-highway-edge.js";
 
+test("manual named drives add only baked joins that meet the authored road level", () => {
+  const endpoint = (surface_id, end, position, surface_owner = "game") => ({
+    id: `${surface_id}:${end}`,
+    surface_id,
+    surface_owner,
+    position,
+    support: "interpolated",
+  });
+  const connection = (id, from, to) => ({
+    id,
+    from: from.id,
+    to: to.id,
+    direction: "forward",
+    support: "interpolated",
+    status: "joined",
+  });
+  const stem = endpoint("stem", "end", [8, 0, 5]);
+  const through = endpoint("through", "start", [8, 0, 5]);
+  const ramp = endpoint("ramp", "start", [8, 0, 5], "80858024");
+  const upper = endpoint("upper", "start", [8, 0, 12]);
+  const normal = connection("named", stem, through);
+  const join = connection("exit", stem, ramp);
+  const crossing = connection("other level", stem, upper);
+  const route = { endpoints: [stem, through, upper], transitions: [normal] };
+  const manual = indexManualRoadNetwork(route, [join, crossing]);
+  const auto = indexRoadNetwork(route.transitions);
+  auto.add(route);
+
+  manual.addBakedEndpoints([
+    ramp,
+    { ...stem, position: [8, 0, 12] },
+    { ...upper, position: [8, 0, 5] },
+  ]);
+  assert.deepEqual([...manual.transitions.get(stem.id)], [through.id]);
+  manual.addBakedEndpoints([stem]);
+  assert.deepEqual([...manual.transitions.get(stem.id)], [through.id, ramp.id]);
+  assert.deepEqual([...auto.transitions.get(stem.id)], [through.id]);
+  assert.deepEqual(manual.endpoints.get(stem.id), stem);
+});
 test("map settings accept a planar tile pack and the Gerardus road manifests", () => {
   assert.deepEqual(
     mapSources({

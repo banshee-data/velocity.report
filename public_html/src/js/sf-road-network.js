@@ -208,6 +208,54 @@ export function indexRoadNetwork(confirmedConnections) {
   };
 }
 
+// A named drive retains its authored surface and guidance. Baked branches
+// can join it only where the published endpoint agrees with that surface.
+export function indexManualRoadNetwork(route, bakedTransitions) {
+  const named = new Map(route.endpoints.map((end) => [end.id, end]));
+  const shared = new Set();
+  const graph = indexRoadNetwork([...route.transitions, ...bakedTransitions]);
+  const connections = bakedTransitions.filter(
+    ({ from, to }) => named.has(from) || named.has(to),
+  );
+  graph.add(route);
+  graph.add({
+    endpoints: [],
+    transitions: bakedTransitions.filter(
+      ({ from, to }) => !named.has(from) && !named.has(to),
+    ),
+  });
+  return {
+    ...graph,
+    addBakedEndpoints(endpoints) {
+      const additional = [];
+      let matched = false;
+      for (const end of endpoints) {
+        const authored = named.get(end.id);
+        if (!authored) {
+          additional.push(end);
+        } else if (
+          !shared.has(end.id) &&
+          supported(end.support) &&
+          authored.surface_id === end.surface_id &&
+          authored.position.every(
+            (value, axis) => Math.abs(value - end.position[axis]) <= 0.001,
+          )
+        ) {
+          shared.add(end.id);
+          matched = true;
+        }
+      }
+      const ready = (id) => !named.has(id) || shared.has(id);
+      graph.add({
+        endpoints: additional,
+        transitions: matched
+          ? connections.filter(({ from, to }) => ready(from) && ready(to))
+          : [],
+      });
+    },
+  };
+}
+
 function terminals(surface) {
   const { profile } = surface;
   return [0, 1].map((end) => {

@@ -108,7 +108,11 @@ import {
   driveOnRoadSurface,
   indexRoadContact,
 } from "./sf-road-contact.js";
-import { driveOnRoadNetwork, indexRoadNetwork } from "./sf-road-network.js";
+import {
+  driveOnRoadNetwork,
+  indexManualRoadNetwork,
+  indexRoadNetwork,
+} from "./sf-road-network.js";
 import { buildBakedRoadContact } from "./sf-baked-road-contact.js";
 import { driveThroughRoadPortal } from "./sf-road-portal.js";
 import { tunnelMesh } from "./sf-tunnel-mesh.js";
@@ -1030,6 +1034,8 @@ export async function startDrive({
     gameDrive?.points[gameDrive.spans.get("bay-bridge-westbound")?.end];
   const network = gameDrive && indexRoadNetwork(gameDrive.topology.transitions);
   const bakedTransitions = manifest.roadBake?.playableTransitions || [];
+  const manualNetwork =
+    gameDrive && indexManualRoadNetwork(gameDrive.topology, bakedTransitions);
   const bakedNetwork = indexRoadNetwork(bakedTransitions);
   bakedNetwork.add({ endpoints: [], transitions: bakedTransitions });
   const bakedRoads = new Map();
@@ -1442,6 +1448,12 @@ export async function startDrive({
       ),
   });
 
+  function requestRoadOwner(token) {
+    if (!byToken.has(token) || loaded.has(token)) return false;
+    stream(car, [token]);
+    return !failures.has(token);
+  }
+
   function stream(position = car, required) {
     const { want, drop } = required
       ? { want: required, drop: [] }
@@ -1463,8 +1475,10 @@ export async function startDrive({
           )
             object.material.dispose();
         });
-        for (const terminal of entry.surface.end_ids)
+        for (const terminal of entry.surface.end_ids) {
           bakedNetwork.endpoints.delete(terminal);
+          manualNetwork?.endpoints.delete(terminal);
+        }
         bakedPortals.delete(id);
         roadSurfaces.delete(id);
         bakedRoads.delete(id);
@@ -1545,9 +1559,11 @@ export async function startDrive({
             if (existing) existing.owners++;
             else {
               const contact = buildBakedRoadContact(road);
-              if (!contact || roadSurfaces.has(road.id)) continue;
+              if (!contact) continue;
               const { surface, endpoints, portals, appearance } = contact;
               if (surface.kind === "tunnel" && !appearance) continue;
+              manualNetwork?.addBakedEndpoints(endpoints);
+              if (roadSurfaces.has(road.id)) continue;
               if (surface.kind !== "tunnel")
                 surface.boundary = roadBoundary(surface.contact);
               const mesh = new THREE.Group();
@@ -3029,6 +3045,7 @@ export async function startDrive({
           ((surface ? !car.v : trial.status === "ready") && input.throttle === 0
             ? { ...input, brake: true }
             : input);
+        const manual = insurance.mode === "manual";
         let candidate = bakedPortals.size
           ? driveThroughRoadPortal(
               car,
@@ -3065,12 +3082,8 @@ export async function startDrive({
               1 / 120,
               surface,
               roadSurfaces,
-              bakedNetwork,
-              (token) => {
-                if (!byToken.has(token) || loaded.has(token)) return false;
-                stream(car, [token]);
-                return !failures.has(token);
-              },
+              (manual && manualNetwork) || bakedNetwork,
+              requestRoadOwner,
             );
           if (
             candidate.blocked &&
@@ -3086,10 +3099,9 @@ export async function startDrive({
             1 / 120,
             surface,
             roadSurfaces,
-            network,
-            insurance.mode === "manual" || resumeRecovery
-              ? terrainHeight
-              : undefined,
+            manual ? manualNetwork : network,
+            manual || resumeRecovery ? terrainHeight : undefined,
+            manual ? requestRoadOwner : undefined,
           );
         } else if (!candidate) {
           candidate = driveOnRoadSurface(car, controls, 1 / 120, surface);
