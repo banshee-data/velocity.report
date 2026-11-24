@@ -2466,3 +2466,60 @@ the existing 81 m contact underneath I-280.
 - Game manifest SHA-256 `20a1c8743338cc9e5e9827ba2c91fc2c7fc1cbeadda661d1990df74baa5ca9ce`.
 - Contact SHA-256 `9f03bae8b7f550f2a2e4a63fd5d38fbede3af394ec42883422f464d14d58f6bb`.
 - [Pinned course fixture](../../tools/sf-drive/road-audit-cross-city-lane-clearance.json).
+
+## Chrome completion of the twenty emoji itineraries
+
+Twelve original drives collected both emojis. Correcting the routes through
+Broadway, Minna, Pennsylvania, the Embarcadero and West Portal raised the
+count to seventeen. Chrome completed the final three with the lane-clearance
+bake and manual keyboard input after switching off self-driving. These
+measurements use the wheel contact while the car was grounded.
+
+| Course                      | Driven distance |    Time | Ground grade p95 | Grade peak |
+| --------------------------- | --------------: | ------: | ---------------: | ---------: |
+| Dogpatch to Potrero         |         4.65 km | 485.1 s |            15.7% |      34.9% |
+| Lake Street to the Presidio |         4.77 km | 487.0 s |            10.6% |      16.3% |
+| Ocean Beach to Fort Funston |         3.83 km | 387.8 s |             6.5% |       9.5% |
+
+All three collected both emojis, with zero measured dips over 0.5 m and
+zero blocked seconds. Dogpatch used the 23rd Street contact below I-280.
+The repeat drives complete the twenty-course audit. The short grade peaks
+measure game contact over a 1 m baseline. They warrant review of the
+source surfaces before drawing conclusions about physical pavement.
+
+## I-280 across Geneva and Ocean
+
+The Geneva bake adds about 3.43 km of connected pavement on both I-280
+carriageways and the four Geneva Avenue ramps. The new northbound branch
+keeps through traffic on the mainline and connects the right lane to
+the exit. Both off-ramps release the car onto ordinary city pavement.
+A recorded set of pavement observations brackets each longer under-deck
+shadow. The fit interpolates inside four such intervals of 23.91 to
+26.91 m.
+
+A static clearance check sampled 5,163 vehicle poses at the centre and
+two lateral offsets. All centre poses were clear. Two shoulder poses on
+the northbound entrance overlapped an inferred trunk with ambiguous
+survey support. The largest fitted local dip was 0.120 m against an
+approximately 20 m chord. Peak fitted grades were 3.60% northbound and
+4.66% southbound on the new through sections, and 8.14% on the steepest
+ramp.
+
+The Chrome trial started at 49.6 mph on southbound I-280, took the Geneva
+exit, drove across Geneva Avenue and entered northbound I-280. It
+travelled 69.3 m between the two road contacts and registered 53.5 m of
+grounded movement there. The run finished in 108.7 s, with no browser
+errors. The separate northbound exit also passed from a 49.9 mph rolling
+start. Both through runs stayed on the lower carriageways beneath the
+crossings. These results cover the Geneva corridor in the game.
+
+- Game manifest SHA-256 `c91251bb788c18768ae9c270546820c0c5ded07297f35286aeb1c0d0b2abc29b`.
+- Contact SHA-256 `57ce52172d15bc6c3b0908ee7f806b11466c29d25b9e2a18b39472576b4d0d5c`.
+- [Gerardus source and survey provenance](https://github.com/banshee-data/gerardus/pull/164).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  geneva-northbound-through geneva-southbound-through \
+  geneva-northbound-entry geneva-southbound-entry \
+  geneva-northbound-exit-rolling geneva-southbound-exit geneva-exit-and-reentry
+```

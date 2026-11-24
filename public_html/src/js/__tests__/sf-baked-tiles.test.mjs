@@ -3543,3 +3543,109 @@ test("Ocean Avenue crosses above I-280 and the northbound entrance joins at Mont
     }
   }
 });
+
+test("Geneva keeps both I-280 carriageways and their four ramps connected", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = [
+    "808f7c24",
+    "808f7c2c",
+    "808f7e64",
+    "808f7e7c",
+    "808f7e84",
+  ].map((token) => JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))));
+  const roads = new Map(
+    tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
+  );
+  const road = (slug) => roads.get(`sf-contact/i280-${slug}`);
+  const north = road("north-geneva-to-ocean");
+  const south = road("south-ocean-to-geneva");
+  for (const [a, b] of [
+    ["north-geneva-approach", "north-geneva-to-ocean"],
+    ["north-geneva-approach", "north-geneva-exit"],
+    ["north-geneva-to-ocean", "north-ocean-mainline"],
+    ["north-geneva-entry", "north-ocean-connector"],
+    ["south-monterey-to-ocean", "south-ocean-to-geneva"],
+    ["south-ocean-approach", "south-geneva-exit"],
+    ["south-ocean-to-geneva", "south-beyond-geneva"],
+    ["south-geneva-entry", "south-beyond-geneva"],
+  ]) {
+    const from = road(a);
+    const to = road(b);
+    assert.deepEqual(from.points.at(-1), to.points[0], to.id);
+    assert.deepEqual(from.seams.end, to.seams.start, to.id);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (join) =>
+          join.from === `${from.id}:end` &&
+          join.to === `${to.id}:start` &&
+          join.direction === "forward",
+      ),
+      to.id,
+    );
+  }
+  for (const direction of ["north", "south"]) {
+    const exit = road(`${direction}-geneva-exit`);
+    const entry = road(`${direction}-geneva-entry`);
+    assert.deepEqual(exit.groundExitOnly, ["end"]);
+    assert.deepEqual(entry.groundEnds, ["start"]);
+    assert.deepEqual(exit.points.at(-1), entry.points[0]);
+    const [x, y, z] = entry.points[0];
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
+    assert.ok(
+      !roadBake.playableTransitions.some(
+        (join) => join.from === `${exit.id}:end`,
+      ),
+    );
+  }
+
+  const decks = deckClearanceIndex();
+  for (const item of roads.values()) {
+    if (item.kind === "tunnel") continue;
+    const contact = buildBakedRoadContact(item).surface.contact;
+    const geometry = contactGeometry(contact, false);
+    decks.add(geometry);
+    geometry.dispose();
+  }
+  const obstacles = tiles.map((tile) =>
+    buildCollisionIndex(tile, tile.t, new Map(), decks.ceiling),
+  );
+  for (const item of [
+    north,
+    south,
+    road("north-geneva-approach"),
+    road("south-beyond-geneva"),
+    ...["north", "south"].flatMap((direction) => [
+      road(`${direction}-geneva-entry`),
+      road(`${direction}-geneva-exit`),
+    ]),
+  ]) {
+    for (const owner of item.owners) {
+      assert.deepEqual(
+        tiles
+          .find(({ t }) => t === owner)
+          .playableRoads.find(({ id }) => id === item.id),
+        item,
+      );
+    }
+    const { surface } = buildBakedRoadContact(item);
+    for (const [i, [x, y, z]] of item.points.entries()) {
+      if (!i) continue;
+      const [a, b, h] = item.points[i - 1];
+      const heading = Math.atan2(y - b, x - a);
+      assert.ok(Math.abs(z - h) / Math.hypot(x - a, y - b) < 0.1, item.id);
+      assert.equal(collisionAt(obstacles, { x, y, heading }, z), null, item.id);
+    }
+    const [x, y, z] = item.points[Math.floor(item.points.length / 2)];
+    assert.ok(Math.abs(surface.heightAt(x, y) - z) < 0.005, item.id);
+  }
+  for (const [item, x, y, wanted] of [
+    [north, -705.46, -4308.72, 68.89],
+    [south, -724.16, -4297.39, 69.44],
+    [road("north-geneva-entry"), -657.73, -4110.48, 64.79],
+    [road("south-geneva-exit"), -713.81, -4107.39, 66.5],
+  ]) {
+    const z = buildBakedRoadContact(item).surface.heightAt(x, y);
+    assert.ok(Math.abs(z - wanted) < 0.08, item.id);
+    assert.ok(groundAtWorld(tiles, x, y, true) - z > 1.5, item.id);
+  }
+});

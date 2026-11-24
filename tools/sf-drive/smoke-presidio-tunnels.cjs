@@ -2450,6 +2450,116 @@ cases["i280-ocean-exit-and-reentry"] = {
     "i280-north-ocean-entry": 9,
   },
 };
+const genevaOwners = [
+  "808f7c24",
+  "808f7c2c",
+  "808f7e84",
+  "808f7e7c",
+  "808f7e64",
+];
+cases["geneva-southbound-through"] = {
+  owners: genevaOwners,
+  roads: [
+    "i280-south-monterey-to-ocean",
+    "i280-south-ocean-to-geneva",
+    "i280-south-beyond-geneva",
+  ],
+  rollingStart: true,
+  rollingStartMetres: 530,
+  finishOnDeck: true,
+  finishDistance: 140,
+  speed: 19,
+  maxDurationMs: 110_000,
+};
+cases["geneva-northbound-through"] = {
+  owners: genevaOwners,
+  roads: [
+    "i280-north-geneva-approach",
+    "i280-north-geneva-to-ocean",
+    "i280-north-ocean-mainline",
+  ],
+  groundApproachMetres: 8,
+  finishOnDeck: true,
+  finishDistance: 160,
+  speed: 18,
+  maxDurationMs: 110_000,
+};
+cases["geneva-southbound-exit"] = {
+  owners: genevaOwners,
+  roads: ["i280-south-ocean-approach", "i280-south-geneva-exit"],
+  rollingStart: true,
+  rollingStartMetres: 190,
+  speed: 11,
+  maxDurationMs: 95_000,
+};
+cases["geneva-southbound-entry"] = {
+  owners: genevaOwners,
+  roads: ["i280-south-geneva-entry", "i280-south-beyond-geneva"],
+  groundApproachMetres: 3,
+  finishOnDeck: true,
+  finishDistance: 130,
+  speed: 12,
+  maxDurationMs: 95_000,
+};
+cases["geneva-northbound-entry"] = {
+  owners: genevaOwners,
+  roads: [
+    "i280-north-geneva-entry",
+    "i280-north-ocean-connector",
+    "i280-north-ocean-mainline",
+  ],
+  groundApproachMetres: 3,
+  finishOnDeck: true,
+  finishDistance: 125,
+  speed: 12,
+  maxDurationMs: 95_000,
+};
+cases["geneva-northbound-exit"] = {
+  owners: genevaOwners,
+  roads: ["i280-north-geneva-approach", "i280-north-geneva-exit"],
+  groundApproachMetres: 8,
+  forks: [["i280-north-geneva-approach", "i280-north-geneva-exit", -3.1]],
+  speed: 12,
+  maxDurationMs: 90_000,
+};
+cases["geneva-northbound-exit-rolling"] = {
+  ...cases["geneva-northbound-exit"],
+  rollingStart: true,
+  initialSpeedMps: 50 * 0.44704,
+  rollingStartMetres: 5,
+};
+cases["geneva-exit-and-reentry"] = {
+  owners: genevaOwners,
+  roads: [
+    "i280-south-ocean-approach",
+    "i280-south-geneva-exit",
+    "i280-north-geneva-entry",
+    "i280-north-ocean-connector",
+    "i280-north-ocean-mainline",
+  ],
+  rollingStart: true,
+  rollingStartMetres: 115,
+  connectByGround: true,
+  groundConnection: {
+    after: "sf-contact/i280-south-geneva-exit",
+    minimumMetres: 45,
+    via: [
+      [-741.4, -4288.6],
+      [-738.8, -4292.4],
+      [-733.5, -4295.4],
+      [-721.2, -4301.1],
+      [-708.6, -4306.9],
+      [-695.9, -4312.8],
+      [-690.4, -4315.3],
+      [-686.4, -4315.1],
+      [-683.9, -4313.7],
+    ],
+  },
+  finishOnDeck: true,
+  finishDistance: 125,
+  speed: 12,
+  maxDurationMs: 165_000,
+};
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
