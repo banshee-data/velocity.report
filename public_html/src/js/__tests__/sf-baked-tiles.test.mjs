@@ -1353,7 +1353,11 @@ test("Presidio's four bores turn into continuous contact at their portals", () =
     tiles.flatMap(({ playableRoads }) => playableRoads.map((r) => [r.id, r])),
   );
   const transitions = new Map(
-    roadBake.playableTransitions.map(({ from, to }) => [from, to]),
+    roadBake.playableTransitions
+      .filter(
+        ({ to }) => to !== "sf-contact/presidio-doyle-northbound-exit:start",
+      )
+      .map(({ from, to }) => [from, to]),
   );
   for (const [direction, bores] of [
     ["nb", ["main-post-northbound", "battery-northbound"]],
@@ -1419,6 +1423,66 @@ test("Presidio's four bores turn into continuous contact at their portals", () =
     assert.equal(collisionAt(indexes, entry, floor), null, name);
     assert.equal(collisionAt(indexes, entry, upper), "building", name);
   }
+});
+
+test("Presidio Parkway keeps its mainline and SR 1 on distinct branches across tiles", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tileOwners = ["808586dc", "808586ec"];
+  const tiles = tileOwners.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const road = (tile, slug) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
+  const mainlineSouth = road(tiles[0], "presidio-doyle-southbound-entry");
+  const mainlineNorth = road(tiles[0], "presidio-doyle-northbound-exit");
+  const viaductSouth = road(tiles[0], "presidio-sb-viaduct");
+  const viaductNorth = road(tiles[0], "presidio-nb-viaduct");
+  const originalExit = road(tiles[0], "presidio-nb-exit");
+  for (const mainline of [mainlineSouth, mainlineNorth]) {
+    assert.deepEqual(
+      mainline,
+      tiles[1].playableRoads.find(({ id }) => id === mainline.id),
+    );
+    assert.deepEqual([...new Set(mainline.owners)].sort(), tileOwners);
+    const { portals } = buildBakedRoadContact(mainline);
+    assert.equal(portals.length, 1);
+    const [{ x, y, z }] = portals;
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  }
+  for (const [from, to] of [
+    [mainlineSouth, viaductSouth],
+    [viaductNorth, mainlineNorth],
+    [viaductNorth, originalExit],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from: start, to: end, direction }) =>
+          start === `${from.id}:end` &&
+          end === `${to.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  const [x, y, z] = mainlineNorth.points[20];
+  assert.ok(z - groundAtWorld(tiles, x, y, true) > 5);
+  const obstacles = tiles.map((tile, i) =>
+    buildCollisionIndex(tile, tileOwners[i]),
+  );
+  const north = buildBakedRoadContact(mainlineNorth).surface;
+  const treeSite = { x: -2897.4, y: 4993.2, heading: 2.35 };
+  assert.equal(
+    collisionAt(obstacles, treeSite, north.heightAt(treeSite.x, treeSite.y)),
+    null,
+  );
+  assert.equal(roadBake.inferredTreePatches["808586ec"], 1);
+  assert.ok(
+    Math.hypot(
+      mainlineNorth.points.at(-1)[0] - originalExit.points.at(-1)[0],
+      mainlineNorth.points.at(-1)[1] - originalExit.points.at(-1)[1],
+    ) > 250,
+  );
 });
 
 test("Harrison and Silver Avenue decks span the lower roads at independent heights", () => {

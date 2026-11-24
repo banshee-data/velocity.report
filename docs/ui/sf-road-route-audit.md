@@ -1094,3 +1094,33 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `c9b648b5490a0e5a045983a4bb45af6afbb1a581620324526bcb632a5f1f3756`.
 - Contact SHA-256 `f410a1d4c9da14d1f3dcff94aa8df5cdfbba3feac995b0424f74d062c59680e8`.
 - The bake changes two tiles and preserves the emoji placement revision.
+
+## Presidio Parkway mainline and SR 1
+
+Two mainline sections add 1,004.8 m of contact at the western ends of the
+Presidio viaducts. The northbound US 101 lane shares its incoming seam at
+38.45 m NAVD88 with the SR 1 branch. The southbound mainline joins the
+existing viaduct at 35.64 m. Both new reaches meet the base terrain at
+their exterior ends.
+
+The fit pins 145 depth-12 EPT nodes. The highest fitted grades are 4.52%
+northbound and 4.64% southbound. The first northbound Chrome drive struck
+an inferred trunk near station 508 m. At its mapped position, 226 pavement
+returns and 68 other survey returns within one metre all lay at pavement
+height. The correction removes that single source row from the baked
+tile. The centre-lane retest passed.
+
+Chrome completed northbound US 101 in 116.0 s, southbound US 101 in
+118.4 s, and the original northbound SR 1 exit in 102.4 s. Both Main Post
+and Battery registered as enclosed on each drive, and all three drives
+ended grounded beyond the baked contact. Peak speeds were 51.7, 52.5 and
+51.9 mph respectively.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  presidio-doyle-northbound presidio-doyle-southbound northbound
+```
+
+- Game manifest SHA-256 `9d1c25e18dafc7b5defae541256ec0d4ac10167340b01d03684c83e22be977db`.
+- Contact SHA-256 `c22f57e740ec8bffe95fb3519be38a58f6506ddfb2faa6fed751c8a69a5ee839`.
+- The bake changes two tiles and preserves the existing emoji placement revision.

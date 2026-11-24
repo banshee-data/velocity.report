@@ -86,14 +86,15 @@ def test_tile_patch_can_remove_a_fully_covered_road_row():
 
 
 @pytest.mark.parametrize(
-    ("patch_key", "manifest_key", "output_index"),
+    ("patch_key", "manifest_key", "field"),
     [
-        ("covered_ground_road_patches", "coveredGroundRoadPatches", 2),
-        ("overhead_building_patches", "overheadBuildingPatches", 1),
+        ("covered_ground_road_patches", "coveredGroundRoadPatches", "r"),
+        ("overhead_building_patches", "overheadBuildingPatches", "b"),
+        ("inferred_tree_patches", "inferredTreePatches", "tr"),
     ],
 )
 def test_scenery_patches_can_belong_to_a_neighbouring_tile(
-    tmp_path, patch_key, manifest_key, output_index
+    tmp_path, patch_key, manifest_key, field
 ):
     encoded = road_layers["encoded"]
     digest = road_layers["digest"]
@@ -112,9 +113,11 @@ def test_scenery_patches_can_belong_to_a_neighbouring_tile(
     payload = encoded(product)
     path.write_bytes(payload)
     manifest = {"tiles": [{"t": "8085871c"}]}
-    outputs = playable_product(path, digest(payload), "base", "revision", manifest)
-    assert outputs[output_index] == {"8085871c": [patch]}
-    assert outputs[3][manifest_key] == {"8085871c": 1}
+    _, tile_patches, release = playable_product(
+        path, digest(payload), "base", "revision", manifest
+    )
+    assert tile_patches == {"8085871c": {field: [patch]}}
+    assert release[manifest_key] == {"8085871c": 1}
     with pytest.raises(ValueError, match="must name base tiles"):
         playable_product(path, digest(payload), "base", "revision", {"tiles": []})
 

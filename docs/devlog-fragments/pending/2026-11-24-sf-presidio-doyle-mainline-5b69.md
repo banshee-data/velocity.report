@@ -1,0 +1,1 @@
+- Connected both Presidio Parkway mainline approaches, preserved the SR 1 exit, and removed a surveyed false trunk from the northbound lane. [Drive audit](../../ui/sf-road-route-audit.md#presidio-parkway-mainline-and-sr-1)
