@@ -117,7 +117,6 @@
       "id": "silver-to-hunters-point",
       "from": "🧰",
       "to": "🌺",
-      "via": [[3496, -4069, "Hwy 101 Southbound"]],
       "contact": {
         "roads": ["sf-contact/silver-avenue-bridge"],
         "entry": [3115, -3001, "Silver Ave"],
@@ -159,10 +158,6 @@
       "id": "dogpatch-to-potrero",
       "from": "🚚",
       "to": "🧁",
-      "via": [
-        [4380, -524],
-        [4190, -540]
-      ],
       "contact": {
         "roads": ["sf-contact/dogpatch-23rd-lower"],
         "reverse": true,
@@ -175,7 +170,6 @@
       "from": "🌉",
       "to": "🎭",
       "groundOnly": true,
-      "via": [[3979, 2670, "2nd St"]],
       "contact": {
         "roads": ["sf-contact/harrison-beale-bridge"],
         "entry": [4320, 3069, "Harrison St"],
