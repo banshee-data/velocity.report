@@ -883,10 +883,12 @@ The bake clips 130.4 m² across their shared seam. The other faces in
 the building row retain their original geometry.
 
 The fixed-step driver reached the Bayshore street handoff in 176.5 s
-and the through pavement in 198.2 s. Chrome completed the through
-drive in 199.6 s. All 20 emoji courses passed across 52.45 km with
-zero driven dips deeper than 0.5 m and a maximum driven tile seam
-of 6.1 cm.
+and the through pavement in 198.2 s. Chrome completed the exit in
+175.7 s and the through drive in 199.6 s. The exit's first browser
+attempt stopped where both branches shared the same lane. The repeat
+stayed in the exit lane through the split. All 20 emoji courses
+passed across 52.45 km with zero driven dips deeper than 0.5 m and a
+maximum driven tile seam of 6.1 cm.
 
 ```sh
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
