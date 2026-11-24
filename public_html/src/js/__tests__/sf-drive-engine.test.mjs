@@ -213,7 +213,7 @@ test("terrain regions meet once and clipped triangles stay on the measured plane
   );
 });
 
-test("the fixed route accounts for every unchanged tile and uses unique emoji at real intersections", () => {
+test("the fixed route accounts for every baked tile and uses unique emoji at real intersections", () => {
   const base = new URL("../../sf/", import.meta.url);
   const raw = fs.readFileSync(new URL("tiles/manifest.json", base));
   const manifest = JSON.parse(raw),
@@ -231,7 +231,7 @@ test("the fixed route accounts for every unchanged tile and uses unique emoji at
     ),
   );
   assert.equal(route.targets.length, 137);
-  assert.equal(route.skipped.length, 20);
+  assert.equal(route.skipped.length, 23);
   assert.equal(
     route.placementSha256,
     createHash("sha256")

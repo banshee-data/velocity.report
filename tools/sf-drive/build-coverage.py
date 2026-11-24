@@ -33,6 +33,7 @@ def outline(file, projection, extent, min_area):
 
 def major_streets(tiles_dir, tiles):
     lines = []
+    bridge = {}
     for tile in tiles:
         with gzip.open(tiles_dir / f'{tile["t"]}.json.gz', "rt") as file:
             data = json.load(file)
@@ -43,6 +44,12 @@ def major_streets(tiles_dir, tiles):
                 lines.append(
                     [(ox + x / 10, oy + y / 10) for x, y in zip(xy[::2], xy[1::2])]
                 )
+        for road in data.get("playableRoads", []):
+            if road["id"].startswith("sf-contact/golden-gate-northbound-"):
+                # The carriageways are adjacent in the minimap. Draw one line
+                # and deduplicate full contact strips shared by neighbouring tiles.
+                bridge[road["id"]] = [tuple(point[:2]) for point in road["points"]]
+    lines.extend(bridge.values())
     simplified = line_merge(MultiLineString(lines)).simplify(12)
     return [
         [[round(x), round(y)] for x, y in part.coords] for part in get_parts(simplified)
@@ -51,11 +58,14 @@ def major_streets(tiles_dir, tiles):
 
 def main():
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument("parks", type=Path, help="DataSF gtr9-ntp6 GeoJSON")
+    parser.add_argument("parks", type=Path, nargs="?", help="DataSF gtr9-ntp6 GeoJSON")
+    parser.add_argument("--tiles", type=Path, help="Baked tiles directory")
+    parser.add_argument("--coverage", type=Path, help="Coverage map to update")
     args = parser.parse_args()
     src = Path(__file__).resolve().parents[2] / "public_html/src"
-    sf = src / "sf"
-    manifest = json.loads((sf / "tiles/manifest.json").read_text())
+    tiles = args.tiles or src / "sf/tiles"
+    coverage = args.coverage or src / "sf/coverage.json"
+    manifest = json.loads((tiles / "manifest.json").read_text())
     ox, oy = manifest["origin_epsg7131"]
     # Interpret S2 lat/lon in the same NAD83(2011) frame as the baked tile origins.
     project = Transformer.from_crs(6318, 7131, always_xy=True)
@@ -80,11 +90,18 @@ def main():
         x, y = geographic.transform(lon, lat)
         return [v - ox for v in x], [v - oy for v in y]
 
-    layers = {
-        "coast": outline(src / "geo/sf-coastline.geojson", local_project, extent, 3000),
-        "parks": outline(args.parks, local_project, extent, 5000),
-        "arterials": major_streets(sf / "tiles", manifest["tiles"]),
-    }
+    if args.parks:
+        layers = {
+            "coast": outline(
+                src / "geo/sf-coastline.geojson", local_project, extent, 3000
+            ),
+            "parks": outline(args.parks, local_project, extent, 5000),
+        }
+    else:
+        # A road bake can refresh the minimap against the existing land layers.
+        existing = json.loads(coverage.read_text())
+        layers = {name: existing[name] for name in ("coast", "parks")}
+    layers["arterials"] = major_streets(tiles, manifest["tiles"])
     cell_rows = ",\n".join(
         f"    {json.dumps(k)}: {json.dumps(v)}" for k, v in cells.items()
     )
@@ -94,7 +111,7 @@ def main():
             f"    {json.dumps(f, separators=(',', ':'))}" for f in features
         )
         layer_rows.append(f'  "{name}": [\n{rows}\n  ]')
-    (sf / "coverage.json").write_text(
+    coverage.write_text(
         '{\n  "cells": {\n' + cell_rows + "\n  },\n" + ",\n".join(layer_rows) + "\n}\n"
     )
 

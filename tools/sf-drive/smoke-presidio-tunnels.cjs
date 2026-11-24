@@ -2277,6 +2277,48 @@ cases["macalla-westbound-roundtrip"] = {
   finishDistance: 77,
   maxDurationMs: 195_000,
 };
+const goldenGateOwners = [
+  "808586dc",
+  "808586e4",
+  "808586ec",
+  "80858694",
+  "8085869c",
+  "80858424",
+  "8085842c",
+];
+const goldenGateSections = (direction) =>
+  Array.from({ length: 6 }, (_, i) => `golden-gate-${direction}-${i + 1}`);
+cases["golden-gate-presidio-to-marin"] = {
+  owners: goldenGateOwners,
+  roads: [
+    "presidio-doyle-northbound-exit",
+    ...goldenGateSections("northbound"),
+  ],
+  rollingStart: true,
+  rollingStartMetres: 28,
+  speed: 22,
+  speedLimits: {
+    "golden-gate-northbound-1": 16,
+    "golden-gate-northbound-6": 11,
+  },
+  maxDurationMs: 280_000,
+};
+cases["golden-gate-marin-to-presidio"] = {
+  owners: goldenGateOwners,
+  roads: [
+    ...goldenGateSections("southbound"),
+    "presidio-doyle-southbound-entry",
+  ],
+  groundApproachMetres: 8,
+  speed: 22,
+  speedLimits: {
+    "golden-gate-southbound-1": 14,
+    "golden-gate-southbound-6": 15,
+  },
+  finishOnDeck: true,
+  finishDistance: 175,
+  maxDurationMs: 265_000,
+};
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
