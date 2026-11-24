@@ -3398,3 +3398,49 @@ test("Harrison traffic crosses the Fourth Street ramp mouth without taking it", 
       assert.ok(car.x < 3543, "through traffic cleared the mouth");
   }
 });
+
+test("Richland and Highland carry traffic above the San Jose Avenue cut", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e64.json.gz")));
+  const obstacles = [buildCollisionIndex(tile, tile.t)];
+  const ground = (x, y) => groundAtWorld([tile], x, y, true);
+  for (const [id, length, clearance] of [
+    ["richland", 85, 13],
+    ["highland", 80, 10],
+  ]) {
+    const road = tile.playableRoads.find(
+      ({ id: name }) => name === `sf-contact/${id}-avenue-bridge`,
+    );
+    const { surface, portals } = buildBakedRoadContact(road);
+    assert.equal(road.width, 7.2);
+    assert.equal(portals.length, 2);
+    assert.ok(surface.profile.at(-1).s_m > length);
+    for (const { x, y, z } of portals) {
+      assert.ok(Math.abs(ground(x, y) - z) < 0.02);
+    }
+    const [east, north, height] =
+      road.points[Math.floor(road.points.length / 2)];
+    assert.ok(height - ground(east, north) > clearance);
+    for (let i = 1; i < road.points.length; i++) {
+      const [x, y, z] = road.points[i];
+      const [a, b, h] = road.points[i - 1];
+      const heading = Math.atan2(y - b, x - a);
+      assert.ok(Math.abs(z - h) / Math.hypot(x - a, y - b) < 0.05);
+      for (const offset of [-2.4, 0, 2.4]) {
+        const car = {
+          x: x - offset * Math.sin(heading),
+          y: y + offset * Math.cos(heading),
+          heading,
+        };
+        assert.equal(collisionAt(obstacles, car, z), null, `${id} point ${i}`);
+      }
+    }
+  }
+  for (const [x, y] of [
+    [1178.9, -2628.1],
+    [1308.1, -2488.5],
+  ]) {
+    const z = ground(x, y);
+    assert.ok(z > 55 && z < 60);
+    assert.equal(collisionAt(obstacles, { x, y, heading: -2.3 }, z), null);
+  }
+});

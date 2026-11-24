@@ -1,0 +1,1 @@
+- Baked the Richland and Highland Avenue bridges over the Bernal Cut. The [route audit](../../ui/sf-road-route-audit.md#richland-and-highland-over-the-bernal-cut) records the four Chrome crossings and both directions on San Jose Avenue below.

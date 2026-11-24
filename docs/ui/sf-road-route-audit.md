@@ -2357,3 +2357,34 @@ grade p95 was 9.15%. The maximum driven grade was 39.37% on the Chinatown
 south itinerary. Eight planned samples exceeded the 0.5 m dip threshold,
 and the driven portions recorded zero. The incomplete courses still
 need local browser reproductions.
+
+## Richland and Highland over the Bernal Cut
+
+The previous terrain followed the San Jose Avenue cut below each bridge.
+Near the crossing centres, it sat 13.64 m below the Richland pavement
+and 10.52 m below Highland. The revised bake adds two 7.2 m driving
+surfaces with ground portals at both ends. The road paint follows the
+open approaches and the two decks. One inferred trunk on the Highland
+lane was cleared against the survey. [San Francisco Public Works](https://sfpublicworks.org/project/richland-avenue-bridge-traffic-railing-project) · [Gerardus survey provenance](https://github.com/banshee-data/gerardus/blob/dfa1859f89235a65c87cad427cce2389362d82d4/docs/roads/SF-CITY-ROAD-LAYERS.md#richland-and-highland-over-the-bernal-cut)
+
+| Bridge   | Fit with approaches | Peak fitted grade | Eastbound | Westbound |
+| -------- | ------------------- | ----------------- | --------- | --------- |
+| Richland | 86.00 m             | 3.90%             | 11.5 s    | 14.3 s    |
+| Highland | 80.98 m             | 3.64%             | 12.5 s    | 12.2 s    |
+
+The times are from Chrome manual keyboard runs. Each drive acquired
+its deck, crossed it and returned to ordinary ground. Chrome also
+drove 313.1 m southbound and 326.2 m northbound on the lower San Jose
+Avenue lanes through both crossings. Both lower runs remained between
+55.39 m and 59.58 m NAVD88, used street-level support, spent no time
+blocked and recorded no dip above the 0.5 m threshold.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  bernal-cut-richland-eastbound bernal-cut-richland-westbound \
+  bernal-cut-highland-eastbound bernal-cut-highland-westbound
+```
+
+- Game manifest SHA-256 `3d327ffd799ead97a209dcc6a2238d84b9852b3318b0c105b8e444520efbd9df`.
+- Contact SHA-256 `8379a7c77b56e6525fa369d4ad77e321113bd71fb94867fb2abc0f6bfac49c9b`.
+- One L13 tile changed. The game retained all 137 emoji placements and their revision.
