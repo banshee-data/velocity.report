@@ -2455,3 +2455,41 @@ test("southern northbound US 101 joins the existing Silver approach across tiles
     ) < 0.05,
   );
 });
+
+test("the northbound Silliman fork hands off to Bayshore Boulevard below the deck", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7efc.json.gz")));
+  const road = (name) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`);
+  const main = road("us101-north-paul-to-silliman");
+  const through = road("us101-north-silliman-to-alemany");
+  const exit = road("us101-north-silliman-exit");
+  assert.deepEqual(exit.points[0], main.points.at(-1));
+  assert.deepEqual(exit.seams.start, through.seams.start);
+  for (const fork of [through, exit]) {
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${main.id}:end` &&
+          to === `${fork.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(exit.groundEnds, ["end"]);
+  const { portals, surface } = buildBakedRoadContact(exit);
+  const { x, y, z } = portals[0];
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.01);
+  assert.ok(z > 22 && z < 23);
+  assert.deepEqual(surface.coveredRange, [185, 212]);
+  const shadow = surface.profile.find(({ s_m }) => s_m >= 200).position;
+  assert.ok(shadow[2] > 22 && shadow[2] < 23);
+  assert.equal(
+    collisionAt(
+      [buildCollisionIndex(tile, "808f7efc")],
+      { x: shadow[0], y: shadow[1], heading: 0.5 },
+      shadow[2],
+    ),
+    null,
+  );
+});

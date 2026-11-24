@@ -1630,3 +1630,24 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `7496a0cc1eec79c5bd0f24d3e507ebb47af8481012691d182339caa9cf49c0d0`.
 - Contact SHA-256 `a1fc582ad0ccc4cd9774714634de671fa57803f5933c0079f3b00b9ccbe64cb7`.
 - Six tiles changed. Each tile intersecting a new road carries the complete strip.
+
+### Silliman exit and Alemany return
+
+The northbound Silliman exit adds a 219.6 m fork to Bayshore Boulevard.
+It runs below the upper pavement before handing off at 22.28 m NAVD88.
+The survey fit interpolates 20 m of lower contact between observations
+on either side of that shadow.
+
+Chrome drove off US 101 at Silliman, across the existing Silver Avenue
+bridge, along San Bruno Avenue, and back onto the highway at Alemany.
+The continuous drive took 180.6 s, with 558.4 m in ground contact on the
+local streets. Chrome reached the Silver highway approach grounded.
+The standalone exit took 30.4 s and ended on Bayshore pavement.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  northbound-us101-silliman-to-bayshore northbound-us101-silliman-alemany-loop
+```
+
+- Game manifest SHA-256 `607c547132d5f7680d446268dc93a67db93dcbcf034f0656e0cc2c4c25a983c8`.
+- Contact SHA-256 `b4d9f136ccaa8570629c39540c6f357c6cef418400bd0d61c301c95d7420c307`.
