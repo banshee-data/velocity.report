@@ -4,6 +4,7 @@ import {
   DRIVE_VIEWS,
   DRIVE_VIEW_RANGE,
   MIRROR_VIEW_RANGE,
+  coveredRoadBlend,
   driveCameraPose,
   incarRoll,
 } from "../sf-drive-camera.js";
@@ -19,6 +20,37 @@ test("the default view is zoomed out and clears uphill terrain behind the car", 
   assert.equal(pose.hideCar, false);
   assert.equal(pose.mirror, false);
   assert.equal(driveCameraPose("zoomed", car, 10, () => null).position[2], 36);
+});
+
+test("the chase camera lowers before a covered span and rises after it", () => {
+  const surface = {
+    coveredRange: [44, 74],
+    profile: [
+      { position: [0, 0, 10], s_m: 0 },
+      { position: [44, 0, 10], s_m: 44 },
+      { position: [44, 104, 10], s_m: 148 },
+    ],
+  };
+  const probe = (x, y) => coveredRoadBlend(surface, { x, y });
+  near(probe(20, 0), 0);
+  near(probe(32, -1), 0.5);
+  near(probe(43, 15), 1);
+  near(probe(43, 42), 0.5);
+  near(probe(43, 54), 0);
+  near(coveredRoadBlend(null, car), 0);
+  near(coveredRoadBlend({ profile: [] }, car), 0);
+
+  const pose = driveCameraPose("zoomed", car, 10, undefined, 0, 0, 1);
+  near(pose.position[0], 92.5);
+  near(pose.position[2], 13.4);
+  near(pose.look[0], 109);
+  assert.equal(pose.hideCar, false);
+  for (const view of ["overhead", "incar"]) {
+    assert.deepEqual(
+      driveCameraPose(view, car, 10, undefined, 0, 0, 1),
+      driveCameraPose(view, car, 10),
+    );
+  }
 });
 
 test("overhead looks straight down and keeps forward up in every quadrant", () => {

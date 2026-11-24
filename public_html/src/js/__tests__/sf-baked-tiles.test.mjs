@@ -1501,6 +1501,55 @@ test("Potrero and Cesar Chavez entrances merge above the street on southbound US
   }
 });
 
+test("the Bayshore exit passes below both freeway directions and keeps its city handoff", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e4c.json.gz")));
+  const road = (id) =>
+    tile.playableRoads.find((r) => r.id === `sf-contact/${id}`);
+  const upstream = road("us101-south-potrero-exit");
+  const approach = road("us101-south-bayshore-exit-approach");
+  const exit = road("us101-south-bayshore-north-turn-exit");
+  for (const [from, to] of [
+    [upstream, approach],
+    [approach, exit],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${from.id}:end` &&
+          edge.to === `${to.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  const { surface, portals } = buildBakedRoadContact(exit);
+  assert.deepEqual(surface.coveredRange, [136, 170]);
+  assert.equal(
+    buildBakedRoadContact({ ...exit, covered_range_m: [136, 200] }),
+    null,
+  );
+  const decks = [
+    ["us101-south-cesar-through", 145],
+    ["us101-north-bayshore-through", 164],
+  ];
+  for (const [id, crossing] of decks) {
+    const upper = buildBakedRoadContact(road(id)).surface;
+    const {
+      position: [x, y, z],
+    } = surface.profile.find(({ s_m }) => s_m >= crossing);
+    const above = upper.heightAt(x, y);
+    assert.ok(above - z > 7, id);
+    assert.equal(surface.heightAt(x, y), z);
+    assert.equal(upper.coveredRange, undefined);
+  }
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+  assert.equal(roadBake.inferredTreePatches["808f7e4c"], 2);
+});
+
 test("Monterey keeps its ramp mouths separate and Ocean Avenue reaches city pavement", () => {
   const tokens = ["808f7e64", "808f7e7c", "808f7ef4", "808f7e84", "808f7c2c"];
   const tiles = tokens.map((token) =>

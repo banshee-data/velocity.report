@@ -20,6 +20,7 @@ export function buildBakedRoadContact(road) {
     seams = {},
     widthTransitionMetres = {},
     railSides = [],
+    covered_range_m: coveredRange,
   } = road;
   if (
     typeof id !== "string" ||
@@ -76,6 +77,16 @@ export function buildBakedRoadContact(road) {
   }
   const { start: startTaper = 0, end: endTaper = 0 } = widthTransitionMetres;
   if (startTaper + endTaper > distance) return null;
+  if (
+    coveredRange !== undefined &&
+    (!Array.isArray(coveredRange) ||
+      coveredRange.length !== 2 ||
+      !coveredRange.every(Number.isFinite) ||
+      coveredRange[0] < 0 ||
+      coveredRange[1] > distance ||
+      coveredRange[0] >= coveredRange[1])
+  )
+    return null;
 
   const profile = [];
   const vertices = [];
@@ -128,6 +139,7 @@ export function buildBakedRoadContact(road) {
     terminalBearings: [tangents[0] + Math.PI, tangents.at(-1)],
     heightAt: indexRoadContact(contact),
     railSides,
+    coveredRange,
     highwayRailHalfWidth: railSides.length ? width / 2 - 0.35 : 0,
   };
   const interior = road.interior_range_m;

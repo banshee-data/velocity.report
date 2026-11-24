@@ -57,6 +57,7 @@ import {
   DRIVE_VIEWS,
   DRIVE_VIEW_RANGE,
   MIRROR_VIEW_RANGE,
+  coveredRoadBlend,
   driveCameraPose,
   incarRoll,
 } from "./sf-drive-camera.js";
@@ -3203,6 +3204,8 @@ export async function startDrive({
         ? incarRoll(cameraRoll, car.lateralAcceleration || 0, dt)
         : 0;
     // Keep the horizon and view direction steady while the chassis tumbles.
+    const coveredBlend =
+      state.view === "zoomed" ? coveredRoadBlend(surface, car) : 0;
     const view = driveCameraPose(
       surface?.kind === "tunnel"
         ? "incar"
@@ -3221,6 +3224,7 @@ export async function startDrive({
               1150,
             )
         : 0,
+      coveredBlend,
     );
     const target = new THREE.Vector3(...V(...view.position));
     const look = new THREE.Vector3(...V(...view.look));
@@ -3338,7 +3342,11 @@ export async function startDrive({
       canvas.dataset.altitude = carZ.toFixed(3);
       canvas.dataset.surface = surface?.kind || "city";
       canvas.dataset.cameraContact =
-        surface?.kind === "tunnel" ? "tunnel" : "exterior";
+        surface?.kind === "tunnel"
+          ? "tunnel"
+          : coveredBlend > 0
+            ? "covered"
+            : "exterior";
       canvas.dataset.surfaceId = surface?.id || "";
       canvas.dataset.routeComplete = String(completedCityDrive);
       canvas.dataset.roadWait = String(waitingForRoad);

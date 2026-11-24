@@ -1443,6 +1443,37 @@ cases["us101-south-hester-collector"] = {
   ],
 };
 
+cases["us101-south-bayshore-north-turn"] = {
+  owners: ["808f7e4c"],
+  speed: 14,
+  rollingStart: true,
+  rollingStartMetres: 8,
+  initialSpeedMps: 15.7,
+  roads: [
+    "us101-south-potrero-exit",
+    "us101-south-bayshore-exit-approach",
+    "us101-south-bayshore-north-turn-exit",
+  ],
+  speedLimits: {
+    "us101-south-bayshore-exit-approach": 12,
+    "us101-south-bayshore-north-turn-exit": 12,
+  },
+  covered: ["sf-contact/us101-south-bayshore-north-turn-exit"],
+};
+
+cases["us101-south-over-bayshore-exit"] = {
+  owners: ["808f7e4c", "808f7e54"],
+  speed: 18,
+  rollingStart: true,
+  rollingStartMetres: 315,
+  initialSpeedMps: 18,
+  roads: ["us101-south-cesar-through", "us101-south-silver-through"],
+  laneGuides: alemanyLaneGuides,
+  finishOnDeck: true,
+  finishDistance: 120,
+  covered: [],
+};
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
@@ -1629,6 +1660,7 @@ async function drive(
 
       const seen = new Map();
       const enclosed = new Set();
+      const covered = new Set();
       const started = performance.now();
       let pose;
       let last = 0;
@@ -1646,6 +1678,7 @@ async function drive(
             status,
             seen: [...seen.values()],
             enclosed: [...enclosed],
+            covered: [...covered],
             exit: pose,
             lastSupported,
             groundMetres: Math.round(groundMetres * 10) / 10,
@@ -1692,6 +1725,8 @@ async function drive(
             groundPose = undefined;
           }
           if (surfaceId && pose.camera === "tunnel") enclosed.add(surfaceId);
+          if (surfaceId && pose.grounded && pose.camera === "covered")
+            covered.add(surfaceId);
           if (!seen.size && now - started > entranceTimeoutMs)
             return finish("missed entrance");
           const distanceToFinish = Math.hypot(pose.x - end[0], pose.y - end[1]);
@@ -1805,6 +1840,7 @@ async function main() {
         laneGuides = {},
         speedLimits = {},
         forks = [],
+        covered,
       } = cases[name];
       const guides = { ...laneGuides };
       for (const [outgoing, incoming, offset] of forks) {
@@ -1974,6 +2010,7 @@ async function main() {
           result.enclosed,
           sections.filter(({ kind }) => kind === "tunnel").map(({ id }) => id),
         );
+        if (covered) assert.deepEqual(result.covered, covered);
         assert.equal(
           result.status,
           finishOnDeck ? "reached deck finish" : "left road",
