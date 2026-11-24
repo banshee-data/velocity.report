@@ -1,0 +1,1 @@
+- Cleared the [Broadway portal lanes](../../ui/sf-road-route-audit.md#broadway-lane-scenery) of five unsupported inferred trunk contacts and verified the corrected westbound bore in Chrome.

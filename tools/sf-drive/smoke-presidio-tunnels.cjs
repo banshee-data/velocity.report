@@ -2188,6 +2188,17 @@ cases["island-east-roundtrip"] = {
   covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
   maxDurationMs: 120_000,
 };
+for (const reverse of [false, true]) {
+  const direction = reverse ? "eastbound" : "westbound";
+  cases[`broadway-${direction}`] = {
+    roads: [`broadway-${direction}`],
+    owners: ["808580ec", "808580f4"],
+    reverse,
+    groundApproachMetres: 8,
+    speed: 14,
+    maxDurationMs: 105_000,
+  };
+}
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
