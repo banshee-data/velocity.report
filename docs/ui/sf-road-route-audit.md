@@ -1776,3 +1776,44 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 
 - Game manifest SHA-256 `61dad03f1bfc517a73b9e3dc773db675563033016f70ae5622ab2a7c38bcbccf`.
 - Contact SHA-256 `de316cc5cef51e5c582be75acea8db0d385b5079dc1dba1db05bf5516b20f542`.
+
+## West Yerba Buena ramps at Treasure Island Road
+
+The eastbound exit takes the lower Bay Bridge deck at 45.56 m NAVD88 to
+Treasure Island Road. The westbound entrance takes the island road back
+onto the upper deck at 55.03 m. The two pavement handoffs are about
+14 m apart, and the mainline connections through both levels remain
+open. Two tiles include the contact, terrain and scenery changes.
+
+The April 2023 survey shows the upper ramp directly. The lower ramp
+uses two inferred intervals beneath the upper deck, extending 64 m from
+the split and from station 244 m to 272 m. The terrain refinement follows
+both ramp levels within the island. A survey check cleared two inferred
+building volumes and two inferred trunks from the pavement. The corrected
+collision scan returned no hits along either centreline or at lateral
+offsets up to 2.65 m across four nearby tiles. The upper ramp cleared all
+sampled terrain across that width. One lateral sample at the lower road's
+ground handoff retained 0.26 m of terrain above the contact surface. The survey predates the
+West Side Bridges Retrofit. [SFCTA project record](https://www.sfcta.org/westsidebridges)
+
+| Browser drive                     | Elapsed | Finish                                                        |
+| --------------------------------- | ------: | ------------------------------------------------------------- |
+| Eastbound exit                    |  44.9 s | Grounded on island pavement                                   |
+| Westbound entrance                |  50.2 s | Grounded on the upper Bay Bridge deck                         |
+| Lower mainline through the split  |  16.6 s | Grounded beneath the upper deck                               |
+| Continuous island turn and return | 118.3 s | Grounded on the upper deck after reversing on island pavement |
+
+The 20 frozen emoji routes collected both targets across 52.43 km.
+Their largest driven seam step was 6.1 cm across 50 crossings, with no
+driven dip greater than 0.5 m. The unchanged route definitions are in
+`tools/sf-drive/road-audit-alemany-routes.json`. Set `manifestSha256` to
+the revision below before replaying.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-west-eastbound-exit island-west-westbound-entry \
+  island-west-eastbound-through island-west-exit-and-reentry
+```
+
+- Game manifest SHA-256 `d5b7a53795a748fb7a69e5473233da3e343d3410f49bf59f7a73b0ceddfe3e8f`.
+- Contact SHA-256 `ca2e756da459ff0e802399f6373f68000c08f1adfed1f1972d34bca637340902`.

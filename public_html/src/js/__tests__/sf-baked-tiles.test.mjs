@@ -2704,3 +2704,81 @@ test("northbound Hester retains the mainline and both exits reach city pavement"
     assert.equal(collisionAt(obstacles, { x, y, heading: 1.4 }, z), null);
   }
 });
+
+test("west Yerba Buena ramps join the island to the correct Bay Bridge decks", () => {
+  const tokens = ["8085803c", "80858024"];
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const road = (name) =>
+    tiles[0].playableRoads.find(
+      ({ id }) => id === name || id === `sf-contact/${name}`,
+    );
+  const fromCity = road("bay-bridge-eastbound-lower");
+  const lowerThrough = road("yerba-buena-lower-west-approach");
+  const toIsland = road("yerba-buena-eastbound-off-ramp");
+  const fromIsland = road("yerba-buena-westbound-on-ramp");
+  const upperThrough = road("yerba-buena-west-approach");
+  const toCity = road("bay-bridge-westbound");
+  for (const [from, to] of [
+    [fromCity, lowerThrough],
+    [fromCity, toIsland],
+    [fromIsland, toCity],
+    [upperThrough, toCity],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from: a, to: b, direction, status }) =>
+          a === `${from.id}:end` &&
+          b === `${to.id}:start` &&
+          direction === "forward" &&
+          status === "joined",
+      ),
+    );
+  }
+  assert.deepEqual(toIsland.groundEnds, ["end"]);
+  assert.deepEqual(fromIsland.groundEnds, ["start"]);
+  const lower = buildBakedRoadContact(toIsland);
+  const upper = buildBakedRoadContact(fromIsland);
+  for (const { x, y, z } of [...lower.portals, ...upper.portals]) {
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
+  }
+  const obstacles = tiles.map((tile, i) =>
+    buildCollisionIndex(tile, tokens[i]),
+  );
+  for (const [x, y] of [
+    [6420.6852, 5368.4154],
+    [6440, 5402],
+    [6329.863, 5420.266],
+  ]) {
+    const bottom = lower.surface.heightAt(x, y);
+    const top = upper.surface.heightAt(x, y);
+    assert.ok(Number.isFinite(top) && Number.isFinite(bottom));
+    assert.ok(top - bottom > 7 && top - bottom < 9);
+    assert.ok(groundAtWorld(tiles, x, y, true) - bottom < 0.04);
+    assert.equal(collisionAt(obstacles, { x, y, heading: 1.01 }, bottom), null);
+    assert.equal(collisionAt(obstacles, { x, y, heading: -2.1 }, top), null);
+  }
+  const upperPoints = fromIsland.points;
+  let station = 0;
+  let probes = 0;
+  for (let i = 1; i < upperPoints.length; i++) {
+    const [a, b] = upperPoints[i - 1];
+    const [x, y] = upperPoints[i];
+    const distance = Math.hypot(x - a, y - b);
+    station += distance;
+    if (station < 220 || station > 308) continue;
+    for (const offset of [-2.65, 2.65]) {
+      const east = x - (offset * (y - b)) / distance;
+      const north = y + (offset * (x - a)) / distance;
+      const deck = upper.surface.heightAt(east, north);
+      assert.ok(Number.isFinite(deck));
+      assert.ok(groundAtWorld(tiles, east, north, true) - deck < 0.1);
+      probes++;
+    }
+  }
+  assert.ok(probes > 60);
+});
