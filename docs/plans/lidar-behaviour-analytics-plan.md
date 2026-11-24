@@ -1754,6 +1754,12 @@ document, that is stated at the point of use.
   and 8.12; its TTC is a centre-to-centre time to closest approach evaluated at the
   minimum-separation instant, where it is zero by construction. Nothing adopted. Open: Q1 (one
   sentence in Section 8.4 on why that form is not TTC).
+- [November 23, 2026 research briefing](../lidar/operations/brief/research-briefing-2026-11-23.md):
+  GateTrace, a camera study of missed line crossings under occlusion, and a Waymo brake-onset
+  method that fits the knee of a piecewise linear acceleration model. A threshold onset, as in
+  Section 8.2, lags that knee by the threshold over the jerk. Nothing adopted. Open: Q1
+  (crossing recall per lane before the demand card publishes flows) and Q2 (`braking_onset` as a
+  fitted knee, and the onset `response_latency` in Section 8.12 runs to).
 
 **Roadside LiDAR perception**
 
