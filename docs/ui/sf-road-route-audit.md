@@ -1668,8 +1668,11 @@ hid the car. The revised chase camera uses the selected road height for its
 overhead probes. Chrome kept the car visible and grounded on the lower road
 and retained the exterior view on the upper road.
 
-The 20 frozen emoji courses finished over 52.43 km, with a maximum driven
-seam step of 6.1 cm and zero driven dips greater than 0.5 m.
+The 20 frozen emoji courses finished over 52.43 km in 83.8 minutes of
+simulation. Five routes used highways and none used a tunnel. Across 50
+driven joins, the maximum seam step was 6.1 cm. Route sampling flagged
+seven depressions greater than 0.5 m; the driven traces recorded zero.
+The highest driven grade was 26.2% on Ordway Street.
 
 ```sh
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \

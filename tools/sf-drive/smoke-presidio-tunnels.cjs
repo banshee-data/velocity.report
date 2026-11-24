@@ -1801,6 +1801,7 @@ cases["alemany-late-lower-crossings-camera"] = {
   finishDistance: 1430,
   maxDurationMs: 45_000,
   covered: [prefix + alemanySouthboundConnector],
+  exitCamera: "covered",
 };
 
 function fromGround(points, firstRoad) {
