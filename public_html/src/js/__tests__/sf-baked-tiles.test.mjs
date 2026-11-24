@@ -462,7 +462,7 @@ test("SoMa ramps join the correct I-80 lanes and clear the surveyed Fifth Street
   const z = surface.heightAt(x, y);
   assert.ok(z > 5.6 && z < 5.9);
   assert.equal(collisionAt(indexes, { x, y, z, heading: 0.79 }, z), null);
-  assert.equal(roadBake.overheadBuildingPatches["8085807c"], 1);
+  assert.ok(roadBake.overheadBuildingPatches["8085807c"] >= 1);
 });
 
 test("Seventh Street and southbound US 101 meet ordinary pavement only at their exits", () => {
@@ -2065,4 +2065,57 @@ test("the southbound Bayshore turn stays above its refined ground and joins the 
   }
   const [{ x, y, z }] = portals;
   assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+});
+
+test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["8085807c", "80858084"];
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const route = (id) =>
+    tiles[0].playableRoads.find((r) => r.id === `sf-contact/${id}`);
+  const approach = route("i80-westbound-upper-soma");
+  const exit = route("i80-westbound-fifth-harrison-exit");
+  const through = route("i80-westbound-fourth-merge");
+  for (const branch of [exit, through]) {
+    assert.deepEqual(approach.points.at(-1), branch.points[0]);
+    assert.deepEqual(approach.seams.end, branch.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${approach.id}:end` &&
+          edge.to === `${branch.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(exit.owners, tokens);
+  assert.deepEqual(
+    tiles[1].playableRoads.find((r) => r.id === exit.id),
+    exit,
+  );
+  const { surface, portals } = buildBakedRoadContact(exit);
+  assert.deepEqual(surface.coveredRange, [410, 445]);
+  const upper = buildBakedRoadContact(through).surface;
+  const {
+    position: [x, y, z],
+  } = surface.profile.find((point) => point.s_m >= 421);
+  assert.ok(upper.heightAt(x, y) - z > 6);
+  const [{ x: east, y: north, z: ground }] = portals;
+  assert.ok(Math.abs(groundAtWorld(tiles, east, north, true) - ground) < 0.03);
+  const indexes = tiles.map((tile, i) => buildCollisionIndex(tile, tokens[i]));
+  const {
+    position: [px, py, pz],
+  } = upper.profile.find((point) => point.s_m >= 159);
+  const heading = -2.435;
+  const offset = -2;
+  const pose = {
+    x: px - Math.sin(heading) * offset,
+    y: py + Math.cos(heading) * offset,
+    z: pz,
+    heading,
+  };
+  assert.equal(collisionAt(indexes, pose, pz), null);
+  assert.equal(roadBake.overheadBuildingPatches["8085807c"], 2);
 });

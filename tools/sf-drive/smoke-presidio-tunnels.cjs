@@ -353,6 +353,7 @@ cases["upper-to-octavia"] = {
   forks: [
     ["city-approach", "i80-westbound-fremont-split", 1.3],
     ["i80-westbound-fremont-split", "i80-westbound-upper-soma", -1.8],
+    ["i80-westbound-upper-soma", "i80-westbound-fourth-merge", -1.6],
     ...cases["central-from-fourth"].forks,
   ],
   laneGuides: {
@@ -1506,6 +1507,32 @@ cases["us101-south-bayshore-south-turn"] = {
     [3192.94, -1365.2, 7.05],
     [3192.53, -1373.19, 7.06],
   ],
+};
+
+const fifthRamp = "i80-westbound-fifth-harrison-exit";
+const fourthThrough = "i80-westbound-fourth-merge";
+const fifthStart = {
+  owners: ["8085807c", "80858084"],
+  speed: 18,
+  rollingStart: true,
+  rollingStartMetres: 435,
+  initialSpeedMps: 17,
+};
+cases["i80-westbound-fifth-harrison"] = {
+  ...fifthStart,
+  roads: ["i80-westbound-upper-soma", fifthRamp],
+  speedLimits: { [fifthRamp]: 12 },
+  forks: [["i80-westbound-upper-soma", fifthRamp, 1.35]],
+  covered: ["sf-contact/" + fifthRamp],
+};
+cases["i80-westbound-over-fifth"] = {
+  ...fifthStart,
+  roads: ["i80-westbound-upper-soma", fourthThrough],
+  speedLimits: { [fourthThrough]: 15 },
+  forks: [["i80-westbound-upper-soma", fourthThrough, -1.6]],
+  finishOnDeck: true,
+  finishDistance: 510,
+  covered: [],
 };
 
 async function asset(pathname) {

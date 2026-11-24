@@ -1,0 +1,1 @@
+- Baked the westbound I-80 exit to Fifth and Harrison Streets and cleared an inferred solid from the through lane above it. The [road route audit](../../ui/sf-road-route-audit.md#westbound-i-80-exit-to-fifth-and-harrison) records Chrome drives on both levels.
