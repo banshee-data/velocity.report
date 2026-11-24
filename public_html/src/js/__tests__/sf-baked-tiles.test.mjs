@@ -103,6 +103,42 @@ test("northbound I-280 branches onto the lower Mariposa exit and hands off to st
   assert.ok(floor > 18 && floor < 19, floor);
 });
 
+test("the westbound Harrison loop hands off below both Bay Bridge approaches", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/8085807c.json.gz")));
+  const find = (name) => tile.playableRoads.find(({ id }) => id === name);
+  const incoming = find("sf-contact/i80-westbound-fremont-split");
+  const exit = find("sf-contact/i80-westbound-harrison-loop");
+  const through = find("sf-contact/i80-westbound-upper-soma");
+  for (const road of [exit, through]) {
+    assert.deepEqual(road.points[0], incoming.points.at(-1));
+    assert.deepEqual(road.seams.start, incoming.seams.end);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${incoming.id}:end` &&
+          to === `${road.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  const { surface, portals } = buildBakedRoadContact(exit);
+  assert.deepEqual(exit.groundEnds, ["end"]);
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+
+  const overcrossing = [4280.5062, 2843.2714];
+  const heightAt = (name) =>
+    buildBakedRoadContact(find(name)).surface.heightAt(...overcrossing);
+  const ramp = surface.heightAt(...overcrossing);
+  const lowerDeck = heightAt("sf-eastbound-lower-approach");
+  const upperDeck = heightAt("city-approach");
+  assert.ok(ramp > 25 && ramp < 26);
+  assert.ok(lowerDeck > 33 && lowerDeck < 34);
+  assert.ok(upperDeck > 42 && upperDeck < 43);
+});
+
 test("northbound I-280 keeps both city exits connected across tile owners", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808f7fcc", "808f7fd4"].map((t) =>

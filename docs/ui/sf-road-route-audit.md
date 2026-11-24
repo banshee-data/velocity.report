@@ -1292,3 +1292,31 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `dd498a4034ee906396e28d1ac1a0f5aa016be5c7b93901df822e90419e6af997`.
 - Contact SHA-256 `4a7dd5528a174e318658f5e36cf6971a824c92746c7059661abd7f9643fa2519`.
 - The bake changes one tile and preserves emoji placement.
+
+## Westbound I-80 loop to Harrison and Fremont
+
+The 504.57 m loop now leaves the westbound deck at 36.98 m NAVD88
+and joins Harrison and Fremont at 21.89 m. Its peak fitted grade is
+5.06%. The through branch keeps the same seam. At the stacked crossing,
+the game samples 25.12 m on the loop, 33.61 m on the lower Bay Bridge
+approach and 42.55 m on the upper approach.
+
+The earlier 25.5 m observational gap narrowed to 21.5 m by using a
+classified lower edge at station 348.5 m and fifteen non-withheld
+unclassified returns near 24.57 m at station 370.0 m. The fit keeps
+the 22 m limit. The two provisional ribbons sampled above the loop
+came from the independent bridge approaches, whose contacts remain
+in the bake.
+
+Chrome took the new loop to city pavement in 55.6 s. The separate
+through drive used the westbound deck and remained grounded.
+The fixed-step replay reached the street in 57.2 s.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  upper-to-harrison-loop westbound-harrison-fork-through
+```
+
+- Game manifest SHA-256 `e44bc8ed81329168785076ec3d1d31774e2cd8fcaa8c3779531e33e36a8aaec9`.
+- Contact SHA-256 `1cc4c318469b98446cb76612b491e91a5c92c834025fd61b8679bd920b9ac474`.
+- The bake changes one tile and preserves emoji placement.
