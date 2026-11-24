@@ -1165,3 +1165,32 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Game manifest SHA-256 `36f7b3f8a32f4f14ca1f8b435a97cfcf6dea44d1ec8d0a701fe61a5a7514c7b8`.
 - Contact SHA-256 `f6da3b2f61f2a5a6c64a26e55f51d53ec5cc8b2f2e0592790fed3bc46fdc298c`.
 - The bake changes six tiles and preserves the existing emoji placement revision.
+
+## Marina Boulevard to northbound Presidio Parkway
+
+The Marina Boulevard entrance adds 258.2 m of measured contact. It
+starts on city pavement at 3.00 m NAVD88 and joins the existing section
+beyond Main Post at 2.61 m. The final 24 m taper from the 8 m ramp into
+the shared 10.8 m cross-section. Main Post retains its existing join.
+
+The fit uses 44 depth-12 3DEP nodes, with a peak grade of 6.11%. Chrome
+drove from Marina Boulevard through Battery and split to northbound
+US 101 in 113.0 s and SR 1 in 99.2 s. Both reached ordinary pavement
+grounded. The fixed-step drives took 161.1 s and 147.1 s respectively.
+All 20 frozen emoji routes finished again across 52.43 km.
+
+A separate survey check sampled the Mariposa Street ramps every 4 m.
+Within the expected lower pavement bands, 85 of 90 northbound exit
+stations and 68 of 90 southbound entrance stations had at least 12
+returns at an eligible lateral offset. The longest distances between
+supported stations were 24 m and 60 m. Both exceed the contact exporter's
+22 m interpolation limit, so those spans remain provisional.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  presidio-marina-to-doyle presidio-marina-to-sr1
+```
+
+- Game manifest SHA-256 `ec425a74f03e286d1fc876a27e54bcb813597f0c2cb76cba1d2b68c73a30c67e`.
+- Contact SHA-256 `d90935aee8175c6c6dde4d9db56727d20803cf82635f82f089115c49d2edf5fd`.
+- The bake changes one tile and preserves the existing emoji placement revision.

@@ -1509,6 +1509,39 @@ test("Presidio's four bores turn into continuous contact at their portals", () =
   }
 });
 
+test("Marina Boulevard and Main Post join the same northbound Presidio contact", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/808586d4.json.gz")));
+  const road = (slug) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
+  const marina = road("presidio-marina-northbound-entry");
+  const mainPost = road("main-post-northbound");
+  const northbound = road("presidio-nb-between");
+  assert.deepEqual(marina.groundEnds, ["start"]);
+  assert.deepEqual(marina.widthTransitionMetres, { end: 24 });
+  for (const entrance of [marina, mainPost]) {
+    assert.deepEqual(entrance.points.at(-1), northbound.points[0]);
+    assert.deepEqual(entrance.seams.end, northbound.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${entrance.id}:end` &&
+          edge.to === `${northbound.id}:start` &&
+          edge.direction === "forward",
+      ),
+    );
+  }
+  const { portals, surface } = buildBakedRoadContact(marina);
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.03);
+  const [east, north] = [-1116.81, 4840.67];
+  assert.ok(
+    surface.heightAt(east, north) - groundAtWorld([tile], east, north, true) >
+      4,
+  );
+});
+
 test("Presidio Parkway keeps its mainline and SR 1 on distinct branches across tiles", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tileOwners = ["808586dc", "808586ec"];

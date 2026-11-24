@@ -62,6 +62,22 @@ cases["presidio-doyle-southbound"] = {
     ...cases.southbound.roads.slice(1),
   ],
 };
+const marinaEntrance = "presidio-marina-northbound-entry";
+for (const [name, through] of [
+  ["presidio-marina-to-doyle", cases["presidio-doyle-northbound"]],
+  ["presidio-marina-to-sr1", cases.northbound],
+]) {
+  cases[name] = {
+    ...through,
+    roads: [marinaEntrance, ...through.roads.slice(2)],
+    speedLimits: { [marinaEntrance]: 12 },
+    laneGuides: {
+      [marinaEntrance]: {
+        clearance: { offset: -1.7, station: 218, length: 32 },
+      },
+    },
+  };
+}
 const i280Approach = ["i280-fifth-south-entry", "i280-king-to-mariposa"];
 const dogpatchOwners = [
   ...i280Owners,
