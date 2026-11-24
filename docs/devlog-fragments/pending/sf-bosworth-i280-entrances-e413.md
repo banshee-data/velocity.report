@@ -1,0 +1,1 @@
+- Baked the Bosworth Street and San Jose Avenue entrances below the upper street and joined both to southbound I-280. Recorded browser drives, clearance checks and the survey grades in the [SF road route audit](../../ui/sf-road-route-audit.md#bosworth-and-san-jose-avenue-onto-southbound-i-280).
