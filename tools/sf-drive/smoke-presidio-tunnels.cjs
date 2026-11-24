@@ -378,6 +378,7 @@ for (const branch of ["fifth", "sixth"]) {
     },
     forks: [
       ...exit.forks,
+      ["i280-north-alemany-main", "i280-north-alemany-climb", -1.5],
       ["i280-north-alemany-climb", "i280-north-lower-viaduct", -1.35],
       ["i280-north-lower-viaduct", "i280-north-south-dogpatch", 1.55],
     ],
@@ -411,10 +412,89 @@ cases["alemany-to-cesar-chavez-northbound"] = {
     "i280-north-cesar-chavez-exit": 11,
   },
   forks: [
+    ["i280-north-alemany-main", "i280-north-alemany-climb", -1.5],
     ["i280-north-alemany-climb", "i280-north-lower-viaduct", -1.35],
     ["i280-north-lower-viaduct", "i280-north-cesar-chavez-exit", -1.4],
   ],
 };
+const cesarChavezExit = cases["alemany-to-cesar-chavez-northbound"];
+cases["cesar-chavez-pennsylvania-roundtrip"] = {
+  ...cesarChavezExit,
+  roads: [
+    ...cesarChavezExit.roads,
+    "i280-dogpatch-pennsylvania-on-south",
+    "i280-dogpatch-on-ramp",
+    "i280-south-beyond-dogpatch",
+  ],
+  owners: [...cesarChavezExit.owners, "808f7fac", "808f7fa4"],
+  speedLimits: {
+    ...cesarChavezExit.speedLimits,
+    "i280-dogpatch-pennsylvania-on-south": 9,
+    "i280-dogpatch-on-ramp": 12,
+    "i280-south-beyond-dogpatch": 15,
+  },
+  connectByGround: true,
+  groundConnection: {
+    after: "sf-contact/i280-north-cesar-chavez-exit",
+    via: [
+      [4160.24, -1189.39],
+      [4189.45, -1157.43],
+      [4207.36, -1126.84],
+      [4206.94, -1125.12],
+      [4196.71, -1106.02],
+    ],
+  },
+  finishOnDeck: true,
+  finishDistance: 120,
+};
+for (const direction of ["exit", "through"]) {
+  const branch = `us101-north-bayshore-${direction}`;
+  cases[`alemany-to-us101-${direction}`] = {
+    roads: [
+      "i280-north-alemany-entry",
+      "i280-north-alemany-main",
+      "i280-to-101-north-connector",
+      "us101-north-silver-approach",
+      branch,
+    ],
+    owners: ["808f7ef4", "808f7efc", "808f7e54", "808f7e4c"],
+    speed: 17,
+    speedLimits: {
+      "i280-north-alemany-entry": 11,
+      "i280-to-101-north-connector": 13,
+      "us101-north-bayshore-exit": 11,
+    },
+    entranceTimeoutMs: 45_000,
+    forks: [
+      ["i280-north-alemany-main", "i280-to-101-north-connector", 1.5],
+      ["us101-north-silver-approach", branch, direction === "exit" ? -2 : 1.55],
+    ],
+    laneGuides: {
+      "i280-north-alemany-entry": {
+        clearance: { offset: 1.75, station: 51, length: 24 },
+      },
+      "i280-to-101-north-connector": {
+        clearance: [
+          { offset: 1.95, station: 248, length: 27 },
+          { offset: 1.7, station: 820, length: 23 },
+        ],
+      },
+      "us101-north-silver-approach": {
+        clearance: { offset: -1.55, station: 490, length: 28 },
+      },
+      "us101-north-bayshore-exit": {
+        entranceMetres: 40,
+        clearance: { offset: 1.6, station: 29, length: 15 },
+      },
+      "us101-north-bayshore-through": {
+        clearance: [
+          { offset: 1.9, station: 128, length: 28 },
+          { offset: -1.15, station: 851, length: 25 },
+        ],
+      },
+    },
+  };
+}
 for (const reverse of [false, true]) {
   cases[
     reverse ? "dogpatch-twentieth-eastbound" : "dogpatch-twentieth-westbound"
@@ -558,7 +638,48 @@ function driveLine({ id, points }, rampApproach) {
   });
 }
 
-function withGroundConnections(roads) {
+function withGroundConnections(roads, connection) {
+  if (connection) {
+    const index = roads.findIndex(({ id }) => id === connection.after) + 1;
+    assert.ok(
+      index > 0 && index < roads.length,
+      "Ground connection needs two roads",
+    );
+    const start = roads[index - 1].positions.at(-1);
+    const end = roads[index].positions[0];
+    const waypoints = [
+      start,
+      ...connection.via.map(([x, y], i) => [
+        x,
+        y,
+        start[2] +
+          (end[2] - start[2]) * ((i + 1) / (connection.via.length + 1)),
+      ]),
+      end,
+    ];
+    const positions = [start];
+    for (const [i, to] of waypoints.slice(1).entries()) {
+      const from = waypoints[i];
+      const steps = Math.ceil(Math.hypot(to[0] - from[0], to[1] - from[1]) / 2);
+      for (let step = 1; step <= steps; step++) {
+        positions.push(
+          from.map((value, j) => value + ((to[j] - value) * step) / steps),
+        );
+      }
+    }
+    return [
+      ...roads.slice(0, index),
+      {
+        id: "between-streets",
+        kind: "ground",
+        positions,
+        width_m: 7,
+        speed_mps: 8,
+        sources: [],
+      },
+      ...roads.slice(index),
+    ];
+  }
   const extension = (from, toward, metres) => {
     const distance = Math.hypot(toward[0] - from[0], toward[1] - from[1]);
     return from.map(
@@ -620,6 +741,12 @@ async function drive(
       const ids = sections
         .filter(({ kind }) => kind !== "ground")
         .map(({ id }) => id);
+      const groundHints = new Map();
+      let entered = 0;
+      for (const { id, kind } of sections) {
+        if (kind === "ground") groundHints.set(entered, id);
+        else entered++;
+      }
       const lastSection = sections.at(-1);
       const [before, end] = lastSection.positions.slice(-2);
       const heading = Math.atan2(end[1] - before[1], end[0] - before[0]);
@@ -716,9 +843,7 @@ async function drive(
           if (now - last >= 27) {
             const input = cityDriveControls(course, {
               ...pose,
-              surfaceId:
-                surfaceId ||
-                (connectByGround ? sections[seen.size * 2].id : ids[0]),
+              surfaceId: surfaceId || groundHints.get(seen.size) || ids[0],
               // The steering guide keeps sending keys during short bounces.
               // Ground contact itself still comes from the browser's physics.
               grounded: true,
@@ -796,7 +921,9 @@ async function main() {
         reverse,
         rampApproach,
         connectByGround = false,
+        groundConnection,
         finishOnDeck = false,
+        finishDistance,
         maxDurationMs = 460_000,
         entranceTimeoutMs = 20_000,
         rollingStart = false,
@@ -819,7 +946,7 @@ async function main() {
           ...guides[incoming],
           entranceEast: -offset * Math.sin(heading),
           entranceNorth: offset * Math.cos(heading),
-          entranceMetres: 21,
+          entranceMetres: guides[incoming]?.entranceMetres ?? 21,
         };
       }
       const contactSections = slugs.map((slug) => {
@@ -842,8 +969,20 @@ async function main() {
           sources: [],
         };
       });
+      if (finishDistance) {
+        const last = contactSections.at(-1);
+        let distance = 0;
+        const finish = last.positions.findIndex(([x, y], i) => {
+          if (i === 0) return false;
+          const [a, b] = last.positions[i - 1];
+          distance += Math.hypot(x - a, y - b);
+          return distance >= finishDistance;
+        });
+        assert.ok(finish > 0, "Deck finish must be inside the last section");
+        last.positions = last.positions.slice(0, finish + 1);
+      }
       const sections = connectByGround
-        ? withGroundConnections(contactSections)
+        ? withGroundConnections(contactSections, groundConnection)
         : contactSections;
       for (let i = 1; i < sections.length; i++) {
         const previous = sections[i - 1].positions.at(-1);
