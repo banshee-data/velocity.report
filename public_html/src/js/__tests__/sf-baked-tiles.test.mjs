@@ -7,6 +7,7 @@ import { Raycaster, Vector3 } from "../../vendor/three/three.module.js";
 import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
 import {
   BAY_BRIDGE_CITY_DRIVE,
+  buildRaisedRoad,
   cityDriveApproach,
 } from "../sf-city-road-drive.js";
 import {
@@ -2426,6 +2427,18 @@ test("Presidio Parkway keeps its mainline and SR 1 on distinct branches across t
   const goldenSouth = road(tiles[1], "golden-gate-southbound-6");
   assert.deepEqual(originalExit.groundEnds, []);
   assert.deepEqual(ruckman.groundEnds, ["end"]);
+  const replaced = new Set(roadBake.playableReplaces);
+  for (const id of [
+    "overpass/19187000/forward/1",
+    "overpass/19187000/forward/2",
+    "overpass/15224000/forward/1",
+  ]) {
+    const preview = tiles
+      .flatMap((tile) => tile.raisedRoads)
+      .find((road) => road.id === id);
+    assert.ok(preview, id);
+    assert.equal(buildRaisedRoad(preview, replaced), null, id);
+  }
   for (const crossing of [northLoop, sr1NorthMerge]) {
     assert.deepEqual([...new Set(crossing.owners)].sort(), tileOwners);
     for (const tile of tiles) {

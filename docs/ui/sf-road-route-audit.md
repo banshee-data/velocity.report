@@ -3014,6 +3014,8 @@ left the lower loop at its former ground handoff. The bake now treats
 that handoff and two others as road joins, using the same position,
 elevation and cross-section on both sides. The two cross-tile roads
 carry identical contact geometry in both tiles.
+The game suppresses three provisional preview runs that followed the
+upper pavement above the lower alignments.
 
 | Keyboard drive                                 | Added contact on route | Duration | Airborne distance |
 | ---------------------------------------------- | ---------------------: | -------: | ----------------: |
@@ -3032,8 +3034,8 @@ All 23 fixed-step emoji courses ran on this manifest. They collected
 both pickups over 66.57 km, with 62 tile crossings and a largest
 observed seam step of 6.1 cm. No sampled dip exceeded 0.5 m.
 
-- Game manifest SHA-256 `407ab24ba2d5da155283e2a8074d2b7c4bd50f84872efefc482d8f3e1f42d4ae`.
-- Contact SHA-256 `cb16df5061be46b5af5a0626d4574188d6fb6fa47adb2706eb484dfdb2e1ebef`.
+- Game manifest SHA-256 `a42741ed96a16082ffe549caa65efbfecba4af7df50afe09ac8122d350e9b6b4`.
+- Contact SHA-256 `ea49a1125d8d526b433d33363cdd7c932857f6bc3bc4d1529cda537c5df3aaa3`.
 
 ```sh
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
