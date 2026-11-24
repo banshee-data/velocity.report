@@ -2641,3 +2641,66 @@ test("both southbound Hester entrances stay below US 101 and join the collector 
   assert.ok(Number.isFinite(upperHeight) && Number.isFinite(lowerHeight));
   assert.ok(upperHeight - lowerHeight > 8 && upperHeight - lowerHeight < 9);
 });
+
+test("northbound Hester retains the mainline and both exits reach city pavement", () => {
+  const token = "808f7f24";
+  const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const road = (name) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`);
+  const approach = road("us101-north-city-edge-to-hester");
+  const mainline = road("us101-north-hester-to-bayshore");
+  const fork = road("us101-north-hester-off-ramp");
+  const third = road("us101-north-hester-third-off-ramp");
+  const bayshore = road("us101-north-hester-bayshore-off-ramp");
+  for (const [from, to] of [
+    [approach, mainline],
+    [approach, fork],
+    [fork, third],
+    [fork, bayshore],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from: a, to: b, direction, status }) =>
+          a === `${from.id}:end` &&
+          b === `${to.id}:start` &&
+          direction === "forward" &&
+          status === "joined",
+      ),
+    );
+  }
+  assert.deepEqual(fork.groundEnds, []);
+  for (const exit of [third, bayshore]) {
+    assert.deepEqual(exit.groundEnds, ["end"]);
+    const [{ x, y, z }] = buildBakedRoadContact(exit).portals;
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.02);
+  }
+  const obstacles = [buildCollisionIndex(tile, token)];
+  const throughPose = { x: 3728.98, y: -5012.988, heading: 2.0099 };
+  const throughHeight = buildBakedRoadContact(mainline).surface.heightAt(
+    throughPose.x,
+    throughPose.y,
+  );
+  assert.ok(Number.isFinite(throughHeight));
+  assert.equal(collisionAt(obstacles, throughPose, throughHeight), null);
+  const reentry = buildBakedRoadContact(road("us101-south-hester-third-entry"));
+  for (const [x, y, heading] of [
+    [3678.8, -4457.4, 3.46],
+    [3582.029, -4503.235, -2.365],
+  ]) {
+    const z = reentry.surface.heightAt(x, y);
+    assert.ok(Number.isFinite(z));
+    assert.equal(collisionAt(obstacles, { x, y, heading }, z), null);
+  }
+  for (const [ramp, x, y] of [
+    [fork, 3670.3473, -4817.6891],
+    [third, 3704.4769, -4632.0553],
+  ]) {
+    const z = buildBakedRoadContact(ramp).surface.heightAt(x, y);
+    const separation = z - groundAtWorld([tile], x, y, true);
+    assert.ok(separation > 0.08 && separation < 0.17);
+    assert.equal(collisionAt(obstacles, { x, y, heading: 1.4 }, z), null);
+  }
+});

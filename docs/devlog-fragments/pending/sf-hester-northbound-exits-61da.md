@@ -1,0 +1,1 @@
+- Baked the northbound US 101 exits to Third Street and Bayshore Boulevard. The [route audit](../../ui/sf-road-route-audit.md#northbound-us-101-exits-at-hester) records both exits, the mainline drive through the fork and the return to southbound US 101.
