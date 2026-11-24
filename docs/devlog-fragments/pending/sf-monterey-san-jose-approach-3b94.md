@@ -1,0 +1,1 @@
+- Baked Monterey Boulevard and the Branch East tunnel exit into the shared San Jose Avenue deck. Recorded the two lower crossings, both street directions and the tunnel exit in the [SF road route audit](../../ui/sf-road-route-audit.md#monterey-boulevard-and-branch-east-to-san-jose-avenue).

@@ -2747,3 +2747,43 @@ node tools/sf-drive/audit-road-routes.mjs \
   --plan=tools/sf-drive/road-audit-bosworth-release-routes.json
 node tools/sf-drive/audit-road-flatness.mjs
 ```
+
+## Monterey Boulevard and Branch East to San Jose Avenue
+
+The previous live build lost road contact on the Monterey approach.
+In Chrome, the car dropped about 9 m toward the lower ground and
+crashed before reaching San Jose Avenue. The new contact carries
+Monterey Boulevard and the Branch East exit into a shared deck,
+then meets the San Jose Avenue terrain. A 46 m extension of the
+exit viaduct joins the existing tunnel contact directly.
+
+The baked upper pavement sits 7.37 m and 9.92 m above the lower
+surfaces at the two checked crossings. Both owner tiles contain the
+same complete Monterey approach, and the manifest records the joins.
+The highest grade on the three fitted
+strips is 4.22%, and the deepest fitted dip over a chord of about
+20 m is 7.6 cm. All 864 sampled poses on the centre and two lateral
+offsets cleared the game obstacle test.
+
+| Chrome keyboard drive                 |   Time | Peak speed |
+| ------------------------------------- | -----: | ---------: |
+| Branch East tunnel to San Jose Avenue | 46.1 s |   31.6 mph |
+| Monterey Boulevard to San Jose Avenue | 43.0 s |   28.8 mph |
+| San Jose Avenue to Monterey Boulevard | 43.8 s |   28.4 mph |
+
+All three preview drives reached street pavement grounded. The route
+guide supplied keyboard inputs after manual takeover. The browser test
+checks the order of the contacts, the ground handoff and a maximum
+of 2 m of airborne travel. [Gerardus survey recipe](https://github.com/banshee-data/gerardus/pull/170).
+
+The 20 fixed-step emoji courses collected both pickups again on the new
+manifest. They covered 52.43 km in 83.8 simulated minutes. Their largest
+measured seam step was 6.1 cm, and no driven dip exceeded 0.5 m.
+
+- Game manifest SHA-256 `0a447b9a7943bd8efbc00860c0ddc20e81e56c91e9d2ebc173a6d02673ab156d`.
+- Contact SHA-256 `a57eb8dacff2f87c89ccba63f9e91e02f0fff4779dad910670c805a17e4eb3d8`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  branch-east-ramp monterey-to-san-jose san-jose-to-monterey
+```
