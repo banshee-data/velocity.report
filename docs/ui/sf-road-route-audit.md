@@ -1776,3 +1776,41 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 
 - Game manifest SHA-256 `61dad03f1bfc517a73b9e3dc773db675563033016f70ae5622ab2a7c38bcbccf`.
 - Contact SHA-256 `de316cc5cef51e5c582be75acea8db0d385b5079dc1dba1db05bf5516b20f542`.
+
+## West Yerba Buena ramps at Treasure Island Road
+
+The eastbound exit takes the lower Bay Bridge deck at 45.56 m NAVD88 to
+Treasure Island Road. The westbound entrance takes the island road back
+onto the upper deck at 55.03 m. The two pavement handoffs are about
+14 m apart, and the mainline connections through both levels remain
+open. Two tiles include the contact, terrain and scenery changes.
+
+The April 2023 survey shows the upper ramp directly. The lower ramp
+uses two inferred intervals beneath the upper deck, extending 64 m from
+the split and from station 244 m to 272 m. The terrain refinement follows
+the lower road within the island. A survey check cleared two inferred
+building volumes and one inferred trunk from the pavement. The corrected
+collision scan returned no hits along either centreline or at lateral
+offsets of one metre across four nearby tiles. The survey predates the
+West Side Bridges Retrofit. [SFCTA project record](https://www.sfcta.org/westsidebridges)
+
+| Browser drive                    | Elapsed | Finish                                |
+| -------------------------------- | ------: | ------------------------------------- |
+| Eastbound exit                   |  44.9 s | Grounded on island pavement           |
+| Westbound entrance               |  50.2 s | Grounded on the upper Bay Bridge deck |
+| Lower mainline through the split |  16.6 s | Grounded beneath the upper deck       |
+
+The 20 frozen emoji routes collected both targets across 52.43 km.
+Their largest driven seam step was 6.1 cm across 50 crossings, with no
+driven dip greater than 0.5 m. The unchanged route definitions are in
+`tools/sf-drive/road-audit-alemany-routes.json`. Set `manifestSha256` to
+the revision below before replaying.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-west-eastbound-exit island-west-westbound-entry \
+  island-west-eastbound-through island-west-exit-and-reentry
+```
+
+- Game manifest SHA-256 `bd98d026cf3bf1dca4a0efdf2c9d5f4ffe8a101279394dd93b3712b1b176a78a`.
+- Contact SHA-256 `4af4d69b2c7581bde7277dfee4714edce60d3e632d70924d3f34875192ec991a`.

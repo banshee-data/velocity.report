@@ -1952,6 +1952,83 @@ cases["hester-third-street-exit-and-reentry"] = {
   maxDurationMs: 220_000,
 };
 
+const islandLower = "bay-bridge-eastbound-lower";
+const islandWestExit = "yerba-buena-eastbound-off-ramp";
+const islandWestEntry = "yerba-buena-westbound-on-ramp";
+const islandUpper = "bay-bridge-westbound";
+const islandWestOwners = [
+  "8085803c",
+  "8085801c",
+  "80858024",
+  "8085800c",
+  "80858014",
+  "8085806c",
+];
+const islandWestExitCase = {
+  owners: islandWestOwners,
+  roads: [islandLower, islandWestExit],
+  rollingStart: true,
+  rollingStartMetres: 2670,
+  initialSpeedMps: 19,
+  speed: 19,
+  speedLimits: { [islandWestExit]: 12 },
+  forks: [[islandLower, islandWestExit, 2.25]],
+  maxDurationMs: 135_000,
+};
+cases["island-west-eastbound-exit"] = islandWestExitCase;
+cases["island-west-westbound-entry"] = {
+  owners: islandWestOwners,
+  roads: [islandWestEntry, islandUpper],
+  speed: 12,
+  speedLimits: { [islandUpper]: 18 },
+  groundApproachMetres: 13,
+  finishOnDeck: true,
+  finishDistance: 160,
+  maxDurationMs: 130_000,
+};
+cases["island-west-eastbound-through"] = {
+  ...islandWestExitCase,
+  roads: [islandLower, "yerba-buena-lower-west-approach"],
+  forks: [[islandLower, "yerba-buena-lower-west-approach", -2.25]],
+  finishOnDeck: true,
+  finishDistance: 130,
+  exitCamera: "covered",
+};
+
+cases["island-west-exit-and-reentry"] = {
+  ...islandWestExitCase,
+  roads: [islandLower, islandWestExit, islandWestEntry, islandUpper],
+  speedLimits: {
+    [islandWestExit]: 12,
+    [islandWestEntry]: 11,
+    [islandUpper]: 18,
+  },
+  connectByGround: true,
+  groundConnection: {
+    after: prefix + islandWestExit,
+    via: [
+      [6176, 5478.75],
+      [6171, 5480],
+      [6166, 5481.1],
+      [6162, 5482.6],
+      [6157, 5484],
+      [6153.5, 5484.3],
+      [6150.8, 5482.5],
+      [6149.9, 5479.9],
+      [6151, 5477.2],
+      [6154, 5476.8],
+      [6157.8, 5478.8],
+      [6161, 5479.8],
+      [6164.2, 5479.2],
+    ],
+    minimumMetres: 35,
+    speed: 4,
+  },
+  finishOnDeck: true,
+  finishDistance: 155,
+  maxDurationMs: 215_000,
+};
+
 function fromGround(points, firstRoad) {
   const [start, turn, tangent] = points;
   const end = firstRoad.positions[0];
@@ -2067,7 +2144,7 @@ function withGroundConnections(roads, connection) {
         kind: "ground",
         positions,
         width_m: 7,
-        speed_mps: 8,
+        speed_mps: connection.speed ?? 8,
         sources: [],
       },
       ...roads.slice(index),
