@@ -2550,3 +2550,49 @@ test("the Alemany connector keeps both stacked crossings and the US 101 through 
     assert.equal(collisionAt(obstacles, { x, y, heading }, lower), null);
   }
 });
+
+test("Bayshore stays on the upper street through the Hester fork and merges onto US 101", () => {
+  const token = "808f7f24";
+  const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const road = (name) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`);
+  const approach = road("bayshore-north-hester-approach");
+  const street = road("bayshore-north-hester-through");
+  const ramp = road("us101-north-bayshore-hester-entry");
+  const highway = road("us101-north-bayshore-to-paul");
+  for (const [from, to] of [
+    [approach, street],
+    [approach, ramp],
+    [ramp, highway],
+  ]) {
+    assert.deepEqual(from.points.at(-1), to.points[0]);
+    assert.deepEqual(from.seams.end, to.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from: a, to: b, direction, status }) =>
+          a === `${from.id}:end` &&
+          b === `${to.id}:start` &&
+          direction === "forward" &&
+          status === "joined",
+      ),
+    );
+  }
+  assert.deepEqual(ramp.groundEnds, []);
+  const contact = buildBakedRoadContact(approach);
+  for (const { x, y, z } of [
+    ...contact.portals,
+    ...buildBakedRoadContact(street).portals,
+  ]) {
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.02);
+  }
+  const x = 3641.582;
+  const y = -4906.127;
+  const z = contact.surface.heightAt(x, y);
+  const ground = groundAtWorld([tile], x, y, true);
+  assert.ok(Number.isFinite(z) && Number.isFinite(ground) && z - ground > 7);
+  assert.equal(
+    collisionAt([buildCollisionIndex(tile, token)], { x, y, heading: 1.2 }, z),
+    null,
+  );
+});

@@ -1684,3 +1684,24 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 
 - Game manifest SHA-256 `f19e6efca4c6389c0df1a86fea8eb61795b5810fc24b1cf898b777ee73caef9d`.
 - Contact SHA-256 `4c3029a0e9492df076e1abda7e797087b0c203b78249863a6fade74774969ef4`.
+
+### Bayshore Boulevard entrance at Hester
+
+Bayshore Boulevard runs over lower pavement beside Hester. The base terrain
+is over 7 m below the observed upper street at the crossing. One tile adds
+162.2 m of upper approach, 31.9 m of through street and the 388.7 m ramp to
+northbound US 101. The ramp begins at 46.18 m NAVD88 and joins the highway
+at 39.86 m. The upper approach peaks at 3.7% grade and the ramp at 3.6%.
+
+Chrome entered from Bayshore pavement and stayed grounded to the northbound
+mainline in 52.4 s. The through drive took 22.6 s and returned to Bayshore
+pavement. A collision scan across four nearby tiles found no obstacles at the
+baked centreline stations.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  bayshore-hester-entry-us101 bayshore-hester-street-through
+```
+
+- Game manifest SHA-256 `2ae88d9c134d47550d35a783cfb13067e1e70c8e43d5673fe33c5e59a656cb13`.
+- Contact SHA-256 `aeb2071d9a4dbacd0ac62d9b6d74754e32099234458c11b37718376f7b3a0d35`.
