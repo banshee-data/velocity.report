@@ -978,6 +978,48 @@ test("a moving city car cannot cross into a hole in the baked ground", () => {
   }
 });
 
+test("a city car crosses a shallow join between terrain facets in both directions", () => {
+  const dt = 1 / 120;
+  const heightAt = (x) => Math.min(0.13 * x, -0.075 * x);
+  const pavement = (x) => ({ height: heightAt(x), drivable: true });
+  for (const direction of [1, -1]) {
+    const x = -6 * direction;
+    const v = 9.4;
+    let car = {
+      x,
+      y: 0,
+      z: heightAt(x),
+      heading: direction > 0 ? 0 : Math.PI,
+      v,
+      vz: (direction > 0 ? 0.13 : 0.075) * v,
+      grounded: true,
+    };
+    for (let i = 0; i < 200 && car.x * direction < 4; i++) {
+      car = contactStep(car, {}, dt, pavement, 1.35);
+      assert.equal(car.grounded, true);
+      assert.equal(car.z, heightAt(car.x));
+    }
+    assert.ok(car.x * direction >= 4);
+  }
+});
+
+test("city wheel travel cannot snap the car down an abrupt drop", () => {
+  const pavement = (x) => ({ height: x < 0 ? 3 : 1, drivable: true });
+  const car = {
+    x: -0.02,
+    y: 0,
+    z: 3,
+    heading: 0,
+    v: 9.4,
+    vz: 0,
+    grounded: true,
+  };
+  const next = contactStep(car, { brake: 1 }, 1 / 120, pavement, 1.35);
+  assert.equal(next.grounded, false);
+  assert.ok(next.x > 0 && next.z > 2.99);
+  assert.equal(next.vx, car.v);
+});
+
 test("the city contact step launches near 150 mph and lands back on the crest profile", () => {
   const dt = 1 / 120;
   let car = {

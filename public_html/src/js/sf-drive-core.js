@@ -219,9 +219,17 @@ export function carStep(car, input, dt, surface = {}) {
   };
 }
 
-/** Physics: contact follows supplied geometry; missing geometry freezes rather than inventing a landing.
- * A support acceleration below -g releases contact. Airborne velocity has no tyre/input forces.
- * Fixed 120 Hz caller; point support is a game approximation, not a suspension model.
+function axleSlope(surfaceAt, { x, y, heading }, height, halfAxle) {
+  const east = Math.cos(heading) * halfAxle;
+  const north = Math.sin(heading) * halfAxle;
+  const front = surfaceAt(x + east, y + north).height ?? height;
+  const rear = surfaceAt(x - east, y - north).height ?? height;
+  return (front - rear) / (2 * halfAxle);
+}
+
+/** Physics: estimate suspension support over the wheelbase at 120 Hz.
+ * A drop beyond wheel travel or downward support acceleration greater than
+ * gravity can launch the car. Missing terrain holds the last supported state.
  */
 export function contactStep(car, input, dt, surfaceAt, halfAxle = 0.1) {
   if (!(dt > 0) || dt > 0.05)
@@ -229,91 +237,63 @@ export function contactStep(car, input, dt, surfaceAt, halfAxle = 0.1) {
   const here = surfaceAt(car.x, car.y);
   if (here.height === null) return { ...car, blocked: true };
   const z = car.z ?? here.height;
-  let next;
+  const gravity = 9.81;
+  const wheelTravel = 0.12; // Metres of downward suspension travel in the game.
+  const previousVz = car.vz ?? 0;
+  const ballisticZ = z + previousVz * dt - 0.5 * gravity * dt * dt;
   if (car.grounded !== false) {
-    const a = surfaceAt(
-      car.x + Math.cos(car.heading) * halfAxle,
-      car.y + Math.sin(car.heading) * halfAxle,
-    );
-    const b = surfaceAt(
-      car.x - Math.cos(car.heading) * halfAxle,
-      car.y - Math.sin(car.heading) * halfAxle,
-    );
-    next = carStep(car, input, dt, {
-      slope:
-        ((a.height ?? here.height) - (b.height ?? here.height)) /
-        (2 * halfAxle),
+    const slope = axleSlope(surfaceAt, car, here.height, halfAxle);
+    const next = carStep(car, input, dt, {
+      slope,
       offroad: here.drivable === false,
     });
-  } else {
-    next = {
-      ...car,
-      x: car.x + car.vx * dt,
-      y: car.y + car.vy * dt,
-      lateralAcceleration: 0,
-    };
+    const there = surfaceAt(next.x, next.y);
+    if (there.height === null) return { ...car, blocked: true };
+    const supportVz =
+      axleSlope(surfaceAt, next, there.height, halfAxle) * next.v;
+    // Compare vertical speeds over the same wheelbase. A point-height drop at
+    // a triangle edge can otherwise disagree with the smoothed wheel slope.
+    const followsSlope = supportVz >= slope * car.v - gravity * dt - 1e-7;
+    if (followsSlope && there.height >= ballisticZ - wheelTravel) {
+      return {
+        ...car,
+        ...next,
+        z: there.height,
+        vz: supportVz,
+        grounded: true,
+        blocked: false,
+      };
+    }
   }
-  const there = surfaceAt(next.x, next.y);
-  if (there.height === null) return { ...car, blocked: true };
-  const ballisticZ = z + (car.vz || 0) * dt - 0.5 * 9.81 * dt * dt;
-  if (car.grounded !== false && there.height >= ballisticZ - 1e-7) {
-    return {
-      ...car,
-      ...next,
-      z: there.height,
-      // Use the endpoint tangent, not a backward secant (which would release
-      // contact at half gravity on a curved surface).
-      vz:
-        (((surfaceAt(
-          next.x + Math.cos(next.heading) * halfAxle,
-          next.y + Math.sin(next.heading) * halfAxle,
-        ).height ?? there.height) -
-          (surfaceAt(
-            next.x - Math.cos(next.heading) * halfAxle,
-            next.y - Math.sin(next.heading) * halfAxle,
-          ).height ?? there.height)) /
-          (2 * halfAxle)) *
-        next.v,
-      grounded: true,
-      blocked: false,
-    };
-  }
+  const flight = { ...car, lateralAcceleration: 0 };
   if (car.grounded !== false) {
-    // Recompute the launch interval from existing momentum: no launch-frame steering/braking.
-    next = {
-      ...car,
-      airAttitude: launchAttitude(car, (x, y) => surfaceAt(x, y).height, z),
-      vx:
-        Math.cos(car.heading) * car.v - Math.sin(car.heading) * (car.slip || 0),
-      vy:
-        Math.sin(car.heading) * car.v + Math.cos(car.heading) * (car.slip || 0),
-      lateralAcceleration: 0,
-    };
-  }
-  next.x = car.x + next.vx * dt;
-  next.y = car.y + next.vy * dt;
-  const landing = surfaceAt(next.x, next.y);
-  if (landing.height === null) return { ...car, blocked: true };
-  const vz = (car.vz || 0) - 9.81 * dt;
-  if (ballisticZ <= landing.height) {
-    const ahead = surfaceAt(
-      next.x + Math.cos(next.heading) * halfAxle,
-      next.y + Math.sin(next.heading) * halfAxle,
+    // Launch with the incoming momentum before applying the current input.
+    const east = Math.cos(car.heading);
+    const north = Math.sin(car.heading);
+    const slip = car.slip || 0;
+    flight.airAttitude = launchAttitude(
+      car,
+      (x, y) => surfaceAt(x, y).height,
+      z,
     );
-    const tangent =
-      ahead.height === null
-        ? 0
-        : ((ahead.height - landing.height) / halfAxle) * next.v;
+    flight.vx = east * car.v - north * slip;
+    flight.vy = north * car.v + east * slip;
+  }
+  flight.x += flight.vx * dt;
+  flight.y += flight.vy * dt;
+  const landing = surfaceAt(flight.x, flight.y);
+  if (landing.height === null) return { ...car, blocked: true };
+  const vz = previousVz - gravity * dt;
+  if (ballisticZ <= landing.height) {
     return {
-      ...car,
-      ...next,
+      ...flight,
       z: landing.height,
-      vz: tangent,
+      vz: axleSlope(surfaceAt, flight, landing.height, halfAxle) * flight.v,
       grounded: true,
       blocked: false,
     };
   }
-  return { ...next, z: ballisticZ, vz, grounded: false, blocked: false };
+  return { ...flight, z: ballisticZ, vz, grounded: false, blocked: false };
 }
 
 /** Space, reversing against motion, and a held brake illuminate the rear lamps. */

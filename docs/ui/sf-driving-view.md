@@ -99,6 +99,11 @@ triggers recovery because the car cannot drive there. A hard strike disconnects 
 rails and the ground. A square hit can rebound, a corner strike can yaw, and a hard
 landing on one side can roll the car. In flight, the chassis keeps its take-off pitch
 and bank. Each ground contact takes its slope from the road or terrain it touches.
+On city terrain, the game estimates support over the wheelbase and allows
+12 cm of downward wheel travel. A shallow triangle join can keep contact
+even where the point slope changes suddenly. A crest can still send the
+car airborne when following the road would require more downward acceleration
+than gravity provides.
 Hard contacts dissipate closing speed over multiple physics ticks through a damped
 crush response. The contact zone allows up to 55 cm of frontal or 30 cm of side
 compression. The body still uses the existing chassis mesh. The camera holds its approach direction during
@@ -479,7 +484,7 @@ slices between frames. Road contact and the pose of a falling tree stay on the d
   keeps horizontal momentum and falls under gravity until it meets supported ground.
   Airtime cards show the road profile, dashed terrain where the road profile ends, and the
   car's altitude. Each completed card stays for two seconds, and overlapping cards stack.
-  The vehicle uses point support as a gameplay approximation.
+  The vehicle uses a simplified wheelbase contact estimate.
 - Roof shapes come from the April 2023 lidar and the City's 2010 outlines; buildings changed since are
   shown as the lidar saw them, or not at all.
 - The canopy test reads the lidar at a coarser density than the per-site studies and flags somewhat

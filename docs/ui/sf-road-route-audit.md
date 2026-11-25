@@ -4223,3 +4223,43 @@ hash before each drive.
 - Public Works snapshot SHA-256 `c7b76f2f3d07ba28d2142008d65edf1a466782de89dbca024c0fc7a5156b7d00`.
 - Public Hester manifest SHA-256 `eddfbe36c207b3dfb69cb502cb8aea0073ca3b28e37ff35db52f1f4f64875655`.
 - Local Merchant Road manifest SHA-256 `5b206c95ee87664339e22f06b60bcfcb2f19f701b4f191151235d3fb4a43ad0e`.
+
+### Market Street terrain contact at the sidehill structures
+
+**Physics and World.** The baked terrain uses triangles. At one triangle's
+edge, the car could compare a point height against a vertical velocity
+estimated across its wheelbase and briefly lose contact. The revised step
+uses the same wheelbase at the beginning and end of each tick when testing
+downward acceleration. It also allows up to 12 cm of downward wheel travel
+before a sudden drop releases support. In both versions the car follows the
+baked height on the ground and retains its incoming momentum in flight.
+
+The paired fixed-step drives used the same one-way centrelines, steering
+inputs, obstacle index and 160-tile preview. The courses covered about
+873 m south-west and 885 m north-east. The targets below are in-game
+controller speeds. Distance is counted only on simulation ticks labelled
+airborne.
+
+| Direction  | Speed target | Baseline airborne distance | Revised airborne distance |
+| ---------- | -----------: | -------------------------: | ------------------------: |
+| South-west |       17 mph |                   100.42 m |                    2.30 m |
+| South-west |       21 mph |                   118.65 m |                    2.97 m |
+| North-east |       17 mph |                   142.52 m |                    0.41 m |
+| North-east |       21 mph |                   157.02 m |                    1.42 m |
+
+All eight fixed-step drives finished without a crash. In Chrome, the
+north-east drive completed with zero sampled airborne travel. The
+south-west drive again crashed near station 778 m, after 2.44 m of
+sampled airborne travel. An instrumented repeat reached the finish with
+5.23 m of sampled airborne travel. The inconsistent outcome at the
+south-west crossing remains open. The revised physics still launches at
+a 150 mph crest, falls over a sudden drop and holds the last state at
+missing terrain in the automated regressions.
+
+- Game manifest SHA-256 `ce428401fc1edf86a349cc357ac2a6c337e308cad0745fd4dca6e513597badd4`.
+- Market Street course SHA-256 `9b3df3a86a2d4d9890fc3cb20419892a44a0d0d054dfcd2654b53cd49592fecb`.
+- Baseline game revision `c8e524ff08afe3b01c63d7a596cfdc0f9b7e0ba9`.
+- Revised contact module SHA-256 `3965a95a69a45239aae6ee30be3ecad016812235977a72b2ea032790a14050dc`.
+
+The distances describe simulated motion on the game terrain. They do not
+establish physical vehicle dynamics or road flatness.
