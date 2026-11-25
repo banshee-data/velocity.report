@@ -2105,6 +2105,14 @@ cases["bayshore-hester-entry-us101"] = {
   finishDistance: 70,
   maxDurationMs: 130_000,
 };
+cases["bayshore-hester-frontage-to-third"] = {
+  roads: ["bayshore-hester-frontage-to-third"],
+  owners: ["808f7f24", "808f7f1c", "808f7f2c"],
+  speed: 11,
+  groundApproachMetres: 7,
+  maxAirborneMetres: 0,
+  maxDurationMs: 115_000,
+};
 
 const hesterThirdEntry = "us101-south-hester-third-entry";
 const hesterSalinasEntry = "us101-south-hester-salinas-entry";

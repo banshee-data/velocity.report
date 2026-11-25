@@ -1,0 +1,1 @@
+- Baked the [Bayshore frontage road from Hester to Third Street](../../ui/sf-road-route-audit.md#bayshore-frontage-road-from-hester-to-third-street) at the surveyed pavement level and cleared collision volumes from the lane.
