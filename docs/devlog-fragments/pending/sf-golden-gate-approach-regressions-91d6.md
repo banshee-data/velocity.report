@@ -1,0 +1,1 @@
+- Added [full-span Golden Gate keyboard regressions](../../ui/sf-road-route-audit.md#full-span-golden-gate-exit-and-return-checks) for through travel, Vista Point and the Merchant Road tunnel loop, and verified the baked joins against both game packages.
