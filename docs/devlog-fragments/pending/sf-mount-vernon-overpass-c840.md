@@ -1,1 +1,1 @@
-- **SF game** [Baked the San Jose Avenue overpass and its Mount Vernon turns](../ui/sf-road-route-audit.md#san-jose-avenue-at-mount-vernon), and checked both I-280 directions beneath them.
+- **SF game** [Baked the San Jose Avenue overpass and its Mount Vernon turns](../../ui/sf-road-route-audit.md#san-jose-avenue-at-mount-vernon), and checked both I-280 directions beneath them.
