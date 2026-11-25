@@ -4098,8 +4098,8 @@ lane has its own SR 1 drive.
 ### Driving each packaged span
 
 **World, Physics and Data.** `--drive-spans` drives individual spans in the
-directions declared by the baked joins and portals. The 120 Hz replay uses
-the game's tyre support, rail and scenery collision checks. It tries the
+directions admitted by the game's road network and ground portals. The 120 Hz
+replay uses the game's tyre support, baked rails and scenery collision checks. It tries the
 centreline first, then slower speeds and offsets up to 1.5 m where needed.
 It starts and finishes 2.58 m inside the ends so the chassis fits on the span.
 Use `--drive-links` in the same run to cover the joins and ground handoffs.
@@ -4110,10 +4110,10 @@ node tools/sf-drive/audit-baked-road-contact.mjs /path/to/candidate/tiles --driv
 
 | Surface type | Spans | Directional drives completed |
 | ------------ | ----: | ---------------------------: |
-| Bridge deck  |   163 |                          204 |
-| Ramp         |   176 |                          196 |
-| Tunnel       |    21 |                           29 |
-| Total        |   360 |                          429 |
+| Bridge deck  |   163 |                          214 |
+| Ramp         |   176 |                          202 |
+| Tunnel       |    21 |                           30 |
+| Total        |   360 |                          446 |
 
 The 160-tile preview passed all 316 directed joins. Of 502 ground handoff
 checks, 499 reached terrain or entered the expected span, and three continued
@@ -4125,8 +4125,8 @@ The first replay completed every span and recorded three tree scrapes. The
 car's centre was 0.12–0.14 m lower than the pavement where the hull met each
 trunk. At Presidio Marina, Tenth–Bryant and I‑280 at Sixth Street, the clipped
 trunks ended below that pavement. Looking up the supporting deck at the hit
-point cleared all three contacts. The repeat finished all 429 drives without
-a scenery scrape. Sixteen drives used a speed or lateral adjustment. The
+point cleared all three contacts. The repeat finished all 446 drives without
+a scenery scrape. Eighteen drives used a speed or lateral adjustment. The
 game still checks the clipped trunks against the chassis below the deck.
 
 | Site            | Pavement returns within 0.9 m | Returns in the car-height band | Chrome keyboard drive |

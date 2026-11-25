@@ -87,6 +87,62 @@ test("the span audit drives the directions allowed by the road terminals", () =>
   assert.deepEqual(audit.failures, []);
 });
 
+test("the span audit expands bidirectional and reverse-only joins", () => {
+  const roads = [
+    makeRoad("west", 0, ["start"], { end: seam }),
+    makeRoad("middle", 30, [], { start: seam, end: seam }),
+    makeRoad("east", 60, ["end"], { start: seam }),
+  ].map(buildBakedRoadContact);
+  const joins = [
+    {
+      ...join,
+      id: "western",
+      from: "west:end",
+      to: "middle:start",
+      direction: "both",
+    },
+    {
+      ...join,
+      id: "eastern",
+      from: "east:start",
+      to: "middle:end",
+      direction: "both",
+    },
+  ];
+  const bidirectional = auditBakedRoadSpans(roads, joins, new Map());
+  assert.equal(bidirectional.testedDirections, 6);
+  assert.equal(bidirectional.passed, 6);
+  const reverse = auditBakedRoadSpans(
+    roads,
+    [joins[0], { ...joins[1], direction: "reverse" }],
+    new Map(),
+  );
+  assert.equal(reverse.testedDirections, 4);
+  assert.equal(reverse.passed, 4);
+});
+
+test("the span audit drives against the baked guardrails", () => {
+  const ramp = {
+    ...makeRoad("hairpin", 0, ["start", "end"]),
+    width: 3,
+    points: Array.from({ length: 25 }, (_, i) => {
+      const angle = (Math.PI * i) / 24;
+      return [Math.cos(angle) * 12, Math.sin(angle) * 12, 3];
+    }),
+  };
+  const run = (road) =>
+    auditBakedRoadSpans([buildBakedRoadContact(road)], [], new Map());
+  assert.equal(run(ramp).passed, 2);
+  const withRails = run({ ...ramp, railSides: ["left", "right"] });
+  assert.equal(withRails.passed, 0);
+  assert.equal(withRails.failures.length, 2);
+  assert.ok(
+    withRails.failures.every(({ attempts }) =>
+      attempts.some(({ outcome }) => outcome === "rail contact"),
+    ),
+  );
+});
+
 test("the span audit reaches an obstacle between otherwise sound terminals", () => {
   const road = buildBakedRoadContact(makeRoad("blocked", 0, ["start", "end"]));
   const tree = {

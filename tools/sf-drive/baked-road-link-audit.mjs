@@ -11,7 +11,10 @@ import {
   scrapeObstacle,
   seriousImpact,
 } from "../../public_html/src/js/sf-crash.js";
-import { strikeHighwayRail } from "../../public_html/src/js/sf-highway-edge.js";
+import {
+  highwayRailSegments,
+  strikeHighwayRail,
+} from "../../public_html/src/js/sf-highway-edge.js";
 import { roadSupportsCar } from "../../public_html/src/js/sf-road-contact.js";
 import {
   driveOnRoadNetwork,
@@ -312,17 +315,25 @@ function screen(tries, replay) {
   return reports;
 }
 
-export function auditBakedRoadSpans(contacts, joins, collisions) {
-  const surfaces = new Map(
-    contacts.map(({ surface }) => [surface.id, surface]),
+function buildAuditSurfaces(contacts) {
+  return new Map(
+    contacts.map(({ surface }) => [
+      surface.id,
+      { ...surface, railSegments: highwayRailSegments(surface) },
+    ]),
   );
+}
+
+export function auditBakedRoadSpans(contacts, joins, collisions) {
+  const surfaces = buildAuditSurfaces(contacts);
   const network = indexRoadNetwork(joins);
   network.add({
     endpoints: contacts.flatMap(({ endpoints }) => endpoints),
     transitions: joins,
   });
-  const incoming = new Set(joins.map(({ to }) => to));
-  const outgoing = new Set(joins.map(({ from }) => from));
+  const incoming = new Set(
+    [...network.transitions.values()].flatMap((ends) => [...ends]),
+  );
   const assets = { surfaces, network, collisions };
   const summary = {
     testedSurfaces: 0,
@@ -348,7 +359,7 @@ export function auditBakedRoadSpans(contacts, joins, collisions) {
         (portal) => Math.hypot(portal.x - x, portal.y - y) < 0.01,
       );
       const enter = incoming.has(end) || (ground && !ground.exitOnly);
-      const leave = outgoing.has(end) || !!ground;
+      const leave = network.transitions.has(end) || !!ground;
       const boundary = !enter && !leave;
       if (boundary) summary.unconnectedTerminals.push(end);
       return { enter: enter || boundary, leave: leave || boundary };
@@ -435,9 +446,7 @@ const portalAttempts = [
 
 export function auditBakedRoadLinks(contacts, joins, tiles) {
   const network = indexRoadNetwork(joins);
-  const surfaces = new Map(
-    contacts.map(({ surface }) => [surface.id, surface]),
-  );
+  const surfaces = buildAuditSurfaces(contacts);
   const portals = new Map(
     contacts.map((contact) => [contact.surface.id, contact.portals]),
   );
