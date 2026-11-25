@@ -1,0 +1,1 @@
+- Added browser regression drives through the 23rd Street lower crossing and over it on both I-280 carriageways, checking support and camera cover through the handoffs. [Dogpatch 23rd Street road audit](../../ui/sf-road-route-audit.md#dogpatch-23rd-street-lower-deck)
