@@ -256,6 +256,27 @@ test("Hyde Street keeps a separate deck above both Broadway Tunnel bores", () =>
   }
 });
 
+test("Bryant Street carries the complete viaduct across the tile seam", () => {
+  const tokens = ["80858074", "8085807c"];
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const [road, copy] = tiles.map((tile) =>
+    tile.playableRoads.find(
+      ({ id }) => id === "sf-contact/bryant-street-delancey-viaduct",
+    ),
+  );
+  assert.ok(road);
+  assert.deepEqual(copy, road);
+  assert.deepEqual(road.owners, tokens);
+  const { surface, portals } = buildBakedRoadContact(road);
+  assert.equal(portals.length, 2);
+  for (const { x, y, z } of portals)
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.025);
+  const [x, y] = [4320.6678, 2803.8757];
+  assert.ok(surface.heightAt(x, y) - groundAtWorld(tiles, x, y, true) > 4);
+});
+
 test("Geary stays below the Fillmore bridge in both directions", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808580bc.json.gz")));
   const load = (name) =>

@@ -1,0 +1,1 @@
+- Baked the Bryant Street viaduct into both intersecting tiles and verified that each carries the complete contact. The [Bryant Street audit](../../ui/sf-road-route-audit.md#bryant-street-viaduct-beside-delancey-street) records the original terrain drop and the two browser drives through the tile seam.

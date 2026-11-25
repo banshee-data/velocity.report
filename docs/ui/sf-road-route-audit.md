@@ -3656,3 +3656,35 @@ contacts give different heights at the same locations.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   hyde-street-{northbound,southbound} broadway-{westbound,eastbound}
 ```
+
+## Bryant Street viaduct beside Delancey Street
+
+**World and Data.** At the viaduct, the terrain falls to 6.47 m NAVD88
+while the April 2023 pavement observations put Bryant Street at 11.44 m
+at the same station. Across the 205 m contact, all 70 fitted stations have
+survey support and the peak fitted grade is 7.81%. The two tile owners
+carry identical copies of the whole viaduct and its street portals. The
+lower ground beside the viaduct retains its earlier elevations.
+[Public Works roadway structure inventory](https://data.sf.gov/w/x5tj-txci/ikek-yizv).
+
+**Physics and UI.** On the baseline, the two Chrome runs flagged 26.55 m
+and 20.53 m of airborne travel. Both candidate drives use the full contact
+through the tile seam and return to the adjoining street. The test
+measured zero airborne travel within the new contact and less than
+3 mm of clearance on the ground departures.
+
+The adjoining Delancey Street drives completed on the ground route in
+both bakes. They flagged 42.36 m and 24.66 m of airborne travel on the
+parent and 41.83 m and 18.75 m on the candidate. Both games use identical
+Delancey road rows and terrain. Its existing elevation behaviour still
+requires separate review.
+
+- Parent game manifest SHA-256 `dd6011ab56d56560349d18a8c3829594c640aee5ae8e733137dc1be437469831`.
+- Candidate game manifest SHA-256 `5c7886f4972799a151dce430453efcd7c20621aad3d93344caa103dec338ace1`.
+- Candidate contact SHA-256 `e1d1eeb8fd61a1fa6828d6fa93e4f77d03de419a21df3c84cf9394970edb584a`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  bryant-street-{southwestbound,northeastbound}
+```
