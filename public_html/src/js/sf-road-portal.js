@@ -3,6 +3,19 @@ import { driveOnRoadSurface } from "./sf-road-contact.js";
 const reach = 3;
 const tolerance = 0.22;
 const rampLookahead = 5;
+const sharedTerminalTolerance = 0.05;
+const minimumAlignmentLead = 0.02;
+
+export function followsGroundPortal(car, portals) {
+  const travel = car.v < 0 ? -1 : 1;
+  const dx = Math.cos(car.heading) * travel;
+  const dy = Math.sin(car.heading) * travel;
+  return portals.some(
+    ({ x, y, entryX, entryY }) =>
+      Math.hypot(x - car.x, y - car.y) <= reach &&
+      dx * entryX + dy * entryY > 0.88,
+  );
+}
 
 export function roadPortals(surface, groundEnds, groundExitOnly = []) {
   const { contact, profile } = surface;
@@ -12,15 +25,22 @@ export function roadPortals(surface, groundEnds, groundExitOnly = []) {
     const [x, y, z] = profile[index].position;
     const [u, v] = profile[index + (atEnd ? -1 : 1)].position;
     const length = Math.hypot(u - x, v - y);
+    const entryX = (u - x) / length;
+    const entryY = (v - y) / length;
     const [edgeX, edgeY] = contact.vertices[index * 2];
+    const [otherX, otherY] = contact.vertices[index * 2 + 1];
+    const sectionWidth = Math.hypot(otherX - edgeX, otherY - edgeY);
+    const inward = atEnd ? -1 : 1;
     return {
       surface,
       exitOnly: groundExitOnly.includes(end),
       x,
       y,
       z,
-      nx: (u - x) / length,
-      ny: (v - y) / length,
+      nx: (inward * (edgeY - otherY)) / sectionWidth,
+      ny: (inward * (otherX - edgeX)) / sectionWidth,
+      entryX,
+      entryY,
       halfWidth:
         surface.terminalHalfWidths?.[atEnd ? 1 : 0] ??
         Math.hypot(edgeX - x, edgeY - y),
@@ -112,7 +132,37 @@ export function driveThroughRoadPortal(
       )
         continue;
       const next = stepThrough(car, input, dt, portal, pavementHeight);
-      if (next) matches.push(next);
+      if (next) matches.push({ portal, next });
     }
-  return matches.length === 1 ? matches[0] : null;
+  if (matches.length <= 1) return matches[0]?.next ?? null;
+
+  // A junction can have several mouths at the same surveyed ground point.
+  // Follow the driver's heading only when one branch is clearly aligned.
+  const terminal = matches[0].portal;
+  if (
+    car.surfaceId ||
+    matches.some(
+      ({ portal }) =>
+        Math.hypot(
+          portal.x - terminal.x,
+          portal.y - terminal.y,
+          portal.z - terminal.z,
+        ) > sharedTerminalTolerance,
+    )
+  )
+    return null;
+
+  const ranked = matches
+    .map(({ portal, next }) => {
+      const dx = next.x - car.x;
+      const dy = next.y - car.y;
+      const alignment =
+        (dx * portal.entryX + dy * portal.entryY) / Math.hypot(dx, dy);
+      return { next, alignment };
+    })
+    .sort((a, b) => b.alignment - a.alignment);
+  const [best, second] = ranked;
+  return best.alignment - second.alignment > minimumAlignmentLead
+    ? best.next
+    : null;
 }

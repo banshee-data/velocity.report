@@ -3818,3 +3818,33 @@ terrain used by those runs. Separate street and freeway levels need contact
 checks at both ends of the upper street. The Saint Charles samples cover
 the mapped approach on one side of I-280, and the inventory crossing still
 needs its alignment verified.
+
+## Geneva Avenue deck and I-280 ramp loop
+
+**World and Data.** Separate seven-metre contacts follow the eastbound and
+westbound pavement above I-280. April 2023 survey returns support all 25
+eastbound and 26 westbound fitted stations. The peak fitted grades are
+3.02% and 4.05% respectively. The local road stands about 6.3–7.1 m above
+the baked freeway surfaces at the tested crossing points. Physical underside
+clearance requires its own observations.
+
+The two ends on Geneva use the shared ground levels of 76.22 and 74.79 m
+NAVD88. Four directed joins connect the two decks to their corresponding
+off-ramps and on-ramps. The portal uses the same transverse boundary as the
+baked pavement. Where several ground mouths meet at the same point, the
+car's heading selects a clearly aligned mouth.
+
+**Physics and UI.** The manual-control Chrome run left southbound I-280,
+traversed the eastbound Geneva deck, and rejoined northbound I-280. Every
+surface was acquired grounded, with zero airborne travel in the complete
+run. The lower freeway remains a separate route beneath Geneva.
+
+- Game manifest SHA-256 `d8f97056fcc32c2ba5472f6f3b3a932687128f4250bc904326a2d86778756c9d`.
+- Contact SHA-256 `5e190a40db092704e565d470ec682a1c95386ee297abc13a4cc5f612bd1f61a4`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  geneva-avenue-{eastbound,westbound} geneva-{northbound,southbound}-through \
+  geneva-exit-and-reentry
+```

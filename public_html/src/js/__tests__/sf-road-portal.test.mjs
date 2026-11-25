@@ -5,7 +5,11 @@ import { contactStep } from "../sf-drive-core.js";
 import { crashRoadSupport } from "../sf-highway-edge.js";
 import { tunnelMesh } from "../sf-tunnel-mesh.js";
 import { driveOnRoadSurface } from "../sf-road-contact.js";
-import { driveThroughRoadPortal, roadPortals } from "../sf-road-portal.js";
+import {
+  driveThroughRoadPortal,
+  followsGroundPortal,
+  roadPortals,
+} from "../sf-road-portal.js";
 
 const DT = 1 / 120;
 
@@ -143,6 +147,97 @@ test("a portal without terrain support or with two eligible targets stays unsele
     driveThroughRoadPortal(entry, { throttle: 1 }, DT, [points], () => height);
   assert.equal(cross(portals, null), null);
   assert.equal(cross([...portals, ...portals], 0), null);
+});
+
+test("the driver's heading selects a branch at a shared ground terminal", () => {
+  const straight = section(3);
+  const fork = buildBakedRoadContact({
+    id: "fork",
+    kind: "bridge_deck",
+    width: 9,
+    points: [
+      [0, 0, 0],
+      [10, 2.8, 0],
+      [30, 8.4, 3],
+    ],
+    owners: ["808f7fd4", "808f7fd4"],
+  }).surface;
+  const groups = [
+    roadPortals(fork, ["start"]),
+    roadPortals(straight, ["start"]),
+  ];
+  for (const [heading, expected] of [
+    [0, straight.id],
+    [Math.atan2(2.8, 10), fork.id],
+  ]) {
+    const car = flatCar(
+      -0.01 * Math.cos(heading),
+      -0.01 * Math.sin(heading),
+      heading,
+    );
+    const next = driveThroughRoadPortal(
+      car,
+      { throttle: 1 },
+      DT,
+      groups,
+      () => 0,
+    );
+    assert.equal(next?.surfaceId, expected);
+    assert.ok(next.grounded);
+  }
+
+  const car = flatCar(-0.01, 0, 0);
+  const differentlyPlacedFork = { ...groups[0][0], z: 0.12 };
+  assert.equal(
+    driveThroughRoadPortal(
+      car,
+      { throttle: 1 },
+      DT,
+      [[differentlyPlacedFork], groups[1]],
+      () => 0,
+    ),
+    null,
+  );
+});
+
+test("an angled seam is also the ground portal boundary", () => {
+  const bearing = Math.PI / 9;
+  const { surface, portals } = buildBakedRoadContact({
+    id: "angled-mouth",
+    kind: "bridge_deck",
+    width: 8,
+    points: [
+      [0, 0, 0],
+      [10, 0, 0],
+      [20, 0, 1],
+    ],
+    owners: ["808f7fd4", "808f7fd4"],
+    groundEnds: ["start"],
+    seams: { start: { bearing, width: 8 } },
+  });
+  const [portal] = portals;
+  assert.ok(Math.abs(portal.nx - Math.cos(bearing)) < 1e-9);
+  assert.ok(Math.abs(portal.ny - Math.sin(bearing)) < 1e-9);
+  assert.deepEqual([portal.entryX, portal.entryY], [1, 0]);
+  const side = 1.5;
+  const y = side * Math.cos(bearing);
+  const x = -side * Math.sin(bearing) - 0.015;
+  const next = driveThroughRoadPortal(
+    flatCar(x, y, 0),
+    { throttle: 1 },
+    DT,
+    [portals],
+    () => 0,
+  );
+  assert.equal(next?.surfaceId, surface.id);
+  assert.ok(next.grounded);
+});
+
+test("a driver continuing onto the street is free to pass a joining ramp", () => {
+  const portals = roadPortals(section(3), ["start"]);
+  assert.ok(followsGroundPortal(flatCar(-0.1, 0, Math.PI / 9), portals));
+  assert.ok(!followsGroundPortal(flatCar(-0.1, 0, Math.PI / 3), portals));
+  assert.ok(!followsGroundPortal(flatCar(-4, 0, 0), portals));
 });
 
 test("tunnel crash support keeps the selected floor below the exterior terrain", () => {

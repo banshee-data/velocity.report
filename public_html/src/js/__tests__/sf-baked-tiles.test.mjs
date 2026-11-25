@@ -345,6 +345,34 @@ test("Delancey follows the lower pavement and joins both adjoining streets", () 
   assert.ok(Math.abs(approachFloor - 4.04) < 0.06);
 });
 
+test("both Geneva Avenue carriageways remain above both I-280 mainlines", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7c2c.json.gz")));
+  const get = (id) => {
+    const road = tile.playableRoads.find(
+      ({ id: key }) => key === `sf-contact/${id}`,
+    );
+    assert.ok(road, id);
+    return buildBakedRoadContact(road).surface;
+  };
+  const northbound = get("i280-north-geneva-to-ocean");
+  const southbound = get("i280-south-ocean-to-geneva");
+  for (const [direction, north, south] of [
+    ["eastbound", [-705.8155, -4308.3693], [-723.5587, -4300.055]],
+    ["westbound", [-704.5614, -4292.7347], [-722.2676, -4283.6408]],
+  ]) {
+    const avenue = get(`geneva-avenue-${direction}-over-i280`);
+    for (const [highway, point] of [
+      [northbound, north],
+      [southbound, south],
+    ]) {
+      const upper = avenue.heightAt(...point);
+      const lower = highway.heightAt(...point);
+      assert.ok(Number.isFinite(upper) && Number.isFinite(lower));
+      assert.ok(upper - lower > 6 && upper - lower < 8);
+    }
+  }
+});
+
 test("Geary stays below the Fillmore bridge in both directions", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808580bc.json.gz")));
   const load = (name) =>
@@ -4527,16 +4555,30 @@ test("Geneva keeps both I-280 carriageways and their four ramps connected", () =
   for (const direction of ["north", "south"]) {
     const exit = road(`${direction}-geneva-exit`);
     const entry = road(`${direction}-geneva-entry`);
+    const exitLane = direction === "north" ? "westbound" : "eastbound";
+    const through = roads.get(`sf-contact/geneva-avenue-${exitLane}-over-i280`);
+    const oppositeEntry = road(
+      `${direction === "north" ? "south" : "north"}-geneva-entry`,
+    );
     assert.deepEqual(exit.groundExitOnly, ["end"]);
     assert.deepEqual(entry.groundEnds, ["start"]);
     assert.deepEqual(exit.points.at(-1), entry.points[0]);
     const [x, y, z] = entry.points[0];
     assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
-    assert.ok(
-      !roadBake.playableTransitions.some(
-        (join) => join.from === `${exit.id}:end`,
-      ),
-    );
+    for (const [first, second] of [
+      [exit, through],
+      [through, oppositeEntry],
+    ]) {
+      assert.deepEqual(first.points.at(-1), second.points[0]);
+      assert.deepEqual(first.seams.end, second.seams.start);
+      const joins = roadBake.playableTransitions.filter(
+        ({ from }) => from === `${first.id}:end`,
+      );
+      assert.deepEqual(
+        joins.map(({ to, direction }) => [to, direction]),
+        [[`${second.id}:start`, "forward"]],
+      );
+    }
   }
 
   const decks = deckClearanceIndex();

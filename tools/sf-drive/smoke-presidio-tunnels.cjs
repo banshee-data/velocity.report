@@ -2952,6 +2952,30 @@ const genevaOwners = [
   "808f7e7c",
   "808f7e64",
 ];
+for (const reverse of [false, true]) {
+  const direction = reverse ? "westbound" : "eastbound";
+  cases[`geneva-avenue-${direction}`] = {
+    owners: ["808f7c2c"],
+    roads: [`geneva-avenue-${direction}-over-i280`],
+    speed: 6.5,
+    groundApproachMetres: 6,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [
+          [-744.4, -4287.3, 76.25],
+          [-749, -4283.2, 76.45],
+          [-754, -4278.8, 76.6],
+        ]
+      : [
+          [-679.5, -4309.4, 74.72],
+          [-673, -4313.2, 74.53],
+          [-668.6, -4317.6, 74.4],
+        ],
+    maxApproachClearanceMetres: 0.18,
+    maxDepartureClearanceMetres: 0.18,
+    maxDurationMs: 55_000,
+  };
+}
 cases["geneva-southbound-through"] = {
   owners: genevaOwners,
   roads: [
@@ -3032,6 +3056,7 @@ cases["geneva-exit-and-reentry"] = {
   roads: [
     "i280-south-ocean-approach",
     "i280-south-geneva-exit",
+    "geneva-avenue-eastbound-over-i280",
     "i280-north-geneva-entry",
     "i280-north-ocean-connector",
     "i280-north-ocean-mainline",
@@ -3039,25 +3064,17 @@ cases["geneva-exit-and-reentry"] = {
   rollingStart: true,
   rollingStartMetres: 115,
   connectByGround: true,
-  groundConnection: {
-    after: "sf-contact/i280-south-geneva-exit",
-    minimumMetres: 45,
-    via: [
-      [-741.4, -4288.6],
-      [-738.8, -4292.4],
-      [-733.5, -4295.4],
-      [-721.2, -4301.1],
-      [-708.6, -4306.9],
-      [-695.9, -4312.8],
-      [-690.4, -4315.3],
-      [-686.4, -4315.1],
-      [-683.9, -4313.7],
-    ],
-  },
+  groundConnection: [],
+  groundedHandoff: true,
   finishOnDeck: true,
   finishDistance: 125,
   speed: 12,
   maxDurationMs: 165_000,
+  speedLimits: {
+    "i280-south-geneva-exit": 4.6,
+    "geneva-avenue-eastbound-over-i280": 7,
+    "i280-north-geneva-entry": 9,
+  },
 };
 for (const reverse of [false, true]) {
   cases[`blanken-underpass-${reverse ? "westbound" : "eastbound"}`] = {
@@ -3937,7 +3954,10 @@ async function drive(
             key("ArrowDown", false);
             const input = cityDriveControls(course, {
               ...pose,
-              surfaceId: surfaceId || groundHints.get(seen.size) || ids[0],
+              surfaceId:
+                surfaceId ||
+                groundHints.get(seen.size) ||
+                ids[Math.min(seen.size, ids.length - 1)],
               // The steering guide keeps sending keys during short bounces.
               // Ground contact itself still comes from the browser's physics.
               grounded: true,
