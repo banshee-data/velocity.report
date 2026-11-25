@@ -138,6 +138,21 @@ test("Lyell Street retains smooth contact beneath both I-280 carriageways", () =
   assert.ok(terrain < after && after - terrain < 0.08);
 });
 
+test("San Jose Avenue rises through the Branch East ground handoff", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e64.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/san-jose-avenue-shared-deck",
+  );
+  const { portals } = buildBakedRoadContact(road);
+  assert.equal(portals.length, 1);
+  const { x, y, z, nx, ny } = portals[0];
+  const ground = (s) => groundAtWorld([tile], x - s * nx, y - s * ny, true);
+  assert.ok(Math.abs(ground(0) - z) < 0.025);
+  assert.ok(ground(4) > ground(2));
+  assert.ok(Math.abs(ground(4) - 59.94) < 0.035);
+  assert.ok(ground(8) > ground(4));
+});
+
 test("Beale stays at street level under Harrison's independently baked deck", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/8085807c.json.gz")));
   const surfaceFor = (slug) =>

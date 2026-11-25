@@ -3279,8 +3279,8 @@ node tools/sf-drive/audit-road-routes.mjs \
 
 - North portal survey receipt `8b9d5b3c132f5d5326c70b9fd9bc222df6df5e36d61e300f98147b29164d2e1d`.
 - South portal survey receipt `110cd329764ab26a011c08b3490e6a4d270341ebfb74e053118db386baaa69ba`.
-- Game manifest SHA-256 `a23cbc31dc09a1bad44cc3b6e1cd5f8de71dd575a0a73854b6286ffef3d84d89`.
-- Contact SHA-256 `daf5bc7e0285263b00f7f6b1c95069eea372950e0e6d7a5cba5f6b64c46c7937`.
+- Game manifest SHA-256 `f0f86ff2b793279775e21d2967b2262654d6ed899b41e9b043ceb76e88769746`.
+- Contact SHA-256 `d8778a54a50d13fe0e354a9e75c893a01f7741ba9a7c0ee1617a1e4ee49f2e79`.
 - [Gerardus bake recipe and support limits](https://github.com/banshee-data/gerardus/pull/178).
 
 ### Presidio, Yerba Buena and Branch East checks
@@ -3296,6 +3296,9 @@ transition were 52.41 m for the car and 60.91 m for the upper road.
 
 At Branch East one browser replay measured 2.24 m of travel between
 frames at an airborne sample 1.3 cm above the ground, before the
-ramp entrance. The car reached San Jose Avenue grounded. The smoke
-now checks contact through the ramp joins and applies its airborne
-travel threshold after the car enters the ramp.
+ramp entrance. Another replay logged a lift after the final handoff.
+Four metres past the terminal, the old terrain gave 59.78 m and the
+April 2023 survey observes 59.94 m. The new fit rises gently across
+that interval and retains the older Lyell Street terrain patch in
+the same tile. The smoke checks contact through the ramp joins and
+reports the airborne travel after entering the ramp separately.
