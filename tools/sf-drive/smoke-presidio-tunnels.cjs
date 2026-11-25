@@ -2997,6 +2997,24 @@ for (const [direction, reverse] of [
     maxDurationMs: 65_000,
   };
 }
+for (const road of [
+  "williams-avenue-caltrain-bridge",
+  "paul-avenue-caltrain-bridge",
+]) {
+  for (const reverse of [false, true]) {
+    cases[`${road}-${reverse ? "eastbound" : "westbound"}`] = {
+      owners: ["808f7f1c"],
+      roads: [road],
+      speed: 11,
+      reverse,
+      laneGuides: { [road]: { lane: reverse ? 1.8 : -1.8 } },
+      groundApproachMetres: 10,
+      maxApproachClearanceMetres: 0.18,
+      maxAirborneMetresAfterEntrance: 0,
+      maxDurationMs: 45_000,
+    };
+  }
+}
 for (const reverse of [false, true]) {
   const road = "jfk-drive-under-crossover";
   cases[`${road}-${reverse ? "eastbound" : "westbound"}`] = {

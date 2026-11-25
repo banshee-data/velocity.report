@@ -3398,3 +3398,39 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 
 The [live emoji route audit](sf-live-emoji-route-audit.md) records the public
 browser runs, the ground-approach check and the two deployed tile hashes.
+
+## Williams and Paul Avenue rail crossings
+
+The citywide terrain screen found two further road levels in Bayview.
+The Williams and Paul Avenue road rows followed the rail cut in the
+older game tiles. Chrome completed the four baseline courses with
+between 26.6 m and 34.7 m of recorded airborne travel. The westbound
+Williams course reached a 74.0% sampled grade. The eastbound Williams
+course recorded two supported dips over 0.5 m, with a deepest dip of
+0.57 m.
+
+The revised game tile carries two independent bridge contacts. The
+observed centreline elevations near the middle of the decks are
+17.5 m on Williams and 15.5 m on Paul, in NAVD88. At the sampled
+crossings these are about 7.4 m and 6.1 m above the previous terrain.
+The fitted courses reach both street portals and retain the rail cut
+below the bridge surfaces. This bake uses the observed roadway band.
+[Caltrain crossing inventory](https://www.caltrain.com/media/36811).
+[Caltrain roadway bridges project](https://www.caltrain.com/projects/san-francisco-roadway-bridges-project).
+
+The citywide terrain-only screen found 364 intervals above 50% grade,
+compared with 381 in the parent release. The two bridge contacts have
+peak fitted grades of 0.72% on Williams and 5.02% on Paul. Four Chrome
+keyboard drives on the candidate entered both bridges at street level
+and reached their opposite portals grounded. They recorded zero airborne
+travel and zero sampled clearance on the ground approaches. The 25
+fixed-step emoji courses matched the previous driving telemetry.
+
+- Game manifest SHA-256 `81e31f112ce9808042fc96ca8b7e9d8a868391363f17c21a41f6eed8bb8339dc`.
+- Contact SHA-256 `4c9fce3e9a77bd63522aaa9bdb2f1609520ec6333ef2a97c657a7c87e6aa1f74`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  williams-avenue-caltrain-bridge-westbound williams-avenue-caltrain-bridge-eastbound \
+  paul-avenue-caltrain-bridge-westbound paul-avenue-caltrain-bridge-eastbound
+```
