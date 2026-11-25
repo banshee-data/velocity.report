@@ -1,0 +1,1 @@
+- Baked the lower Delancey Street pavement beside Bryant and drove both levels in Chrome. The [road route audit](../../ui/sf-road-route-audit.md#delancey-street-beside-the-bryant-viaduct) records the crossing, the remaining northeast approach dips and the federal tunnel inventory checks.

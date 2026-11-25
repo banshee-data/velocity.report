@@ -301,6 +301,24 @@ test("Bryant Street carries the complete viaduct across the tile seam", () => {
   assert.ok(surface.heightAt(x, y) - groundAtWorld(tiles, x, y, true) > 4);
 });
 
+test("Delancey follows the lower pavement and joins both adjoining streets", () => {
+  const tiles = ["80858074", "8085807c"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const road = tiles[1].playableRoads.find(
+    ({ id }) => id === "sf-contact/delancey-street-beside-bryant",
+  );
+  assert.ok(road);
+  const { surface, portals } = buildBakedRoadContact(road);
+  assert.equal(portals.length, 2);
+  for (const { x, y, z } of portals)
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.05);
+  const [x, y] = [4350.2121, 2817.5611];
+  const floor = surface.heightAt(x, y);
+  assert.ok(Math.abs(floor - 5.1) < 0.1);
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - floor) < 0.08);
+});
+
 test("Geary stays below the Fillmore bridge in both directions", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808580bc.json.gz")));
   const load = (name) =>
