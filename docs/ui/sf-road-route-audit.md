@@ -4647,3 +4647,56 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-main-street.cjs ho
 
 The retained local run is `howard-crossing-evidence-20261125`. It includes
 the inventory inputs, course recipes, Chrome telemetry and survey returns.
+
+## Daly City separation tunnel and the map edge
+
+**World and Data.** FHWA record `35 0173L` carries southbound I-280 beneath
+the separation. The mapped bore runs for 220.7 m. The April 2023
+survey returned lower pavement medians of 59.05 m and 56.41 m NAVD88 at
+the two mouths. The upper surface at each mouth is about 7 m higher.
+The bake infers an interior grade from the lower approaches and returns
+the car to open ground 44 m beyond the south mouth. Both owner tiles
+carry the full contact. The fitted grade ranges from −4.79% to +2.17%.
+The interior elevation remains an inference.
+[FHWA tunnel inventory](https://www.fhwa.dot.gov/bridge/inspection/tunnel/inventory/download.cfm)
+and [2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73506).
+
+**Physics.** The original centre-lane drive crashed on the north
+approach. Four inferred trunk rows intersected the pavement, where
+ground returns confirmed a clear running surface. With the four rows
+removed, Chrome drove in three lane positions using the normal
+keyboard controls with route assist off.
+
+| Lane   | Result                       | Peak speed | Ground elevation after exit | Airborne |
+| ------ | ---------------------------- | ---------: | --------------------------: | -------: |
+| Left   | Grounded, no crash or scrape |   43.6 mph |                     57.17 m |      0 m |
+| Centre | Grounded, no crash or scrape |   43.6 mph |                     57.12 m |      0 m |
+| Right  | Grounded, no crash or scrape |   43.6 mph |                     57.38 m |      0 m |
+
+All three passed from the existing I-280 carriageway to the bore and
+then to open ground. The test establishes the southbound movement
+through the bore. It stops before the end of the current terrain and
+does not certify the separate upper-deck or interchange ramp movements.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  daly-separation-left daly-separation-centre daly-separation-right
+```
+
+- Parent game manifest SHA-256 `ce013b65fc67cdb098dddc7f4852981b7ee34c30f7bceb74b93ad0220555376f`.
+- Corrected game manifest SHA-256 `cb2146825cb333672294cc1dc950bb52bc1ae55da0a77852b1c86040d83a7301`.
+- Gerardus contact SHA-256 `0d0511934e81dd80c4f50729942d5eec91e9bad7840e963066836269fb778f20`.
+- Survey node receipt SHA-256 `05668f82d2aa5c0b6b6aa4e95522c11c3d7b2fbc6f770ca4eed92c62a5d5938a`.
+
+**World and Data.** At Baker–Barry, 26 of 241 centreline stations at
+roughly 3 m spacing fell within the shipped tile envelopes. None had
+baked terrain. Both Robin Williams tunnel bores lie beyond those
+envelopes. Marin County terrain has been retained for the missing area.
+As a check in the overlapping terrain, the sampled raster height at the
+existing Alexander Avenue game contact was 82.13 m, compared with the
+game anchor at 82.07 m. One check cannot establish a datum correction
+for the full extension. Baker–Barry still needs connected tiles and
+portal pavement measurements before a playable pass.
+[Marin County terrain service](https://gis.marinpublic.com/arcgis/rest/services/LIDAR/DEM_Harn/ImageServer).
+
+The retained local run is `game-map-edge-tunnels-evidence-20261125`.

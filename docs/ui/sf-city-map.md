@@ -361,7 +361,8 @@ above 50% grade after dropping four aerially draped tunnel rows, compared with
 
 The [20-course route audit](sf-road-route-audit.md) records the playable
 approaches, contact gaps, wrong-level highway reproduction and grade review sites
-on this release.
+on this release. The [Daly City separation and map-edge review](sf-road-route-audit.md#daly-city-separation-tunnel-and-the-map-edge)
+records the southbound I-280 bore and coverage limits at the Marin approaches.
 
 ### Yerba Buena tree clearance
 
