@@ -8,12 +8,20 @@ const minimumAlignmentLead = 0.02;
 
 export function followsGroundPortal(car, portals) {
   const travel = car.v < 0 ? -1 : 1;
-  const dx = Math.cos(car.heading) * travel;
-  const dy = Math.sin(car.heading) * travel;
+  const headingX = Math.cos(car.heading) * travel;
+  const headingY = Math.sin(car.heading) * travel;
   return portals.some(
-    ({ x, y, entryX, entryY }) =>
-      Math.hypot(x - car.x, y - car.y) <= reach &&
-      dx * entryX + dy * entryY > 0.88,
+    ({ x, y, nx, ny, leftWidth, rightWidth, entryX, entryY }) => {
+      const dx = car.x - x;
+      const dy = car.y - y;
+      const along = dx * nx + dy * ny;
+      const lateral = dy * nx - dx * ny;
+      const beyond = Math.max(0, lateral - leftWidth, -lateral - rightWidth);
+      return (
+        Math.hypot(along, beyond) <= reach &&
+        headingX * entryX + headingY * entryY > 0.88
+      );
+    },
   );
 }
 
@@ -34,6 +42,8 @@ export function roadPortals(
     const entryY = (v - y) / length;
     const [edgeX, edgeY] = contact.vertices[index * 2];
     const [otherX, otherY] = contact.vertices[index * 2 + 1];
+    const firstWidth = Math.hypot(edgeX - x, edgeY - y);
+    const secondWidth = Math.hypot(otherX - x, otherY - y);
     const sectionWidth = Math.hypot(otherX - edgeX, otherY - edgeY);
     const inward = atEnd ? -1 : 1;
     return {
@@ -47,9 +57,9 @@ export function roadPortals(
       ny: (inward * (otherX - edgeX)) / sectionWidth,
       entryX,
       entryY,
-      halfWidth:
-        surface.terminalHalfWidths?.[atEnd ? 1 : 0] ??
-        Math.hypot(edgeX - x, edgeY - y),
+      leftWidth: atEnd ? secondWidth : firstWidth,
+      rightWidth: atEnd ? firstWidth : secondWidth,
+      halfWidth: surface.terminalHalfWidths?.[atEnd ? 1 : 0] ?? firstWidth,
       entryProbe:
         surface.kind === "ramp"
           ? Math.min(rampLookahead, profile.at(-1).s_m / 2)

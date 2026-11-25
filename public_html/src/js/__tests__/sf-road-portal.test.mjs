@@ -245,6 +245,33 @@ test("a driver continuing onto the street is free to pass a joining ramp", () =>
   assert.ok(!followsGroundPortal(flatCar(-4, 0, 0), portals));
 });
 
+test("a shared ground mouth is reachable from either outer lane", () => {
+  const { surface, portals } = buildBakedRoadContact({
+    id: "wide-mouth",
+    kind: "ramp",
+    width: 10.8,
+    points: [
+      [0, 0, 0],
+      [12, 0, 0],
+      [36, 0, 2],
+    ],
+    owners: ["808f7fd4", "808f7fd4"],
+    groundEnds: ["start"],
+    seams: { start: { bearing: 0, width: 10.8 } },
+  });
+  for (const offset of [-4, 4]) {
+    const next = driveThroughRoadPortal(
+      flatCar(-0.02, offset, 0),
+      { throttle: 1 },
+      DT,
+      [portals],
+      () => 0,
+    );
+    assert.equal(next?.surfaceId, surface.id);
+    assert.ok(next.grounded);
+  }
+});
+
 test("tunnel crash support keeps the selected floor below the exterior terrain", () => {
   const tunnel = { ...section(-3), kind: "tunnel" };
   const all = new Map([[tunnel.id, tunnel]]);
