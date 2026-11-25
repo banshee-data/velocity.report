@@ -1,0 +1,1 @@
+- Added a citywide game contact screen for packed road surfaces, ground portals and same-level joins. [Road contact audit](../../ui/sf-road-route-audit.md#citywide-baked-road-contact-screen)

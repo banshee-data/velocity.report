@@ -4005,6 +4005,52 @@ physical bridge clearances or coverage of every inventory record.
 
 - Public Works snapshot SHA-256 `c7b76f2f3d07ba28d2142008d65edf1a466782de89dbca024c0fc7a5156b7d00`.
 
+## Citywide baked road contact screen
+
+**World, Physics and Data.** `audit-baked-road-contact.mjs` reads the
+packaged assets and uses the game's contact triangles, tyre support,
+vehicle hull, scenery collision and overhead tree clearance. It samples
+the interior of each surface at intervals of up to 2 m, with 0.75 m
+between lateral positions. A sampled route can continue straight or
+shift one lateral step between stations. The audit also checks the
+declared same-level joins within 2 mm and compares ground portals with
+the surrounding terrain within 15 cm.
+
+```bash
+node tools/sf-drive/audit-baked-road-contact.mjs
+node tools/sf-drive/audit-baked-road-contact.mjs /path/to/candidate/tiles
+```
+
+| Bake                                                 | Surfaces | Sampled vehicle poses | Ground portals | Declared joins | Surfaces with centreline collision samples |
+| ---------------------------------------------------- | -------: | --------------------: | -------------: | -------------: | -----------------------------------------: |
+| Published Hester package                             |      320 |               686,759 |            228 |            269 |                                          7 |
+| Alana, Presidio, Industrial and Cesar Chavez preview |      323 |               688,011 |            234 |            269 |                                          6 |
+
+Every surface in both packages retained a connected sequence of sampled
+positions. The portal and join checks stayed within their tolerances.
+The preview removed the southbound US 101 centreline obstruction above
+Industrial Street. Its remaining collision samples were as follows.
+
+| Surface                                | Centreline collision samples | Scenery                  |
+| -------------------------------------- | ---------------------------: | ------------------------ |
+| Southbound Main Post Tunnel            |                           14 | Inferred overhead volume |
+| Geary–Masonic underpass                |                            9 | Three inferred trunks    |
+| Northbound US 101 Potrero approach     |                            5 | Two inferred trunks      |
+| MacArthur Tunnel                       |                            3 | One inferred trunk       |
+| Northbound US 101 Potrero exit         |                            2 | One inferred trunk       |
+| East Dogpatch ramp to northbound I-280 |                            1 | One inferred trunk       |
+
+With Chrome steering along the centreline, the Geary–Masonic and
+MacArthur drives crashed at the flagged trees. The southbound Main Post
+drive completed with tunnel contact. Its existing left-lane clearance
+remains relevant to the static centreline result. The screen samples
+scenery on each surface independently. Browser drives cover rail impacts,
+camera transitions, loading and steering between surfaces. The structure
+inventory provides the separate check for roads absent from the package.
+
+- Published manifest SHA-256 `eddfbe36c207b3dfb69cb502cb8aea0073ca3b28e37ff35db52f1f4f64875655`.
+- Local preview manifest SHA-256 `7d3ce4dceb0aba016b23bca9e92aee210b67770ef5961c21d708311be6024acf`.
+
 ## Bayshore frontage road from Hester to Third Street
 
 **World and Data.** The northbound Bayshore frontage carriageway uses
