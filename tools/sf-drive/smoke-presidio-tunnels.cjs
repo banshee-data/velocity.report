@@ -3480,6 +3480,107 @@ for (const reverse of [false, true]) {
     maxDurationMs: 35_000,
   };
 }
+const mountVernonNorth = "san-jose-avenue-north-over-i280";
+const mountVernonSouth = "san-jose-avenue-south-at-mount-vernon";
+const mountVernonWest = "mount-vernon-avenue-over-i280";
+const junction = (first, second) => `mount-vernon-junction-${first}-${second}`;
+const northSouth = junction("north", "south");
+const northWest = junction("north", "west");
+const southWest = junction("south", "west");
+const northDeparture = [
+  [-698.5, -4556.1, 81.41],
+  [-695.5, -4553.0, 81.17],
+];
+const southDeparture = [
+  [-790.7, -4656.8, 88.7],
+  [-793.6, -4662.2, 88.7],
+];
+const westDeparture = [
+  [-791.5, -4595.2, 90.77],
+  [-797.5, -4591.4, 91.65],
+];
+for (const [direction, roads, reverseRoads, groundDeparture, speed] of [
+  [
+    "southwestbound",
+    [mountVernonNorth, northSouth, mountVernonSouth],
+    [],
+    southDeparture,
+    6,
+  ],
+  [
+    "northeastbound",
+    [mountVernonSouth, northSouth, mountVernonNorth],
+    [mountVernonSouth, northSouth, mountVernonNorth],
+    northDeparture,
+    6,
+  ],
+  [
+    "westbound",
+    [mountVernonNorth, northWest, mountVernonWest],
+    [],
+    westDeparture,
+    4.5,
+  ],
+  [
+    "eastbound",
+    [mountVernonWest, northWest, mountVernonNorth],
+    [mountVernonWest, northWest, mountVernonNorth],
+    northDeparture,
+    4.5,
+  ],
+  [
+    "from-south",
+    [mountVernonSouth, southWest, mountVernonWest],
+    [mountVernonSouth],
+    westDeparture,
+    4,
+  ],
+  [
+    "from-west",
+    [mountVernonWest, southWest, mountVernonSouth],
+    [mountVernonWest, southWest],
+    southDeparture,
+    4,
+  ],
+]) {
+  cases[`mount-vernon-${direction}`] = {
+    owners: ["808f7c2c"],
+    roads,
+    reverseRoads,
+    turnEntryOffset: {
+      westbound: -2.4,
+      eastbound: 1.9,
+      "from-south": 2.7,
+      "from-west": -2.4,
+    }[direction],
+    speed,
+    groundApproachMetres: 6,
+    connectByGround: true,
+    groundDeparture,
+    maxAirborneMetresAfterEntrance: 0,
+    maxDurationMs: 55000,
+  };
+}
+for (const [direction, road, start, finish, camera] of [
+  ["northbound", "i280-north-sr82-to-geneva", 865, 938, "covered"],
+  ["southbound", "i280-south-beyond-geneva", 7, 78, "covered"],
+]) {
+  cases[`i280-mount-vernon-${direction}`] = {
+    owners: ["808f7c24", "808f7c2c", "808f7e84"],
+    roads: [road],
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 13,
+    speed: 16,
+    finishOnDeck: true,
+    finishDistance: finish,
+    exitCamera: camera,
+    covered: [prefix + road],
+    maxAirborneMetres: 0,
+    maxDurationMs: 50000,
+  };
+}
+
 const sr82Owners = ["808f7c24", "808f7c2c", "808f7c34", "808f7c3c", "808f7e84"];
 const southGenevaTail = "i280-south-beyond-geneva";
 const southSr82Main = "i280-south-geneva-to-sr82";
@@ -4119,6 +4220,7 @@ async function main() {
         groundApproachMetres,
         reverseRoads = [],
         laneGuides = {},
+        turnEntryOffset,
         speedLimits = {},
         forks = [],
         covered,
@@ -4161,6 +4263,32 @@ async function main() {
           sources: [],
         };
       });
+      if (turnEntryOffset) {
+        // Move into the turning lane before the seam, then rejoin the curve.
+        const [first, second] = contactSections;
+        const [previous, boundary] = first.positions.slice(-2);
+        const heading = Math.atan2(
+          boundary[1] - previous[1],
+          boundary[0] - previous[0],
+        );
+        const dx = -Math.sin(heading) * turnEntryOffset;
+        const dy = Math.cos(heading) * turnEntryOffset;
+        for (const section of [first, second]) {
+          const start = section.positions[0];
+          const end = section.positions.at(-1);
+          const limit = Math.min(
+            10,
+            0.8 * Math.hypot(end[0] - start[0], end[1] - start[1]),
+          );
+          section.positions = section.positions.map(([x, y, z]) => {
+            const scale = Math.max(
+              0,
+              1 - Math.hypot(x - boundary[0], y - boundary[1]) / limit,
+            );
+            return [x + scale * dx, y + scale * dy, z];
+          });
+        }
+      }
       if (finishDistance) {
         const last = contactSections.at(-1);
         let distance = 0;

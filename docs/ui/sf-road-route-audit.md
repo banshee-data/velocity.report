@@ -3883,3 +3883,36 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   geneva-avenue-{eastbound,westbound} geneva-{northbound,southbound}-through \
   geneva-exit-and-reentry geneva-westbound-exit-and-reentry
 ```
+
+## San Jose Avenue at Mount Vernon
+
+**World and Data.** The game bakes three street approaches and three curved
+connections in tile `808f7c2c`. April 2023 survey returns supported all 59
+approach fit stations. The same survey supported the 33 curve samples, with
+a maximum absolute median residual of 1.9 cm at the sampled positions.
+The fitted peak street grades are 11.49% on north San Jose, 3.60% on
+south San Jose and 12.33% on Mount Vernon. The upper streets are 8.6–9.0 m
+above the two I-280 game surfaces at the sampled crossings. Physical
+underside clearance requires its own survey.
+
+**Physics and UI.** Chrome completed both San Jose directions, the four
+turns between San Jose and Mount Vernon, and both freeway directions beneath
+them. All eight runs stayed grounded. Each street drive finished on the
+adjoining pavement after leaving the baked surface. Both freeway runs
+kept the covered view on the lower level at their finish. The turn probes
+steered towards the inside of their lane before reaching the shared seams.
+
+**Goals.** All 25 fixed-step course results matched the Geneva release
+with the route alignment held to `4cc496add657a6f2d8227cc902e3339377db0f5b`.
+The Bay Bridge replay reached Fremont and rejoined I-80 at Fourth Street
+in 235.96 seconds of game time.
+
+- Game manifest SHA-256 `151ae4163681a1bc063d425b04c71e4d24d9ec051af49969005cd5792185ddee`.
+- Contact SHA-256 `54615f58eb974ccc6bada467ceebfcc8dae3f9201743a957b8ee760c1f6e1584`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  mount-vernon-{southwestbound,northeastbound,westbound,eastbound,from-south,from-west} \
+  i280-mount-vernon-{northbound,southbound}
+```
