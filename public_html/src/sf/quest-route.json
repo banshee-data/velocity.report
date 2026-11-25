@@ -1,1 +1,1128 @@
-{"version":1,"manifestSha256":"151ae4163681a1bc063d425b04c71e4d24d9ec051af49969005cd5792185ddee","placementSha256":"bcc1a3f4116282e4aefbfa4299731cef517e9c6ad0521a97c5fa30313eb5c64d","targets":[{"t":"80858024","emoji":"\ud83c\udfd8\ufe0f","x":6711.100467775468,"y":5853.435498960499,"heading":0.03224688243525392,"names":["Whiting Way","Garden Way"]},{"t":"8085802c","emoji":"\ud83e\udded","x":6765.390162162162,"y":6961.418972972972,"heading":2.049148758173554,"names":["3rd Ti St","Avenue N"]},{"t":"80858034","emoji":"\ud83c\udf34","x":5876.4718918918925,"y":6639.711351351351,"heading":2.049148758173554,"names":["Avenue Of The Palms","Cravath St"]},{"t":"8085803c","emoji":"\ud83d\udd00","x":6155.642099447514,"y":5482.779889502763,"heading":-0.37433361600758397,"names":["I-80 W On Ramp","I-80 E Off Ramp","Treasure Island Rd"]},{"t":"8085805c","emoji":"\u2693","x":3598.7741794310728,"y":4540.314442013129,"heading":-2.5444159954971157,"names":["The Embarcadero","Green St"]},{"t":"80858064","emoji":"\ud83d\ude8b","x":3908.5903783783783,"y":3744.7362702702703,"heading":-2.3794461130028077,"names":["Market St","Spear St"]},{"t":"8085806c","emoji":"\ud83c\udff9","x":4402.576581576027,"y":3422.497447280799,"heading":1.5374753309166493,"names":["Folsom St","The Embarcadero"]},{"t":"80858074","emoji":"\ud83c\udf09","x":4597.250794551645,"y":3008.7925085130532,"heading":0.5693131911006619,"names":["The Embarcadero","Bryant St"]},{"t":"8085807c","emoji":"\ud83c\udfd9\ufe0f","x":3897.6355675675673,"y":2648.029405405405,"heading":-2.3794461130028077,"names":["Harrison St","Vassar Pl"]},{"t":"80858084","emoji":"\ud83c\udfad","x":2845.875,"y":2238.7250000000004,"heading":-0.7853981633974483,"names":["Natoma St","6th St"]},{"t":"8085808c","emoji":"\ud83d\udc09","x":2898.7573529411766,"y":3372.154411764706,"heading":-2.981679530431574,"names":["Stockton St","Bush St"]},{"t":"80858094","emoji":"\ud83e\uddf1","x":1921.2932432432433,"y":2952.8405405405406,"heading":1.7359450042095235,"names":["Larkin St","Cedar St"]},{"t":"8085809c","emoji":"\ud83c\udfdb\ufe0f","x":1934.156756756757,"y":1944.1094594594595,"heading":-2.976443976175166,"names":["Polk St","Hayes St"]},{"t":"808580a4","emoji":"\ud83c\udfe1","x":953.2157200811359,"y":1574.1025354969572,"heading":1.730709449953116,"names":["Webster St","Oak St"]},{"t":"808580ac","emoji":"\u262e\ufe0f","x":-611.0091277890467,"y":1110.7565922920892,"heading":-1.4108832036366774,"names":["Haight St","Ashbury St"]},{"t":"808580b4","emoji":"\ud83c\udf43","x":-80.40212981744426,"y":2149.9932048681544,"heading":-2.981679530431574,"names":["Turk St","Saint Josephs Ave"]},{"t":"808580bc","emoji":"\ud83d\udeb6","x":859.7,"y":2619.1,"heading":1.730709449953116,"names":["Ofarrell St","Hollis St"]},{"t":"808580c4","emoji":"\ud83e\ude9e","x":913.3508733624454,"y":3673.7934497816595,"heading":-3.0090411212931194,"names":["Laguna St","Jackson St"]},{"t":"808580cc","emoji":"\ud83d\udecd\ufe0f","x":-55.188176795580155,"y":3218.705359116022,"heading":1.3016288340091962,"names":["Sacramento St","Divisadero St"]},{"t":"808580d4","emoji":"\ud83e\udda2","x":-86.92474226804117,"y":4352.444329896907,"heading":2.723368324010564,"names":["Lombard St","Scott St"]},{"t":"808580dc","emoji":"\ud83c\udf9f\ufe0f","x":893.0135135135134,"y":4726.618918918919,"heading":-2.976443976175166,"names":["Octavia St","Francisco St"]},{"t":"808580e4","emoji":"\ud83c\udf6b","x":1903.2752421959099,"y":5103.621528525296,"heading":2.425849063920913,"names":["North Point St","Columbus Ave"]},{"t":"808580ec","emoji":"\ud83d\udee4\ufe0f","x":1897.2176470588236,"y":4027.329411764706,"heading":-2.1112158270654806,"names":["Broadway","Hyde St"]},{"t":"808580f4","emoji":"\ud83c\udf5d","x":2871.0508733624456,"y":4407.59344978166,"heading":-3.0090411212931194,"names":["Grant Ave","Green St"]},{"t":"808580fc","emoji":"\ud83e\udd80","x":2876.51265560166,"y":5260.209958506224,"heading":2.8809902618424523,"names":["North Point St","Kearny St","The Embarcadero"]},{"t":"8085812c","emoji":"\u26f5","x":-3.6388473852724132,"y":5111.635912486659,"heading":-2.4719537079131557,"names":["Marina Blvd","Avila St","Casa Way"]},{"t":"808581cc","emoji":"\ud83e\ude81","x":5911.5474,"y":7692.5982,"heading":-0.9652516631899266,"names":["Gateview Ave","Mariner Dr"]},{"t":"808581d4","emoji":"\ud83d\udedd","x":6458.4,"y":7537.4,"heading":0.5232783221319754,"names":["Avenue N","10th Ti St"]},{"t":"8085864c","emoji":"\ud83e\ude7a","x":-5872.644877505569,"y":2597.193207126949,"heading":0.4487233440107211,"names":["Fort Miley 5","Veterans Dr"]},{"t":"80858654","emoji":"\ud83d\uddbc\ufe0f","x":-5320.536123595506,"y":2848.583202247191,"heading":-2.451146196535101,"names":["El Camino Del Mar","Legion Of Honor Dr"]},{"t":"808586d4","emoji":"\ud83d\udee9\ufe0f","x":-1025.5945945945946,"y":4944.967567567567,"heading":0.16514867741462683,"names":["Lundeen St","Mason St"]},{"t":"808586dc","emoji":"\ud83c\udf38","x":-2089.6,"y":4596.1,"heading":2.498091544796509,"names":["First Dr West","North Dr"]},{"t":"808586e4","emoji":"\ud83e\udeb5","x":-3071.146906077348,"y":4308.961215469613,"heading":-0.26916749278570046,"names":["Kobbe Ave","Greenough Ave"]},{"t":"808586ec","emoji":"\ud83c\udf01","x":-3100.1,"y":5221.5,"heading":2.214297435588181,"names":["Hwy 101 Northbound","Hwy 101 N On Ramp"]},{"t":"808586fc","emoji":"\ud83c\udfd6\ufe0f","x":-3801.1942307692307,"y":3399.778846153846,"heading":2.9441970937399127,"names":["Gibson Rd","Battery Chamberlin Rd"]},{"t":"80858704","emoji":"\ud83d\udeb2","x":-4071.701658031088,"y":2852.8256994818653,"heading":-3.0771658141642395,"names":["26th Ave","Lake St"]},{"t":"8085870c","emoji":"\ud83c\udfac","x":-4105.9962389380535,"y":1799.0935840707964,"heading":-3.0750244898139694,"names":["27th Ave","Balboa St"]},{"t":"80858714","emoji":"\ud83c\udfe0","x":-3079.7,"y":2065,"heading":-1.5385494443596428,"names":["16th Ave","Anza St"]},{"t":"8085871c","emoji":"\ud83c\udf32","x":-3131.8314364640883,"y":3176.2072928176794,"heading":1.9451299428024806,"names":["Wedemeyer St","Hays St"]},{"t":"80858724","emoji":"\ud83d\udeaa","x":-1876.6534831460676,"y":3655.9384269662924,"heading":-0.8803498697402046,"names":["Arguello Blvd","Washington Blvd"]},{"t":"8085872c","emoji":"\ud83e\udd7e","x":-1094.15,"y":3936.55,"heading":2.356194490192345,"names":["Morton St","Sanches St"]},{"t":"80858734","emoji":"\ud83e\udeb4","x":-1060.19345841785,"y":2872.049442190669,"heading":-2.981679530431574,"names":["Iris Ave","Mayfair Dr"]},{"t":"8085873c","emoji":"\ud83e\udd5f","x":-2057.8617616580314,"y":2551.6573056994816,"heading":-3.0771658141642395,"names":["Clement St","5th Ave"]},{"t":"80858744","emoji":"\ud83d\udef9","x":-2097.6112068965517,"y":1511.3594827586207,"heading":-2.981679530431574,"names":["6th Ave","Fulton St"]},{"t":"8085874c","emoji":"\ud83c\udf93","x":-1141.4891891891891,"y":1743.2351351351351,"heading":-1.4056476493802699,"names":["McAllister St","Parker Ave"]},{"t":"80858754","emoji":"\ud83c\udfc3","x":-1140.9926519337016,"y":707.8903867403315,"heading":-1.1964627107873127,"names":["Stanyan St","Frederick St"]},{"t":"8085875c","emoji":"\u2615","x":-2129.924663212435,"y":458.8822797927461,"heading":-1.5063694873693432,"names":["7th Ave","Irving St"]},{"t":"80858764","emoji":"\ud83e\ude9f","x":-3059.90166481687,"y":-7.750055493895669,"heading":-1.5374753309166493,"names":["Kirkham St","17th Ave"]},{"t":"8085876c","emoji":"\ud83d\udea3","x":-2964.3582474226805,"y":1237.981443298969,"heading":2.723368324010564,"names":["Stow Lake Dr","John F Kennedy Dr"]},{"t":"80858774","emoji":"\ud83c\udf42","x":-4033.776355748373,"y":561.6650759219089,"heading":2.840672419229368,"names":["Lincoln Way","27th Ave"]},{"t":"8085877c","emoji":"\ud83c\udf08","x":-4075.4966814159293,"y":-478.64977876106195,"heading":-1.5042281630190728,"names":["28th Ave","Moraga St"]},{"t":"80858784","emoji":"\ud83d\uded2","x":-5102.705105438402,"y":-742.9468368479468,"heading":-1.5374753309166493,"names":["39th Ave","Noriega St"]},{"t":"8085878c","emoji":"\ud83c\udf05","x":-5929.9469948186525,"y":-1203.8965803108808,"heading":-3.0771658141642395,"names":["48th Ave","Pacheco St"]},{"t":"80858794","emoji":"\ud83c\udfc4","x":-5986.550051975052,"y":-168.69838877338879,"heading":-3.109345771154539,"names":["48th Ave","Kirkham St"]},{"t":"8085879c","emoji":"\ud83e\uddac","x":-5362.57028451001,"y":539.0630663856691,"heading":2.912360720312798,"names":["Chain Of Lakes Dr","Martin Luther King Jr Dr"]},{"t":"808587a4","emoji":"\ud83e\udd86","x":-5115.663495575221,"y":1325.9024336283187,"heading":-3.0750244898139694,"names":["Fulton St","38th Ave"]},{"t":"808587ac","emoji":"\ud83c\udf37","x":-4987.192953367876,"y":2385.0907772020723,"heading":-3.0771658141642395,"names":["36th Ave","Clement St"]},{"t":"808587b4","emoji":"\ud83d\udd2d","x":-6099.350610432852,"y":1897.9183129855717,"heading":-1.5374753309166493,"names":["48th Ave","Anza St"]},{"t":"808587bc","emoji":"\u26f3","x":-6014.575862068966,"y":1029.5896551724138,"heading":-1.9756881130799802,"names":["John F Kennedy Dr","Golf Course Access Rd","47th Ave"]},{"t":"808f7c24","emoji":"\ud83d\ude8f","x":-1118.7767241379308,"y":-5683.204310344828,"heading":-2.7367008673047097,"names":["Mission St","Sickles Ave","Acton St"]},{"t":"808f7c2c","emoji":"\ud83e\ude9c","x":-1077.980324324324,"y":-4577.262054054054,"heading":-2.049148758173554,"names":["Ridge Ln","Howth St"]},{"t":"808f7c34","emoji":"\ud83e\uddf8","x":-2073.4965696465697,"y":-4868.606340956341,"heading":-3.109345771154539,"names":["Bright St","Sargent St"]},{"t":"808f7c3c","emoji":"\ud83d\udcd6","x":-1965.8196721311476,"y":-5771.483606557377,"heading":-2.2655346029916,"names":["Rhine St","Shakespeare St"]},{"t":"808f7c44","emoji":"\ud83d\udd11","x":-2677.05,"y":-5696.6,"heading":3.141592653589793,"names":["Belle Ave","Chester Ave"]},{"t":"808f7c4c","emoji":"\ud83c\udfe2","x":-2882.943607068607,"y":-5224.398180873181,"heading":-3.109345771154539,"names":["Thomas More Way","Brotherhood Way","Chumasero Dr"]},{"t":"808f7c54","emoji":"\ud83c\udfa3","x":-4033.29833518313,"y":-5760.347114317426,"heading":2.618314331457818,"names":["Lake Merced Blvd","John Muir Dr"]},{"t":"808f7d04","emoji":"\ud83e\ude82","x":-5144.835544041451,"y":-5141.049067357513,"heading":-1.5063694873693432,"names":["Skyline Blvd","Fort Funston Rd"]},{"t":"808f7d0c","emoji":"\ud83d\udca8","x":-5556.720715835141,"y":-3853.155639913232,"heading":-1.8717165611553217,"names":["Skyline Blvd","Great Hwy"]},{"t":"808f7d64","emoji":"\ud83d\udc1a","x":-5778.501553829079,"y":-2234.103385127636,"heading":-3.108271657711546,"names":["47th Ave","Ulloa St"]},{"t":"808f7d6c","emoji":"\ud83e\udd92","x":-5879.067067833698,"y":-2720.089606126915,"heading":-2.5444159954971157,"names":["Great Hwy","Sloat Blvd"]},{"t":"808f7d74","emoji":"\ud83d\udc27","x":-4989.5341450777205,"y":-2906.375751295337,"heading":-2.1498705961626277,"names":["Sloat Blvd","Skyline Blvd","39th Ave"]},{"t":"808f7d7c","emoji":"\ud83e\udebb","x":-5045.599896049896,"y":-1777.8032224532224,"heading":-3.109345771154539,"names":["39th Ave","Santiago St"]},{"t":"808f7d84","emoji":"\ud83d\udecb\ufe0f","x":-4112.549778761062,"y":-1519.2033185840708,"heading":-3.0750244898139694,"names":["Rivera St","29th Ave"]},{"t":"808f7d8c","emoji":"\ud83c\udf3f","x":-3097.3530051813473,"y":-1047.8034196891192,"heading":-3.0771658141642395,"names":["18th Ave","Pacheco St"]},{"t":"808f7d94","emoji":"\ud83c\udfeb","x":-3132.5724835886217,"y":-2087.4992888402626,"heading":-0.973619668702219,"names":["19th Ave","Ulloa St"]},{"t":"808f7d9c","emoji":"\ud83c\udfb5","x":-4181.267248908297,"y":-2557.104366812227,"heading":3.0090411212931194,"names":["Wawona St","30th Ave"]},{"t":"808f7da4","emoji":"\ud83d\udef6","x":-4099.599999999999,"y":-3374.45,"heading":0.16514867741462683,"names":["Lake Merced Blvd","Middlefield Dr"]},{"t":"808f7dac","emoji":"\ud83d\udc1f","x":-3975.1967213114754,"y":-4623.636065573771,"heading":-0.6947382761967033,"names":["Lake Merced Blvd","Higuera Ave"]},{"t":"808f7db4","emoji":"\ud83c\udf92","x":-3044.1923159018143,"y":-4305.643916755603,"heading":-2.4719537079131557,"names":["Holloway Ave","Denslowe Dr"]},{"t":"808f7dbc","emoji":"\ud83c\udfec","x":-3071.880172413793,"y":-3209.987068965517,"heading":-1.9756881130799802,"names":["19th Ave","Eucalyptus Dr"]},{"t":"808f7dc4","emoji":"\u26f2","x":-2154.0973917869032,"y":-2812.0782463928967,"heading":-1.5374753309166493,"names":["San Anselmo Ave","San Andreas Way"]},{"t":"808f7dcc","emoji":"\ud83d\udd70\ufe0f","x":-2135.575,"y":-3863.825,"heading":2.9441970937399127,"names":["Victoria St","Urbano Dr"]},{"t":"808f7dd4","emoji":"\ud83c\udfa8","x":-1095.2129310344828,"y":-3498.769827586207,"heading":1.9756881130799802,"names":["Frida Kahlo Way","Judson Ave"]},{"t":"808f7ddc","emoji":"\u26f0\ufe0f","x":-1020.7319689119171,"y":-2469.420518134715,"heading":-0.06442683942555355,"names":["Molimo Dr","Myra Way"]},{"t":"808f7de4","emoji":"\ud83d\udcf7","x":-1034.1144362486828,"y":-1336.8743940990516,"heading":2.1948193797716535,"names":["Panorama Dr","Longview Ct"]},{"t":"808f7dec","emoji":"\ud83d\ude87","x":-2277.167860906217,"y":-2123.990832455216,"heading":-1.800028260071892,"names":["Ulloa St","West Portal Ave"]},{"t":"808f7df4","emoji":"\ud83e\uddd7","x":-2155.402654867257,"y":-792.6601769911504,"heading":-1.5042281630190728,"names":["8th Ave","Ortega St"]},{"t":"808f7dfc","emoji":"\ud83d\uddfb","x":-1177.7275842696629,"y":-365.07286516853935,"heading":2.451146196535101,"names":["Dellbrook Ave","La Avanzada St"]},{"t":"808f7e04","emoji":"\ud83c\udf9e\ufe0f","x":-78.23663212435233,"y":64.10279792746114,"heading":-2.1498705961626277,"names":["18th St","Storrie St","Hattie St"]},{"t":"808f7e0c","emoji":"\ud83c\udfea","x":-53.93818652849741,"y":-1009.7831088082902,"heading":-3.0771658141642395,"names":["24th St","Hoffman Ave"]},{"t":"808f7e14","emoji":"\ud83d\udef4","x":884.7100518134715,"y":-581.4558031088084,"heading":-1.5063694873693432,"names":["Sanchez St","22nd St"]},{"t":"808f7e1c","emoji":"\ud83c\udff3\ufe0f\u200d\ud83c\udf08","x":422.57696447793325,"y":294.86350914962327,"heading":-2.2865399164637767,"names":["Castro St","17th St","Market St"]},{"t":"808f7e24","emoji":"\ud83d\udd8c\ufe0f","x":1892.7154639175258,"y":928.540206185567,"heading":-3.0451188784072065,"names":["14th St","Natoma St"]},{"t":"808f7e2c","emoji":"\ud83d\udee0\ufe0f","x":2866.8822702702705,"y":1348.1623783783782,"heading":-2.332942867381882,"names":["Bryant St","Converse St"]},{"t":"808f7e34","emoji":"\ud83c\udfe5","x":2891.881450777202,"y":215.73751295336788,"heading":-3.0771658141642395,"names":["Potrero Ave","18th St"]},{"t":"808f7e3c","emoji":"\ud83c\udf2e","x":1941.7455445544554,"y":-144.00544554455445,"heading":-3.0419240010986313,"names":["20th St","Capp St"]},{"t":"808f7e44","emoji":"\ud83d\ude8c","x":1919.0937297297296,"y":-1314.0763783783784,"heading":-2.049148758173554,"names":["Mission St","Cesar Chavez St","Capp St"]},{"t":"808f7e4c","emoji":"\ud83e\uddc1","x":2896.1,"y":-963.7,"heading":-1.5042281630190728,"names":["25th St","Hampshire St"]},{"t":"808f7e54","emoji":"\ud83e\udd8b","x":2811.610748155954,"y":-1874.3482613277133,"heading":-2.5175696006130366,"names":["Franconia St","Brewster St"]},{"t":"808f7e5c","emoji":"\ud83d\udcda","x":1888.1612432432432,"y":-2297.5354594594596,"heading":-0.4783524313786575,"names":["Cortland Ave","Bocana St"]},{"t":"808f7e64","emoji":"\ud83c\udf33","x":860.0756670224122,"y":-2712.569263607257,"heading":-0.901157381118259,"names":["Chenery St","Roanoke St"]},{"t":"808f7e6c","emoji":"\ud83c\udf3b","x":966.4,"y":-1646.4,"heading":-3.0750244898139694,"names":["Sanchez St","28th St"]},{"t":"808f7e74","emoji":"\ud83d\udc8e","x":-9.899999999999983,"y":-1955.3999999999999,"heading":-2.0344439357957027,"names":["Jade Pl","Gold Mine Dr"]},{"t":"808f7e7c","emoji":"\ud83c\udf1e","x":-178.39682952182955,"y":-3068.298284823285,"heading":1.6030432092301505,"names":["Congo St","Joost Ave"]},{"t":"808f7e84","emoji":"\u26bd","x":-125.83390868596904,"y":-4137.47811804009,"heading":-2.019519670805618,"names":["Onondaga Ave","Otsego Ave"]},{"t":"808f7e8c","emoji":"\ud83d\uddfa\ufe0f","x":945.5407725321888,"y":-3742.071244635193,"heading":-2.1224513093234436,"names":["Avalon Ave","Madrid St"]},{"t":"808f7e94","emoji":"\ud83e\uddf3","x":780.3447219069237,"y":-4817.942622020431,"heading":-2.1401095178955587,"names":["Moscow St","France Ave"]},{"t":"808f7e9c","emoji":"\ud83d\udece\ufe0f","x":-52.50738575983008,"y":-5255.833581296492,"heading":-2.8095331860469077,"names":["Morse St","Pope St"]},{"t":"808f7ea4","emoji":"\ud83d\udceb","x":-47.6983425414364,"y":-5745.968508287292,"heading":2.7672590375822095,"names":["Bellevue Ave","Pope St"]},{"t":"808f7ebc","emoji":"\ud83d\udc15","x":891.2758849557522,"y":-5680.061725663716,"heading":-1.6373644905707205,"names":["South Hill Blvd","Canyon Dr"]},{"t":"808f7ec4","emoji":"\ud83e\udef6","x":1872.3,"y":-5463.9,"heading":-1.5707963267948966,"names":["Santos St","Blythdale Ave"]},{"t":"808f7ed4","emoji":"\ud83d\ude8a","x":3077.0252293577983,"y":-5675.417431192661,"heading":-1.2793395323170293,"names":["Sunnydale Ave","Bay Shore Blvd"]},{"t":"808f7edc","emoji":"\ud83e\udd6c","x":2930.77169197397,"y":-5115.891214750542,"heading":-1.8717165611553217,"names":["Arleta Ave","Rutland St"]},{"t":"808f7ee4","emoji":"\ud83c\udf31","x":2882.279489904357,"y":-4073.5105207226356,"heading":-2.8095331860469077,"names":["Holyoke St","Karen Ct"]},{"t":"808f7eec","emoji":"\ud83e\udd89","x":1897.6200873362445,"y":-4575.850655021834,"heading":-3.0090411212931194,"names":["Mansell St","John F Shelley Dr"]},{"t":"808f7ef4","emoji":"\ud83c\udf3a","x":1904.1390973630832,"y":-3435.667596348884,"heading":-0.15991312315821926,"names":["Yale St","Silver Ave"]},{"t":"808f7efc","emoji":"\ud83d\udce6","x":2884.31658004158,"y":-2978.343711018711,"heading":-1.208252089530389,"names":["Sweeny St","Barneveld Ave"]},{"t":"808f7f04","emoji":"\ud83e\udea1","x":3993.341201264489,"y":-2648.181664910432,"heading":2.5175696006130366,"names":["Palou Ave","Phelps St"]},{"t":"808f7f0c","emoji":"\ud83c\udfa4","x":4822.775,"y":-2191.925,"heading":-2.167972984887574,"names":["Mendell St","Fairfax Ave"]},{"t":"808f7f14","emoji":"\ud83e\uddf0","x":4826.92344573235,"y":-3242.536880927292,"heading":2.5175696006130366,"names":["Jennings St","Palou Ave"]},{"t":"808f7f1c","emoji":"\u2699\ufe0f","x":3805.848682824025,"y":-3624.599051633298,"heading":-2.1948193797716535,"names":["Kalmanovitz St","Orsi Cir"]},{"t":"808f7f24","emoji":"\ud83d\udeb5","x":3866.3478665207876,"y":-4769.382549234136,"heading":0.973619668702219,"names":["Le Conte Ave","Meade Ave"]},{"t":"808f7f2c","emoji":"\ud83d\udcbc","x":4016.9640820980617,"y":-5670.676396807297,"heading":0.20401797959254858,"names":["Alana Way","Executive Park Blvd"]},{"t":"808f7f34","emoji":"\ud83c\udfc8","x":4722.248864864865,"y":-5418.851189189189,"heading":2.3794461130028077,"names":["Harney Way","Jamestown Ave"]},{"t":"808f7f3c","emoji":"\ud83d\udeb8","x":4929.817127071823,"y":-4475.574585635359,"heading":-1.9451299428024806,"names":["Arelious Walker Dr","Carroll Ave"]},{"t":"808f7f44","emoji":"\ud83d\udea2","x":6101.152789934355,"y":-3626.7958971553608,"heading":2.5444159954971157,"names":["Kirkwood Ave","Friedell St"]},{"t":"808f7f5c","emoji":"\ud83d\udc26","x":6498.667070600632,"y":-3495.176290832455,"heading":2.5175696006130366,"names":["Coleman St","Galvez Ave"]},{"t":"808f7f6c","emoji":"\ud83e\uddaa","x":5824.017833698031,"y":-3220.256126914661,"heading":2.5444159954971157,"names":["Innes Ave","Arelious Walker Dr"]},{"t":"808f7f74","emoji":"\ud83e\udeb6","x":5562.25363540569,"y":-2202.136617492097,"heading":-2.1948193797716535,"names":["Jennings St","Cargo Way"]},{"t":"808f7fa4","emoji":"\ud83c\udfd7\ufe0f","x":4808.83881443299,"y":-1205.1510824742268,"heading":-3.0451188784072065,"names":["Marin St","Michigan St"]},{"t":"808f7fac","emoji":"\ud83d\ude9a","x":3783.536,"y":-1559.1519999999998,"heading":-2.214297435588181,"names":["Toland St","Galvez Ave"]},{"t":"808f7fb4","emoji":"\ud83d\udee3\ufe0f","x":3898.5199115044247,"y":-482.9013274336283,"heading":-1.6373644905707205,"names":["Watchman Way","Missouri St"]},{"t":"808f7fbc","emoji":"\ud83d\udc3e","x":4857.361243523316,"y":-58.199274611399005,"heading":-1.5063694873693432,"names":["Louisiana St","21st St"]},{"t":"808f7fc4","emoji":"\ud83c\udfc0","x":4731.433407079646,"y":1003.3988938053097,"heading":-1.5042281630190728,"names":["Terry A Francois Blvd","Warriors Way"]},{"t":"808f7fcc","emoji":"\ud83d\ude82","x":3889.3612435233163,"y":576.900725388601,"heading":-3.0771658141642395,"names":["Texas St","17th St"]},{"t":"808f7fd4","emoji":"\ud83d\udede","x":3851.982522123894,"y":1619.4878318584072,"heading":3.0750244898139694,"names":["I-280 N Off Ramp","I-280 S On Ramp","5th St"]},{"t":"808f7fdc","emoji":"\u26be","x":4568.202487046632,"y":1717.3614507772022,"heading":-3.0771658141642395,"names":["Bridgeview Way","Toni Stone Xing"]}],"skipped":[{"t":"8085800c","reason":"No signposted intersection"},{"t":"80858014","reason":"No signposted intersection"},{"t":"8085801c","reason":"No signposted intersection"},{"t":"80858054","reason":"No signposted intersection"},{"t":"8085811c","reason":"No signposted intersection"},{"t":"80858124","reason":"No signposted intersection"},{"t":"808581b4","reason":"No signposted intersection"},{"t":"80858694","reason":"No signposted intersection"},{"t":"808586c4","reason":"No signposted intersection"},{"t":"808f78ac","reason":"No signposted intersection"},{"t":"808f78b4","reason":"No signposted intersection"},{"t":"808f7c1c","reason":"No signposted intersection"},{"t":"808f7c5c","reason":"No signposted intersection"},{"t":"808f7cfc","reason":"No signposted intersection"},{"t":"808f7d14","reason":"No signposted intersection"},{"t":"808f7ecc","reason":"No signposted intersection"},{"t":"808f7f4c","reason":"No signposted intersection"},{"t":"808f7f54","reason":"No signposted intersection"},{"t":"808f7f64","reason":"No signposted intersection"},{"t":"808f7f9c","reason":"No signposted intersection"},{"t":"8085869c","reason":"No signposted intersection"},{"t":"80858424","reason":"No signposted intersection"},{"t":"8085842c","reason":"No signposted intersection"}]}
+{
+  "version": 1,
+  "manifestSha256": "151ae4163681a1bc063d425b04c71e4d24d9ec051af49969005cd5792185ddee",
+  "placementSha256": "bcc1a3f4116282e4aefbfa4299731cef517e9c6ad0521a97c5fa30313eb5c64d",
+  "targets": [
+    {
+      "t": "80858024",
+      "emoji": "🏘️",
+      "x": 6711.100467775468,
+      "y": 5853.435498960499,
+      "heading": 0.03224688243525392,
+      "names": ["Whiting Way", "Garden Way"]
+    },
+    {
+      "t": "8085802c",
+      "emoji": "🧭",
+      "x": 6765.390162162162,
+      "y": 6961.418972972972,
+      "heading": 2.049148758173554,
+      "names": ["3rd Ti St", "Avenue N"]
+    },
+    {
+      "t": "80858034",
+      "emoji": "🌴",
+      "x": 5876.4718918918925,
+      "y": 6639.711351351351,
+      "heading": 2.049148758173554,
+      "names": ["Avenue Of The Palms", "Cravath St"]
+    },
+    {
+      "t": "8085803c",
+      "emoji": "🔀",
+      "x": 6155.642099447514,
+      "y": 5482.779889502763,
+      "heading": -0.37433361600758397,
+      "names": ["I-80 W On Ramp", "I-80 E Off Ramp", "Treasure Island Rd"]
+    },
+    {
+      "t": "8085805c",
+      "emoji": "⚓",
+      "x": 3598.7741794310728,
+      "y": 4540.314442013129,
+      "heading": -2.5444159954971157,
+      "names": ["The Embarcadero", "Green St"]
+    },
+    {
+      "t": "80858064",
+      "emoji": "🚋",
+      "x": 3908.5903783783783,
+      "y": 3744.7362702702703,
+      "heading": -2.3794461130028077,
+      "names": ["Market St", "Spear St"]
+    },
+    {
+      "t": "8085806c",
+      "emoji": "🏹",
+      "x": 4402.576581576027,
+      "y": 3422.497447280799,
+      "heading": 1.5374753309166493,
+      "names": ["Folsom St", "The Embarcadero"]
+    },
+    {
+      "t": "80858074",
+      "emoji": "🌉",
+      "x": 4597.250794551645,
+      "y": 3008.7925085130532,
+      "heading": 0.5693131911006619,
+      "names": ["The Embarcadero", "Bryant St"]
+    },
+    {
+      "t": "8085807c",
+      "emoji": "🏙️",
+      "x": 3897.6355675675673,
+      "y": 2648.029405405405,
+      "heading": -2.3794461130028077,
+      "names": ["Harrison St", "Vassar Pl"]
+    },
+    {
+      "t": "80858084",
+      "emoji": "🎭",
+      "x": 2845.875,
+      "y": 2238.7250000000004,
+      "heading": -0.7853981633974483,
+      "names": ["Natoma St", "6th St"]
+    },
+    {
+      "t": "8085808c",
+      "emoji": "🐉",
+      "x": 2898.7573529411766,
+      "y": 3372.154411764706,
+      "heading": -2.981679530431574,
+      "names": ["Stockton St", "Bush St"]
+    },
+    {
+      "t": "80858094",
+      "emoji": "🧱",
+      "x": 1921.2932432432433,
+      "y": 2952.8405405405406,
+      "heading": 1.7359450042095235,
+      "names": ["Larkin St", "Cedar St"]
+    },
+    {
+      "t": "8085809c",
+      "emoji": "🏛️",
+      "x": 1934.156756756757,
+      "y": 1944.1094594594595,
+      "heading": -2.976443976175166,
+      "names": ["Polk St", "Hayes St"]
+    },
+    {
+      "t": "808580a4",
+      "emoji": "🏡",
+      "x": 953.2157200811359,
+      "y": 1574.1025354969572,
+      "heading": 1.730709449953116,
+      "names": ["Webster St", "Oak St"]
+    },
+    {
+      "t": "808580ac",
+      "emoji": "☮️",
+      "x": -611.0091277890467,
+      "y": 1110.7565922920892,
+      "heading": -1.4108832036366774,
+      "names": ["Haight St", "Ashbury St"]
+    },
+    {
+      "t": "808580b4",
+      "emoji": "🍃",
+      "x": -80.40212981744426,
+      "y": 2149.9932048681544,
+      "heading": -2.981679530431574,
+      "names": ["Turk St", "Saint Josephs Ave"]
+    },
+    {
+      "t": "808580bc",
+      "emoji": "🚶",
+      "x": 859.7,
+      "y": 2619.1,
+      "heading": 1.730709449953116,
+      "names": ["Ofarrell St", "Hollis St"]
+    },
+    {
+      "t": "808580c4",
+      "emoji": "🪞",
+      "x": 913.3508733624454,
+      "y": 3673.7934497816595,
+      "heading": -3.0090411212931194,
+      "names": ["Laguna St", "Jackson St"]
+    },
+    {
+      "t": "808580cc",
+      "emoji": "🛍️",
+      "x": -55.188176795580155,
+      "y": 3218.705359116022,
+      "heading": 1.3016288340091962,
+      "names": ["Sacramento St", "Divisadero St"]
+    },
+    {
+      "t": "808580d4",
+      "emoji": "🦢",
+      "x": -86.92474226804117,
+      "y": 4352.444329896907,
+      "heading": 2.723368324010564,
+      "names": ["Lombard St", "Scott St"]
+    },
+    {
+      "t": "808580dc",
+      "emoji": "🎟️",
+      "x": 893.0135135135134,
+      "y": 4726.618918918919,
+      "heading": -2.976443976175166,
+      "names": ["Octavia St", "Francisco St"]
+    },
+    {
+      "t": "808580e4",
+      "emoji": "🍫",
+      "x": 1903.2752421959099,
+      "y": 5103.621528525296,
+      "heading": 2.425849063920913,
+      "names": ["North Point St", "Columbus Ave"]
+    },
+    {
+      "t": "808580ec",
+      "emoji": "🛤️",
+      "x": 1897.2176470588236,
+      "y": 4027.329411764706,
+      "heading": -2.1112158270654806,
+      "names": ["Broadway", "Hyde St"]
+    },
+    {
+      "t": "808580f4",
+      "emoji": "🍝",
+      "x": 2871.0508733624456,
+      "y": 4407.59344978166,
+      "heading": -3.0090411212931194,
+      "names": ["Grant Ave", "Green St"]
+    },
+    {
+      "t": "808580fc",
+      "emoji": "🦀",
+      "x": 2876.51265560166,
+      "y": 5260.209958506224,
+      "heading": 2.8809902618424523,
+      "names": ["North Point St", "Kearny St", "The Embarcadero"]
+    },
+    {
+      "t": "8085812c",
+      "emoji": "⛵",
+      "x": -3.6388473852724132,
+      "y": 5111.635912486659,
+      "heading": -2.4719537079131557,
+      "names": ["Marina Blvd", "Avila St", "Casa Way"]
+    },
+    {
+      "t": "808581cc",
+      "emoji": "🪁",
+      "x": 5911.5474,
+      "y": 7692.5982,
+      "heading": -0.9652516631899266,
+      "names": ["Gateview Ave", "Mariner Dr"]
+    },
+    {
+      "t": "808581d4",
+      "emoji": "🛝",
+      "x": 6458.4,
+      "y": 7537.4,
+      "heading": 0.5232783221319754,
+      "names": ["Avenue N", "10th Ti St"]
+    },
+    {
+      "t": "8085864c",
+      "emoji": "🩺",
+      "x": -5872.644877505569,
+      "y": 2597.193207126949,
+      "heading": 0.4487233440107211,
+      "names": ["Fort Miley 5", "Veterans Dr"]
+    },
+    {
+      "t": "80858654",
+      "emoji": "🖼️",
+      "x": -5320.536123595506,
+      "y": 2848.583202247191,
+      "heading": -2.451146196535101,
+      "names": ["El Camino Del Mar", "Legion Of Honor Dr"]
+    },
+    {
+      "t": "808586d4",
+      "emoji": "🛩️",
+      "x": -1025.5945945945946,
+      "y": 4944.967567567567,
+      "heading": 0.16514867741462683,
+      "names": ["Lundeen St", "Mason St"]
+    },
+    {
+      "t": "808586dc",
+      "emoji": "🌸",
+      "x": -2089.6,
+      "y": 4596.1,
+      "heading": 2.498091544796509,
+      "names": ["First Dr West", "North Dr"]
+    },
+    {
+      "t": "808586e4",
+      "emoji": "🪵",
+      "x": -3071.146906077348,
+      "y": 4308.961215469613,
+      "heading": -0.26916749278570046,
+      "names": ["Kobbe Ave", "Greenough Ave"]
+    },
+    {
+      "t": "808586ec",
+      "emoji": "🌁",
+      "x": -3100.1,
+      "y": 5221.5,
+      "heading": 2.214297435588181,
+      "names": ["Hwy 101 Northbound", "Hwy 101 N On Ramp"]
+    },
+    {
+      "t": "808586fc",
+      "emoji": "🏖️",
+      "x": -3801.1942307692307,
+      "y": 3399.778846153846,
+      "heading": 2.9441970937399127,
+      "names": ["Gibson Rd", "Battery Chamberlin Rd"]
+    },
+    {
+      "t": "80858704",
+      "emoji": "🚲",
+      "x": -4071.701658031088,
+      "y": 2852.8256994818653,
+      "heading": -3.0771658141642395,
+      "names": ["26th Ave", "Lake St"]
+    },
+    {
+      "t": "8085870c",
+      "emoji": "🎬",
+      "x": -4105.9962389380535,
+      "y": 1799.0935840707964,
+      "heading": -3.0750244898139694,
+      "names": ["27th Ave", "Balboa St"]
+    },
+    {
+      "t": "80858714",
+      "emoji": "🏠",
+      "x": -3079.7,
+      "y": 2065,
+      "heading": -1.5385494443596428,
+      "names": ["16th Ave", "Anza St"]
+    },
+    {
+      "t": "8085871c",
+      "emoji": "🌲",
+      "x": -3131.8314364640883,
+      "y": 3176.2072928176794,
+      "heading": 1.9451299428024806,
+      "names": ["Wedemeyer St", "Hays St"]
+    },
+    {
+      "t": "80858724",
+      "emoji": "🚪",
+      "x": -1876.6534831460676,
+      "y": 3655.9384269662924,
+      "heading": -0.8803498697402046,
+      "names": ["Arguello Blvd", "Washington Blvd"]
+    },
+    {
+      "t": "8085872c",
+      "emoji": "🥾",
+      "x": -1094.15,
+      "y": 3936.55,
+      "heading": 2.356194490192345,
+      "names": ["Morton St", "Sanches St"]
+    },
+    {
+      "t": "80858734",
+      "emoji": "🪴",
+      "x": -1060.19345841785,
+      "y": 2872.049442190669,
+      "heading": -2.981679530431574,
+      "names": ["Iris Ave", "Mayfair Dr"]
+    },
+    {
+      "t": "8085873c",
+      "emoji": "🥟",
+      "x": -2057.8617616580314,
+      "y": 2551.6573056994816,
+      "heading": -3.0771658141642395,
+      "names": ["Clement St", "5th Ave"]
+    },
+    {
+      "t": "80858744",
+      "emoji": "🛹",
+      "x": -2097.6112068965517,
+      "y": 1511.3594827586207,
+      "heading": -2.981679530431574,
+      "names": ["6th Ave", "Fulton St"]
+    },
+    {
+      "t": "8085874c",
+      "emoji": "🎓",
+      "x": -1141.4891891891891,
+      "y": 1743.2351351351351,
+      "heading": -1.4056476493802699,
+      "names": ["McAllister St", "Parker Ave"]
+    },
+    {
+      "t": "80858754",
+      "emoji": "🏃",
+      "x": -1140.9926519337016,
+      "y": 707.8903867403315,
+      "heading": -1.1964627107873127,
+      "names": ["Stanyan St", "Frederick St"]
+    },
+    {
+      "t": "8085875c",
+      "emoji": "☕",
+      "x": -2129.924663212435,
+      "y": 458.8822797927461,
+      "heading": -1.5063694873693432,
+      "names": ["7th Ave", "Irving St"]
+    },
+    {
+      "t": "80858764",
+      "emoji": "🪟",
+      "x": -3059.90166481687,
+      "y": -7.750055493895669,
+      "heading": -1.5374753309166493,
+      "names": ["Kirkham St", "17th Ave"]
+    },
+    {
+      "t": "8085876c",
+      "emoji": "🚣",
+      "x": -2964.3582474226805,
+      "y": 1237.981443298969,
+      "heading": 2.723368324010564,
+      "names": ["Stow Lake Dr", "John F Kennedy Dr"]
+    },
+    {
+      "t": "80858774",
+      "emoji": "🍂",
+      "x": -4033.776355748373,
+      "y": 561.6650759219089,
+      "heading": 2.840672419229368,
+      "names": ["Lincoln Way", "27th Ave"]
+    },
+    {
+      "t": "8085877c",
+      "emoji": "🌈",
+      "x": -4075.4966814159293,
+      "y": -478.64977876106195,
+      "heading": -1.5042281630190728,
+      "names": ["28th Ave", "Moraga St"]
+    },
+    {
+      "t": "80858784",
+      "emoji": "🛒",
+      "x": -5102.705105438402,
+      "y": -742.9468368479468,
+      "heading": -1.5374753309166493,
+      "names": ["39th Ave", "Noriega St"]
+    },
+    {
+      "t": "8085878c",
+      "emoji": "🌅",
+      "x": -5929.9469948186525,
+      "y": -1203.8965803108808,
+      "heading": -3.0771658141642395,
+      "names": ["48th Ave", "Pacheco St"]
+    },
+    {
+      "t": "80858794",
+      "emoji": "🏄",
+      "x": -5986.550051975052,
+      "y": -168.69838877338879,
+      "heading": -3.109345771154539,
+      "names": ["48th Ave", "Kirkham St"]
+    },
+    {
+      "t": "8085879c",
+      "emoji": "🦬",
+      "x": -5362.57028451001,
+      "y": 539.0630663856691,
+      "heading": 2.912360720312798,
+      "names": ["Chain Of Lakes Dr", "Martin Luther King Jr Dr"]
+    },
+    {
+      "t": "808587a4",
+      "emoji": "🦆",
+      "x": -5115.663495575221,
+      "y": 1325.9024336283187,
+      "heading": -3.0750244898139694,
+      "names": ["Fulton St", "38th Ave"]
+    },
+    {
+      "t": "808587ac",
+      "emoji": "🌷",
+      "x": -4987.192953367876,
+      "y": 2385.0907772020723,
+      "heading": -3.0771658141642395,
+      "names": ["36th Ave", "Clement St"]
+    },
+    {
+      "t": "808587b4",
+      "emoji": "🔭",
+      "x": -6099.350610432852,
+      "y": 1897.9183129855717,
+      "heading": -1.5374753309166493,
+      "names": ["48th Ave", "Anza St"]
+    },
+    {
+      "t": "808587bc",
+      "emoji": "⛳",
+      "x": -6014.575862068966,
+      "y": 1029.5896551724138,
+      "heading": -1.9756881130799802,
+      "names": ["John F Kennedy Dr", "Golf Course Access Rd", "47th Ave"]
+    },
+    {
+      "t": "808f7c24",
+      "emoji": "🚏",
+      "x": -1118.7767241379308,
+      "y": -5683.204310344828,
+      "heading": -2.7367008673047097,
+      "names": ["Mission St", "Sickles Ave", "Acton St"]
+    },
+    {
+      "t": "808f7c2c",
+      "emoji": "🪜",
+      "x": -1077.980324324324,
+      "y": -4577.262054054054,
+      "heading": -2.049148758173554,
+      "names": ["Ridge Ln", "Howth St"]
+    },
+    {
+      "t": "808f7c34",
+      "emoji": "🧸",
+      "x": -2073.4965696465697,
+      "y": -4868.606340956341,
+      "heading": -3.109345771154539,
+      "names": ["Bright St", "Sargent St"]
+    },
+    {
+      "t": "808f7c3c",
+      "emoji": "📖",
+      "x": -1965.8196721311476,
+      "y": -5771.483606557377,
+      "heading": -2.2655346029916,
+      "names": ["Rhine St", "Shakespeare St"]
+    },
+    {
+      "t": "808f7c44",
+      "emoji": "🔑",
+      "x": -2677.05,
+      "y": -5696.6,
+      "heading": 3.141592653589793,
+      "names": ["Belle Ave", "Chester Ave"]
+    },
+    {
+      "t": "808f7c4c",
+      "emoji": "🏢",
+      "x": -2882.943607068607,
+      "y": -5224.398180873181,
+      "heading": -3.109345771154539,
+      "names": ["Thomas More Way", "Brotherhood Way", "Chumasero Dr"]
+    },
+    {
+      "t": "808f7c54",
+      "emoji": "🎣",
+      "x": -4033.29833518313,
+      "y": -5760.347114317426,
+      "heading": 2.618314331457818,
+      "names": ["Lake Merced Blvd", "John Muir Dr"]
+    },
+    {
+      "t": "808f7d04",
+      "emoji": "🪂",
+      "x": -5144.835544041451,
+      "y": -5141.049067357513,
+      "heading": -1.5063694873693432,
+      "names": ["Skyline Blvd", "Fort Funston Rd"]
+    },
+    {
+      "t": "808f7d0c",
+      "emoji": "💨",
+      "x": -5556.720715835141,
+      "y": -3853.155639913232,
+      "heading": -1.8717165611553217,
+      "names": ["Skyline Blvd", "Great Hwy"]
+    },
+    {
+      "t": "808f7d64",
+      "emoji": "🐚",
+      "x": -5778.501553829079,
+      "y": -2234.103385127636,
+      "heading": -3.108271657711546,
+      "names": ["47th Ave", "Ulloa St"]
+    },
+    {
+      "t": "808f7d6c",
+      "emoji": "🦒",
+      "x": -5879.067067833698,
+      "y": -2720.089606126915,
+      "heading": -2.5444159954971157,
+      "names": ["Great Hwy", "Sloat Blvd"]
+    },
+    {
+      "t": "808f7d74",
+      "emoji": "🐧",
+      "x": -4989.5341450777205,
+      "y": -2906.375751295337,
+      "heading": -2.1498705961626277,
+      "names": ["Sloat Blvd", "Skyline Blvd", "39th Ave"]
+    },
+    {
+      "t": "808f7d7c",
+      "emoji": "🪻",
+      "x": -5045.599896049896,
+      "y": -1777.8032224532224,
+      "heading": -3.109345771154539,
+      "names": ["39th Ave", "Santiago St"]
+    },
+    {
+      "t": "808f7d84",
+      "emoji": "🛋️",
+      "x": -4112.549778761062,
+      "y": -1519.2033185840708,
+      "heading": -3.0750244898139694,
+      "names": ["Rivera St", "29th Ave"]
+    },
+    {
+      "t": "808f7d8c",
+      "emoji": "🌿",
+      "x": -3097.3530051813473,
+      "y": -1047.8034196891192,
+      "heading": -3.0771658141642395,
+      "names": ["18th Ave", "Pacheco St"]
+    },
+    {
+      "t": "808f7d94",
+      "emoji": "🏫",
+      "x": -3132.5724835886217,
+      "y": -2087.4992888402626,
+      "heading": -0.973619668702219,
+      "names": ["19th Ave", "Ulloa St"]
+    },
+    {
+      "t": "808f7d9c",
+      "emoji": "🎵",
+      "x": -4181.267248908297,
+      "y": -2557.104366812227,
+      "heading": 3.0090411212931194,
+      "names": ["Wawona St", "30th Ave"]
+    },
+    {
+      "t": "808f7da4",
+      "emoji": "🛶",
+      "x": -4099.599999999999,
+      "y": -3374.45,
+      "heading": 0.16514867741462683,
+      "names": ["Lake Merced Blvd", "Middlefield Dr"]
+    },
+    {
+      "t": "808f7dac",
+      "emoji": "🐟",
+      "x": -3975.1967213114754,
+      "y": -4623.636065573771,
+      "heading": -0.6947382761967033,
+      "names": ["Lake Merced Blvd", "Higuera Ave"]
+    },
+    {
+      "t": "808f7db4",
+      "emoji": "🎒",
+      "x": -3044.1923159018143,
+      "y": -4305.643916755603,
+      "heading": -2.4719537079131557,
+      "names": ["Holloway Ave", "Denslowe Dr"]
+    },
+    {
+      "t": "808f7dbc",
+      "emoji": "🏬",
+      "x": -3071.880172413793,
+      "y": -3209.987068965517,
+      "heading": -1.9756881130799802,
+      "names": ["19th Ave", "Eucalyptus Dr"]
+    },
+    {
+      "t": "808f7dc4",
+      "emoji": "⛲",
+      "x": -2154.0973917869032,
+      "y": -2812.0782463928967,
+      "heading": -1.5374753309166493,
+      "names": ["San Anselmo Ave", "San Andreas Way"]
+    },
+    {
+      "t": "808f7dcc",
+      "emoji": "🕰️",
+      "x": -2135.575,
+      "y": -3863.825,
+      "heading": 2.9441970937399127,
+      "names": ["Victoria St", "Urbano Dr"]
+    },
+    {
+      "t": "808f7dd4",
+      "emoji": "🎨",
+      "x": -1095.2129310344828,
+      "y": -3498.769827586207,
+      "heading": 1.9756881130799802,
+      "names": ["Frida Kahlo Way", "Judson Ave"]
+    },
+    {
+      "t": "808f7ddc",
+      "emoji": "⛰️",
+      "x": -1020.7319689119171,
+      "y": -2469.420518134715,
+      "heading": -0.06442683942555355,
+      "names": ["Molimo Dr", "Myra Way"]
+    },
+    {
+      "t": "808f7de4",
+      "emoji": "📷",
+      "x": -1034.1144362486828,
+      "y": -1336.8743940990516,
+      "heading": 2.1948193797716535,
+      "names": ["Panorama Dr", "Longview Ct"]
+    },
+    {
+      "t": "808f7dec",
+      "emoji": "🚇",
+      "x": -2277.167860906217,
+      "y": -2123.990832455216,
+      "heading": -1.800028260071892,
+      "names": ["Ulloa St", "West Portal Ave"]
+    },
+    {
+      "t": "808f7df4",
+      "emoji": "🧗",
+      "x": -2155.402654867257,
+      "y": -792.6601769911504,
+      "heading": -1.5042281630190728,
+      "names": ["8th Ave", "Ortega St"]
+    },
+    {
+      "t": "808f7dfc",
+      "emoji": "🗻",
+      "x": -1177.7275842696629,
+      "y": -365.07286516853935,
+      "heading": 2.451146196535101,
+      "names": ["Dellbrook Ave", "La Avanzada St"]
+    },
+    {
+      "t": "808f7e04",
+      "emoji": "🎞️",
+      "x": -78.23663212435233,
+      "y": 64.10279792746114,
+      "heading": -2.1498705961626277,
+      "names": ["18th St", "Storrie St", "Hattie St"]
+    },
+    {
+      "t": "808f7e0c",
+      "emoji": "🏪",
+      "x": -53.93818652849741,
+      "y": -1009.7831088082902,
+      "heading": -3.0771658141642395,
+      "names": ["24th St", "Hoffman Ave"]
+    },
+    {
+      "t": "808f7e14",
+      "emoji": "🛴",
+      "x": 884.7100518134715,
+      "y": -581.4558031088084,
+      "heading": -1.5063694873693432,
+      "names": ["Sanchez St", "22nd St"]
+    },
+    {
+      "t": "808f7e1c",
+      "emoji": "🏳️‍🌈",
+      "x": 422.57696447793325,
+      "y": 294.86350914962327,
+      "heading": -2.2865399164637767,
+      "names": ["Castro St", "17th St", "Market St"]
+    },
+    {
+      "t": "808f7e24",
+      "emoji": "🖌️",
+      "x": 1892.7154639175258,
+      "y": 928.540206185567,
+      "heading": -3.0451188784072065,
+      "names": ["14th St", "Natoma St"]
+    },
+    {
+      "t": "808f7e2c",
+      "emoji": "🛠️",
+      "x": 2866.8822702702705,
+      "y": 1348.1623783783782,
+      "heading": -2.332942867381882,
+      "names": ["Bryant St", "Converse St"]
+    },
+    {
+      "t": "808f7e34",
+      "emoji": "🏥",
+      "x": 2891.881450777202,
+      "y": 215.73751295336788,
+      "heading": -3.0771658141642395,
+      "names": ["Potrero Ave", "18th St"]
+    },
+    {
+      "t": "808f7e3c",
+      "emoji": "🌮",
+      "x": 1941.7455445544554,
+      "y": -144.00544554455445,
+      "heading": -3.0419240010986313,
+      "names": ["20th St", "Capp St"]
+    },
+    {
+      "t": "808f7e44",
+      "emoji": "🚌",
+      "x": 1919.0937297297296,
+      "y": -1314.0763783783784,
+      "heading": -2.049148758173554,
+      "names": ["Mission St", "Cesar Chavez St", "Capp St"]
+    },
+    {
+      "t": "808f7e4c",
+      "emoji": "🧁",
+      "x": 2896.1,
+      "y": -963.7,
+      "heading": -1.5042281630190728,
+      "names": ["25th St", "Hampshire St"]
+    },
+    {
+      "t": "808f7e54",
+      "emoji": "🦋",
+      "x": 2811.610748155954,
+      "y": -1874.3482613277133,
+      "heading": -2.5175696006130366,
+      "names": ["Franconia St", "Brewster St"]
+    },
+    {
+      "t": "808f7e5c",
+      "emoji": "📚",
+      "x": 1888.1612432432432,
+      "y": -2297.5354594594596,
+      "heading": -0.4783524313786575,
+      "names": ["Cortland Ave", "Bocana St"]
+    },
+    {
+      "t": "808f7e64",
+      "emoji": "🌳",
+      "x": 860.0756670224122,
+      "y": -2712.569263607257,
+      "heading": -0.901157381118259,
+      "names": ["Chenery St", "Roanoke St"]
+    },
+    {
+      "t": "808f7e6c",
+      "emoji": "🌻",
+      "x": 966.4,
+      "y": -1646.4,
+      "heading": -3.0750244898139694,
+      "names": ["Sanchez St", "28th St"]
+    },
+    {
+      "t": "808f7e74",
+      "emoji": "💎",
+      "x": -9.899999999999983,
+      "y": -1955.3999999999999,
+      "heading": -2.0344439357957027,
+      "names": ["Jade Pl", "Gold Mine Dr"]
+    },
+    {
+      "t": "808f7e7c",
+      "emoji": "🌞",
+      "x": -178.39682952182955,
+      "y": -3068.298284823285,
+      "heading": 1.6030432092301505,
+      "names": ["Congo St", "Joost Ave"]
+    },
+    {
+      "t": "808f7e84",
+      "emoji": "⚽",
+      "x": -125.83390868596904,
+      "y": -4137.47811804009,
+      "heading": -2.019519670805618,
+      "names": ["Onondaga Ave", "Otsego Ave"]
+    },
+    {
+      "t": "808f7e8c",
+      "emoji": "🗺️",
+      "x": 945.5407725321888,
+      "y": -3742.071244635193,
+      "heading": -2.1224513093234436,
+      "names": ["Avalon Ave", "Madrid St"]
+    },
+    {
+      "t": "808f7e94",
+      "emoji": "🧳",
+      "x": 780.3447219069237,
+      "y": -4817.942622020431,
+      "heading": -2.1401095178955587,
+      "names": ["Moscow St", "France Ave"]
+    },
+    {
+      "t": "808f7e9c",
+      "emoji": "🛎️",
+      "x": -52.50738575983008,
+      "y": -5255.833581296492,
+      "heading": -2.8095331860469077,
+      "names": ["Morse St", "Pope St"]
+    },
+    {
+      "t": "808f7ea4",
+      "emoji": "📫",
+      "x": -47.6983425414364,
+      "y": -5745.968508287292,
+      "heading": 2.7672590375822095,
+      "names": ["Bellevue Ave", "Pope St"]
+    },
+    {
+      "t": "808f7ebc",
+      "emoji": "🐕",
+      "x": 891.2758849557522,
+      "y": -5680.061725663716,
+      "heading": -1.6373644905707205,
+      "names": ["South Hill Blvd", "Canyon Dr"]
+    },
+    {
+      "t": "808f7ec4",
+      "emoji": "🫶",
+      "x": 1872.3,
+      "y": -5463.9,
+      "heading": -1.5707963267948966,
+      "names": ["Santos St", "Blythdale Ave"]
+    },
+    {
+      "t": "808f7ed4",
+      "emoji": "🚊",
+      "x": 3077.0252293577983,
+      "y": -5675.417431192661,
+      "heading": -1.2793395323170293,
+      "names": ["Sunnydale Ave", "Bay Shore Blvd"]
+    },
+    {
+      "t": "808f7edc",
+      "emoji": "🥬",
+      "x": 2930.77169197397,
+      "y": -5115.891214750542,
+      "heading": -1.8717165611553217,
+      "names": ["Arleta Ave", "Rutland St"]
+    },
+    {
+      "t": "808f7ee4",
+      "emoji": "🌱",
+      "x": 2882.279489904357,
+      "y": -4073.5105207226356,
+      "heading": -2.8095331860469077,
+      "names": ["Holyoke St", "Karen Ct"]
+    },
+    {
+      "t": "808f7eec",
+      "emoji": "🦉",
+      "x": 1897.6200873362445,
+      "y": -4575.850655021834,
+      "heading": -3.0090411212931194,
+      "names": ["Mansell St", "John F Shelley Dr"]
+    },
+    {
+      "t": "808f7ef4",
+      "emoji": "🌺",
+      "x": 1904.1390973630832,
+      "y": -3435.667596348884,
+      "heading": -0.15991312315821926,
+      "names": ["Yale St", "Silver Ave"]
+    },
+    {
+      "t": "808f7efc",
+      "emoji": "📦",
+      "x": 2884.31658004158,
+      "y": -2978.343711018711,
+      "heading": -1.208252089530389,
+      "names": ["Sweeny St", "Barneveld Ave"]
+    },
+    {
+      "t": "808f7f04",
+      "emoji": "🪡",
+      "x": 3993.341201264489,
+      "y": -2648.181664910432,
+      "heading": 2.5175696006130366,
+      "names": ["Palou Ave", "Phelps St"]
+    },
+    {
+      "t": "808f7f0c",
+      "emoji": "🎤",
+      "x": 4822.775,
+      "y": -2191.925,
+      "heading": -2.167972984887574,
+      "names": ["Mendell St", "Fairfax Ave"]
+    },
+    {
+      "t": "808f7f14",
+      "emoji": "🧰",
+      "x": 4826.92344573235,
+      "y": -3242.536880927292,
+      "heading": 2.5175696006130366,
+      "names": ["Jennings St", "Palou Ave"]
+    },
+    {
+      "t": "808f7f1c",
+      "emoji": "⚙️",
+      "x": 3805.848682824025,
+      "y": -3624.599051633298,
+      "heading": -2.1948193797716535,
+      "names": ["Kalmanovitz St", "Orsi Cir"]
+    },
+    {
+      "t": "808f7f24",
+      "emoji": "🚵",
+      "x": 3866.3478665207876,
+      "y": -4769.382549234136,
+      "heading": 0.973619668702219,
+      "names": ["Le Conte Ave", "Meade Ave"]
+    },
+    {
+      "t": "808f7f2c",
+      "emoji": "💼",
+      "x": 4016.9640820980617,
+      "y": -5670.676396807297,
+      "heading": 0.20401797959254858,
+      "names": ["Alana Way", "Executive Park Blvd"]
+    },
+    {
+      "t": "808f7f34",
+      "emoji": "🏈",
+      "x": 4722.248864864865,
+      "y": -5418.851189189189,
+      "heading": 2.3794461130028077,
+      "names": ["Harney Way", "Jamestown Ave"]
+    },
+    {
+      "t": "808f7f3c",
+      "emoji": "🚸",
+      "x": 4929.817127071823,
+      "y": -4475.574585635359,
+      "heading": -1.9451299428024806,
+      "names": ["Arelious Walker Dr", "Carroll Ave"]
+    },
+    {
+      "t": "808f7f44",
+      "emoji": "🚢",
+      "x": 6101.152789934355,
+      "y": -3626.7958971553608,
+      "heading": 2.5444159954971157,
+      "names": ["Kirkwood Ave", "Friedell St"]
+    },
+    {
+      "t": "808f7f5c",
+      "emoji": "🐦",
+      "x": 6498.667070600632,
+      "y": -3495.176290832455,
+      "heading": 2.5175696006130366,
+      "names": ["Coleman St", "Galvez Ave"]
+    },
+    {
+      "t": "808f7f6c",
+      "emoji": "🦪",
+      "x": 5824.017833698031,
+      "y": -3220.256126914661,
+      "heading": 2.5444159954971157,
+      "names": ["Innes Ave", "Arelious Walker Dr"]
+    },
+    {
+      "t": "808f7f74",
+      "emoji": "🪶",
+      "x": 5562.25363540569,
+      "y": -2202.136617492097,
+      "heading": -2.1948193797716535,
+      "names": ["Jennings St", "Cargo Way"]
+    },
+    {
+      "t": "808f7fa4",
+      "emoji": "🏗️",
+      "x": 4808.83881443299,
+      "y": -1205.1510824742268,
+      "heading": -3.0451188784072065,
+      "names": ["Marin St", "Michigan St"]
+    },
+    {
+      "t": "808f7fac",
+      "emoji": "🚚",
+      "x": 3783.536,
+      "y": -1559.1519999999998,
+      "heading": -2.214297435588181,
+      "names": ["Toland St", "Galvez Ave"]
+    },
+    {
+      "t": "808f7fb4",
+      "emoji": "🛣️",
+      "x": 3898.5199115044247,
+      "y": -482.9013274336283,
+      "heading": -1.6373644905707205,
+      "names": ["Watchman Way", "Missouri St"]
+    },
+    {
+      "t": "808f7fbc",
+      "emoji": "🐾",
+      "x": 4857.361243523316,
+      "y": -58.199274611399005,
+      "heading": -1.5063694873693432,
+      "names": ["Louisiana St", "21st St"]
+    },
+    {
+      "t": "808f7fc4",
+      "emoji": "🏀",
+      "x": 4731.433407079646,
+      "y": 1003.3988938053097,
+      "heading": -1.5042281630190728,
+      "names": ["Terry A Francois Blvd", "Warriors Way"]
+    },
+    {
+      "t": "808f7fcc",
+      "emoji": "🚂",
+      "x": 3889.3612435233163,
+      "y": 576.900725388601,
+      "heading": -3.0771658141642395,
+      "names": ["Texas St", "17th St"]
+    },
+    {
+      "t": "808f7fd4",
+      "emoji": "🛞",
+      "x": 3851.982522123894,
+      "y": 1619.4878318584072,
+      "heading": 3.0750244898139694,
+      "names": ["I-280 N Off Ramp", "I-280 S On Ramp", "5th St"]
+    },
+    {
+      "t": "808f7fdc",
+      "emoji": "⚾",
+      "x": 4568.202487046632,
+      "y": 1717.3614507772022,
+      "heading": -3.0771658141642395,
+      "names": ["Bridgeview Way", "Toni Stone Xing"]
+    }
+  ],
+  "skipped": [
+    { "t": "8085800c", "reason": "No signposted intersection" },
+    { "t": "80858014", "reason": "No signposted intersection" },
+    { "t": "8085801c", "reason": "No signposted intersection" },
+    { "t": "80858054", "reason": "No signposted intersection" },
+    { "t": "8085811c", "reason": "No signposted intersection" },
+    { "t": "80858124", "reason": "No signposted intersection" },
+    { "t": "808581b4", "reason": "No signposted intersection" },
+    { "t": "80858694", "reason": "No signposted intersection" },
+    { "t": "808586c4", "reason": "No signposted intersection" },
+    { "t": "808f78ac", "reason": "No signposted intersection" },
+    { "t": "808f78b4", "reason": "No signposted intersection" },
+    { "t": "808f7c1c", "reason": "No signposted intersection" },
+    { "t": "808f7c5c", "reason": "No signposted intersection" },
+    { "t": "808f7cfc", "reason": "No signposted intersection" },
+    { "t": "808f7d14", "reason": "No signposted intersection" },
+    { "t": "808f7ecc", "reason": "No signposted intersection" },
+    { "t": "808f7f4c", "reason": "No signposted intersection" },
+    { "t": "808f7f54", "reason": "No signposted intersection" },
+    { "t": "808f7f64", "reason": "No signposted intersection" },
+    { "t": "808f7f9c", "reason": "No signposted intersection" },
+    { "t": "8085869c", "reason": "No signposted intersection" },
+    { "t": "80858424", "reason": "No signposted intersection" },
+    { "t": "8085842c", "reason": "No signposted intersection" }
+  ]
+}
