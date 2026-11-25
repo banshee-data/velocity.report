@@ -4515,10 +4515,12 @@ baked surfaces on ordinary pavement, with zero airborne travel and no scrapes.
 
 The remaining negative-offset result is an unsupported isolated start on the
 north Pennsylvania Avenue fork at Dogpatch. That trial starts just inside the
-fork and measures start support. It cannot establish how the preceding ramp
-hands the car onto the fork. The updated fixed-line runs also recorded seven
-completed span drives with scenery scrapes. Three-lane sampling gives no
-coverage guarantee for the entire carriageway or every steering trajectory.
+fork and measures start support. A separate Chrome drive entered I-280 at
+Fifth Street, followed the Dogpatch off-ramp onto the north fork and reached
+Pennsylvania Avenue grounded, with zero airborne travel and no scrapes. It
+used the merge line from the preceding ramp. The updated fixed-line runs also
+recorded seven completed span drives with scenery scrapes. Three-lane sampling
+gives no coverage guarantee for the entire carriageway or every steering trajectory.
 
 **World and Data.** The April 2023 survey sampled game elevations of 51.83 m
 at the tunnel mouth and 46.94 m on the feeder. Within 1.35 m of their inferred
@@ -4528,6 +4530,10 @@ also recorded overhead returns at both sites. The classification removes two
 inferred tree rows from tile `80858024` and retains earlier tree reviews and
 the road contacts. The evidence describes the scanned volume and game
 clearance at these samples. [San Francisco LiDAR survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+A Chrome offline upgrade downloaded the one changed tile, reached 160 of
+160 available offline, retained the collected pickup and loaded the car on
+the ground in the upgraded map.
 
 To repeat the span audit, run the following command for each of `-0.75`, `0`
 and `0.75`. The Chrome regression is `island-east-southgate-offset` in
