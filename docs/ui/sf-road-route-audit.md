@@ -300,6 +300,18 @@ the 20 courses. The five remaining stops were Toll Plaza's emoji approach,
 the end of the selected I-280 contact, a stall on The Embarcadero and two
 tree impacts on Terry A Francois Boulevard and John F Kennedy Drive.
 
+The browser smoke checks both directions on 23rd Street from open
+street to the lower deck and back. It requires covered camera contact
+beneath I-280, a grounded crossing and an exterior view after the chase
+camera clears the last ramp. The two freeway runs above it must stay on
+their own decks and finish grounded.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  dogpatch-23rd-lower-{eastbound,westbound} \
+  i280-{northbound,southbound}-over-dogpatch-23rd
+```
+
 ## Rounded Toll Plaza approach
 
 The first Toll Plaza bake accepted a car that was already lined up with the

@@ -3383,6 +3383,14 @@ for (const [road, owners, forward, approach, departures] of [
     [[[3347, -4002.64, 21.416]], [[3496, -4050.3, 20.925]]],
   ],
   [
+    "dogpatch-23rd-lower",
+    ["808f7fb4"],
+    "eastbound",
+    8,
+    // The chase camera follows the car out from under the east entrance ramp.
+    [[[4324, -529.7, 6.6]], [[4150, -543.02, 15.95]]],
+  ],
+  [
     "dogpatch-twenty-second-under-i280",
     ["808f7fb4"],
     "westbound",
@@ -3410,6 +3418,23 @@ for (const [road, owners, forward, approach, departures] of [
       maxDurationMs: 60_000,
     };
   }
+}
+for (const [direction, road, start, finish] of [
+  ["northbound", "i280-north-south-dogpatch", 1420, 1545],
+  ["southbound", "i280-south-through-dogpatch", 85, 210],
+]) {
+  cases[`i280-${direction}-over-dogpatch-23rd`] = {
+    owners: ["808f7fb4", "808f7fac"],
+    roads: [road],
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 12,
+    speed: 17,
+    finishOnDeck: true,
+    finishDistance: finish,
+    maxAirborneMetres: 0,
+    maxDurationMs: 45_000,
+  };
 }
 for (const reverse of [false, true]) {
   const road = "jfk-drive-under-crossover";
