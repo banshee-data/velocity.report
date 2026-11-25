@@ -3733,7 +3733,7 @@ clipped approach paint while both Delancey portals stay in `8085807c`.
 **Physics and UI.** Both keyboard drives traversed the entire new contact
 with zero airborne travel within it, returned to the adjoining streets and
 finished grounded with the exterior camera. The northeast drive recorded
-4.4–4.5 m of brief airborne travel on the older terrain beyond the portal.
+4.4–7.0 m of brief airborne travel on the older terrain beyond the portal.
 It remained on Delancey and landed on the same street. Both Bryant viaduct
 drives also retained their upper surface and completed their street joins.
 

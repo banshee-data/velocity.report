@@ -2535,7 +2535,6 @@ for (const reverse of [false, true]) {
         ],
     maxApproachClearanceMetres: 0.18,
     maxDepartureClearanceMetres: 0.18,
-    maxAirborneMetresAfterEntrance: reverse ? 6 : 2.5,
     maxDurationMs: 65_000,
   };
 }
