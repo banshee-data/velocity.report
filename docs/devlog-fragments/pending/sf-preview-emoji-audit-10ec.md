@@ -1,0 +1,1 @@
+- Repeated the 20 emoji courses against the 160-tile preview and recorded the driving distance, terrain measurements and two unfinished courses in the [road audit](../../ui/sf-road-route-audit.md#repeating-the-emoji-courses-on-the-preview).

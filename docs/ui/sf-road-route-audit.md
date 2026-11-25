@@ -4182,6 +4182,31 @@ exit. The driver steered through the open left edge. The air card recorded
 1.3 seconds, and the car touched down on the Folsom Street terrain after
 dropping about 8.5 m. The car continued under manual control.
 
+### Repeating the emoji courses on the preview
+
+**Physics, Goals and Data.** The 120 Hz emoji-course driver repeated the
+20 pairs on the same preview. It retained the 23 mph street and 40 mph
+highway targets. The southbound I‑280 course included the new mainline
+section at the Alemany fork. The replay recorded each outcome and kept
+running after a blocked course.
+
+Eighteen courses collected both emojis. They and the two partial drives
+covered 48.03 km in 76 min 32 s of simulation. No driven sample met the
+0.5 m dip threshold over an eight-metre chord. Of 44 crossed tile seams,
+the largest single step was 10.7 cm on the Presidio course. The steepest
+driven course by p95 was US 101 to Bayview at 20.6%, including the street
+approach on Ordway Street.
+
+| Course                     | Stop in the 20-course run      | Follow-up                                                                                                                                                       |
+| -------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Southbound I‑280 city span | Entered the on-ramp at Alemany | The separate Chrome drive stayed grounded onto the street at Ellsworth. A later fixed-step guide cleared the exit by 20.1 m and stalled after repeated scrapes. |
+| Western Golden Gate Park   | Tree impact on MLK Jr Drive    | A 2.5 m lane adjustment to either side cleared the first tree. Later adjustments reached Stow Lake Drive, where the car hit another tree.                       |
+
+The span audit covers the contact on the packaged structures. These
+longer courses also depend on ground waypoints and their steering guides.
+
+- Course plan SHA-256 `5521cddbb5cadc6431a05115906f59ab470d51aeee0c13d7693504fde54cf99a`.
+
 ## Alexander Avenue northbound fork
 
 **World and Physics.** The northbound entrance and the straight city branch share a
