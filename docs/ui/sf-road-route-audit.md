@@ -3330,6 +3330,11 @@ provisional strips in the current pack.
 The 25 fixed-step emoji courses completed again over 70.46 km.
 Their driving telemetry matched the previous release, including
 the 6.1 cm largest tile seam and zero dips exceeding 0.5 m over 8 m.
+The Bay Bridge physics replay now shares the game's deck clearance
+for scenery contacts. It finished the complete westbound run through
+Fremont and back onto I-80 at Fourth Street in 321.24 s of game time.
+The eastbound run through the lower Yerba Buena bore finished in
+255.22 s.
 
 - Game manifest SHA-256 `4beb3c03f588b06661f88560fcb28c8b1ccd085b5565196af73e8daaee0bdfaf`.
 - Contact SHA-256 `46d4bcc3c11a4874dcb5e8b27077d36fe0629210c07d82a10824ff18cf7352a0`.
@@ -3339,4 +3344,6 @@ the 6.1 cm largest tile seam and zero dips exceeding 0.5 m over 8 m.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   northbound-i280-clears-remaining-cover northbound-i280-below-alemany-left-exit \
   island-east-lower-mainline island-east-eastbound-entry island-east-upper-mainline
+node tools/sf-drive/replay-city-drive.mjs yerba-buena-westbound
+node tools/sf-drive/replay-city-drive.mjs yerba-buena-eastbound
 ```
