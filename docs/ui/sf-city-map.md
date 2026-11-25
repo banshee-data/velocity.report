@@ -381,6 +381,26 @@ classification hashes. The revised game manifest is
 `640ae2240000e3e64894f1a41122201e0758b5593cff5640e25ce48d766c0a70`.
 Road contacts and quest placements carry forward with the new tile revision.
 
+For a subsequent road bake on the same reviewed tree source, run the step
+again with the reviewed release and the original unclassified tiles.
+
+```sh
+python3 tools/sf-drive/apply-tree-classification.py \
+  "$rebaked_game" "$reviewed_game" "$classified_game" \
+  --review-input "$original_game/tiles" --playable "$road_contacts"
+```
+
+Here `rebaked_game` is the output of `embed-road-layers.py`,
+`reviewed_game` contains the earlier classification receipt, and
+`original_game` supplies the tile bytes pinned by that receipt. The
+classification carries forward reviewed removals and keeps the road and
+terrain fields from the rebake. The optional `--playable` export must
+match the rebake's `playableSha256`. It supplies the exact row digests
+for any additional tree removals by the road bake. New, altered or
+reordered tree rows require a fresh classification. The output records
+the rebaked input and classified tile hashes and binds the existing
+quest placements to the new manifest.
+
 ### Inputs for a new game-tile revision
 
 1. Freeze the DataSF centreline and street geometry source versions, the 3DEP acquisition,
@@ -393,10 +413,10 @@ Road contacts and quest placements carry forward with the new tile revision.
    compatible joins with owner-tile references. Use a tunnel survey for interior geometry and
    clearance and evidence of the road below the 23rd Street shadow before joining that crossing.
 3. Rebuild the Gerardus overlay against the new pristine manifest hash. Re-run the game drive
-   baker and `embed-road-layers.py`, regenerate coverage and the quest route against the final
-   game manifest, and publish the bundle together. Exercise grade changes, delayed owner
-   loads, same-level recovery, each entrance and exit, and drives below the decks before
-   promoting additional structures to drivable.
+   baker and `embed-road-layers.py`. Apply or carry forward the tree review before regenerating
+   coverage and confirming the quest route against the final game manifest. Publish the bundle
+   together. Exercise grade changes, delayed owner loads, same-level recovery, each entrance
+   and exit, and drives below the decks before promoting additional structures to drivable.
 
 Traps on arrow-worker:
 
