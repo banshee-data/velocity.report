@@ -3302,3 +3302,41 @@ April 2023 survey observes 59.94 m. The new fit rises gently across
 that interval and retains the older Lyell Street terrain patch in
 the same tile. The smoke checks contact through the ramp joins and
 reports the airborne travel after entering the ramp separately.
+
+## Provisional overpass meshes
+
+The game retained nine provisional strips after their playable
+replacements were baked. The affected alignments run through Yerba
+Buena, the Essex merge in SoMa, and I-280 near Alemany and Dogpatch.
+The strips total 1.94 km. At each preview centre the released game
+also had an authored deck within 0.8 m in elevation. Some provisional
+profiles sampled the upper carriageway above the road named in the
+source inventory.
+
+On the northbound I-280 lower viaduct, the provisional mesh supplied
+a false ceiling for the chase camera. The baseline Chrome drive
+completed the section grounded at 14.17 m NAVD88, but kept the
+covered view at the finish. The drive over the revised tiles starts
+in genuine cover and returns to the exterior view on the same
+lower deck at the finish.
+
+The revised bake adds 11 profile references to eight playable
+surfaces. Seven tile files carry those updated references. The
+decoded comparison checks the full 280-surface network, the
+transitions, terrain, and the companion driving routes against the
+previous release. The game renderer can now suppress all 249
+provisional strips in the current pack.
+
+The 25 fixed-step emoji courses completed again over 70.46 km.
+Their driving telemetry matched the previous release, including
+the 6.1 cm largest tile seam and zero dips exceeding 0.5 m over 8 m.
+
+- Game manifest SHA-256 `4beb3c03f588b06661f88560fcb28c8b1ccd085b5565196af73e8daaee0bdfaf`.
+- Contact SHA-256 `46d4bcc3c11a4874dcb5e8b27077d36fe0629210c07d82a10824ff18cf7352a0`.
+- [Gerardus profile associations and source checks](https://github.com/banshee-data/gerardus/pull/179).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  northbound-i280-clears-remaining-cover northbound-i280-below-alemany-left-exit \
+  island-east-lower-mainline island-east-eastbound-entry island-east-upper-mainline
+```

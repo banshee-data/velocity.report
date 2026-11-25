@@ -16,7 +16,11 @@ import {
   contactStep,
   groundAtWorld,
 } from "../sf-drive-core.js";
-import { coveredRoadBlend, driveCameraPose } from "../sf-drive-camera.js";
+import {
+  coveredRoadBlend,
+  driveCameraPose,
+  overheadDeckBlend,
+} from "../sf-drive-camera.js";
 import {
   highwayRailSegments,
   leaveRoadSide,
@@ -1188,16 +1192,12 @@ test("Central Freeway joins the lower Bay Bridge through contiguous eastbound co
     );
   }
   const merge = chain.at(-2);
-  const upper = tiles
-    .flatMap(({ raisedRoads }) => raisedRoads ?? [])
-    .find(({ id }) => id.startsWith("overpass/19365000/"));
-  const levelGap = upper.points.at(-1)[2] - merge.points.at(-1)[2];
+  const upper = buildBakedRoadContact(
+    roads.get("sf-contact/i80-westbound-upper-soma"),
+  ).surface;
+  const [x, y, lowerZ] = merge.points[10];
+  const levelGap = upper.heightAt(x, y) - lowerZ;
   assert.ok(levelGap > 8 && levelGap < 10);
-  assert.ok(
-    upper.profiles.every(
-      (profile) => !roadBake.playableReplaces.includes(profile),
-    ),
-  );
 });
 
 test("Yerba Buena connects continuously through the upper tunnel to the original bridge drive", () => {
@@ -1524,6 +1524,60 @@ test("bundled road runs have identical geometry across tile owners", () => {
   for (const id of reviewedRoads) assert.ok(runs.has(id), id);
   assert.equal(runs.size, roadBake.runs + reviewedRoads.size);
   assert.deepEqual(seamKinds, new Set(["bridge", "overpass"]));
+});
+
+test("the reviewed decks replace the provisional spans and clear the lower I-280 camera", () => {
+  const { tiles, roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const replaced = new Set(roadBake.playableReplaces);
+  const previews = new Map();
+  const roads = new Map();
+  for (const { t } of tiles) {
+    const tile = JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`)));
+    for (const preview of tile.raisedRoads ?? [])
+      previews.set(preview.id, preview);
+    for (const road of tile.playableRoads ?? []) roads.set(road.id, road);
+  }
+  const decks = deckClearanceIndex();
+  for (const road of roads.values()) {
+    if (road.kind === "tunnel") continue;
+    const { surface } = buildBakedRoadContact(road);
+    const geometry = contactGeometry(surface.contact, false);
+    decks.add(geometry);
+    geometry.dispose();
+  }
+  for (const run of [
+    "14214000/forward/0",
+    "14241000/forward/0",
+    "14244000/forward/0",
+    "14245000/forward/0",
+    "19365000/forward/0",
+    "19304000/forward/0",
+    "19304000/forward/1",
+    "19337000/forward/0",
+    "19342000/forward/0",
+  ]) {
+    const preview = previews.get(`overpass/${run}`);
+    assert.ok(preview, run);
+    assert.equal(buildRaisedRoad(preview, replaced), null, run);
+    for (const [x, y, z] of preview.points) {
+      assert.ok(Math.abs(decks.ceiling(x, y, z - 1.2) - z) < 0.8, run);
+    }
+  }
+  const { surface } = buildBakedRoadContact(
+    roads.get("sf-contact/i280-north-lower-viaduct"),
+  );
+  const car = { x: 3675.605, y: -2069.69, heading: 0.9486 };
+  const z = surface.heightAt(car.x, car.y);
+  assert.ok(Number.isFinite(z));
+  assert.equal(overheadDeckBlend(car, z, surface.heightAt, decks.ceiling), 0);
+  const obsolete = buildRaisedRoad(
+    previews.get("overpass/19304000/forward/1"),
+    new Set(),
+  );
+  decks.add(obsolete.geometry);
+  obsolete.geometry.dispose();
+  obsolete.material.dispose();
+  assert.ok(overheadDeckBlend(car, z, surface.heightAt, decks.ceiling) > 0.7);
 });
 
 test("the rebake keeps tunnel alignments off the aerial ground while retaining Tunnel Avenue", () => {
