@@ -363,6 +363,24 @@ The [20-course route audit](sf-road-route-audit.md) records the playable
 approaches, contact gaps, wrong-level highway reproduction and grade review sites
 on this release.
 
+### Yerba Buena tree clearance
+
+The approaches on tile `80858024` had 72 inferred trunks overlapping a
+baked road level. Their old inferred heights reached 113 m. The review used
+201 April 2023 USGS 3DEP node files and a Street Tree List query over the
+corridor. For each removed row, the survey had at least 40 returns within
+35 cm of the fitted pavement in a 1.2 m radius, and an empty trunk volume
+0.4–2.6 m above that level. The deck also lay at least 1 m above the tree's
+inferred base. Those checks identified 28 unsupported trunks. The bake
+preserves the other 44 reviewed rows. [USGS acquisition receipt](https://www.fisheries.noaa.gov/inport/item/73386) · [Street Tree List](https://data.sfgov.org/d/tkzw-k3nq)
+
+The [tree classification bake step](../../tools/sf-drive/apply-tree-classification.py)
+applies exact-row patches to the pinned game release. The manifest records
+the parent tile, new tile, survey index, source nodes, tree inventory and
+classification hashes. The revised game manifest is
+`ee83b87cc78cc4690968af0a9b25df0c01ed7f6fc491395be2707d710fbafb2c`.
+Road contacts and quest placements carry forward with the new tile revision.
+
 ### Inputs for a new game-tile revision
 
 1. Freeze the DataSF centreline and street geometry source versions, the 3DEP acquisition,

@@ -38,3 +38,17 @@ test("a road trims only its footprint with a closed cap below the sloping deck",
   remove();
   assert.equal(carveTree(model, matrix, 0, index), null);
 });
+
+test("an at-grade approach does not carve a crown or shorten its trunk collision", () => {
+  const index = deckClearanceIndex();
+  const road = new BufferGeometry();
+  road.setAttribute(
+    "position",
+    new Float32BufferAttribute([-5, 0.28, -5, 2, 0.35, -5, 2, 0.45, 5], 3),
+  );
+  index.add(road, "ground");
+  const tree = new BoxGeometry(3, 4, 3);
+  const matrix = new Matrix4().makeTranslation(0, 2, 0);
+  assert.equal(carveTree(tree, matrix, 0, index), null);
+  assert.equal(index.ceiling(0, 0, 0), Infinity);
+});

@@ -23,8 +23,7 @@ import {
 } from "../sf-drive-camera.js";
 import {
   highwayRailSegments,
-  leaveRoadSide,
-  roadBoundary,
+  leaveRoadSurface,
   strikeHighwayRail,
 } from "../sf-highway-edge.js";
 import { driveThroughRoadPortal } from "../sf-road-portal.js";
@@ -39,6 +38,27 @@ import { tunnelMesh } from "../sf-tunnel-mesh.js";
 const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+test("the Yerba Buena bake records its surveyed tree clearance and keeps the road network", () => {
+  const manifestBytes = file("tiles/manifest.json");
+  const manifest = JSON.parse(manifestBytes);
+  const route = JSON.parse(file("quest-route.json"));
+  const token = "80858024";
+  const release = manifest.roadBake.treeClassification;
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const receipt = release.tiles[token];
+  assert.equal(receipt.removed, 28);
+  assert.equal(receipt.sha256, digest(raw));
+  assert.equal(route.manifestSha256, digest(manifestBytes));
+  assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
+  assert.ok(
+    tile.playableRoads.some(({ id }) => id === "yerba-buena-upper-tunnel"),
+  );
+  assert.ok(!tile.tr.some(([x, y]) => x === 2417 && y === 1286));
+  // This nearby row retained returns within the vehicle-height band.
+  assert.ok(tile.tr.some(([x, y, h]) => x === 1497 && y === 1206 && h === 73));
+});
 
 test("local bridges carry the car above the ground grid and meet street pavement", () => {
   const specifications = [
@@ -1127,7 +1147,6 @@ test("tiled right-only guard rail bounces on the right and leaves the left edge 
     railSides: ["right"],
   };
   const { surface } = buildBakedRoadContact(road);
-  surface.boundary = roadBoundary(surface.contact);
   surface.railSegments = highwayRailSegments(surface);
   assert.ok(surface.railSegments.length);
   assert.ok(surface.railSegments.every(({ a, b }) => a[1] < 0 && b[1] < 0));
@@ -1139,7 +1158,7 @@ test("tiled right-only guard rail bounces on the right and leaves the left edge 
     "bounce",
   );
   assert.equal(
-    leaveRoadSide({ ...left, y: 2.99, grounded: true }, {}, 1 / 120, surface)
+    leaveRoadSurface({ ...left, y: 2.99, grounded: true }, {}, 1 / 120, surface)
       .leavingRoad,
     true,
   );

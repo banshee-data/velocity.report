@@ -140,10 +140,22 @@ re-run contacts against the currently loaded map.
 Inputs are released on impact, recovery and lost focus. The contact dimensions,
 friction, restitution and thresholds are gameplay approximations. Kerbs and tree crowns
 do not trigger city crashes.
-The car waits at a missing ground surface or an unloaded tile boundary. Declared joins accept
-wheel contact across the full terminal width. A broken trunk absorbs fracture work and takes
-momentum from the car at its contact point, including tangential friction and yaw torque.
-Street and deck footprints cut intersecting tree geometry, leaving closed faces along the cut.
+The car waits at an unloaded tile boundary with its last supported pose and velocity.
+Declared joins accept wheel contact across the full terminal width. At an open elevated edge,
+the car straddles the lip until its centre leaves contact, then carries its road-plane velocity
+into flight. Guard rails still resolve the contact as a scrape, rebound or crash.
+
+Only bridge and ramp decks cut intersecting tree geometry. Ordinary terrain roads leave trees
+intact. A broken trunk absorbs fracture work and takes momentum from the car at its contact point,
+including tangential friction and yaw torque. The renderer animates the trunk and crown as
+instances and queues any deck cut for their settled pose. The crash solver records its trajectory
+in short frame-budgeted slices to leave the browser time to respond.
+
+**World and UI.** Each playable tunnel derives its visible entrances and exits from the baked
+covered range and cross-sections. The terrain mask opens the approach and preserves the higher
+terrain over the bore. When two covered ends share a cross-section at the same elevation, they
+remain one continuous passage through the seam. The road contact and its routing continue to use
+the baked surfaces.
 
 Replays use 0.99× speed, with 0.5× from 300 ms before to 300 ms after a crash
 impact. Airtime replays include up to two seconds before take-off, use the same
