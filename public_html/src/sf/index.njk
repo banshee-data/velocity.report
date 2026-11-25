@@ -390,12 +390,17 @@ eleventyExcludeFromCollections: true
   menu.addEventListener("close", () => menuButton.setAttribute("aria-expanded", "false"));
   const downloadTiles = $("downloadTiles"), downloadStatus = $("tileDownloadStatus");
   let downloading = false;
+  let offlineRegistration;
   function updateDownloadAvailability() {
     const ready = !!navigator.serviceWorker?.controller;
     downloadTiles.disabled = downloading || !ready;
-    if (!downloading) downloadStatus.textContent = ready
-      ? "Save the entire city in this browser for offline play."
-      : "Offline storage is unavailable in this browser.";
+    if (downloading) return;
+    if (ready && offlineRegistration?.waiting)
+      downloadStatus.textContent = "The new offline map is ready. Close all game tabs to switch.";
+    else if (ready)
+      downloadStatus.textContent = "Save the entire city in this browser for offline play.";
+    else
+      downloadStatus.textContent = "Offline storage is unavailable in this browser.";
   }
   downloadTiles.addEventListener("click", () => {
     const worker = navigator.serviceWorker?.controller;
@@ -445,7 +450,12 @@ eleventyExcludeFromCollections: true
   navigator.serviceWorker?.addEventListener("controllerchange", updateDownloadAvailability);
   if ("serviceWorker" in navigator) {
     try {
-      await navigator.serviceWorker.register("{{ '/sf/offline.js' | url }}");
+      offlineRegistration = await navigator.serviceWorker.register("{{ '/sf/offline.js' | url }}");
+      const watchInstallation = () => {
+        offlineRegistration.installing?.addEventListener("statechange", updateDownloadAvailability);
+      };
+      offlineRegistration.addEventListener("updatefound", watchInstallation);
+      watchInstallation();
       if (!navigator.serviceWorker.controller) {
         await new Promise((resolve) => {
           const timer = setTimeout(resolve, 8000);

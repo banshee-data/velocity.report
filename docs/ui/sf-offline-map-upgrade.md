@@ -1,7 +1,8 @@
 # SF offline map upgrades
 
-This investigation checks a completed offline download across two pinned map releases in
-real Chromium. It separates cached map availability from saved emoji and checkpoint state.
+This investigation checks a completed offline download across pinned map releases in
+real Chromium. It records the earlier failure and retests the replacement worker with
+the combined Vista Point bake.
 
 ## Scope and provenance
 
@@ -27,9 +28,9 @@ uses adjacent map releases to avoid conflating progress identity with cache repl
 
 ## Method
 
-Build both pinned revisions with `make build-docs`. Run the checked-in
-[`smoke-offline-upgrade.cjs`](../../tools/sf-drive/smoke-offline-upgrade.cjs) with Playwright
-on `NODE_PATH` and Chromium available:
+For the original comparison, both pinned revisions were built with `make build-docs`.
+The run used [`smoke-offline-upgrade.cjs`](../../tools/sf-drive/smoke-offline-upgrade.cjs)
+with Playwright on `NODE_PATH` and Chromium available.
 
 ```sh
 CHROMIUM_PATH=/usr/bin/chromium node tools/sf-drive/smoke-offline-upgrade.cjs \
@@ -54,9 +55,9 @@ It tests tile fetches from that old document, a fresh offline page, another offl
 and the same cases after using the new page's download button. It reads Cache Storage and
 localStorage as evidence; it does not inject a worker or mock those APIs.
 
-The default mode characterises the present failure. Add `--require-continuity` to require
-that a tile in the completed old download remains fetchable after activation. That mode
-is intended to fail on the pinned releases and become the acceptance guard for a remedy.
+The original harness offered `--require-continuity` to turn the observed failure into a
+test failure. The current harness checks continuity by default on a candidate with the
+replacement worker.
 
 ## Results
 
@@ -169,4 +170,37 @@ caches must change alongside the selected lifecycle policy.
   devlog fragments, and the no-results guard passed.
 
 Raw logs stay outside Git in the cloud workspace. The reusable harness and this authored
-summary are the reviewable evidence. No production code was changed, merged, or deployed.
+summary are the reviewable evidence for the original investigation.
+
+## Verified upgrade on the Vista Point bake
+
+**Data and World.** The build records a checksum of each tile's decoded payload.
+The new worker copies older cached tiles only when they match the new map. It
+fetches and validates a replacement for each changed tile that was downloaded
+earlier. A failed fetch, checksum or cache write stops installation and leaves the
+earlier map available. A tile outside the earlier download can still be streamed or
+downloaded later.
+
+**UI and Goals.** The worker waits for existing game tabs to close before taking
+over. An open game tab keeps receiving its own cached page and map. The download
+panel can show when the replacement is ready. The shell now includes
+`sf-tunnel-portals.js`, which is required to start the cached game.
+
+Chromium 157.0.8103.80 compared the public Hester build and the local Vista Point
+build. It collected an emoji by driving on the earlier build. With the older tab
+still open and offline, the browser verified that all 22 changed tile URLs
+returned the earlier payloads. After closing that tab it verified all 160 new
+tile payloads offline. The upgrade carried forward 138 tiles and made 22 tile
+requests. A fresh offline page and reload both finished startup grounded at
+the saved checkpoint with 1 of 137 emojis collected. No page errors were
+reported. Two complete caches remained in the test profile.
+
+- Earlier manifest SHA-256 `eddfbe36c207b3dfb69cb502cb8aea0073ca3b28e37ff35db52f1f4f64875655`.
+- Candidate manifest SHA-256 `d2b4d3ec668aa0118e2dda60cda205f3cf6ee0e23441db53af6cad49becf3e6b`.
+
+```sh
+node tools/sf-drive/smoke-offline-upgrade.cjs /path/to/old/site /path/to/new/site
+```
+
+The test changes the local game origin from one built site to the other.
+Storage use and browser eviction were outside the test.

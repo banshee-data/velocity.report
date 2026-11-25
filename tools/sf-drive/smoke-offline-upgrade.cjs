@@ -1,10 +1,11 @@
 // Two unmodified built sites, one localhost origin, one disposable Chromium profile.
 // Usage: node tools/sf-drive/smoke-offline-upgrade.cjs OLD_SITE NEW_SITE
-// Add --require-continuity to turn the observed upgrade loss into a failing guard.
 const assert = require("node:assert/strict");
+const { createHash } = require("node:crypto");
 const { createServer } = require("node:http");
 const { readFileSync, statSync } = require("node:fs");
 const path = require("node:path");
+const { gunzipSync } = require("node:zlib");
 const { chromium } = require("playwright");
 const { confirmManualTakeover } = require("./manual-takeover.cjs");
 
@@ -99,18 +100,58 @@ async function download(page) {
   );
   return page.locator("#tileDownloadStatus").textContent();
 }
-async function probe(page, token) {
-  return page.evaluate(async (token) => {
-    try {
-      const response = await fetch(`/sf/tiles/${token}.json.gz`);
-      return {
-        ok: response.ok,
-        bytes: (await response.arrayBuffer()).byteLength,
-      };
-    } catch (error) {
-      return { ok: false, error: error.message };
+const payloadHash = (root, token) =>
+  createHash("sha256")
+    .update(
+      gunzipSync(
+        readFileSync(path.join(root, "sf", "tiles", `${token}.json.gz`)),
+      ),
+    )
+    .digest("hex");
+const tileHashes = new Map(
+  manifests[1].tiles.map(({ t }) => [t, payloadHash(roots[1], t)]),
+);
+const previousTokens = new Set(manifests[0].tiles.map(({ t }) => t));
+const changed = [...tileHashes]
+  .filter(
+    ([token, hash]) =>
+      previousTokens.has(token) && payloadHash(roots[0], token) !== hash,
+  )
+  .map(([token]) => token);
+assert.ok(
+  changed.length,
+  "Use an upgrade that changes at least one existing tile",
+);
+
+async function cachedHashes(page, tokens) {
+  return page.evaluate(async (tokens) => {
+    const hashes = {};
+    let next = 0;
+    async function check() {
+      while (next < tokens.length) {
+        const token = tokens[next++];
+        const response = await fetch(`/sf/tiles/${token}.json.gz`);
+        if (!response.ok)
+          throw new Error(`${token} returned ${response.status}`);
+        const raw = await response.arrayBuffer();
+        const head = new Uint8Array(raw);
+        const json =
+          head[0] === 0x1f && head[1] === 0x8b
+            ? await new Response(
+                new Blob([raw])
+                  .stream()
+                  .pipeThrough(new DecompressionStream("gzip")),
+              ).arrayBuffer()
+            : raw;
+        const hash = await crypto.subtle.digest("SHA-256", json);
+        hashes[token] = Array.from(new Uint8Array(hash), (byte) =>
+          byte.toString(16).padStart(2, "0"),
+        ).join("");
+      }
     }
-  }, token);
+    await Promise.all(Array.from({ length: 8 }, check));
+    return hashes;
+  }, tokens);
 }
 
 (async () => {
@@ -120,35 +161,22 @@ async function probe(page, token) {
     executablePath: process.env.CHROMIUM_PATH,
     args: ["--enable-unsafe-swiftshader"],
   });
-  const evidence = { chromium: browser.version(), versions };
-  const emit = (phase, data) => {
-    evidence[phase] = data;
-    console.log(JSON.stringify({ phase, ...data }));
-  };
   try {
     const context = await browser.newContext({
       viewport: { width: 800, height: 560 },
     });
-    context.setDefaultTimeout(90_000);
-    const old = await context.newPage();
+    context.setDefaultTimeout(30_000);
     const errors = [];
-    old.on("console", (msg) => {
-      if (/INSTALLING|WORKERSTATE/.test(msg.text())) console.log(msg.text());
-    });
     context.on("page", (page) =>
       page.on("pageerror", (error) => errors.push(error.message)),
     );
-    old.on("pageerror", (error) => errors.push(error.message));
+    const old = await context.newPage();
     await old.goto(origin + "/sf/?at=embarcadero");
     await grounded(old);
-    emit("oldReady", { state: await state(old) });
     await old.waitForFunction(() => navigator.serviceWorker.controller);
-    emit("oldDownload", {
-      message: await download(old),
-      caches: await inventory(old),
-    });
+    assert.match(await download(old), /^All /);
     await old.evaluate(
-      ({ key, target }) =>
+      ({ key, target }) => {
         localStorage.setItem(
           key,
           JSON.stringify({
@@ -161,10 +189,10 @@ async function probe(page, token) {
               heading: target.heading,
             },
           }),
-        ),
+        );
+      },
       { key, target },
     );
-    await context.setOffline(true);
     await old.reload();
     await grounded(old);
     await confirmManualTakeover(old);
@@ -178,174 +206,105 @@ async function probe(page, token) {
     } finally {
       await old.keyboard.up("ArrowUp");
     }
-    await old.reload();
-    await grounded(old);
-    assert.match(await old.locator("#progress").textContent(), /^1\//);
     const checkpointBefore = (await saved(old)).checkpoint;
-    emit("oldOfflineReload", {
-      state: await state(old),
-      saved: await saved(old),
-    });
-    // Keep this fully loaded old document open while its controller is replaced.
-    await old.locator("#menuBtn").click();
-    await context.setOffline(false);
+
+    // Keep the old game tab open while its replacement prepares the new tile cache.
     revision = 1;
     await old.evaluate(async () => {
-      const changed = new Promise((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error("Worker activation timed out")),
-          60000,
+      const registration = await navigator.serviceWorker.getRegistration();
+      const prepared = new Promise((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Candidate worker installation timed out")),
+          30_000,
         );
-        navigator.serviceWorker.addEventListener(
-          "controllerchange",
+        registration.addEventListener(
+          "updatefound",
           () => {
-            clearTimeout(timer);
-            resolve();
+            const worker = registration.installing;
+            worker.addEventListener("statechange", () => {
+              if (!["installed", "redundant"].includes(worker.state)) return;
+              clearTimeout(timeout);
+              if (worker.state === "installed") resolve();
+              else reject(new Error("Candidate worker installation failed"));
+            });
           },
           { once: true },
         );
       });
-      const registration = await navigator.serviceWorker.getRegistration();
-      registration.addEventListener("updatefound", () => {
-        const worker = registration.installing;
-        console.log("INSTALLING", worker.state);
-        worker.addEventListener("statechange", () =>
-          console.log("WORKERSTATE", worker.state),
-        );
-      });
       await registration.update();
-      await changed;
+      await prepared;
     });
+    const status = await inventory(old);
+    assert.equal(
+      status.find(({ name }) => name === `sf-tiles-/sf/-${versions[1]}`)?.count,
+      [...tileHashes.keys()].filter((token) => previousTokens.has(token))
+        .length,
+    );
     await context.setOffline(true);
-    const postActivationCaches = await inventory(old);
-    const newCacheName = `sf-tiles-/sf/-${versions[1]}`;
-    const absent = await old.evaluate(
-      async ({ name, tokens }) => {
-        const cache = await caches.open(name);
-        for (const token of tokens)
-          if (
-            !(await cache.match(
-              new URL(`/sf/tiles/${token}.json.gz`, location.href),
-            ))
-          )
-            return token;
-      },
-      { name: newCacheName, tokens: manifests[0].tiles.map((t) => t.t) },
-    );
-    assert.ok(absent);
-    const oldCacheHasTile = await old.evaluate(
-      async ({ name, token }) =>
-        !!(await (
-          await caches.open(name)
-        ).match(new URL(`/sf/tiles/${token}.json.gz`, location.href))),
-      { name: `sf-tiles-/sf/-${versions[0]}`, token: absent },
-    );
-    assert.equal(oldCacheHasTile, true);
-    const missingResponse = await probe(old, absent);
-    emit("oldTabAfterUpgrade", {
-      state: await state(old),
-      caches: postActivationCaches,
-      probeToken: absent,
-      oldCacheHasTile,
-      response: missingResponse,
-      saved: await saved(old),
-    });
-    const fresh = await context.newPage();
-    const tileFailures = [];
-    fresh.on("requestfailed", (request) => {
-      if (request.url().endsWith(".json.gz")) tileFailures.push(request.url());
-    });
-    await fresh.goto(origin + "/sf/?at=embarcadero");
-    // Wait for observable tile failures, not a fixed rendering delay.
-    await fresh.waitForFunction(() =>
-      document.querySelector("#progress")?.textContent.startsWith("1/"),
-    );
-    await fresh.waitForFunction(
-      () => document.querySelector("#drive")?.dataset.contact !== undefined,
-    );
-    emit("freshOfflineBeforeRedownload", {
-      state: await state(fresh),
-      saved: await saved(fresh),
-      tileFailures: tileFailures.length,
-      response: await probe(fresh, absent),
-    });
-    assert.ok((await saved(fresh)).collected.includes(target.t));
-    assert.deepEqual((await saved(fresh)).checkpoint, checkpointBefore);
-    // Reload once more offline to exclude a warm document as the explanation.
-    await fresh.reload();
-    await fresh.waitForFunction(() =>
-      document.querySelector("#progress")?.textContent.startsWith("1/"),
-    );
-    emit("freshOfflineSecondReload", {
-      state: await state(fresh),
-      saved: await saved(fresh),
-    });
+    const before = await cachedHashes(old, changed);
+    for (const token of changed)
+      assert.equal(before[token], payloadHash(roots[0], token), token);
     await context.setOffline(false);
-    await fresh.reload();
-    await grounded(fresh);
-    emit("newDownload", {
-      message: await download(fresh),
-      caches: await inventory(fresh),
+
+    // This page is outside the game worker scope, so it can observe activation
+    // without keeping the outgoing worker alive.
+    const monitor = await context.newPage();
+    await monitor.goto(origin + "/rpi.json");
+    await monitor.evaluate(async () => {
+      const { waiting } = await navigator.serviceWorker.getRegistration("/sf/");
+      if (!waiting)
+        throw new Error("The candidate did not wait for the old game tab");
+      window.mapActivation = new Promise((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Candidate worker activation timed out")),
+          30_000,
+        );
+        waiting.addEventListener("statechange", () => {
+          if (!["activated", "redundant"].includes(waiting.state)) return;
+          clearTimeout(timeout);
+          if (waiting.state === "activated") resolve();
+          else reject(new Error("Candidate worker activation failed"));
+        });
+      });
     });
+    await old.close();
+    await monitor.evaluate(() => window.mapActivation);
     await context.setOffline(true);
-    await fresh.reload();
+    const fresh = await context.newPage();
+    await fresh.goto(origin + "/sf/?at=embarcadero");
     await grounded(fresh);
     assert.match(await fresh.locator("#progress").textContent(), /^1\//);
-    const after = await state(fresh);
-    assert.ok(
-      Math.hypot(
-        Number(after.east) - checkpointBefore.x,
-        Number(after.north) - checkpointBefore.y,
-      ) < 2,
-      "Restored car remains near the saved checkpoint",
+    assert.deepEqual((await saved(fresh)).checkpoint, checkpointBefore);
+    const copied = [...tileHashes.keys()].filter((token) =>
+      previousTokens.has(token),
     );
-    const newResponse = await probe(fresh, absent);
-    assert.equal(newResponse.ok, true);
-    emit("freshOfflineAfterRedownload", {
-      state: after,
-      saved: await saved(fresh),
-      response: newResponse,
-      caches: await inventory(fresh),
-    });
-    emit("oldTabAfterRedownload", {
-      state: await state(old),
-      response: await probe(old, absent),
-    });
+    const received = await cachedHashes(fresh, copied);
+    for (const token of copied)
+      assert.equal(received[token], tileHashes.get(token), token);
+
+    await fresh.reload();
+    await grounded(fresh);
+    assert.ok((await saved(fresh)).collected.includes(target.t));
+    assert.deepEqual((await saved(fresh)).checkpoint, checkpointBefore);
+    const requested = requests
+      .filter(
+        ({ revision, pathname }) =>
+          revision === 1 && pathname.endsWith(".json.gz"),
+      )
+      .map(({ pathname }) => path.basename(pathname, ".json.gz"));
+    assert.deepEqual(requested.sort(), changed.sort());
     assert.deepEqual(errors, []);
-    const finalCaches = await inventory(fresh);
-    assert.equal(
-      finalCaches.filter((c) => c.name.startsWith("sf-tiles-")).length,
-      2,
+    console.log(
+      JSON.stringify({
+        chromium: browser.version(),
+        versions,
+        tilesReadyOffline: copied.length,
+        fetchedChangedTiles: changed.length,
+        point: await state(fresh),
+        caches: await inventory(fresh),
+        pageErrors: errors,
+      }),
     );
-    assert.ok(
-      finalCaches
-        .filter((c) => c.name.startsWith("sf-tiles-"))
-        .every((c) => c.count === manifests[0].tiles.length),
-    );
-    emit("summary", {
-      chromium: evidence.chromium,
-      versions,
-      continuity: missingResponse.ok,
-      retainedTileCaches: 2,
-      oldTileCount: manifests[0].tiles.length,
-      newTileCount: manifests[1].tiles.length,
-      pageErrors: errors,
-      networkTileRequests: requests.filter((r) =>
-        r.pathname.endsWith(".json.gz"),
-      ).length,
-    });
-    if (process.argv.includes("--require-continuity"))
-      assert.equal(
-        missingResponse.ok,
-        true,
-        "A completed offline download stopped serving tiles after worker activation",
-      );
-    else
-      assert.equal(
-        missingResponse.ok,
-        false,
-        "Known failure changed; review the expectations and enable the continuity guard",
-      );
   } finally {
     await browser.close();
   }

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { gzipSync } from "node:zlib";
 
 const scope = "https://example.test/sf/";
 const tokens = Array.from({ length: 12 }, (_, i) => String(i).padStart(8, "0"));
@@ -14,12 +16,14 @@ const worker = readFileSync(
   .replace("{{ (modulesBase + '/js/') | url }}", "/modules/test/js/")
   .replace("{{ sfTileVersion }}", "test")
   .replace("{{ sfDownloadAssets | safe }}", "[]");
+const workerWithHashes = (entries = {}) =>
+  worker.replace("{{ sfTileHashes | safe }}", JSON.stringify(entries));
 
 function fixture({ bodyError, limit = Infinity } = {}) {
   const requests = [];
   const saved = new Set([tokens.at(-1)]);
   let onMessage;
-  runInNewContext(worker, {
+  runInNewContext(workerWithHashes(), {
     URL,
     AbortSignal,
     self: {
@@ -148,4 +152,84 @@ test("a real cache quota error stops new transfers and retains cached tiles for 
     storageError: false,
   });
   assert.deepEqual([...requests].sort(), missing);
+});
+
+test("a map upgrade reuses matching offline tiles and fetches only changed downloaded tiles", async () => {
+  const [same, changed, stale, untouched] = tokens;
+  const published = {
+    [same]: '{"road":"retained"}',
+    [changed]: '{"road":"new join"}',
+    [stale]: '{"road":"replacement"}',
+    [untouched]: '{"road":"new coverage"}',
+  };
+  const hashes = Object.fromEntries(
+    Object.entries(published).map(([token, json]) => [
+      token,
+      createHash("sha256").update(json).digest("hex"),
+    ]),
+  );
+  const stored = new Map();
+  const older = new Map([
+    [same, new Response(gzipSync(published[same]))],
+    [changed, new Response('{"road":"old join"}')],
+    [stale, new Response('{"road":"old pavement"}')],
+  ]);
+  const tokenOf = (url) => url.pathname.split("/").at(-1).slice(0, 8);
+  const requests = [];
+  let install;
+  runInNewContext(workerWithHashes(hashes), {
+    AbortSignal,
+    Blob,
+    DecompressionStream,
+    Request,
+    Response,
+    URL,
+    crypto: globalThis.crypto,
+    self: {
+      registration: { scope },
+      addEventListener(type, handler) {
+        if (type === "install") install = handler;
+      },
+    },
+    caches: {
+      async keys() {
+        return [
+          "sf-tiles-/sf/-older",
+          "sf-tiles-/other/-ignored",
+          "sf-tiles-/sf/-test",
+        ];
+      },
+      async open(name) {
+        if (name.startsWith("sf-shell-")) return { async addAll() {} };
+        const revision = name.endsWith("-test") ? stored : older;
+        return {
+          async match(url) {
+            return revision.get(tokenOf(url))?.clone();
+          },
+          async put(url, response) {
+            revision.set(tokenOf(url), response);
+          },
+        };
+      },
+    },
+    async fetch(url, options) {
+      const token = tokenOf(url);
+      assert.equal(options.cache, "reload");
+      requests.push(token);
+      return new Response(
+        token === stale ? "stale network response" : published[token],
+      );
+    },
+  });
+  let done;
+  install({
+    waitUntil(promise) {
+      done = promise;
+    },
+  });
+  await assert.rejects(done, /offline download could not be carried forward/);
+  assert.deepEqual([...requests].sort(), [changed, stale]);
+  assert.deepEqual([...stored.keys()].sort(), [same, changed]);
+  assert.equal(await stored.get(changed).text(), published[changed]);
+  assert.equal(await older.get(changed).text(), '{"road":"old join"}');
 });

@@ -1,0 +1,1 @@
+- Preserved verified [offline SF tile downloads across a road bake](../../ui/sf-offline-map-upgrade.md#verified-upgrade-on-the-vista-point-bake), kept the old worker active while its game tabs were open, and included the tunnel portal module in the cached game.

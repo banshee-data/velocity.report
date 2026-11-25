@@ -46,6 +46,10 @@ test("game download fallback counts compressed renderer files rather than their 
     entries.some((e) => e.url === "./sf-download-size.js"),
     "include the accounting module itself",
   );
+  assert.ok(
+    entries.some((e) => e.url === "./sf-tunnel-portals.js"),
+    "the game imports its tunnel portal module when it starts offline",
+  );
 });
 
 test("encoded response bodies replace estimates, excluding headers and expanded bytes", () => {

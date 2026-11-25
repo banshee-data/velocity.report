@@ -419,6 +419,8 @@ Cache Storage. Use **Download all tiles** under **City coverage** in the menu an
 for the completion message to save the whole city for offline play. If the download is
 interrupted, try again and the game will reuse saved tiles. Return to the same origin
 in the same browser to play offline. The browser can evict cached data.
+When a map update has finished preparing the saved tiles, the download
+panel asks you to close all open game tabs before using the new map.
 See the [map-upgrade investigation](sf-offline-map-upgrade.md) for revision changes,
 open tabs, and the browser reproduction.
 An uncached area needs a connection before the game can load its tiles. Emoji
