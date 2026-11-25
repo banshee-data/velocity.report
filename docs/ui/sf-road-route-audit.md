@@ -4549,3 +4549,34 @@ node tools/sf-drive/audit-baked-road-contact.mjs public_html/src/sf/tiles --span
 
 The retained run `off-centre-lanes-evidence-20261125` contains the span
 replays, two site receipts and Chrome telemetry on the attached evidence volume.
+
+## Fourth Street westbound merge clearance
+
+**World and Data.** An inferred building face overlapped the westbound
+carriageway beyond the Fourth Street entrance. It rose to 12.3 m in the
+game, about 1.5 m above the road contact. The overlapping 7.8 m² within
+2.8 m of the centreline had 457 class-17 returns within 0.25 m of the deck
+across eight metres of travel, and zero class-6 returns above the deck.
+The survey also contained sparse unclassified returns. The review caps
+only that overlap at 10.3 m, about 0.5 m below the local baked contact.
+It retains the adjacent faces and lower collision volume. The cap is
+a game scenery correction, and the samples do not measure the structure
+beneath the deck. [San Francisco LiDAR survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+**Physics.** Chrome drove the same line 0.75 m left of the centreline at
+an 8 m/s target with route assist off. The parent bake finished with a
+building scrape. The corrected bake finished in 4.5 seconds, grounded
+throughout, without a scrape. Chrome also finished the westbound through
+drive over Fifth Street and took the separate exit to Harrison. Both
+finished grounded with zero airborne travel and no scenery scrapes.
+The fixed 0.75 m citywide replay passed all 446 directions, with two
+remaining scenery scrapes on Tingley and the Hester entrance collector.
+
+- Parent game manifest SHA-256 `cd46e612cdd240b704538133b44ed69a0e100739d4484cb1d466e3a1668ea4df`.
+- Corrected game manifest SHA-256 `f2b4e5efa2258a968a99436d59ff1c12752fdd2d5a7243673ddbc5974bb79e05`.
+- Gerardus review SHA-256 `f74c0919f93c614455c32a1de50c3c84841cc17cc98d8a8b1ba13cf945b7a824`.
+- Survey node receipt SHA-256 `2caa9d61820cbd8c6fe3a29136c8780b2456beaf04ff19c6f49e4acaa79c9249`.
+
+The browser case is `i80-westbound-fourth-merge-offset` in
+`tools/sf-drive/smoke-presidio-tunnels.cjs`. The local evidence run
+`fourth-merge-scrape-evidence-20261125` retains its replays and survey nodes.

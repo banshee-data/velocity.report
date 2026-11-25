@@ -63,6 +63,20 @@ test("the Yerba Buena bake records its surveyed tree clearance and keeps the roa
   assert.ok(tile.tr.some(([x, y, h]) => x === 1497 && y === 1206 && h === 73));
 });
 
+test("the Fourth Street merge clears the capped face above its lower volume", () => {
+  const token = "80858084";
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const review = manifest.roadBake.buildingClearanceReviews.at(-1).tiles[token];
+  assert.equal(review.sha256, digest(raw));
+
+  const index = buildCollisionIndex(tile, token);
+  const car = { x: 3382.15, y: 2037.35, heading: -2.37 };
+  assert.equal(collisionAt([index], car, 10.82), null);
+  assert.equal(collisionAt([index], car, 9.5), "building");
+});
+
 test("local bridges carry the car above the ground grid and meet street pavement", () => {
   const specifications = [
     ["8085876c", "crossover-drive-over-jfk", [-3462, 1194.7], 6],

@@ -1,0 +1,1 @@
+- Cleared an inferred building face from the westbound Fourth Street merge and preserved its lower collision volume. Verified the offset lane and the adjoining I-80 through and exit drives in Chrome. [Fourth Street merge clearance](../../ui/sf-road-route-audit.md#fourth-street-westbound-merge-clearance).
