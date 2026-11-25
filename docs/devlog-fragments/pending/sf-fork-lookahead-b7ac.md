@@ -1,0 +1,1 @@
+- Made manual steering compare branches at a fixed distance from the fork so changing the spacing of road samples cannot change the chosen branch. Chrome took the northbound Alexander Avenue entrance and finished grounded after the merge. The [route audit](../../ui/sf-road-route-audit.md#alexander-avenue-northbound-fork) records the tested map revision.
