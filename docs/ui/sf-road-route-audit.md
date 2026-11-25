@@ -4599,20 +4599,24 @@ Both Skyline findings refer to the vehicle carriageways over the named
 pedestrian or equestrian ways. Peak grade uses one-metre samples of the
 driven game trajectory.
 
-| Crossing | Inventory | Grounded finishes | Peak grade in completed drives |
-| --- | --- | ---: | ---: |
-| Skyline at Lakeside | Caltrans 34 0002 | 2/2 | 6.74–16.03% |
-| Skyline at Hilltop | Caltrans 34 0024 | 2/2 | 5.53–8.90% |
-| Gilman at Griffith | SFMTA 29 | 2/2 | 2.77–2.80% |
-| Grand View near 23rd Street | SFMTA 32 | 2/2 | 8.86–8.93% |
-| Portola near Marne Avenue | SFMTA 99 | 2/2 | 9.08–10.02% |
-| Front, Davis and Battery streets | SFMTA 28, 27, 21 | 3/3 | 0.90–1.49% |
-| Lundeen at Crook | SFMTA 103 | 2/2 | 2.68–2.71% |
-| Howard at Moscone | SFMTA 35 | 0/1 | Drive stopped at an inferred wall |
+| Crossing                         | Inventory        | Grounded finishes |    Peak grade in completed drives |
+| -------------------------------- | ---------------- | ----------------: | --------------------------------: |
+| Skyline at Lakeside              | Caltrans 34 0002 |               2/2 |                       6.74–16.03% |
+| Skyline at Hilltop               | Caltrans 34 0024 |               2/2 |                        5.53–8.90% |
+| Gilman at Griffith               | SFMTA 29         |               2/2 |                        2.77–2.80% |
+| Grand View near 23rd Street      | SFMTA 32         |               2/2 |                        8.86–8.93% |
+| Portola near Marne Avenue        | SFMTA 99         |               2/2 |                       9.08–10.02% |
+| Front, Davis and Battery streets | SFMTA 28, 27, 21 |               3/3 |                        0.90–1.49% |
+| Lundeen at Crook                 | SFMTA 103        |               2/2 |                        2.68–2.71% |
+| Howard at Moscone                | SFMTA 35         |               0/1 | Drive stopped at an inferred wall |
 
 All completed drives recorded zero airborne travel. None had a measured dip
 deeper than 0.5 m over an eight-metre chord. The Howard drive crashed
 grounded, 45.6 m into the course.
+
+- Public Works snapshot SHA-256 `c7b76f2f3d07ba28d2142008d65edf1a466782de89dbca024c0fc7a5156b7d00`.
+- SFMTA snapshot SHA-256 `3145a2bd5e6a81a5b4b25620e92c907d0576c5b4e3e76fbfba208c47ba5d982c`.
+- Caltrans snapshot SHA-256 `6a8fc541f8c4ec952e56053ac2d23105f83ef8e36b468cbc86d10e81beae909e`.
 
 ### Howard Street at the Moscone crossings
 
