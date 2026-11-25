@@ -1,0 +1,1 @@
+- Verified the Ellsworth street turn and added pinned courses through the San Bruno exit and Golden Gate Park. The [preview road audit](../../ui/sf-road-route-audit.md#ellsworth-san-bruno-and-the-park-lane-corrections) records the measured tree corrections and the remaining trees the park course steers around.

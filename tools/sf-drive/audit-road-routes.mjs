@@ -274,7 +274,14 @@ function routeFor(spec, from, to) {
   const start = snap(from, from.names, 27);
   const destination = snap(to, to.names, 27);
   if (spec.contact)
-    return layeredRoute(spec.contact, from, to, start, destination);
+    return layeredRoute(
+      spec.contact,
+      from,
+      to,
+      start,
+      destination,
+      spec.groundOnly,
+    );
   const vias = (spec.via || []).map(([x, y, name]) => ({
     node: snap({ x, y }, name ? [name] : null, name ? 600 : 40),
     highway: !!name,
@@ -315,17 +322,21 @@ function routeFor(spec, from, to) {
   return best.route;
 }
 
-function groundLegs(from, to, via) {
+function groundLegs(from, to, via, groundOnly) {
   const stops = [
     from,
     ...via.map(([x, y, name]) => snap({ x, y }, [name], 10)),
     to,
   ];
-  const legs = stops.slice(1).map((stop, i) => routeBetween(stops[i], stop));
+  const legs = stops
+    .slice(1)
+    .map((stop, i) =>
+      routeBetween(stops[i], stop, undefined, undefined, groundOnly),
+    );
   return legs.every(Boolean) ? legs.flat() : null;
 }
 
-function layeredRoute(contact, from, to, start, destination) {
+function layeredRoute(contact, from, to, start, destination, groundOnly) {
   const {
     roads,
     reverse,
@@ -341,8 +352,8 @@ function layeredRoute(contact, from, to, start, destination) {
   const [enterNode, exitNode] = [entry, exit].map(([x, y, name]) =>
     snap({ x, y }, [name], 55),
   );
-  const before = groundLegs(start, enterNode, beforeVia);
-  const after = groundLegs(exitNode, destination, afterVia);
+  const before = groundLegs(start, enterNode, beforeVia, groundOnly);
+  const after = groundLegs(exitNode, destination, afterVia, groundOnly);
   assert.ok(before && after, "no ground route to a layered course portal");
   const ribbon = roads.flatMap((id) => {
     const surface = pieces.get(id);

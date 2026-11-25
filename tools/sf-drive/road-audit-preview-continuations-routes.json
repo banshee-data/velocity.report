@@ -1,0 +1,73 @@
+{
+  "manifestSha256": "297e0a640bb78b4664c40162c5a2c624b19b5e957f5e70e27296f1a6e404b021",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "expectCompletion": true,
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "i280-south-city-span",
+      "from": "🛞",
+      "to": "📦",
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-south-through-18th",
+          "sf-contact/i280-dogpatch-approach",
+          "sf-contact/i280-south-through-dogpatch",
+          "sf-contact/i280-south-beyond-dogpatch",
+          "sf-contact/i280-south-to-us101-south-exit",
+          "sf-contact/i280-to-us101-south-descent",
+          "sf-contact/us101-south-paul-approach",
+          "sf-contact/us101-south-san-bruno-exit"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [3427.3865, -4253.4056, "San Bruno Ave"],
+        "laneGuides": {
+          "sf-contact/i280-dogpatch-approach": {
+            "approach": 1.25,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-through-dogpatch": {
+            "entranceEast": 1.25,
+            "entranceMetres": 20
+          },
+          "sf-contact/i280-south-beyond-dogpatch": {
+            "approach": 1.7,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-to-us101-south-exit": {
+            "entranceEast": 1.2148483002208474,
+            "entranceNorth": -1.189177702217174,
+            "entranceMetres": 21
+          },
+          "sf-contact/us101-south-paul-approach": {
+            "approach": -2.0,
+            "holdApproach": true
+          },
+          "sf-contact/us101-south-san-bruno-exit": {
+            "entranceEast": -1.9040947911625294,
+            "entranceNorth": -0.6119011572694755,
+            "entranceMetres": 21
+          }
+        },
+        "afterVia": [[2930.2, -3097.8, "Silver Ave"]]
+      },
+      "groundOnly": true,
+      "expectContactExit": true
+    },
+    {
+      "id": "park-west",
+      "from": "⛳",
+      "to": "🚣",
+      "laneDetours": [
+        [-4639.486, 1180.067, -2.8],
+        [-3842.138, 1131.472, 2.8],
+        [-3258.29, 1277.75, 2.8],
+        [-4265.2, 635.3, -2.5],
+        [-3303.2, 848.2, -2.5]
+      ]
+    }
+  ]
+}

@@ -4207,6 +4207,46 @@ longer courses also depend on ground waypoints and their steering guides.
 
 - Course plan SHA-256 `5521cddbb5cadc6431a05115906f59ab470d51aeee0c13d7693504fde54cf99a`.
 
+#### Ellsworth, San Bruno and the park lane corrections
+
+Chrome repeated the original I‑280 exit and turned onto Ellsworth Street.
+The car travelled 138.4 m from the ramp checkpoint, stayed on the ground
+and finished clear of the motorway. The older emoji route had turned back
+towards the adjacent entrance at the exit handoff.
+
+The [revised course plan](../../tools/sf-drive/road-audit-preview-continuations-routes.json)
+collects the same Fifth Street and Sweeny Street targets. It takes the
+left freeway connection to southbound US 101 and exits onto San Bruno
+Avenue. The connections between a target and its ramp use the street graph.
+The replay completed 8.01 km with 1.48 km after the exit, zero airborne
+travel and no driven dip over 0.5 m. A separate Chrome keyboard run
+drove the San Bruno ramp and the street approach, finishing grounded
+within 4 m of the Sweeny Street marker.
+
+The follow-up park bake removes two unsupported inferred trunk rows at
+measured pavement on Martin Luther King Jr Drive and Stow Lake Drive.
+Chrome repeated each affected segment. The first changed from a stall
+to a grounded finish and the second from a crash to a grounded finish.
+The original park course still reached another tree on Martin Luther King
+Jr Drive. The revised steering passes to the right of the retained trees
+on Martin Luther King Jr Drive and Stow Lake Drive. This drive collected
+both park targets without changing those tree rows. Chrome passed both
+retained trees and stayed grounded on the sampled approaches.
+[Gerardus lane clearance export](https://github.com/banshee-data/gerardus/pull/200).
+
+The rerun collected both pickups on all 20 courses over 52.74 km. No
+driven dip exceeded 0.5 m. The successor preview also passed 446
+directional span drives, 316 directed joins and 502 ground handoff checks.
+
+```sh
+node tools/sf-drive/audit-road-routes.mjs \
+  --plan=tools/sf-drive/road-audit-preview-continuations-routes.json \
+  --assets=/path/to/preview
+```
+
+- Successor manifest SHA-256 `297e0a640bb78b4664c40162c5a2c624b19b5e957f5e70e27296f1a6e404b021`.
+- Complete course plan SHA-256 `90e583255b3a50dfbc2da4202dcdb4d65e0f88e32bfcda5064a55eed4018a6bd`.
+
 ## Alexander Avenue northbound fork
 
 **World and Physics.** The northbound entrance and the straight city branch share a
