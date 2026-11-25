@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
+import { buildBakedRoadContact } from "../../public_html/src/js/sf-baked-road-contact.js";
 import {
   applyCityDriveScenery,
   BAY_BRIDGE_CITY_DRIVE,
@@ -26,6 +27,8 @@ import {
   driveOnRoadNetwork,
   indexRoadNetwork,
 } from "../../public_html/src/js/sf-road-network.js";
+import { contactGeometry } from "../../public_html/src/js/sf-road-contact.js";
+import { deckClearanceIndex } from "../../public_html/src/js/sf-tree-clearance.js";
 
 const directory = new URL("../../public_html/src/sf/tiles/", import.meta.url);
 const map = JSON.parse(readFileSync(new URL("manifest.json", directory)));
@@ -45,6 +48,20 @@ const published = cityDriveApproach(baseDrive, start);
 if (start) assert.equal(published.id, start, "Unknown Bay Bridge start");
 const tileSizes = new Map(map.tiles.map((tile) => [tile.t, tile.bytes]));
 const loaded = new Map();
+const decks = deckClearanceIndex();
+const registeredDecks = new Set();
+
+function registerDeck(surface) {
+  if (
+    !["ramp", "bridge_deck"].includes(surface.kind) ||
+    registeredDecks.has(surface.id)
+  )
+    return;
+  const geometry = contactGeometry(surface.contact, false);
+  decks.add(geometry);
+  geometry.dispose();
+  registeredDecks.add(surface.id);
+}
 
 function tile(token) {
   if (!loaded.has(token)) {
@@ -52,7 +69,14 @@ function tile(token) {
     assert.equal(raw.length, tileSizes.get(token), `Invalid tile ${token}`);
     const world = JSON.parse(gunzipSync(raw));
     applyCityDriveScenery(world, published.scene_exclusions?.[token]);
-    loaded.set(token, { world, index: buildCollisionIndex(world) });
+    for (const road of world.playableRoads ?? []) {
+      if (!registeredDecks.has(road.id))
+        registerDeck(buildBakedRoadContact(road).surface);
+    }
+    loaded.set(token, {
+      world,
+      index: buildCollisionIndex(world, token, undefined, decks.ceiling),
+    });
   }
   return loaded.get(token);
 }
@@ -60,6 +84,7 @@ function tile(token) {
 const drive = buildCityGameDrive(published, (x, y) =>
   groundAtWorld([tile(tileAt(map.tiles, x, y).t).world], x, y, true),
 );
+for (const surface of drive.surfaces) registerDeck(surface);
 const graph = indexRoadNetwork(drive.topology.transitions);
 graph.add(drive.topology);
 const surfaces = new Map(

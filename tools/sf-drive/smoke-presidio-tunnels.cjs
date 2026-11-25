@@ -2045,6 +2045,19 @@ cases["northbound-i280-below-alemany-left-exit"] = {
   exitCamera: "covered",
   maxDurationMs: 55_000,
 };
+cases["northbound-i280-clears-remaining-cover"] = {
+  roads: [northAlemanyLower],
+  owners: ["808f7efc", "808f7fac", "808f7f04"],
+  rollingStart: true,
+  rollingStartMetres: 640,
+  initialSpeedMps: 12,
+  speed: 13,
+  finishOnDeck: true,
+  finishDistance: 761,
+  covered: [prefix + northAlemanyLower],
+  exitCamera: "exterior",
+  maxDurationMs: 40_000,
+};
 cases["northbound-us101-through-alemany-fork"] = {
   ...cases["northbound-us101-to-southbound-i280"],
   roads: [alemanyNorthboundApproach, "us101-north-paul-to-silliman"],
@@ -2411,6 +2424,7 @@ cases["island-east-eastbound-entry"] = {
   finishOnDeck: true,
   finishDistance: 70,
   covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
+  allowedCovered: ["yerba-buena-lower-east-after-entry"],
   maxDurationMs: 75_000,
 };
 cases["island-east-roundtrip"] = {
@@ -2442,6 +2456,7 @@ cases["island-east-roundtrip"] = {
   finishOnDeck: true,
   finishDistance: 70,
   covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
+  allowedCovered: ["yerba-buena-lower-east-after-entry"],
   maxDurationMs: 120_000,
 };
 for (const reverse of [false, true]) {
