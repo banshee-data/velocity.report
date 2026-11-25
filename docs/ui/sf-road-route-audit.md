@@ -3818,3 +3818,37 @@ terrain used by those runs. Separate street and freeway levels need contact
 checks at both ends of the upper street. The Saint Charles samples cover
 the mapped approach on one side of I-280, and the inventory crossing still
 needs its alignment verified.
+
+## Congdon Street at the Justin Drive overcrossing
+
+**World and Data.** April 2023 survey returns support all 38 fitted stations
+along the approximately 110 m contact. Near the crossing, the upper street
+is about 36.4 m NAVD88. The two game freeway surfaces below it are about
+29.7 m and 28.9 m at the sampled crossings. The fitted peak grade is 2.54%.
+The contact follows the curve onto Justin Drive and joins the existing
+pavement on both approaches. The bake carries forward the current Yerba
+Buena classified tree tile and its recorded source hashes.
+
+**Physics and UI.** Both Chrome street drives completed with zero airborne
+travel on the upper contact and finished grounded on their adjoining streets.
+Both I-280 drives completed on the lower surface with zero airborne travel.
+The northbound camera still saw the nearby Alemany overpass at the finish.
+The measured separation describes the playable pavement elevations. Physical
+underside clearance requires its own survey.
+
+**Goals.** All 25 fixed-step route results matched when the route alignment
+was held to the parent tiles from `4cc496add657a6f2d8227cc902e3339377db0f5b`.
+The fresh route planner took a longer after-exit path on the `i280-south-city-span`
+course and struck a tree. The same course reached both emoji on the original
+alignment using the new bake's terrain and collision geometry. The audit
+runner's `--alignment-assets` option accepts the parent `public_html/src/sf`
+directory and records the alignment manifest alongside the tested manifest.
+
+- Game manifest SHA-256 `1d40f883d97f4f386448cda5617de14dcbdd095783ca0039499b61847ea0896e`.
+- Contact SHA-256 `7b06f43b88a6bd3b17f9e7c66449d6df67ab88ed1299fb8eb5cd4d6c550b32c7`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  congdon-{northbound,southbound} i280-under-congdon-{northbound,southbound}
+```

@@ -43,6 +43,7 @@ const assetsPath = args.find((arg) => arg.startsWith("--assets="));
 const assets = assetsPath
   ? pathToFileURL(resolve(assetsPath.slice("--assets=".length)) + sep)
   : new URL("../../public_html/src/sf/", import.meta.url);
+const alignmentPath = args.find((arg) => arg.startsWith("--alignment-assets="));
 const planPath = args.find((arg) => arg.startsWith("--plan="));
 const source = planPath
   ? resolve(planPath.slice("--plan=".length))
@@ -59,17 +60,39 @@ assert.ok(plan.routes.length, "the course set is empty");
 const ids = new Set(plan.routes.map(({ id }) => id));
 assert.equal(ids.size, plan.routes.length);
 const chosen = new Set(
-  args.filter((arg) => arg !== planPath && arg !== assetsPath),
+  args.filter(
+    (arg) => arg !== planPath && arg !== assetsPath && arg !== alignmentPath,
+  ),
 );
 for (const id of chosen) assert.ok(ids.has(id), `Unknown course: ${id}`);
 const courseSet = digest(planBytes);
-const tiles = new Map(
-  manifest.tiles.map(({ t, bytes }) => {
-    const compressed = readFileSync(new URL(`tiles/${t}.json.gz`, assets));
-    assert.equal(compressed.length, bytes, t);
-    return [t, JSON.parse(gunzipSync(compressed))];
-  }),
-);
+function readTiles(index, directory) {
+  return new Map(
+    index.tiles.map(({ t, bytes }) => {
+      const compressed = readFileSync(new URL(`tiles/${t}.json.gz`, directory));
+      assert.equal(compressed.length, bytes, t);
+      return [t, JSON.parse(gunzipSync(compressed))];
+    }),
+  );
+}
+
+const tiles = readTiles(manifest, assets);
+let alignmentTiles = tiles;
+let alignmentManifestSha256;
+if (alignmentPath) {
+  const directory = pathToFileURL(
+    resolve(alignmentPath.slice("--alignment-assets=".length)) + sep,
+  );
+  const raw = readFileSync(new URL("tiles/manifest.json", directory));
+  const alignment = JSON.parse(raw);
+  assert.deepEqual(alignment.origin_epsg7131, manifest.origin_epsg7131);
+  assert.deepEqual(
+    alignment.tiles.map(({ t }) => t),
+    manifest.tiles.map(({ t }) => t),
+  );
+  alignmentTiles = readTiles(alignment, directory);
+  alignmentManifestSha256 = digest(raw);
+}
 const targets = new Map(quest.targets.map((target) => [target.emoji, target]));
 const indexes = new Map();
 const gradeThreshold = 0.5;
@@ -144,7 +167,9 @@ function addRoad(tile, road, tunnel = false) {
   }
 }
 
-for (const tile of tiles.values())
+// An archived alignment can hold the route fixed while the current bake
+// supplies all terrain, collision geometry and playable road contact.
+for (const tile of alignmentTiles.values())
   for (const road of tile.r) addRoad(tile, road);
 
 // The parent geometry defines the attempted alignment only. Its heights and
@@ -807,6 +832,7 @@ for (const spec of plan.routes) {
         from: from.t,
         to: to.t,
         manifestSha256: plan.manifestSha256,
+        alignmentManifestSha256,
         placementSha256: quest.placementSha256,
         progressBaseSha256: manifest.terrainRebake.progressBaseSha256,
         waypoints: path.map(({ x, y, s }, i) => [
@@ -827,6 +853,7 @@ for (const spec of plan.routes) {
       from: from.names,
       to: to.names,
       manifest: plan.manifestSha256,
+      alignmentManifestSha256,
       courseSet,
       ...metrics,
       result,
