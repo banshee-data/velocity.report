@@ -607,12 +607,22 @@ The same 20 guided emoji courses again collected both endpoints, covering
 6.1 cm. The keyboard smoke test uses the right-turn lane at the 18th Street
 fork. A centreline-only attempt continued west across the viaduct.
 
+On the later preview, a centreline approach at the Mariposa fork took the
+Fifth Street exit. The Sixth Street check now approaches the fork in the
+right lane. A second drive from the same entrance takes the left lane and
+checks the Fifth Street exit separately. Chrome reached street level on
+both drives without losing ground contact. The Sixth Street handoff was
+at 3.20 m and the Fifth Street handoff was at 3.01 m NAVD88.
+
 Run the browser checks with the exact tile revision and Chrome available.
 
 ```sh
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   sixth-southbound sixth-northbound eighteenth-eastbound eighteenth-westbound
 ```
+
+With the later preview running locally, use `eighteenth-to-fifth-northbound`
+for the additional branch.
 
 - Game manifest SHA-256 `a6347c623642489f6d134af040320ef1df74de4b3baa141ce79f12bb6cffe3bb`.
 - Contact SHA-256 `9a6be35d2c85635675d6cf081c0de20a5018405617c7594e574d02d6cba2138a`.
@@ -4115,6 +4125,12 @@ node tools/sf-drive/audit-baked-road-contact.mjs /path/to/candidate/tiles --driv
 | Tunnel       |    21 |                           30 |
 | Total        |   360 |                          446 |
 
+The published Hester package completed 391 of its 394 directional drives.
+Scenery stopped both directions of the Geary–Masonic tunnel and one
+southbound US 101 span between Silver Avenue and Industrial Street. All
+280 directed joins and 447 ground checks completed, including one
+continuation. The newer preview cleared all three routes.
+
 The 160-tile preview passed all 316 directed joins. Of 502 ground handoff
 checks, 499 reached terrain or entered the expected span, and three continued
 onto a separately tested road. The 704,400 sampled chassis poses produced no
@@ -4151,6 +4167,20 @@ keeps all tiles loaded. The browser tests exercise normal tile loading and
 keyboard driving. Field clearances require their own survey.
 
 - Local manifest SHA-256 `9b32ea6d68875d084fbdc0f062ae2080e32c2d44b62fed8e06be4e642010b6f1`.
+- Published Hester manifest SHA-256 `eddfbe36c207b3dfb69cb502cb8aea0073ca3b28e37ff35db52f1f4f64875655`.
+
+On the same preview, a continuous Chrome keyboard drive took manual control
+at 49.7 mph on the Bay Bridge West Span. It used the Fremont exit, crossed
+the city streets and entered westbound I‑80 at Fourth Street. The sampled
+speed was 46.3–54.3 mph on the span and 10.3–54.3 mph across the full route.
+There was no sampled airtime or crash. An earlier pass reached the finish
+with an 8.8 mph minimum. The repeat took control earlier and held throttle
+through the city turns. These figures use the game's driving HUD samples.
+
+A separate Chrome drive started from a checkpoint farther up the Fremont
+exit. The driver steered through the open left edge. The air card recorded
+1.3 seconds, and the car touched down on the Folsom Street terrain after
+dropping about 8.5 m. The car continued under manual control.
 
 ## Alexander Avenue northbound fork
 
