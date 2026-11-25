@@ -4063,6 +4063,38 @@ inventory provides the separate check for roads absent from the package.
 - Published manifest SHA-256 `eddfbe36c207b3dfb69cb502cb8aea0073ca3b28e37ff35db52f1f4f64875655`.
 - Local preview manifest SHA-256 `7d3ce4dceb0aba016b23bca9e92aee210b67770ef5961c21d708311be6024acf`.
 
+### Driving across baked joins and portals
+
+**World, Physics and Data.** The optional driving pass starts a car before
+each permitted join and at both usable sides of each ground portal. It
+steps the game contact solver at 120 Hz, trying other lanes or speeds
+when the first approach fails. Exit-only portals are exercised from the
+road. A ground exit that continues onto a declared, separately tested
+road is counted as a continuation. This pass keeps all tiles loaded and
+checks tyre contact and rails. Scenery remains in the static audit and
+in the browser drives. With `--drive-links`, the command returns a nonzero
+status if a tested join or portal has no successful approach.
+
+```bash
+node tools/sf-drive/audit-baked-road-contact.mjs --drive-links
+node tools/sf-drive/audit-baked-road-contact.mjs --drive-links /path/to/candidate/tiles
+```
+
+| Bake                     | Directed joins driven | Ground checks | Reached terrain or entered the road | Continued onto another road |
+| ------------------------ | --------------------: | ------------: | ----------------------------------: | --------------------------: |
+| Published Hester package |               280/280 |           447 |                                 446 |                           1 |
+| Local Merchant Road bake |               290/290 |           490 |                                 488 |                           2 |
+
+The local bake needed a lane or speed adjustment for 33 directed joins
+and six ground handoffs. Its two continuations were Doyle Drive onto
+the northbound Golden Gate approach and the Hester exit onto Bayshore
+Boulevard at Le Conte. Both passed in Chrome. On the southbound bridge
+approach, the centreline keyboard guide took the SR 1 branch in one
+run. The Doyle Drive guide now approaches in the left lane. The right
+lane has its own SR 1 drive.
+
+- Local Merchant Road manifest SHA-256 `5b206c95ee87664339e22f06b60bcfcb2f19f701b4f191151235d3fb4a43ad0e`.
+
 ## Bayshore frontage road from Hester to Third Street
 
 **World and Data.** The northbound Bayshore frontage carriageway uses

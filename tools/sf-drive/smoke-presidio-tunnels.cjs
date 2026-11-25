@@ -2744,6 +2744,9 @@ cases["golden-gate-marin-to-presidio"] = {
     "golden-gate-southbound-1": 14,
     "golden-gate-southbound-6": 15,
   },
+  forks: [
+    ["golden-gate-southbound-6", "presidio-doyle-southbound-entry", 1.75],
+  ],
   finishOnDeck: true,
   finishDistance: 175,
   maxDurationMs: 265_000,
