@@ -48,6 +48,37 @@ test("local bridges carry the car above the ground grid and meet street pavement
     ["808f7fd4", "mission-creek-fourth-street", [4203, 1664], 0.9],
     ["808f7f1c", "williams-avenue-caltrain-bridge", [3875, -3356.3], 7],
     ["808f7f1c", "paul-avenue-caltrain-bridge", [3762.7, -4128.5], 5.7],
+    ["8085879c", "lincoln-way-sunset-westbound", [-4938.166, 520.029], 6],
+    ["8085879c", "lincoln-way-sunset-eastbound", [-4938.596, 508.064], 6],
+    [
+      "808f7d74",
+      "sloat-boulevard-sunset-westbound",
+      [-4753.976, -2886.979],
+      5.5,
+    ],
+    [
+      "808f7d74",
+      "sloat-boulevard-sunset-eastbound",
+      [-4753.307, -2906.121],
+      5.5,
+    ],
+    ["808f7f04", "oakdale-avenue-caltrain-bridge", [3969.599, -2526.18], 3],
+    [
+      "808f7c4c",
+      "junipero-serra-brotherhood-southbound",
+      [-2763.873, -5240.111],
+      5.8,
+    ],
+    [
+      "808f7c4c",
+      "junipero-serra-brotherhood-northbound",
+      [-2745.942, -5246.241],
+      5,
+    ],
+    ["808f7e64", "mission-street-i280-viaduct", [1045.132, -3117.971], 8],
+    ["808f7e64", "mission-street-i280-viaduct", [988.167, -3190.214], 8],
+    ["808f7e7c", "baden-street-i280-bridge", [58.551, -3333.969], 7.5],
+    ["808f7e7c", "paulding-street-i280-bridge", [-287.432, -3518.962], 7.5],
   ];
   for (const [token, slug, [x, y], gap] of specifications) {
     const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
@@ -83,6 +114,44 @@ test("local bridges carry the car above the ground grid and meet street pavement
     assert.ok(
       Math.abs(groundAtWorld([park], portal.x, portal.y, true) - portal.z) <
         0.025,
+    );
+  }
+});
+
+test("Lincoln Way selects the eastbound deck across both approach lanes", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/8085879c.json.gz")));
+  const contacts = tile.playableRoads
+    .filter(({ id }) => id.startsWith("sf-contact/lincoln-way-sunset-"))
+    .map(buildBakedRoadContact);
+  assert.equal(contacts.length, 2);
+  const eastbound = contacts.find(({ surface }) =>
+    surface.id.endsWith("eastbound"),
+  );
+  const { x, y, nx, ny } = eastbound.portals[1];
+  const ground = (east, north) => groundAtWorld([tile], east, north, true);
+
+  for (const offset of [-2.8, 0, 2.8]) {
+    const east = x - nx * 0.04 - ny * offset;
+    const north = y - ny * 0.04 + nx * offset;
+    const car = {
+      x: east,
+      y: north,
+      z: ground(east, north),
+      heading: Math.atan2(ny, nx),
+      v: 11,
+      grounded: true,
+    };
+    const next = driveThroughRoadPortal(
+      car,
+      { throttle: 1 },
+      1 / 120,
+      contacts.map(({ portals }) => portals),
+      ground,
+    );
+    assert.equal(
+      next?.surfaceId,
+      eastbound.surface.id,
+      `lane offset ${offset}`,
     );
   }
 });

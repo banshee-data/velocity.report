@@ -1,0 +1,1 @@
+- Baked ten surveyed roadway contacts at seven San Francisco overcrossings, corrected the overlapping Lincoln Way entrances and kept the chase camera on the travelled level at downhill bridge exits. The [overcrossing audit](../../ui/sf-road-route-audit.md#seven-street-overcrossings) records the original drops, fitted grades and tests above and below the decks.

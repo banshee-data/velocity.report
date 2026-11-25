@@ -3434,3 +3434,93 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   williams-avenue-caltrain-bridge-westbound williams-avenue-caltrain-bridge-eastbound \
   paul-avenue-caltrain-bridge-westbound paul-avenue-caltrain-bridge-eastbound
 ```
+
+## Seven street overcrossings
+
+**World and Physics.** The Public Works structure inventory and SFMTA clearance
+inventory identify roads crossing at different levels. The screen projected
+67 Public Works records and 111 SFMTA records with coordinates into the game
+frame, looked for road rows within 60 m, and sampled up to 35 m along the row
+on each side of the closest point. It compared the terrain with the closest
+authored contact. An existing contact can belong to the other road level.
+Seven sites went to Chrome and the April 2023 3DEP pavement review after
+checking the road names and which carriageway crosses above the other.
+[Public Works inventory](https://data.sf.gov/w/x5tj-txci/ikek-yizv).
+[SFMTA clearance inventory](https://data.sf.gov/Transportation/Clearance-Heights-Bridges-and-Underpasses/eb2x-6eay/about_data).
+
+The keyboard driver covered both directions at each site on the Bayview
+release. Each crossing reached its exit. The terrain took the car down
+towards the road or rail cut, with the observed driving contact lost
+for these distances.
+
+| Crossing                                        | Inventory                         |          Baseline airborne distance by direction |
+| ----------------------------------------------- | --------------------------------- | -----------------------------------------------: |
+| Lincoln Way over Sunset Boulevard               | Public Works 49 and SFMTA 92      |             26.43 m westbound, 23.97 m eastbound |
+| Sloat Boulevard over Sunset Boulevard           | Public Works 48 and SFMTA 94      |             20.26 m westbound, 27.82 m eastbound |
+| Oakdale Avenue above the rail cut               | Public Works 61                   |              8.27 m westbound, 13.53 m eastbound |
+| Junipero Serra Boulevard over Brotherhood Way   | Public Works 194 and SFMTA 25     |            17.10 m southbound, 8.95 m northbound |
+| Mission Street over I-280 and Alemany Boulevard | Public Works 32A/32B and SFMTA 20 |           27.61 m southbound, 31.19 m northbound |
+| Baden Street over I-280                         | Public Works 297                  | 18.75 m north-westbound, 11.29 m south-eastbound |
+| Paulding Street over I-280                      | Public Works 296                  |             19.88 m westbound, 27.51 m eastbound |
+
+The city and clearance survey points identify crossings and nearby streets
+for review. The elevation fits use the 3DEP returns. The contact and
+paint change follows the observed upper road, with the lower terrain
+left in place. Mission Street uses one continuous surface from the
+northern approach across both I-280 carriageways and Alemany Boulevard
+to the point where the existing grid meets pavement again. Baden and
+Paulding retain their rising street grades.
+
+At Lincoln Way the first candidate left a westbound terminal where its
+entry region overlapped the eastbound terminal. A straight eastbound
+approach could match both portals, leaving the car on ground contact
+through the crossing. The westbound terminal moved 4.5 m towards the
+crossing to the point where its pavement remains supported and the
+approaches are farther apart. The regression tests approach the
+eastbound terminal at the centre and on either side.
+
+The first south-eastbound Baden trial went airborne at the handoff. The
+contact now reaches the flatter observed pavement before the San Jose
+Avenue junction. The fitted peak grades are 14.70% on Baden, 15.31% on
+Paulding and between 1.27% and 5.60% on the other eight surfaces. The
+terrain-only screen found 338 intervals above 50% grade, down from 364.
+
+**UI.** On the downhill exits the rear chase-camera probe could interpret
+the deck the player had just driven down as a ceiling above the old terrain.
+The probe now samples the departing road behind the car while it continues
+away from the portal. It still detects any separate deck above that road.
+
+Fourteen Chrome keyboard drives on the candidate entered their intended
+upper deck and exited onto the adjoining street without airborne travel.
+Separate drives in both directions beneath Mission, Baden and Paulding
+kept their existing I-280 contacts, used the covered view beneath each deck
+and returned to the exterior view. The six lower ground drives on Sunset
+Boulevard and Brotherhood Way reached their exits grounded. The largest
+vertical clearance measured during an airborne flag on those approaches
+was 0.12 m, below the 0.18 m airtime display cutoff. The ground samples
+showed no dips deeper than 0.5 m over an 8 m chord.
+All 25 fixed-step emoji routes again collected both pickups with identical
+driving telemetry to the Bayview release. The Bay Bridge replay completed
+in 235.96 s of game time.
+
+The screen uses inventory locations and paved road rows to find candidates.
+The drives exercise the selected approaches and exits. Turning between
+the bridge and nearby ramps or side streets needs its own test.
+
+- Baseline game manifest SHA-256 `81e31f112ce9808042fc96ca8b7e9d8a868391363f17c21a41f6eed8bb8339dc`.
+- Candidate game manifest SHA-256 `7e4042b6ac32613896d9c121cc1cadfb91d8fe799e89225a0e351c62b84707d3`.
+- Candidate contact SHA-256 `45787da7d665e81af1290b0f4c7e97fb18b099aba6b0ec534561310499603dc8`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+- Public Works snapshot SHA-256 `c7b76f2f3d07ba28d2142008d65edf1a466782de89dbca024c0fc7a5156b7d00`.
+- SFMTA snapshot SHA-256 `3145a2bd5e6a81a5b4b25620e92c907d0576c5b4e3e76fbfba208c47ba5d982c`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  lincoln-way-sunset-{eastbound,westbound} sloat-boulevard-sunset-{eastbound,westbound} \
+  oakdale-avenue-caltrain-bridge-{eastbound,westbound} \
+  junipero-serra-brotherhood-{northbound,southbound} \
+  mission-street-i280-viaduct-{northbound,southbound} \
+  baden-street-i280-bridge-{northwestbound,southeastbound} \
+  paulding-street-i280-bridge-{eastbound,westbound} \
+  i280-{northbound,southbound}-under-{mission,baden,paulding}
+```

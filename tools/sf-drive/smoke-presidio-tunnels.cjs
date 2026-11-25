@@ -3015,6 +3015,106 @@ for (const road of [
     };
   }
 }
+for (const [crossing, owner, westOrSouth, eastOrNorth] of [
+  ["lincoln-way-sunset", "8085879c", "westbound", "eastbound"],
+  ["sloat-boulevard-sunset", "808f7d74", "westbound", "eastbound"],
+  ["junipero-serra-brotherhood", "808f7c4c", "southbound", "northbound"],
+]) {
+  for (const [direction, reverse] of [
+    [westOrSouth, false],
+    [eastOrNorth, true],
+  ]) {
+    const road = `${crossing}-${direction}`;
+    cases[road] = {
+      owners: [owner],
+      roads: [road],
+      speed: 11,
+      reverse,
+      laneGuides: { [road]: { lane: reverse ? 1.6 : -1.6 } },
+      groundApproachMetres: 7,
+      maxApproachClearanceMetres: 0.18,
+      maxAirborneMetresAfterEntrance: 0,
+      maxDurationMs: 45_000,
+    };
+  }
+}
+for (const [road, owner, direction, opposite, approach, offset] of [
+  [
+    "oakdale-avenue-caltrain-bridge",
+    "808f7f04",
+    "westbound",
+    "eastbound",
+    8,
+    1.6,
+  ],
+  [
+    "mission-street-i280-viaduct",
+    "808f7e64",
+    "southbound",
+    "northbound",
+    8,
+    1.7,
+  ],
+  [
+    "baden-street-i280-bridge",
+    "808f7e7c",
+    "northwestbound",
+    "southeastbound",
+    3,
+    1.4,
+  ],
+  ["paulding-street-i280-bridge", "808f7e7c", "westbound", "eastbound", 6, 1.4],
+]) {
+  for (const reverse of [false, true]) {
+    cases[`${road}-${reverse ? opposite : direction}`] = {
+      owners: [owner],
+      roads: [road],
+      speed: 10.5,
+      reverse,
+      laneGuides: { [road]: { lane: reverse ? offset : -offset } },
+      groundApproachMetres: approach,
+      maxApproachClearanceMetres: 0.18,
+      maxAirborneMetresAfterEntrance: 0,
+      maxDurationMs: 55_000,
+    };
+  }
+}
+for (const [crossing, direction, road, owner, start, finish] of [
+  [
+    "mission",
+    "northbound",
+    "i280-north-monterey-to-alemany",
+    "808f7e64",
+    292,
+    430,
+  ],
+  ["mission", "southbound", "i280-south-beyond-alemany", "808f7e64", 268, 405],
+  ["baden", "northbound", "i280-north-ocean-monterey", "808f7e7c", 15, 140],
+  ["baden", "southbound", "i280-south-monterey-mainline", "808f7e7c", 672, 782],
+  ["paulding", "northbound", "i280-north-ocean-mainline", "808f7e7c", 310, 445],
+  [
+    "paulding",
+    "southbound",
+    "i280-south-monterey-to-ocean",
+    "808f7e7c",
+    280,
+    415,
+  ],
+]) {
+  cases[`i280-${direction}-under-${crossing}`] = {
+    roads: [road],
+    owners: [owner],
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 10,
+    finishOnDeck: true,
+    finishDistance: finish,
+    speed: 19,
+    covered: [prefix + road],
+    maxAirborneMetres: 0,
+    maxDurationMs: 45_000,
+  };
+}
 for (const reverse of [false, true]) {
   const road = "jfk-drive-under-crossover";
   cases[`${road}-${reverse ? "eastbound" : "westbound"}`] = {

@@ -16,7 +16,7 @@ export const MIRROR_VIEW_RANGE = {
   fogNear: 55,
   fogFar: 140,
 };
-const CHASE_DISTANCE = 34;
+export const CHASE_DISTANCE = 34;
 const DECK_PROBES = [-CHASE_DISTANCE, -28, -22, -16, -10, -4, 0, 6, 12, 18];
 const CAMERA_DECK_MARGIN = 0.5;
 
@@ -65,14 +65,22 @@ export function coveredRoadBlend(surface, { x, y }) {
   return fraction * fraction * (3 - 2 * fraction);
 }
 
-export function overheadDeckBlend(car, z, heightAt, ceiling) {
+export function overheadDeckBlend(
+  car,
+  z,
+  heightAt,
+  ceiling,
+  departureHeightAt,
+) {
   const hx = Math.cos(car.heading);
   const hy = Math.sin(car.heading);
   let blend = 0;
   for (const distance of DECK_PROBES) {
     const x = car.x + hx * distance;
     const y = car.y + hy * distance;
-    const pavement = heightAt(x, y);
+    // A rear probe can still be over the road the car just drove down.
+    const pavement =
+      (distance < 0 ? departureHeightAt?.(x, y) : null) ?? heightAt(x, y);
     if (!Number.isFinite(pavement)) continue;
     // Each probe compares the deck with the selected road's pavement at
     // that point. A slope or a neighbouring ramp may sit above the car.
