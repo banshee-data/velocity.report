@@ -120,7 +120,7 @@ import {
 import { buildBakedRoadContact } from "./sf-baked-road-contact.js";
 import {
   driveThroughRoadPortal,
-  followsGroundPortal,
+  shouldTakePortalRoadJoin,
 } from "./sf-road-portal.js";
 import { tunnelMesh } from "./sf-tunnel-mesh.js";
 import {
@@ -2885,10 +2885,8 @@ export async function startDrive({
             requestRoadOwner,
           );
           if (
-            !joined.blocked &&
-            joined.surfaceId &&
-            joined.surfaceId !== surface.id &&
-            followsGroundPortal(
+            shouldTakePortalRoadJoin(
+              car,
               joined,
               bakedPortals.get(joined.surfaceId) ?? [],
             )

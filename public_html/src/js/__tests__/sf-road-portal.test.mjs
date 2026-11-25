@@ -9,6 +9,7 @@ import {
   driveThroughRoadPortal,
   followsGroundPortal,
   roadPortals,
+  shouldTakePortalRoadJoin,
 } from "../sf-road-portal.js";
 
 const DT = 1 / 120;
@@ -243,6 +244,25 @@ test("a driver continuing onto the street is free to pass a joining ramp", () =>
   assert.ok(followsGroundPortal(flatCar(-0.1, 0, Math.PI / 9), portals));
   assert.ok(!followsGroundPortal(flatCar(-0.1, 0, Math.PI / 3), portals));
   assert.ok(!followsGroundPortal(flatCar(-4, 0, 0), portals));
+});
+
+test("a supported deck continuation wins at a ground exit unless its mouth branches away", () => {
+  const receiving = section(3);
+  const car = { ...flatCar(-0.05, 0, Math.PI / 3), surfaceId: "departure" };
+  const joined = {
+    ...car,
+    x: 0.01,
+    surfaceId: receiving.id,
+    seam: { point: [0, 0, 0] },
+  };
+  assert.ok(shouldTakePortalRoadJoin(car, joined, []));
+  assert.ok(
+    shouldTakePortalRoadJoin(car, joined, roadPortals(receiving, ["end"])),
+  );
+  const arrivals = roadPortals(receiving, ["start"]);
+  assert.ok(!shouldTakePortalRoadJoin(car, joined, arrivals));
+  assert.ok(shouldTakePortalRoadJoin(car, { ...joined, heading: 0 }, arrivals));
+  assert.ok(!shouldTakePortalRoadJoin(car, { ...joined, blocked: true }, []));
 });
 
 test("a shared ground mouth is reachable from either outer lane", () => {

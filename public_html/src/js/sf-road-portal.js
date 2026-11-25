@@ -25,6 +25,18 @@ export function followsGroundPortal(car, portals) {
   );
 }
 
+export function shouldTakePortalRoadJoin(car, joined, portals) {
+  if (joined.blocked || !joined.surfaceId || joined.surfaceId === car.surfaceId)
+    return false;
+  const [x, y, z] = joined.seam.point;
+  const arrivals = portals.filter(
+    (portal) =>
+      Math.hypot(portal.x - x, portal.y - y, portal.z - z) <=
+      sharedTerminalTolerance,
+  );
+  return !arrivals.length || followsGroundPortal(joined, arrivals);
+}
+
 export function roadPortals(
   surface,
   groundEnds,
