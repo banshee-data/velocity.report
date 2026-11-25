@@ -447,3 +447,27 @@ test("off-centre yielding trunk transfers momentum and turns the crash trajector
     "tree",
   );
 });
+
+test("an uphill deck clears a clipped trunk without clearing contact below", () => {
+  const deck = (x) => (x <= 3 ? 2 + x * 0.12 : null);
+  const trees = [
+    buildCollisionIndex(
+      { o: [0, 0], b: [], tr: [[24, 0, 8, 1]] },
+      "fixture",
+      null,
+      (x) => deck(x) - 0.12,
+    ),
+  ];
+  const onDeck = drivingHull({ ...car, x: 0, y: 0, z: 2 });
+  assert.equal(obstacleContact(trees, onDeck).kind, "tree");
+  assert.equal(obstacleContact(trees, onDeck, undefined, deck), null);
+  const underDeck = drivingHull({ ...car, x: 0, y: 0, z: 1 });
+  assert.equal(
+    obstacleContact(trees, underDeck, undefined, () => 1).kind,
+    "tree",
+  );
+  assert.equal(
+    obstacleContact(trees, onDeck, undefined, () => null).kind,
+    "tree",
+  );
+});

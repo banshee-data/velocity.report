@@ -90,6 +90,9 @@ or recovery holds its brake.
 Building roof-face outlines (including courtyard holes) and tree trunks have collision
 checks in 32 m spatial buckets. An oriented rectangle covers the car body and bumpers;
 the velocity into the contact normal distinguishes a glancing scrape from a hard strike.
+On a bridge or ramp the grounded car checks a clipped tree trunk against deck height
+at the point of contact. A bumper reaching up a slope can clear the top of the trunk
+while the centre of the car is lower. A car beneath the deck still uses its own height.
 A scrape sheds speed across the wall and preserves motion along it. The tyres gradually
 catch the slide. Object strikes trigger a crash at 9.5 m/s into the surface, highway
 rails at 13 m/s, and landings at 16 m/s into the local ground or deck. A recoverable

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { auditBakedRoadLinks } from "../../../../tools/sf-drive/baked-road-link-audit.mjs";
+import {
+  auditBakedRoadLinks,
+  auditBakedRoadSpans,
+} from "../../../../tools/sf-drive/baked-road-link-audit.mjs";
 import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
 
 const seam = { width: 6, bearing: 0 };
@@ -67,4 +70,44 @@ test("a declared join does not pass a driving audit when the tyres cannot cross"
   assert.equal(failure.from, join.from);
   assert.equal(failure.to, join.to);
   assert.ok(failure.attempts.every(({ outcome }) => outcome === "stopped"));
+});
+
+test("the span audit drives the directions allowed by the road terminals", () => {
+  const roads = [
+    makeRoad("two-way", 0, ["start", "end"]),
+    {
+      ...makeRoad("exit-only", 60, ["start", "end"]),
+      groundExitOnly: ["end"],
+    },
+  ].map(buildBakedRoadContact);
+  const audit = auditBakedRoadSpans(roads, [], new Map());
+  assert.equal(audit.testedSurfaces, 2);
+  assert.equal(audit.testedDirections, 3);
+  assert.equal(audit.passed, 3);
+  assert.deepEqual(audit.failures, []);
+});
+
+test("the span audit reaches an obstacle between otherwise sound terminals", () => {
+  const road = buildBakedRoadContact(makeRoad("blocked", 0, ["start", "end"]));
+  const tree = {
+    kind: "tree",
+    tile: "808586ec",
+    index: 7,
+    x: 15,
+    y: 0,
+    base: 3,
+    top: 5,
+    radius: 5,
+  };
+  const collisions = new Map([
+    ["0,-1", [tree]],
+    ["0,0", [tree]],
+  ]);
+  const audit = auditBakedRoadSpans([road], [], collisions);
+  assert.equal(audit.passed, 0);
+  assert.equal(audit.failures.length, 2);
+  for (const { attempts } of audit.failures) {
+    assert.ok(attempts.every(({ metres }) => metres > 2));
+    assert.ok(attempts.every(({ lastScrape }) => lastScrape?.row === 7));
+  }
 });

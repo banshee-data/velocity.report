@@ -20,7 +20,10 @@ import {
   roadSupportsCar,
 } from "../../public_html/src/js/sf-road-contact.js";
 import { deckClearanceIndex } from "../../public_html/src/js/sf-tree-clearance.js";
-import { auditBakedRoadLinks } from "./baked-road-link-audit.mjs";
+import {
+  auditBakedRoadLinks,
+  auditBakedRoadSpans,
+} from "./baked-road-link-audit.mjs";
 
 const stationStep = 2;
 const lateralStep = 0.75;
@@ -29,8 +32,9 @@ const layerTolerance = 0.4;
 const round = (value) => Math.round(value * 1000) / 1000;
 const options = process.argv.slice(2);
 const driveLinks = options.includes("--drive-links");
+const driveSpans = options.includes("--drive-spans");
 const [directory = "public_html/src/sf/tiles"] = options.filter(
-  (option) => option !== "--drive-links",
+  (option) => option !== "--drive-links" && option !== "--drive-spans",
 );
 const raw = readFileSync(join(directory, "manifest.json"));
 const manifest = JSON.parse(raw);
@@ -107,6 +111,10 @@ function sample(surface, station, i) {
 
 function screen(surface) {
   const { profile, heightAt } = surface;
+  const deckSupport =
+    surface.kind === "bridge_deck" || surface.kind === "ramp"
+      ? heightAt
+      : undefined;
   const length = profile.at(-1).s_m;
   const margin = Math.min(CAR_HALF_LENGTH, length / 2);
   const intervals = Math.ceil((length - 2 * margin) / stationStep);
@@ -148,7 +156,12 @@ function screen(surface) {
         if (lane === 0) centreUnsupported++;
         continue;
       }
-      const hit = obstacleContact([collisions], drivingHull(car));
+      const hit = obstacleContact(
+        [collisions],
+        drivingHull(car),
+        undefined,
+        deckSupport,
+      );
       if (hit) {
         if (lane === 0) {
           centreHits++;
@@ -233,6 +246,8 @@ const flag = (road) =>
   road.centreUnsupported ||
   road.peakGrade > 25;
 const driving = driveLinks && auditBakedRoadLinks(contacts, joins, tiles);
+const traversals =
+  driveSpans && auditBakedRoadSpans(contacts, joins, collisions);
 console.log(
   JSON.stringify(
     {
@@ -259,14 +274,16 @@ console.log(
       unmatchedPortals,
       flagged: roads.filter(flag),
       ...(driving && { driving }),
+      ...(traversals && { traversals }),
     },
     null,
     2,
   ),
 );
 if (
-  driving &&
-  (driving.directedJoins.failures.length ||
-    driving.groundHandoffs.failures.length)
+  (driving &&
+    (driving.directedJoins.failures.length ||
+      driving.groundHandoffs.failures.length)) ||
+  (traversals && traversals.failures.length)
 )
   process.exitCode = 1;
