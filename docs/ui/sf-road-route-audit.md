@@ -4580,3 +4580,66 @@ remaining scenery scrapes on Tingley and the Hester entrance collector.
 The browser case is `i80-westbound-fourth-merge-offset` in
 `tools/sf-drive/smoke-presidio-tunnels.cjs`. The local evidence run
 `fourth-merge-scrape-evidence-20261125` retains its replays and survey nodes.
+
+## Skyline and city clearance inventory follow-up
+
+**World and Data.** The screen matched 293 Public Works, SFMTA and Caltrans
+records with coordinates to the Fourth Street release. At 39 records there
+was no separately baked road contact within 60 m of the marker. The count
+includes railway, pedestrian and equestrian crossings, and a nearby road
+contact can belong to another level. The selected runs below follow the
+street named in the inventory or the matched roadway at the marker.
+[Public Works roadway structures](https://data.sf.gov/w/x5tj-txci/ikek-yizv),
+[SFMTA clearances](https://data.sf.gov/Transportation/Clearance-Heights-Bridges-and-Underpasses/eb2x-6eay/about_data),
+[Caltrans bridge log](https://dot.ca.gov/-/media/dot-media/programs/maintenance/documents/f0009151-logd04-a11y.pdf).
+
+**Physics.** Chrome used keyboard steering with route assist off. The
+Skyline runs targeted 22 mph. The other passes targeted 18–20 mph.
+Both Skyline findings refer to the vehicle carriageways over the named
+pedestrian or equestrian ways. Peak grade uses one-metre samples of the
+driven game trajectory.
+
+| Crossing | Inventory | Grounded finishes | Peak grade in completed drives |
+| --- | --- | ---: | ---: |
+| Skyline at Lakeside | Caltrans 34 0002 | 2/2 | 6.74–16.03% |
+| Skyline at Hilltop | Caltrans 34 0024 | 2/2 | 5.53–8.90% |
+| Gilman at Griffith | SFMTA 29 | 2/2 | 2.77–2.80% |
+| Grand View near 23rd Street | SFMTA 32 | 2/2 | 8.86–8.93% |
+| Portola near Marne Avenue | SFMTA 99 | 2/2 | 9.08–10.02% |
+| Front, Davis and Battery streets | SFMTA 28, 27, 21 | 3/3 | 0.90–1.49% |
+| Lundeen at Crook | SFMTA 103 | 2/2 | 2.68–2.71% |
+| Howard at Moscone | SFMTA 35 | 0/1 | Drive stopped at an inferred wall |
+
+All completed drives recorded zero airborne travel. None had a measured dip
+deeper than 0.5 m over an eight-metre chord. The Howard drive crashed
+grounded, 45.6 m into the course.
+
+### Howard Street at the Moscone crossings
+
+**World and Data.** The candidate lowers 94.6 m² of an inferred building
+footprint beneath the roadway, retaining its adjacent faces. The April
+2023 survey has 102,258 pavement returns in the checked strip. Returns
+above the road support two distinct overhead spans. The candidate retains
+them as scenery at estimated base and top elevations of 19.3–25.3 m and
+16.2–18.1 m in the game. Neither span supplies motor-vehicle support.
+These are inferred game volumes from the exterior returns. Physical
+underside clearance requires separate measurements.
+[Public Works Moscone expansion](https://sfpublicworks.org/node/34512).
+
+**Physics.** The three-lane Chrome regression starts before the eastern
+span, drives 132 m westbound and finishes beyond the western span. The
+centre and both four-metre offset drives clear the two spans on ordinary
+street contact. All three finish grounded without a crash or airborne
+interval.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-main-street.cjs howard
+```
+
+- Parent game manifest SHA-256 `f2b4e5efa2258a968a99436d59ff1c12752fdd2d5a7243673ddbc5974bb79e05`.
+- Corrected game manifest SHA-256 `ce013b65fc67cdb098dddc7f4852981b7ee34c30f7bceb74b93ad0220555376f`.
+- Gerardus review SHA-256 `e0955894d68dd0907d25d1195d8215d4215fcfc90f9a4f0084c9a64534f69996`.
+- Survey node receipt SHA-256 `7df8457960c10eb9ff0178d9a2d623ac5d68bdbeadd4ce41f59d5698651c29e8`.
+
+The retained local run is `howard-crossing-evidence-20261125`. It includes
+the inventory inputs, course recipes, Chrome telemetry and survey returns.

@@ -77,6 +77,27 @@ test("the Fourth Street merge clears the capped face above its lower volume", ()
   assert.equal(collisionAt([index], car, 9.5), "building");
 });
 
+test("both Moscone spans leave Howard Street open below their overhead volumes", () => {
+  const token = "80858084";
+  const raw = file(`tiles/${token}.json.gz`);
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const receipts = manifest.roadBake.buildingClearanceReviews;
+  const howard = receipts.at(-1).tiles[token];
+  assert.equal(howard.parentSha256, receipts.at(-2).tiles[token].sha256);
+  assert.equal(howard.sha256, digest(raw));
+
+  const tile = JSON.parse(gunzipSync(raw));
+  const index = buildCollisionIndex(tile, token);
+  for (const [x, y, base] of [
+    [3400.69, 2700.84, 19.3],
+    [3345.3, 2642.85, 16.2],
+  ]) {
+    const car = { x, y, heading: -2.35725 };
+    assert.equal(collisionAt([index], car, 9.6), null);
+    assert.equal(collisionAt([index], car, base), "building");
+  }
+});
+
 test("local bridges carry the car above the ground grid and meet street pavement", () => {
   const specifications = [
     ["8085876c", "crossover-drive-over-jfk", [-3462, 1194.7], 6],
