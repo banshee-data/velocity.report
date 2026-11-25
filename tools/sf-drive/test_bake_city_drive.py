@@ -137,6 +137,50 @@ def test_bake_requires_a_transition_for_a_wider_seam():
     assert not valid({**road, "widthTransitionMetres": {"end": 41}})
 
 
+def test_bake_carries_a_positive_probe_for_a_drivable_ramp_entrance(tmp_path):
+    encoded = road_layers["encoded"]
+    digest = road_layers["digest"]
+    playable_product = road_layers["playable_product"]
+    token = "8085871c"
+    manifest = {"tiles": [{"t": token, "x": 0, "y": 0}]}
+    path = tmp_path / "structures.json"
+    road = {
+        "id": "ramp",
+        "kind": "ramp",
+        "width": 6,
+        "points": [[0, 0, 0], [20, 0, 1], [40, 0, 2]],
+        "groundEnds": ["start"],
+        "owners": [token, token],
+        "profiles": [],
+        "groundEntryProbeMetres": {"start": 12},
+    }
+
+    def bake(candidate):
+        product = {
+            "format": "sf-game-road-contact",
+            "version": 1,
+            "base_sha256": "base",
+            "road_revision": "revision",
+            "roads": [candidate],
+            "transitions": [],
+        }
+        raw = encoded(product)
+        path.write_bytes(raw)
+        roads, _, _ = playable_product(path, digest(raw), "base", "revision", manifest)
+        return roads[token]
+
+    assert bake(road) == [road]
+    for invalid in (
+        {"groundEntryProbeMetres": {"end": 12}},
+        {"groundEntryProbeMetres": {"start": 0}},
+        {"groundEntryProbeMetres": {"start": True}},
+        {"kind": "bridge_deck"},
+        {"groundExitOnly": ["start"]},
+    ):
+        with pytest.raises(ValueError, match="Invalid playable road ramp"):
+            bake({**road, **invalid})
+
+
 def test_bake_validates_asymmetric_width_and_bounds_its_stations():
     valid = road_layers["valid_width_transitions"]
     road = {

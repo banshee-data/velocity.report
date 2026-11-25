@@ -42,6 +42,7 @@ export function roadPortals(
   groundEnds,
   groundExitOnly = [],
   seams = {},
+  groundEntryProbeMetres = {},
 ) {
   const { contact, profile } = surface;
   return groundEnds.map((end) => {
@@ -74,7 +75,10 @@ export function roadPortals(
       halfWidth: surface.terminalHalfWidths?.[atEnd ? 1 : 0] ?? firstWidth,
       entryProbe:
         surface.kind === "ramp"
-          ? Math.min(rampLookahead, profile.at(-1).s_m / 2)
+          ? Math.min(
+              groundEntryProbeMetres[end] ?? rampLookahead,
+              profile.at(-1).s_m / 2,
+            )
           : 0,
     };
   });

@@ -311,6 +311,7 @@ def playable_product(path, sha256, base_hash, revision, manifest):
         points = road["points"]
         rail_sides = road.get("railSides", [])
         exit_only = road.get("groundExitOnly", [])
+        entry_probes = road.get("groundEntryProbeMetres", {})
         if (
             not isinstance(rail_sides, list)
             or any(side not in ("left", "right") for side in rail_sides)
@@ -329,6 +330,16 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             or not isinstance(exit_only, list)
             or any(end not in road["groundEnds"] for end in exit_only)
             or len(set(exit_only)) != len(exit_only)
+            or not isinstance(entry_probes, dict)
+            or any(
+                road["kind"] != "ramp"
+                or end not in road["groundEnds"]
+                or end in exit_only
+                or type(metres) not in (int, float)
+                or not math.isfinite(metres)
+                or metres <= 0
+                for end, metres in entry_probes.items()
+            )
             or road["owners"] != [owner(points[0]), owner(points[-1])]
             or not valid_width_transitions(road)
             or not valid_covered_range(road)

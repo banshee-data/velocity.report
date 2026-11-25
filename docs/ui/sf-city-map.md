@@ -401,6 +401,15 @@ reordered tree rows require a fresh classification. The output records
 the rebaked input and classified tile hashes and binds the existing
 quest placements to the new manifest.
 
+### Ground ramp entry
+
+An entering ground portal on a ramp may specify `groundEntryProbeMetres`
+by endpoint, for example `{"start":12}`. The game tests whether the car's
+current heading projects into the ramp lane that far ahead. The probe
+caps at half the fitted length of the ramp, and existing ramp portals
+default to 5 m. Bosworth uses the longer probe because the through street
+and I-280 entrance share the first few metres of pavement.
+
 ### Inputs for a new game-tile revision
 
 1. Freeze the DataSF centreline and street geometry source versions, the 3DEP acquisition,

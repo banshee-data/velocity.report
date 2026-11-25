@@ -140,6 +140,46 @@ test("an exit-only ramp hands off to pavement without capturing through traffic"
   );
 });
 
+test("a longer entry probe distinguishes a shallow ramp fork from the through lane", () => {
+  const road = {
+    id: "shallow-fork",
+    kind: "ramp",
+    width: 5.5,
+    points: [
+      [0, 0, 0],
+      [10, 0, 0],
+      [30, 0, 0],
+    ],
+    owners: ["808f7fd4", "808f7fd4"],
+    groundEnds: ["start"],
+  };
+  const start = (portalRoad, heading) => {
+    const { portals } = buildBakedRoadContact(portalRoad);
+    return driveThroughRoadPortal(
+      flatCar(-0.01, 0, heading),
+      { throttle: 1 },
+      DT,
+      [portals],
+      () => 0,
+    );
+  };
+  const throughHeading = Math.atan(0.3);
+  assert.equal(start(road, throughHeading)?.surfaceId, road.id);
+  const probed = { ...road, groundEntryProbeMetres: { start: 12 } };
+  assert.equal(start(probed, throughHeading), null);
+  assert.equal(start(probed, 0)?.surfaceId, road.id);
+
+  for (const invalid of [
+    { groundEntryProbeMetres: { end: 12 } },
+    { groundEntryProbeMetres: { start: 0 } },
+    { groundEntryProbeMetres: { start: "12" } },
+    { kind: "bridge_deck", groundEntryProbeMetres: { start: 12 } },
+    { groundExitOnly: ["start"], groundEntryProbeMetres: { start: 12 } },
+  ]) {
+    assert.equal(buildBakedRoadContact({ ...road, ...invalid }), null);
+  }
+});
+
 test("a portal without terrain support or with two eligible targets stays unselected", () => {
   const surface = section(3);
   const entry = flatCar(-0.01, 0, 0);
