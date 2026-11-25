@@ -24,9 +24,10 @@ const { chromium } = require("playwright");
     const waitForStart = (id, surface, speed, timeout = 60_000) =>
       page.waitForFunction(
         ({ id, surface, speed }) => {
-          const drive = document.querySelector("#drive").dataset;
+          const drive = document.querySelector("#drive")?.dataset;
           return (
-            document.querySelector("#places").value === id &&
+            drive &&
+            document.querySelector("#places")?.value === id &&
             drive.contact === "grounded" &&
             (drive.surfaceId || "") === surface &&
             (speed === null ||
