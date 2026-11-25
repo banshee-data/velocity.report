@@ -4463,3 +4463,33 @@ both directions and identify a blocked steering line on the approach.
 
 The retained run is named `park-inventory-recheck-20261125`. Browser logs,
 course coordinates and the survey nodes are kept with the local evidence.
+
+## Staging the city road bake for publication
+
+**World and Data.** The 160-tile package carries the reviewed contacts
+through Alexander Avenue, the Presidio and the southern US 101 approaches.
+It replaces 25 compressed tiles and their manifest and updates the quest
+index to reference the new manifest. The placement fingerprint, all 137
+pickup locations and the existing progression key carry forward. The game
+reads the same-origin static package and caches it for offline play.
+[Gerardus source export](https://github.com/banshee-data/gerardus/pull/200).
+
+**Physics.** The Alexander Avenue check follows both US 101 carriageways
+through their new joins and checks the ramps at Vista Point and Alexander
+Avenue. At overlapping sampled positions the upper road contacts stand
+7.02–7.69 m above the Alexander Avenue road contact. These measurements
+describe the game's road surfaces. Inspection of the bridge underside
+would establish physical clearance.
+
+Chrome repeated the full Market Street sidehill courses on this package
+with a 22 mph target and route assist off. The southwest course finished
+grounded after 869.5 m with zero sampled airtime. The northeast course
+finished grounded after 883.9 m with 2.69 m of sampled airborne travel.
+Neither course flagged a dip deeper than 0.5 m over an eight-metre chord.
+The focused inner-lane drive covered 52.9 m at a 20 mph target and finished
+grounded with zero sampled airtime.
+
+- Candidate manifest SHA-256 `297e0a640bb78b4664c40162c5a2c624b19b5e957f5e70e27296f1a6e404b021`.
+- Gerardus contact SHA-256 `9b97681280229abd0d656a7a9c640e653569715c7c925fc0d3c530bb759e278e`.
+- Market Street drive inputs and telemetry are retained under the local run
+  name `market-sidehill-current-recheck-20261125`.

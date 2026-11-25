@@ -1,0 +1,1 @@
+- Baked the reviewed city road contacts into 25 updated SF tiles and checked the Alexander Avenue ramps, Golden Gate joins and Market Street drives while preserving pickup progress. [City road bake audit](../../ui/sf-road-route-audit.md#staging-the-city-road-bake-for-publication).

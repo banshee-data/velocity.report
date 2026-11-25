@@ -4452,14 +4452,16 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
     ),
   );
   const road = (name) => roads.get(`sf-contact/${name}`);
-  const assertForwardJoin = (previous, next) => {
+  const assertForwardJoin = (previous, next, departure = "end") => {
     assert.ok(previous && next, "Missing Golden Gate contact");
-    assert.deepEqual(previous.points.at(-1), next.points[0], next.id);
-    assert.deepEqual(previous.seams.end, next.seams.start, next.id);
+    const terminal =
+      departure === "end" ? previous.points.at(-1) : previous.points[0];
+    assert.deepEqual(terminal, next.points[0], next.id);
+    assert.deepEqual(previous.seams[departure], next.seams.start, next.id);
     assert.ok(
       manifest.roadBake.playableTransitions.some(
         ({ from, to, direction }) =>
-          from === `${previous.id}:end` &&
+          from === `${previous.id}:${departure}` &&
           to === `${next.id}:start` &&
           direction === "forward",
       ),
@@ -4469,6 +4471,24 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
   const visitorMerge = road("golden-gate-northbound-from-visitor");
   const merchantFork = road("golden-gate-southbound-to-merchant");
   const vistaExit = road("golden-gate-vista-exit");
+  const vistaApproach = road("golden-gate-northbound-vista-mainline");
+  const northFork = road("us101-north-before-alexander-fork");
+  const northApproach = road("golden-gate-northbound-past-vista");
+  const northOverpass = road("us101-north-over-alexander");
+  const northMerge = road("us101-north-after-alexander-merge");
+  const southFork = road("us101-south-alexander-fork");
+  const southOverpass = road("us101-south-over-alexander");
+  const southApproach = road("us101-south-from-alexander-to-golden-gate");
+  const southMerge = road("golden-gate-southbound-to-alexander-merge");
+  const assertGroundPortal = (contact) => {
+    const portals = buildBakedRoadContact(contact).portals;
+    assert.equal(portals.length, 1, contact.id);
+    const [{ x, y, z }] = portals;
+    assert.ok(
+      Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.025,
+      contact.id,
+    );
+  };
   for (const direction of ["northbound", "southbound"]) {
     const crossing = Array.from({ length: 6 }, (_, i) =>
       road(`golden-gate-${direction}-${i + 1}`),
@@ -4481,13 +4501,21 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
       ? [
           doyle,
           crossing[0],
-          ...[visitorMerge].filter(Boolean),
+          visitorMerge,
           ...crossing.slice(1),
-          ...[vistaExit].filter(Boolean),
+          vistaApproach,
+          northFork,
+          northApproach,
+          northOverpass,
+          northMerge,
         ]
       : [
+          southFork,
+          southOverpass,
+          southApproach,
+          southMerge,
           ...crossing.slice(0, -1),
-          ...[merchantFork].filter(Boolean),
+          merchantFork,
           crossing.at(-1),
           doyle,
         ];
@@ -4522,31 +4550,48 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
       }
     }
     assert.ok(span > 2700 && span < 2800, `${direction} span ${span}`);
-    const marin = northbound ? (vistaExit ?? crossing.at(-1)) : crossing[0];
-    const [{ x, y, z }] = buildBakedRoadContact(marin).portals;
-    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
+    assertGroundPortal(northbound ? northMerge : southFork);
     const [deckX, deckY, deckZ] = crossing[2].points[190];
     assert.ok(groundAtWorld(tiles, deckX, deckY, true) < deckZ - 65);
   }
-  if (visitorMerge) {
-    assertForwardJoin(road("golden-gate-visitor-entry"), visitorMerge);
-    assertForwardJoin(merchantFork, road("golden-gate-merchant-exit"));
+  const vistaEntry = road("golden-gate-vista-entry");
+  const eastAlexander = road("alexander-avenue-east-approach");
+  const westAlexander = road("alexander-avenue-west-to-conzelman");
+  const northExit = road("us101-north-alexander-exit");
+  const northEntry = road("us101-north-alexander-entry");
+  const southExit = road("us101-south-alexander-exit");
+  const southEntry = road("us101-south-alexander-entry");
+  for (const [from, to] of [
+    [road("golden-gate-visitor-entry"), visitorMerge],
+    [merchantFork, road("golden-gate-merchant-exit")],
+    [road("golden-gate-northbound-6"), vistaExit],
+    [vistaEntry, northFork],
+    [northFork, northExit],
+    [northExit, eastAlexander],
+    [northEntry, northMerge],
+    [southFork, southExit],
+    [westAlexander, southEntry],
+    [southEntry, road("golden-gate-southbound-1")],
+  ])
+    assertForwardJoin(from, to);
+  assertForwardJoin(eastAlexander, northEntry, "start");
+  for (const road of [vistaEntry, vistaExit, westAlexander, southExit]) {
+    assertGroundPortal(road);
   }
-  if (vistaExit) {
-    const fork = road("golden-gate-northbound-6");
-    const approach = road("golden-gate-northbound-vista-mainline");
-    const entry = road("golden-gate-vista-entry");
-    const departure = road("golden-gate-northbound-past-vista");
-    for (const [from, to] of [
-      [fork, approach],
-      [approach, departure],
-      [entry, departure],
-    ])
-      assertForwardJoin(from, to);
-    for (const ramp of [entry, departure]) {
-      const [{ x, y, z }] = buildBakedRoadContact(ramp).portals;
-      assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02, ramp.id);
-    }
+
+  const underpass = buildBakedRoadContact(
+    road("alexander-avenue-under-us101"),
+  ).surface;
+  for (const upper of [northMerge, southOverpass]) {
+    const gaps = upper.points.flatMap(([x, y, z]) => {
+      const floor = underpass.heightAt(x, y);
+      return floor === null ? [] : [z - floor];
+    });
+    assert.ok(gaps.length > 0, upper.id);
+    assert.ok(
+      gaps.every((gap) => gap > 6.5),
+      upper.id,
+    );
   }
 });
 

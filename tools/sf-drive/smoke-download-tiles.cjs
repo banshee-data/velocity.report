@@ -19,7 +19,7 @@ const { tiles } = require("../../public_html/src/sf/tiles/manifest.json");
     page.setDefaultTimeout(90_000);
     await page.goto(`${origin}/sf/`);
     await page.locator('#drive[data-contact="grounded"]').waitFor();
-    await page.getByRole("button", { name: "Map and game settings" }).tap();
+    await page.getByRole("button", { name: "Modes, map and settings" }).tap();
     const button = page
       .getByLabel("City minimap and assets")
       .getByRole("button", { name: "Download all tiles" });
