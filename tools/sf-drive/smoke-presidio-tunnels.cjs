@@ -2525,7 +2525,11 @@ for (const reverse of [false, true]) {
     groundApproachMetres: reverse ? 4 : 8,
     connectByGround: true,
     groundDeparture: reverse
-      ? [[4408.5, 2875.7, 4.05]]
+      ? [
+          [4432.1, 2898.9, 3.5],
+          [4434.7, 2902.3, 3.52],
+          [4436.6, 2910.4, 3.59],
+        ]
       : [
           [4302.1, 2749.5, 6.2],
           [4306, 2742.3, 6.1],

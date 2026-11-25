@@ -305,11 +305,15 @@ test("Delancey follows the lower pavement and joins both adjoining streets", () 
   const tiles = ["80858074", "8085807c"].map((token) =>
     JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
   );
-  const road = tiles[1].playableRoads.find(
-    ({ id }) => id === "sf-contact/delancey-street-beside-bryant",
+  const [northeast, southwest] = tiles.map(({ playableRoads }) =>
+    playableRoads.find(
+      ({ id }) => id === "sf-contact/delancey-street-beside-bryant",
+    ),
   );
-  assert.ok(road);
-  const { surface, portals } = buildBakedRoadContact(road);
+  assert.ok(northeast);
+  assert.deepEqual(northeast, southwest);
+  assert.deepEqual(northeast.owners, ["80858074", "8085807c"]);
+  const { surface, portals } = buildBakedRoadContact(northeast);
   assert.equal(portals.length, 2);
   for (const { x, y, z } of portals)
     assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.05);
@@ -317,6 +321,8 @@ test("Delancey follows the lower pavement and joins both adjoining streets", () 
   const floor = surface.heightAt(x, y);
   assert.ok(Math.abs(floor - 5.1) < 0.1);
   assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - floor) < 0.08);
+  const approachFloor = surface.heightAt(4403.675, 2870.971);
+  assert.ok(Math.abs(approachFloor - 4.04) < 0.06);
 });
 
 test("Geary stays below the Fillmore bridge in both directions", () => {
