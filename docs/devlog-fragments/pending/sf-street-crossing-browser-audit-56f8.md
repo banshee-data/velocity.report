@@ -1,0 +1,1 @@
+- Recorded [paired browser drives across three SF street crossings](../../ui/sf-road-route-audit.md#three-terrain-supported-street-crossings) on the public and local city bakes, including sampled clearance and grades.

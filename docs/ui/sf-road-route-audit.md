@@ -4134,3 +4134,38 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   bayshore-hester-entry-us101 northbound-hester-stays-on-us101 \
   northbound-hester-exit-to-third-street
 ```
+
+## Three terrain-supported street crossings
+
+**World and Physics.** Chrome drove Mariposa Street over the Caltrain tracks,
+Evans Avenue beneath the railway and the Hyde Street sidehill viaduct near
+Francisco Street. Each course followed the mapped street from approximately
+50 m before the Public Works marker to 50 m after it, 1.5 m to the right of
+the centreline in each direction. The keyboard driver targeted 22 mph with
+route assist off. Both directions ran on the public Hester package and again
+on the local Merchant Road package, for 12 passes.
+[Public Works roadway structure inventory](https://data.sf.gov/w/x5tj-txci/ikek-yizv).
+
+| Crossing                         | Public Works ID | Peak grade, public / local | Maximum sampled clearance, public / local |
+| -------------------------------- | --------------- | -------------------------: | ----------------------------------------: |
+| Mariposa Street over the railway | 70              |              3.78% / 3.76% |                              0.0 / 0.0 cm |
+| Evans Avenue beneath the railway | 63B             |              2.65% / 2.50% |                            0.10 / 0.03 cm |
+| Hyde Street sidehill viaduct     | 20              |            29.76% / 28.48% |                            4.02 / 5.45 cm |
+
+All 12 drives reached their finish with no crash, tile wait, browser error
+or request to Arrow Worker. None exceeded the 0.5 m dip threshold over an
+eight-metre chord. Eleven finished with the grounded flag. The northbound
+public Hyde drive finished with the airborne flag and no more than 1.5 mm
+of measured clearance on that pass. Clearance here compares sampled car
+altitude with the game terrain under it. These tests cover the street
+approaches and provide no measurements of the underside of a structure.
+
+**Data.** The projected markers in game metres were Mariposa (4091.01,
+455.99), Evans (4082.15, −1557.78) and Hyde (1753.77, 4853.33). The courses
+sampled the named road rows around each marker at intervals of at most
+2.3 m. The finish tolerance was 4 m. Chrome checked the served manifest
+hash before each drive.
+
+- Public Works snapshot SHA-256 `c7b76f2f3d07ba28d2142008d65edf1a466782de89dbca024c0fc7a5156b7d00`.
+- Public Hester manifest SHA-256 `eddfbe36c207b3dfb69cb502cb8aea0073ca3b28e37ff35db52f1f4f64875655`.
+- Local Merchant Road manifest SHA-256 `5b206c95ee87664339e22f06b60bcfcb2f19f701b4f191151235d3fb4a43ad0e`.
