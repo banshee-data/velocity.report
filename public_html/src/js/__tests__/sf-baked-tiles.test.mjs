@@ -15,6 +15,7 @@ import {
   collisionAt,
   contactStep,
   groundAtWorld,
+  tileAt,
 } from "../sf-drive-core.js";
 import {
   coveredRoadBlend,
@@ -2072,16 +2073,20 @@ test("baked roads agree across tile owners and reach their declared ground porta
   const roads = new Map();
   const duplicated = new Set();
   const terminals = new Map();
+  const ownerCopies = new Map();
   const loaded = tiles.map(({ t }) =>
     JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
   );
-  for (const { playableRoads = [] } of loaded) {
+  for (const { t, playableRoads = [] } of loaded) {
     for (const road of playableRoads) {
       if (roads.has(road.id)) {
         assert.deepEqual(road, roads.get(road.id), road.id);
         duplicated.add(road.id);
+      } else {
+        ownerCopies.set(road.id, new Set());
       }
       roads.set(road.id, road);
+      ownerCopies.get(road.id).add(t);
       terminals.set(`${road.id}:start`, [road.points[0], road.seams?.start]);
       terminals.set(`${road.id}:end`, [road.points.at(-1), road.seams?.end]);
     }
@@ -2089,12 +2094,32 @@ test("baked roads agree across tile owners and reach their declared ground porta
   const entry = roads.get("sf-contact/i280-fifth-south-entry");
   assert.deepEqual(entry.groundEnds, ["start"]);
   assert.ok(duplicated.has(entry.id));
+  const joinedEnds = new Set();
   for (const { from, to } of roadBake.playableTransitions) {
     const terminal = terminals.get(from);
     assert.ok(terminal?.[1], from);
     assert.deepEqual(terminal, terminals.get(to));
+    joinedEnds.add(from);
+    joinedEnds.add(to);
   }
+  const unconnected = [];
   for (const road of roads.values()) {
+    assert.ok(buildBakedRoadContact(road), road.id);
+    const copies = ownerCopies.get(road.id);
+    for (const owner of road.owners)
+      assert.ok(
+        copies.has(owner),
+        `${road.id} missing from its terminal owner ${owner}`,
+      );
+    for (const [x, y] of road.points) {
+      const { t } = tileAt(tiles, x, y);
+      assert.ok(copies.has(t), `${road.id} missing from crossed tile ${t}`);
+    }
+    for (const end of ["start", "end"]) {
+      const id = `${road.id}:${end}`;
+      if (!joinedEnds.has(id) && !road.groundEnds?.includes(end))
+        unconnected.push(id);
+    }
     for (const end of road.groundEnds ?? []) {
       const [x, y, z] =
         road.points[end === "start" ? 0 : road.points.length - 1];
@@ -2104,6 +2129,14 @@ test("baked roads agree across tile owners and reach their declared ground porta
         `${road.id}:${end}`,
       );
     }
+  }
+  assert.deepEqual(unconnected.sort(), [
+    "sf-contact/bay-bridge-east-span-eastbound:end",
+    "sf-contact/bay-bridge-east-span-westbound:start",
+  ]);
+  for (const id of unconnected) {
+    const [[x, y]] = terminals.get(id);
+    assert.equal(groundAtWorld(loaded, x, y, true), null, id);
   }
   const fork = "sf-contact/i280-18th-off-ramp:end";
   const exits = [

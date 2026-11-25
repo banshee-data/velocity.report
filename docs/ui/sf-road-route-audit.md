@@ -3945,10 +3945,13 @@ between the playable road surfaces. Physical clearance remains unmeasured.
 
 **Physics and UI.** Chrome drove both street directions at each crossing,
 both I-280 mainlines at each site and the southbound exit below Saint
-Charles. All nine drives used their intended surfaces and recorded zero
-airborne travel. The Saint Charles freeway drives entered and cleared
-the covered view. On lower Alemany, the rear camera still saw the
-freeway deck at the finish.
+Charles. All nine candidate drives used their intended surfaces without
+an airborne sample. The public game repeated all nine crossings and
+finished grounded. The northbound Saint Charles street drive recorded
+0.55 mm of clearance after the deck handoff, with continuous contact on
+the deck itself. The Saint Charles freeway drives entered and cleared
+the covered view. On lower Alemany, the rear camera still saw the freeway
+deck at the finish.
 
 **Goals.** The 25 fixed-step course results match the Mount Vernon release
 on the same archived alignment. The Bay Bridge replay finished through
@@ -3964,3 +3967,40 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   saint-charles-{northbound,southbound} saint-charles-i280-{northbound,southbound,south-exit} \
   western-alemany-{eastbound,westbound} western-alemany-i280-{northbound,southbound}
 ```
+
+## Packaged contact and remaining city crossings
+
+**World and Data.** The southwestern release contains 319 distinct
+playable surfaces and 269 joins across 160 tiles. The asset test checks
+that each surface has identical geometry in both terminal owners and
+every tile containing one of its sampled positions. Each terminal has
+a declared ground portal or a join at the same position. The two outer
+Bay Bridge endpoints sit at the map edge over water.
+
+**Physics.** Chrome drove the following seven crossing alignments in both
+directions using the same baked manifest listed above. It started on the
+mapped street near each San Francisco Public Works structure marker and
+followed the mapped drive lane 1.5 m from the centreline, at a target of
+22 mph. The start and finish were up to 40 m from the projected marker.
+The reported clearance is the largest sampled distance between the car
+and the game terrain during an airborne flag. All 14 drives reached the
+finish. Twelve finished grounded. The other two finished with airborne
+flags and less than 1 mm of clearance. No driven sample exceeded the
+0.5 m dip threshold over an eight-metre chord.
+[Public Works roadway structure inventory](https://data.sf.gov/w/x5tj-txci/ikek-yizv).
+
+| Alignment                                        | Public Works marker | Maximum sampled clearance |
+| ------------------------------------------------ | ------------------- | ------------------------: |
+| Cesar Chavez Street above the railway            | 57                  |                    2.3 mm |
+| Third Street at Mission Creek                    | 74                  |                    0.3 mm |
+| Mason Street above Broadway                      | 250C                |                    6.4 mm |
+| Ingerson Avenue at the sidehill viaduct          | 238                 |                    6.4 mm |
+| Alemany Boulevard above Junipero Serra Boulevard | 195                 |                    5.3 mm |
+| Junipero Serra Boulevard below Alemany Boulevard | 195                 |                    0.5 mm |
+| Evans Avenue at the bridge                       | 126                 |                    0.3 mm |
+
+These drives establish playable passage on the tested game approaches.
+The comparison uses the game's terrain grid. It does not establish
+physical bridge clearances or coverage of every inventory record.
+
+- Public Works snapshot SHA-256 `c7b76f2f3d07ba28d2142008d65edf1a466782de89dbca024c0fc7a5156b7d00`.

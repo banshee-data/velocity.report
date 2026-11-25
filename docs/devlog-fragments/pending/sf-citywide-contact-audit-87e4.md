@@ -1,0 +1,1 @@
+- Added [citywide road contact checks](../../ui/sf-road-route-audit.md#packaged-contact-and-remaining-city-crossings) for complete tile ownership and connected terminals, and checked seven more crossings in Chrome.
