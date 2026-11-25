@@ -4462,6 +4462,61 @@ test("the Macalla loop merges into westbound I-80 at the upper level", () => {
   }
 });
 
+test("John Daly exit and lower I-280 approach rejoin at the southbound entrance", () => {
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7c3c", "808f7c44"].map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) =>
+      playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  const road = (name) => roads.get(`sf-contact/${name}`);
+  const exit = road("i280-south-john-daly-exit");
+  const upper = road("john-daly-westbound-overpass");
+  const entry = road("john-daly-southbound-i280-entry");
+  const tunnel = road("i280-south-daly-separation");
+  const through = road("i280-daly-tunnel-to-return-merge");
+  const merge = road("i280-south-after-john-daly-merge");
+  for (const tile of tiles) {
+    assert.deepEqual(
+      tile.playableRoads.find(({ id }) => id === exit.id),
+      exit,
+    );
+  }
+  const transitions = manifest.roadBake.playableTransitions;
+  for (const [before, after] of [
+    [road("i280-south-edge-exit"), exit],
+    [exit, upper],
+    [road("john-daly-westbound"), upper],
+    [upper, entry],
+    [tunnel, through],
+    [entry, merge],
+    [through, merge],
+  ]) {
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      transitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+    assert.ok(!before.groundEnds.includes("end"));
+  }
+  const crossing = [-2799.381, -6099.975];
+  const top = buildBakedRoadContact(upper).surface.heightAt(...crossing);
+  const bottom = buildBakedRoadContact(tunnel).surface.heightAt(...crossing);
+  assert.ok(
+    Number.isFinite(top) && Number.isFinite(bottom) && top - bottom > 14,
+  );
+  const [x, y, z] = merge.points.at(-1);
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
+});
+
 test("both Golden Gate carriageways connect the Presidio and Marin above terrain", () => {
   const manifest = JSON.parse(file("tiles/manifest.json"));
   const coverage = JSON.parse(file("coverage.json"));
@@ -5081,10 +5136,10 @@ test("I-280 follows the surveyed carriageways and directed SR 82 ramps south of 
   }
   for (const item of [northApproach, southApproach])
     assert.deepEqual(item.groundEnds, [], item.id);
-  for (const exit of [southExit, edgeExit]) {
-    assert.deepEqual(exit.groundEnds, ["end"]);
-    assert.deepEqual(exit.groundExitOnly, ["end"]);
-  }
+  assert.deepEqual(southExit.groundEnds, ["end"]);
+  assert.deepEqual(southExit.groundExitOnly, ["end"]);
+  assert.deepEqual(edgeExit.groundEnds, []);
+  assert.equal(edgeExit.groundExitOnly, undefined);
   assert.deepEqual(northEntry.groundEnds, ["start"]);
   const [east, north, height] = northEntry.points[0];
   const lead = Math.hypot(east + 1504.46, north + 5537.32);

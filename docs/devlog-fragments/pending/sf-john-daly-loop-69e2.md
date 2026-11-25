@@ -1,0 +1,1 @@
+- Connected the southbound I-280 exit and entrance at John Daly Boulevard, with a separate path through the tunnel underneath. The [route audit](../../ui/sf-road-route-audit.md#john-daly-boulevard-exit-and-return-to-southbound-i-280) records the cross-tile contacts, keyboard drives, and offline upgrade.
