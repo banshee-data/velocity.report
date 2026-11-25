@@ -3060,6 +3060,40 @@ cases["geneva-exit-and-reentry"] = {
   maxDurationMs: 165_000,
 };
 for (const reverse of [false, true]) {
+  cases[`congdon-${reverse ? "northbound" : "southbound"}`] = {
+    roads: ["justin-congdon-over-i280"],
+    owners: ["808f7e64", "808f7e8c"],
+    reverse,
+    speed: 6.8,
+    groundApproachMetres: 7,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [[1271.7, -3104, 36.3]]
+      : [[1221.4, -3221.3, 36.1]],
+    maxApproachClearanceMetres: 0.18,
+    maxDepartureClearanceMetres: 0.18,
+    maxDurationMs: 70_000,
+  };
+}
+for (const [direction, road, start, finish, exitCamera] of [
+  ["northbound", "i280-north-monterey-to-alemany", 450, 650, "covered"],
+  ["southbound", "i280-south-beyond-alemany", 65, 255, "exterior"],
+]) {
+  cases[`i280-under-congdon-${direction}`] = {
+    roads: [road],
+    owners: ["808f7e64", "808f7e8c", "808f7ef4"],
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 16,
+    finishOnDeck: true,
+    finishDistance: finish,
+    exitCamera,
+    speed: 16,
+    maxAirborneMetres: 0,
+    maxDurationMs: 45_000,
+  };
+}
+for (const reverse of [false, true]) {
   cases[`blanken-underpass-${reverse ? "westbound" : "eastbound"}`] = {
     owners: ["808f7f2c"],
     roads: ["blanken-avenue-underpass"],

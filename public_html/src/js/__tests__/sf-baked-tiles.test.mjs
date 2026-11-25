@@ -345,6 +345,28 @@ test("Delancey follows the lower pavement and joins both adjoining streets", () 
   assert.ok(Math.abs(approachFloor - 4.04) < 0.06);
 });
 
+test("the Congdon crossing retains separate I-280 surfaces below its deck", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7e64.json.gz")));
+  const get = (name) => {
+    const road = tile.playableRoads.find(
+      ({ id }) => id === `sf-contact/${name}`,
+    );
+    assert.ok(road, name);
+    return buildBakedRoadContact(road);
+  };
+  const deck = get("justin-congdon-over-i280");
+  assert.equal(deck.portals.length, 2);
+  for (const [road, x, y] of [
+    ["i280-north-monterey-to-alemany", 1219.2632, -3167.6042],
+    ["i280-south-beyond-alemany", 1225.7041, -3146.8427],
+  ]) {
+    const upper = deck.surface.heightAt(x, y);
+    const lower = get(road).surface.heightAt(x, y);
+    assert.ok(Number.isFinite(upper) && Number.isFinite(lower));
+    assert.ok(upper - lower > 6 && upper - lower < 8);
+  }
+});
+
 test("Geary stays below the Fillmore bridge in both directions", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808580bc.json.gz")));
   const load = (name) =>
