@@ -49,7 +49,7 @@ test("the Yerba Buena bake records its surveyed tree clearance and keeps the roa
   const raw = file(`tiles/${token}.json.gz`);
   const tile = JSON.parse(gunzipSync(raw));
   const receipt = release.tiles[token];
-  assert.equal(receipt.removed, 28);
+  assert.equal(receipt.removed, 30);
   assert.equal(receipt.sha256, digest(raw));
   assert.equal(route.manifestSha256, digest(manifestBytes));
   assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
@@ -57,6 +57,8 @@ test("the Yerba Buena bake records its surveyed tree clearance and keeps the roa
     tile.playableRoads.some(({ id }) => id === "yerba-buena-upper-tunnel"),
   );
   assert.ok(!tile.tr.some(([x, y]) => x === 2417 && y === 1286));
+  assert.ok(!tile.tr.some(([x, y]) => x === -2295 && y === -3445));
+  assert.ok(!tile.tr.some(([x, y]) => x === -1623 && y === -3934));
   // This nearby row retained returns within the vehicle-height band.
   assert.ok(tile.tr.some(([x, y, h]) => x === 1497 && y === 1206 && h === 73));
 });

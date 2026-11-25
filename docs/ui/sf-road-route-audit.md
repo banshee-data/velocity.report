@@ -4493,3 +4493,53 @@ grounded with zero sampled airtime.
 - Gerardus contact SHA-256 `9b97681280229abd0d656a7a9c640e653569715c7c925fc0d3c530bb759e278e`.
 - Market Street drive inputs and telemetry are retained under the local run
   name `market-sidehill-current-recheck-20261125`.
+
+## Yerba Buena eastbound exit lane clearance
+
+**Physics.** Fixed-step keyboard controls ran 446 allowed span directions on
+the centreline and 0.75 m on either side. Each line used 8 m/s and retried at
+5 m/s on failure. Positive offsets lie to the left of the stored span
+direction. The Southgate feeder stalled on the positive offset, and the
+eastbound exit bore scraped an inferred tree. Chrome reproduced the feeder
+stall at game position `(6728.30, 5565.79)` with route assist off. With the
+updated static tile, the same browser case reached the deck finish grounded,
+with zero airborne travel and no scenery scrapes. A second Chrome run took
+the lower tunnel through the exit bore and Southgate to Macalla. It left the
+baked surfaces on ordinary pavement, with zero airborne travel and no scrapes.
+
+| Offset from stored centreline | Previous bake | Updated bake |
+| ----------------------------: | ------------: | -----------: |
+|                       −0.75 m |       445/446 |      445/446 |
+|                             0 |       446/446 |      446/446 |
+|                       +0.75 m |       445/446 |      446/446 |
+
+The remaining negative-offset result is an unsupported isolated start on the
+north Pennsylvania Avenue fork at Dogpatch. That trial starts just inside the
+fork and measures start support. It cannot establish how the preceding ramp
+hands the car onto the fork. The updated fixed-line runs also recorded seven
+completed span drives with scenery scrapes. Three-lane sampling gives no
+coverage guarantee for the entire carriageway or every steering trajectory.
+
+**World and Data.** The April 2023 survey sampled game elevations of 51.83 m
+at the tunnel mouth and 46.94 m on the feeder. Within 1.35 m of their inferred
+tree positions, it had 107 and 333 returns within 0.2 m of pavement,
+respectively, and zero from 0.25 to 2 m above it at either position. The survey
+also recorded overhead returns at both sites. The classification removes two
+inferred tree rows from tile `80858024` and retains earlier tree reviews and
+the road contacts. The evidence describes the scanned volume and game
+clearance at these samples. [San Francisco LiDAR survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+To repeat the span audit, run the following command for each of `-0.75`, `0`
+and `0.75`. The Chrome regression is `island-east-southgate-offset` in
+`tools/sf-drive/smoke-presidio-tunnels.cjs`.
+
+```sh
+node tools/sf-drive/audit-baked-road-contact.mjs public_html/src/sf/tiles --span-lane=0.75
+```
+
+- Parent manifest SHA-256 `297e0a640bb78b4664c40162c5a2c624b19b5e957f5e70e27296f1a6e404b021`.
+- Updated manifest SHA-256 `cd46e612cdd240b704538133b44ed69a0e100739d4484cb1d466e3a1668ea4df`.
+- Gerardus classification SHA-256 `d4c1132c94c61c54dece92523191174f6ab71ad36502ef7c3fa4d323a1fed20b`.
+
+The retained run `off-centre-lanes-evidence-20261125` contains the span
+replays, two site receipts and Chrome telemetry on the attached evidence volume.

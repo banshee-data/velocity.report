@@ -387,6 +387,55 @@ def reviewed_trees(tmp_path):
     return original, reviewed, tile
 
 
+def test_additional_tree_review_keeps_prior_removals_on_rebake(
+    tmp_path, reviewed_trees
+):
+    original, reviewed, tile = reviewed_trees
+    encode, digest = tree_bake["encode"], tree_bake["digest"]
+    token = "80858024"
+    name = f"tiles/{token}.json.gz"
+    manifest_path = "tiles/manifest.json"
+    approved = tmp_path / "supplemental"
+    product = tmp_path / "additional-review.json"
+    (reviewed / "structures.json").write_bytes(b"preserved contact export\n")
+    parent = digest((reviewed / manifest_path).read_bytes())
+    product.write_bytes(
+        encode(
+            {
+                "format": "sf-inferred-tree-classification/v1",
+                "tile_manifest_sha256": parent,
+                "ept_sha256": "survey-index",
+                "ept_nodes_sha256": {"exit": "survey-nodes"},
+                "tree_inventory_sha256": None,
+                "inferred_tree_patches": {
+                    token: [
+                        {
+                            "index": 0,
+                            "sha256": digest(encode(tile["tr"][1])),
+                            "parts": [],
+                        }
+                    ],
+                },
+            }
+        )
+    )
+    tree_bake["bake"](reviewed, product, approved)
+    packed = (approved / name).read_bytes()
+    assert json.loads(gzip.decompress(packed))["tr"] == tile["tr"][2:]
+    manifest = json.loads((approved / manifest_path).read_bytes())
+    classification = manifest["roadBake"]["treeClassification"]
+    assert classification["tiles"][token]["parentSha256"] == digest(
+        (original / name).read_bytes()
+    )
+    assert classification["tiles"][token]["removed"] == 2
+    assert classification["additionalReviews"][0]["parentManifestSha256"] == parent
+    assert (approved / "structures.json").read_bytes() == b"preserved contact export\n"
+
+    rebake = tmp_path / "rebake"
+    tree_bake["carry_forward"](original, approved, original / "tiles", rebake)
+    assert (rebake / name).read_bytes() == packed
+
+
 def test_carry_forward_preserves_rebaked_roads_and_independent_removals(
     tmp_path, reviewed_trees
 ):

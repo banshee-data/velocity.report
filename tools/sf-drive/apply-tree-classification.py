@@ -102,7 +102,11 @@ def bake(release, patch, output):
         raise FileNotFoundError(release / "coverage.json")
 
     changed = {}
-    release_receipts = {}
+    road_bake = manifest["roadBake"]
+    previous = road_bake.get("treeClassification")
+    release_receipts = previous["tiles"] if previous else {}
+    if previous and not patches.keys() <= release_receipts.keys():
+        raise ValueError("Additional review must use previously classified tiles")
     for tile in manifest["tiles"]:
         token = tile["t"]
         if token not in patches:
@@ -126,23 +130,34 @@ def bake(release, patch, output):
         ]
         payload = gzip.compress(encode(data), compresslevel=9, mtime=0)
         changed[token] = payload
+        initial_tile_hash = digest(raw_tile)
+        prior_receipt = release_receipts.get(token)
+        if prior_receipt and prior_receipt["sha256"] != initial_tile_hash:
+            raise ValueError(f"Previous tree review tile hash differs in {token}")
         release_receipts[token] = {
-            "parentSha256": digest(raw_tile),
+            **(prior_receipt or {"parentSha256": initial_tile_hash}),
             "sha256": digest(payload),
-            "removed": len(removed),
+            "removed": len(removed)
+            + (prior_receipt["removed"] if prior_receipt else 0),
         }
         record_tile(manifest, tile, payload)
 
-    manifest["roadBake"]["treeClassification"] = {
+    classification = {
         "parentManifestSha256": parent,
         "classificationSha256": digest(product_raw),
         "surveyIndexSha256": product["ept_sha256"],
         "surveyNodesSha256": product["ept_nodes_sha256"],
         "streetTreeInventorySha256": product["tree_inventory_sha256"],
-        "tiles": release_receipts,
     }
+    if previous:
+        previous.setdefault("additionalReviews", []).append(classification)
+    else:
+        road_bake["treeClassification"] = {**classification, "tiles": release_receipts}
     print(
-        write_release(release, output, manifest, parent_raw, changed), release_receipts
+        write_release(
+            release, output, manifest, parent_raw, changed, carry=bool(previous)
+        ),
+        {token: release_receipts[token] for token in changed},
     )
 
 

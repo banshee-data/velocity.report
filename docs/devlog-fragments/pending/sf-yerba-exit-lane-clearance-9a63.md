@@ -1,0 +1,1 @@
+- Cleared two unsupported scenery contacts at the eastbound Yerba Buena tunnel exit and Southgate feeder, and added a fixed-offset keyboard regression. [Yerba Buena lane clearance](../../ui/sf-road-route-audit.md#yerba-buena-eastbound-exit-lane-clearance).
