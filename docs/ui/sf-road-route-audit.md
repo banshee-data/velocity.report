@@ -3897,10 +3897,14 @@ underside clearance requires its own survey.
 
 **Physics and UI.** Chrome completed both San Jose directions, the four
 turns between San Jose and Mount Vernon, and both freeway directions beneath
-them. All eight runs stayed grounded. Each street drive finished on the
-adjoining pavement after leaving the baked surface. Both freeway runs
-kept the covered view on the lower level at their finish. The turn probes
-steered towards the inside of their lane before reaching the shared seams.
+them. Each street drive finished on the adjoining pavement after leaving
+the baked surface. Both freeway runs kept the covered view on the lower
+level at their finish. The turn probes steered towards the inside of their
+lane before reaching the shared seams. Two public runs briefly raised the
+physics airborne flag after the north ground handoff. A fixed-step probe
+at that handoff reproduced less than 5 mm of clearance. The regression
+check requires continuous contact through the crossing and measures
+clearance on the departing street separately.
 
 **Goals.** All 25 fixed-step course results matched the Geneva release
 with the route alignment held to `4cc496add657a6f2d8227cc902e3339377db0f5b`.
@@ -3915,4 +3919,48 @@ in 235.96 seconds of game time.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   mount-vernon-{southwestbound,northeastbound,westbound,eastbound,from-south,from-west} \
   i280-mount-vernon-{northbound,southbound}
+```
+
+## Saint Charles Avenue and western Alemany Boulevard
+
+**World and Data.** Caltrans identifies the Saint Charles span as bridge
+`35 0176` at the county line. The 133 m game contact follows the DataSF
+alignment to its endpoint and uses an SFMTA 54 route shape point to locate
+the last approach towards Daly City BART. April 2023 pavement returns
+support all 46 sampled stations. The fitted peak grade is 5.58%.
+[Caltrans District 4 bridge log](https://dot.ca.gov/-/media/dot-media/programs/maintenance/documents/f0009151-logd04-a11y.pdf) ·
+[SFMTA 54 Felton](https://www.sfmta.com/routes/54-felton) ·
+[SFMTA GTFS data](https://data.sf.gov/Transportation/SFMTA-General-Transit-Feed-Specification-GTFS-Prod/dni7-qpv3).
+
+The western Alemany Boulevard undercrossing is bridge `34 0026` in the
+same inventory. It has separate 102 m eastbound and 80 m westbound game
+contacts. The survey observed 19 of 35 eastbound and 12 of 28 westbound
+stations. The floor is inferred for 51.00 m eastbound and 50.37 m westbound
+between the visible pavement on either side of the freeway. Peak fitted
+grades are 8.25% and 5.10% respectively. A one-metre terrain patch follows
+the lower contacts and leaves the existing freeway surfaces above.
+
+The sampled game pavements are 6.6–7.4 m apart. That separation is measured
+between the playable road surfaces. Physical clearance remains unmeasured.
+
+**Physics and UI.** Chrome drove both street directions at each crossing,
+both I-280 mainlines at each site and the southbound exit below Saint
+Charles. All nine drives used their intended surfaces and recorded zero
+airborne travel. The Saint Charles freeway drives entered and cleared
+the covered view. On lower Alemany, the rear camera still saw the
+freeway deck at the finish.
+
+**Goals.** The 25 fixed-step course results match the Mount Vernon release
+on the same archived alignment. The Bay Bridge replay finished through
+Fremont and Fourth Street again in 235.96 seconds of game time.
+
+- Game manifest SHA-256 `42d6ffb1309d6e668ef0066e36151d0147a01c700f8cd8352a99d14616f78f92`.
+- Contact SHA-256 `87dafe7398c427a018bb0d5424f704da1217c39bec4e1ef41870d69eb6b940c5`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+- SFMTA GTFS snapshot SHA-256 `533768f351d72ac647c468dc00a5004f61f2e11bc3706d862b914cc0f85fc0b0`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  saint-charles-{northbound,southbound} saint-charles-i280-{northbound,southbound,south-exit} \
+  western-alemany-{eastbound,westbound} western-alemany-i280-{northbound,southbound}
 ```

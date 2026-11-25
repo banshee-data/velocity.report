@@ -3557,7 +3557,7 @@ for (const [direction, roads, reverseRoads, groundDeparture, speed] of [
     groundApproachMetres: 6,
     connectByGround: true,
     groundDeparture,
-    maxAirborneMetresAfterEntrance: 0,
+    maxDepartureClearanceMetres: 0.025,
     maxDurationMs: 55000,
   };
 }
@@ -3576,6 +3576,101 @@ for (const [direction, road, start, finish, camera] of [
     finishDistance: finish,
     exitCamera: camera,
     covered: [prefix + road],
+    maxAirborneMetres: 0,
+    maxDurationMs: 50000,
+  };
+}
+
+for (const [name, road, reverse, groundDeparture, speed, covered] of [
+  [
+    "saint-charles-southbound",
+    "saint-charles-avenue-over-i280",
+    false,
+    [
+      [-2488.3, -5805.9, 82.68],
+      [-2482.2, -5810.8, 82.69],
+    ],
+    8,
+    false,
+  ],
+  [
+    "saint-charles-northbound",
+    "saint-charles-avenue-over-i280",
+    true,
+    [
+      [-2580.0, -5701.9, 76.8],
+      [-2580.5, -5695.8, 76.6],
+    ],
+    8,
+    false,
+  ],
+  [
+    "western-alemany-eastbound",
+    "western-alemany-eastbound-under-i280",
+    true,
+    [
+      [-1799.5, -5514.2, 89.34],
+      [-1793, -5514.29, 89.5],
+    ],
+    7.5,
+    true,
+  ],
+  [
+    "western-alemany-westbound",
+    "western-alemany-westbound-under-i280",
+    false,
+    [
+      [-1873.6, -5464.9, 86.92],
+      [-1879.1, -5461.9, 86.42],
+    ],
+    7.5,
+    true,
+  ],
+]) {
+  cases[name] = {
+    owners: ["808f7c3c"],
+    roads: [road],
+    speed,
+    reverse,
+    groundApproachMetres: 6,
+    connectByGround: true,
+    groundDeparture,
+    exitCamera: covered ? "covered" : "exterior",
+    covered: covered ? [prefix + road] : [],
+    maxApproachClearanceMetres: 0.025,
+    maxDepartureClearanceMetres: 0.025,
+    maxDurationMs: 55000,
+  };
+}
+for (const [name, road, start, finish, under] of [
+  ["saint-charles-i280-northbound", "i280-north-edge-to-sr82", 111, 222, true],
+  ["saint-charles-i280-southbound", "i280-south-sr82-to-edge", 420, 530, true],
+  ["saint-charles-i280-south-exit", "i280-south-edge-exit", 433, 535, true],
+  [
+    "western-alemany-i280-northbound",
+    "i280-north-edge-to-sr82",
+    899,
+    1008,
+    false,
+  ],
+  [
+    "western-alemany-i280-southbound",
+    "i280-south-geneva-to-sr82",
+    963,
+    1066,
+    false,
+  ],
+]) {
+  cases[name] = {
+    owners: ["808f7c24", "808f7c3c"],
+    roads: [road],
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 13,
+    speed: 16,
+    finishOnDeck: true,
+    finishDistance: finish,
+    covered: under ? [prefix + road] : [],
     maxAirborneMetres: 0,
     maxDurationMs: 50000,
   };
