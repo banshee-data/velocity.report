@@ -48,6 +48,7 @@ test("local bridges carry the car above the ground grid and meet street pavement
     ["808f7fd4", "mission-creek-fourth-street", [4203, 1664], 0.9],
     ["808f7f1c", "williams-avenue-caltrain-bridge", [3875, -3356.3], 7],
     ["808f7f1c", "paul-avenue-caltrain-bridge", [3762.7, -4128.5], 5.7],
+    ["808580ec", "hyde-street-over-broadway", [1896.74, 4027.87], 1.8],
     ["8085879c", "lincoln-way-sunset-westbound", [-4938.166, 520.029], 6],
     ["8085879c", "lincoln-way-sunset-eastbound", [-4938.596, 508.064], 6],
     [
@@ -235,6 +236,24 @@ test("the tile adjoining Bacon Street carries the complete lower contact", () =>
   const original = contact("808f7ee4");
   assert.ok(original);
   assert.deepEqual(contact("808f7f1c"), original);
+});
+
+test("Hyde Street keeps a separate deck above both Broadway Tunnel bores", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808580ec.json.gz")));
+  const surface = (slug) =>
+    buildBakedRoadContact(
+      tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`),
+    ).surface;
+  const deck = surface("hyde-street-over-broadway");
+  for (const [direction, x, y] of [
+    ["eastbound", 1898.1333, 4025.05],
+    ["westbound", 1896.815, 4033.5483],
+  ]) {
+    const lower = surface(`broadway-${direction}`).heightAt(x, y);
+    const upper = deck.heightAt(x, y);
+    assert.ok(Math.abs(lower - 55.14) < 0.1, direction);
+    assert.ok(upper - lower > 6, direction);
+  }
 });
 
 test("Geary stays below the Fillmore bridge in both directions", () => {
