@@ -229,9 +229,9 @@ def test_bake_adds_a_pinned_terrain_detail_without_replacing_the_coarse_grid():
     assert patched["z"] is grid["z"]
     assert "detail" not in grid
 
-    with pytest.raises(ValueError, match="does not match an unrefined base"):
+    with pytest.raises(ValueError, match="does not match the base tile"):
         add_detail(grid, patch, "other-sha")
-    with pytest.raises(ValueError, match="does not match an unrefined base"):
+    with pytest.raises(ValueError, match="must extend the existing rectangle"):
         add_detail(patched, patch, "tile-sha")
     with pytest.raises(ValueError, match="must align with the coarse grid"):
         add_detail(grid, {**patch, "detail": {**detail, "x0": 1}}, "tile-sha")
@@ -241,6 +241,24 @@ def test_bake_adds_a_pinned_terrain_detail_without_replacing_the_coarse_grid():
     shifted_edge[1] = 61
     with pytest.raises(ValueError, match="boundary differs"):
         add_detail(grid, {**patch, "detail": {**detail, "z": shifted_edge}}, "tile-sha")
+
+
+def test_bake_extends_terrain_detail_and_preserves_the_existing_samples():
+    z = [60] * 25
+    z[12] = 53
+    detail = {"x0": 0.0, "y0": 0.0, "s": 2, "columns": 5, "rows": 5, "z": z}
+    grid = {"x0": -8, "y0": -8, "s": 8, "n": 4, "z": [60] * 16, "detail": detail}
+    extended = {**detail, "x0": -8, "y0": 0, "columns": 9, "z": [60] * 45}
+    extended["z"][24] = 53
+    extended["z"][20] = 55
+    patch = {"base_tile_sha256": "tile-sha", "detail": extended}
+    add_detail = road_layers["patch_terrain_detail"]
+
+    assert add_detail(grid, patch, "tile-sha")["detail"] == extended
+    assert grid["detail"] is detail
+    extended["z"][24] = 54
+    with pytest.raises(ValueError, match="extension changed a base sample"):
+        add_detail(grid, patch, "tile-sha")
 
 
 def test_tunnel_wall_openings_are_ordered_and_confined_to_the_interior():

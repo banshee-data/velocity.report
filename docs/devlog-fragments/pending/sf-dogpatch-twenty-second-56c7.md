@@ -1,0 +1,1 @@
+- Added lower street contact on 22nd Street beneath the Dogpatch I-280 decks and verified that the wider terrain refinement preserves every previous detailed sample. The [22nd Street audit](../../ui/sf-road-route-audit.md#22nd-street-beneath-i-280-in-dogpatch) records the fitted grade and the Chrome drives in both directions.

@@ -156,7 +156,7 @@ test("Lincoln Way selects the eastbound deck across both approach lanes", () => 
   }
 });
 
-test("Bayshore underpasses keep their lower pavement and the freeway above it", () => {
+test("street underpasses keep their lower pavement and the freeway above it", () => {
   const tests = [
     [
       "808f7e54",
@@ -181,6 +181,14 @@ test("Bayshore underpasses keep their lower pavement and the freeway above it", 
       [3414.601, -4024.334],
       20.4,
       2.84,
+    ],
+    [
+      "808f7fb4",
+      "dogpatch-twenty-second-under-i280",
+      "i280-dogpatch-approach",
+      [4190.7401, -254.3311],
+      14.03,
+      -3.065,
     ],
   ];
   for (const [token, underpass, freeway, [x, y], elevation, heading] of tests) {
