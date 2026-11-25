@@ -51,6 +51,28 @@ const cases = {
   "toll-westbound": { roads: ["toll-plaza-tunnel"], speed: 8, reverse: true },
 };
 const defaultCases = Object.keys(cases);
+for (const [direction, offset] of [
+  ["eastbound", 4.5],
+  ["westbound", 3],
+]) {
+  const road = `john-daly-${direction}`;
+  for (const [lane, position] of [
+    ["centre", 0],
+    ["left", offset],
+    ["right", -offset],
+  ]) {
+    cases[`${road}-${lane}`] = {
+      owners: ["808f7c44", "808f7c3c"],
+      roads: [road],
+      laneGuides: { [road]: { lane: position } },
+      speed: 13,
+      groundApproachMetres: 9,
+      maxAirborneMetresAfterEntrance: 0,
+      expectNoScrapes: true,
+      maxDurationMs: 65_000,
+    };
+  }
+}
 const dalyApproach = "i280-south-sr82-to-edge";
 const dalyTunnel = "i280-south-daly-separation";
 for (const [lane, offset] of [

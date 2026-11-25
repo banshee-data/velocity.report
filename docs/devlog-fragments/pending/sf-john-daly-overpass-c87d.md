@@ -1,0 +1,1 @@
+- Baked both John Daly Boulevard carriageways above the southbound I-280 separation tunnel. Six upper drives and one lower drive in Chrome stayed on their respective roads and finished grounded. The [road audit](../../ui/sf-road-route-audit.md#john-daly-boulevard-above-the-separation) records the surveyed deck, drive results and pending ramp movements.

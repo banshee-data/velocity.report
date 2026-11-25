@@ -4700,3 +4700,38 @@ portal pavement measurements before a playable pass.
 [Marin County terrain service](https://gis.marinpublic.com/arcgis/rest/services/LIDAR/DEM_Harn/ImageServer).
 
 The retained local run is `game-map-edge-tunnels-evidence-20261125`.
+
+### John Daly Boulevard above the separation
+
+**World and Data.** The game carries two John Daly Boulevard
+carriageways over the I-280 bore. The fit used 94 eastbound and 84
+westbound survey stations. The p95 residual against the measured
+pavement was 2.7 cm eastbound and 3.7 cm westbound. At the crossings,
+the game puts the upper surfaces 14.9 m and 15.5 m above the inferred
+tunnel road. These are separations between game running surfaces.
+[Caltrans All Roads](https://gisdata.dot.ca.gov/arcgis/rest/services/CHhighway/All_Roads/FeatureServer/0)
+and [2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73506).
+
+**Physics.** Chrome drove the centre and both lane offsets in each
+direction. All six drives started on open pavement, entered the upper
+road and returned to ground with no crash, scrape or airborne travel.
+The eastbound offsets were 4.5 m either side of centre and the
+westbound offsets were 3 m. Peak speeds were 30.8–32.5 mph. A seventh
+drive repeated southbound I-280 below, retaining the lower contact.
+
+The static package replay passed 451 allowed span directions,
+317 directed joins and 510 ground handoffs, including three
+continuations onto other baked roads. The offline upgrade retained the
+collected emoji and fetched one changed tile.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  john-daly-eastbound-centre john-daly-eastbound-left john-daly-eastbound-right \
+  john-daly-westbound-centre john-daly-westbound-left john-daly-westbound-right \
+  daly-separation-centre
+```
+
+- Game manifest SHA-256 `ea69d34343f04f8ee1ff7d9c5a43226e367f37492eb65dc76f1d4be547474bcf`.
+- Gerardus contact SHA-256 `77fff6c061bffe630de69e5ac7b15cd001c7916cda55f5da1fe47d4f34746e66`.
+
+The I-280 and SR 1 ramp movements remain under review.
