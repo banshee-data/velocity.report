@@ -2514,6 +2514,30 @@ for (const reverse of [false, true]) {
     maxDurationMs: 65_000,
   };
 }
+for (const reverse of [false, true]) {
+  const road = "delancey-street-beside-bryant";
+  cases[reverse ? "delancey-northeastbound" : "delancey-southwestbound"] = {
+    roads: [road],
+    owners: ["80858074", "8085807c"],
+    reverse,
+    speed: 8.5,
+    laneGuides: { [road]: { lane: reverse ? 1.25 : -1.25 } },
+    groundApproachMetres: reverse ? 4 : 8,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [[4408.5, 2875.7, 4.05]]
+      : [
+          [4302.1, 2749.5, 6.2],
+          [4306, 2742.3, 6.1],
+          [4313.3, 2734, 6.1],
+          [4322.9, 2719.8, 6.2],
+          [4327.6, 2714.3, 6.2],
+        ],
+    maxApproachClearanceMetres: 0.18,
+    maxDepartureClearanceMetres: 0.18,
+    maxDurationMs: 65_000,
+  };
+}
 for (const [road, forward, backward, departures] of [
   [
     "sickles-avenue-under-i280",
