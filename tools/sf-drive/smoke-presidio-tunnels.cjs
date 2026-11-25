@@ -51,6 +51,85 @@ const cases = {
   "toll-westbound": { roads: ["toll-plaza-tunnel"], speed: 8, reverse: true },
 };
 const defaultCases = Object.keys(cases);
+const marinOwners = [
+  "80858424",
+  "8085842c",
+  "80858434",
+  "808585cc",
+  "8085869c",
+];
+cases["alexander-to-waldo-nb"] = {
+  owners: marinOwners,
+  roads: [
+    "us101-north-after-alexander-merge",
+    "101-north-alexander-to-waldo",
+    "robin-williams-nb",
+  ],
+  speed: 17,
+  rollingStart: true,
+  initialSpeedMps: 16,
+  maxAirborneMetresAfterEntrance: 0,
+  maxDurationMs: 160000,
+  expectNoScrapes: true,
+};
+cases["waldo-to-alexander-sb"] = {
+  owners: marinOwners,
+  roads: [
+    "robin-williams-sb",
+    "101-south-waldo-to-alexander",
+    "us101-south-alexander-fork",
+    "us101-south-over-alexander",
+  ],
+  speed: 16,
+  finishOnDeck: true,
+  finishDistance: 60,
+  maxAirborneMetresAfterEntrance: 0,
+  maxDurationMs: 160000,
+  expectNoScrapes: true,
+};
+cases["alexander-to-baker"] = {
+  owners: marinOwners,
+  roads: [
+    "alexander-avenue-east-junction",
+    "bunker-road-to-alexander",
+    "bunker-tunnel-exterior",
+    "baker-barry",
+  ],
+  speed: 11,
+  rollingStart: true,
+  initialSpeedMps: 5,
+  reverse: true,
+  maxAirborneMetresAfterEntrance: 0,
+  maxDurationMs: 185000,
+  expectNoScrapes: true,
+};
+cases["baker-barry-eastbound"] = {
+  owners: marinOwners,
+  roads: ["baker-barry", "bunker-tunnel-exterior"],
+  speed: 12,
+  finishOnDeck: true,
+  finishDistance: 16,
+  maxAirborneMetresAfterEntrance: 0,
+  maxDurationMs: 120_000,
+  expectNoScrapes: true,
+};
+cases["baker-to-bunker-underpass"] = {
+  owners: marinOwners,
+  roads: [
+    "baker-barry",
+    "bunker-tunnel-exterior",
+    "bunker-road-east-short-branch",
+    "bunker-road-under-101",
+  ],
+  rollingStart: true,
+  rollingStartMetres: 686,
+  speed: 9,
+  initialSpeedMps: 9,
+  speedLimits: { "bunker-road-east-short-branch": 7 },
+  maxAirborneMetresAfterEntrance: 0,
+  maxDurationMs: 100000,
+  expectNoScrapes: true,
+};
 for (const [direction, offset] of [
   ["eastbound", 4.5],
   ["westbound", 3],

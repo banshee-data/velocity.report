@@ -4735,3 +4735,42 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
 - Gerardus contact SHA-256 `77fff6c061bffe630de69e5ac7b15cd001c7916cda55f5da1fe47d4f34746e66`.
 
 The I-280 and SR 1 ramp movements remain under review.
+
+## Marin tunnel corridors north of Alexander Avenue
+
+**World and Data.** Two added L13 cells carry Baker–Barry Tunnel, both
+Robin Williams bores and the short Bunker Road underpass. The new
+contacts join the existing Alexander Avenue and US 101 routes. The
+2010 Golden Gate survey supplies the exposed pavement, with MarinMap
+elevations filling terrain gaps. Covered interiors are inferred from
+their surveyed approaches. [NOAA Golden Gate survey](https://www.fisheries.noaa.gov/inport/item/49640),
+[MarinMap elevation](https://gis.marinpublic.com/arcgis/rest/services/LIDAR/DEM_Harn/ImageServer),
+and [OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
+
+**Physics.** In Chrome the linked courses followed the northbound US 101
+approach from Alexander through Waldo, the southbound bore back to
+Alexander, Alexander through Baker–Barry, and Baker–Barry around the
+Bunker Road fork through the second underpass. Baker–Barry was also
+driven in the opposite direction. All courses stayed grounded without
+a scrape or crash. The package audit passed 465 directed strip
+traversals, 331 directed joins and 512 ground handoffs, including
+three continuations onto other baked roads.
+
+**UI and Goals.** The minimap shows the added corridors and both new
+cells. The first offline upgrade refreshed the two changed existing
+tiles and preserved the checkpoint and collected emoji. Downloading
+the whole map then added both new tiles. Chrome confirmed the saved
+counter at 162/162 and verified the bytes of both new tiles offline.
+The 137 quest placements retain their existing identity.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  alexander-to-waldo-nb waldo-to-alexander-sb alexander-to-baker \
+  baker-to-bunker-underpass baker-barry-eastbound
+```
+
+- Game manifest SHA-256 `eb24a08bf2337e12a051272b5cebd70099f68149fe23cdaef51dfbbed43c5560`.
+- Gerardus contact SHA-256 `c4b2362042168e2a28e189dfc6d1812a72e28668cc40d4fe7ba349a99d69f918`.
+
+The `game-map-edge-tunnels-evidence-20261125` run retains the alignment,
+survey samples and keyboard-drive logs.
