@@ -2495,6 +2495,25 @@ for (const reverse of [false, true]) {
     maxDurationMs: 60_000,
   };
 }
+for (const reverse of [false, true]) {
+  const road = "bryant-street-delancey-viaduct";
+  const direction = reverse ? "northeastbound" : "southwestbound";
+  cases[`bryant-street-${direction}`] = {
+    roads: [road],
+    owners: ["80858074", "8085807c"],
+    reverse,
+    speed: 11,
+    laneGuides: { [road]: { lane: reverse ? 1.55 : -1.55 } },
+    groundApproachMetres: 8,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [[4415, 2896.3, 3.97]]
+      : [[4242.4, 2711.2, 18.45]],
+    maxApproachClearanceMetres: 0.18,
+    maxDepartureClearanceMetres: 0.18,
+    maxDurationMs: 65_000,
+  };
+}
 cases["east-span-eastbound"] = {
   roads: ["yerba-buena-lower-east-after-entry", eastSpanEastbound],
   owners: islandEastOwners,
