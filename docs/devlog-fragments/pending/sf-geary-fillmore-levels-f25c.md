@@ -1,0 +1,1 @@
+- Separated the [Fillmore bridge, Geary through lanes and upper frontage roads](../../ui/sf-road-route-audit.md#geary-boulevard-and-fillmore-street), which previously shared a terrain grid and launched the car at the crossing.

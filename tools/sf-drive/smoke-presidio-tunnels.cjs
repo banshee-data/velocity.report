@@ -2948,6 +2948,54 @@ for (const [road, owners, speed, offset] of [
     };
   }
 }
+for (const [direction, reverse] of [
+  ["northbound", false],
+  ["southbound", true],
+]) {
+  const road = "fillmore-geary-bridge";
+  cases[`${road}-${direction}`] = {
+    owners: ["808580bc"],
+    roads: [road],
+    speed: 11,
+    reverse,
+    laneGuides: { [road]: { lane: reverse ? 1.8 : -1.8 } },
+    groundApproachMetres: 9,
+    maxAirborneMetres: 0,
+    maxDurationMs: 45_000,
+  };
+}
+for (const [direction, reverse] of [
+  ["eastbound", true],
+  ["westbound", false],
+]) {
+  const road = `geary-under-fillmore-${direction}`;
+  cases[road] = {
+    owners: ["808580bc"],
+    roads: [road],
+    speed: 14,
+    reverse,
+    groundApproachMetres: 12,
+    covered: [prefix + road],
+    maxAirborneMetres: 0,
+    maxDurationMs: 65_000,
+  };
+}
+for (const [direction, reverse] of [
+  ["eastbound", true],
+  ["westbound", false],
+]) {
+  const road = `geary-fillmore-${direction}-frontage`;
+  cases[road] = {
+    owners: ["808580bc"],
+    roads: [road],
+    speed: 9,
+    reverse,
+    groundApproachMetres: 10,
+    maxAirborneMetres: 3,
+    maxAirborneMetresAfterEntrance: 0,
+    maxDurationMs: 65_000,
+  };
+}
 for (const reverse of [false, true]) {
   const road = "jfk-drive-under-crossover";
   cases[`${road}-${reverse ? "eastbound" : "westbound"}`] = {
