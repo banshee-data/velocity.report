@@ -2989,8 +2989,14 @@ export async function startDrive({
           continue;
         }
         blocked = false;
-        const contactHeight =
-          roadSurfaces.get(candidate.surfaceId)?.heightAt || terrainHeight;
+        const supportingRoad = roadSurfaces.get(candidate.surfaceId);
+        const contactHeight = supportingRoad?.heightAt || terrainHeight;
+        const deckSupport =
+          candidate.grounded !== false &&
+          (supportingRoad?.kind === "bridge_deck" ||
+            supportingRoad?.kind === "ramp")
+            ? supportingRoad.heightAt
+            : undefined;
         const landing =
           car.grounded === false && hardLanding(car, candidate, crashSupport);
         const hit =
@@ -2999,6 +3005,7 @@ export async function startDrive({
             indexes,
             drivingHull(candidate),
             car.grounded === false ? drivingHull(car) : undefined,
+            deckSupport,
           );
         const impact =
           candidate.roadImpact ||

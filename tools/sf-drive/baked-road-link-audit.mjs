@@ -2,7 +2,19 @@ import {
   contactStep,
   groundAtWorld,
 } from "../../public_html/src/js/sf-drive-core.js";
-import { strikeHighwayRail } from "../../public_html/src/js/sf-highway-edge.js";
+import {
+  CAR_HALF_LENGTH,
+  drivingHull,
+  obstacleContact,
+} from "../../public_html/src/js/sf-chassis-contact.js";
+import {
+  scrapeObstacle,
+  seriousImpact,
+} from "../../public_html/src/js/sf-crash.js";
+import {
+  highwayRailSegments,
+  strikeHighwayRail,
+} from "../../public_html/src/js/sf-highway-edge.js";
 import { roadSupportsCar } from "../../public_html/src/js/sf-road-contact.js";
 import {
   driveOnRoadNetwork,
@@ -94,6 +106,29 @@ function portalGuide(portal, inward, lane, angle) {
   return { points, finish: inward ? Math.min(5, after - 1) : -6 };
 }
 
+function interiorGuide(surface, reverse, lane) {
+  const length = surface.profile.at(-1).s_m;
+  const margin = CAR_HALF_LENGTH + 0.35;
+  const run = length - 2 * margin;
+  if (run <= 1) return null;
+  const intervals = Math.ceil(run / 0.5);
+  const sampleStep = run / intervals;
+  const points = Array.from({ length: intervals + 1 }, (_, i) => {
+    const d = i * sampleStep;
+    const s = margin + (reverse ? run - d : d);
+    const [x, y] = at(surface, s);
+    const [ax, ay] = at(surface, s - 0.25);
+    const [bx, by] = at(surface, s + 0.25);
+    const norm = Math.hypot(bx - ax, by - ay);
+    return {
+      x: x - ((by - ay) / norm) * lane,
+      y: y + ((bx - ax) / norm) * lane,
+      d,
+    };
+  });
+  return { points, finish: run, spacing: sampleStep };
+}
+
 function step(car, input, { surfaces, portals, network }, terrain) {
   const road = surfaces.get(car.surfaceId);
   const join = () =>
@@ -139,7 +174,7 @@ function step(car, input, { surfaces, portals, network }, terrain) {
 function drive(guide, route, assets, terrain) {
   if (!guide) return { outcome: "short approach" };
   const { points, finish } = guide;
-  const { from, to, speed, look } = route;
+  const { from, to, speed, look, tickLimit = 1320 } = route;
   const start = points[0];
   const ahead = points[from && to ? 1 : 3];
   const heading = Math.atan2(ahead.y - start.y, ahead.x - start.x);
@@ -162,7 +197,19 @@ function drive(guide, route, assets, terrain) {
   let stalled = 0;
   let air = 0;
   let clearance = 0;
-  for (let tick = 0; tick < 1320; tick++) {
+  let scrapeTicks = 0;
+  let lastScrape;
+  const stop = (outcome) => ({
+    outcome,
+    ...(assets.collisions && {
+      metres: Math.round(points[index].d * 100) / 100,
+      position: [car.x, car.y, car.z].map(
+        (value) => Math.round(value * 1000) / 1000,
+      ),
+      ...(lastScrape && { lastScrape }),
+    }),
+  });
+  for (let tick = 0; tick < tickLimit; tick++) {
     let best = Infinity;
     for (
       let i = Math.max(0, index - 3);
@@ -184,11 +231,18 @@ function drive(guide, route, assets, terrain) {
         outcome: "passed",
         air_m: Math.round(air * 100) / 100,
         clearance_m: Math.round(clearance * 1000) / 1000,
+        ...(assets.collisions && { scrapeTicks }),
+        ...(lastScrape && { lastScrape }),
       };
     }
-    if (best > 8) return { outcome: "off guide" };
+    if (best > 8) return stop("off guide");
     const aim =
-      points[Math.min(index + Math.ceil(look / spacing), points.length - 1)];
+      points[
+        Math.min(
+          index + Math.ceil(look / (guide.spacing ?? spacing)),
+          points.length - 1,
+        )
+      ];
     const angle = Math.atan2(aim.y - car.y, aim.x - car.x) - car.heading;
     const demand = Math.atan(
       (5.4 * Math.sin(angle)) / Math.max(1, distance(car, aim)),
@@ -199,23 +253,56 @@ function drive(guide, route, assets, terrain) {
       throttle: error > 0.15 ? clamp(error * 0.5, 0.15, 1) : 0,
       brake: error < -0.3 ? clamp(-error * 0.5, 0.15, 1) : 0,
     };
-    const next = step(car, input, assets, terrain);
-    if (next.rail) return { outcome: "rail contact" };
+    let next = step(car, input, assets, terrain);
+    if (next.rail) return stop("rail contact");
+    if (assets.collisions && !next.surfaceId) return stop("lost surface");
     if (next.surfaceId && next.surfaceId !== from && next.surfaceId !== to)
-      return { outcome: "other road", road: next.surfaceId };
+      return { ...stop("other road"), road: next.surfaceId };
     if (!next.grounded) {
-      if (!terrain) return { outcome: "lost contact" };
+      if (!terrain) return stop("lost contact");
       air += distance(next, car);
       clearance = Math.max(
         clearance,
         next.z - (terrain(next.x, next.y) ?? next.z),
       );
     }
+    if (assets.collisions) {
+      const support = assets.surfaces.get(next.surfaceId);
+      const deckSupport =
+        support?.kind === "bridge_deck" || support?.kind === "ramp"
+          ? support.heightAt
+          : undefined;
+      const hit = obstacleContact(
+        [assets.collisions],
+        drivingHull(next),
+        undefined,
+        deckSupport,
+      );
+      if (hit) {
+        lastScrape = hit.tree
+          ? {
+              kind: hit.kind,
+              tile: hit.tree.tile,
+              row: hit.tree.index,
+              x: hit.x,
+              y: hit.y,
+              hullLow: next.z,
+              support: assets.surfaces
+                .get(next.surfaceId)
+                ?.heightAt(hit.x, hit.y),
+              ceiling: hit.tree.ceiling?.(hit.x, hit.y, hit.tree.base),
+            }
+          : { kind: hit.kind, x: hit.x, y: hit.y };
+        if (seriousImpact(next, hit)) return stop("scenery impact");
+        next = scrapeObstacle(next, hit);
+        scrapeTicks++;
+      }
+    }
     stalled = next.blocked || distance(next, car) < 0.001 ? stalled + 1 : 0;
-    if (stalled > 7) return { outcome: "stopped" };
+    if (stalled > 7) return stop("stopped");
     car = next;
   }
-  return { outcome: "no handoff" };
+  return stop(assets.collisions ? "timed out" : "no handoff");
 }
 
 function screen(tries, replay) {
@@ -226,6 +313,111 @@ function screen(tries, replay) {
     if (report.outcome === "passed") break;
   }
   return reports;
+}
+
+function buildAuditSurfaces(contacts) {
+  return new Map(
+    contacts.map(({ surface }) => [
+      surface.id,
+      { ...surface, railSegments: highwayRailSegments(surface) },
+    ]),
+  );
+}
+
+export function auditBakedRoadSpans(contacts, joins, collisions) {
+  const surfaces = buildAuditSurfaces(contacts);
+  const network = indexRoadNetwork(joins);
+  network.add({
+    endpoints: contacts.flatMap(({ endpoints }) => endpoints),
+    transitions: joins,
+  });
+  const incoming = new Set(
+    [...network.transitions.values()].flatMap((ends) => [...ends]),
+  );
+  const assets = { surfaces, network, collisions };
+  const summary = {
+    testedSurfaces: 0,
+    testedDirections: 0,
+    passed: 0,
+    adjusted: 0,
+    scrapes: [],
+    unconnectedTerminals: [],
+    failures: [],
+    byKind: Object.fromEntries(
+      ["bridge_deck", "ramp", "tunnel"].map((kind) => [
+        kind,
+        { surfaces: 0, testedDirections: 0, passed: 0 },
+      ]),
+    ),
+  };
+  for (const { surface, portals } of contacts) {
+    const id = surface.id;
+    const ends = surface.end_ids.map((end, index) => {
+      const [x, y] =
+        surface.profile[index === 0 ? 0 : surface.profile.length - 1].position;
+      const ground = portals.find(
+        (portal) => Math.hypot(portal.x - x, portal.y - y) < 0.01,
+      );
+      const enter = incoming.has(end) || (ground && !ground.exitOnly);
+      const leave = network.transitions.has(end) || !!ground;
+      const boundary = !enter && !leave;
+      if (boundary) summary.unconnectedTerminals.push(end);
+      return { enter: enter || boundary, leave: leave || boundary };
+    });
+    const directions = [false, true].filter((reverse) => {
+      const start = Number(reverse);
+      return ends[start].enter && ends[1 - start].leave;
+    });
+    if (!directions.length) {
+      summary.failures.push({ road: id, outcome: "no directed route" });
+      continue;
+    }
+    summary.testedSurfaces++;
+    const kind = summary.byKind[surface.kind];
+    kind.surfaces++;
+    const length = surface.profile.at(-1).s_m;
+    const fast = { bridge_deck: 14, tunnel: 12, ramp: 9 }[surface.kind];
+    const attempts = [
+      { lane: 0, speed: fast, look: 5.5 },
+      { lane: 0, speed: 6, look: 4 },
+      { lane: -0.75, speed: 6, look: 4 },
+      { lane: 0.75, speed: 6, look: 4 },
+      { lane: 0, speed: 4, look: 3 },
+      { lane: -1.5, speed: 4, look: 3 },
+      { lane: 1.5, speed: 4, look: 3 },
+    ];
+    for (const reverse of directions) {
+      summary.testedDirections++;
+      kind.testedDirections++;
+      const traces = screen(attempts, ({ lane, speed, look }) =>
+        drive(
+          interiorGuide(surface, reverse, lane),
+          {
+            from: id,
+            to: id,
+            speed,
+            look,
+            tickLimit: Math.ceil(((2 * length) / speed + 6) / dt),
+          },
+          assets,
+        ),
+      );
+      const final = traces.at(-1);
+      if (final.outcome === "passed") {
+        summary.passed++;
+        kind.passed++;
+        if (traces.length > 1) summary.adjusted++;
+        if (final.scrapeTicks)
+          summary.scrapes.push({
+            road: id,
+            reverse,
+            ticks: final.scrapeTicks,
+            hit: final.lastScrape,
+          });
+      } else summary.failures.push({ road: id, reverse, attempts: traces });
+    }
+  }
+  return summary;
 }
 
 const portalAttempts = [
@@ -254,9 +446,7 @@ const portalAttempts = [
 
 export function auditBakedRoadLinks(contacts, joins, tiles) {
   const network = indexRoadNetwork(joins);
-  const surfaces = new Map(
-    contacts.map(({ surface }) => [surface.id, surface]),
-  );
+  const surfaces = buildAuditSurfaces(contacts);
   const portals = new Map(
     contacts.map((contact) => [contact.surface.id, contact.portals]),
   );

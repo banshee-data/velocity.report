@@ -2406,6 +2406,33 @@ cases["island-east-eastbound-exit"] = {
   ],
   maxDurationMs: 115_000,
 };
+const southgateFeeder = "yerba-buena-eastbound-exit-to-southgate";
+const southgateShared = "yerba-buena-southgate-to-macalla-shared";
+cases["island-east-eastbound-exit-to-macalla"] = {
+  ...cases["island-east-eastbound-exit"],
+  roads: [
+    firstLowerBore,
+    eastExitBore,
+    lowerEastExit,
+    southgateFeeder,
+    southgateShared,
+  ],
+  speedLimits: {
+    ...cases["island-east-eastbound-exit"].speedLimits,
+    [southgateFeeder]: 6,
+    [southgateShared]: 7,
+  },
+  groundDeparture: [
+    [6705.0757, 5746.5103, 48.2052],
+    [6700.4928, 5748.5095, 48.7135],
+    [6695.9099, 5750.5088, 49.202],
+    [6691.168, 5752.094, 49.7117],
+    [6686.4248, 5753.6758, 50.2454],
+  ],
+  covered: [prefix + southgateFeeder, prefix + southgateShared],
+  exitCamera: "covered",
+  maxDepartureClearanceMetres: 0.25,
+};
 cases["island-east-lower-mainline"] = {
   owners: lowerEastOwners,
   roads: [
@@ -3299,6 +3326,33 @@ for (const [direction, road, start, finish, exitCamera] of [
     speed: 16,
     maxAirborneMetres: 0,
     maxDurationMs: 45_000,
+  };
+}
+for (const [name, road, owner, start, finish, exitCamera = "exterior"] of [
+  ["presidio-marina", "presidio-marina-northbound-entry", "808586d4", 187, 248],
+  [
+    "tenth-bryant",
+    "us101-south-tenth-bryant-entry",
+    "808f7e2c",
+    112,
+    176,
+    "covered",
+  ],
+  ["i280-sixth", "i280-sixth-northbound", "808f7fd4", 657, 724],
+]) {
+  cases[`${name}-deck-tree-clearance`] = {
+    roads: [road],
+    owners: [owner],
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 10,
+    finishOnDeck: true,
+    finishDistance: finish,
+    exitCamera,
+    speed: 10,
+    expectNoScrapes: true,
+    maxAirborneMetres: 0,
+    maxDurationMs: 40_000,
   };
 }
 for (const reverse of [false, true]) {
@@ -4275,6 +4329,8 @@ async function drive(
       let airborneBeforeLastRoad = false;
       const approachPoses = [];
       const departurePoses = [];
+      const notices = new Set();
+      const driveNotice = document.querySelector("#driveNotice");
       return new Promise((resolve) => {
         function finish(status) {
           for (const code of held) key(code, false);
@@ -4297,6 +4353,7 @@ async function drive(
             airborneBeforeLastRoad,
             approachPoses,
             departurePoses,
+            ...(notices.size && { scrapeNotices: [...notices] }),
             ...(groundTurn && { reversedOnGround }),
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
@@ -4305,6 +4362,8 @@ async function drive(
 
         function tick(now) {
           const d = canvas.dataset;
+          const notice = driveNotice?.textContent;
+          if (notice?.startsWith("Scraped a ")) notices.add(notice);
           if (d.replay === "crash") return finish("crashed");
           const surfaceId = d.surfaceId || "";
           const previousPose = pose;
@@ -4834,6 +4893,12 @@ async function main() {
         );
         assert.equal(result.exit.camera, cases[name].exitCamera ?? "exterior");
         assert.ok(result.exit.grounded);
+        if (cases[name].expectNoScrapes)
+          assert.equal(
+            result.scrapeNotices,
+            undefined,
+            "Scraped scenery on the deck",
+          );
         if (groundedHandoff)
           assert.equal(
             result.airborneBeforeLastRoad,

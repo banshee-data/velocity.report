@@ -234,7 +234,7 @@ function buildingContact(hull, shape) {
   return best;
 }
 
-export function obstacleContact(indexes, hull, previous) {
+export function obstacleContact(indexes, hull, previous, deckSupportAt) {
   const xs = hull.polygon.map((p) => p.x),
     ys = hull.polygon.map((p) => p.y);
   const seen = new Set();
@@ -300,6 +300,10 @@ export function obstacleContact(indexes, hull, previous) {
           if (hit?.tree?.ceiling) {
             const top = hit.tree.ceiling(hit.x, hit.y, shape.base);
             if (hull.low >= top || top <= shape.base) continue;
+            // On a slope the bumper can reach higher pavement than the car's
+            // centre. Use the supported deck at the hit point for its tree cut.
+            const deck = deckSupportAt?.(hit.x, hit.y);
+            if (deck != null && deck >= top) continue;
             hit.z = Math.min(hit.z, top);
           }
           if (hit && (!best || hit.depth > best.depth)) best = hit;

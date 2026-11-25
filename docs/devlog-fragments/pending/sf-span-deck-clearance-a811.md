@@ -1,0 +1,1 @@
+- Fixed false tree scrapes on sloping bridge decks and ramps, then exercised 446 directions across 360 packaged spans with the game contact solver. The [road audit](../../ui/sf-road-route-audit.md#driving-each-packaged-span) records the three affected sites and the checked joins and ground handoffs.
