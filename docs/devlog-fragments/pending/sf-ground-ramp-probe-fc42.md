@@ -1,0 +1,1 @@
+- Read an optional per-portal ramp-entry probe from baked tiles so the Bosworth Street fork can distinguish drivers staying on the street from drivers joining I-280. [SF city map](../../ui/sf-city-map.md#ground-ramp-entry)

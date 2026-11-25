@@ -53,6 +53,7 @@ export function buildBakedRoadContact(road) {
     owners,
     groundEnds = [],
     groundExitOnly = [],
+    groundEntryProbeMetres = {},
     seams = {},
     widthTransitionMetres = {},
     widthSections,
@@ -95,6 +96,17 @@ export function buildBakedRoadContact(road) {
     !Array.isArray(groundExitOnly) ||
     new Set(groundExitOnly).size !== groundExitOnly.length ||
     groundExitOnly.some((end) => !groundEnds.includes(end)) ||
+    !groundEntryProbeMetres ||
+    typeof groundEntryProbeMetres !== "object" ||
+    Array.isArray(groundEntryProbeMetres) ||
+    Object.entries(groundEntryProbeMetres).some(
+      ([end, metres]) =>
+        kind !== "ramp" ||
+        !groundEnds.includes(end) ||
+        groundExitOnly.includes(end) ||
+        !Number.isFinite(metres) ||
+        metres <= 0,
+    ) ||
     !Array.isArray(railSides) ||
     new Set(railSides).size !== railSides.length ||
     railSides.some((side) => side !== "left" && side !== "right") ||
@@ -257,6 +269,12 @@ export function buildBakedRoadContact(road) {
       surface_owner: owners[i],
       support: "interpolated",
     })),
-    portals: roadPortals(surface, groundEnds, groundExitOnly, seams),
+    portals: roadPortals(
+      surface,
+      groundEnds,
+      groundExitOnly,
+      seams,
+      groundEntryProbeMetres,
+    ),
   };
 }
