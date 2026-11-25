@@ -51,11 +51,31 @@ const cases = {
   "toll-westbound": { roads: ["toll-plaza-tunnel"], speed: 8, reverse: true },
 };
 const defaultCases = Object.keys(cases);
+for (const reverse of [false, true]) {
+  const name = reverse
+    ? "garage-concourse-to-fulton"
+    : "garage-fulton-to-concourse";
+  cases[name] = {
+    roads: ["music-concourse-garage"],
+    owners: ["80858744"],
+    reverse,
+    speed: 5.2,
+    groundApproachMetres: 7,
+    maxAirborneMetresAfterEntrance: 0,
+    maxDurationMs: 215_000,
+  };
+}
 const doyleNorthExit = "presidio-doyle-northbound-exit";
 cases["presidio-doyle-northbound"] = {
   ...cases.northbound,
-  roads: [...cases.northbound.roads.slice(0, -1), doyleNorthExit],
+  roads: [
+    ...cases.northbound.roads.slice(0, -1),
+    doyleNorthExit,
+    "golden-gate-northbound-1",
+  ],
   forks: [["presidio-nb-viaduct", doyleNorthExit, 1.65]],
+  finishOnDeck: true,
+  finishDistance: 45,
 };
 cases["presidio-doyle-southbound"] = {
   ...cases.southbound,
@@ -950,7 +970,8 @@ cases["branch-east-ramp"] = {
   roads: ["branch-east-off-ramp", sanJoseExit, sanJoseShared],
   owners: sanJoseOwners,
   speed: 13,
-  maxAirborneMetres: 2,
+  groundedHandoff: true,
+  maxAirborneMetresAfterEntrance: 2,
   maxDurationMs: 115_000,
 };
 cases["branch-east-upper"] = {
@@ -2374,6 +2395,8 @@ cases["island-east-lower-mainline"] = {
   finishOnDeck: true,
   finishDistance: 70,
   covered: ["yerba-buena-lower-east-approach"],
+  // The rear camera probes can still reach an overhead deck just past the join.
+  allowedCovered: ["yerba-buena-lower-east-after-entry"],
   maxDurationMs: 115_000,
 };
 cases["island-east-eastbound-entry"] = {
@@ -3373,6 +3396,7 @@ async function drive(
       let groundMetres = 0;
       let groundedMetres = 0;
       let airborneMetres = 0;
+      let airborneMetresAfterEntrance = 0;
       let airborneBeforeLastRoad = false;
       return new Promise((resolve) => {
         function finish(status) {
@@ -3387,6 +3411,8 @@ async function drive(
             groundMetres: Math.round(groundMetres * 10) / 10,
             groundedMetres: Math.round(groundedMetres * 10) / 10,
             airborneMetres: Math.round(airborneMetres * 100) / 100,
+            airborneMetresAfterEntrance:
+              Math.round(airborneMetresAfterEntrance * 100) / 100,
             airborneBeforeLastRoad,
             ...(groundTurn && { reversedOnGround }),
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
@@ -3410,10 +3436,12 @@ async function drive(
             grounded: d.contact === "grounded",
           };
           if (previousPose && d.contact === "airborne") {
-            airborneMetres += Math.hypot(
+            const distance = Math.hypot(
               pose.x - previousPose.x,
               pose.y - previousPose.y,
             );
+            airborneMetres += distance;
+            if (seen.size) airborneMetresAfterEntrance += distance;
           }
           maxSpeed = Math.max(maxSpeed, pose.v);
           if (surfaceId && !ids.includes(surfaceId))
@@ -3567,6 +3595,7 @@ async function main() {
         finishDistance,
         maxDurationMs = 460_000,
         maxAirborneMetres,
+        maxAirborneMetresAfterEntrance,
         entranceTimeoutMs = 20_000,
         rollingStart = false,
         initialSpeedMps = 50 * 0.44704,
@@ -3578,6 +3607,7 @@ async function main() {
         speedLimits = {},
         forks = [],
         covered,
+        allowedCovered = [],
       } = cases[name];
       const guides = { ...laneGuides };
       for (const [outgoing, incoming, offset] of forks) {
@@ -3791,7 +3821,12 @@ async function main() {
           result.enclosed,
           sections.filter(({ kind }) => kind === "tunnel").map(({ id }) => id),
         );
-        if (covered) assert.deepEqual(result.covered, covered);
+        if (covered) {
+          assert.deepEqual(
+            result.covered.filter((id) => !allowedCovered.includes(id)),
+            covered,
+          );
+        }
         assert.equal(
           result.status,
           finishOnDeck ? "reached deck finish" : "left road",
@@ -3813,6 +3848,13 @@ async function main() {
           assert.ok(
             result.airborneMetres <= maxAirborneMetres,
             `Excessive airborne travel: ${result.airborneMetres} m`,
+          );
+        }
+        if (maxAirborneMetresAfterEntrance !== undefined) {
+          assert.ok(
+            result.airborneMetresAfterEntrance <=
+              maxAirborneMetresAfterEntrance,
+            `Excessive airborne travel after entering the road: ${result.airborneMetresAfterEntrance} m`,
           );
         }
         if (groundArrival) {

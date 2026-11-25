@@ -3222,3 +3222,80 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   i280-18th-exit-westbound i280-18th-exit-eastbound \
   eighteenth-westbound eighteenth-eastbound i280-18th
 ```
+
+### Live checks on the 18th Street revision
+
+After publication, Chrome reached 18th Street by both turns and climbed
+from 18th Street back onto northbound I-280. The westbound exit and
+northbound entrance recorded zero airborne travel. One eastbound run
+recorded 1.14 m of airborne travel after it had entered the final
+viaduct section and still finished grounded on the open street. Two
+instrumented repeats finished grounded with zero airborne travel.
+The exact location of the intermittent lift remains unknown.
+
+All 23 fixed-step emoji courses completed, including six with tunnel
+contact and six with highway travel. They covered 67.59 km and crossed
+63 tile seams. The largest seam height step was 6.1 cm and there were
+no dips over 0.5 m on an 8 m chord. A separate course collected both
+emojis via the new westbound exit, from Fifth Street to Potrero, over
+3.30 km. The citywide screen of ground-draped road rows still flagged
+384 intervals above 50% absolute grade.
+
+### Music Concourse Garage approach
+
+The steepest driven profile on the 23 fixed-step courses was the
+10th Avenue park entrance, at 43.6%. The published game draws the
+DataSF approach (CNN 469000) up to its mapped node on JFK Drive.
+The April 2023 aerial survey records 69.48 m on the exposed garage
+approach near the north portal and approximately 74.22 m on JFK
+Drive above it. The grade screen caught the terrain rise between
+those levels. SFMTA confirms through travel to Music Concourse
+Drive via the garage. [SFMTA access diagram and drive walkthrough](https://www.sfmta.com/fr/media/32427/download?inline=).
+
+The lower return at the mapped south portal is approximately 71.80 m.
+These are portal observations in the game's NAVD88 frame. The route
+within the garage appears in OpenStreetMap way 43736094 revision 7 and
+ways 1551890169–1551890171 revision 1. The aerial survey cannot verify
+the interior floor profile. The game fits 565 m of contact to the two
+surveyed approaches and the inferred interior profile. The deck on
+JFK Drive keeps its original elevation. The April 2023 survey predates
+the south approach striping changes. [OpenStreetMap contributors, ODbL](https://www.openstreetmap.org/copyright) · [Rec and Park's south approach update](https://recpark.sf.gov/m/newsflash/home/detail/2225).
+
+Chrome keyboard drives on the final candidate traversed the garage
+in 104.1 s towards the Concourse and 104.7 s towards Fulton. Both
+recorded zero airborne travel and returned to the exterior camera
+grounded. Two fixed-step courses between the 6th and Fulton and
+7th and Irving emojis completed through the garage over 2.08 km
+and 1.80 km respectively. The west park course uses the baked JFK
+Drive passage under Crossover Drive. A tile test checks that both
+approaches join terrain and JFK Drive remains above the garage.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  garage-fulton-to-concourse garage-concourse-to-fulton
+node tools/sf-drive/audit-road-routes.mjs \
+  --plan=tools/sf-drive/road-audit-music-concourse-routes.json
+```
+
+- North portal survey receipt `8b9d5b3c132f5d5326c70b9fd9bc222df6df5e36d61e300f98147b29164d2e1d`.
+- South portal survey receipt `110cd329764ab26a011c08b3490e6a4d270341ebfb74e053118db386baaa69ba`.
+- Game manifest SHA-256 `a23cbc31dc09a1bad44cc3b6e1cd5f8de71dd575a0a73854b6286ffef3d84d89`.
+- Contact SHA-256 `daf5bc7e0285263b00f7f6b1c95069eea372950e0e6d7a5cba5f6b64c46c7937`.
+- [Gerardus bake recipe and support limits](https://github.com/banshee-data/gerardus/pull/178).
+
+### Presidio, Yerba Buena and Branch East checks
+
+The Doyle Drive northbound smoke now follows the published seam
+onto the first Golden Gate Bridge section. Before that change, the
+car stayed grounded through both tunnels but the smoke stopped when
+the game selected the bridge. The lower Yerba Buena mainline smoke
+still requires the covered view beneath the upper deck and the
+exterior view at the finish. At the next lower section, the camera
+can still see the deck above. The checked heights at the observed
+transition were 52.41 m for the car and 60.91 m for the upper road.
+
+At Branch East one browser replay measured 2.24 m of travel between
+frames at an airborne sample 1.3 cm above the ground, before the
+ramp entrance. The car reached San Jose Avenue grounded. The smoke
+now checks contact through the ramp joins and applies its airborne
+travel threshold after the car enters the ramp.

@@ -1,0 +1,58 @@
+{
+  "manifestSha256": "a23cbc31dc09a1bad44cc3b6e1cd5f8de71dd575a0a73854b6286ffef3d84d89",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "expectCompletion": true,
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "park-west",
+      "from": "⛳",
+      "to": "🚣",
+      "laneDetours": [
+        [-4639.486, 1180.067, -2.8],
+        [-3842.138, 1131.472, 2.8],
+        [-3258.29, 1277.75, 2.8]
+      ],
+      "contact": {
+        "roads": ["sf-contact/jfk-drive-under-crossover"],
+        "reverse": true,
+        "entry": [-3505.2, 1169.6, "John F Kennedy Dr"],
+        "exit": [-3429.2, 1202.9, "John F Kennedy Dr"],
+        "beforeVia": [[-4639.49, 1180.07, "John F Kennedy Dr"]]
+      }
+    },
+    {
+      "id": "garage-north-to-south",
+      "from": "🛹",
+      "to": "☕",
+      "contact": {
+        "roads": ["sf-contact/music-concourse-garage"],
+        "reverse": false,
+        "entry": [-2470.2, 1448.8, "10th Ave"],
+        "exit": [-2475.8, 1026.3, "Music Concourse Dr"]
+      },
+      "laneDetours": [[-2332.2, 759.3, -2.9]]
+    },
+    {
+      "id": "garage-south-to-north",
+      "from": "☕",
+      "to": "🛹",
+      "contact": {
+        "roads": ["sf-contact/music-concourse-garage"],
+        "reverse": true,
+        "entry": [-2484.3, 1005.1, "Music Concourse Dr"],
+        "exit": [-2470.2, 1448.8, "10th Ave"],
+        "beforeGuide": [
+          [-2481.5, 1011.2],
+          [-2477.4, 1015.7],
+          [-2473.75, 1018.32]
+        ]
+      },
+      "laneDetours": [
+        [-2332.2, 759.3, 2.9],
+        [-2490.3, 985.3, 2.8]
+      ]
+    }
+  ]
+}

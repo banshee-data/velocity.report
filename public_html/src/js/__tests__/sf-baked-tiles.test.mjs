@@ -81,6 +81,33 @@ test("local bridges carry the car above the ground grid and meet street pavement
   }
 });
 
+test("the Music Concourse Garage joins open pavement below JFK Drive", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/80858744.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/music-concourse-garage",
+  );
+  const { surface, portals, appearance } = buildBakedRoadContact(road);
+  const ground = (x, y) => groundAtWorld([tile], x, y, true);
+  assert.equal(surface.kind, "tunnel");
+  assert.ok(appearance.interior[1] - appearance.interior[0] > 480);
+  assert.equal(portals.length, 2);
+  for (const portal of portals) {
+    assert.ok(Math.abs(ground(portal.x, portal.y) - portal.z) < 0.025);
+  }
+  const crossing = [-2474.64, 1390.23];
+  const upper = ground(...crossing);
+  const lower = surface.heightAt(...crossing);
+  assert.ok(upper > 74.1 && upper < 74.4);
+  assert.ok(lower > 68.9 && lower < 69.6);
+  assert.ok(upper - lower > appearance.clearance);
+  const approachPaint = tile.r.find(
+    ([name, , , points]) =>
+      tile.n[name] === "10th Ave" &&
+      Math.abs(tile.o[1] + points[1] / 10 - 1476.7) < 0.1,
+  );
+  assert.ok(tile.o[1] + approachPaint[3].at(-1) / 10 > 1448);
+});
+
 test("Lyell Street retains smooth contact beneath both I-280 carriageways", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808f7e64.json.gz")));
   const surfaceFor = (slug) =>

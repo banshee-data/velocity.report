@@ -29,7 +29,7 @@ Merging PR #1085 to main publishes the game at velocity.report/sf. The bake scri
 
 ## Sources
 
-The base city layers use public-domain or PDDL data from Gerardus’s caches on arrow-worker. The City’s 2010 building heights are the oldest input and the main source of error. The Macalla Road ramp and Golden Gate Bridge use alignment data from OpenStreetMap contributors (ODbL) and elevations from USGS 3DEP. [OpenStreetMap data licence](https://www.openstreetmap.org/copyright)
+The base city layers use public-domain or PDDL data from Gerardus’s caches on arrow-worker. The City’s 2010 building heights are the oldest input and the main source of error. The Macalla Road ramp and Golden Gate Bridge use alignment data from OpenStreetMap contributors (ODbL) and elevations from USGS 3DEP. The Music Concourse Garage uses OpenStreetMap alignment data, USGS 3DEP approach elevations and an inferred interior profile. [OpenStreetMap data licence](https://www.openstreetmap.org/copyright)
 
 | Input                                                | Date             | What it gives                                                                                               | Licence             | Quirks found                                                                                                 |
 | ---------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------ |
