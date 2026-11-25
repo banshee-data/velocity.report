@@ -230,15 +230,21 @@ cases["sixth-southbound"] = {
   },
   rampApproach: true,
 };
+const sixthForkApproach = "i280-mariposa-northbound";
+const sixthStreetNorthEnd = "i280-sixth-northbound";
+const fifthStreetNorthExit = "i280-north-fifth-exit";
+const sixthStreetNorthFork = [sixthForkApproach, sixthStreetNorthEnd, -1.4];
+const fifthStreetNorthFork = [sixthForkApproach, fifthStreetNorthExit, 1.65];
 cases["sixth-northbound"] = {
   roads: [
     "eighteenth-east-viaduct",
     "i280-eighteenth-north-entry",
-    "i280-mariposa-northbound",
-    "i280-sixth-northbound",
+    sixthForkApproach,
+    sixthStreetNorthEnd,
   ],
   owners: i280Owners,
   speed: 16,
+  forks: [sixthStreetNorthFork],
   speedLimits: {
     "eighteenth-east-viaduct": 7,
     "i280-eighteenth-north-entry": 8,
@@ -250,11 +256,19 @@ cases["sixth-northbound"] = {
       entranceNorth: 2.244,
       entranceMetres: 16,
     },
-    "i280-sixth-northbound": {
+    [sixthStreetNorthEnd]: {
       // Hold the clear lane past the two mapped trees near the descent.
       clearance: { offset: -1.8, station: 696, length: 29 },
     },
   },
+};
+cases["eighteenth-to-fifth-northbound"] = {
+  ...cases["sixth-northbound"],
+  roads: [
+    ...cases["sixth-northbound"].roads.slice(0, -1),
+    fifthStreetNorthExit,
+  ],
+  forks: [fifthStreetNorthFork],
 };
 for (const reverse of [false, true]) {
   const viaducts = [
@@ -529,12 +543,12 @@ cases["dogpatch-to-sixth-northbound"] = {
     "i280-dogpatch-east-north-entry",
     "i280-dogpatch-northbound",
     "i280-south-of-eighteenth-northbound",
-    "i280-mariposa-northbound",
-    "i280-sixth-northbound",
+    sixthForkApproach,
+    sixthStreetNorthEnd,
   ],
   owners: ["808f7fb4", "808f7fbc", "808f7fcc", "808f7fd4", "808f7fac"],
   speed: 17,
-  forks: [["i280-mariposa-northbound", "i280-sixth-northbound", -1.4]],
+  forks: [sixthStreetNorthFork],
   speedLimits: {
     "i280-dogpatch-east-north-entry": 12,
     "i280-sixth-northbound": 14,
@@ -554,8 +568,8 @@ cases["dogpatch-to-sixth-northbound"] = {
 const dogpatchNorth = cases["dogpatch-to-sixth-northbound"];
 cases["dogpatch-to-fifth-northbound"] = {
   ...dogpatchNorth,
-  roads: [...dogpatchNorth.roads.slice(0, -1), "i280-north-fifth-exit"],
-  forks: [["i280-mariposa-northbound", "i280-north-fifth-exit", 1.65]],
+  roads: [...dogpatchNorth.roads.slice(0, -1), fifthStreetNorthExit],
+  forks: [fifthStreetNorthFork],
 };
 const alemanyWest = "i280-north-alemany-west-approach";
 const alemanyThrough = "i280-north-alemany-main";
