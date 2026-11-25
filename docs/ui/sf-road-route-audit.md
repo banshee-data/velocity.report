@@ -3524,3 +3524,59 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   paulding-street-i280-bridge-{eastbound,westbound} \
   i280-{northbound,southbound}-under-{mission,baden,paulding}
 ```
+
+## Cortland, Bacon and Paul beneath US 101
+
+**World and Data.** Three lower city streets now run beneath the existing
+US 101 decks on their own contact strips. The fit follows April 2023 3DEP
+pavement returns on both approaches. It interpolates between the observed
+sections through the aerial shadows. These observations establish the
+approach elevations, with clearance and the underside of the freeway still
+unmeasured. At Cortland, the lower lanes also intersected an inferred
+building footprint. The bake opens that part of the volume at street level
+and retains the inferred volume above it. The ground refinement tapers into
+the original terrain. Both tiles intersecting Bacon Street carry its entire
+contact, including its portals.
+[SFMTA clearance inventory](https://data.sf.gov/Transportation/Clearance-Heights-Bridges-and-Underpasses/eb2x-6eay/about_data).
+
+**Physics and UI.** On the baseline, Cortland eastbound stalled after
+11.04 m flagged airborne and Cortland westbound collided with the inferred
+volume. Bacon completed both ways but lost contact for 27.78 m westbound
+and 17.08 m eastbound. At Paul, the game flagged 18.33 m westbound and
+13.83 m eastbound, with vertical clearance below 0.08 m in both directions.
+
+| Lower contact   | Length | Observed stations | Longest interpolated span | Peak fitted grade |
+| --------------- | -----: | ----------------: | ------------------------: | ----------------: |
+| Cortland Avenue |   70 m |           11 / 25 |                   43.75 m |             8.50% |
+| Bacon Street    |   90 m |           13 / 31 |                   30.00 m |             3.03% |
+| Paul Avenue     |   78 m |           14 / 27 |                   42.00 m |             5.67% |
+
+Chrome keyboard drives in both directions enter the intended lower contact,
+use the covered camera below US 101 and return to exterior view on the
+adjoining street. The tests require grounded travel between the portals.
+On the ground approaches and departures they compare any airborne frames
+with the actual detailed ground height, using the game's 0.18 m airtime
+display cutoff. The six candidate runs showed zero airborne travel between
+portals and less than 1 mm of measured clearance on the departures. The
+tile test samples three lateral positions on each street for collisions and
+verifies at least 5 m between the game road surfaces at each crossing sample.
+
+The 25 fixed-step emoji routes repeated with identical driving telemetry.
+The Bay Bridge replay took 235.96 s of game time through Fremont and back
+onto I-80 at Fourth. The terrain-only city screen still counted 338
+intervals above 50% grade. The tests at these three underpasses cover
+straight-through travel in both directions. Adjacent turns and freeway
+ramp joins require their own drives.
+
+- Baseline Chrome manifest SHA-256 `81e31f112ce9808042fc96ca8b7e9d8a868391363f17c21a41f6eed8bb8339dc`.
+- Parent game manifest SHA-256 `7e4042b6ac32613896d9c121cc1cadfb91d8fe799e89225a0e351c62b84707d3`.
+- Candidate game manifest SHA-256 `ecd960a1b1fae3c1f23c67f96db0bc29d457dfe9037f553e497e3513728f0c88`.
+- Candidate contact SHA-256 `54fc0320ab08cec35fd4d2a54b012ff1aeeb9885a46df7874651f491ed9f84d5`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  cortland-avenue-under-us101-{eastbound,westbound} \
+  bacon-street-under-us101-{eastbound,westbound} \
+  paul-avenue-under-us101-{eastbound,westbound}
+```

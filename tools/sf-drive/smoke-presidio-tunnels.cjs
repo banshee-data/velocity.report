@@ -3116,6 +3116,59 @@ for (const [crossing, direction, road, owner, start, finish] of [
     maxDurationMs: 45_000,
   };
 }
+for (const [road, owners, forward, approach, departures] of [
+  [
+    "cortland-avenue-under-us101",
+    ["808f7e54"],
+    "eastbound",
+    8,
+    [[[2901, -2268, 6.563]], [[2747, -2253.3, 13.637]]],
+  ],
+  [
+    "bacon-street-under-us101",
+    ["808f7ee4"],
+    "westbound",
+    7,
+    [
+      [[3209.9, -3589.8, 20.2]],
+      [
+        [3323.2, -3556.1, 18.121],
+        [3326.4, -3553.3, 18.116],
+        [3329.5, -3548.55, 18.106],
+        [3332.2, -3543.55, 18.045],
+        [3333.25, -3540.85, 17.992],
+      ],
+    ],
+  ],
+  [
+    "paul-avenue-under-us101",
+    ["808f7ee4", "808f7f1c"],
+    "westbound",
+    3,
+    [[[3347, -4002.64, 21.416]], [[3496, -4050.3, 20.925]]],
+  ],
+]) {
+  const opposite = forward === "eastbound" ? "westbound" : "eastbound";
+  for (const [direction, reverse] of [
+    [forward, false],
+    [opposite, true],
+  ]) {
+    cases[`${road}-${direction}`] = {
+      owners,
+      roads: [road],
+      reverse,
+      speed: 10.5,
+      laneGuides: { [road]: { lane: reverse ? 1.55 : -1.55 } },
+      groundApproachMetres: reverse ? 8 : approach,
+      connectByGround: true,
+      groundDeparture: departures[Number(reverse)],
+      covered: [prefix + road],
+      maxApproachClearanceMetres: 0.18,
+      maxDepartureClearanceMetres: 0.18,
+      maxDurationMs: 60_000,
+    };
+  }
+}
 for (const reverse of [false, true]) {
   const road = "jfk-drive-under-crossover";
   cases[`${road}-${reverse ? "eastbound" : "westbound"}`] = {
@@ -3449,6 +3502,7 @@ async function drive(
   entranceTimeoutMs,
   groundTurn,
   sampleApproach,
+  sampleDeparture,
 ) {
   return page.evaluate(
     async ({
@@ -3460,6 +3514,7 @@ async function drive(
       entranceTimeoutMs,
       groundTurn,
       sampleApproach,
+      sampleDeparture,
     }) => {
       const driveModule = performance
         .getEntriesByType("resource")
@@ -3471,6 +3526,15 @@ async function drive(
       const ids = sections
         .filter(({ kind }) => kind !== "ground")
         .map(({ id }) => id);
+      const [beforePortal, portal] = sections
+        .findLast(({ kind }) => kind !== "ground")
+        .positions.slice(-2);
+      const portalHeading = Math.atan2(
+        portal[1] - beforePortal[1],
+        portal[0] - beforePortal[0],
+      );
+      const portalEast = Math.cos(portalHeading);
+      const portalNorth = Math.sin(portalHeading);
       const groundHints = new Map();
       let entered = 0;
       for (const { id, kind } of sections) {
@@ -3582,8 +3646,10 @@ async function drive(
       let groundedMetres = 0;
       let airborneMetres = 0;
       let airborneMetresAfterEntrance = 0;
+      let airborneMetresInCrossing = 0;
       let airborneBeforeLastRoad = false;
       const approachPoses = [];
+      const departurePoses = [];
       return new Promise((resolve) => {
         function finish(status) {
           for (const code of held) key(code, false);
@@ -3599,8 +3665,13 @@ async function drive(
             airborneMetres: Math.round(airborneMetres * 100) / 100,
             airborneMetresAfterEntrance:
               Math.round(airborneMetresAfterEntrance * 100) / 100,
+            ...(sampleDeparture && {
+              airborneMetresInCrossing:
+                Math.round(airborneMetresInCrossing * 100) / 100,
+            }),
             airborneBeforeLastRoad,
             approachPoses,
+            departurePoses,
             ...(groundTurn && { reversedOnGround }),
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
@@ -3628,8 +3699,19 @@ async function drive(
               pose.y - previousPose.y,
             );
             airborneMetres += distance;
-            if (seen.size) airborneMetresAfterEntrance += distance;
-            else if (sampleApproach && !surfaceId) approachPoses.push(pose);
+            if (seen.size) {
+              airborneMetresAfterEntrance += distance;
+              if (sampleDeparture) {
+                const alongPortal =
+                  (pose.x - portal[0]) * portalEast +
+                  (pose.y - portal[1]) * portalNorth;
+                // The tyre footprint can reach the ground while the car's
+                // centre is still within the game's 3 m portal reach.
+                if (seen.has(ids.at(-1)) && !surfaceId && alongPortal >= -3)
+                  departurePoses.push(pose);
+                else airborneMetresInCrossing += distance;
+              }
+            } else if (sampleApproach && !surfaceId) approachPoses.push(pose);
           }
           maxSpeed = Math.max(maxSpeed, pose.v);
           if (surfaceId && !ids.includes(surfaceId))
@@ -3731,6 +3813,7 @@ async function drive(
       entranceTimeoutMs,
       groundTurn,
       sampleApproach,
+      sampleDeparture,
     },
   );
 }
@@ -3790,6 +3873,7 @@ async function main() {
         maxAirborneMetres,
         maxAirborneMetresAfterEntrance,
         maxApproachClearanceMetres,
+        maxDepartureClearanceMetres,
         entranceTimeoutMs = 20_000,
         rollingStart = false,
         initialSpeedMps = 50 * 0.44704,
@@ -3852,6 +3936,16 @@ async function main() {
         assert.ok(finish > 0, "Deck finish must be inside the last section");
         last.positions = last.positions.slice(0, finish + 1);
       }
+      const departureStart = contactSections.at(-1).positions.at(-1);
+      const departureTail =
+        groundDeparture?.length === 1
+          ? [
+              departureStart.map(
+                (value, axis) => (value + groundDeparture[0][axis]) / 2,
+              ),
+              ...groundDeparture,
+            ]
+          : groundDeparture;
       let sections = groundDeparture
         ? [
             ...contactSections,
@@ -3860,10 +3954,7 @@ async function main() {
               kind: "ground",
               width_m: 8,
               speed_mps: 8,
-              positions: [
-                contactSections.at(-1).positions.at(-1),
-                ...groundDeparture,
-              ],
+              positions: [departureStart, ...departureTail],
               sources: [],
             },
           ]
@@ -3994,7 +4085,8 @@ async function main() {
           };
         }
         const sampleApproach = maxApproachClearanceMetres !== undefined;
-        const { approachPoses, ...result } = await drive(
+        const sampleDeparture = maxDepartureClearanceMetres !== undefined;
+        const { approachPoses, departurePoses, ...result } = await drive(
           page,
           sections,
           speed,
@@ -4004,21 +4096,40 @@ async function main() {
           entranceTimeoutMs,
           groundTurn,
           sampleApproach,
+          sampleDeparture,
         );
+        const clearance = (poses) =>
+          Math.max(
+            0,
+            ...poses.map(({ x, y, z }) => {
+              const ground = groundAtWorld(tiles, x, y, true);
+              assert.notEqual(
+                ground,
+                null,
+                "Missing ground outside the portal",
+              );
+              return z - ground;
+            }),
+          );
         if (sampleApproach) {
-          const heights = approachPoses.map(({ x, y, z }) => {
-            const ground = groundAtWorld(tiles, x, y, true);
-            assert.notEqual(ground, null, "Missing ground on the approach");
-            return z - ground;
-          });
-          result.approachClearanceMetres = Math.max(0, ...heights);
+          result.approachClearanceMetres = clearance(approachPoses);
           assert.ok(
             result.approachClearanceMetres <= maxApproachClearanceMetres,
             `Excessive clearance on the ground approach: ${result.approachClearanceMetres} m`,
           );
         }
+        if (sampleDeparture) {
+          result.departureClearanceMetres = clearance(departurePoses);
+        }
         console.log(JSON.stringify({ name, contactHash, ...result, errors }));
         assert.deepEqual(errors, []);
+        if (sampleDeparture) {
+          assert.equal(result.airborneMetresInCrossing, 0);
+          assert.ok(
+            result.departureClearanceMetres <= maxDepartureClearanceMetres,
+            `Excessive clearance on the ground departure: ${result.departureClearanceMetres} m`,
+          );
+        }
         if (turn) assert.ok(result.reversedOnGround);
         assert.deepEqual(
           result.seen.map(({ surfaceId }) => surfaceId),

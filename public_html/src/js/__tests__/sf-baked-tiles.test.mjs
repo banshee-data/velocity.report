@@ -156,6 +156,79 @@ test("Lincoln Way selects the eastbound deck across both approach lanes", () => 
   }
 });
 
+test("Bayshore underpasses keep their lower pavement and the freeway above it", () => {
+  const tests = [
+    [
+      "808f7e54",
+      "cortland-avenue-under-us101",
+      "us101-north-alemany-to-silver",
+      [2833.711, -2261.374],
+      7.7,
+      -0.077,
+    ],
+    [
+      "808f7ee4",
+      "bacon-street-under-us101",
+      "us101-north-paul-to-silliman",
+      [3288.208, -3565.776],
+      18.4,
+      -2.825,
+    ],
+    [
+      "808f7ee4",
+      "paul-avenue-under-us101",
+      "us101-south-paul-mainline",
+      [3414.601, -4024.334],
+      20.4,
+      2.84,
+    ],
+  ];
+  for (const [token, underpass, freeway, [x, y], elevation, heading] of tests) {
+    const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+    const road = (slug) =>
+      buildBakedRoadContact(
+        tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`),
+      );
+    const { surface, portals } = road(underpass);
+    const ground = (east, north) => groundAtWorld([tile], east, north, true);
+    const floor = surface.heightAt(x, y);
+    const deck = road(freeway).surface.heightAt(x, y);
+    assert.ok(Math.abs(floor - elevation) < 0.2, underpass);
+    assert.ok(Math.abs(ground(x, y) - floor) < 0.1, underpass);
+    assert.ok(deck - floor > 5, underpass);
+    assert.equal(portals.length, 2, underpass);
+    for (const { x, y, z } of portals) {
+      assert.ok(Math.abs(ground(x, y) - z) < 0.08, underpass);
+    }
+    const indexes = [buildCollisionIndex(tile, token)];
+    for (const offset of [-1.6, 0, 1.6]) {
+      const car = {
+        x: x - Math.sin(heading) * offset,
+        y: y + Math.cos(heading) * offset,
+        heading,
+      };
+      assert.equal(collisionAt(indexes, car, floor), null, underpass);
+    }
+    if (underpass.startsWith("cortland")) {
+      assert.equal(
+        collisionAt(indexes, { x, y, heading }, 13.4),
+        "building",
+        "the volume above the open lane remains in the scene",
+      );
+    }
+  }
+});
+
+test("the tile adjoining Bacon Street carries the complete lower contact", () => {
+  const contact = (token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))).playableRoads.find(
+      ({ id }) => id === "sf-contact/bacon-street-under-us101",
+    );
+  const original = contact("808f7ee4");
+  assert.ok(original);
+  assert.deepEqual(contact("808f7f1c"), original);
+});
+
 test("Geary stays below the Fillmore bridge in both directions", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808580bc.json.gz")));
   const load = (name) =>

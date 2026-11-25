@@ -1,0 +1,1 @@
+- Baked the lower Cortland Avenue, Bacon Street and Paul Avenue contacts under US 101. The [Bayshore underpass audit](../../ui/sf-road-route-audit.md#cortland-bacon-and-paul-beneath-us-101) records the former collisions and departures from the road surface, the fitted profiles and the Chrome drives in both directions.
