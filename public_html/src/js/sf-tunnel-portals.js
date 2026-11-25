@@ -3,6 +3,7 @@ import { tunnelSection } from "./sf-tunnel-mesh.js";
 
 const approach = 22;
 const bore = 5;
+const mouthUniforms = new WeakMap();
 
 function through(section) {
   return section[0].map((value, axis) => (value + section[1][axis]) / 2);
@@ -68,21 +69,25 @@ export function showTunnelMouths(material, mouths) {
   const signature = mouths.map(({ key }) => key).join(" ");
   if ((material.userData.tunnelMouths ?? "") === signature) return;
   material.userData.tunnelMouths = signature;
-  material.customProgramCacheKey = () => "tunnel-mouths:" + mouths.length;
+  const size = mouths.length;
+  if (!mouthUniforms.has(material)) mouthUniforms.set(material, new Map());
+  const counts = mouthUniforms.get(material);
+  if (!counts.has(size)) counts.set(size, { origin: {}, direction: {} });
+  const { origin, direction } = counts.get(size);
+  origin.value = mouths.map(
+    ({ x, y, z, halfWidth }) => new THREE.Vector4(x, -y, z, halfWidth),
+  );
+  direction.value = mouths.map(
+    ({ nx, ny, grade, clearance }) =>
+      new THREE.Vector4(nx, -ny, grade, clearance),
+  );
+  material.customProgramCacheKey = () => "tunnel-mouths:" + size;
   material.onBeforeCompile = (shader) => {
-    if (!mouths.length) return;
-    const size = mouths.length;
-    shader.uniforms.tunnelOrigin = {
-      value: mouths.map(
-        ({ x, y, z, halfWidth }) => new THREE.Vector4(x, -y, z, halfWidth),
-      ),
-    };
-    shader.uniforms.tunnelDirection = {
-      value: mouths.map(
-        ({ nx, ny, grade, clearance }) =>
-          new THREE.Vector4(nx, -ny, grade, clearance),
-      ),
-    };
+    if (!size) return;
+    // Material programs can be cached by aperture count as tiles stream.
+    // Previously compiled variants keep these same uniform objects.
+    shader.uniforms.tunnelOrigin = origin;
+    shader.uniforms.tunnelDirection = direction;
     shader.vertexShader =
       "varying vec3 portalPosition;\n" +
       shader.vertexShader.replace(

@@ -144,6 +144,8 @@ The car waits at an unloaded tile boundary with its last supported pose and velo
 Declared joins accept wheel contact across the full terminal width. At an open elevated edge,
 the car straddles the lip until its centre leaves contact, then carries its road-plane velocity
 into flight. Guard rails still resolve the contact as a scrape, rebound or crash.
+A confirmed end of ground or tunnel contact applies tyre braking each step and
+allows the car to reverse back onto the supported surface.
 
 Only bridge and ramp decks cut intersecting tree geometry. Ordinary terrain roads leave trees
 intact. A broken trunk absorbs fracture work and takes momentum from the car at its contact point,

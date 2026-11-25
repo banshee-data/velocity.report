@@ -107,6 +107,7 @@ import {
   buildRaisedRoad,
 } from "./sf-city-road-drive.js";
 import {
+  brakeAtSupportBoundary,
   contactGeometry,
   driveOnRoadSurface,
   indexRoadContact,
@@ -2146,13 +2147,16 @@ export async function startDrive({
 
   hud.skipReplay.addEventListener("click", finishPlayback);
 
+  function advanceCrashTrial(wallDt) {
+    if (isRoadReview(selectedStart)) return;
+    advanceTrial(trial, wallDt, car, false, false);
+    hud.timer.textContent = formatTime(trial.elapsed);
+  }
+
   function replayFrame(wallDt, now) {
     const { clip, automatic, required } = playback;
     if (automatic) {
-      if (!isRoadReview(selectedStart)) {
-        advanceTrial(trial, wallDt, car, false, false);
-        hud.timer.textContent = formatTime(trial.elapsed);
-      }
+      advanceCrashTrial(wallDt);
       updateInsuranceMeter();
     }
     if (
@@ -2180,7 +2184,7 @@ export async function startDrive({
     const treeEntry = tree && loaded.get(tree.tile);
     if (treeEntry && playback.treeIndex === undefined)
       playback.treeIndex = replayTreeIndex(treeEntry.tile, tree);
-    if (playback.treeIndex >= 0 && !playback.treeFallen) {
+    if (treeEntry && playback.treeIndex >= 0 && !playback.treeFallen) {
       const elapsed = Math.max(0, (playback.tick - clip.impact) / 120);
       if (playback.treeElapsed !== elapsed) {
         treeEntry.grp.userData.drawTree?.(playback.treeIndex, tree, elapsed);
@@ -2747,7 +2751,10 @@ export async function startDrive({
       return;
     }
     // Crash trajectories are recorded in slices while this view is held.
-    if (crash) return;
+    if (crash) {
+      advanceCrashTrial(wallDt);
+      return;
+    }
     hud.respawnBtn.disabled = false;
     let input = drivingInput(state.keys, state.touch);
     if (
@@ -2931,9 +2938,6 @@ export async function startDrive({
             recoverCityDrive();
             return;
           }
-          // A missing tile or an unverified tunnel connection has no
-          // contact force to apply. Keep the last pose and velocity.
-          accumulator = 0;
           announce(
             (!navigator.onLine || failures.has(owner.t)) && !loaded.has(owner.t)
               ? "This tile is unavailable · turn back or reconnect"
@@ -2946,8 +2950,18 @@ export async function startDrive({
                     : "Waiting for the road ahead to load…",
             1,
           );
-          break;
+          if (waitingForRoad) {
+            accumulator = 0;
+            break;
+          }
+          car = brakeAtSupportBoundary(
+            car,
+            1 / 120,
+            surface?.heightAt || terrainHeight,
+          );
+          continue;
         }
+        blocked = false;
         const contactHeight =
           roadSurfaces.get(candidate.surfaceId)?.heightAt || terrainHeight;
         const landing =

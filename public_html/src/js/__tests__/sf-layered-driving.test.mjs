@@ -22,6 +22,7 @@ import {
   mapSources,
 } from "../sf-drive-settings.js";
 import {
+  brakeAtSupportBoundary,
   driveOnRoadSurface,
   driveOnStreetContact,
   indexRoadContact,
@@ -832,6 +833,27 @@ test("an unrailed deck preserves momentum at its side and open end", () => {
     z: 3,
   }));
   assert.equal(hard.roadImpact, "ground");
+});
+
+test("a confirmed support end brakes progressively and allows reverse travel", () => {
+  const heightAt = (x, y) =>
+    x >= 0 && x <= 30 && Math.abs(y) <= 3 ? 10 : null;
+  const surface = { heightAt };
+  const car = { x: 28.64, y: 0, z: 10, heading: 0, v: 10 };
+  const reverse = { throttle: -1 };
+  const step = 1 / 120;
+  assert.equal(driveOnRoadSurface(car, reverse, step, surface).blocked, true);
+  const braked = brakeAtSupportBoundary(car, step, heightAt);
+  assert.ok(braked.v > 9.8 && braked.v < 10);
+  assert.equal(braked.x, car.x);
+  let next = braked;
+  for (let i = 0; i < 160; i++) {
+    const motion = driveOnRoadSurface(next, reverse, step, surface);
+    next = motion.blocked
+      ? brakeAtSupportBoundary(next, step, heightAt)
+      : motion;
+  }
+  assert.ok(next.v < 0 && next.x < car.x);
 });
 
 test("an open edge or loaded contact gap releases the car without a speed impulse", () => {

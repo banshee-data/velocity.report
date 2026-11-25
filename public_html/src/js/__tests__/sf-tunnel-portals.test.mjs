@@ -62,6 +62,14 @@ test("both ends are open while covered seams and stacked bores keep their levels
     [0, -0, 10, 4],
   );
   assert.match(shader.fragmentShader, /above < direction.w - 0.05/);
+  const origin = shader.uniforms.tunnelOrigin;
+  showTunnelMouths(material, mouths.slice(1, 2));
+  assert.equal(material.customProgramCacheKey(), "tunnel-mouths:1");
+  assert.equal(origin.value[0].x, 60);
+  showTunnelMouths(material, mouths.slice(1, 3));
+  showTunnelMouths(material, mouths.slice(2, 3));
+  assert.equal(material.customProgramCacheKey(), "tunnel-mouths:1");
+  assert.equal(origin.value[0].z, 4);
   showTunnelMouths(material, []);
   assert.equal(material.customProgramCacheKey(), "tunnel-mouths:0");
 });
