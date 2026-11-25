@@ -1,0 +1,1 @@
+- Added an optional 120 Hz driving check for baked road joins and ground handoffs, and verified both lanes at the southbound Golden Gate fork. [Citywide road contact audit](../../ui/sf-road-route-audit.md#driving-across-baked-joins-and-portals)

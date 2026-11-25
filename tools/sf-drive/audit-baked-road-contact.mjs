@@ -20,13 +20,18 @@ import {
   roadSupportsCar,
 } from "../../public_html/src/js/sf-road-contact.js";
 import { deckClearanceIndex } from "../../public_html/src/js/sf-tree-clearance.js";
+import { auditBakedRoadLinks } from "./baked-road-link-audit.mjs";
 
 const stationStep = 2;
 const lateralStep = 0.75;
 const portalTolerance = 0.15;
 const layerTolerance = 0.4;
 const round = (value) => Math.round(value * 1000) / 1000;
-const directory = process.argv[2] || "public_html/src/sf/tiles";
+const options = process.argv.slice(2);
+const driveLinks = options.includes("--drive-links");
+const [directory = "public_html/src/sf/tiles"] = options.filter(
+  (option) => option !== "--drive-links",
+);
 const raw = readFileSync(join(directory, "manifest.json"));
 const manifest = JSON.parse(raw);
 const tiles = manifest.tiles.map(({ t, bytes }) => {
@@ -227,6 +232,7 @@ const flag = (road) =>
   road.centreHits ||
   road.centreUnsupported ||
   road.peakGrade > 25;
+const driving = driveLinks && auditBakedRoadLinks(contacts, joins, tiles);
 console.log(
   JSON.stringify(
     {
@@ -252,8 +258,15 @@ console.log(
       ).length,
       unmatchedPortals,
       flagged: roads.filter(flag),
+      ...(driving && { driving }),
     },
     null,
     2,
   ),
 );
+if (
+  driving &&
+  (driving.directedJoins.failures.length ||
+    driving.groundHandoffs.failures.length)
+)
+  process.exitCode = 1;
