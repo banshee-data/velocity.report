@@ -7,7 +7,9 @@ const modules = new URL("{{ (modulesBase + '/js/') | url }}", scope);
 const tiles = new URL("tiles/", scope);
 const version = "{{ sfTileVersion }}";
 const shellCache = `sf-shell-${modules.pathname}-${version}`;
-const tileCache = `sf-tiles-${scope.pathname}-${version}`;
+const tileCachePrefix = `sf-tiles-${scope.pathname}-`;
+const tileCache = tileCachePrefix + version;
+const tileHashes = {{ sfTileHashes | safe }};
 const assets = [
   scope.href,
   new URL("../css/scene-colours.css", scope).href,
@@ -21,7 +23,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(shellCache).then((cache) =>
       cache.addAll(assets.map((url) => new Request(url, { cache: "reload" }))),
-    ).then(() => self.skipWaiting()),
+    ).then(carryForwardTiles),
   );
 });
 
@@ -29,11 +31,85 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+async function matchesTile(response, expected) {
+  if (!response?.ok || !expected) return false;
+  try {
+    const bytes = await response.clone().arrayBuffer();
+    const head = new Uint8Array(bytes);
+    const json = head[0] === 0x1f && head[1] === 0x8b
+      ? await new Response(new Blob([bytes]).stream()
+          .pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()
+      : bytes;
+    const hash = await crypto.subtle.digest("SHA-256", json);
+    return Array.from(new Uint8Array(hash), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("") === expected;
+  } catch {
+    return false;
+  }
+}
+
+async function priorCaches() {
+  const names = await caches.keys();
+  return Promise.all(names.filter((name) =>
+    name.startsWith(tileCachePrefix) && name !== tileCache,
+  ).reverse().map((name) => caches.open(name)));
+}
+
+async function priorTile(older, request, expected) {
+  let previouslyDownloaded = false;
+  for (const cache of older) {
+    const stored = await cache.match(request);
+    if (stored?.ok) previouslyDownloaded = true;
+    if (await matchesTile(stored, expected))
+      return { stored, previouslyDownloaded };
+  }
+  return { previouslyDownloaded };
+}
+
+async function carryForwardTiles() {
+  const older = await priorCaches();
+  if (!older.length) return;
+  const cache = await caches.open(tileCache);
+  const entries = Object.entries(tileHashes);
+  let index = 0;
+  let incomplete = false;
+  async function carry() {
+    while (index < entries.length) {
+      const [token, expected] = entries[index++];
+      const url = new URL(`${token}.json.gz`, tiles);
+      try {
+        if ((await cache.match(url))?.ok) continue;
+        const { stored, previouslyDownloaded } = await priorTile(older, url, expected);
+        if (stored) {
+          await cache.put(url, stored);
+        } else if (previouslyDownloaded) {
+          const response = await fetch(url, {
+            cache: "reload",
+            signal: AbortSignal.timeout(15000),
+          });
+          if (await matchesTile(response, expected)) await cache.put(url, response);
+          else incomplete = true;
+        }
+      } catch {
+        incomplete = true;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: 4 }, carry));
+  if (incomplete) throw new Error("The earlier offline download could not be carried forward.");
+}
+
 async function tileResponse(request) {
   const cache = await caches.open(tileCache);
   const stored = await cache.match(request);
   if (stored) return stored;
-  const response = await fetch(request);
+  const token = new URL(request.url).pathname.split("/").at(-1).slice(0, 8);
+  const response = await fetch(request).catch(async (error) => {
+    const { stored } = await priorTile(await priorCaches(), request, tileHashes[token]);
+    if (stored) return stored;
+    throw error;
+  });
   if (response.ok) {
     try {
       await cache.put(request, response.clone());
@@ -120,10 +196,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== scope.origin) return;
   if (request.mode === "navigate" && url.pathname === scope.pathname) {
-    event.respondWith(fetch(request).catch(async () => {
+    event.respondWith((async () => {
       const cache = await caches.open(shellCache);
-      return (await cache.match(scope.href)) || Response.error();
-    }));
+      return (await cache.match(scope.href)) || fetch(request);
+    })());
   } else if (url.href.startsWith(tiles.href) && /^[0-9a-f]{8}\.json\.gz$/.test(url.pathname.split("/").at(-1))) {
     event.respondWith(tileResponse(request));
   } else if (assets.includes(url.href)) {
