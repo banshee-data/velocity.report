@@ -4004,3 +4004,43 @@ The comparison uses the game's terrain grid. It does not establish
 physical bridge clearances or coverage of every inventory record.
 
 - Public Works snapshot SHA-256 `c7b76f2f3d07ba28d2142008d65edf1a466782de89dbca024c0fc7a5156b7d00`.
+
+## Bayshore frontage road from Hester to Third Street
+
+**World and Data.** The northbound Bayshore frontage carriageway uses
+DataSF row `2820000` and continues onto Third Street row `233101`. The
+game's terrain grid sat 9.1 m below the pavement near the Hester viaduct.
+A Chrome drive on the terrain dropped to the lower level and stalled.
+The new 417.5 m contact uses 141 survey-supported stations and reaches a
+7.38% grade. Its southern portal joins Bayshore pavement near Hester.
+Its northern portal reaches open pavement on Third Street after the
+parallel US 101 exit. The existing upper approach to the US 101 entrance
+follows a separate carriageway.
+
+**Physics and UI.** The first Chrome candidate reached the correct upper
+level and hit a rectangular collision volume. Classified returns identify
+pavement in that footprint. The corrected bake places the tops of the
+inferred overhead volumes below the driving surface and retains their
+undersides over the lower roadway. It clears 16 inferred trunk rows at
+three locations with pavement returns and no observed obstruction within
+the vehicle-height band. These heights describe the game surfaces and
+collision volumes. Physical clearance requires a separate survey.
+
+On the candidate, Chrome drove the frontage in 38.6 s and the lower
+US 101 exit in 45.3 s. Both reached Third Street grounded, with zero
+airborne travel. The lower drive used the covered view on its approach
+and ramp, then returned to the exterior view. A tile test checks the
+vehicle hull at every packed frontage point and at 1.5 m on both sides.
+
+- Parent manifest SHA-256 `42d6ffb1309d6e668ef0066e36151d0147a01c700f8cd8352a99d14616f78f92`.
+- Candidate manifest SHA-256 `eddfbe36c207b3dfb69cb502cb8aea0073ca3b28e37ff35db52f1f4f64875655`.
+- Candidate contact SHA-256 `0181c78ad37dcd6c4ea75556d88379104c44aa4bcf41f98a1128ceb6eb14339f`.
+- Street source SHA-256 `9ad57b06cfb94eefc9b382e6412a5b99762c61cadbf4d78e9dec5a777cb663e6`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  bayshore-hester-frontage-to-third bayshore-hester-street-through \
+  bayshore-hester-entry-us101 northbound-hester-stays-on-us101 \
+  northbound-hester-exit-to-third-street
+```

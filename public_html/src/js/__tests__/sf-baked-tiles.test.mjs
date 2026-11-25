@@ -501,6 +501,40 @@ test("Saint Charles passes over I-280 and western Alemany passes below it", () =
   }
 });
 
+test("the Hester frontage road stays above the terrain into Third Street", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7f24.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/bayshore-hester-frontage-to-third",
+  );
+  assert.deepEqual(road.source_cnn, ["2820000", "233101"]);
+  const contact = buildBakedRoadContact(road);
+  assert.equal(contact.portals.length, 2);
+  for (const { x, y, z } of contact.portals)
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.05);
+
+  const [x, y] = [3660.595, -4885.528];
+  const upper = contact.surface.heightAt(x, y);
+  const terrain = groundAtWorld([tile], x, y, true);
+  assert.ok(upper > 49 && upper < 49.4);
+  assert.ok(upper - terrain > 8.5 && upper - terrain < 9.5);
+
+  const obstacles = [buildCollisionIndex(tile, tile.t)];
+  for (let i = 0; i < road.points.length; i++) {
+    const [x, y, z] = road.points[i];
+    const before = road.points[Math.max(0, i - 1)];
+    const after = road.points[Math.min(road.points.length - 1, i + 1)];
+    const heading = Math.atan2(after[1] - before[1], after[0] - before[0]);
+    for (const offset of [-1.5, 0, 1.5]) {
+      const pose = {
+        x: x - Math.sin(heading) * offset,
+        y: y + Math.cos(heading) * offset,
+        heading,
+      };
+      assert.equal(collisionAt(obstacles, pose, z), null, `${x}, ${y}, ${offset}`);
+    }
+  }
+});
+
 test("Geary stays below the Fillmore bridge in both directions", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808580bc.json.gz")));
   const load = (name) =>
@@ -3923,7 +3957,7 @@ test("southern northbound US 101 joins the existing Silver approach across tiles
         bottom === 480 &&
         faces.some(
           ([roof]) =>
-            roof[2] === 494 && roof[0] + hesterTile.o[0] * 10 === 36598,
+            roof[2] === 488 && roof[0] + hesterTile.o[0] * 10 === 36598,
         ),
     ),
   );
