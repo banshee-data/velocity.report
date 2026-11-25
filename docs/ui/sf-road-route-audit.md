@@ -4169,6 +4169,19 @@ keyboard driving. Field clearances require their own survey.
 - Local manifest SHA-256 `9b32ea6d68875d084fbdc0f062ae2080e32c2d44b62fed8e06be4e642010b6f1`.
 - Published Hester manifest SHA-256 `eddfbe36c207b3dfb69cb502cb8aea0073ca3b28e37ff35db52f1f4f64875655`.
 
+On the same preview, a continuous Chrome keyboard drive took manual control
+at 49.7 mph on the Bay Bridge West Span. It used the Fremont exit, crossed
+the city streets and entered westbound I‑80 at Fourth Street. The sampled
+speed was 46.3–54.3 mph on the span and 10.3–54.3 mph across the full route.
+There was no sampled airtime or crash. An earlier pass reached the finish
+with an 8.8 mph minimum. The repeat took control earlier and held throttle
+through the city turns. These figures use the game's driving HUD samples.
+
+A separate Chrome drive started from a checkpoint farther up the Fremont
+exit. The driver steered through the open left edge. The air card recorded
+1.3 seconds, and the car touched down on the Folsom Street terrain after
+dropping about 8.5 m. The car continued under manual control.
+
 ## Alexander Avenue northbound fork
 
 **World and Physics.** The northbound entrance and the straight city branch share a
