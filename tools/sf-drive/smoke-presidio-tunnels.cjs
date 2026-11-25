@@ -1748,6 +1748,20 @@ cases["potrero-avenue-to-bayshore"] = {
 
 const fifthRamp = "i80-westbound-fifth-harrison-exit";
 const fourthThrough = "i80-westbound-fourth-merge";
+cases["i80-westbound-fourth-merge-offset"] = {
+  owners: ["8085807c", "80858084"],
+  roads: [fourthThrough],
+  speed: 8,
+  rollingStart: true,
+  rollingStartMetres: 497,
+  initialSpeedMps: 8,
+  finishOnDeck: true,
+  finishDistance: 552,
+  laneGuides: { [fourthThrough]: { lane: 0.75 } },
+  maxDurationMs: 25_000,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+};
 const fifthStart = {
   owners: ["8085807c", "80858084"],
   speed: 18,

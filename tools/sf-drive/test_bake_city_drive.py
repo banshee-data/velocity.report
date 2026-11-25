@@ -13,6 +13,7 @@ smooth_ramp_join = runpy.run_path(Path(__file__).with_name("bake-city-drive.py")
 ]
 road_layers = runpy.run_path(Path(__file__).with_name("embed-road-layers.py"))
 tree_bake = runpy.run_path(Path(__file__).with_name("apply-tree-classification.py"))
+building_bake = runpy.run_path(Path(__file__).with_name("apply-building-clearance.py"))
 
 
 class SlopingPavement:
@@ -344,6 +345,50 @@ def tree_release(directory, tiles, road_bake):
     (directory / "gamedrives.json").write_bytes(encode({"fixture": directory.name}))
     (directory / "coverage.json").write_bytes(encode({"coverage": directory.name}))
     return digest(manifest)
+
+
+def test_building_clearance_checks_row_and_preserves_road_contact(tmp_path):
+    encode, digest = tree_bake["encode"], tree_bake["digest"]
+    source = tmp_path / "source"
+    output = tmp_path / "packed"
+    review = tmp_path / "clearance.json"
+    token = "80858024"
+    tile_path = f"tiles/{token}.json.gz"
+    building = [29, [[[0, 0, 123, 50, 0, 123, 50, 60, 123]]], 1]
+    clearance = [29, [[[0, 0, 103, 50, 0, 103, 50, 60, 103]]], 1]
+    tile = {"b": [building], "playableRoads": [{"id": "merge"}], "tr": []}
+    parent = tree_release(source, {token: tile}, {})
+    raw = (source / tile_path).read_bytes()
+    product = {
+        "format": "sf-baked-building-clearance/v1",
+        "tile_manifest_sha256": parent,
+        "ept_index_sha256": "index",
+        "survey_nodes_sha256": "observations",
+        "tiles": {
+            token: {
+                "sha256": digest(raw),
+                "patches": [{"index": 0, "sha256": "wrong", "parts": [clearance]}],
+            }
+        },
+    }
+    review.write_bytes(encode(product))
+    with pytest.raises(ValueError, match="source row 0"):
+        building_bake["bake"](source, review, output)
+    assert not output.exists()
+
+    product["tiles"][token]["patches"][0]["sha256"] = digest(encode(building))
+    review.write_bytes(encode(product))
+    published = building_bake["bake"](source, review, output)
+    packed = (output / tile_path).read_bytes()
+    assert json.loads(gzip.decompress(packed)) == {**tile, "b": [clearance]}
+    manifest = json.loads((output / "tiles/manifest.json").read_bytes())
+    receipt = manifest["roadBake"]["buildingClearanceReviews"][0]
+    assert receipt["parentManifestSha256"] == parent
+    assert receipt["tiles"][token]["sha256"] == digest(packed)
+    assert (
+        json.loads((output / "quest-route.json").read_bytes())["manifestSha256"]
+        == published
+    )
 
 
 @pytest.fixture
