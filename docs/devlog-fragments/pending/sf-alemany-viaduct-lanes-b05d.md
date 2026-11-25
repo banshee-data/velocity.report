@@ -1,0 +1,1 @@
+- Drove six terrain-supported SF crossings on the 160-tile preview and confirmed three grounded reverse lines at Alemany Viaduct around a survey-supported tree obstruction. [Road route audit](../../ui/sf-road-route-audit.md#terrain-supported-crossings-on-the-160-tile-park-preview).

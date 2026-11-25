@@ -4415,3 +4415,51 @@ missing terrain in the automated regressions.
 
 The distances describe simulated motion on the game terrain. They do not
 establish physical vehicle dynamics or road flatness.
+
+## Terrain-supported crossings on the 160-tile park preview
+
+**World and Data.** A proximity screen compared 293 Public Works, SFMTA and
+Caltrans inventory markers with the preview. Thirty-nine markers had no
+separately baked contact within 60 m. That count prompted a check of ordinary
+road terrain at named crossings. A nearby contact can serve a different
+road, and an inventory marker can describe a rail or pedestrian crossing.
+Vehicle access and citywide coverage require checks beyond proximity.
+[Public Works roadway structures](https://data.sf.gov/w/x5tj-txci/ikek-yizv),
+[SFMTA clearance heights](https://data.sf.gov/Transportation/Clearance-Heights-Bridges-and-Underpasses/eb2x-6eay/about_data),
+[Caltrans bridge inventory](https://caltrans-gis.dot.ca.gov/arcgis/rest/services/CHhighway/State_Highway_Bridges/FeatureServer/0).
+
+**Physics.** Chrome used keyboard steering with route assist off. Each course
+started 43 m before its projected Public Works marker and finished within
+4 m of the target 43 m beyond it. The target speed was 22 mph and the initial
+line was 1.5 m right of the mapped centreline. The peak grades below use
+one-metre samples of the driven game trajectory. All finishes were grounded,
+with zero sampled airborne distance and no dips deeper than 0.5 m over an
+eight-metre chord.
+
+| Alignment                                        | Public Works ID | Initial finishes | Peak grade by direction |
+| ------------------------------------------------ | --------------: | ---------------: | ----------------------- |
+| Cesar Chavez Street above the railway            |              57 |           2 of 2 | 3.61%, 3.05%            |
+| Jerrold Avenue beneath the railway               |              62 |           2 of 2 | 3.15%, 2.78%            |
+| Third Street across Mission Creek                |              74 |           2 of 2 | 1.80%, 2.48%            |
+| Evans Avenue at the bridge                       |             126 |           2 of 2 | 4.87%, 5.13%            |
+| Alemany Boulevard above Junipero Serra Boulevard |             195 |           1 of 2 | 8.57%, stalled          |
+| Junipero Serra Boulevard below Alemany Boulevard |             195 |           2 of 2 | 2.61%, 2.62%            |
+
+The reverse Alemany drive stopped after 0.29 m near the south-west approach.
+The vehicle hull intersected tree row 1073 in tile `808f7c4c`. Within 0.8 m
+of its base, the April 2023 survey had 47 returns within 0.2 m of the game
+ground, 17 from 0.25 to 2 m above it and 226 at least 2 m above it. The
+obstruction remains in the bake. [San Francisco LiDAR survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+Reverse lines at the centreline, 0.75 m right and 3.75 m right all finished
+grounded. The 3.0 m right line also stalled. The centreline and 0.75 m lines
+peaked at 5.28% and 4.79% grade. The trials establish a playable route in
+both directions and identify a blocked steering line on the approach.
+
+- Game manifest SHA-256 `297e0a640bb78b4664c40162c5a2c624b19b5e957f5e70e27296f1a6e404b021`.
+- Initial courses SHA-256 `c0886d142170bef1a94268405e82d3ce642f5ab1e6eb5f52f2b7e55d3566769b`.
+- Alternate courses SHA-256 `b537883292928626ca6e33bdbcc697e31bac02c9bfa145d25d9f7fd940439237`.
+- Survey node receipt SHA-256 `435b23ddd2ab36f57d8d14d45a9798c788194187ef68e7df11970a5831c8561e`.
+
+The retained run is named `park-inventory-recheck-20261125`. Browser logs,
+course coordinates and the survey nodes are kept with the local evidence.
