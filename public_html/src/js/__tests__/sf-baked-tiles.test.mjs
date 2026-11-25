@@ -460,6 +460,46 @@ test("Mount Vernon joins all three streets above separate I-280 carriageways", (
   }
 });
 
+test("Saint Charles passes over I-280 and western Alemany passes below it", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7c3c.json.gz")));
+  const get = (name) =>
+    buildBakedRoadContact(
+      tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`),
+    );
+  const bridge = get("saint-charles-avenue-over-i280");
+  const northbound = get("i280-north-edge-to-sr82");
+  const southbound = get("i280-south-geneva-to-sr82");
+  for (const [road, x, y] of [
+    [northbound, -2538.346, -5766.955],
+    [get("i280-south-sr82-to-edge"), -2556.202, -5751.768],
+    [get("i280-south-edge-exit"), -2568.861, -5737.422],
+  ]) {
+    const pavement = bridge.surface.heightAt(x, y);
+    const freeway = road.surface.heightAt(x, y);
+    assert.ok(Number.isFinite(pavement) && Number.isFinite(freeway));
+    assert.ok(pavement - freeway > 6 && pavement - freeway < 8);
+  }
+  const eastbound = get("western-alemany-eastbound-under-i280");
+  const westbound = get("western-alemany-westbound-under-i280");
+  for (const [street, road, x, y] of [
+    [eastbound, northbound, -1828.53, -5507.642],
+    [eastbound, southbound, -1866.084, -5484.74],
+    [westbound, northbound, -1808.54, -5507.494],
+    [westbound, southbound, -1838.108, -5484.533],
+  ]) {
+    const pavement = street.surface.heightAt(x, y);
+    const freeway = road.surface.heightAt(x, y);
+    assert.ok(Number.isFinite(pavement) && Number.isFinite(freeway));
+    assert.ok(freeway - pavement > 6 && freeway - pavement < 8);
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - pavement) < 0.25);
+  }
+  for (const contact of [bridge, eastbound, westbound]) {
+    assert.equal(contact.portals.length, 2);
+    for (const { x, y, z } of contact.portals)
+      assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.05);
+  }
+});
+
 test("Geary stays below the Fillmore bridge in both directions", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808580bc.json.gz")));
   const load = (name) =>
