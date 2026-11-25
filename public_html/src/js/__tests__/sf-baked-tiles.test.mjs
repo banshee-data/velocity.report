@@ -1570,6 +1570,16 @@ test("the reviewed decks replace the provisional spans and clear the lower I-280
   const z = surface.heightAt(car.x, car.y);
   assert.ok(Number.isFinite(z));
   assert.equal(overheadDeckBlend(car, z, surface.heightAt, decks.ceiling), 0);
+  const lowerBay = buildBakedRoadContact(
+    roads.get("yerba-buena-lower-east-after-entry"),
+  ).surface;
+  const islandCar = { x: 6779.889, y: 5771.358, heading: 0.8537 };
+  const islandZ = lowerBay.heightAt(islandCar.x, islandCar.y);
+  assert.ok(Number.isFinite(islandZ));
+  assert.ok(
+    overheadDeckBlend(islandCar, islandZ, lowerBay.heightAt, decks.ceiling) >
+      0.7,
+  );
   const obsolete = buildRaisedRoad(
     previews.get("overpass/19304000/forward/1"),
     new Set(),

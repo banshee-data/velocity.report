@@ -2424,6 +2424,7 @@ cases["island-east-eastbound-entry"] = {
   finishOnDeck: true,
   finishDistance: 70,
   covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
+  allowedCovered: ["yerba-buena-lower-east-after-entry"],
   maxDurationMs: 75_000,
 };
 cases["island-east-roundtrip"] = {
@@ -2455,6 +2456,7 @@ cases["island-east-roundtrip"] = {
   finishOnDeck: true,
   finishDistance: 70,
   covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
+  allowedCovered: ["yerba-buena-lower-east-after-entry"],
   maxDurationMs: 120_000,
 };
 for (const reverse of [false, true]) {
