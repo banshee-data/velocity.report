@@ -395,6 +395,71 @@ test("both Geneva Avenue carriageways remain above both I-280 mainlines", () => 
   }
 });
 
+test("Mount Vernon joins all three streets above separate I-280 carriageways", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7c2c.json.gz")));
+  const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
+  const get = (name) => roads.get(`sf-contact/${name}`);
+  const approaches = {
+    north: [get("san-jose-avenue-north-over-i280"), "end"],
+    south: [get("san-jose-avenue-south-at-mount-vernon"), "start"],
+    west: [get("mount-vernon-avenue-over-i280"), "start"],
+  };
+  const endpoint = (road, end) => road.points.at(end === "end" ? -1 : 0);
+  for (const [road, end] of Object.values(approaches)) {
+    const [portal] = buildBakedRoadContact(road).portals;
+    assert.deepEqual(road.groundEnds, [end === "end" ? "start" : "end"]);
+    assert.ok(
+      Math.abs(groundAtWorld([tile], portal.x, portal.y, true) - portal.z) <
+        0.03,
+    );
+  }
+  for (const [first, second] of [
+    ["north", "south"],
+    ["north", "west"],
+    ["south", "west"],
+  ]) {
+    const [incoming, from] = approaches[first];
+    const [outgoing, to] = approaches[second];
+    const curve = get(`mount-vernon-junction-${first}-${second}`);
+    assert.deepEqual(curve.points[0], endpoint(incoming, from));
+    assert.deepEqual(curve.points.at(-1), endpoint(outgoing, to));
+    assert.deepEqual(curve.seams, {
+      start: incoming.seams[from],
+      end: outgoing.seams[to],
+    });
+    for (const [a, b] of [
+      [`${incoming.id}:${from}`, `${curve.id}:start`],
+      [`${curve.id}:end`, `${outgoing.id}:${to}`],
+    ])
+      assert.ok(
+        roadBake.playableTransitions.some(
+          ({ from, to, direction }) =>
+            from === a && to === b && direction === "both",
+        ),
+      );
+  }
+  for (const [high, low, x, y] of [
+    [
+      "san-jose-avenue-north-over-i280",
+      "i280-north-sr82-to-geneva",
+      -731.4237,
+      -4595.0466,
+    ],
+    [
+      "mount-vernon-junction-north-west",
+      "i280-south-beyond-geneva",
+      -755.6345,
+      -4611.0114,
+    ],
+  ]) {
+    const upper = buildBakedRoadContact(get(high)).surface.heightAt(x, y);
+    const lower = buildBakedRoadContact(get(low)).surface.heightAt(x, y);
+    assert.ok(Number.isFinite(upper) && Number.isFinite(lower));
+    assert.ok(upper - lower > 8 && upper - lower < 10);
+  }
+});
+
 test("Geary stays below the Fillmore bridge in both directions", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808580bc.json.gz")));
   const load = (name) =>
