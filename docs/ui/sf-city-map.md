@@ -378,7 +378,7 @@ The [tree classification bake step](../../tools/sf-drive/apply-tree-classificati
 applies exact-row patches to the pinned game release. The manifest records
 the parent tile, new tile, survey index, source nodes, tree inventory and
 classification hashes. The revised game manifest is
-`ee83b87cc78cc4690968af0a9b25df0c01ed7f6fc491395be2707d710fbafb2c`.
+`640ae2240000e3e64894f1a41122201e0758b5593cff5640e25ce48d766c0a70`.
 Road contacts and quest placements carry forward with the new tile revision.
 
 ### Inputs for a new game-tile revision

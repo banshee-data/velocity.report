@@ -1,0 +1,1 @@
+- Extended the Delancey pavement to the flatter northeast junction, carried the full contact across the tile boundary and recorded the [next I-280 crossing checks](../../ui/sf-road-route-audit.md#i-280-surface-screening-near-geneva-and-alemany).
