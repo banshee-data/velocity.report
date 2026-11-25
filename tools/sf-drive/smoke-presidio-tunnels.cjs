@@ -2422,6 +2422,21 @@ cases["island-east-eastbound-exit"] = {
 };
 const southgateFeeder = "yerba-buena-eastbound-exit-to-southgate";
 const southgateShared = "yerba-buena-southgate-to-macalla-shared";
+cases["island-east-southgate-offset"] = {
+  owners: ["80858024"],
+  roads: [southgateFeeder],
+  speed: 6,
+  rollingStart: true,
+  rollingStartMetres: 43,
+  initialSpeedMps: 6,
+  finishOnDeck: true,
+  finishDistance: 102,
+  laneGuides: { [southgateFeeder]: { lane: 0.75 } },
+  maxDurationMs: 25_000,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+  covered: [prefix + southgateFeeder],
+};
 cases["island-east-eastbound-exit-to-macalla"] = {
   ...cases["island-east-eastbound-exit"],
   roads: [

@@ -32,9 +32,19 @@ const layerTolerance = 0.4;
 const round = (value) => Math.round(value * 1000) / 1000;
 const options = process.argv.slice(2);
 const driveLinks = options.includes("--drive-links");
-const driveSpans = options.includes("--drive-spans");
+const laneOption = options.find((option) => option.startsWith("--span-lane="));
+const laneMetres = laneOption?.slice("--span-lane=".length).trim();
+const spanLane = laneMetres === undefined ? undefined : Number(laneMetres);
+assert.ok(
+  !laneOption || (laneMetres && Number.isFinite(spanLane)),
+  "--span-lane requires a signed offset in metres",
+);
+const driveSpans = options.includes("--drive-spans") || spanLane !== undefined;
 const [directory = "public_html/src/sf/tiles"] = options.filter(
-  (option) => option !== "--drive-links" && option !== "--drive-spans",
+  (option) =>
+    option !== "--drive-links" &&
+    option !== "--drive-spans" &&
+    option !== laneOption,
 );
 const raw = readFileSync(join(directory, "manifest.json"));
 const manifest = JSON.parse(raw);
@@ -247,13 +257,19 @@ const flag = (road) =>
   road.peakGrade > 25;
 const driving = driveLinks && auditBakedRoadLinks(contacts, joins, tiles);
 const traversals =
-  driveSpans && auditBakedRoadSpans(contacts, joins, collisions);
+  driveSpans && auditBakedRoadSpans(contacts, joins, collisions, spanLane);
 console.log(
   JSON.stringify(
     {
       manifestSha256: createHash("sha256").update(raw).digest("hex"),
       tiles: tiles.length,
-      settings: { stationStep, lateralStep, portalTolerance, layerTolerance },
+      settings: {
+        stationStep,
+        lateralStep,
+        portalTolerance,
+        layerTolerance,
+        ...(laneOption && { spanLane }),
+      },
       surfaces: roads.length,
       kinds,
       stations: roads.reduce((sum, road) => sum + road.stations, 0),

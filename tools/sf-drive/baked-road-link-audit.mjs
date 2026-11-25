@@ -324,7 +324,7 @@ function buildAuditSurfaces(contacts) {
   );
 }
 
-export function auditBakedRoadSpans(contacts, joins, collisions) {
+export function auditBakedRoadSpans(contacts, joins, collisions, fixedLane) {
   const surfaces = buildAuditSurfaces(contacts);
   const network = indexRoadNetwork(joins);
   network.add({
@@ -377,15 +377,21 @@ export function auditBakedRoadSpans(contacts, joins, collisions) {
     kind.surfaces++;
     const length = surface.profile.at(-1).s_m;
     const fast = { bridge_deck: 14, tunnel: 12, ramp: 9 }[surface.kind];
-    const attempts = [
-      { lane: 0, speed: fast, look: 5.5 },
-      { lane: 0, speed: 6, look: 4 },
-      { lane: -0.75, speed: 6, look: 4 },
-      { lane: 0.75, speed: 6, look: 4 },
-      { lane: 0, speed: 4, look: 3 },
-      { lane: -1.5, speed: 4, look: 3 },
-      { lane: 1.5, speed: 4, look: 3 },
-    ];
+    const attempts =
+      fixedLane !== undefined
+        ? [
+            { lane: fixedLane, speed: 8, look: 4 },
+            { lane: fixedLane, speed: 5, look: 3.5 },
+          ]
+        : [
+            { lane: 0, speed: fast, look: 5.5 },
+            { lane: 0, speed: 6, look: 4 },
+            { lane: -0.75, speed: 6, look: 4 },
+            { lane: 0.75, speed: 6, look: 4 },
+            { lane: 0, speed: 4, look: 3 },
+            { lane: -1.5, speed: 4, look: 3 },
+            { lane: 1.5, speed: 4, look: 3 },
+          ];
     for (const reverse of directions) {
       summary.testedDirections++;
       kind.testedDirections++;
