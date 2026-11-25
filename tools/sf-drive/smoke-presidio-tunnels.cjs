@@ -1876,7 +1876,13 @@ cases["southern-city-edge-to-northbound-us101"] = {
   finishOnDeck: true,
   finishDistance: 100,
   maxDurationMs: 330_000,
+  forks: [["us101-north-city-edge-to-hester", northboundUs101Hester, 1.8]],
   covered: [`sf-contact/${northboundUs101Hester}`],
+  allowedCovered: [
+    "sf-contact/us101-north-paul-to-silliman",
+    "sf-contact/us101-north-silliman-to-alemany",
+  ],
+  maxAirborneMetres: 0,
 };
 cases["alemany-street-to-northbound-us101"] = {
   roads: [
@@ -3146,6 +3152,13 @@ for (const [road, owners, forward, approach, departures] of [
     "westbound",
     3,
     [[[3347, -4002.64, 21.416]], [[3496, -4050.3, 20.925]]],
+  ],
+  [
+    "dogpatch-twenty-second-under-i280",
+    ["808f7fb4"],
+    "westbound",
+    8,
+    [[[4143, -256.8, 14.53]], [[4274, -249.85, 12.2]]],
   ],
 ]) {
   const opposite = forward === "eastbound" ? "westbound" : "eastbound";

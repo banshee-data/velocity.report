@@ -197,16 +197,15 @@ def valid_tunnel_wall_openings(road):
 
 
 def patch_terrain_detail(grid, patch, base_sha256):
-    """Add a reviewed rectangle tied to an exact pristine base tile."""
+    """Add a reviewed rectangle tied to its exact base tile."""
     detail = patch["detail"]
     fields = ("x0", "y0", "s", "columns", "rows")
     if (
         patch["base_tile_sha256"] != base_sha256
-        or "detail" in grid
         or not isinstance(detail, dict)
         or any(type(detail.get(key)) is not int for key in fields)
     ):
-        raise ValueError("Terrain detail does not match an unrefined base tile")
+        raise ValueError("Terrain detail does not match the base tile")
     x0, y0, step, columns, rows = (detail[key] for key in fields)
     x1, y1 = x0 + (columns - 1) * step, y0 + (rows - 1) * step
     side = (grid["n"] - 1) * grid["s"]
@@ -264,6 +263,26 @@ def patch_terrain_detail(grid, patch, base_sha256):
         )
     ):
         raise ValueError("Terrain detail boundary differs from the coarse grid")
+    if (prior := grid.get("detail")) is not None:
+        old_columns, old_rows = prior["columns"], prior["rows"]
+        column = int((prior["x0"] - x0) // step)
+        row = int((prior["y0"] - y0) // step)
+        if (
+            prior["s"] != step
+            or (prior["x0"] - x0) % step
+            or (prior["y0"] - y0) % step
+            or not 0 <= column <= columns - old_columns
+            or not 0 <= row <= rows - old_rows
+            or columns * rows <= old_columns * old_rows
+        ):
+            raise ValueError("Terrain detail must extend the existing rectangle")
+        for i in range(old_rows):
+            start = (row + i) * columns + column
+            if (
+                detail["z"][start : start + old_columns]
+                != prior["z"][i * old_columns : (i + 1) * old_columns]
+            ):
+                raise ValueError("Terrain detail extension changed a base sample")
     return {**grid, "detail": detail}
 
 

@@ -3580,3 +3580,34 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   bacon-street-under-us101-{eastbound,westbound} \
   paul-avenue-under-us101-{eastbound,westbound}
 ```
+
+## 22nd Street beneath I-280 in Dogpatch
+
+**World and Data.** At 22nd Street, the prior terrain dipped to 10.57 m
+NAVD88 between visible pavement at 13.11 m and 14.35 m. The I-280 deck
+above it measured about 24 m. April 2023 pavement returns support 10 of 23
+stations in the new 65 m contact. The fit interpolates 41.36 m in the
+aerial shadow and peaks at a 4.02% grade. The one-metre terrain refinement
+extends the original rectangle in tile `808f7fb4`. The bake verifies that
+every original detailed sample is retained, the expanded rectangle meets
+the coarse terrain on all four sides and the freeway contacts remain
+above the street. The inferred lower roadway through the shadow has
+gameplay validation. Physical clearance needs a separate survey.
+[Public Works roadway structure inventory](https://data.sf.gov/w/x5tj-txci/ikek-yizv).
+
+**Physics and UI.** Baseline Chrome drives registered 19.37 m of airborne
+travel westbound and 8.55 m eastbound. Maximum measured clearance above
+the terrain was 0.23 m westbound and 0.13 m eastbound. Both candidate
+keyboard drives completed with zero airborne travel, stayed on the lower
+contact under I-280 and reached exterior view on the adjoining street.
+
+- Baseline Chrome manifest SHA-256 `81e31f112ce9808042fc96ca8b7e9d8a868391363f17c21a41f6eed8bb8339dc`.
+- Parent game manifest SHA-256 `ecd960a1b1fae3c1f23c67f96db0bc29d457dfe9037f553e497e3513728f0c88`.
+- Candidate game manifest SHA-256 `2cb2d0ad4fcb578a5334f65ec2c2058e36463f62ee964e6149a78e859c8cbd36`.
+- Candidate contact SHA-256 `3a9c76bb1dda33a4c17a1b35501c2aa07f8e36cd5988985dc0f16582347fdda1`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  dogpatch-twenty-second-under-i280-{westbound,eastbound}
+```
