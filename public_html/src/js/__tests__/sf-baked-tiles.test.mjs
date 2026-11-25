@@ -46,6 +46,8 @@ test("local bridges carry the car above the ground grid and meet street pavement
     ["808f7fa4", "islais-creek-third-street", [4638, -1397], 1],
     ["808f7fa4", "islais-creek-illinois-street", [4737, -1359], 3.5],
     ["808f7fd4", "mission-creek-fourth-street", [4203, 1664], 0.9],
+    ["808f7f1c", "williams-avenue-caltrain-bridge", [3875, -3356.3], 7],
+    ["808f7f1c", "paul-avenue-caltrain-bridge", [3762.7, -4128.5], 5.7],
   ];
   for (const [token, slug, [x, y], gap] of specifications) {
     const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
