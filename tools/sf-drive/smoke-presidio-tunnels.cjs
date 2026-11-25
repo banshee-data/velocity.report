@@ -2476,6 +2476,25 @@ for (const reverse of [false, true]) {
     maxDurationMs: 105_000,
   };
 }
+for (const reverse of [false, true]) {
+  const road = "hyde-street-over-broadway";
+  const direction = reverse ? "southbound" : "northbound";
+  cases[`hyde-street-${direction}`] = {
+    roads: [road],
+    owners: ["808580ec"],
+    reverse,
+    speed: 10.5,
+    laneGuides: { [road]: { lane: reverse ? 1.5 : -1.5 } },
+    groundApproachMetres: 8,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [[1901.59, 3988.22, 64.94]]
+      : [[1891.82, 4067.68, 62.77]],
+    maxApproachClearanceMetres: 0.18,
+    maxDepartureClearanceMetres: 0.18,
+    maxDurationMs: 60_000,
+  };
+}
 cases["east-span-eastbound"] = {
   roads: ["yerba-buena-lower-east-after-entry", eastSpanEastbound],
   owners: islandEastOwners,

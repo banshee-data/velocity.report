@@ -3611,3 +3611,48 @@ contact under I-280 and reached exterior view on the adjoining street.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   dogpatch-twenty-second-under-i280-{westbound,eastbound}
 ```
+
+## Hyde Street above the Broadway Tunnel
+
+**World and Data.** The centreline screening drove six inventory sites in
+both directions on the 22nd Street release, at about 22 mph where the
+steering allowed. The drives recorded grounded longitudinal grades and
+flagged dips deeper than 0.5 m below an eight-metre chord.
+
+| Crossing                           |          Baseline airborne distance by direction | Peak driven grade | Deepest flagged dip |
+| ---------------------------------- | -----------------------------------------------: | ----------------: | ------------------: |
+| Hyde Street above Broadway         |            7.83 m northbound, 21.27 m southbound |            32.07% |              0.61 m |
+| Bryant Street at Delancey          | 26.55 m south-westbound, 20.53 m north-eastbound |            28.28% |                 0 m |
+| Sickles Avenue beneath I-280       |   8.09 m north-westbound, 5.26 m south-eastbound |            20.05% |                 0 m |
+| San Jose Avenue at Sickles         | 21.49 m south-westbound, 14.16 m north-eastbound |            29.07% |                 0 m |
+| Jerrold Avenue beneath the railway |                           0 m in both directions |             3.05% |                 0 m |
+| Mariposa Street above the railway  |                           0 m in both directions |             3.74% |                 0 m |
+
+At Hyde, the 3DEP pavement return is approximately 62 m NAVD88 at
+Broadway. The terrain placed the street as low as 58.53 m in the tested
+lane. The 37 m replacement contact follows the observed upper street
+between the existing approaches. The fitted peak grade is 4.58%. Both
+Broadway Tunnel bores still use their independent lower road contacts,
+near 55.14 m at the crossing. The height difference describes the game
+road surfaces. A survey of the underside would establish physical
+clearance. The next review covers the grades and levels at Bryant,
+Sickles and San Jose.
+[Public Works roadway structure inventory](https://data.sf.gov/w/x5tj-txci/ikek-yizv).
+
+**Physics and UI.** Chrome keyboard drives in both directions stayed on
+the upper Hyde Street contact between the portals and returned to open
+street pavement. The westbound and eastbound Broadway drives selected
+their original bores, used the tunnel camera and returned to the
+exterior view. The tile regression checks that the Hyde and Broadway
+contacts give different heights at the same locations.
+
+- Baseline game manifest SHA-256 `2cb2d0ad4fcb578a5334f65ec2c2058e36463f62ee964e6149a78e859c8cbd36`.
+- Candidate game manifest SHA-256 `dd6011ab56d56560349d18a8c3829594c640aee5ae8e733137dc1be437469831`.
+- Candidate contact SHA-256 `3c55add615cb6e1cd90501ab0ddcb9bb4043e0544ea7cb1f639cfcfb035cc167`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+- Public Works snapshot SHA-256 `c7b76f2f3d07ba28d2142008d65edf1a466782de89dbca024c0fc7a5156b7d00`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  hyde-street-{northbound,southbound} broadway-{westbound,eastbound}
+```
