@@ -4095,6 +4095,42 @@ lane has its own SR 1 drive.
 
 - Local Merchant Road manifest SHA-256 `5b206c95ee87664339e22f06b60bcfcb2f19f701b4f191151235d3fb4a43ad0e`.
 
+## Full-span Golden Gate exit and return checks
+
+**World and Physics.** The Vista Point candidate extends the northbound
+contact past the fork and connects the parking exit ramp back to US 101.
+The same package carries the southbound Merchant Road exit and the
+Welcome Center return to the northbound bridge approach. Smoke tests
+follow the original route through each approach on the public package
+and use the additional joins when they are present.
+[Vista Point exporter](https://github.com/banshee-data/gerardus/pull/196).
+[Merchant Road exporter](https://github.com/banshee-data/gerardus/pull/195).
+
+Chrome used the regular manual takeover and keyboard controls to drive
+each full span on the local Vista Point package. All three cases finished
+grounded on northbound US 101 with the exterior camera. The Merchant Road
+drive used the tunnel camera in the Toll Plaza underpass.
+
+| Route                                   | Seconds | Grounded travel between roads | Sampled airborne travel |
+| --------------------------------------- | ------: | ----------------------------: | ----------------------: |
+| Presidio through Vista Point on US 101  |   196.9 |                           0 m |                     0 m |
+| Presidio off at Vista Point and back on |   305.5 |                       298.7 m |                  2.31 m |
+| Marin off at Merchant Road and back on  |   245.3 |                       159.4 m |                     0 m |
+
+The asset tests ran on both the public and the combined candidate packages.
+The tests follow the declared through branch past Gorgas, follow the lower
+Yerba Buena exit through the Southgate connection when present, and check
+each directed join and terrain handoff added to the Golden Gate approaches.
+
+```sh
+SF_BASE_URL=http://127.0.0.1:8097 node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  golden-gate-full-span-past-vista golden-gate-full-span-vista-and-back \
+  golden-gate-full-span-merchant-toll-and-back
+```
+
+- Local Vista Point manifest SHA-256 `d2b4d3ec668aa0118e2dda60cda205f3cf6ee0e23441db53af6cad49becf3e6b`.
+- Playable contact SHA-256 `5a01eeb500a5540cf55dec39c808839a6106b3e3294d1d90e3d76f4a3e8576a8`.
+
 ## Bayshore frontage road from Hester to Third Street
 
 **World and Data.** The northbound Bayshore frontage carriageway uses

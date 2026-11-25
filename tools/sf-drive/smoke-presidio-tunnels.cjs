@@ -2717,39 +2717,198 @@ const goldenGateOwners = [
 ];
 const goldenGateSections = (direction) =>
   Array.from({ length: 6 }, (_, i) => `golden-gate-${direction}-${i + 1}`);
+const visitorMerge = "golden-gate-northbound-from-visitor";
+const vistaFork = "golden-gate-northbound-6";
+const vistaExit = "golden-gate-vista-exit";
+const vistaEntry = "golden-gate-vista-entry";
+const vistaMainline = "golden-gate-northbound-vista-mainline";
+const pastVista = "golden-gate-northbound-past-vista";
+const merchantFork = "golden-gate-southbound-to-merchant";
+const merchantExit = "golden-gate-merchant-exit";
+const visitorEntry = "golden-gate-visitor-entry";
+const southBridgeApproach = "golden-gate-southbound-6";
+const southboundSpan = goldenGateSections("southbound").slice(0, -1);
+function northboundSpan(hasRoad) {
+  const [first, ...span] = goldenGateSections("northbound");
+  return hasRoad(visitorMerge)
+    ? [first, visitorMerge, ...span]
+    : [first, ...span];
+}
+
 cases["golden-gate-presidio-to-marin"] = {
   owners: goldenGateOwners,
-  roads: [
-    "presidio-doyle-northbound-exit",
-    ...goldenGateSections("northbound"),
-  ],
+  forBake: (hasRoad) => ({
+    roads: [
+      doyleNorthExit,
+      ...northboundSpan(hasRoad),
+      ...(hasRoad(vistaExit) ? [vistaExit] : []),
+    ],
+  }),
   rollingStart: true,
   rollingStartMetres: 28,
   speed: 22,
   speedLimits: {
     "golden-gate-northbound-1": 16,
-    "golden-gate-northbound-6": 11,
+    [vistaFork]: 11,
+    [vistaExit]: 11,
   },
   maxDurationMs: 280_000,
 };
 cases["golden-gate-marin-to-presidio"] = {
   owners: goldenGateOwners,
-  roads: [
-    ...goldenGateSections("southbound"),
-    "presidio-doyle-southbound-entry",
-  ],
+  forBake: (hasRoad) => ({
+    roads: [
+      ...southboundSpan,
+      ...(hasRoad(merchantFork) ? [merchantFork] : []),
+      southBridgeApproach,
+      "presidio-doyle-southbound-entry",
+    ],
+    forks: [
+      ...(hasRoad(merchantFork)
+        ? [[merchantFork, southBridgeApproach, 1.8]]
+        : []),
+      [southBridgeApproach, "presidio-doyle-southbound-entry", 1.75],
+    ],
+  }),
   groundApproachMetres: 8,
   speed: 22,
   speedLimits: {
     "golden-gate-southbound-1": 14,
-    "golden-gate-southbound-6": 15,
+    [merchantFork]: 16,
+    [southBridgeApproach]: 15,
   },
-  forks: [
-    ["golden-gate-southbound-6", "presidio-doyle-southbound-entry", 1.75],
-  ],
   finishOnDeck: true,
   finishDistance: 175,
   maxDurationMs: 265_000,
+};
+const northboundBridge = cases["golden-gate-presidio-to-marin"];
+cases["golden-gate-full-span-past-vista"] = {
+  ...northboundBridge,
+  forBake: (hasRoad) => ({
+    roads: [
+      doyleNorthExit,
+      ...northboundSpan(hasRoad),
+      vistaMainline,
+      pastVista,
+    ],
+  }),
+  finishOnDeck: true,
+  finishDistance: 225,
+  maxAirborneMetres: 0,
+};
+cases["golden-gate-full-span-vista-and-back"] = {
+  ...northboundBridge,
+  forBake: (hasRoad) => ({
+    roads: [
+      doyleNorthExit,
+      ...northboundSpan(hasRoad),
+      vistaExit,
+      vistaEntry,
+      pastVista,
+    ],
+  }),
+  speedLimits: {
+    ...northboundBridge.speedLimits,
+    [vistaFork]: 8,
+    [vistaExit]: 7,
+    [vistaEntry]: 9,
+    [pastVista]: 13,
+  },
+  connectByGround: true,
+  groundConnection: {
+    after: prefix + vistaExit,
+    speedMps: 5,
+    minimumMetres: 295,
+    via: [
+      [-3606.21, 8109.03],
+      [-3597.08, 8094.99],
+      [-3581.6, 8073.55],
+      [-3574.32, 8066.45],
+      [-3565.05, 8060.52],
+      [-3527.07, 8040.49],
+      [-3519.98, 8037.9],
+      [-3512.67, 8037.26],
+      [-3506.23, 8038.87],
+      [-3500.52, 8041.82],
+      [-3495.72, 8045.82],
+      [-3492, 8050.6],
+      [-3489.73, 8056.34],
+      [-3488.95, 8062.26],
+      [-3489.36, 8068.3],
+      [-3491.04, 8073.32],
+      [-3493.19, 8077.09],
+      [-3499.25, 8084],
+      [-3511.71, 8092.36],
+      [-3525.59, 8100.22],
+      [-3543.8, 8109.6],
+      [-3564.82, 8118.58],
+    ],
+  },
+  finishOnDeck: true,
+  finishDistance: 210,
+  maxDurationMs: 420_000,
+};
+const tollPlaza = "toll-plaza-tunnel";
+cases["golden-gate-full-span-merchant-toll-and-back"] = {
+  owners: goldenGateOwners,
+  roads: [
+    ...southboundSpan,
+    merchantFork,
+    merchantExit,
+    tollPlaza,
+    visitorEntry,
+    visitorMerge,
+  ],
+  groundApproachMetres: 8,
+  speed: 18,
+  speedLimits: {
+    "golden-gate-southbound-1": 14,
+    [merchantFork]: 8,
+    [merchantExit]: 6,
+    [tollPlaza]: 6.25,
+    [visitorEntry]: 8,
+    [visitorMerge]: 12,
+  },
+  forks: [[merchantFork, merchantExit, -2.1]],
+  connectByGround: true,
+  groundConnection: [
+    {
+      after: prefix + merchantExit,
+      minimumMetres: 45,
+      via: [
+        [-3116.5, 5148.35],
+        [-3118.25, 5147.28],
+        [-3120.1, 5147.19],
+        [-3122.1, 5148.03],
+        [-3124.2, 5150.4],
+        [-3127.5, 5154.4],
+        [-3132.1, 5158.6],
+        [-3142.5, 5170.7],
+        [-3152.6, 5182.9],
+        [-3158, 5188.9],
+      ],
+    },
+    {
+      after: prefix + tollPlaza,
+      minimumMetres: 77,
+      via: [
+        [-3078.2, 5273.4],
+        [-3072.7, 5276.8],
+        [-3065, 5282.8],
+        [-3058.8, 5285.5],
+        [-3051.2, 5286.2],
+        [-3042.3, 5285],
+        [-3034.1, 5281.4],
+        [-3027.9, 5275.4],
+        [-3015.4, 5260],
+        [-3010.7, 5255.9],
+        [-3008.9, 5253.6],
+      ],
+    },
+  ],
+  finishOnDeck: true,
+  finishDistance: 85,
+  maxDurationMs: 400_000,
 };
 const sr1SouthMerge = "presidio-to-sr1-south-merge";
 const presidioLoop = "presidio-nb-loop-to-sr1-south";
@@ -3920,7 +4079,7 @@ function withGroundConnections(roads, connection) {
         kind: "ground",
         positions,
         width_m: 7,
-        speed_mps: 8,
+        speed_mps: connection.speedMps ?? 8,
         sources: [],
       },
       ...roads.slice(index),
@@ -4326,6 +4485,7 @@ async function main() {
   });
   try {
     for (const name of names) {
+      const definition = cases[name];
       const {
         roads: slugs,
         speed,
@@ -4356,7 +4516,10 @@ async function main() {
         forks = [],
         covered,
         allowedCovered = [],
-      } = cases[name];
+      } = {
+        ...definition,
+        ...definition.forBake?.((slug) => roads.has(prefix + slug)),
+      };
       const guides = { ...laneGuides };
       for (const [outgoing, incoming, offset] of forks) {
         const road = roads.get(prefix + outgoing) ?? roads.get(outgoing);
@@ -4495,7 +4658,16 @@ async function main() {
         serviceWorkers: "block",
       });
       const errors = [];
+      const externalRoadRequests = new Set();
       page.on("pageerror", (error) => errors.push(error.message));
+      page.on("request", (request) => {
+        const url = new URL(request.url());
+        if (
+          url.hostname.split(".")[0] === "arrow-worker" ||
+          url.pathname.startsWith("/city-tiles/")
+        )
+          externalRoadRequests.add(url.href);
+      });
       try {
         const place =
           rollingStart && !startPlace
@@ -4617,8 +4789,17 @@ async function main() {
         if (sampleDeparture) {
           result.departureClearanceMetres = clearance(departurePoses);
         }
-        console.log(JSON.stringify({ name, contactHash, ...result, errors }));
+        console.log(
+          JSON.stringify({
+            name,
+            contactHash,
+            ...result,
+            errors,
+            externalRoadRequests: [...externalRoadRequests],
+          }),
+        );
         assert.deepEqual(errors, []);
+        assert.deepEqual([...externalRoadRequests], []);
         if (sampleDeparture) {
           assert.equal(result.airborneMetresInCrossing, 0);
           assert.ok(

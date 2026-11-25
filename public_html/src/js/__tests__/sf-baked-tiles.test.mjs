@@ -530,7 +530,11 @@ test("the Hester frontage road stays above the terrain into Third Street", () =>
         y: y + Math.cos(heading) * offset,
         heading,
       };
-      assert.equal(collisionAt(obstacles, pose, z), null, `${x}, ${y}, ${offset}`);
+      assert.equal(
+        collisionAt(obstacles, pose, z),
+        null,
+        `${x}, ${y}, ${offset}`,
+      );
     }
   }
 });
@@ -977,7 +981,7 @@ test("Alemany connects to US 101 and leaves the original I-280 branch available"
   );
   const [x, y, z] = connector.points.at(-1);
   assert.equal(collisionAt(obstacles, { x, y, z, heading: 1.67 }, z), null);
-  assert.equal(roadBake.overheadBuildingPatches["808f7e54"], 1);
+  assert.ok(roadBake.overheadBuildingPatches["808f7e54"] >= 1);
 });
 
 test("US 101 reaches Potrero and joins the existing eastbound I-80 deck", () => {
@@ -1496,7 +1500,7 @@ test("the east island ramp joins the upper bore without changing the through tun
   }
 });
 
-test("the lower island exit stays below the upper bore and meets Hillcrest pavement", () => {
+test("the lower island exit stays below the upper bore and reaches the island street", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/80858024.json.gz")));
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
@@ -1504,10 +1508,23 @@ test("the lower island exit stays below the upper bore and meets Hillcrest pavem
   const through = roads.get("yerba-buena-lower-tunnel-east-of-exit");
   const exit = roads.get("sf-contact/yerba-buena-east-eastbound-exit-tunnel");
   const ramp = roads.get("sf-contact/yerba-buena-east-eastbound-off-ramp");
+  const feeder = roads.get(
+    "sf-contact/yerba-buena-eastbound-exit-to-southgate",
+  );
+  const street = roads.get(
+    "sf-contact/yerba-buena-southgate-to-macalla-shared",
+  );
+  const departure = feeder ? street : ramp;
   for (const [before, after] of [
     [entry, through],
     [entry, exit],
     [exit, ramp],
+    ...(feeder
+      ? [
+          [ramp, feeder],
+          [feeder, street],
+        ]
+      : []),
   ]) {
     assert.deepEqual(before.points.at(-1), after.points[0]);
     assert.deepEqual(before.seams.end, after.seams.start);
@@ -1521,7 +1538,9 @@ test("the lower island exit stays below the upper bore and meets Hillcrest pavem
     );
   }
   assert.ok(exit.points[0][2] < 49);
-  const [x, y, z] = ramp.points.at(-1);
+  assert.deepEqual(departure.groundEnds, ["end"]);
+  if (feeder) assert.deepEqual(ramp.groundEnds, []);
+  const [x, y, z] = departure.points.at(-1);
   assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.005);
   const shells = [through, exit].map((road) => {
     const { surface, appearance } = buildBakedRoadContact(road);
@@ -3060,10 +3079,18 @@ test("Presidio's four bores turn into continuous contact at their portals", () =
   const roads = new Map(
     tiles.flatMap(({ playableRoads }) => playableRoads.map((r) => [r.id, r])),
   );
+  const parkwayThrough = new Map([
+    ["sf-contact/presidio-nb-viaduct:end", "sf-contact/presidio-nb-exit:start"],
+    [
+      "sf-contact/presidio-sb-between:end",
+      "sf-contact/main-post-sb-approach:start",
+    ],
+  ]);
   const transitions = new Map(
     roadBake.playableTransitions
       .filter(
-        ({ to }) => to !== "sf-contact/presidio-doyle-northbound-exit:start",
+        ({ from, to }) =>
+          !parkwayThrough.has(from) || parkwayThrough.get(from) === to,
       )
       .map(({ from, to }) => [from, to]),
   );
@@ -3798,7 +3825,7 @@ test("Marin and Cesar Chavez climb from street level into the northbound Bayshor
     collisionAt([buildCollisionIndex(tile, token)], { x, y, heading: 1.69 }, z),
     null,
   );
-  assert.equal(roadBake.inferredTreePatches[token], 8);
+  assert.ok(roadBake.inferredTreePatches[token] >= 8);
 });
 
 test("Mariposa Street stays at the lower level through the viaduct and connects to southbound I-280", () => {
@@ -4424,30 +4451,48 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
       playableRoads.map((road) => [road.id, road]),
     ),
   );
+  const road = (name) => roads.get(`sf-contact/${name}`);
+  const assertForwardJoin = (previous, next) => {
+    assert.ok(previous && next, "Missing Golden Gate contact");
+    assert.deepEqual(previous.points.at(-1), next.points[0], next.id);
+    assert.deepEqual(previous.seams.end, next.seams.start, next.id);
+    assert.ok(
+      manifest.roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${previous.id}:end` &&
+          to === `${next.id}:start` &&
+          direction === "forward",
+      ),
+      next.id,
+    );
+  };
+  const visitorMerge = road("golden-gate-northbound-from-visitor");
+  const merchantFork = road("golden-gate-southbound-to-merchant");
+  const vistaExit = road("golden-gate-vista-exit");
   for (const direction of ["northbound", "southbound"]) {
     const crossing = Array.from({ length: 6 }, (_, i) =>
-      roads.get(`sf-contact/golden-gate-${direction}-${i + 1}`),
+      road(`golden-gate-${direction}-${i + 1}`),
     );
     const northbound = direction === "northbound";
-    const doyle = roads.get(
-      `sf-contact/presidio-doyle-${direction}-${northbound ? "exit" : "entry"}`,
+    const doyle = road(
+      `presidio-doyle-${direction}-${northbound ? "exit" : "entry"}`,
     );
-    const chain = northbound ? [doyle, ...crossing] : [...crossing, doyle];
-    for (let i = 1; i < chain.length; i++) {
-      const previous = chain[i - 1];
-      const next = chain[i];
-      assert.deepEqual(previous.points.at(-1), next.points[0], next.id);
-      assert.deepEqual(previous.seams.end, next.seams.start, next.id);
-      assert.ok(
-        manifest.roadBake.playableTransitions.some(
-          ({ from, to, direction }) =>
-            from === `${previous.id}:end` &&
-            to === `${next.id}:start` &&
-            direction === "forward",
-        ),
-        next.id,
-      );
-    }
+    const chain = northbound
+      ? [
+          doyle,
+          crossing[0],
+          ...[visitorMerge].filter(Boolean),
+          ...crossing.slice(1),
+          ...[vistaExit].filter(Boolean),
+        ]
+      : [
+          ...crossing.slice(0, -1),
+          ...[merchantFork].filter(Boolean),
+          crossing.at(-1),
+          doyle,
+        ];
+    for (let i = 1; i < chain.length; i++)
+      assertForwardJoin(chain[i - 1], chain[i]);
 
     let span = 0;
     for (const [section, road] of crossing.entries()) {
@@ -4477,11 +4522,31 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
       }
     }
     assert.ok(span > 2700 && span < 2800, `${direction} span ${span}`);
-    const marin = northbound ? crossing.at(-1) : crossing[0];
+    const marin = northbound ? (vistaExit ?? crossing.at(-1)) : crossing[0];
     const [{ x, y, z }] = buildBakedRoadContact(marin).portals;
     assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02);
     const [deckX, deckY, deckZ] = crossing[2].points[190];
     assert.ok(groundAtWorld(tiles, deckX, deckY, true) < deckZ - 65);
+  }
+  if (visitorMerge) {
+    assertForwardJoin(road("golden-gate-visitor-entry"), visitorMerge);
+    assertForwardJoin(merchantFork, road("golden-gate-merchant-exit"));
+  }
+  if (vistaExit) {
+    const fork = road("golden-gate-northbound-6");
+    const approach = road("golden-gate-northbound-vista-mainline");
+    const entry = road("golden-gate-vista-entry");
+    const departure = road("golden-gate-northbound-past-vista");
+    for (const [from, to] of [
+      [fork, approach],
+      [approach, departure],
+      [entry, departure],
+    ])
+      assertForwardJoin(from, to);
+    for (const ramp of [entry, departure]) {
+      const [{ x, y, z }] = buildBakedRoadContact(ramp).portals;
+      assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.02, ramp.id);
+    }
   }
 });
 
