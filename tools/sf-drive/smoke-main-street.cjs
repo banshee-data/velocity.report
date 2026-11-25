@@ -1,4 +1,4 @@
-// Drive Main Street beneath the Bay Bridge in both directions.
+// Drive ground streets beneath their baked overhead scenery.
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
@@ -7,14 +7,48 @@ const { confirmManualTakeover } = require("./manual-takeover.cjs");
 
 const origin = process.env.SF_BASE_URL || "http://localhost:8090";
 const candidate = process.env.SF_CANDIDATE_DIR;
+const mode = process.argv[2] ?? "main";
+assert.ok(mode === "main" || mode === "howard", "Expected main or howard");
+const howard = mode === "howard";
+const tile = howard ? "80858084" : "80858074";
 const outputs = [
   "tiles/manifest.json",
-  "tiles/80858074.json.gz",
+  `tiles/${tile}.json.gz`,
   "quest-route.json",
 ];
 
+function checkpoints() {
+  if (howard) {
+    const heading = -2.35725;
+    return [-4, 0, 4].map((offset) => ({
+      name: `howard-${offset}m`,
+      x: 3411.907 - Math.sin(heading) * offset,
+      y: 2709.407 + Math.cos(heading) * offset,
+      heading,
+      slope: 0,
+      targetDistance: 132,
+      timeLimit: 26,
+      heightRange: [9, 10.2],
+    }));
+  }
+  return [
+    ["northwest", 4487, 3012.5, (3 * Math.PI) / 4, 0.032],
+    ["southeast", 4429, 3070.7, -Math.PI / 4, -0.032],
+  ].map(([name, x, y, heading, slope]) => ({
+    name,
+    x,
+    y,
+    heading,
+    slope,
+    targetDistance: 78,
+    timeLimit: 22,
+    heightRange: [3.8, 8],
+  }));
+}
+
 async function controls(canvas, checkpoint) {
-  return canvas.evaluate(async (element, { x, y, heading }) => {
+  return canvas.evaluate(async (element, route) => {
+    const { x, y, heading, slope, targetDistance, timeLimit } = route;
     const start = performance.now();
     const direction = [Math.cos(heading), Math.sin(heading)];
     const heights = [];
@@ -23,7 +57,6 @@ async function controls(canvas, checkpoint) {
     let longestAirborneMs = 0;
     let maxHeightDeviation = 0;
     const initialZ = +element.dataset.altitude;
-    const slope = direction[0] < 0 ? 0.032 : -0.032;
     const accelerate = (enabled) => {
       if (throttle === enabled) return;
       throttle = enabled;
@@ -65,7 +98,11 @@ async function controls(canvas, checkpoint) {
         };
       }
       heights.push(+d.altitude);
-      if (distance >= 78 || seconds > 22 || d.replay === "crash") {
+      if (
+        distance >= targetDistance ||
+        seconds > timeLimit ||
+        d.replay === "crash"
+      ) {
         accelerate(false);
         return {
           distance,
@@ -75,6 +112,7 @@ async function controls(canvas, checkpoint) {
           maxHeightDeviation,
           minZ: Math.min(...heights),
           maxZ: Math.max(...heights),
+          contact: d.contact,
           crashed: d.replay === "crash",
         };
       }
@@ -101,10 +139,8 @@ async function main() {
     args: ["--enable-unsafe-swiftshader"],
   });
   try {
-    for (const [direction, x, y, heading] of [
-      ["northwest", 4487, 3012.5, (3 * Math.PI) / 4],
-      ["southeast", 4429, 3070.7, -Math.PI / 4],
-    ]) {
+    for (const checkpoint of checkpoints()) {
+      const { name, targetDistance, heightRange, x, y, heading } = checkpoint;
       const page = await browser.newPage({
         viewport: { width: 840, height: 540 },
         serviceWorkers: "block",
@@ -141,21 +177,38 @@ async function main() {
         await page.goto(`${origin}/sf/?at=downtown`);
         const canvas = page.locator('#drive[data-contact="grounded"]');
         await canvas.waitFor({ timeout: 60_000 });
+        if (howard) {
+          const [east, north] = await canvas.evaluate(({ dataset }) => [
+            Number(dataset.east),
+            Number(dataset.north),
+          ]);
+          assert.ok(
+            Math.hypot(east - x, north - y) < 1,
+            `Wrong start for ${name}`,
+          );
+        }
         await canvas.focus();
         await confirmManualTakeover(page);
-        const result = await controls(canvas, { x, y, heading });
+        const result = await controls(canvas, checkpoint);
         console.log(
           JSON.stringify({
-            direction,
+            direction: name,
             manifest: quest.manifestSha256,
             ...result,
             errors,
             external,
           }),
         );
-        assert.ok(result.distance >= 78, direction);
-        assert.ok(result.streetContact, direction);
-        assert.ok(result.minZ > 3.8 && result.maxZ < 8, direction);
+        assert.ok(result.distance >= targetDistance, name);
+        assert.ok(result.streetContact, name);
+        assert.ok(
+          result.minZ > heightRange[0] && result.maxZ < heightRange[1],
+          name,
+        );
+        if (howard) {
+          assert.equal(result.contact, "grounded");
+          assert.equal(result.longestAirborneMs, 0);
+        }
         assert.equal(result.crashed, false);
         assert.deepEqual(errors, []);
         assert.deepEqual(external, []);

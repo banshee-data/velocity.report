@@ -1,0 +1,1 @@
+- Opened Howard Street beneath the two Moscone crossings in the SF game, with surveyed overhead scenery retained in the tile. Checked three westbound lanes in Chrome and recorded the Skyline and city clearance inventory drives. [Howard Street clearance audit](../../ui/sf-road-route-audit.md#howard-street-at-the-moscone-crossings).
