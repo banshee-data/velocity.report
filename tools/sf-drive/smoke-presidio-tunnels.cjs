@@ -3092,13 +3092,14 @@ for (const [crossing, direction, road, owner, start, finish] of [
   ["baden", "northbound", "i280-north-ocean-monterey", "808f7e7c", 15, 140],
   ["baden", "southbound", "i280-south-monterey-mainline", "808f7e7c", 672, 782],
   ["paulding", "northbound", "i280-north-ocean-mainline", "808f7e7c", 310, 445],
+  // The chase camera trails the car beneath the skewed deck on this departure.
   [
     "paulding",
     "southbound",
     "i280-south-monterey-to-ocean",
     "808f7e7c",
     280,
-    415,
+    476,
   ],
 ]) {
   cases[`i280-${direction}-under-${crossing}`] = {
