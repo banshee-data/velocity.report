@@ -1,5 +1,6 @@
 """Regression checks for the SF game route bakers."""
 
+import gzip
 import math
 import json
 from pathlib import Path
@@ -11,6 +12,7 @@ smooth_ramp_join = runpy.run_path(Path(__file__).with_name("bake-city-drive.py")
     "smooth_ramp_join"
 ]
 road_layers = runpy.run_path(Path(__file__).with_name("embed-road-layers.py"))
+tree_bake = runpy.run_path(Path(__file__).with_name("apply-tree-classification.py"))
 
 
 class SlopingPavement:
@@ -274,3 +276,189 @@ def test_tunnel_wall_openings_are_ordered_and_confined_to_the_interior():
         {"right": [[6, 61]]},
     ):
         assert not valid({**tunnel, "tunnel_wall_openings_m": openings})
+
+
+def tree_release(directory, tiles, road_bake):
+    encode, digest = tree_bake["encode"], tree_bake["digest"]
+    (directory / "tiles").mkdir(parents=True)
+    entries = []
+    for token, tile in tiles.items():
+        raw = gzip.compress(encode(tile), mtime=0)
+        (directory / "tiles" / f"{token}.json.gz").write_bytes(raw)
+        entries.append({"t": token, "bytes": len(raw)})
+    manifest = encode(
+        {
+            "tiles": entries,
+            "roadBake": road_bake,
+            "terrainReview": {"tiles": {"80858024": {"sha256": "prior"}}},
+        }
+    )
+    (directory / "tiles/manifest.json").write_bytes(manifest)
+    (directory / "quest-route.json").write_bytes(
+        encode({"manifestSha256": digest(manifest), "targets": ["macalla"]})
+    )
+    (directory / "gamedrives.json").write_bytes(encode({"fixture": directory.name}))
+    (directory / "coverage.json").write_bytes(encode({"coverage": directory.name}))
+    return digest(manifest)
+
+
+@pytest.fixture
+def reviewed_trees(tmp_path):
+    encode, digest = tree_bake["encode"], tree_bake["digest"]
+    original = tmp_path / "original"
+    reviewed = tmp_path / "reviewed"
+    token = "80858024"
+    tile = {
+        "tr": [[1, 1, 5, 4], [2, 2, 8, 2], [3, 3, 10, 3], [4, 4, 7, 2]],
+        "playableRoads": [{"id": "old-deck"}],
+        "g": {"detail": "old-terrain"},
+    }
+    parent = tree_release(original, {token: tile}, {})
+    product = tmp_path / "tree-patch.json"
+    product.write_bytes(
+        encode(
+            {
+                "format": "sf-inferred-tree-classification/v1",
+                "tile_manifest_sha256": parent,
+                "ept_sha256": "survey-index",
+                "ept_nodes_sha256": {},
+                "tree_inventory_sha256": "tree-inventory",
+                "inferred_tree_patches": {
+                    token: [
+                        {
+                            "index": 0,
+                            "sha256": digest(encode(tile["tr"][0])),
+                            "parts": [],
+                        }
+                    ],
+                },
+            }
+        )
+    )
+    reviewed.mkdir()
+    log = reviewed / "review.log"
+    log.write_text("existing operator log")
+    tree_bake["bake"](original, product, reviewed)
+    assert log.read_text() == "existing operator log"
+    return original, reviewed, tile
+
+
+def test_carry_forward_preserves_rebaked_roads_and_independent_removals(
+    tmp_path, reviewed_trees
+):
+    encode, digest = tree_bake["encode"], tree_bake["digest"]
+    original, reviewed, tile = reviewed_trees
+    token = "80858024"
+    candidate = tmp_path / "candidate"
+    output = tmp_path / "classified"
+    contact = tmp_path / "structures.json"
+    removal = digest(encode(tile["tr"][1]))
+    contact_raw = encode(
+        {
+            "inferred_tree_patches": {
+                token: [{"index": 1, "sha256": removal, "parts": []}]
+            }
+        }
+    )
+    contact.write_bytes(contact_raw)
+    rebaked_tile = {
+        **tile,
+        "tr": [tile["tr"][0], *tile["tr"][2:]],
+        "g": {"detail": "new-terrain"},
+        "playableRoads": [{"id": "southgate-feeder"}],
+    }
+    other = "8085803c"
+    other_tile = {"tr": [[10, 10, 7, 1]], "playableRoads": [{"id": "bridge-join"}]}
+    raw_hash = tree_release(
+        candidate,
+        {token: rebaked_tile, other: other_tile},
+        {"playableSha256": digest(contact_raw)},
+    )
+    tree_bake["carry_forward"](candidate, reviewed, original / "tiles", output, contact)
+
+    path = f"tiles/{token}.json.gz"
+    packed = (output / path).read_bytes()
+    assert json.loads(gzip.decompress(packed)) == {**rebaked_tile, "tr": tile["tr"][2:]}
+    assert (output / f"tiles/{other}.json.gz").read_bytes() == (
+        candidate / f"tiles/{other}.json.gz"
+    ).read_bytes()
+    assert (output / "structures.json").read_bytes() == contact_raw
+    assert (output / "gamedrives.json").read_bytes() == (
+        candidate / "gamedrives.json"
+    ).read_bytes()
+    manifest = (output / "tiles/manifest.json").read_bytes()
+    manifest_data = json.loads(manifest)
+    receipt = manifest_data["roadBake"]["treeClassification"]["tiles"][token]
+    assert receipt["carriedFromSha256"] == digest((reviewed / path).read_bytes())
+    assert receipt["rebakedInputSha256"] == digest((candidate / path).read_bytes())
+    assert receipt["removed"] == 1
+    assert receipt["rebakeRemovedTreeRows"] == [removal]
+    assert (
+        receipt["sha256"]
+        == manifest_data["terrainReview"]["tiles"][token]["sha256"]
+        == digest(packed)
+    )
+    assert manifest_data["tiles"][0]["bytes"] == len(packed)
+    assert digest(manifest) != raw_hash
+    assert json.loads((output / "quest-route.json").read_bytes()) == {
+        "manifestSha256": digest(manifest),
+        "targets": ["macalla"],
+    }
+
+    next_candidate = tmp_path / "next-candidate"
+    next_output = tmp_path / "next-classified"
+    next_tile = {**rebaked_tile, "playableRoads": [{"id": "latest-deck"}]}
+    tree_release(next_candidate, {token: next_tile}, {})
+    tree_bake["carry_forward"](next_candidate, output, original / "tiles", next_output)
+    assert json.loads(gzip.decompress((next_output / path).read_bytes())) == {
+        **next_tile,
+        "tr": tile["tr"][2:],
+    }
+
+
+def test_carry_forward_rejects_unauthorised_rows_without_writing_release(
+    tmp_path, reviewed_trees
+):
+    original, reviewed, tile = reviewed_trees
+    token = "80858024"
+    candidate = tmp_path / "candidate"
+    stale = tmp_path / "stale"
+    output = tmp_path / "output"
+    tree_release(
+        candidate, {token: {**tile, "tr": [tile["tr"][0], *tile["tr"][2:]]}}, {}
+    )
+    tree_release(
+        stale,
+        {token: {**tile, "tr": [tile["tr"][1], tile["tr"][0], *tile["tr"][2:]]}},
+        {},
+    )
+    with pytest.raises(ValueError, match="without a pinned contact patch"):
+        tree_bake["carry_forward"](candidate, reviewed, original / "tiles", output)
+    with pytest.raises(ValueError, match="added, changed or reordered"):
+        tree_bake["carry_forward"](stale, reviewed, original / "tiles", output)
+    with pytest.raises(ValueError, match="review tile hash differs"):
+        tree_bake["carry_forward"](candidate, reviewed, stale / "tiles", output)
+    unpinned = tmp_path / "other-contact.json"
+    unpinned.write_text("{}")
+    with pytest.raises(ValueError, match="contact export does not match"):
+        tree_bake["carry_forward"](
+            candidate, reviewed, original / "tiles", output, unpinned
+        )
+    assert not output.exists()
+
+
+def test_tree_bake_does_not_replace_an_existing_release(tmp_path, reviewed_trees):
+    original, reviewed, tile = reviewed_trees
+    candidate = tmp_path / "candidate"
+    output = tmp_path / "already-published"
+    tree_release(candidate, {"80858024": tile}, {})
+    output.mkdir()
+    sentinel = output / "manifest.json"
+    sentinel.write_bytes(b"existing release")
+
+    with pytest.raises(OSError):
+        tree_bake["carry_forward"](candidate, reviewed, original / "tiles", output)
+
+    assert sentinel.read_bytes() == b"existing release"
+    assert list(output.iterdir()) == [sentinel]
+    assert list(tmp_path.glob(".sf-tree-review-*")) == []

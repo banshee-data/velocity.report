@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Apply a Gerardus classified-tree patch to a pinned baked SF release."""
+"""Apply or carry forward a reviewed tree classification for an SF game bake."""
 
 import argparse
+from collections import Counter
 import gzip
 import hashlib
 import json
 from pathlib import Path
 import shutil
+from tempfile import TemporaryDirectory
 
 
 def digest(raw):
@@ -17,26 +19,87 @@ def encode(value):
     return (json.dumps(value, separators=(",", ":"), allow_nan=False) + "\n").encode()
 
 
+def record_tile(manifest, tile, payload):
+    tile["bytes"] = len(payload)
+    reviewed = manifest.get("terrainReview", {}).get("tiles", {}).get(tile["t"])
+    if reviewed:
+        reviewed["sha256"] = digest(payload)
+
+
+def write_release(
+    release, output, manifest, input_manifest, changed, playable=None, *, carry=False
+):
+    route_raw = (release / "quest-route.json").read_bytes()
+    prior_hash = digest(input_manifest)
+    if (
+        json.loads(route_raw)["manifestSha256"] != prior_hash
+        or route_raw.count(prior_hash.encode()) != 1
+    ):
+        raise ValueError("Quest route must bind the input tile manifest exactly once")
+    manifest_raw = encode(manifest)
+    manifest_hash = digest(manifest_raw)
+    route_raw = route_raw.replace(prior_hash.encode(), manifest_hash.encode(), 1)
+    drives = (release / "gamedrives.json").read_bytes()
+    drive_hash = manifest["roadBake"].get("driveSha256")
+    if drive_hash is not None and digest(drives) != drive_hash:
+        raise ValueError("Game drive export does not match the input tile manifest")
+
+    def save(bundle):
+        (bundle / "tiles").mkdir(parents=True)
+        for tile in manifest["tiles"]:
+            token = tile["t"]
+            name = f"tiles/{token}.json.gz"
+            if token in changed:
+                (bundle / name).write_bytes(changed[token])
+            else:
+                if (release / name).stat().st_size != tile["bytes"]:
+                    raise ValueError(f"Baked tile length differs in {token}")
+                shutil.copyfile(release / name, bundle / name)
+        (bundle / "tiles" / "manifest.json").write_bytes(manifest_raw)
+        (bundle / "quest-route.json").write_bytes(route_raw)
+        (bundle / "gamedrives.json").write_bytes(drives)
+        companions = (
+            ("coverage.json", "drive-approaches.json", "structures.json")
+            if carry
+            else ("coverage.json",)
+        )
+        for name in companions:
+            source = release / name
+            if source.is_file():
+                shutil.copyfile(source, bundle / name)
+        if playable is not None:
+            (bundle / "structures.json").write_bytes(playable)
+
+    if carry:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(
+            prefix=".sf-tree-review-", dir=output.parent
+        ) as temporary:
+            bundle = Path(temporary) / "release"
+            save(bundle)
+            bundle.rename(output)
+    else:
+        save(output)
+    return manifest_hash
+
+
 def bake(release, patch, output):
     tiles = release / "tiles"
     parent_raw = (tiles / "manifest.json").read_bytes()
     parent = digest(parent_raw)
     manifest = json.loads(parent_raw)
-    route_raw = (release / "quest-route.json").read_bytes()
-    route = json.loads(route_raw)
     product_raw = patch.read_bytes()
     product = json.loads(product_raw)
     if (
         product["format"] != "sf-inferred-tree-classification/v1"
         or product["tile_manifest_sha256"] != parent
-        or route["manifestSha256"] != parent
     ):
-        raise ValueError(
-            "Tree classification and quest route need their pinned game release"
-        )
+        raise ValueError("Tree classification needs its pinned game release")
     patches = product["inferred_tree_patches"]
     if not patches.keys() <= {row["t"] for row in manifest["tiles"]}:
         raise ValueError("Tree classification references an unknown tile")
+    if not (release / "coverage.json").is_file():
+        raise FileNotFoundError(release / "coverage.json")
 
     changed = {}
     release_receipts = {}
@@ -68,10 +131,7 @@ def bake(release, patch, output):
             "sha256": digest(payload),
             "removed": len(removed),
         }
-        tile["bytes"] = len(payload)
-        reviewed = manifest.get("terrainReview", {}).get("tiles", {}).get(token)
-        if reviewed:
-            reviewed["sha256"] = digest(payload)
+        record_tile(manifest, tile, payload)
 
     manifest["roadBake"]["treeClassification"] = {
         "parentManifestSha256": parent,
@@ -81,30 +141,145 @@ def bake(release, patch, output):
         "streetTreeInventorySha256": product["tree_inventory_sha256"],
         "tiles": release_receipts,
     }
-    manifest_raw = encode(manifest)
-    if route_raw.count(parent.encode()) != 1:
-        raise ValueError("Quest manifest binding must occur exactly once")
-    route_raw = route_raw.replace(parent.encode(), digest(manifest_raw).encode(), 1)
-    (output / "tiles").mkdir(parents=True)
+    print(
+        write_release(release, output, manifest, parent_raw, changed), release_receipts
+    )
+
+
+def missing_rows(original, remaining, token):
+    """Find deleted row identities while preserving order and checking ambiguity."""
+    wanted = iter(remaining)
+    next_row = next(wanted, None)
+    missing = set()
+    for row in original:
+        if row == next_row:
+            next_row = next(wanted, None)
+        else:
+            missing.add(row)
+    if next_row is not None:
+        raise ValueError(f"Tree rows were added, changed or reordered in {token}")
+    counts = Counter(original)
+    if any(counts[row] != 1 for row in missing):
+        raise ValueError(f"Tree removal has an ambiguous row identity in {token}")
+    return missing
+
+
+def carry_tile(token, candidate, before, after, receipt, source_removals):
+    if digest(before) != receipt["parentSha256"] or digest(after) != receipt["sha256"]:
+        raise ValueError(f"Tree review tile hash differs in {token}")
+    original, reviewed, rebaked = [
+        json.loads(gzip.decompress(raw)) for raw in (before, after, candidate)
+    ]
+    original_rows, reviewed_rows, candidate_rows = [
+        [digest(encode(row)) for row in tile["tr"]]
+        for tile in (original, reviewed, rebaked)
+    ]
+    reviewed_removals = missing_rows(original_rows, reviewed_rows, token)
+    earlier_removals = set(receipt.get("rebakeRemovedTreeRows", []))
+    inherited = reviewed_removals - earlier_removals
+    if (
+        not earlier_removals <= reviewed_removals
+        or len(inherited) != receipt["removed"]
+    ):
+        raise ValueError(f"Tree review removal count differs in {token}")
+    current_removals = missing_rows(original_rows, candidate_rows, token)
+    if not earlier_removals <= current_removals:
+        raise ValueError(
+            f"The rebake restored a previously removed source tree in {token}"
+        )
+    if not (current_removals - earlier_removals) <= source_removals:
+        raise ValueError(
+            f"The rebake removed a tree without a pinned contact patch in {token}"
+        )
+    rebaked["tr"] = [
+        row
+        for row, row_hash in zip(rebaked["tr"], candidate_rows, strict=True)
+        if row_hash not in inherited
+    ]
+    payload = gzip.compress(encode(rebaked), compresslevel=9, mtime=0)
+    return payload, {
+        **receipt,
+        "sha256": digest(payload),
+        "carriedFromSha256": digest(after),
+        "rebakedInputSha256": digest(candidate),
+        "rebakeRemovedTreeRows": sorted(current_removals - inherited),
+    }
+
+
+def carry_forward(release, reviewed_release, review_input, output, playable=None):
+    raw_manifest = (release / "tiles/manifest.json").read_bytes()
+    manifest = json.loads(raw_manifest)
+    approved_manifest = json.loads(
+        (reviewed_release / "tiles/manifest.json").read_bytes()
+    )
+    classification = approved_manifest["roadBake"]["treeClassification"]
+    receipts = classification["tiles"]
+    if manifest["roadBake"].get("treeClassification"):
+        raise ValueError(
+            "Carry-forward needs a raw road bake before tree classification"
+        )
+    if not receipts.keys() <= {tile["t"] for tile in manifest["tiles"]}:
+        raise ValueError("The rebake is missing a classified tree tile")
+
+    playable_raw = playable.read_bytes() if playable else None
+    patches = {}
+    if playable_raw is not None:
+        if digest(playable_raw) != manifest["roadBake"].get("playableSha256"):
+            raise ValueError("The contact export does not match the rebake")
+        patches = json.loads(playable_raw).get("inferred_tree_patches", {})
+    changed = {}
     for tile in manifest["tiles"]:
         token = tile["t"]
+        if token not in receipts:
+            continue
         name = f"{token}.json.gz"
-        dest = output / "tiles" / name
-        if token in changed:
-            dest.write_bytes(changed[token])
-        else:
-            shutil.copyfile(tiles / name, dest)
-    (output / "tiles" / "manifest.json").write_bytes(manifest_raw)
-    (output / "quest-route.json").write_bytes(route_raw)
-    for name in ("gamedrives.json", "coverage.json"):
-        shutil.copyfile(release / name, output / name)
-    print(digest(manifest_raw), release_receipts)
+        approved = {
+            patch["sha256"] for patch in patches.get(token, []) if patch["parts"] == []
+        }
+        payload, receipts[token] = carry_tile(
+            token,
+            (release / "tiles" / name).read_bytes(),
+            (review_input / name).read_bytes(),
+            (reviewed_release / "tiles" / name).read_bytes(),
+            receipts[token],
+            approved,
+        )
+        changed[token] = payload
+        record_tile(manifest, tile, payload)
+    manifest["roadBake"]["treeClassification"] = classification
+    print(
+        write_release(
+            release, output, manifest, raw_manifest, changed, playable_raw, carry=True
+        ),
+        receipts,
+    )
 
 
 if __name__ == "__main__":
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("release", type=Path)
-    cli.add_argument("patch", type=Path)
+    cli.add_argument(
+        "patch",
+        type=Path,
+        help="tree patch, or prior reviewed release with --review-input",
+    )
     cli.add_argument("output", type=Path)
+    cli.add_argument(
+        "--review-input",
+        type=Path,
+        help="directory of original unclassified tree tiles",
+    )
+    cli.add_argument(
+        "--playable",
+        type=Path,
+        help="pinned road contact export approving new tree removals",
+    )
     args = cli.parse_args()
-    bake(args.release, args.patch, args.output)
+    if args.review_input:
+        carry_forward(
+            args.release, args.patch, args.review_input, args.output, args.playable
+        )
+    else:
+        if args.playable:
+            cli.error("--playable requires --review-input")
+        bake(args.release, args.patch, args.output)

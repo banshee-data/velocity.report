@@ -1,0 +1,1 @@
+- Carry reviewed SF game tree removals into a road rebake and verify additional removals against the pinned contact export. [Tree review bake](../../ui/sf-city-map.md#yerba-buena-tree-clearance)
