@@ -2976,7 +2976,8 @@ for (const [direction, reverse] of [
     reverse,
     groundApproachMetres: 12,
     covered: [prefix + road],
-    maxAirborneMetres: 0,
+    maxApproachClearanceMetres: 0.18,
+    maxAirborneMetresAfterEntrance: 0,
     maxDurationMs: 65_000,
   };
 }
@@ -2991,7 +2992,7 @@ for (const [direction, reverse] of [
     speed: 9,
     reverse,
     groundApproachMetres: 10,
-    maxAirborneMetres: 3,
+    maxApproachClearanceMetres: 0.18,
     maxAirborneMetresAfterEntrance: 0,
     maxDurationMs: 65_000,
   };
@@ -3328,6 +3329,7 @@ async function drive(
   maxDurationMs,
   entranceTimeoutMs,
   groundTurn,
+  sampleApproach,
 ) {
   return page.evaluate(
     async ({
@@ -3338,6 +3340,7 @@ async function drive(
       maxDurationMs,
       entranceTimeoutMs,
       groundTurn,
+      sampleApproach,
     }) => {
       const driveModule = performance
         .getEntriesByType("resource")
@@ -3461,6 +3464,7 @@ async function drive(
       let airborneMetres = 0;
       let airborneMetresAfterEntrance = 0;
       let airborneBeforeLastRoad = false;
+      const approachPoses = [];
       return new Promise((resolve) => {
         function finish(status) {
           for (const code of held) key(code, false);
@@ -3477,6 +3481,7 @@ async function drive(
             airborneMetresAfterEntrance:
               Math.round(airborneMetresAfterEntrance * 100) / 100,
             airborneBeforeLastRoad,
+            approachPoses,
             ...(groundTurn && { reversedOnGround }),
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
@@ -3505,6 +3510,7 @@ async function drive(
             );
             airborneMetres += distance;
             if (seen.size) airborneMetresAfterEntrance += distance;
+            else if (sampleApproach && !surfaceId) approachPoses.push(pose);
           }
           maxSpeed = Math.max(maxSpeed, pose.v);
           if (surfaceId && !ids.includes(surfaceId))
@@ -3605,12 +3611,15 @@ async function drive(
       maxDurationMs,
       entranceTimeoutMs,
       groundTurn,
+      sampleApproach,
     },
   );
 }
 
 async function main() {
   const { steeringLine } = await import("./steering-line.mjs");
+  const { groundAtWorld } =
+    await import("../../public_html/src/js/sf-drive-core.js");
   const names = process.argv.length > 2 ? process.argv.slice(2) : defaultCases;
   for (const name of names)
     assert.ok(Object.hasOwn(cases, name), `Unknown case ${name}`);
@@ -3633,8 +3642,10 @@ async function main() {
   const manifest = JSON.parse(snapshots.get("tiles/manifest.json"));
   const quest = JSON.parse(snapshots.get("quest-route.json"));
   const roads = new Map();
-  for (const token of tokens) {
-    const tile = JSON.parse(gunzipSync(snapshots.get(tilePath(token))));
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(snapshots.get(tilePath(token)))),
+  );
+  for (const tile of tiles) {
     for (const road of tile.playableRoads ?? []) roads.set(road.id, road);
   }
 
@@ -3659,6 +3670,7 @@ async function main() {
         maxDurationMs = 460_000,
         maxAirborneMetres,
         maxAirborneMetresAfterEntrance,
+        maxApproachClearanceMetres,
         entranceTimeoutMs = 20_000,
         rollingStart = false,
         initialSpeedMps = 50 * 0.44704,
@@ -3862,7 +3874,8 @@ async function main() {
               ),
           };
         }
-        const result = await drive(
+        const sampleApproach = maxApproachClearanceMetres !== undefined;
+        const { approachPoses, ...result } = await drive(
           page,
           sections,
           speed,
@@ -3871,7 +3884,20 @@ async function main() {
           maxDurationMs,
           entranceTimeoutMs,
           groundTurn,
+          sampleApproach,
         );
+        if (sampleApproach) {
+          const heights = approachPoses.map(({ x, y, z }) => {
+            const ground = groundAtWorld(tiles, x, y, true);
+            assert.notEqual(ground, null, "Missing ground on the approach");
+            return z - ground;
+          });
+          result.approachClearanceMetres = Math.max(0, ...heights);
+          assert.ok(
+            result.approachClearanceMetres <= maxApproachClearanceMetres,
+            `Excessive clearance on the ground approach: ${result.approachClearanceMetres} m`,
+          );
+        }
         console.log(JSON.stringify({ name, contactHash, ...result, errors }));
         assert.deepEqual(errors, []);
         if (turn) assert.ok(result.reversedOnGround);
