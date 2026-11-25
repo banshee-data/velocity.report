@@ -4095,6 +4095,24 @@ lane has its own SR 1 drive.
 
 - Local Merchant Road manifest SHA-256 `5b206c95ee87664339e22f06b60bcfcb2f19f701b4f191151235d3fb4a43ad0e`.
 
+## Alexander Avenue northbound fork
+
+**World and Physics.** The northbound entrance and the straight city branch share a
+pavement seam on Alexander Avenue. Chrome took the straight branch when the sampled
+ramp point used to judge steering was farther from the seam. Steering now compares
+both centrelines at exactly eight metres along the road, or at the opposite end of a
+shorter branch. The test keeps the fork geometry fixed, varies its sample spacing and
+reverses one branch's stored direction. It also checks that a tied heading follows the
+continuation of the current road.
+
+Chrome repeated the right-lane turn with the same map and keyboard inputs. The car
+took the ramp, joined northbound US 101 and finished grounded with zero sampled
+airborne travel. The local map passed all 309 directed joins after the change.
+The Alexander contact export remains a separate Gerardus release.
+[Gerardus Alexander Avenue review](https://github.com/banshee-data/gerardus/pull/197).
+
+- Local northbound candidate manifest SHA-256 `2e07583cdb77318096e74e90d506007955c4a1fc46d05d3585a69327fb909d4d`.
+
 ## Full-span Golden Gate exit and return checks
 
 **World and Physics.** The Vista Point candidate extends the northbound

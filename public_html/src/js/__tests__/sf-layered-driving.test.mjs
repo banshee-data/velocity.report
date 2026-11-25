@@ -212,7 +212,7 @@ test("the city drive crosses from a deck to street terrain and rejoins the highw
   );
 });
 
-test("steering chooses the aligned branch and a tied fork carries the same road onward", () => {
+test("fork steering is independent of station spacing and preserves a tied continuation", () => {
   const seam = { bearing: 0, width: 8 };
   const baked = (id, points, seams) =>
     buildBakedRoadContact({
@@ -235,17 +235,6 @@ test("steering chooses the aligned branch and a tied fork carries the same road 
       end: seam,
     },
   );
-  const left = baked(
-    "left",
-    [
-      [0, 0, 12],
-      [4, 1, 12],
-      [10, 4, 12],
-    ],
-    {
-      start: seam,
-    },
-  );
   const straight = baked(
     "straight",
     [
@@ -257,47 +246,63 @@ test("steering chooses the aligned branch and a tied fork carries the same road 
       start: seam,
     },
   );
-  const transitions = [straight, left].map(({ surface }) => ({
-    id: `join-${surface.id}`,
-    from: "trunk:end",
-    to: `${surface.id}:start`,
-    direction: "forward",
-    support: "interpolated",
-    status: "joined",
-  }));
-  const network = indexRoadNetwork(transitions);
-  const pieces = [trunk, straight, left];
-  network.add({
-    endpoints: pieces.flatMap((road) => road.endpoints),
-    transitions,
-  });
-  const surfaces = new Map(pieces.map(({ surface }) => [surface.id, surface]));
-  for (const [heading, expected] of [
-    [0, "straight"],
-    [0.197, "straight"],
-    [0.38, "left"],
+  const sparse = [
+    [0, 0, 12],
+    [4, 1, 12],
+    [10, 4, 12],
+  ];
+  const dense = [...sparse.slice(0, 2), [7.6, 2.8, 12], sparse.at(-1)];
+  for (const [points, terminal] of [
+    [sparse, "start"],
+    [dense, "start"],
+    [dense.toReversed(), "end"],
   ]) {
-    const car = {
-      x: -0.015,
-      y: 0,
-      z: 12,
-      v: 6,
-      heading,
-      grounded: true,
-      surfaceId: "trunk",
-    };
-    const next = driveOnRoadNetwork(
-      car,
-      { throttle: 0 },
-      1 / 120,
-      trunk.surface,
-      surfaces,
-      network,
-      () => false,
+    const left = baked("left", points, { [terminal]: seam });
+    const transitions = ["straight:start", `left:${terminal}`].map((to) => ({
+      id: `join-${to}`,
+      from: "trunk:end",
+      to,
+      direction: "forward",
+      support: "interpolated",
+      status: "joined",
+    }));
+    const network = indexRoadNetwork(transitions);
+    const pieces = [trunk, straight, left];
+    network.add({
+      endpoints: pieces.flatMap((road) => road.endpoints),
+      transitions,
+    });
+    const surfaces = new Map(
+      pieces.map(({ surface }) => [surface.id, surface]),
     );
-    assert.equal(next.surfaceId, expected);
-    assert.equal(next.z, 12);
-    assert.equal(next.seam.surfaceId, "trunk");
+    for (const [heading, expected] of [
+      [0, "straight"],
+      [0.175, "straight"],
+      [0.197, "left"],
+      [0.38, "left"],
+    ]) {
+      const car = {
+        x: -0.015,
+        y: 0,
+        z: 12,
+        v: 6,
+        heading,
+        grounded: true,
+        surfaceId: "trunk",
+      };
+      const next = driveOnRoadNetwork(
+        car,
+        { throttle: 0 },
+        1 / 120,
+        trunk.surface,
+        surfaces,
+        network,
+        () => false,
+      );
+      assert.equal(next.surfaceId, expected);
+      assert.equal(next.z, 12);
+      assert.equal(next.seam.surfaceId, "trunk");
+    }
   }
 });
 

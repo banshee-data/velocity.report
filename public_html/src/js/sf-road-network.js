@@ -7,6 +7,7 @@ import {
 const supported = (value) => ["observed", "interpolated"].includes(value);
 const seamReachM = 4;
 const ownerPreloadM = 12;
+const branchLookaheadM = 8;
 const branchToleranceM = 0.05;
 
 // Distance to the finite transverse join. A lane can sit several metres
@@ -280,10 +281,20 @@ function terminals(surface) {
 function branchMiss(car, surface, terminal, travel) {
   const end = terminal === surface.end_ids[1];
   const profile = surface.profile;
-  const station = end
-    ? (profile.findLast((p) => profile.at(-1).s_m - p.s_m >= 8) ?? profile[0])
-    : (profile.find((p) => p.s_m >= 8) ?? profile.at(-1));
-  const [x, y] = station.position;
+  const length = profile.at(-1).s_m;
+  const lookahead = Math.min(branchLookaheadM, length);
+  const station = end ? length - lookahead : lookahead;
+  const index = Math.max(
+    1,
+    profile.findIndex(({ s_m }) => s_m >= station),
+  );
+  const [before, after] = profile.slice(index - 1, index + 1);
+  // Compare every branch at the same distance even when its sampled points differ.
+  const fraction = (station - before.s_m) / (after.s_m - before.s_m);
+  const [ax, ay] = before.position;
+  const [bx, by] = after.position;
+  const x = ax + (bx - ax) * fraction;
+  const y = ay + (by - ay) * fraction;
   const reach = Math.hypot(car.x - x, car.y - y);
   return Math.hypot(
     car.x + travel * reach * Math.cos(car.heading) - x,
