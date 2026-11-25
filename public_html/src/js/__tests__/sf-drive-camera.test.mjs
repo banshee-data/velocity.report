@@ -98,6 +98,22 @@ test("stacked ramp probes lower the camera only on the supported lower level", (
   );
 });
 
+test("a downhill bridge departure keeps its travelled surface behind the camera", () => {
+  const street = () => 10;
+  const departedDeck = (x) => (x >= 68 && x <= 96 ? 14 : null);
+  const decks = (x, y, base) =>
+    Math.min(...[departedDeck(x)].filter((z) => z !== null && z >= base));
+  assert.equal(overheadDeckBlend(car, 10, street, decks), 1);
+  assert.equal(overheadDeckBlend(car, 10, street, decks, departedDeck), 0);
+
+  const stacked = (x, y, base) =>
+    Math.min(
+      decks(x, y, base),
+      x >= 90 && x <= 96 && base <= 19 ? 19 : Infinity,
+    );
+  assert.equal(overheadDeckBlend(car, 10, street, stacked, departedDeck), 1);
+});
+
 test("overhead looks straight down and keeps forward up in every quadrant", () => {
   for (const heading of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
     const pose = driveCameraPose("overhead", { ...car, heading }, 10);

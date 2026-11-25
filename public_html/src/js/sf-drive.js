@@ -65,6 +65,7 @@ import {
   driveCameraPose,
   incarRoll,
   overheadDeckBlend,
+  CHASE_DISTANCE,
 } from "./sf-drive-camera.js";
 import { createCarReveal } from "./sf-car-reveal.js";
 import { roadDashPolygons } from "./sf-road-markings.js";
@@ -1471,6 +1472,7 @@ export async function startDrive({
     );
   const reset = (p = selectedStart, keepAirtime = false) => {
     cameraCoveredRoad = null;
+    cameraDeckDeparture = null;
     clearEmojiFocus();
     car = startingCar(p);
     grounded = false;
@@ -2420,6 +2422,7 @@ export async function startDrive({
   let cameraRoll = 0;
   let camInit = false;
   let cameraCoveredRoad = null;
+  let cameraDeckDeparture = null;
   if (params.get("mode") === "solo") enterSolo();
   setView(state.view);
   let roadAt = 0,
@@ -2802,7 +2805,7 @@ export async function startDrive({
             ? { ...input, brake: true }
             : input);
         const manual = insurance.mode === "manual";
-        let candidate = bakedPortals.size
+        const portalStep = bakedPortals.size
           ? driveThroughRoadPortal(
               car,
               controls,
@@ -2813,6 +2816,7 @@ export async function startDrive({
               terrainHeight,
             )
           : null;
+        let candidate = portalStep;
         if (!candidate && car.leavingRoad) {
           candidate = fallFromRoad(car, 1 / 120, (x, y) =>
             crashSupport(x, y, car),
@@ -2982,6 +2986,21 @@ export async function startDrive({
           return;
         }
         car = hit ? scrapeObstacle(candidate, hit) : candidate;
+        if (
+          portalStep &&
+          surface &&
+          !car.surfaceId &&
+          surface.kind !== "tunnel"
+        ) {
+          cameraDeckDeparture = {
+            x: car.x,
+            y: car.y,
+            heading: car.heading,
+            heightAt: surface.heightAt,
+          };
+        } else if (car.surfaceId || car.grounded === false) {
+          cameraDeckDeparture = null;
+        }
         if (hit) announce(`Scraped a ${hit.kind}`, 1);
         surface = roadSurfaces.get(car.surfaceId);
         if (
@@ -3150,9 +3169,24 @@ export async function startDrive({
     if (surface) cameraCoveredRoad = surface.coveredRange ? surface : null;
     const crossingBlend = coveredRoadBlend(cameraCoveredRoad, car);
     if (!surface && crossingBlend === 0) cameraCoveredRoad = null;
+    if (
+      cameraDeckDeparture &&
+      (Math.hypot(
+        car.x - cameraDeckDeparture.x,
+        car.y - cameraDeckDeparture.y,
+      ) > CHASE_DISTANCE ||
+        Math.cos(car.heading - cameraDeckDeparture.heading) < Math.SQRT1_2)
+    )
+      cameraDeckDeparture = null;
     const deckBlend =
       state.view === "zoomed" && crossingBlend < 1 && surface?.kind !== "tunnel"
-        ? overheadDeckBlend(car, carZ, currentHeightAt, deckIndex.ceiling)
+        ? overheadDeckBlend(
+            car,
+            carZ,
+            currentHeightAt,
+            deckIndex.ceiling,
+            cameraDeckDeparture?.heightAt,
+          )
         : 0;
     const coveredBlend =
       state.view === "zoomed" ? Math.max(crossingBlend, deckBlend) : 0;
