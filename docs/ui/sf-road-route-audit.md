@@ -3395,3 +3395,6 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   geary-under-fillmore-eastbound geary-under-fillmore-westbound \
   geary-fillmore-eastbound-frontage geary-fillmore-westbound-frontage
 ```
+
+The [live emoji route audit](sf-live-emoji-route-audit.md) records the public
+browser runs, the ground-approach check and the two deployed tile hashes.
