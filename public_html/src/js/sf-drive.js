@@ -107,6 +107,7 @@ import {
   buildRaisedRoad,
 } from "./sf-city-road-drive.js";
 import {
+  brakeAtSupportBoundary,
   contactGeometry,
   driveOnRoadSurface,
   indexRoadContact,
@@ -119,6 +120,13 @@ import {
 import { buildBakedRoadContact } from "./sf-baked-road-contact.js";
 import { driveThroughRoadPortal } from "./sf-road-portal.js";
 import { tunnelMesh } from "./sf-tunnel-mesh.js";
+import {
+  exteriorTunnelMouths,
+  mouthIntersectsTile,
+  showTunnelMouths,
+  tunnelMouthFrame,
+  tunnelMouths,
+} from "./sf-tunnel-portals.js";
 import {
   crashHistory,
   encodeReplay,
@@ -150,8 +158,7 @@ import {
 import {
   fallFromRoad,
   highwayRailSegments,
-  leaveRoadSide,
-  roadBoundary,
+  leaveRoadSurface,
   strikeHighwayRail,
   crashRoadSupport,
   indexCrashRails,
@@ -213,31 +220,6 @@ function roadShapes(tile) {
       dashed: !!w.length && r[2] === 0,
     };
   });
-}
-
-function streetClearanceGeometry(tile, roads) {
-  const positions = [];
-  for (const { polygon, centre, road } of roads) {
-    if (!road) continue;
-    for (let i = 1; i < centre.length; i++) {
-      const end = polygon.length - 1;
-      const corners = [
-        polygon[i - 1],
-        polygon[end - i + 1],
-        polygon[i],
-        polygon[end - i],
-      ];
-      const points = corners.map(([x, y]) => {
-        const z = groundAt(tile.g, x - tile.o[0], y - tile.o[1], false);
-        return z === null ? null : V(x, y, z);
-      });
-      if (points.some((p) => !p)) continue;
-      for (const j of [0, 1, 2, 1, 3, 2]) positions.push(...points[j]);
-    }
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  return g;
 }
 
 function paintTerrain(entry, entries, C, rasterMarkings = false) {
@@ -320,6 +302,7 @@ function applyRoadPaint(entry, positions, C) {
     );
     paint.renderOrder = 1;
     entry.grp.userData.markings = paint;
+    if (entry.mouths?.length) showTunnelMouths(paint.material, entry.mouths);
     entry.grp.add(paint);
   }
   paint.geometry = geometry;
@@ -730,7 +713,7 @@ export async function startDrive({
   }
   const changedDecks = [];
   let pendingDeckUpdate = false;
-  function registerDeck(geometry) {
+  function registerDeck(geometry, kind) {
     geometry.computeBoundingBox();
     const bounds = geometry.boundingBox;
     const refresh = () => {
@@ -744,7 +727,7 @@ export async function startDrive({
           e.grp.userData.refreshTreeCuts?.(changed);
       });
     };
-    const remove = deckIndex.add(geometry);
+    const remove = deckIndex.add(geometry, kind);
     refresh();
     return () => {
       remove();
@@ -753,6 +736,51 @@ export async function startDrive({
   }
   const roadMeshes = new THREE.Group();
   scene.add(roadMeshes);
+  const tunnelSurfaceMouths = new Map();
+  const tunnelFrames = new Map();
+  const tunnelFrameMaterial = new THREE.MeshLambertMaterial({
+    color: 0x889198,
+    side: THREE.DoubleSide,
+  });
+  let pendingMouthUpdate = false;
+  function refreshTunnelMouths() {
+    if (pendingMouthUpdate) return;
+    pendingMouthUpdate = true;
+    requestAnimationFrame(() => {
+      pendingMouthUpdate = false;
+      const mouths = exteriorTunnelMouths(
+        [...tunnelSurfaceMouths.values()].flat(),
+      );
+      const keys = new Set(mouths.map(({ key }) => key));
+      for (const [key, frame] of tunnelFrames) {
+        if (keys.has(key)) continue;
+        roadMeshes.remove(frame);
+        frame.geometry.dispose();
+        tunnelFrames.delete(key);
+      }
+      for (const mouth of mouths) {
+        if (tunnelFrames.has(mouth.key)) continue;
+        const frame = tunnelMouthFrame(mouth, tunnelFrameMaterial);
+        roadMeshes.add(frame);
+        tunnelFrames.set(mouth.key, frame);
+      }
+      for (const [token, entry] of loaded) {
+        const tile = byToken.get(token);
+        entry.mouths = mouths.filter((mouth) =>
+          mouthIntersectsTile(mouth, tile),
+        );
+        const { terrain, markings } = entry.grp.userData;
+        showTunnelMouths(terrain.material, entry.mouths);
+        if (markings) showTunnelMouths(markings.material, entry.mouths);
+      }
+    });
+  }
+  function addTunnel(surface, appearance, group) {
+    group.add(tunnelMesh(surface, appearance));
+    tunnelSurfaceMouths.set(surface.id, tunnelMouths(surface, appearance));
+    refreshTunnelMouths();
+  }
+
   const selectedDrive =
     bakedDrive || (cityMode === "soma" ? somaSurveyDrive() : null);
   const gameDrive =
@@ -840,14 +868,12 @@ export async function startDrive({
       const driveSurface = {
         ...surface,
         heightAt: surface.heightAt || indexRoadContact(surface.contact),
-        boundary:
-          surface.kind === "ground" ? [] : roadBoundary(surface.contact),
       };
       roadSurfaces.set(surface.id, driveSurface);
       if (!gameDrive || surface.kind !== "ground") {
         const geometry = contactGeometry(surface.contact, false);
         if (["bridge_deck", "ramp"].includes(surface.kind))
-          registerDeck(geometry);
+          registerDeck(geometry, surface.kind);
         roadMeshes.add(
           new THREE.Mesh(
             geometry,
@@ -858,7 +884,7 @@ export async function startDrive({
         );
       }
       if (surface.appearance)
-        roadMeshes.add(tunnelMesh(surface, surface.appearance));
+        addTunnel(surface, surface.appearance, roadMeshes);
       if (gameDrive) {
         const points = surface.profile.flatMap(({ position: [x, y, z] }) =>
           V(x, y, z + 0.06),
@@ -1232,6 +1258,7 @@ export async function startDrive({
           manualNetwork?.endpoints.delete(terminal);
         }
         bakedPortals.delete(id);
+        if (tunnelSurfaceMouths.delete(id)) refreshTunnelMouths();
         roadSurfaces.delete(id);
         bakedRoads.delete(id);
       }
@@ -1248,7 +1275,6 @@ export async function startDrive({
       }
       canvas.dataset.raisedRoads = String(raisedRoads.size);
       e.grp.userData.cancelTreeCuts?.();
-      e.removeStreet?.();
       terrainPainter.remove(t);
       scene.remove(e.grp);
       const materials = new Set(),
@@ -1276,17 +1302,11 @@ export async function startDrive({
           tile.half = byToken.get(t).half;
           const meshes = await prepareTile(tile, regions.get(t));
           const roads = roadShapes(tile);
-          const pavement = streetClearanceGeometry(tile, roads);
-          const removeStreet = pavement.attributes.position.count
-            ? registerDeck(pavement)
-            : null;
-          pavement.dispose();
           const grp = buildTile(tile, C, meshes, reveal, deckIndex, meshQueue);
           scene.add(grp);
           const entry = {
             tile,
             grp,
-            removeStreet,
             roads,
             bakedRoadIds: [],
             kerbs: tile.k.map((line) => {
@@ -1309,6 +1329,7 @@ export async function startDrive({
             intersections: intersectionsForTile(tile),
           };
           loaded.set(t, entry);
+          if (tunnelSurfaceMouths.size) refreshTunnelMouths();
           for (const [index, damage] of treeDamage.get(t) || [])
             grp.userData.drawTree?.(index, damage);
           for (const road of tile.playableRoads || []) {
@@ -1321,8 +1342,6 @@ export async function startDrive({
               if (surface.kind === "tunnel" && !appearance) continue;
               manualNetwork?.addBakedEndpoints(endpoints);
               if (roadSurfaces.has(road.id)) continue;
-              if (surface.kind !== "tunnel")
-                surface.boundary = roadBoundary(surface.contact);
               const mesh = new THREE.Group();
               mesh.add(
                 new THREE.Mesh(
@@ -1330,13 +1349,13 @@ export async function startDrive({
                   surface.kind === "tunnel" ? roadMaterial : deckMaterial,
                 ),
               );
-              if (appearance) mesh.add(tunnelMesh(surface, appearance));
+              if (appearance) addTunnel(surface, appearance, mesh);
               addGuardRails(surface, mesh);
               scene.add(mesh);
               const removeDeck =
                 surface.kind === "tunnel"
                   ? null
-                  : registerDeck(mesh.children[0].geometry);
+                  : registerDeck(mesh.children[0].geometry, surface.kind);
               bakedRoads.set(road.id, { surface, mesh, owners: 1, removeDeck });
               bakedPortals.set(road.id, portals);
               roadSurfaces.set(road.id, surface);
@@ -1479,6 +1498,7 @@ export async function startDrive({
     camInit = false;
     accumulator = 0;
     crash = null;
+    hud.menuBtn.disabled = false;
     leadIn.clear();
     completedCityDrive = false;
     resumeRecovery = false;
@@ -1555,7 +1575,15 @@ export async function startDrive({
         : "Back at the intersection · clock continues",
     );
   }
-  function startCrash(kind, incoming, hit, heightAt, now, supportAt, indexes) {
+  async function startCrash(
+    kind,
+    incoming,
+    hit,
+    heightAt,
+    now,
+    supportAt,
+    indexes,
+  ) {
     if (crash) return;
     airtime.finish(now, kind === "fall" ? "Out of map" : "Impact");
     let treeEvent;
@@ -1586,16 +1614,22 @@ export async function startDrive({
       heightAt,
       kind === "ground" ? { previous: car, supportAt } : null,
     );
+    const recording = crash;
+    hud.respawnBtn.disabled = true;
+    hud.menuBtn.disabled = true;
+    releaseInputs();
+    announce("Preparing crash replay…");
     const poses = leadIn.read();
     const crashRails = indexCrashRails(roadSurfaces.values());
     const impactTick = poses.length;
+    let deadline = performance.now() + 6;
     do {
-      car = crashCar(crash, incoming);
+      const pose = crashCar(crash, incoming);
       const q = crash.rotation;
       poses.push({
-        x: car.x,
-        y: car.y,
-        z: car.z,
+        x: pose.x,
+        y: pose.y,
+        z: pose.z,
         q: [q.x, q.z, -q.y, q.w],
         heading: crash.initialHeading,
         velocity: crash.velocity.toArray(),
@@ -1603,7 +1637,13 @@ export async function startDrive({
       });
       if (crash.outcome) break;
       stepCrash(crash, supportAt, indexes, crashRails);
+      if (performance.now() >= deadline) {
+        await new Promise(requestAnimationFrame);
+        if (crash !== recording) return;
+        deadline = performance.now() + 6;
+      }
     } while (true);
+    car = crashCar(crash, incoming);
     const inbound = capturePose(incoming, heightAt).velocity;
     const peakJerk = Math.max(
       0,
@@ -2107,13 +2147,16 @@ export async function startDrive({
 
   hud.skipReplay.addEventListener("click", finishPlayback);
 
+  function advanceCrashTrial(wallDt) {
+    if (isRoadReview(selectedStart)) return;
+    advanceTrial(trial, wallDt, car, false, false);
+    hud.timer.textContent = formatTime(trial.elapsed);
+  }
+
   function replayFrame(wallDt, now) {
     const { clip, automatic, required } = playback;
     if (automatic) {
-      if (!isRoadReview(selectedStart)) {
-        advanceTrial(trial, wallDt, car, false, false);
-        hud.timer.textContent = formatTime(trial.elapsed);
-      }
+      advanceCrashTrial(wallDt);
       updateInsuranceMeter();
     }
     if (
@@ -2141,10 +2184,13 @@ export async function startDrive({
     const treeEntry = tree && loaded.get(tree.tile);
     if (treeEntry && playback.treeIndex === undefined)
       playback.treeIndex = replayTreeIndex(treeEntry.tile, tree);
-    if (playback.treeIndex >= 0 && !playback.treeFallen) {
+    if (treeEntry && playback.treeIndex >= 0 && !playback.treeFallen) {
       const elapsed = Math.max(0, (playback.tick - clip.impact) / 120);
-      treeEntry.grp.userData.drawTree?.(playback.treeIndex, tree, elapsed);
-      playback.treeFallen = treeFallProgress(elapsed) === 1;
+      if (playback.treeElapsed !== elapsed) {
+        treeEntry.grp.userData.drawTree?.(playback.treeIndex, tree, elapsed);
+        playback.treeElapsed = elapsed;
+        playback.treeFallen = treeFallProgress(elapsed) === 1;
+      }
     }
     const pose = replayPose(clip, playback.tick);
     canvas.dataset.replay = clip.impact === null ? "airtime" : "crash";
@@ -2704,8 +2750,12 @@ export async function startDrive({
       soloFrame(dt, now);
       return;
     }
-    if (crash && now >= crashUntil) respawn(true);
-    hud.respawnBtn.disabled = !!crash;
+    // Crash trajectories are recorded in slices while this view is held.
+    if (crash) {
+      advanceCrashTrial(wallDt);
+      return;
+    }
+    hud.respawnBtn.disabled = false;
     let input = drivingInput(state.keys, state.touch);
     if (
       emojiLocked &&
@@ -2848,10 +2898,11 @@ export async function startDrive({
           if (
             candidate.blocked &&
             !candidate.waiting &&
-            surface.kind !== "tunnel"
+            surface.kind !== "tunnel" &&
+            surface.kind !== "ground"
           )
             candidate =
-              leaveRoadSide(car, controls, 1 / 120, surface) || candidate;
+              leaveRoadSurface(car, controls, 1 / 120, surface) || candidate;
         } else if (!candidate && network) {
           candidate = driveOnCityRoute(
             car,
@@ -2865,9 +2916,13 @@ export async function startDrive({
           );
         } else if (!candidate) {
           candidate = driveOnRoadSurface(car, controls, 1 / 120, surface);
-          if (candidate.blocked && surface.kind !== "ground")
+          if (
+            candidate.blocked &&
+            surface.kind !== "ground" &&
+            surface.kind !== "tunnel"
+          )
             candidate =
-              leaveRoadSide(car, controls, 1 / 120, surface) || candidate;
+              leaveRoadSurface(car, controls, 1 / 120, surface) || candidate;
         }
         const owner = tileAt(manifest.tiles, candidate.x, candidate.y);
         if (!loaded.has(owner.t) && car.grounded === false) {
@@ -2883,19 +2938,6 @@ export async function startDrive({
             recoverCityDrive();
             return;
           }
-          // A streaming pause holds the last supported pose and momentum.
-          // Only a confirmed end of support stops the car.
-          if (!waitingForRoad)
-            car = {
-              ...car,
-              v: 0,
-              slip: 0,
-              vx: 0,
-              vy: 0,
-              vz: 0,
-              lateralAcceleration: 0,
-            };
-          accumulator = 0;
           announce(
             (!navigator.onLine || failures.has(owner.t)) && !loaded.has(owner.t)
               ? "This tile is unavailable · turn back or reconnect"
@@ -2908,8 +2950,18 @@ export async function startDrive({
                     : "Waiting for the road ahead to load…",
             1,
           );
-          break;
+          if (waitingForRoad) {
+            accumulator = 0;
+            break;
+          }
+          car = brakeAtSupportBoundary(
+            car,
+            1 / 120,
+            surface?.heightAt || terrainHeight,
+          );
+          continue;
         }
+        blocked = false;
         const contactHeight =
           roadSurfaces.get(candidate.surfaceId)?.heightAt || terrainHeight;
         const landing =

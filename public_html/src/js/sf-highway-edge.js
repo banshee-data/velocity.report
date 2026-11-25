@@ -1,4 +1,4 @@
-import { contactTriangles, roadMotion } from "./sf-road-contact.js";
+import { roadMotion } from "./sf-road-contact.js";
 import { CAR_HALF_LENGTH, CAR_HALF_WIDTH } from "./sf-drive-core.js";
 
 import {
@@ -12,10 +12,6 @@ import {
 const gravity = 9.81;
 const sideClearance = 4;
 
-function turn(a, b, c) {
-  return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
-}
-
 function roadEdge(a, b) {
   const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
   return {
@@ -25,81 +21,6 @@ function roadEdge(a, b) {
     nx: (b[1] - a[1]) / length,
     ny: (a[0] - b[0]) / length,
   };
-}
-
-// Shared triangle edges are inside the contact mesh. On the remaining
-// boundary, the supported side is on the left, so holes wind clockwise.
-export function roadBoundary(contact) {
-  const perimeter = new Map();
-  for (const { indices, vertices } of contactTriangles(contact)) {
-    const winding = turn(...vertices);
-    if (Math.abs(winding) < 1e-10) continue;
-    const [a, b, c] = winding > 0 ? indices : [...indices].reverse();
-    for (const [from, to] of [
-      [a, b],
-      [b, c],
-      [c, a],
-    ]) {
-      const key = from < to ? `${from}:${to}` : `${to}:${from}`;
-      if (perimeter.has(key)) perimeter.delete(key);
-      else perimeter.set(key, { from, to });
-    }
-  }
-  const outgoing = new Map();
-  for (const edge of perimeter.values()) {
-    if (!outgoing.has(edge.from)) outgoing.set(edge.from, []);
-    outgoing.get(edge.from).push(edge);
-  }
-  const exterior = [];
-  const remaining = new Set(perimeter.values());
-  for (const first of remaining) {
-    const loop = [];
-    let edge = first;
-    let area = 0;
-    while (edge && remaining.delete(edge)) {
-      const a = contact.vertices[edge.from];
-      const b = contact.vertices[edge.to];
-      loop.push(roadEdge(a, b));
-      area += turn(contact.vertices[first.from], a, b);
-      if (edge.to === first.from) {
-        if (area > 0) exterior.push(...loop);
-        break;
-      }
-      edge = outgoing
-        .get(edge.to)
-        ?.find((candidate) => remaining.has(candidate));
-    }
-  }
-  return exterior;
-}
-
-function roadStation(profile, x, y) {
-  let nearest = null;
-  for (let i = 1; i < profile.length; i++) {
-    const a = profile[i - 1];
-    const b = profile[i];
-    const dx = b.position[0] - a.position[0];
-    const dy = b.position[1] - a.position[1];
-    const length = Math.hypot(dx, dy);
-    if (!length) continue;
-    const hx = dx / length;
-    const hy = dy / length;
-    const ex = x - a.position[0];
-    const ey = y - a.position[1];
-    const along = Math.max(0, Math.min(length, ex * hx + ey * hy));
-    const distance = Math.hypot(ex - hx * along, ey - hy * along);
-    if (nearest === null || distance < nearest.distance)
-      nearest = {
-        hx,
-        hy,
-        distance,
-      };
-  }
-  return nearest;
-}
-
-function isRoadSide({ nx, ny }, station) {
-  return Math.abs(nx * station.hx + ny * station.hy) < 0.55;
 }
 
 export function highwayRailSegments(surface) {
@@ -147,30 +68,6 @@ export function highwayRailSegments(surface) {
     }
   }
   return rails;
-}
-
-function outsideEdge(boundary, x, y) {
-  let inside = false;
-  let nearest = null;
-  let distance = Infinity;
-  for (const edge of boundary) {
-    const { a, b, nx, ny, length } = edge;
-    if (
-      a[1] > y !== b[1] > y &&
-      x < a[0] + ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1])
-    )
-      inside = !inside;
-    const along = Math.max(
-      0,
-      Math.min(length, (x - a[0]) * -ny + (y - a[1]) * nx),
-    );
-    const gap = Math.hypot(x - a[0] + along * ny, y - a[1] - along * nx);
-    if (gap < distance) {
-      distance = gap;
-      nearest = edge;
-    }
-  }
-  return inside ? null : nearest;
 }
 
 // Resolve a low-energy strike as a slide or rebound. Severity follows the
@@ -318,34 +215,18 @@ export function strikeHighwayRail(car, input, dt, surface) {
   };
 }
 
-export function leaveRoadSide(car, input, dt, surface) {
-  if (!surface.boundary?.length) return null;
+// The caller has checked rails, valid level transitions and pending tile
+// owners. Straddle the lip on the remaining wheels, then take the deck's
+// tangent into free flight when the car's centre loses contact.
+export function leaveRoadSurface(car, input, dt, surface) {
+  const startZ = surface.heightAt(car.x, car.y);
+  if (startZ === null) return null;
   const next = roadMotion(car, input, dt, surface.heightAt);
-  const station = roadStation(surface.profile, next.x, next.y);
-  if (!station) return null;
-  const hx = Math.cos(next.heading);
-  const hy = Math.sin(next.heading);
   const z = surface.heightAt(next.x, next.y);
-  const footprint = [[next.x, next.y]];
-  for (const axle of [-1.35, 1.35])
-    for (const wheel of [-0.75, 0.75])
-      footprint.push([
-        next.x + hx * axle - hy * wheel,
-        next.y + hy * axle + hx * wheel,
-      ]);
-  let side = null;
-  for (const [x, y] of footprint) {
-    if (surface.heightAt(x, y) !== null) continue;
-    const edge = outsideEdge(surface.boundary, x, y);
-    if (!edge || !isRoadSide(edge, station)) return null;
-    side ||= edge;
-  }
-  if (!side) return null;
   if (z !== null)
     return { ...car, ...next, z, blocked: false, edgeContact: "" };
-  if ((next.x - car.x) * side.nx + (next.y - car.y) * side.ny <= 0) return null;
-  const startZ = car.z ?? surface.heightAt(car.x, car.y);
-  if (startZ === null) return null;
+  const hx = Math.cos(next.heading);
+  const hy = Math.sin(next.heading);
   const attitude = launchAttitude(car, surface.heightAt, startZ);
   return {
     ...car,

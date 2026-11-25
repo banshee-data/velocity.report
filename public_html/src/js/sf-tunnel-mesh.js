@@ -4,7 +4,7 @@ function face(positions, a, b, c, d) {
   for (const [x, y, z] of [a, b, c, a, c, d]) positions.push(x, z, -y);
 }
 
-function section(surface, station) {
+export function tunnelSection(surface, station) {
   const { profile, contact } = surface;
   const after = profile.findIndex(({ s_m }) => s_m >= station);
   const i = Math.max(0, after - 1);
@@ -58,7 +58,7 @@ export function tunnelMesh(surface, appearance) {
   const top = ([x, y, z]) => [x, y, z + clearance];
   let previous, previousStation;
   for (const station of stations) {
-    const next = section(surface, station);
+    const next = tunnelSection(surface, station);
     if (previous) {
       const [a, b] = previous;
       const [c, d] = next;

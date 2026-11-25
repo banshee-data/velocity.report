@@ -5,7 +5,7 @@ import {
   roadSupportsCar,
 } from "./sf-road-contact.js";
 import { driveOnRoadNetwork } from "./sf-road-network.js";
-import { leaveRoadSide, strikeHighwayRail } from "./sf-highway-edge.js";
+import { leaveRoadSurface, strikeHighwayRail } from "./sf-highway-edge.js";
 import { validTunnelWallOpenings } from "./sf-tunnel-mesh.js";
 
 export const BAY_BRIDGE_CITY_DRIVE = "bay-bridge-highway-drive";
@@ -372,7 +372,7 @@ export function driveOnCityRoute(
     );
   if (!next.blocked || next.waiting || surface.kind === "tunnel") return next;
   if (surface.kind !== "ground")
-    return leaveRoadSide(car, input, dt, surface) || next;
+    return leaveRoadSurface(car, input, dt, surface) || next;
   const base = pavement?.(car.x, car.y);
   if (!Number.isFinite(base) || Math.abs(car.z - base) > 0.45) return next;
   const street = driveOnRoadSurface(car, input, dt, { heightAt: pavement });

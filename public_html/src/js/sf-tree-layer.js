@@ -1,5 +1,5 @@
 import * as THREE from "../vendor/three/three.core.js";
-import { carveTreeCuts, treeCuts } from "./sf-tree-clearance.js";
+import { treeCuts } from "./sf-tree-clearance.js";
 import { treeModel } from "./sf-mesh-steps.js";
 import {
   treeRadius,
@@ -59,8 +59,7 @@ export function addTrees(grp, tile, gz, C, reveal, deckIndex, queue) {
   const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
   const poses = new Map(),
     groups = new Map(),
-    dirty = new Set(),
-    moving = new Map();
+    dirty = new Set();
 
   function discard(mesh) {
     if (!mesh) return;
@@ -136,42 +135,33 @@ export function addTrees(grp, tile, gz, C, reveal, deckIndex, queue) {
     }
     dirty.clear();
   }
-  function setPart(k, i, event, refresh) {
+  function setPart(k, i, animated, refresh) {
     const group = groupFor(k, i);
-    const cuts = treeCuts(models[k], mtx, base.y, deckIndex);
+    // Falling trees stay instanced during the animation. Once at rest,
+    // their final geometry goes through the same queued cuts as upright trees.
+    const cuts = animated ? null : treeCuts(models[k], mtx, base.y, deckIndex);
     const previous = group.rows.get(i);
-    if (refresh && !event && !previous && !cuts.size) return;
-    if (event || !cuts.size) {
+    if (refresh && (animated || (!previous && !cuts?.size))) return;
+    if (!cuts?.size) {
       if (group.rows.delete(i)) dirty.add(group);
-    } else {
-      // Several arriving roads may invalidate the same tile bounds. A part
-      // with the same actual road triangles already has the correct cut.
-      if (
-        previous &&
-        previous.cuts.size === cuts.size &&
-        [...cuts].every((cut) => previous.cuts.has(cut))
-      )
-        return;
-      group.rows.set(i, { matrix: mtx.clone(), cuts });
-      dirty.add(group);
+      instanceAt(i, k, mtx);
+      return;
     }
-    const key = i * 2 + k;
-    discard(moving.get(key));
-    moving.delete(key);
-    if (event && cuts.size) {
-      // Only the one animated tree needs a new mesh for this replay pose.
-      const geometry = carveTreeCuts(models[k], mtx, cuts);
-      if (geometry?.attributes.position.count) {
-        const part = new THREE.Mesh(geometry, materials[k]);
-        moving.set(key, part);
-        grp.add(part);
-      }
-      instanceAt(i, k, geometry ? hiddenMatrix : mtx);
-    } else instanceAt(i, k, cuts.size ? hiddenMatrix : mtx);
+    if (
+      refresh &&
+      previous &&
+      previous.cuts.size === cuts.size &&
+      [...cuts].every((cut) => previous.cuts.has(cut))
+    )
+      return;
+    group.rows.set(i, { matrix: mtx.clone(), cuts });
+    dirty.add(group);
+    instanceAt(i, k, hiddenMatrix);
   }
   function setTreePose(i, event, elapsed = 1, refresh = false) {
     const [x, y, h, r] = tile.tr[i];
     base.set(ox + x / 10, gz(x / 10, y / 10), -oy - y / 10);
+    const animated = event && treeFallProgress(elapsed) < 1;
     qn.identity();
     if (event) {
       // Rotate the trunk and canopy about the same ground anchor, away from impact.
@@ -192,14 +182,14 @@ export function addTrees(grp, tile, gz, C, reveal, deckIndex, queue) {
       .add(base);
     s.set(r, ch / 2, r);
     mtx.compose(p, qn, s);
-    setPart(0, i, event, refresh);
+    setPart(0, i, animated, refresh);
     const tw = treeRadius(h);
     p.set(0, (h - ch) / 2, 0)
       .applyQuaternion(qn)
       .add(base);
     s.set(tw, Math.max(0.5, h - ch), tw);
     mtx.compose(p, qn, s);
-    setPart(1, i, event, refresh);
+    setPart(1, i, animated, refresh);
   }
 
   tile.tr.forEach(([, , h, r], i) => {

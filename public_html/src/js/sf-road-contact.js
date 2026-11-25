@@ -151,6 +151,20 @@ export function roadMotion(car, input, dt, heightAt) {
   });
 }
 
+// Resolve a confirmed end of contact with tyre braking while holding the
+// supported pose. The next movement test can then accept reverse travel.
+export function brakeAtSupportBoundary(car, dt, heightAt) {
+  const motion = roadMotion(car, { brake: true }, dt, heightAt);
+  const direction = Math.sign(car.v);
+  return {
+    ...car,
+    v: direction * Math.max(0, Math.min(Math.abs(car.v), motion.v * direction)),
+    slip: motion.slip,
+    steering: motion.steering,
+    steeringRate: motion.steeringRate,
+  };
+}
+
 export function driveOnRoadSurface(car, input, dt, surface) {
   const { heightAt } = surface;
   const next = roadMotion(car, input, dt, heightAt);

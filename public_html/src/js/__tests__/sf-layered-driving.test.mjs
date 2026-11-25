@@ -22,6 +22,7 @@ import {
   mapSources,
 } from "../sf-drive-settings.js";
 import {
+  brakeAtSupportBoundary,
   driveOnRoadSurface,
   driveOnStreetContact,
   indexRoadContact,
@@ -38,8 +39,7 @@ import {
   barrierImpact,
   fallFromRoad,
   highwayRailSegments,
-  leaveRoadSide,
-  roadBoundary,
+  leaveRoadSurface,
   roadLandingAt,
   strikeHighwayRail,
 } from "../sf-highway-edge.js";
@@ -758,7 +758,6 @@ test("a right-only ramp leaves its left edge open and still strikes on the right
   const dt = 1 / 120;
   const surface = {
     heightAt: strip(10),
-    boundary: roadBoundary(stripContact(10)),
     profile: Array.from({ length: 31 }, (_, x) => ({
       s_m: x,
       position: [x, 0, 10],
@@ -774,13 +773,11 @@ test("a right-only ramp leaves its left edge open and still strikes on the right
   const right = { ...car, y: -car.y, heading: -car.heading };
   assert.equal(strikeHighwayRail(right, {}, dt, surface).edgeContact, "bounce");
   const edge = { ...car, y: 2.99, grounded: true };
-  assert.equal(leaveRoadSide(edge, {}, dt, surface).leavingRoad, true);
+  assert.equal(leaveRoadSurface(edge, {}, dt, surface).leavingRoad, true);
 });
 
-test("open sides release contact, but missing contact and road end caps stay blocked", () => {
-  const boundary = roadBoundary(stripContact(10));
+test("an unrailed deck preserves momentum at its side and open end", () => {
   const surface = {
-    boundary,
     profile: [
       { position: [0, 0, 10], s_m: 0 },
       { position: [30, 0, 10], s_m: 30 },
@@ -797,31 +794,32 @@ test("open sides release contact, but missing contact and road end caps stay blo
     surfaceId: "upper",
   };
   const dt = 1 / 120;
-  const falling = leaveRoadSide(car, { throttle: 1 }, dt, surface);
+  const falling = leaveRoadSurface(car, { throttle: 1 }, dt, surface);
   assert.equal(falling.leavingRoad, true);
   assert.equal(falling.z, 10);
   assert.equal(
-    leaveRoadSide({ ...car, x: 2 }, {}, dt, surface).leavingRoad,
+    leaveRoadSurface({ ...car, x: 2 }, {}, dt, surface).leavingRoad,
     true,
     "unrailed side beside a join is open",
   );
   assert.ok(falling.y > 3);
-  assert.equal(
-    leaveRoadSide(
-      { ...car, x: 29, y: 0, heading: 0 },
-      { throttle: 1 },
-      dt,
-      surface,
-    ),
-    null,
+  const straddling = leaveRoadSurface(
+    { ...car, x: 29, y: 0, heading: 0 },
+    { throttle: 1 },
+    dt,
+    surface,
   );
-  assert.equal(
-    leaveRoadSide({ ...car, y: 0.1 }, { throttle: 1 }, dt, {
-      ...surface,
-      heightAt: (x, y) => (y > 0.5 ? null : surface.heightAt(x, y)),
-    }),
-    null,
+  assert.equal(straddling.grounded, true);
+  assert.ok(straddling.x > 29 && straddling.v > 6.9);
+  const end = leaveRoadSurface(
+    { ...car, x: 29.99, y: 0, heading: 0 },
+    { throttle: 1 },
+    dt,
+    surface,
   );
+  assert.equal(end.leavingRoad, true);
+  assert.ok(end.x > 30 && end.vx > 6.9);
+  assert.equal(leaveRoadSurface({ ...car, x: 40 }, {}, dt, surface), null);
 
   let down = falling;
   for (let i = 0; i < 200 && down.leavingRoad; i++)
@@ -837,7 +835,28 @@ test("open sides release contact, but missing contact and road end caps stay blo
   assert.equal(hard.roadImpact, "ground");
 });
 
-test("an indented outside edge releases the car while an enclosed hole stays blocked", () => {
+test("a confirmed support end brakes progressively and allows reverse travel", () => {
+  const heightAt = (x, y) =>
+    x >= 0 && x <= 30 && Math.abs(y) <= 3 ? 10 : null;
+  const surface = { heightAt };
+  const car = { x: 28.64, y: 0, z: 10, heading: 0, v: 10 };
+  const reverse = { throttle: -1 };
+  const step = 1 / 120;
+  assert.equal(driveOnRoadSurface(car, reverse, step, surface).blocked, true);
+  const braked = brakeAtSupportBoundary(car, step, heightAt);
+  assert.ok(braked.v > 9.8 && braked.v < 10);
+  assert.equal(braked.x, car.x);
+  let next = braked;
+  for (let i = 0; i < 160; i++) {
+    const motion = driveOnRoadSurface(next, reverse, step, surface);
+    next = motion.blocked
+      ? brakeAtSupportBoundary(next, step, heightAt)
+      : motion;
+  }
+  assert.ok(next.v < 0 && next.x < car.x);
+});
+
+test("an open edge or loaded contact gap releases the car without a speed impulse", () => {
   const xs = [0, 10, 20, 30];
   const ys = [-4, -1, 1, 4];
   const vertices = ys.flatMap((y) => xs.map((x) => [x, y, 10]));
@@ -852,7 +871,6 @@ test("an indented outside edge releases the car while an enclosed hole stays blo
       }
     const contact = { vertices, support, triangles };
     const surface = {
-      boundary: roadBoundary(contact),
       heightAt: indexRoadContact(contact),
       profile: [
         { s_m: 0, position: [0, 0, 10] },
@@ -866,9 +884,9 @@ test("an indented outside edge releases the car while an enclosed hole stays blo
       v: 6,
       heading: Math.PI / 2,
     };
-    const next = leaveRoadSide(start, { throttle: 1 }, 1 / 120, surface);
-    if (open) assert.equal(next.leavingRoad, true);
-    else assert.equal(next, null);
+    const next = leaveRoadSurface(start, { throttle: 1 }, 1 / 120, surface);
+    assert.equal(next.leavingRoad, true);
+    assert.ok(next.vy > 5.9);
   }
 });
 

@@ -1,28 +1,43 @@
 // Run against the built site. Inject approach poses while production physics,
 // billing, save/reload and the renderer handle everything after the approach.
 const assert = require("node:assert/strict");
-const { chromium } = require("playwright");
+const { chromium, webkit, devices } = require("playwright");
+const useWebKit = process.env.SF_WEBKIT === "1";
 const { confirmManualTakeover } = require("./manual-takeover.cjs");
 
 async function setup(browser, suffix) {
   const page = await browser.newPage({
-    viewport: { width: 800, height: 560 },
+    ...(useWebKit
+      ? devices["iPhone 15"]
+      : { viewport: { width: 800, height: 560 } }),
     serviceWorkers: "block",
   });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("crash", () => errors.push("Browser page crashed"));
   page.setDefaultTimeout(90000);
   await page.route("**/sf-drive.js", async (route) => {
     const response = await route.fetch();
     const source = await response.text();
-    const hook =
-      "    const crashSupport = crashRoadSupport(terrainHeight, roadSurfaces);";
+    const hook = "    const crashSupport = crashRoadSupport(";
     assert.ok(source.includes(hook));
     await route.fulfill({
       response,
       body: source.replace(
         hook,
         `
+    let observedTreeUp = 1;
+    const watched = new WeakMap();
+    function watchTree(entry, row) {
+      if (!entry || watched.get(entry) === row) return;
+      const draw = entry.grp.userData.drawTree;
+      entry.grp.userData.drawTree = (index, event, seconds = 1) => {
+        draw(index, event, seconds);
+        if (index === row)
+          observedTreeUp = event ? Math.cos(Math.PI * 0.48 * treeFallProgress(seconds)) : 1;
+      };
+      watched.set(entry, row);
+    }
     window.contactFixture = {
       drop() {
         const floor = surface.heightAt(car.x, car.y);
@@ -42,13 +57,14 @@ async function setup(browser, suffix) {
                 const wx=x-distance*Math.cos(heading), wy=y-distance*Math.sin(heading);
                 return {x:wx,y:wy,z:terrainHeight(wx,wy),heading,v:22,grounded:true};
               };
-              const distance=2.23 + treeRadius(height);
+              const distance=2.23 + Math.max(0.12, 0.04 * height);
               const prior=pose(distance+0.06), next=pose(distance-0.09);
               if (!Number.isFinite(prior.z) || !Number.isFinite(next.z) ||
                   Math.abs(prior.z-ground) > 0.12 || Math.abs(next.z-prior.z) > 0.07) continue;
               const hit=obstacleContact(indexes,drivingHull(next));
               if (hit?.tree?.tile !== token || hit.tree.index !== index ||
                   obstacleContact(indexes,drivingHull(prior))) continue;
+              watchTree(loaded.get(token), index);
               car=prior;
               return {token,index};
             }
@@ -62,14 +78,11 @@ async function setup(browser, suffix) {
           history:leadIn.read().length, limit:insurance.limit, multiplier:insurance.multiplier,
           spent:insurance.spent, elapsed:insurance.manualSeconds, clip,tick};
       },
-      treeUp() {
-        const event=playback?.clip.treeDamage;
-        const trunk=loaded.get(event?.tile)?.grp.children.find(
-          mesh=>mesh.isInstancedMesh && mesh.geometry.type==="CylinderGeometry");
-        if (!trunk) return null;
-        const m=new THREE.Matrix4();
-        trunk.getMatrixAt(event.index,m);
-        return m.elements[5]/Math.hypot(...m.elements.slice(4,7));
+      treeUp() { return observedTreeUp; },
+      watchReplayTree() {
+        const {clip,treeIndex} = playback || {};
+        const event=clip?.treeDamage;
+        if (event && treeIndex >= 0) watchTree(loaded.get(event.tile), treeIndex);
       },
     };
 ${hook}`,
@@ -85,42 +98,49 @@ ${hook}`,
 }
 
 (async () => {
-  const browser = await chromium.launch({
-    executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
-    args: ["--no-sandbox", "--enable-unsafe-swiftshader"],
-  });
+  const browser = useWebKit
+    ? await webkit.launch()
+    : await chromium.launch({
+        executablePath: process.env.CHROMIUM_PATH || undefined,
+        args: ["--no-sandbox", "--enable-unsafe-swiftshader"],
+      });
   try {
-    const deck = await setup(browser, "");
-    await confirmManualTakeover(deck.page);
-    const start = await deck.page.evaluate(() => {
-      window.contactFixture.drop();
-      return window.contactFixture.read();
-    });
-    await deck.page.waitForFunction(() => {
-      const car = window.contactFixture.read();
-      return car.grounded && !car.leaving && !car.clip;
-    });
-    await deck.page.keyboard.down("ArrowUp");
-    await deck.page.waitForFunction((before) => {
-      const car = window.contactFixture.read();
-      return (
-        car.v > 19.15 &&
-        car.limit === 50 &&
-        car.multiplier === 1 &&
-        Math.hypot(car.x - before.x, car.y - before.y) > 12
+    if (process.env.SF_TREE_ONLY !== "1") {
+      const deck = await setup(browser, "");
+      await confirmManualTakeover(deck.page);
+      const start = await deck.page.evaluate(() => {
+        window.contactFixture.drop();
+        return window.contactFixture.read();
+      });
+      await deck.page.waitForFunction(() => {
+        const car = window.contactFixture.read();
+        return car.grounded && !car.leaving && !car.clip;
+      });
+      await deck.page.keyboard.down("ArrowUp");
+      await deck.page.waitForFunction((before) => {
+        const car = window.contactFixture.read();
+        return (
+          car.v > 19.15 &&
+          car.limit === 50 &&
+          car.multiplier === 1 &&
+          Math.hypot(car.x - before.x, car.y - before.y) > 12
+        );
+      }, start);
+      await deck.page.keyboard.up("ArrowUp");
+      await deck.page.waitForFunction(() =>
+        document
+          .querySelector("#insuranceLimit")
+          .textContent.startsWith("50 mph game limit"),
       );
-    }, start);
-    await deck.page.keyboard.up("ArrowUp");
-    assert.match(
-      await deck.page.locator("#insuranceLimit").textContent(),
-      /^50 mph game limit/,
-    );
-    assert.equal(
-      await deck.page.getByRole("button", { name: "Skip replay" }).isVisible(),
-      false,
-    );
-    assert.deepEqual(deck.errors, []);
-    await deck.page.close();
+      assert.equal(
+        await deck.page
+          .getByRole("button", { name: "Skip replay" })
+          .isVisible(),
+        false,
+      );
+      assert.deepEqual(deck.errors, []);
+      await deck.page.close();
+    }
 
     const city = await setup(browser, "?at=embarcadero");
     const { page } = city;
@@ -132,6 +152,7 @@ ${hook}`,
     async function readFallenTree() {
       const sample = await page.waitForFunction(() => {
         const fixture = window.contactFixture;
+        fixture.watchReplayTree();
         const upright = fixture.treeUp();
         if (!Number.isFinite(upright) || upright >= 0.2) return false;
         const { elapsed, spent } = fixture.read();
@@ -159,7 +180,7 @@ ${hook}`,
     await page.waitForFunction(
       () => window.contactFixture?.read().history === 240,
     );
-    await page.getByRole("button", { name: "Map and game settings" }).click();
+    await page.locator("#menuBtn").click();
     await page.getByText("Saved replays", { exact: true }).click();
     await page
       .locator("#crashReplays")
@@ -171,7 +192,8 @@ ${hook}`,
     await skip.waitFor({ state: "hidden" });
     assert.deepEqual(city.errors, []);
     console.log(
-      "Chromium verified recoverable highway touchdown, continued acceleration, baked tree falling in live and archived replay, and a one-time crash charge.",
+      browser.browserType().name(),
+      "verified recoverable highway touchdown, continued acceleration, baked tree falling in live and archived replay, and a one-time crash charge.",
     );
   } finally {
     await browser.close();

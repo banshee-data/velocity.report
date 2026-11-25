@@ -21,8 +21,7 @@ import {
 import {
   fallFromRoad,
   highwayRailSegments,
-  leaveRoadSide,
-  roadBoundary,
+  leaveRoadSurface,
   crashRoadSupport,
   strikeHighwayRail,
 } from "../../public_html/src/js/sf-highway-edge.js";
@@ -257,7 +256,6 @@ const rampSupport = crashRoadSupport(
   new Map(surfaces.map((s) => [s.id, s])),
 );
 const exit = surfaces.find(({ id }) => id === "fremont-exit");
-exit.boundary = roadBoundary(exit.contact);
 exit.railSegments = highwayRailSegments(exit);
 const ramp = ({ index, speed, start = null, straightTicks = 0 }) => {
   const { position } = exit.profile[index];
@@ -295,7 +293,7 @@ const ramp = ({ index, speed, start = null, straightTicks = 0 }) => {
         next =
           strikeHighwayRail(car, input, dt, exit) ||
           driveOnRoadSurface(car, input, dt, exit);
-        if (next.blocked) next = leaveRoadSide(car, input, dt, exit);
+        if (next.blocked) next = leaveRoadSurface(car, input, dt, exit);
       }
       return next && !collisionAt(indexes, next, next.z) ? next : null;
     },

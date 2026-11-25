@@ -29,7 +29,8 @@ function cells(bounds, visit) {
 export function deckClearanceIndex() {
   const grid = new Map();
   return {
-    add(geometry) {
+    add(geometry, kind = "bridge_deck") {
+      if (kind !== "bridge_deck" && kind !== "ramp") return () => {};
       const cuts = [],
         positions = geometry.attributes.position,
         indices = geometry.index;

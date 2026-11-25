@@ -1,0 +1,2 @@
+- Opened the baked tunnel mouths, limited tree cuts to elevated decks, kept momentum at unrailed edges, and moved crash and settled-tree replay work into bounded browser batches.
+- Rechecked the Yerba Buena approaches against April 2023 LiDAR and rebaked the island tile without 28 unsupported inferred trunks. [Survey and release receipts](../../ui/sf-city-map.md#yerba-buena-tree-clearance).
