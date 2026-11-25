@@ -85,6 +85,46 @@ test("local bridges carry the car above the ground grid and meet street pavement
   }
 });
 
+test("Geary stays below the Fillmore bridge in both directions", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808580bc.json.gz")));
+  const load = (name) =>
+    buildBakedRoadContact(
+      tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`),
+    );
+  const bridge = load("fillmore-geary-bridge");
+  const lower = [
+    ["geary-under-fillmore-eastbound", [624, 2697]],
+    ["geary-under-fillmore-westbound", [624, 2710]],
+  ];
+  for (const [name, crossing] of lower) {
+    const road = load(name);
+    const floor = road.surface.heightAt(...crossing);
+    assert.ok(floor > 32.8 && floor < 33.4, `${name}: ${floor} m`);
+    assert.ok(bridge.surface.heightAt(...crossing) - floor > 5.8);
+    assert.ok(groundAtWorld([tile], ...crossing, true) < floor);
+    assert.equal(road.portals.length, 2);
+    for (const { x, y, z } of road.portals) {
+      assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.04);
+    }
+  }
+  const upper = [
+    ["eastbound", [624, 2697]],
+    ["westbound", [624, 2710]],
+  ];
+  for (const [direction, crossing] of upper) {
+    const frontage = load(`geary-fillmore-${direction}-frontage`);
+    const surface = frontage.surface.heightAt(...crossing);
+    assert.ok(surface > 39.1 && surface < 39.5, `${direction}: ${surface} m`);
+    assert.ok(Math.abs(bridge.surface.heightAt(...crossing) - surface) < 0.1);
+    for (const { x, y, z } of frontage.portals) {
+      assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.04);
+    }
+  }
+  for (const { x, y, z } of bridge.portals) {
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.04);
+  }
+});
+
 test("the Music Concourse Garage joins open pavement below JFK Drive", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/80858744.json.gz")));
   const road = tile.playableRoads.find(

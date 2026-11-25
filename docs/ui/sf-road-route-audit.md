@@ -3347,3 +3347,51 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 node tools/sf-drive/replay-city-drive.mjs yerba-buena-westbound
 node tools/sf-drive/replay-city-drive.mjs yerba-buena-eastbound
 ```
+
+## Geary Boulevard and Fillmore Street
+
+The older tiles used a single terrain height through the crossing. Along
+Fillmore the ground dropped from about 39.1 m to 34.5 m NAVD88. On Geary
+beneath it, the ground rose to 36.7 m at the same crossing. The resulting
+surfaces let the car cross at the wrong heights and launch from the
+terrain. The frontage eastbound drive left its course, and the westbound
+drive crashed.
+
+The revised Arrow bake adds five contacts in `808580bc`. Fillmore and
+both Geary frontage roads use the measured upper band around 39.3 m.
+Separate eastbound and westbound Geary road surfaces descend to about
+33.1 m beneath the bridge. The covered portions of the lower profiles
+interpolate between visible pavement observations on either side. The
+bridge deck and lower surface are about 6.2 m apart at the tested points.
+This is a game surface separation. Real clearance below the bridge
+remains unmeasured.
+[Public Works roadway structure inventory](https://data.sf.gov/api/views/x5tj-txci/rows.pdf?accessType=DOWNLOAD).
+[SFMTA on the Geary frontage roads and underpasses](https://www.sfmta.com/project-updates/geary-rapid-project-faqs).
+
+The input centreline and terrain hashes are frozen in the source recipe.
+A one-metre grid follows the two lower lanes through the trench, with a
+taper back to the original terrain near each handoff. The layer test
+checks both lower lanes, the bridge, the two frontage surfaces and the
+height at the ground portals. The rounded frontage curves carry traffic
+through the upper junction on their own road surfaces. Six Chrome
+keyboard drives entered and exited the bridge, frontage roads and lower
+through lanes in both directions. All six recorded zero airborne travel.
+Both lower drives entered the covered view and returned to the exterior
+view at the ground departure. The focused drives cover the crossings in
+each direction. Turning between the upper roads remains a separate test.
+
+Twenty-five fixed-step emoji courses again completed over 70.46 km with
+identical driving telemetry. The Bay Bridge driving bundle and the emoji
+placements share the earlier release hashes. The citywide terrain-only
+screen found 381 intervals above 50% grade, down from 384 in the parent.
+It samples the ground rows separately from the authored elevated contact.
+
+- Game manifest SHA-256 `b2b15a9f62589ba554507bd94b8c0fa17748213836b7acac598d29c4e55970df`.
+- Contact SHA-256 `fa80998a60721f521616902a082f7928d0ca0cdc7e183d7e15069871ede0f0a0`.
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  fillmore-geary-bridge-northbound fillmore-geary-bridge-southbound \
+  geary-under-fillmore-eastbound geary-under-fillmore-westbound \
+  geary-fillmore-eastbound-frontage geary-fillmore-westbound-frontage
+```
