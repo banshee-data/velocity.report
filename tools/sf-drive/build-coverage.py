@@ -31,7 +31,7 @@ def outline(file, projection, extent, min_area):
     ]
 
 
-MARIN_CORRIDORS = {
+BAKED_MINIMAP_ROADS = {
     "101-north-alexander-to-waldo",
     "robin-williams-nb",
     "baker-barry",
@@ -39,6 +39,12 @@ MARIN_CORRIDORS = {
     "bunker-road-to-alexander",
     "bunker-road-east-short-branch",
     "bunker-road-under-101",
+    "i280-south-john-daly-exit",
+    "john-daly-westbound",
+    "john-daly-westbound-overpass",
+    "john-daly-southbound-i280-entry",
+    "i280-daly-tunnel-to-return-merge",
+    "i280-south-after-john-daly-merge",
 }
 
 
@@ -58,7 +64,7 @@ def major_streets(tiles_dir, tiles):
         for road in data.get("playableRoads", []):
             road_id = road["id"]
             if road_id.startswith("sf-contact/golden-gate-northbound-") or (
-                road_id.removeprefix("sf-contact/") in MARIN_CORRIDORS
+                road_id.removeprefix("sf-contact/") in BAKED_MINIMAP_ROADS
             ):
                 # Draw one carriageway for adjacent pairs and deduplicate full
                 # contact strips shared by neighbouring tiles.

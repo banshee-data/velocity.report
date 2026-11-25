@@ -498,6 +498,9 @@ seam before reaching the end of the published contact.
 
 ## Acceptance before calling structures drivable
 
+The [John Daly exit and return audit](../ui/sf-road-route-audit.md#john-daly-boulevard-exit-and-return-to-southbound-i-280)
+records the verified cross-cell exit, independent lower approach and southbound merge.
+
 Use a deterministic fixture containing two crossing decks, the ground road, a ramp,
 a tunnel portal/interior, an unsupported gap and neighbouring building/tree geometry.
 Test both driving directions and headings, with fixed above/below/in-car views.

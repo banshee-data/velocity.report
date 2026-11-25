@@ -130,6 +130,30 @@ cases["baker-to-bunker-underpass"] = {
   maxDurationMs: 100000,
   expectNoScrapes: true,
 };
+const dalyOwners = ["808f7c3c", "808f7c44"];
+const dalyUpper = "john-daly-westbound-overpass";
+const dalyMerged = "i280-south-after-john-daly-merge";
+cases["i280-john-daly-off-and-back"] = {
+  owners: dalyOwners,
+  roads: [
+    "i280-south-edge-exit",
+    "i280-south-john-daly-exit",
+    dalyUpper,
+    "john-daly-southbound-i280-entry",
+    dalyMerged,
+  ],
+  rollingStart: true,
+  rollingStartMetres: 355,
+  initialSpeedMps: 14,
+  speed: 14,
+  speedLimits: {
+    "i280-south-john-daly-exit": 11,
+    "john-daly-southbound-i280-entry": 11,
+  },
+  maxAirborneMetresAfterEntrance: 0,
+  maxDurationMs: 185_000,
+  expectNoScrapes: true,
+};
 for (const [direction, offset] of [
   ["eastbound", 4.5],
   ["westbound", 3],
@@ -141,9 +165,14 @@ for (const [direction, offset] of [
     ["right", -offset],
   ]) {
     cases[`${road}-${lane}`] = {
-      owners: ["808f7c44", "808f7c3c"],
-      roads: [road],
-      laneGuides: { [road]: { lane: position } },
+      owners: dalyOwners,
+      roads: direction === "westbound" ? [road, dalyUpper] : [road],
+      laneGuides: {
+        [road]: { lane: position },
+        [dalyUpper]: { lane: position },
+      },
+      finishOnDeck: direction === "westbound",
+      finishDistance: direction === "westbound" ? 127 : undefined,
       speed: 13,
       groundApproachMetres: 9,
       maxAirborneMetresAfterEntrance: 0,
@@ -154,17 +183,20 @@ for (const [direction, offset] of [
 }
 const dalyApproach = "i280-south-sr82-to-edge";
 const dalyTunnel = "i280-south-daly-separation";
+const dalyMainline = "i280-daly-tunnel-to-return-merge";
 for (const [lane, offset] of [
   ["left", 3.7],
   ["centre", 0],
   ["right", -3.7],
 ]) {
   cases[`daly-separation-${lane}`] = {
-    owners: ["808f7c3c", "808f7c44"],
-    roads: [dalyApproach, dalyTunnel],
+    owners: dalyOwners,
+    roads: [dalyApproach, dalyTunnel, dalyMainline, dalyMerged],
     laneGuides: {
       [dalyApproach]: { lane: offset },
       [dalyTunnel]: { lane: offset },
+      [dalyMainline]: { lane: offset },
+      [dalyMerged]: { lane: offset },
     },
     rollingStart: true,
     rollingStartMetres: 390,
@@ -4118,6 +4150,8 @@ cases["i280-sr82-southbound-through"] = {
   rollingStart: true,
   rollingStartMetres: 475,
   speed: 20,
+  finishOnDeck: true,
+  finishDistance: 615,
   maxDurationMs: 195_000,
 };
 cases["i280-sr82-northbound-entry"] = {
@@ -4145,6 +4179,8 @@ cases["i280-sr82-southbound-edge-exit"] = {
   rollingStart: true,
   rollingStartMetres: 1220,
   speed: 17,
+  finishOnDeck: true,
+  finishDistance: 645,
   maxDurationMs: 100_000,
 };
 cases["i280-sr82-exit-and-reentry"] = {

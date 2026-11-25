@@ -4734,7 +4734,8 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
 - Game manifest SHA-256 `ea69d34343f04f8ee1ff7d9c5a43226e367f37492eb65dc76f1d4be547474bcf`.
 - Gerardus contact SHA-256 `77fff6c061bffe630de69e5ac7b15cd001c7916cda55f5da1fe47d4f34746e66`.
 
-The I-280 and SR 1 ramp movements remain under review.
+The southbound exit and return have a
+[separate linked evaluation](#john-daly-boulevard-exit-and-return-to-southbound-i-280).
 
 ## Marin tunnel corridors north of Alexander Avenue
 
@@ -4774,3 +4775,41 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
 
 The `game-map-edge-tunnels-evidence-20261125` run retains the alignment,
 survey samples and keyboard-drive logs.
+
+## John Daly Boulevard exit and return to southbound I-280
+
+**World and Data.** The baked exit crosses the tile boundary between
+`808f7c3c` and `808f7c44`. Both tiles carry the complete exit strip. The
+survey supported 109 of 112 exit stations and bracketed three missing
+stations beneath the crossing. The p95 residual was 3.5 cm against the
+stations used for the fit. The entrance is 684.3 m long. It joins
+the 439.7 m continuation from the separation tunnel at 59.44 m NAVD88.
+The existing covered tunnel floor remains inferred. These are game
+running surfaces. [USGS 3DEP survey](https://www.fisheries.noaa.gov/inport/item/73506)
+and [NOAA Golden Gate survey](https://www.fisheries.noaa.gov/inport/item/49640).
+
+**Physics.** The exit turns into the westbound carriageway, traverses the
+overpass and returns to southbound I-280. The lower route stays in the
+separation tunnel beneath the boulevard and reaches the same merge.
+Chrome drove both courses using the game keyboard controls. Both stayed
+grounded without a scrape or a crash. The final bake passed 469 strip
+directions, 338 directed joins and 509 ground handoffs, including three
+continuations onto other baked roads.
+
+**UI and Goals.** The minimap carries the exit and entrance. Updating from
+the Marin package refreshed the two Daly tiles and preserved the
+collected emoji and restored checkpoint. Chrome verified 162/162 offline
+tiles and the replacement tile bytes.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-john-daly-off-and-back daly-separation-centre \
+  john-daly-westbound-centre john-daly-westbound-left john-daly-westbound-right \
+  daly-separation-left daly-separation-right
+```
+
+- Game manifest SHA-256 `c067083dc460ded170383ca9c6fe56f1f7031e612f543b2bfe057bf5ab9c1e70`.
+- Gerardus contact SHA-256 `57ec402f45b9b0cedc7ed9eb1da341bb1f6647d2dc63c0e8bed3086c4eb76b0e`.
+
+The `game-map-edge-tunnels-evidence-20261125` run retains the bracketed
+survey samples, alignment extracts, contact audit and Chrome replays.
