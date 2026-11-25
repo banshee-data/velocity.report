@@ -3852,3 +3852,34 @@ directory and records the alignment manifest alongside the tested manifest.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   congdon-{northbound,southbound} i280-under-congdon-{northbound,southbound}
 ```
+
+## Geneva Avenue deck and I-280 ramp loop
+
+**World and Data.** Separate seven-metre contacts follow the eastbound and
+westbound pavement above I-280. April 2023 survey returns support all 25
+eastbound and 26 westbound fitted stations. The peak fitted grades are
+3.02% and 4.05% respectively. The local road stands about 6.3–7.1 m above
+the baked freeway surfaces at the tested crossing points. Physical underside
+clearance requires its own observations.
+
+The two ends on Geneva use the shared ground levels of 76.22 and 74.79 m
+NAVD88. Four directed joins connect the two decks to their corresponding
+off-ramps and on-ramps. The portal uses the same transverse boundary as the
+baked pavement. Where several ground mouths meet at the same point, the
+car's heading selects a clearly aligned mouth.
+
+**Physics and UI.** One manual-control Chrome run left southbound I-280,
+traversed the eastbound Geneva deck and rejoined northbound I-280. A second
+run crossed westbound from northbound I-280 to the southbound on-ramp.
+Both drives acquired every surface grounded and recorded zero airborne
+travel. The lower freeway retains separate through routes beneath Geneva.
+
+- Game manifest SHA-256 `18caec1cb37d15fcbc19d5d1af5f8f0f95ca008ad6033f6c370825b1cc69b6c4`.
+- Contact SHA-256 `357ae56eca377a77a996bbec410027c57e4748b249a12bacdf8717588bde174a`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  geneva-avenue-{eastbound,westbound} geneva-{northbound,southbound}-through \
+  geneva-exit-and-reentry geneva-westbound-exit-and-reentry
+```

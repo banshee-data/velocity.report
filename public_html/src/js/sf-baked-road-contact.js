@@ -257,6 +257,6 @@ export function buildBakedRoadContact(road) {
       surface_owner: owners[i],
       support: "interpolated",
     })),
-    portals: roadPortals(surface, groundEnds, groundExitOnly),
+    portals: roadPortals(surface, groundEnds, groundExitOnly, seams),
   };
 }

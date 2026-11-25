@@ -1,0 +1,1 @@
+- Baked both Geneva Avenue carriageways and joined them to the four I-280 ramps. The [road route audit](../../ui/sf-road-route-audit.md#geneva-avenue-deck-and-i-280-ramp-loop) records the surveyed separation and the Chrome exit-and-reentry run.
