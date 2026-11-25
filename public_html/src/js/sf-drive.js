@@ -118,7 +118,10 @@ import {
   indexRoadNetwork,
 } from "./sf-road-network.js";
 import { buildBakedRoadContact } from "./sf-baked-road-contact.js";
-import { driveThroughRoadPortal } from "./sf-road-portal.js";
+import {
+  driveThroughRoadPortal,
+  shouldTakePortalRoadJoin,
+} from "./sf-road-portal.js";
 import { tunnelMesh } from "./sf-tunnel-mesh.js";
 import {
   exteriorTunnelMouths,
@@ -2855,7 +2858,7 @@ export async function startDrive({
             ? { ...input, brake: true }
             : input);
         const manual = insurance.mode === "manual";
-        const portalStep = bakedPortals.size
+        let portalStep = bakedPortals.size
           ? driveThroughRoadPortal(
               car,
               controls,
@@ -2866,6 +2869,30 @@ export async function startDrive({
               terrainHeight,
             )
           : null;
+        if (
+          portalStep &&
+          !portalStep.surfaceId &&
+          surface &&
+          bakedRoads.has(surface.id)
+        ) {
+          const joined = driveOnRoadNetwork(
+            car,
+            controls,
+            1 / 120,
+            surface,
+            roadSurfaces,
+            (manual && manualNetwork) || bakedNetwork,
+            requestRoadOwner,
+          );
+          if (
+            shouldTakePortalRoadJoin(
+              car,
+              joined,
+              bakedPortals.get(joined.surfaceId) ?? [],
+            )
+          )
+            portalStep = joined;
+        }
         let candidate = portalStep;
         if (!candidate && car.leavingRoad) {
           candidate = fallFromRoad(car, 1 / 120, (x, y) =>
