@@ -10,16 +10,16 @@ measure of real driving safety. Production score weights remain open.
 | Change                            | Primary | Also affects  | Trigger and behaviour                                                                                       | Evidence or limitation                                                              |
 | --------------------------------- | ------- | ------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Authored 300 m road and crest     | World   | Physics, Data | Start at x = −150 m, drive east to the finish at x = 150 m                                                  | `crest-practice-v1`, local metres; no city tile changes                             |
-| Contact and ballistic travel      | Physics | World, UI     | Road falling away releases support; existing horizontal momentum and gravity continue until landing         | Slow and fast crest regressions; point support, no suspension or vehicle damage     |
+| Contact and ballistic travel      | Physics | World, UI     | A crest or drop releases support and momentum carries the car until touchdown                               | Slow and fast crest regressions on a known profile                                  |
 | Separate solo run                 | Goals   | UI, Data      | Finish on the road after landing, or abort and restart                                                      | No time bonus, rank, best time or weighted score; city records untouched            |
 | Compact cues and stopped evidence | UI      | Goals, Data   | Limit, unknown coverage, kerb contact and off-road cues occupy the existing strip; detail stays in the menu | Existing keyboard/touch controls, cameras and mirror retained                       |
 | Simulation-time accounting        | Data    | Goals         | Record excess bands and continuous excursions, retaining separate kerb evidence                             | Deterministic fixed-tick tests; severity/duration available without adopted weights |
 
 **Traffic:** no lead actor, headway, DRAC, intersection or stop-line coaching is implemented.
 Those remain Milestone 2. The city emoji game retains its existing physics, pickups and
-record keys. The new contact model is scoped to the verified practice geometry; applying
-it to ambiguous city surfaces is deferred. Switching to practice preserves city progress;
-an already-running city trial's real-time clock continues, including time spent in practice.
+record keys. Practice uses the shared contact algorithm on a verified analytic surface.
+Switching to practice preserves city progress. An already-running city trial's real-time
+clock continues, including time spent in practice.
 
 ## World and Physics
 
@@ -33,9 +33,10 @@ At 120 Hz, grounded movement uses the existing bicycle model, hill force and off
 friction. When following the sampled surface would require downward acceleration greater
 than gravity, contact releases. The launch interval carries the prior velocity and heading;
 throttle, braking, steering and tyre friction have no effect in the air. Vertical motion
-uses 9.81 m/s² gravity. Contact returns on intersection with the surface; the vertical
-velocity then follows its tangent. The model omits suspension, impacts and body rotation
-dynamics. Missing ground freezes movement and excludes accounting until restart.
+uses 9.81 m/s² gravity. Contact returns on intersection with the surface and the
+vertical velocity follows the local wheelbase estimate of its tangent. The
+practice scene omits impacts and body rotation dynamics. Missing ground freezes
+movement and excludes accounting until restart.
 
 The authored kerbs are 15 cm high at y = ±6 m. A swept oriented vehicle envelope detects
 crossing or sustained overlap near those edges when the vehicle is low enough to touch.

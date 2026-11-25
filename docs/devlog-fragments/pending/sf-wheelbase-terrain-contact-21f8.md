@@ -1,0 +1,1 @@
+- Kept the SF car on shallow terrain joins by comparing support over the wheelbase at both ends of each tick. The [Market Street audit](../../ui/sf-road-route-audit.md#market-street-terrain-contact-at-the-sidehill-structures) measured 0.41–2.97 m of airborne travel in four repeat drives and recorded the unresolved south-west browser crash.
