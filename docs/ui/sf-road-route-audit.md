@@ -3688,3 +3688,34 @@ requires separate review.
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   bryant-street-{southwestbound,northeastbound}
 ```
+
+## Sickles and San Jose avenues beneath I-280
+
+**World and Data.** The Sickles crossing and the two mapped San Jose Avenue
+alignments now use separate lower road contacts. The 82 m, 108 m and 102 m
+profiles reach the existing street pavement at both ends. Survey returns
+support the approaches. The road levels between those observations are
+inferred across the survey shadows beneath the freeway. The terrain grid
+uses the nearest pavement where the three refinements overlap. The existing
+I-280 contacts remain above the streets, with 6.7–7.0 m of separation between
+the game road surfaces at the regression points. This measures the game
+surfaces. Physical clearance would require observations of the underside.
+
+**Physics and UI.** The original screening recorded 5.26–8.09 m of airborne
+travel on Sickles and 14.16–21.49 m on the tested San Jose alignment.
+Chrome now follows each of the three lower contacts in both directions
+without airborne travel within the crossing. The camera moves into covered
+view under I-280 and returns to the exterior after the street departure.
+Separate Chrome drives follow both freeway carriageways over the same area.
+
+- Parent game manifest SHA-256 `5c7886f4972799a151dce430453efcd7c20621aad3d93344caa103dec338ace1`.
+- Candidate game manifest SHA-256 `a92deef38b6575aaa793f415776092cb09d82675fd7c38347944556c8be979ea`.
+- Candidate contact SHA-256 `3f1f3f4596e86de5e92d44299d848e8259ab3415f78315da9f1182cac79d5a62`.
+- April 2023 3DEP index SHA-256 `be5260b336632c63eb1e347a41ed2873f9a46761d9bcb8f1bed8e1a117eb173b`.
+
+```bash
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  sickles-{northwestbound,southeastbound} \
+  san-jose-{first,second}-{southwestbound,northeastbound} \
+  i280-sickles-{northbound,southbound}
+```

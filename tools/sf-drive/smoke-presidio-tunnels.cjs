@@ -2514,6 +2514,89 @@ for (const reverse of [false, true]) {
     maxDurationMs: 65_000,
   };
 }
+for (const [road, forward, backward, departures] of [
+  [
+    "sickles-avenue-under-i280",
+    "sickles-northwestbound",
+    "sickles-southeastbound",
+    [
+      [
+        [-1392.5, -5414.15, 91.34],
+        [-1390.1, -5408.3, 91.4],
+        [-1384.8, -5400.2, 91.5],
+      ],
+      [[-1318.25, -5492.32, 91.63]],
+    ],
+  ],
+  [
+    "san-jose-avenue-first-under-i280-at-sickles",
+    "san-jose-first-southwestbound",
+    "san-jose-first-northeastbound",
+    [
+      [[-1487.6, -5526, 93.79]],
+      [
+        [-1395.5, -5417.4, 91.37],
+        [-1391.5, -5410.8, 91.4],
+        [-1386.5, -5403.2, 91.6],
+        [-1378.1, -5391.9, 92.0],
+      ],
+    ],
+  ],
+  [
+    "san-jose-avenue-second-under-i280-at-sickles",
+    "san-jose-second-southwestbound",
+    "san-jose-second-northeastbound",
+    [
+      [
+        [-1499.1, -5528.1, 94.09],
+        [-1504, -5538.3, 94.4],
+        [-1514.8, -5550.6, 95.1],
+        [-1525, -5563.6, 95.9],
+      ],
+      [
+        [-1408, -5424.7, 91.47],
+        [-1395.5, -5417.4, 91.37],
+        [-1391.5, -5410.8, 91.4],
+        [-1386.5, -5403.2, 91.6],
+        [-1378.1, -5391.9, 92.0],
+      ],
+    ],
+  ],
+]) {
+  for (const reverse of [false, true]) {
+    cases[reverse ? backward : forward] = {
+      roads: [road],
+      owners: ["808f7c24"],
+      reverse,
+      speed: 9,
+      laneGuides: { [road]: { lane: reverse ? 1.5 : -1.5 } },
+      groundApproachMetres: 8,
+      connectByGround: true,
+      groundDeparture: departures[Number(reverse)],
+      covered: [prefix + road],
+      maxApproachClearanceMetres: 0.18,
+      maxDepartureClearanceMetres: 0.18,
+      maxDurationMs: 60_000,
+    };
+  }
+}
+for (const [direction, road, start, finish] of [
+  ["northbound", "i280-north-edge-to-sr82", 1335, 1490],
+  ["southbound", "i280-south-geneva-to-sr82", 480, 630],
+]) {
+  cases[`i280-sickles-${direction}`] = {
+    roads: [road],
+    owners: ["808f7c24", "808f7c3c"],
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 15,
+    speed: 18,
+    finishOnDeck: true,
+    finishDistance: finish,
+    maxAirborneMetres: 0,
+    maxDurationMs: 65000,
+  };
+}
 cases["east-span-eastbound"] = {
   roads: ["yerba-buena-lower-east-after-entry", eastSpanEastbound],
   owners: islandEastOwners,

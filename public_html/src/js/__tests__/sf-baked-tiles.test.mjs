@@ -191,6 +191,30 @@ test("street underpasses keep their lower pavement and the freeway above it", ()
       14.03,
       -3.065,
     ],
+    [
+      "808f7c24",
+      "sickles-avenue-under-i280",
+      "i280-south-geneva-to-sr82",
+      [-1372.5463, -5435.5138],
+      91.63,
+      2.353,
+    ],
+    [
+      "808f7c24",
+      "san-jose-avenue-first-under-i280-at-sickles",
+      "i280-south-geneva-to-sr82",
+      [-1423.0909, -5456.3241],
+      92.26,
+      -2.29,
+    ],
+    [
+      "808f7c24",
+      "san-jose-avenue-second-under-i280-at-sickles",
+      "i280-south-geneva-to-sr82",
+      [-1450.3537, -5466.171],
+      92.44,
+      -2.282,
+    ],
   ];
   for (const [token, underpass, freeway, [x, y], elevation, heading] of tests) {
     const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));

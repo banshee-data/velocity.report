@@ -1,0 +1,1 @@
+- Baked the Sickles and San Jose Avenue contacts below I-280 and verified both levels in Chrome. The [crossing audit](../../ui/sf-road-route-audit.md#sickles-and-san-jose-avenues-beneath-i-280) records the survey limits, portal departures and freeway drives.
