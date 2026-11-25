@@ -4473,6 +4473,8 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
     "8085869c",
     "80858424",
     "8085842c",
+    "80858434",
+    "808585cc",
   ];
   const tiles = tokens.map((token) => {
     assert.ok(
@@ -4513,6 +4515,8 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
   const northApproach = road("golden-gate-northbound-past-vista");
   const northOverpass = road("us101-north-over-alexander");
   const northMerge = road("us101-north-after-alexander-merge");
+  const waldoNorth = road("robin-williams-nb");
+  const waldoSouth = road("robin-williams-sb");
   const southFork = road("us101-south-alexander-fork");
   const southOverpass = road("us101-south-over-alexander");
   const southApproach = road("us101-south-from-alexander-to-golden-gate");
@@ -4545,8 +4549,12 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
           northApproach,
           northOverpass,
           northMerge,
+          road("101-north-alexander-to-waldo"),
+          waldoNorth,
         ]
       : [
+          waldoSouth,
+          road("101-south-waldo-to-alexander"),
           southFork,
           southOverpass,
           southApproach,
@@ -4587,7 +4595,7 @@ test("both Golden Gate carriageways connect the Presidio and Marin above terrain
       }
     }
     assert.ok(span > 2700 && span < 2800, `${direction} span ${span}`);
-    assertGroundPortal(northbound ? northMerge : southFork);
+    assertGroundPortal(northbound ? waldoNorth : waldoSouth);
     const [deckX, deckY, deckZ] = crossing[2].points[190];
     assert.ok(groundAtWorld(tiles, deckX, deckY, true) < deckZ - 65);
   }

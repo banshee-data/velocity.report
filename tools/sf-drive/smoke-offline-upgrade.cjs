@@ -112,6 +112,9 @@ const tileHashes = new Map(
   manifests[1].tiles.map(({ t }) => [t, payloadHash(roots[1], t)]),
 );
 const previousTokens = new Set(manifests[0].tiles.map(({ t }) => t));
+const added = [...tileHashes.keys()].filter(
+  (token) => !previousTokens.has(token),
+);
 const changed = [...tileHashes]
   .filter(
     ([token, hash]) =>
@@ -293,12 +296,35 @@ async function cachedHashes(page, tokens) {
       )
       .map(({ pathname }) => path.basename(pathname, ".json.gz"));
     assert.deepEqual(requested.sort(), changed.sort());
+    if (added.length) {
+      await context.setOffline(false);
+      assert.match(await download(fresh), /^All /);
+      await context.setOffline(true);
+      await fresh.waitForFunction(
+        (total) =>
+          document.querySelector("#offlineTileCount")?.textContent ===
+          `${total}/${total} tiles available offline`,
+        tileHashes.size,
+      );
+      const downloaded = await cachedHashes(fresh, added);
+      for (const token of added)
+        assert.equal(downloaded[token], tileHashes.get(token), token);
+      assert.equal(
+        (await inventory(fresh)).find(
+          ({ name }) => name === `sf-tiles-/sf/-${versions[1]}`,
+        )?.count,
+        tileHashes.size,
+      );
+      assert.ok((await saved(fresh)).collected.includes(target.t));
+      assert.deepEqual((await saved(fresh)).checkpoint, checkpointBefore);
+    }
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify({
         chromium: browser.version(),
         versions,
-        tilesReadyOffline: copied.length,
+        tilesReadyOffline: copied.length + added.length,
+        newlyDownloadedTiles: added,
         fetchedChangedTiles: changed.length,
         point: await state(fresh),
         caches: await inventory(fresh),

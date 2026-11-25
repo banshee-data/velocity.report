@@ -31,6 +31,17 @@ def outline(file, projection, extent, min_area):
     ]
 
 
+MARIN_CORRIDORS = {
+    "101-north-alexander-to-waldo",
+    "robin-williams-nb",
+    "baker-barry",
+    "bunker-tunnel-exterior",
+    "bunker-road-to-alexander",
+    "bunker-road-east-short-branch",
+    "bunker-road-under-101",
+}
+
+
 def major_streets(tiles_dir, tiles):
     lines = []
     bridge = {}
@@ -45,9 +56,12 @@ def major_streets(tiles_dir, tiles):
                     [(ox + x / 10, oy + y / 10) for x, y in zip(xy[::2], xy[1::2])]
                 )
         for road in data.get("playableRoads", []):
-            if road["id"].startswith("sf-contact/golden-gate-northbound-"):
-                # The carriageways are adjacent in the minimap. Draw one line
-                # and deduplicate full contact strips shared by neighbouring tiles.
+            road_id = road["id"]
+            if road_id.startswith("sf-contact/golden-gate-northbound-") or (
+                road_id.removeprefix("sf-contact/") in MARIN_CORRIDORS
+            ):
+                # Draw one carriageway for adjacent pairs and deduplicate full
+                # contact strips shared by neighbouring tiles.
                 bridge[road["id"]] = [tuple(point[:2]) for point in road["points"]]
     lines.extend(bridge.values())
     simplified = line_merge(MultiLineString(lines)).simplify(12)
