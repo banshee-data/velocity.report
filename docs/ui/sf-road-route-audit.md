@@ -4872,3 +4872,14 @@ The ground-only grade screen sampled 15,023 road rows on each
 manifest and flagged 289 intervals above 50% grade. The retained
 run includes both the simulated road contact results and the grade
 outputs.
+
+### Oakland shoreline pavement rendering
+
+The deployed Oakland start showed the coarse terrain drawing through
+the pavement near the water. Two shoreline cells now carry 1,076 sparse
+draw-height adjustments. The draw surface tapers into the shoulder.
+The measured ground grid still supplies vehicle contact and the baked
+road profiles still supply both carriageways and their handoffs.
+
+- Game manifest SHA-256 `a1e3c80787a6b6c2278307dacdd0749c8cb46e2354f254432997f039ad54c5b3`.
+- Gerardus contact SHA-256 `44cbdfbac5237d70cadbb632f2dfdfa2c65c225f48c4c207a2d5839c4cadb4ec`.

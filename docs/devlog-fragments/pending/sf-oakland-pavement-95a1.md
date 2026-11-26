@@ -1,0 +1,1 @@
+- Cleared the terrain drawing through the Oakland approach pavement while preserving the driving surface. [Route audit](../../ui/sf-road-route-audit.md#oakland-shoreline-pavement-rendering)

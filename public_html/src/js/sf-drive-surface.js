@@ -99,7 +99,12 @@ export function tileRegion(tile, tiles) {
 
 /** Clip only boundary triangles; z is interpolated along their original planes. */
 export function* terrainTriangleRows(tile, region) {
-  const { g, o } = tile;
+  const { o } = tile;
+  const g = tile.g.renderZ?.length
+    ? { ...tile.g, z: tile.g.z.slice() }
+    : tile.g;
+  // The drawn shoulder can meet the pavement without changing driving contact.
+  if (g.renderZ) for (const [index, height] of g.renderZ) g.z[index] = height;
   const positions = [],
     uv = [];
   const planes = region.map((a, i) => {

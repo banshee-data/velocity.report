@@ -49,6 +49,27 @@ test("rendered ground, vector paint and contact use the same fine triangles and 
   assert.equal(groundAt(g, 2, 0.75, false), 0);
 });
 
+test("pavement draw adjustments leave the sampled driving ground intact", () => {
+  const g = {
+    x0: 0,
+    y0: 0,
+    s: 2,
+    n: 2,
+    z: [50, 50, 50, 50],
+    renderZ: [[0, 46]],
+  };
+  const region = [
+    [0, 0],
+    [2, 0],
+    [2, 2],
+    [0, 2],
+  ];
+  const { positions } = terrainTriangles({ g, o: [0, 0] }, region);
+  assert.equal(positions[1], 4.6);
+  assert.equal(groundAt(g, 0, 0, false), 5);
+  assert.deepEqual(g.z, [50, 50, 50, 50]);
+});
+
 test("the 21st Street approaches keep the jog and omit the embankment crossing", () => {
   const world = tile("808f7fbc");
   const ground = (x, y) =>
