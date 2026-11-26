@@ -6301,3 +6301,31 @@ run retains the survey, fitted profile and both Chrome drives.
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs central-octavia-entry
 ```
+
+## Market Street viaduct
+
+**World and Data.** The April 2023 pavement survey places the
+Market Street carriageways up to 14.7 m above the terrain stored in
+the previous game bake. The new bake carries the northbound road on
+172.8 m of measured contact and the southbound road on 162.6 m. Both
+ends of each deck meet existing pavement. The previous road paint
+under the bridge has been trimmed to the open approaches.
+
+**Physics and UI.** Northbound Chrome reached a peak grade of 44.4%,
+logged two dips and travelled 11.3 m airborne before a crash on the
+parent bake. Southbound hit 46.3% and travelled 2.3 m airborne.
+The revised drives reached ordinary street pavement in both directions
+with no dips, scrapes or airborne travel. Peak grades during the
+full browser drives were 10.4% northbound and 9.0% southbound.
+
+- Parent manifest SHA-256 `5e4e053e5f3d9f6ac388bcd64f512d2fd81274344353d4f426ca5533433652cb`.
+- Updated manifest SHA-256 `3e8e1ffe86620257a5bd4f0b12e6f61e82ccd58764948bc28249ef59853bb02c`.
+- Contact SHA-256 `f712ae5497a1b3486267bf3e49be10ca9168f707c7e6714dfb337ab7fd20dad4`.
+- Fitted profile SHA-256 `caecf2f808abc9edf1e5933527c4cdc50415fb6cfd166a004f86f8f4aab660d0`.
+
+The attached `city-structure-inventory-20261126/market-west-deck-mapped-ramp-20261126-b23`
+run retains the survey, both fitted carriageways and the keyboard drives.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs market-viaduct-northbound market-viaduct-southbound
+```
