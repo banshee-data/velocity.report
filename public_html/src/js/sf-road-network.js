@@ -187,9 +187,11 @@ export function indexRoadNetwork(confirmedConnections) {
   );
   const endpoints = new Map();
   const transitions = new Map();
+  const approachLanes = new Map();
   return {
     endpoints,
     transitions,
+    approachLanes,
     add(tile) {
       for (const endpoint of tile.endpoints) {
         if (supported(endpoint.support)) endpoints.set(endpoint.id, endpoint);
@@ -204,6 +206,10 @@ export function indexRoadNetwork(confirmedConnections) {
         for (const [from, to] of directions) {
           if (!transitions.has(from)) transitions.set(from, new Set());
           transitions.get(from).add(to);
+          if (from === join.from && join.from_lateral_range_m) {
+            if (!approachLanes.has(from)) approachLanes.set(from, new Map());
+            approachLanes.get(from).set(to, join.from_lateral_range_m);
+          }
         }
       }
     },
@@ -359,6 +365,10 @@ export function driveOnRoadNetwork(
       const pastEnd =
         (candidate.x - point[0]) * dx + (candidate.y - point[1]) * dy >= 0;
       if (z !== null && pastEnd) {
+        const lane = graph.approachLanes?.get(id)?.get(to);
+        const lateral =
+          (candidate.y - point[1]) * dx - (candidate.x - point[0]) * dy;
+        if (lane && (lateral < lane[0] || lateral > lane[1])) continue;
         candidates.push({
           car: {
             ...candidate,

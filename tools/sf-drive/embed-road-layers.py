@@ -160,6 +160,23 @@ def valid_covered_range(road):
     return 0 <= covered[0] < covered[1] <= length
 
 
+def valid_approach_lane(transition, seam):
+    if "from_lateral_range_m" not in transition:
+        return True
+    lane = transition["from_lateral_range_m"]
+    if (
+        transition["direction"] != "forward"
+        or not transition["from"].endswith(":end")
+        or not isinstance(lane, list)
+        or len(lane) != 2
+        or any(type(v) not in (int, float) or not math.isfinite(v) for v in lane)
+    ):
+        return False
+    width = seam["width"]
+    left = seam.get("leftWidth", width / 2)
+    return left - width <= lane[0] < lane[1] <= left
+
+
 def valid_tunnel_wall_openings(road):
     if "tunnel_wall_openings_m" not in road:
         return True
@@ -364,6 +381,7 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             or math.dist(start, end) > 0.002
             or seam_a is None
             or seam_a != seam_b
+            or not valid_approach_lane(transition, seam_a)
         ):
             raise ValueError(f"Open playable join {transition['id']}")
     base_tiles = {tile["t"] for tile in tiles}

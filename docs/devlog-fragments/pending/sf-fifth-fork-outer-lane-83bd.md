@@ -1,0 +1,1 @@
+- Carried the westbound I-80 outer lane from Fifth towards Fourth Street and distinguished the Harrison exit at the shared fork. The [road route audit](../../ui/sf-road-route-audit.md#fifth-street-to-fourth-street-outer-lane) records the surveyed lane support, scenery caps and manual drive checks.

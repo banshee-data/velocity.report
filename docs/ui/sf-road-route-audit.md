@@ -5607,3 +5607,43 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   mariposa-northbound-outer mariposa-southbound-outer \
   mariposa-west-to-southbound-i280 i280-mariposa-exit mariposa-upper-18th-viaduct
 ```
+
+## Fifth Street to Fourth Street outer lane
+
+**World and Data.** The initial SoMa width review left a narrowed join at the
+westbound Fifth Street fork and a short through section beyond it. The same
+survey supported the extended offset at 105 stations before the fork, 111
+beyond it and 117 on the exit. Two inferred building faces overlapped the widened
+through lanes. The caps cover 19.57 m² and 112.00 m². The scan contained 11,035
+pavement-class returns in those overlaps and higher unclassified returns
+consistent with traffic at acquisition. The base and adjacent faces remain
+in the game. [San Francisco LiDAR survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+The two outgoing connections share a 19.5 m section. The optional
+`from_lateral_range_m` field records the signed permitted lane interval at
+the source of a forward join. Positive values are left of the outgoing
+bearing. Older joins use the existing heading comparison. At this fork the
+three mapped through lanes fall between −17.5 m and −8.8 m, and the two
+Harrison exit lanes fall between −8.8 m and +2 m. These are game transition
+limits derived from the reviewed pavement and the mapped carriageways. They
+select the appropriate surface for the lane the player steers into. [OpenStreetMap extract](https://download.bbbike.org/osm/bbbike/SanFrancisco/).
+
+**Physics.** The parent through-lane probe fell for 21.46 m before reaching
+lower ground. In the first wider preview it stayed on the deck and hit an
+inferred face. The separate exit also picked the through deck when selected
+by heading alone. Chrome finished the outer seam crossing and the downstream
+outer lane grounded after the changes. It also took the separate exit to
+Harrison and stayed on the through deck on the other line without route assist.
+
+- Parent game manifest SHA-256 `fab27ba3c09f3faef45d2dab1a29a21c6224753558aad01de14ecd179100a73a`.
+- Revised game manifest SHA-256 `a512a827575fdd490dae9355acffdb15cab6ce43df678a0f652cb4ae370163d3`.
+- Revised contact SHA-256 `a2006abb32819aae55575d7a105b0a3055c1827fa7f961eccb877451f795bbfe`.
+
+The `city-structure-inventory-20261126` evidence run retains the survey and
+browser data. The test uses the ordinary game runtime and bundled tiles.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i80-westbound-fifth-outer-join i80-westbound-fourth-outer \
+  i80-westbound-over-fifth i80-westbound-fifth-harrison
+```

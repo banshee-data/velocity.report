@@ -47,7 +47,7 @@ function at({ profile }, station) {
   );
 }
 
-function seamGuide(source, target, from, to, lane) {
+function seamGuide(source, target, from, to, lane, holdLane) {
   const fromEnd = from === source.end_ids[1];
   const toStart = to === target.end_ids[0];
   const sourceLength = source.profile.at(-1).s_m;
@@ -68,7 +68,11 @@ function seamGuide(source, target, from, to, lane) {
         : at(target, toStart ? d : targetLength - d);
     const offset =
       lane *
-      (d <= 0 ? smooth((d + before + 4) / (before + 4)) : smooth(1 - d / 11));
+      (holdLane
+        ? 1
+        : d <= 0
+          ? smooth((d + before + 4) / (before + 4))
+          : smooth(1 - d / 11));
     return {
       x: east - Math.sin(heading) * offset,
       y: north + Math.cos(heading) * offset,
@@ -515,13 +519,19 @@ export function auditBakedRoadLinks(
         source.kind === "bridge_deck" && target.kind === source.kind ? 14 : 8;
       const width =
         source.terminalHalfWidths?.[source.end_ids.indexOf(from)] ?? 2;
-      const lanes = [-0.9, 0.9, -1.8, 1.8, -2.5, 2.5, 0].filter(
-        (lane) => Math.abs(lane) <= width - 1,
-      );
+      const range = network.approachLanes.get(from)?.get(to);
+      const centre = range ? (range[0] + range[1]) / 2 : 0;
+      const lanes = [-0.9, 0.9, -1.8, 1.8, -2.5, 2.5, 0]
+        .map((offset) => centre + offset)
+        .filter((lane) =>
+          range
+            ? lane > range[0] && lane < range[1]
+            : Math.abs(lane) <= width - 1,
+        );
       const attempts =
         fixedLane === undefined
           ? [
-              { lane: 0, speed: fast, look: 5.5 },
+              { lane: centre, speed: fast, look: 5.5 },
               ...[fast, 6, 4].flatMap((speed) =>
                 [4, 6.5].flatMap((look) =>
                   lanes.map((lane) => ({ lane, speed, look })),
@@ -529,11 +539,15 @@ export function auditBakedRoadLinks(
               ),
             ]
           : [fast, 6, 4].flatMap((speed) =>
-              [4, 6.5].map((look) => ({ lane: fixedLane, speed, look })),
+              [4, 6.5].map((look) => ({
+                lane: centre + fixedLane,
+                speed,
+                look,
+              })),
             );
       const traces = screen(attempts, ({ lane, ...input }) =>
         drive(
-          seamGuide(source, target, from, to, lane),
+          seamGuide(source, target, from, to, lane, !!range),
           { from: source.id, to: target.id, ...input },
           assets,
         ),

@@ -4,6 +4,7 @@ export function steeringLine(points, guide = {}) {
   const {
     lane = 0,
     approach = 0,
+    approachMetres = 32,
     holdApproach = false,
     entranceEast = 0,
     entranceNorth = 0,
@@ -34,7 +35,7 @@ export function steeringLine(points, guide = {}) {
     const remaining = distances.at(-1) - distances[i];
     const exitLane =
       approach *
-      smooth((32 - remaining) / 18) *
+      smooth((approachMetres - remaining) / ((approachMetres * 18) / 32)) *
       (holdApproach ? 1 : 1 - Math.exp(-remaining / 5));
     const entranceLane = smooth(1 - distances[i] / entranceMetres);
     const clearanceLane = clearances.reduce(
