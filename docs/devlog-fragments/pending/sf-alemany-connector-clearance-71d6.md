@@ -1,0 +1,1 @@
+- Cleared three unsupported tree trunks from [the Alemany connector approach to Junipero Serra](../../ui/sf-road-route-audit.md#alemany-connector-to-junipero-serra).

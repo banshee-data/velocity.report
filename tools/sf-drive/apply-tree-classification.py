@@ -91,10 +91,12 @@ def bake(release, patch, output):
     product_raw = patch.read_bytes()
     product = json.loads(product_raw)
     if (
-        product["format"] != "sf-inferred-tree-classification/v1"
+        product["format"]
+        not in ("sf-inferred-tree-classification/v1", "sf-road-tree-clearance/v1")
         or product["tile_manifest_sha256"] != parent
     ):
         raise ValueError("Tree classification needs its pinned game release")
+    road_clearance = product["format"] == "sf-road-tree-clearance/v1"
     patches = product["inferred_tree_patches"]
     if not patches.keys() <= {row["t"] for row in manifest["tiles"]}:
         raise ValueError("Tree classification references an unknown tile")
@@ -104,6 +106,10 @@ def bake(release, patch, output):
     changed = {}
     road_bake = manifest["roadBake"]
     previous = road_bake.get("treeClassification")
+    if road_clearance and previous and patches.keys() & previous["tiles"].keys():
+        raise ValueError("Use an additional tree review for previously classified tiles")
+    if road_clearance:
+        previous = None
     release_receipts = previous["tiles"] if previous else {}
     if previous and not patches.keys() <= release_receipts.keys():
         raise ValueError("Additional review must use previously classified tiles")
@@ -112,6 +118,9 @@ def bake(release, patch, output):
         if token not in patches:
             continue
         raw_tile = (tiles / f"{token}.json.gz").read_bytes()
+        initial_tile_hash = digest(raw_tile)
+        if road_clearance and product["base_tile_sha256"][token] != initial_tile_hash:
+            raise ValueError(f"Road clearance tile hash differs in {token}")
         data = json.loads(gzip.decompress(raw_tile))
         removed = set()
         for row in patches[token]:
@@ -130,7 +139,6 @@ def bake(release, patch, output):
         ]
         payload = gzip.compress(encode(data), compresslevel=9, mtime=0)
         changed[token] = payload
-        initial_tile_hash = digest(raw_tile)
         prior_receipt = release_receipts.get(token)
         if prior_receipt and prior_receipt["sha256"] != initial_tile_hash:
             raise ValueError(f"Previous tree review tile hash differs in {token}")
@@ -149,13 +157,22 @@ def bake(release, patch, output):
         "surveyNodesSha256": product["ept_nodes_sha256"],
         "streetTreeInventorySha256": product["tree_inventory_sha256"],
     }
-    if previous:
+    if road_clearance:
+        road_bake.setdefault("roadTreeClearanceReviews", []).append(
+            {
+                **classification,
+                "surveyReceiptSha256": product["survey_receipt_sha256"],
+                "tiles": release_receipts,
+            }
+        )
+    elif previous:
         previous.setdefault("additionalReviews", []).append(classification)
     else:
         road_bake["treeClassification"] = {**classification, "tiles": release_receipts}
     print(
         write_release(
-            release, output, manifest, parent_raw, changed, carry=bool(previous)
+            release, output, manifest, parent_raw, changed,
+            carry=road_clearance or bool(previous),
         ),
         {token: release_receipts[token] for token in changed},
     )

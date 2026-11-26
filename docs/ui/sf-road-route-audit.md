@@ -5929,3 +5929,27 @@ python3 tools/sf-drive/apply-terrain-detail.py "$PARENT_GAME" "$DETAIL_OUTPUT" "
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   san-jose-tingley-southbound san-jose-tingley-ground-approach
 ```
+
+## Alemany connector to Junipero Serra
+
+**World and Physics.** A keyboard drive following the mapped southbound
+connector stalled on an inferred tree after 156 m. A line 3.5 m farther
+inside the carriageway reached Junipero Serra and reported a tree scrape.
+The April 2023 survey shows lower pavement with an empty vehicle-height
+band at all three reviewed footprints. At one footprint, 145 class-17
+returns record the upper surface around 9.6 m above the lower pavement.
+The bake removes the three inferred trunk rows from the lower route.
+Chrome then drove the original line through to Junipero Serra in 25.9 s
+with zero scrapes, dips or airborne travel.
+
+**Data.** The patch binds the complete input tile and the three row
+hashes. Its release receipt carries the survey hashes alongside the
+existing tree-classification review.
+
+- Parent manifest SHA-256 `e6e478bc61780659fab43bbeea59a16885d8d610151dadeab5f11bd95ea35943`.
+- Revised manifest SHA-256 `3d32aa4be86037784c14df220f293bf307bfd5204d605d1300a24f5bac4a927a`.
+- Survey receipt SHA-256 `ed168cc5d5e45915df81feb421d4151f5683e3b364a4608717b084bd756b365b`.
+- Gerardus clearance SHA-256 `4f88f38daef31b0175ae9d5249ca0034523003843ad0e1676614f0f59e7d69c4`.
+
+The attached `city-structure-inventory-20261126/alemany-connector-b23`
+evidence retains the course, keyboard traces and 33 survey nodes.

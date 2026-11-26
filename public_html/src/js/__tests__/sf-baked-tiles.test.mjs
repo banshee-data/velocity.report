@@ -320,6 +320,31 @@ test("San Jose Avenue is clear from the southbound approach into the Tingley und
   }
 });
 
+test("the Alemany connector leaves lower pavement clear beneath the crossing", () => {
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const token = "808f7c4c";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const review = manifest.roadBake.roadTreeClearanceReviews.findLast(
+    ({ tiles }) => tiles[token],
+  ).tiles[token];
+  assert.equal(review.sha256, digest(raw));
+  assert.equal(review.removed, 3);
+  const index = buildCollisionIndex(tile, token);
+  for (const [tx, ty] of [
+    [3250, -2732],
+    [2950, -3152],
+    [2950, -3272],
+  ]) {
+    assert.ok(!tile.tr.some(([x, y]) => x === tx && y === ty));
+    const x = tile.o[0] + tx / 10;
+    const y = tile.o[1] + ty / 10;
+    const z = groundAtWorld([tile], x, y, false);
+    assert.ok(Number.isFinite(z));
+    assert.equal(collisionAt([index], { x, y, heading: -2 }, z), null);
+  }
+});
+
 test("local bridges carry the car above the ground grid and meet street pavement", () => {
   const specifications = [
     ["8085876c", "crossover-drive-over-jfk", [-3462, 1194.7], 6],
