@@ -1,0 +1,1 @@
+- Baked the northbound CA 1 connector at John Daly Boulevard at its surveyed level and verified both terrain handoffs with a [keyboard drive in Chrome](../../ui/sf-road-route-audit.md#ca-1-north-connector-at-john-daly-boulevard).
