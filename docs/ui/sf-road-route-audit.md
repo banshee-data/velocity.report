@@ -5355,3 +5355,92 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   dogpatch-pennsylvania-to-i280 broadway-west-ground-approach \
   western-alemany-ground-approach tenth-bryant-ground-approach
 ```
+
+### Twenty pickup routes with Chrome keyboard input
+
+**Goals, UI, World, Physics and Data.** Chrome opened the public game with a
+saved checkpoint for each pickup pair. The test confirmed manual takeover and
+held or released the normal steering and pedal keys. Each case verified the
+same static manifest from its own browser response. The public run covered
+41.48 km, with no road-loading waits, JavaScript errors or Arrow requests.
+
+The grade columns use absolute grade sampled at one-metre intervals while the
+car was grounded. The dip check flags drops deeper than 0.5 m relative to the
+chord between samples four metres before and after. It found zero such dips.
+Presidio West and Twin Peaks had short airborne stretches. The 120 Hz replay
+also caught those lifts, with peak road clearance of 0.11 m on Presidio West
+and 0.22 m on Twin Peaks. These figures describe the driven game traces.
+
+| Public route        | Outcome      | Distance km | Grade p95 | Peak grade | Airborne m |
+| ------------------- | ------------ | ----------: | --------: | ---------: | ---------: |
+| Broadway Tunnel     | Both pickups |        1.55 |      9.6% |      21.6% |       0.00 |
+| Castro to Mission   | Both pickups |        2.01 |      5.1% |       6.4% |       0.00 |
+| Dogpatch via 21st   | Both pickups |        2.64 |     14.9% |      20.0% |       0.00 |
+| Dogpatch via 23rd   | Both pickups |        2.45 |     18.8% |      21.3% |       0.00 |
+| Excelsior           | Both pickups |        1.62 |     19.8% |      22.6% |       0.00 |
+| Freeway to Bayview  | Both pickups |        3.29 |     11.2% |      18.3% |       0.00 |
+| Golden Gate Park    | Crash        |        2.11 |      5.7% |       8.3% |       0.00 |
+| Lake Merced         | Stall        |        1.80 |      5.0% |       5.6% |       0.00 |
+| Mission Bay         | Both pickups |        2.48 |      1.7% |       4.1% |       0.00 |
+| North Beach hills   | Both pickups |        1.23 |      6.2% |       7.9% |       0.00 |
+| Ocean Beach         | Both pickups |        2.16 |      2.3% |       3.0% |       0.00 |
+| Pacific Heights     | Both pickups |        1.70 |     17.9% |      19.1% |       0.00 |
+| Presidio West       | Both pickups |        2.18 |     10.8% |      18.4% |       8.85 |
+| SoMa via I-280      | Both pickups |        3.87 |     13.7% |      21.3% |       0.00 |
+| SoMa below the deck | Both pickups |        1.48 |      6.6% |       8.8% |       0.00 |
+| Stockton Tunnel     | Both pickups |        1.65 |     10.1% |      15.4% |       0.00 |
+| Sunset avenues      | Both pickups |        2.30 |      8.7% |      10.1% |       0.00 |
+| Toll Plaza Tunnel   | Both pickups |        1.62 |      8.4% |      13.6% |       0.00 |
+| Twin Peaks          | Both pickups |        1.20 |     15.1% |      23.0% |      16.11 |
+| Waterfront          | Both pickups |        2.15 |      4.5% |       7.5% |       0.00 |
+
+The Broadway, Stockton and Toll Plaza runs each used the tunnel camera inside
+its baked bore. Two Highland directions also cleared in Chrome. The Silliman
+round trip covered 441 m grounded on local streets between its southbound
+US 101 exit and entrance, then continued to the San Bruno exit. The San Jose
+Avenue approach reached the Tingley undercrossing after 33 m on ordinary
+pavement, with the covered view, zero scrapes and zero airborne travel.
+
+At Crossover Drive the browser cleared the baked span before hitting scenery
+on ordinary pavement. Two nearby inferred trunks are 1.02 m and 1.81 m from
+the mapped centreline. The survey has vehicle-height returns in both review
+windows. The route now takes a 2.4 m rightward shift around the lower curve,
+within the mapped 3.5 m carriageway on that side. The tile keeps both rows.
+Chrome collected both pickups on the revised line over 4.95 km, including
+3.32 km after the deck, with zero scrapes, airborne travel or dip flags.
+
+At Lake Merced Boulevard an inferred trunk stands 1.34 m from the mapped
+centreline where the carriageway extends 1.50 m on that side. The 1.05 m
+survey window contained 403 pavement returns and zero vehicle-height or
+upper returns. The corrected tile removes that row. Chrome then collected
+both Lake Merced pickups over 2.53 km on the original line with zero scrapes,
+airborne travel or dip flags. The other three scenery correction tiles
+reproduce byte for byte and all 379 playable surfaces retain their earlier
+geometry. [April 2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+The revised package passed all 471 directed span traversals and all 340
+directed joins. The 515 handoffs yielded 512 ground transfers and three direct
+road continuations, with 15 light scrapes and zero handoff failures. All 21
+fixed-step pickup courses in the expanded plan completed 46.87 km with zero
+dips more than 0.5 m deep. That set includes a second waterfront approach.
+
+- Public game manifest SHA-256 `03bec60ff34964fcbfaf32f38dc51e625141be4353fe264c03833309d6d4ce67`.
+- Public browser course export SHA-256 `22f372ae174efa56fbd633f7e55e8f6702a8d0a063b91f55e8ea25007bfce97d`.
+- Revised game manifest SHA-256 `11aa3fe204c385c329effe9a7a8844997e62fd10fb0ad415ef02997a023928e5`.
+- Combined B23 survey receipts SHA-256 `e180f316fc4771c02d03a31e6214c529c1d630694aa4725d745bd5fa89f5d250`.
+- [Revised course plan](../../tools/sf-drive/road-audit-current-contact-routes.json).
+
+The `road-ground-entries-evidence-20261125` and
+`browser-road-campaign-evidence-20261125` runs retain the original survey
+nodes, pinned course exports and raw browser traces on the attached evidence
+volume.
+
+```sh
+node tools/sf-drive/audit-road-routes.mjs \
+  --plan=tools/sf-drive/road-audit-current-contact-routes.json --export-courses \
+  > /tmp/sf-current-road-courses.jsonl
+node tools/sf-drive/drive-road-audit.cjs /tmp/sf-current-road-courses.jsonl --verify
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  bernal-cut-highland-eastbound bernal-cut-highland-westbound \
+  silliman-roundtrip san-jose-tingley-ground-approach
+```
