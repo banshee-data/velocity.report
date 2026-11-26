@@ -2077,6 +2077,26 @@ cases["mariposa-upper-18th-viaduct"] = {
   covered: [],
 };
 
+for (const [name, road, start, finish, station, length] of [
+  ["mariposa-southbound-outer", "i280-king-to-mariposa", 130, 400, 283, 115],
+  ["mariposa-northbound-outer", sixthForkApproach, 220, 487, 352, 110],
+]) {
+  cases[name] = {
+    owners: i280Owners,
+    roads: [road],
+    speed: 16,
+    rollingStart: true,
+    initialSpeedMps: 15,
+    rollingStartMetres: start,
+    finishOnDeck: true,
+    finishDistance: finish,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 42_000,
+    laneGuides: { [road]: { clearance: { offset: 9, station, length } } },
+  };
+}
+
 const southernUs101Owners = [
   "808f7e54",
   "808f7ee4",
