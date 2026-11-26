@@ -278,6 +278,29 @@ test("reviewed offset lanes clear the inferred trunks on the three ramps", () =>
   assert.ok(bosworth.tr.some(([x, y]) => x === 4369 && y === -638));
 });
 
+test("San Jose Avenue is clear from the southbound approach into the Tingley undercrossing", () => {
+  const token = "808f7e64";
+  const raw = file(`tiles/${token}.json.gz`);
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  assert.equal(
+    manifest.roadBake.tingleyPortalClearance.tiles[token].sha256,
+    digest(raw),
+  );
+  const scenery = JSON.parse(gunzipSync(raw));
+  const approach = JSON.parse(gunzipSync(file("tiles/808f7e7c.json.gz")));
+  const tiles = [scenery, approach];
+  const indexes = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
+  for (const [x, y] of [
+    [450.358, -3119.004],
+    [448.585, -3121.154],
+    [443.4933, -3127.3244],
+  ]) {
+    const z = groundAtWorld(tiles, x, y, true);
+    assert.ok(Number.isFinite(z));
+    assert.equal(collisionAt(indexes, { x, y, heading: -2.26 }, z), null);
+  }
+});
+
 test("local bridges carry the car above the ground grid and meet street pavement", () => {
   const specifications = [
     ["8085876c", "crossover-drive-over-jfk", [-3462, 1194.7], 6],
