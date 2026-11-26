@@ -5707,3 +5707,46 @@ and both browser traces.
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs soma-lower-climb-merge-lane
 ```
+
+## Outside lanes on the westbound Bay Bridge and city approach
+
+**World and Data.** The western span had a nominal 10 m game contact. Chrome
+steered 7 m right of its baked line, fell for 24.55 m and landed on the
+eastbound deck about 9 m below. Related probes fell off the city approach
+and the upper SoMa deck. The April 2023 survey supports wider, asymmetric
+sections along the westbound corridor. Samples at 4 m intervals found
+pavement at 697 of 703 probes 9 m right of the west-span line. The six
+missing samples lie in two short gaps between observed pavement sections.
+All 203 probes 10 m right of the city approach, Fremont split and first
+208 m of the SoMa deck found pavement. The bake keeps the original road
+elevations and shares the revised cross-sections across the directed joins.
+[USGS San Francisco LiDAR survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+On the city approach the wider contact exposed seven inferred scenery rows
+intersecting the travel lane. Another pass checked all 200 probes 10 m
+right of the line and measured a p95 pavement residual of 0.36 m. The
+scenery caps lower 1,041.69 m² of inferred faces within the reviewed strip.
+The existing street-level clearance checks still pass under the bridge.
+These measurements describe the sampled road and game clearance. Scene
+returns at vehicle height include objects present during acquisition.
+
+**Physics.** The three outside-lane Chrome cases finished grounded with
+zero airborne travel. The revised Fremont rail starts after the shared
+approach, and the right rail continues along the independent exit. The
+fixed-step check passed all 473 travel directions on the 381 baked surfaces
+and all 342 directed joins.
+
+- Parent game manifest SHA-256 `6aca54dbb92ad51d24c95c72195d1d92e34a0833fb0717e0edde53aff93f353c`.
+- Revised game manifest SHA-256 `2a373503b139aaa307105846650fa3b36559aa7671eddc6a6cf3e52ce15864f1`.
+- Revised contact SHA-256 `5670145c24194f6c340f297bcd36a492b0c7a61a5e3d3c5f052626fba966a325`.
+- Survey receipt SHA-256 `cdf8fcd20e8fe407822acd480e7c1a29a65f3a054b78ce6a13890b3b1172e0b8`.
+
+The `west-span-width-b23` directory in `city-structure-inventory-20261126`
+retains the original survey nodes, lane probe measurements and browser runs.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  west-span-outside-lane west-city-approach-outside-lane \
+  west-soma-before-fourth-outside-lane west-city-approach-fremont-exit \
+  west-city-approach-through westbound-harrison-loop
+```
