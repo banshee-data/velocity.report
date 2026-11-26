@@ -5039,3 +5039,54 @@ The current contact course plan has SHA-256
 
 The retained `street-fork-evidence-20261125` run records the B23 metadata
 digest, individual node hashes, game tree indices and per-class counts.
+
+### Pickup routes over Baden and Crossover and beneath the Bay Bridge
+
+**World, Physics and Goals.** The street graph stopped at the cut ends of
+Baden Street and sent the Excelsior pickup replay on an 8.87 km detour
+through Randall and Bayshore. The new case joins those ends through the
+baked Baden deck and turns onto San Jose Avenue. The park case follows
+Park Presidio, crosses the Crossover Drive deck, and reaches the Chain of
+Lakes pickup from Lincoln Way. The earlier park line used the eastern JFK
+Promenade. The waterfront case stays on The Embarcadero through Folsom,
+turns onto Harrison, and takes Main Street beneath the Bay Bridge before
+turning onto Bryant. [Golden Gate Park car access](https://www.sfrecpark.org/1618/Getting-to-Golden-Gate-Park-by-Car).
+
+The 120 Hz replay measured grade at one-metre intervals along each driven
+line. None of these three drives had a dip more than 0.5 m below an
+eight-metre chord. The deck peak columns sample the stored deck profiles.
+
+| Course                               | Driven distance | Airborne distance | Driven p95 / peak grade | Baked deck peak grade |
+| ------------------------------------ | --------------: | ----------------: | ----------------------: | --------------------: |
+| Excelsior via Baden Street           |       1,605.5 m |               0 m |           20.0% / 22.5% |                 14.7% |
+| Golden Gate Park via Crossover Drive |       4,944.5 m |               0 m |            5.6% / 11.1% |                  2.9% |
+| Waterfront via Main Street           |       2,141.8 m |            0.26 m |             4.4% / 8.6% |                     — |
+
+Chrome drove the full 1,616.7 m Excelsior course using keyboard input
+with route assist off. It collected both pickups, finished grounded and
+continued 1,087.6 m beyond the Baden handoff. Separate runs used the
+upper deck in both directions and stayed on the two I-280 carriageways
+beneath it. All four finished grounded with zero airborne distance.
+Chrome also completed the 4,957.2 m park and 2,156.4 m waterfront courses
+with both pickups, zero airborne distance and zero measured dips. Two
+focused runs on Main Street stayed at street level, at 4.23–6.91 m in the
+game, and cleared the Bay Bridge crossing.
+
+Nineteen of the 20 fixed-step pickup replays now collected both emojis.
+North Beach still stops at the Columbus Avenue tree after 149.7 m. The
+original lines and their collision results remain in the record above.
+This run checks completion and terrain behaviour on the given game paths.
+
+- Published game manifest SHA-256 `352ee066ec4f33e8d80cccc3af707147d45380c9887345252128aab7b55c69fb`.
+- Twenty-course plan SHA-256 `e888db29a647f93c4bf013c1b85972aae6fc27cf4c354b6c7e636384d6b02ad8`.
+
+The `layered-pickup-driving` run on the attached evidence volume retains
+both replay plans and the original browser telemetry.
+
+```sh
+plan=tools/sf-drive/road-audit-current-contact-routes.json
+node tools/sf-drive/audit-road-routes.mjs --plan="$plan" excelsior golden-gate-park waterfront
+node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses > /tmp/sf-layered-pickup-courses.jsonl
+SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
+  /tmp/sf-layered-pickup-courses.jsonl --verify excelsior golden-gate-park waterfront
+```

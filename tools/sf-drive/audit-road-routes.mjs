@@ -877,6 +877,7 @@ for (const spec of plan.routes) {
         placementSha256: quest.placementSha256,
         progressBaseSha256: manifest.terrainRebake.progressBaseSha256,
         expectedSurfaces,
+        maxAirborneMetres: spec.maxAirborneMetres,
         expectedEnclosed: spec.expectEnclosed
           ? spec.contact.roads.filter(
               (id) => surfaces.get(id)?.kind === "tunnel",
@@ -908,6 +909,11 @@ for (const spec of plan.routes) {
   );
   if (plan.expectCompletion)
     assert.equal(result.status, "both emoji collected", spec.id);
+  if (spec.maxAirborneMetres !== undefined)
+    assert.ok(
+      result.airborneMetres <= spec.maxAirborneMetres,
+      `${spec.id} travelled ${result.airborneMetres} m airborne`,
+    );
   if (expectedSurfaces) {
     assert.deepEqual(result.seenSurfaces, expectedSurfaces, spec.id);
     assert.ok(

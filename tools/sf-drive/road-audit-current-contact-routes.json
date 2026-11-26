@@ -4,6 +4,21 @@
   "highwayMph": 40,
   "routes": [
     {
+      "id": "waterfront",
+      "from": "⚓",
+      "to": "🌉",
+      "groundOnly": true,
+      "via": [
+        [4402.6, 3423.2, "The Embarcadero"],
+        [4439.9, 3060, "Main St"]
+      ],
+      "laneDetours": [
+        [3988, 3945, -3.5],
+        [4148, 3774, -3.5]
+      ],
+      "maxAirborneMetres": 1
+    },
+    {
       "id": "soma-under-deck",
       "from": "🏙️",
       "to": "🎭",
@@ -146,6 +161,40 @@
       },
       "expectContactExit": true,
       "groundOnly": true
+    },
+    {
+      "id": "golden-gate-park",
+      "from": "🛹",
+      "to": "🦬",
+      "groundOnly": true,
+      "contact": {
+        "roads": ["sf-contact/crossover-drive-over-jfk"],
+        "entry": [-3477, 1229.7, "Crossover Dr"],
+        "exit": [-3437.4, 1138.9, "Crossover Dr"],
+        "sectionMph": { "sf-contact/crossover-drive-over-jfk": 20 },
+        "afterVia": [
+          [-3438.9, 592.2, "Lincoln Way"],
+          [-5265.7, 495, "Lincoln Way"],
+          [-5360, 490.2, "Chain Of Lakes Dr"]
+        ]
+      },
+      "expectContactExit": true,
+      "maxAirborneMetres": 0
+    },
+    {
+      "id": "excelsior",
+      "from": "🌞",
+      "to": "🗺️",
+      "groundOnly": true,
+      "contact": {
+        "roads": ["sf-contact/baden-street-i280-bridge"],
+        "reverse": true,
+        "entry": [28, -3293.6, "Baden St"],
+        "exit": [90, -3375.4, "San Jose Ave"],
+        "sectionMph": { "sf-contact/baden-street-i280-bridge": 16 }
+      },
+      "expectContactExit": true,
+      "maxAirborneMetres": 0
     }
   ],
   "expectCompletion": true

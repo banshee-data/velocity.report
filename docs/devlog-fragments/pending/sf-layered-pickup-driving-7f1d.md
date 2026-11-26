@@ -1,0 +1,1 @@
+- Verified pickup routes over Baden Street and Crossover Drive and beneath the Bay Bridge on Main Street in Chrome. The fixed-step campaign completed 19 of 20 courses. [Road route audit](../../ui/sf-road-route-audit.md#pickup-routes-over-baden-and-crossover-and-beneath-the-bay-bridge)
