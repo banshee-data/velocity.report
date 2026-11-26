@@ -268,7 +268,8 @@ function drive(guide, route, assets, terrain) {
     };
     let next = step(car, input, assets, terrain);
     if (next.rail) return stop("rail contact");
-    if (assets.collisions && !next.surfaceId) return stop("lost surface");
+    if (assets.collisions && !terrain && !next.surfaceId)
+      return stop("lost surface");
     if (next.surfaceId && next.surfaceId !== from && next.surfaceId !== to)
       return { ...stop("other road"), road: next.surfaceId };
     if (!next.grounded) {
@@ -300,6 +301,7 @@ function drive(guide, route, assets, terrain) {
               x: hit.x,
               y: hit.y,
               hullLow: next.z,
+              pose: [next.x, next.y, next.z, next.heading],
               support: assets.surfaces
                 .get(next.surfaceId)
                 ?.heightAt(hit.x, hit.y),
@@ -463,26 +465,39 @@ const portalAttempts = [
   look: 4 + speed * 0.2,
 }));
 
-export function auditBakedRoadLinks(contacts, joins, tiles) {
+export function auditBakedRoadLinks(
+  contacts,
+  joins,
+  tiles,
+  collisions,
+  fixedLane,
+) {
   const network = indexRoadNetwork(joins);
   const surfaces = buildAuditSurfaces(contacts);
   const portals = new Map(
     contacts.map((contact) => [contact.surface.id, contact.portals]),
   );
-  const assets = { network, surfaces, portals };
+  const assets = { network, surfaces, portals, collisions };
   network.add({
     endpoints: contacts.flatMap((contact) => contact.endpoints),
     transitions: joins,
   });
 
   const result = {
-    directedJoins: { total: 0, passed: 0, adjusted: 0, failures: [] },
+    directedJoins: {
+      total: 0,
+      passed: 0,
+      adjusted: 0,
+      failures: [],
+      scrapes: [],
+    },
     groundHandoffs: {
       total: 0,
       passed: 0,
       adjusted: 0,
       continued: [],
       failures: [],
+      scrapes: [],
     },
   };
   const passedJoins = new Set();
@@ -503,14 +518,19 @@ export function auditBakedRoadLinks(contacts, joins, tiles) {
       const lanes = [-0.9, 0.9, -1.8, 1.8, -2.5, 2.5, 0].filter(
         (lane) => Math.abs(lane) <= width - 1,
       );
-      const attempts = [
-        { lane: 0, speed: fast, look: 5.5 },
-        ...[fast, 6, 4].flatMap((speed) =>
-          [4, 6.5].flatMap((look) =>
-            lanes.map((lane) => ({ lane, speed, look })),
-          ),
-        ),
-      ];
+      const attempts =
+        fixedLane === undefined
+          ? [
+              { lane: 0, speed: fast, look: 5.5 },
+              ...[fast, 6, 4].flatMap((speed) =>
+                [4, 6.5].flatMap((look) =>
+                  lanes.map((lane) => ({ lane, speed, look })),
+                ),
+              ),
+            ]
+          : [fast, 6, 4].flatMap((speed) =>
+              [4, 6.5].map((look) => ({ lane: fixedLane, speed, look })),
+            );
       const traces = screen(attempts, ({ lane, ...input }) =>
         drive(
           seamGuide(source, target, from, to, lane),
@@ -522,6 +542,8 @@ export function auditBakedRoadLinks(contacts, joins, tiles) {
         summary.passed++;
         if (traces.length > 1) summary.adjusted++;
         passedJoins.add(`${from}/${target.id}`);
+        if (traces.at(-1).scrapeTicks)
+          summary.scrapes.push({ from, to, ...traces.at(-1) });
       } else summary.failures.push({ from, to, attempts: traces });
     }
   }
@@ -573,6 +595,8 @@ export function auditBakedRoadLinks(contacts, joins, tiles) {
         if (traces.at(-1)?.outcome === "passed") {
           summary.passed++;
           if (traces.length > 1) summary.adjusted++;
+          if (traces.at(-1).scrapeTicks)
+            summary.scrapes.push({ ...description, ...traces.at(-1) });
         } else if (continuation) {
           summary.continued.push({ ...description, onto: continuation.road });
         } else summary.failures.push({ ...description, attempts: traces });

@@ -1,0 +1,1 @@
+- Added scenery checks to the road handoff audit, cleared three survey-checked approach trunks and verified the turn from Pennsylvania Avenue onto I-280. [Road route audit](../../ui/sf-road-route-audit.md#ground-approaches-at-broadway-alemany-and-tenth-street)

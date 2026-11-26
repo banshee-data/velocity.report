@@ -5292,3 +5292,66 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   i280-north-geneva-entry-offset-lane bosworth-southbound-entry-offset-lane \
   us101-south-hester-entrance-collector-offset-lane
 ```
+
+### Ground approaches at Broadway, Alemany and Tenth Street
+
+**World, Physics and Data.** The road-link audit now checks the scenery
+and the car's collision hull through directed joins and ground handoffs.
+It records light scrapes separately from failed drives. A passing handoff
+can therefore reveal a scenery defect without being counted as a blocked
+connection.
+
+The sweep found 18 completed handoffs with scrapes on the parent
+bake. The updated package clears three inferred trunk rows beside
+pavement supported by the April 2023 survey. The vehicle-height check
+covers 0.35–2.20 m above game contact. The three windows contained zero
+returns in that band and 264, 168 and 164 pavement returns respectively.
+[USGS survey metadata](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+| Approach                            | Radius | Scrape ticks before | Scrape ticks after |
+| ----------------------------------- | -----: | ------------------: | -----------------: |
+| Broadway Tunnel westbound           | 1.05 m |                   1 |                  0 |
+| Western Alemany beneath I-280       | 0.75 m |                   1 |                  0 |
+| Tenth and Bryant entrance to US 101 | 1.05 m |                   1 |                  0 |
+
+Chrome also finished all three revised approaches with zero airborne
+travel or scrapes. It used the tunnel camera inside Broadway and the
+covered view on the lower Alemany alignment. The Tenth and Bryant
+check starts 16 m from the ramp portal.
+
+The highest scrape count came from a straight Dogpatch approach that
+crossed the shoulder 13.49 m from the mapped Pennsylvania Avenue centreline.
+The survey has low returns at that row, which stays in the game. A separate
+Chrome drive follows Pennsylvania Avenue before turning onto the ramp.
+It covered 43.1 m on ordinary pavement and reached southbound I-280 through
+both baked ramp sections with zero scrapes and zero airborne travel.
+[DataSF street centrelines](https://data.sf.gov/d/3psu-pn9h).
+
+At the nearby exit fork, the right-offset approach from I-280
+selects the north branch. The left-offset probe takes the south branch
+when instructed to hold that approach. At the isolated right-offset
+start, 2.58 m into the north branch, all four tyres have support when
+the two directed contacts are sampled together. The start has support
+on the branch alone at 3.58 m.
+
+All 340 directed joins passed. The 515 ground handoffs produced 512
+ground transfers and three direct road continuations. Fifteen ground
+transfers still registered light scrapes. All 471 directed span traversals
+and all 20 fixed-step pickup routes completed, with zero dips deeper than
+0.5 m across the 44.94 km of pickup routes. These checks describe the
+sampled game paths and survey windows.
+
+- Previous game manifest SHA-256 `014be98202fa8dbd5020b4446cb9fac9cd7270392aa03f2996739a7725e2463b`.
+- Updated game manifest SHA-256 `03bec60ff34964fcbfaf32f38dc51e625141be4353fe264c03833309d6d4ce67`.
+- B23 survey receipts SHA-256 `d32ddbbeccf3c23028878bf80d1df24cb688858cec01230b05794ed5c44da996`.
+- Twenty-course plan SHA-256 `2e9da58f12e7443eb0f45047f6ae50614dec37eca995cdae9cf84d6b813f21cd`.
+
+The `road-ground-entries-evidence-20261125` run retains the survey
+nodes and both game audits on the attached evidence volume.
+
+```sh
+node tools/sf-drive/audit-baked-road-contact.mjs --drive-links --drive-spans
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  dogpatch-pennsylvania-to-i280 broadway-west-ground-approach \
+  western-alemany-ground-approach tenth-bryant-ground-approach
+```

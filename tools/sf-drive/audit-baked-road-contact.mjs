@@ -31,7 +31,17 @@ const portalTolerance = 0.15;
 const layerTolerance = 0.4;
 const round = (value) => Math.round(value * 1000) / 1000;
 const options = process.argv.slice(2);
-const driveLinks = options.includes("--drive-links");
+const joinLaneOption = options.find((option) =>
+  option.startsWith("--join-lane="),
+);
+const joinLaneMetres = joinLaneOption?.slice("--join-lane=".length).trim();
+const joinLane =
+  joinLaneMetres === undefined ? undefined : Number(joinLaneMetres);
+assert.ok(
+  !joinLaneOption || (joinLaneMetres && Number.isFinite(joinLane)),
+  "--join-lane requires a signed offset in metres",
+);
+const driveLinks = options.includes("--drive-links") || joinLane !== undefined;
 const laneOption = options.find((option) => option.startsWith("--span-lane="));
 const laneMetres = laneOption?.slice("--span-lane=".length).trim();
 const spanLane = laneMetres === undefined ? undefined : Number(laneMetres);
@@ -44,7 +54,8 @@ const [directory = "public_html/src/sf/tiles"] = options.filter(
   (option) =>
     option !== "--drive-links" &&
     option !== "--drive-spans" &&
-    option !== laneOption,
+    option !== laneOption &&
+    option !== joinLaneOption,
 );
 const raw = readFileSync(join(directory, "manifest.json"));
 const manifest = JSON.parse(raw);
@@ -255,7 +266,9 @@ const flag = (road) =>
   road.centreHits ||
   road.centreUnsupported ||
   road.peakGrade > 25;
-const driving = driveLinks && auditBakedRoadLinks(contacts, joins, tiles);
+const driving =
+  driveLinks &&
+  auditBakedRoadLinks(contacts, joins, tiles, collisions, joinLane);
 const traversals =
   driveSpans && auditBakedRoadSpans(contacts, joins, collisions, spanLane);
 console.log(
@@ -269,6 +282,7 @@ console.log(
         portalTolerance,
         layerTolerance,
         ...(laneOption && { spanLane }),
+        ...(joinLaneOption && { joinLane }),
       },
       surfaces: roads.length,
       kinds,

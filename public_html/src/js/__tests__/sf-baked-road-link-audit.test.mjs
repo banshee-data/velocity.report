@@ -44,6 +44,7 @@ test("the link audit drives a directed join and records a ground exit that stays
     passed: 1,
     adjusted: 0,
     failures: [],
+    scrapes: [],
   });
   assert.equal(audit.groundHandoffs.total, 3);
   assert.equal(audit.groundHandoffs.passed, 2);
@@ -166,4 +167,30 @@ test("the span audit reaches an obstacle between otherwise sound terminals", () 
     assert.ok(attempts.every(({ metres }) => metres > 2));
     assert.ok(attempts.every(({ lastScrape }) => lastScrape?.row === 7));
   }
+});
+
+test("the link audit checks scenery on the ground approach to an otherwise supported ramp", () => {
+  const road = buildBakedRoadContact(makeRoad("ramp", 0, ["start", "end"]));
+  const tree = {
+    kind: "tree",
+    tile: "808586ec",
+    index: 7,
+    x: -6,
+    y: 0,
+    base: 3,
+    top: 5,
+    radius: 5,
+  };
+  const collisions = new Map([
+    ["-1,-1", [tree]],
+    ["-1,0", [tree]],
+  ]);
+  const clear = auditBakedRoadLinks([road], [], [pavement], new Map());
+  assert.equal(clear.groundHandoffs.passed, 4);
+  const blocked = auditBakedRoadLinks([road], [], [pavement], collisions);
+  const entry = blocked.groundHandoffs.failures.find(
+    ({ direction }) => direction === "entry",
+  );
+  assert.ok(entry);
+  assert.ok(entry.attempts.some(({ lastScrape }) => lastScrape?.row === 7));
 });
