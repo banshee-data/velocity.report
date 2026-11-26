@@ -24,6 +24,7 @@ async function drive(page, course, key) {
       let distance = 0;
       let airborneMetres = 0;
       let loading = 0;
+      let groundExit;
       let before;
       let maxSpeed = 0;
       let collected = [];
@@ -59,6 +60,7 @@ async function drive(page, course, key) {
           const step = Math.hypot(car.x - before.x, car.y - before.y);
           const onRoad =
             car.contact === "grounded" && before.contact === "grounded";
+          if (onRoad && before.road && !car.road) groundExit = distance;
           while (step > 0 && grounded.length <= distance + step) {
             const fraction = (grounded.length - distance) / step;
             grounded.push({
@@ -166,6 +168,8 @@ async function drive(page, course, key) {
         maxMph: round(maxSpeed * 2.236936),
         airborneMetres: round(airborneMetres),
         blockedSeconds: round(loading / 1000),
+        afterExitMetres:
+          groundExit === undefined ? null : round(distance - groundExit),
         p95Grade: grades.length
           ? round(grades[Math.floor((grades.length - 1) * 0.95)])
           : null,
@@ -184,7 +188,9 @@ async function drive(page, course, key) {
 }
 
 async function main() {
-  const [path, ...names] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const verify = args.includes("--verify");
+  const [path, ...names] = args.filter((arg) => arg !== "--verify");
   assert.ok(
     path,
     "Provide the NDJSON courses from audit-road-routes.mjs --export-courses",
@@ -277,6 +283,18 @@ async function main() {
         );
         assert.deepEqual(errors, []);
         assert.deepEqual([...arrow], []);
+        if (verify) {
+          assert.equal(result.status, "both emoji collected", id);
+          if (course.expectedSurfaces) {
+            assert.deepEqual(result.surfaces, course.expectedSurfaces, id);
+            assert.ok(
+              result.afterExitMetres >= 20 && result.stop.road === null,
+              `${id} did not clear its final road contact`,
+            );
+          }
+          if (course.expectedEnclosed)
+            assert.deepEqual(result.enclosed, course.expectedEnclosed, id);
+        }
       } catch (error) {
         console.log(
           JSON.stringify({

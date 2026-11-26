@@ -1,0 +1,136 @@
+{
+  "manifestSha256": "a1e3c80787a6b6c2278307dacdd0749c8cb46e2354f254432997f039ad54c5b3",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "soma-under-deck",
+      "from": "🏙️",
+      "to": "🎭",
+      "via": [[3200, 2258]],
+      "laneDetours": [[3050, 2348.4, -4.75]]
+    },
+    {
+      "id": "dogpatch-23rd",
+      "from": "🚂",
+      "to": "🐾",
+      "via": [
+        [4190, -540],
+        [4380, -524]
+      ],
+      "laneDetours": [[4802.9, -207.9, 5]]
+    },
+    {
+      "id": "stockton-tunnel",
+      "from": "🐉",
+      "to": "🍝",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "entry": [2910.2, 3267.8, "Stockton St"],
+        "exit": [2840.8, 3692.2, "Stockton St"]
+      },
+      "expectContactExit": true,
+      "expectEnclosed": true
+    },
+    {
+      "id": "broadway-tunnel",
+      "from": "🛤️",
+      "to": "🍝",
+      "contact": {
+        "roads": ["sf-contact/broadway-eastbound"],
+        "reverse": true,
+        "entry": [1751.4, 4006.6, "Broadway"],
+        "exit": [2570.4, 4127.6, "Broadway"],
+        "beforeGuide": [
+          [1767, 4003.1],
+          [1796, 4009.3]
+        ]
+      },
+      "expectContactExit": true,
+      "expectEnclosed": true
+    },
+    {
+      "id": "toll-plaza-tunnel",
+      "from": "🪵",
+      "to": "🌁",
+      "contact": {
+        "roads": ["sf-contact/toll-plaza-tunnel"],
+        "entry": [-3157, 5188, "Unnamed 152"],
+        "exit": [-3075.6, 5277.6, "Unnamed 77"]
+      },
+      "expectContactExit": true,
+      "expectEnclosed": true
+    },
+    {
+      "id": "soma-i280",
+      "from": "🛞",
+      "to": "🚚",
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-south-through-18th",
+          "sf-contact/i280-dogpatch-approach",
+          "sf-contact/i280-dogpatch-off-ramp",
+          "sf-contact/i280-dogpatch-pennsylvania-south"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [4169.3563, -767.3858, "Pennsylvania Ave"],
+        "laneGuides": {
+          "sf-contact/i280-dogpatch-off-ramp": {
+            "approach": -1.25
+          }
+        }
+      },
+      "expectContactExit": true,
+      "groundOnly": true
+    },
+    {
+      "id": "freeway-to-bayview",
+      "from": "📦",
+      "to": "🚵",
+      "contact": {
+        "roads": [
+          "sf-contact/us101-south-hester-salinas-entry",
+          "sf-contact/us101-south-hester-entrance-collector",
+          "sf-contact/us101-south-hester-bayshore-exit",
+          "sf-contact/bayshore-hester-frontage-to-third"
+        ],
+        "entry": [3533.634, -4270.155, "Salinas Ave"],
+        "exit": [3749.4754, -4567.8188, "3rd St"],
+        "beforeVia": [[3019, -3063, "Silver Ave"]],
+        "beforeSurfaces": ["sf-contact/silver-avenue-bridge"],
+        "sectionMph": {
+          "sf-contact/us101-south-hester-bayshore-exit": 21,
+          "sf-contact/bayshore-hester-frontage-to-third": 23
+        },
+        "groundLinkMph": { "sf-contact/bayshore-hester-frontage-to-third": 9 },
+        "laneGuides": {
+          "sf-contact/us101-south-hester-entrance-collector": {
+            "approach": -1.6,
+            "holdApproach": true
+          },
+          "sf-contact/us101-south-hester-bayshore-exit": {
+            "approach": -1.5,
+            "holdApproach": true,
+            "clearance": {
+              "offset": 1.7,
+              "station": 24,
+              "length": 22
+            },
+            "entranceEast": -1.5799,
+            "entranceNorth": -0.253,
+            "entranceMetres": 21
+          }
+        },
+        "afterVia": [
+          [3795.7, -4496.5, "Key Ave"],
+          [3880.3, -4556.9, "Jennings St"]
+        ]
+      },
+      "expectContactExit": true,
+      "groundOnly": true
+    }
+  ],
+  "expectCompletion": true
+}

@@ -175,7 +175,11 @@ for (const tile of alignmentTiles.values())
 // The parent geometry defines the attempted alignment only. Its heights and
 // widths never become contact in the rebaked game.
 const tunnelEnds = new Map();
-for (const token of Object.keys(manifest.terrainRebake.removedTunnelRows)) {
+const historicalTunnelCourses = plan.routes.some(({ tunnel }) => tunnel);
+const archivedTunnelTiles = historicalTunnelCourses
+  ? Object.keys(manifest.terrainRebake.removedTunnelRows)
+  : [];
+for (const token of archivedTunnelTiles) {
   const parent = JSON.parse(
     gunzipSync(
       execFileSync("git", [
@@ -194,7 +198,7 @@ for (const token of Object.keys(manifest.terrainRebake.removedTunnelRows)) {
     tunnelEnds.set(name, [points[0], points.at(-1)]);
   }
 }
-assert.equal(tunnelEnds.size, 3);
+if (historicalTunnelCourses) assert.equal(tunnelEnds.size, 3);
 
 class Queue {
   items = [];
@@ -348,6 +352,8 @@ function layeredRoute(contact, from, to, start, destination, groundOnly) {
     afterVia = [],
     approachOffsets = {},
     laneGuides = {},
+    sectionMph = {},
+    groundLinkMph = {},
   } = contact;
   const [enterNode, exitNode] = [entry, exit].map(([x, y, name]) =>
     snap({ x, y }, [name], 55),
@@ -355,7 +361,7 @@ function layeredRoute(contact, from, to, start, destination, groundOnly) {
   const before = groundLegs(start, enterNode, beforeVia, groundOnly);
   const after = groundLegs(exitNode, destination, afterVia, groundOnly);
   assert.ok(before && after, "no ground route to a layered course portal");
-  const ribbon = roads.flatMap((id) => {
+  const sections = roads.map((id) => {
     const surface = pieces.get(id);
     assert.ok(surface, `No baked contact ${id}`);
     const profile = reverse ? surface.points.toReversed() : surface.points;
@@ -370,7 +376,23 @@ function layeredRoute(contact, from, to, start, destination, groundOnly) {
       name: surface.label,
       surfaceId: surface.id,
       highway: surface.kind !== "tunnel",
+      speedMph: sectionMph[id],
     }));
+  });
+  const ribbon = sections.flatMap((nextSection, i) => {
+    const linkMph = groundLinkMph[roads[i]];
+    if (linkMph === undefined) return nextSection;
+    assert.ok(i > 0, "A ground link needs two road contacts");
+    const entry = nextSection[0];
+    return [
+      {
+        from: sections[i - 1].at(-1).to,
+        to: entry.from,
+        name: entry.name,
+        speedMph: linkMph,
+      },
+      ...nextSection,
+    ];
   });
   const connector = (from, to, name) =>
     distance(from, to) > 0.01 ? [{ from, to, name }] : [];
@@ -579,7 +601,8 @@ function speedLimits(path) {
       b = path[Math.min(path.length - 1, i + 4)];
     const turn = Math.abs(angle(heading(p, b) - heading(a, p)));
     const limit =
-      (p.road.highway ? plan.highwayMph : plan.streetMph) / 2.236936;
+      (p.road.speedMph ?? (p.road.highway ? plan.highwayMph : plan.streetMph)) /
+      2.236936;
     return i === 0 || i === path.length - 1
       ? 3
       : Math.min(
@@ -835,6 +858,13 @@ for (const spec of plan.routes) {
   const path = spec.laneDetours?.length
     ? applyLaneDetours(sampled, spec.laneDetours)
     : sampled;
+  const expectedSurfaces = spec.expectContactExit
+    ? [
+        ...(spec.contact.beforeSurfaces ?? []),
+        ...spec.contact.roads,
+        ...(spec.contact.afterSurfaces ?? []),
+      ]
+    : undefined;
   if (exportCourses) {
     const speeds = speedLimits(path);
     console.log(
@@ -846,6 +876,12 @@ for (const spec of plan.routes) {
         alignmentManifestSha256,
         placementSha256: quest.placementSha256,
         progressBaseSha256: manifest.terrainRebake.progressBaseSha256,
+        expectedSurfaces,
+        expectedEnclosed: spec.expectEnclosed
+          ? spec.contact.roads.filter(
+              (id) => surfaces.get(id)?.kind === "tunnel",
+            )
+          : undefined,
         waypoints: path.map(({ x, y, s }, i) => [
           round(x),
           round(y),
@@ -872,12 +908,8 @@ for (const spec of plan.routes) {
   );
   if (plan.expectCompletion)
     assert.equal(result.status, "both emoji collected", spec.id);
-  if (spec.expectContactExit) {
-    assert.deepEqual(
-      result.seenSurfaces,
-      [...spec.contact.roads, ...(spec.contact.afterSurfaces ?? [])],
-      spec.id,
-    );
+  if (expectedSurfaces) {
+    assert.deepEqual(result.seenSurfaces, expectedSurfaces, spec.id);
     assert.ok(
       result.afterExitMetres >= 20,
       `${spec.id} did not clear its final portal`,

@@ -1,0 +1,1 @@
+- Added pickup drives under the Moscone and I-280 spans, through the Stockton, Broadway and Toll Plaza tunnels, and down the I-280 and U.S. 101 exits. The browser verification checks the selected road levels, return to ground and both pickups. [Road route audit](../../ui/sf-road-route-audit.md#pickup-courses-on-the-published-map)
