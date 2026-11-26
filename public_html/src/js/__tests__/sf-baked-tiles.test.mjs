@@ -118,7 +118,9 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
   const roads = new Map();
   for (const [token, receipt] of Object.entries(review.tiles)) {
     const raw = file(`tiles/${token}.json.gz`);
-    assert.equal(receipt.sha256, digest(raw));
+    const climb = manifest.roadBake.i80LowerClimbWidthSurvey.tiles[token];
+    if (climb) assert.equal(climb.parentSha256, receipt.sha256);
+    assert.equal(climb?.sha256 ?? receipt.sha256, digest(raw));
     assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
     for (const road of JSON.parse(gunzipSync(raw)).playableRoads) {
       if (roads.has(road.id)) assert.deepEqual(roads.get(road.id), road);
@@ -141,6 +143,38 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
   );
   for (const road of [entry, exit]) {
     assert.ok(highwayRailSegments(buildBakedRoadContact(road).surface).length);
+  }
+});
+
+test("the outside eastbound merge lane holds the car on the lower climb", () => {
+  const token = "8085807c";
+  const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/i80-eastbound-lower-climb",
+  );
+  const { surface } = buildBakedRoadContact(road);
+  const obstacles = buildCollisionIndex(tile, token);
+  for (const [station, offset] of [
+    [28, 21],
+    [68, 21.5],
+    [110, 21],
+    [144, 19.5],
+  ]) {
+    const i = surface.profile.findIndex(({ s_m }) => s_m >= station);
+    const {
+      position: [x, y, z],
+    } = surface.profile[i];
+    const a = surface.profile[i - 1].position;
+    const b = surface.profile[i + 1].position;
+    const heading = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    const car = {
+      x: x - offset * Math.sin(heading),
+      y: y + offset * Math.cos(heading),
+      z,
+      heading,
+    };
+    assert.ok(roadSupportsCar(surface.heightAt, car));
+    assert.equal(collisionAt([obstacles], car, z), null);
   }
 });
 

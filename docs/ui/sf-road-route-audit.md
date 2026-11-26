@@ -5682,3 +5682,28 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   i80-fifth-bryant-divider-lane i80-westbound-fifth-harrison \
   i80-westbound-over-fifth
 ```
+
+## Outer lane beyond the Fifth Street merge
+
+**World and Data.** The eastbound lower climb still ended inside the outside
+travel lane shortly after the Fifth Street merge. The widening starts after
+the shared section and carries up to 25 m left of the baked line. The existing
+centreline, elevations and directed joins are retained. All 57 survey stations
+at the inset passed the pavement gate, with at least 56 nearby pavement-class
+returns at every station. The p95 vertical residual was 0.48 m. The widening
+uses the existing game cross-section and leaves road crossfall unmodelled.
+
+**Physics.** The keyboard probe steers up to 21.5 m left of the baked line.
+On the parent it lost the deck, travelled 17.11 m airborne, and reached lower
+ground at 5.98 m. On the revised bake it finished on the climb at 14.90 m
+with 0 m airborne travel. The centreline drive and joins use the same contact
+as before. The `soma-fifth-eastbound-b23` evidence directory retains the survey
+and both browser traces.
+
+- Parent game manifest SHA-256 `f2899af22e92fd5d19256f60f0086a0791feef8f99e5dd5f164021b00a22edce`.
+- Revised game manifest SHA-256 `6aca54dbb92ad51d24c95c72195d1d92e34a0833fb0717e0edde53aff93f353c`.
+- Revised contact SHA-256 `afb9bf44ea4270474f29bee34aa38c9fdbe660665318fb8cc6a232ed8367b2c3`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs soma-lower-climb-merge-lane
+```
