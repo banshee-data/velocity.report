@@ -1,0 +1,1 @@
+- Baked the [Central Freeway approach onto eastbound I-80](../../ui/sf-road-route-audit.md#central-freeway-onto-eastbound-i-80) through the surveyed merge and verified the approach from northbound US 101.

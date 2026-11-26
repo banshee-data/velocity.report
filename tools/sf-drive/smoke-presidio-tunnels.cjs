@@ -950,6 +950,7 @@ cases["alemany-to-i80-lower-bay"] = {
     ...us101Potrero.roads,
     "us101-north-i80-approach",
     "us101-north-i80-east-connector",
+    "i80-eastbound-us101-approach",
     ...bayRoads,
   ],
   owners: [...new Set([...us101Potrero.owners, ...bayEast.owners])],
