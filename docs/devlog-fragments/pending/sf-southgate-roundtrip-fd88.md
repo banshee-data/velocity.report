@@ -1,0 +1,1 @@
+- Verified the [lower Yerba Buena exit and eastbound re-entry](../../ui/sf-road-route-audit.md#lower-yerba-buena-exit-and-eastbound-re-entry) via Macalla, Southgate and Hillcrest.
