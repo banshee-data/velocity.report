@@ -601,6 +601,15 @@ def test_road_tree_clearance_on_an_independent_tile_keeps_the_prior_review(
     assert carried_review["parentSha256"] == digest(raw)
     assert carried_bake["treeClassification"]["tiles"].keys() == prior["tiles"].keys()
 
+    candidate = json.loads(gzip.decompress(rebaked_raw))
+    candidate["tr"][1][2] += 1
+    altered = gzip.compress(encode(candidate), mtime=0)
+    (original / name).write_bytes(altered)
+    blocked = tmp_path / "changed-tree-rebake"
+    with pytest.raises(ValueError, match="Tree rows were added, changed or reordered"):
+        tree_bake["carry_forward"](original, result, original / "tiles", blocked)
+    assert not blocked.exists()
+
 
 def test_carry_forward_preserves_rebaked_roads_and_independent_removals(
     tmp_path, reviewed_trees

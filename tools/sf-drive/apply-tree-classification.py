@@ -241,14 +241,16 @@ def carry_tile(token, candidate, before, after, receipt, source_removals):
     }
 
 
-def carry_road_clearance(token, candidate, reviewed, receipts):
+def carry_road_clearance(token, candidate, reviewed, receipts, source_removals):
     """Preserve reviewed row removals when another tile layer has changed."""
     rows = [identity for receipt in receipts for identity in receipt["treeRowSha256"]]
     removed = set(rows)
     if len(removed) != len(rows) or digest(reviewed) != receipts[-1]["sha256"]:
         raise ValueError(f"Road clearance receipt differs in {token}")
-    data = json.loads(gzip.decompress(reviewed))
-    if any(digest(encode(row)) in removed for row in data["tr"]):
+    reviewed_rows = [
+        digest(encode(row)) for row in json.loads(gzip.decompress(reviewed))["tr"]
+    ]
+    if removed.intersection(reviewed_rows):
         raise ValueError(f"The reviewed tile restored a road clearance tree in {token}")
 
     data = json.loads(gzip.decompress(candidate))
@@ -257,6 +259,11 @@ def carry_road_clearance(token, candidate, reviewed, receipts):
     matches = [identity for identity in hashes if identity in removed]
     if len(matches) != len(set(matches)):
         raise ValueError(f"Road clearance tree identity is ambiguous in {token}")
+    remaining = [identity for identity in hashes if identity not in removed]
+    if missing_rows(reviewed_rows, remaining, token) - source_removals:
+        raise ValueError(
+            f"The rebake removed a tree without a pinned contact patch in {token}"
+        )
     data["tr"] = [
         row
         for row, identity in zip(original, hashes, strict=True)
@@ -310,12 +317,12 @@ def carry_forward(release, reviewed_release, review_input, output, playable=None
         name = f"{token}.json.gz"
         candidate = (release / "tiles" / name).read_bytes()
         reviewed = (reviewed_release / "tiles" / name).read_bytes()
+        source_removals = {
+            patch["sha256"]
+            for patch in patches.get(token, [])
+            if patch["parts"] == []
+        }
         if token in receipts:
-            source_removals = {
-                patch["sha256"]
-                for patch in patches.get(token, [])
-                if patch["parts"] == []
-            }
             payload, receipts[token] = carry_tile(
                 token,
                 candidate,
@@ -325,7 +332,9 @@ def carry_forward(release, reviewed_release, review_input, output, playable=None
                 source_removals,
             )
         else:
-            payload = carry_road_clearance(token, candidate, reviewed, road_receipts[token])
+            payload = carry_road_clearance(
+                token, candidate, reviewed, road_receipts[token], source_removals
+            )
         changed[token] = payload
         record_tile(manifest, tile, payload)
     if classification:
