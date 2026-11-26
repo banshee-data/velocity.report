@@ -9,13 +9,13 @@ async function drive(page, course, key) {
   return page.evaluate(
     async ({ course, key }) => {
       const canvas = document.querySelector("#drive");
-      const { waypoints, from, to } = course;
+      const { waypoints, from, to, streetSegment } = course;
       const held = new Set();
       const surfaces = new Set();
       const enclosed = new Set();
       const grounded = [];
       const began = performance.now();
-      const lastStation = waypoints.at(-1)[2];
+      const [finishX, finishY, lastStation] = waypoints.at(-1);
       let at = 0;
       let inputTime = 0;
       let motionTime = began;
@@ -80,7 +80,12 @@ async function drive(page, course, key) {
         collected = (progress.collected ?? []).filter(
           (tile) => tile === from || tile === to,
         );
-        if (collected.includes(from) && collected.includes(to))
+        if (streetSegment && car.road) status = "selected baked contact";
+        else if (
+          !streetSegment &&
+          collected.includes(from) &&
+          collected.includes(to)
+        )
           status = "both emoji collected";
         else if (d.replay === "crash" || progress.crashes > 0) status = "crash";
         else if (now - motionTime > 12000) status = "stalled";
@@ -105,6 +110,14 @@ async function drive(page, course, key) {
         at = nearest;
         if (best > 16) {
           status = "left course";
+          continue;
+        }
+        if (
+          streetSegment &&
+          car.contact === "grounded" &&
+          Math.hypot(car.x - finishX, car.y - finishY) < 2.5
+        ) {
+          status = "street segment completed";
           continue;
         }
         let aim = at;
@@ -190,7 +203,23 @@ async function drive(page, course, key) {
 async function main() {
   const args = process.argv.slice(2);
   const verify = args.includes("--verify");
-  const [path, ...names] = args.filter((arg) => arg !== "--verify");
+  const segmentArg = args.find((arg) => arg.startsWith("--street-segment="));
+  const [path, ...names] = args.filter(
+    (arg) => arg !== "--verify" && arg !== segmentArg,
+  );
+  const segment = segmentArg
+    ?.slice("--street-segment=".length)
+    .split(":")
+    .map(Number);
+  if (segment)
+    assert.ok(
+      names.length === 1 &&
+        segment.length === 2 &&
+        segment.every(Number.isFinite) &&
+        segment[0] >= 0 &&
+        segment[1] > segment[0] + 8,
+      "Provide one course and --street-segment=start:end in metres",
+    );
   assert.ok(
     path,
     "Provide the NDJSON courses from audit-road-routes.mjs --export-courses",
@@ -218,6 +247,24 @@ async function main() {
   try {
     for (const id of ids) {
       const course = courses.find((course) => course.id === id);
+      if (segment) {
+        const [start, end] = segment;
+        assert.ok(end <= course.waypoints.at(-1)[2], "Segment exceeds course");
+        const points = course.waypoints.filter(
+          ([, , s]) => s >= start && s <= end,
+        );
+        assert.ok(
+          points.length > 1 && points.at(-1)[2] - points[0][2] >= 4,
+          "Street segment has no usable waypoints",
+        );
+        course.streetSegment = segment;
+        course.waypoints = points.map(([x, y, s, speed]) => [
+          x,
+          y,
+          s - points[0][2],
+          speed,
+        ]);
+      }
       const [x, y] = course.waypoints[0];
       const [east, north] = course.waypoints.find((point) => point[2] >= 4);
       const checkpoint = { x, y, heading: Math.atan2(north - y, east - x) };
@@ -276,6 +323,7 @@ async function main() {
           JSON.stringify({
             id,
             manifest: sha,
+            streetSegment: segment,
             ...result,
             errors,
             arrow: [...arrow],
@@ -283,7 +331,10 @@ async function main() {
         );
         assert.deepEqual(errors, []);
         assert.deepEqual([...arrow], []);
-        if (verify) {
+        if (segment) {
+          assert.equal(result.status, "street segment completed", id);
+          assert.equal(result.airborneMetres, 0, id);
+        } else if (verify) {
           assert.equal(result.status, "both emoji collected", id);
           if (course.expectedSurfaces) {
             assert.deepEqual(result.surfaces, course.expectedSurfaces, id);

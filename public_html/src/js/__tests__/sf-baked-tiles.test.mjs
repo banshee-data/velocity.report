@@ -5280,6 +5280,41 @@ test("San Jose Avenue stays on its measured upper road above the Bosworth ramps"
   }
 });
 
+test("street turns clear the Diamond and César Chávez forks without entering the ramp", () => {
+  for (const [token, id, end] of [
+    ["808f7e64", "san-jose-bosworth-upper-street", "end"],
+    ["808f7e4c", "us101-south-cesar-chavez-entry", "start"],
+  ]) {
+    const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+    const road = tile.playableRoads.find(
+      ({ id: roadId }) => roadId === `sf-contact/${id}`,
+    );
+    const portals = buildBakedRoadContact(road).portals;
+    const gate = portals[road.groundEnds.indexOf(end)];
+    const fallback = buildBakedRoadContact({
+      ...road,
+      groundEntryProbeMetres: {},
+    });
+    const pavement = (x, y) => groundAtWorld([tile], x, y, true);
+    const entry = Math.atan2(gate.entryY, gate.entryX);
+    const x = gate.x - 0.02 * gate.nx;
+    const y = gate.y - 0.02 * gate.ny;
+    const cross = (heading, mouths) =>
+      driveThroughRoadPortal(
+        { x, y, z: pavement(x, y), heading, v: 6, grounded: true },
+        { throttle: 1 },
+        1 / 120,
+        [mouths],
+        pavement,
+      );
+
+    assert.equal(gate.entryProbe, 12, id);
+    assert.equal(cross(entry, portals)?.surfaceId, road.id, id);
+    assert.equal(cross(entry + 0.62, fallback.portals)?.surfaceId, road.id, id);
+    assert.equal(cross(entry + 0.62, portals), null, id);
+  }
+});
+
 test("both Bosworth entrances join southbound I-280 below the San Jose Avenue deck", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808f7e64", "808f7e7c", "808f7e8c", "808f7e84"].map((token) =>

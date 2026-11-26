@@ -4959,3 +4959,42 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   hester-exit-to-frontage
 ```
+
+### Diamond Street and César Chávez Street forks
+
+**World, Physics and Data.** A street turn at Diamond briefly selected the
+upper San Jose Avenue deck. The César Chávez street line similarly picked
+up the southbound US 101 ramp. Both junctions bring street pavement and
+the ramp mouth to the same height. The 5 m entry probe could accept a
+glancing approach, then the car would run off that narrow support as it
+followed the street.
+
+The bake applies a 12 m probe at those two entries. The game checks that
+the car's direction continues into the ramp. The change updates the
+packed contacts in `808f7e64` and `808f7e4c`. The deck and ramp remain
+available to drivers who take their entrances.
+
+| Chrome keyboard move                             | Oakland shoreline bake           | Street fork bake             |
+| ------------------------------------------------ | -------------------------------- | ---------------------------- |
+| Monterey Boulevard onto Diamond Street           | Selected the upper deck at 35 m  | Drove 74 m on street contact |
+| César Chávez Street past the southbound entrance | Selected the US 101 ramp at 34 m | Drove 83 m on street contact |
+
+Both corrected street approaches stayed grounded. Chrome also drove San
+Jose Avenue in both directions and took the César Chávez entrance onto
+southbound US 101. The contact audit passed 471 directed traversals, 340
+joins and 513 ground handoffs. The 20-course replay completed 15 courses.
+The other five now reach tree collisions, including the Excelsior replay
+on Randall Street after clearing Diamond Street.
+
+- Game manifest SHA-256 `352ee066ec4f33e8d80cccc3af707147d45380c9887345252128aab7b55c69fb`.
+- Gerardus contact SHA-256 `0fe38f8eaf5aa96c76428720fc7f6fa2b1df7ed158ac83dd7e98eff73a7a11ff`.
+- [Gerardus bake recipe and source review](https://github.com/banshee-data/gerardus/pull/209).
+
+```sh
+plan=tools/sf-drive/road-audit-street-forks.json
+node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses > /tmp/sf-street-forks.jsonl
+node tools/sf-drive/drive-road-audit.cjs /tmp/sf-street-forks.jsonl excelsior --street-segment=642:717
+node tools/sf-drive/drive-road-audit.cjs /tmp/sf-street-forks.jsonl excelsior --street-segment=4144:4229
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  san-jose-bosworth-southwest san-jose-bosworth-northeast cesar-chavez-street-to-us101-south
+```
