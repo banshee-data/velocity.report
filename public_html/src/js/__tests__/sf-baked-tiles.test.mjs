@@ -370,6 +370,42 @@ test("the southbound Third Street Bridge approach keeps its outside lane clear",
   assert.equal(collisionAt([buildCollisionIndex(tile, token)], car, z), null);
 });
 
+test("the Third Street deck over Islais Creek supports all four surveyed lanes", () => {
+  const token = "808f7fa4";
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const review = roadBake.islaisThirdStreetLaneWidthSurvey;
+  assert.equal(review.tiles[token].sha256, digest(raw));
+  assert.equal(review.stations_per_band, 110);
+
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/islais-creek-third-street",
+  );
+  const { surface, portals } = buildBakedRoadContact(road);
+  const offset = (x, y, heading, lane) => ({
+    x: x - lane * Math.sin(heading),
+    y: y + lane * Math.cos(heading),
+    heading,
+  });
+  for (const [i, [x, y, z]] of road.points.entries()) {
+    if (i === 0 || i === road.points.length - 1) continue;
+    const [previousX, previousY] = road.points[i - 1];
+    const heading = Math.atan2(y - previousY, x - previousX);
+    for (const lane of [10.4, 14.15, -2.1, -5.5]) {
+      const car = offset(x, y, heading, lane);
+      assert.ok(
+        roadSupportsCar(surface.heightAt, car),
+        `${lane} m at point ${i}`,
+      );
+      assert.ok(Math.abs(surface.heightAt(car.x, car.y) - z) < 0.02);
+    }
+    const outside = offset(x, y, heading, 18.5);
+    assert.equal(surface.heightAt(outside.x, outside.y), null);
+  }
+  assert.equal(portals.length, 2);
+});
+
 test("local bridges carry the car above the ground grid and meet street pavement", () => {
   const specifications = [
     ["8085876c", "crossover-drive-over-jfk", [-3462, 1194.7], 6],

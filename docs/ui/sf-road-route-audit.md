@@ -6016,3 +6016,42 @@ directions, 344 joins and 516 ground handoffs as the parent bake.
 
 The attached `city-structure-inventory-20261126/mission-creek-bridge-b23`
 run retains the 17 source nodes, their hashes and the keyboard courses.
+
+## Third Street deck over Islais Creek
+
+**World and Data.** The bridge has two vehicle lanes on each side of the
+light-rail tracks. The original game deck reached 9 m east of its
+reference line. The mapped northbound carriageway centre sits about
+12 m east at the draw span. The published game drove across the outside
+northbound alignment on terrain without acquiring the bridge contact.
+The rebake extends the east edge to 16.1 m on the deck and 17.4 m at its
+south end. The fitted longitudinal profile and west edge retain the
+prior geometry. [Public Works bridge assessment](https://sfpublicworks.org/sites/default/files/NEPA%20%E2%80%93%20Draft%20EA%20Publication/Islais%20Creek%20Bridge_ISA.pdf).
+
+The April 2023 survey has 110 stations for each of the four lane centres
+and the widened edge. The pavement medians differ from the game profile
+by 5.0 to 19.3 cm at p95 across the lanes. The east edge measures 7.2 cm.
+The observations support the widened game surface. They describe one
+survey epoch and the closed deck.
+
+**Physics.** Chrome drove onto the deck from the street and off onto
+the far street in all four lanes, with zero airborne travel. Each
+drive used keyboard input in the game's manual mode. The fixed-step
+audit passed 476 travel directions, 344 directed joins and 516 ground
+handoffs across the city. Three additional handoffs continued onto a
+verified adjacent road.
+
+- Parent manifest SHA-256 `3f8aa1f65f9b274cc188729560a90fc956481cdb325e54f1eab926704e0b13ac`.
+- Updated manifest SHA-256 `bd6086d531970c1932d7cb4cfb8278501da25812ef1ad6470937db4261cf7a78`.
+- Gerardus contact SHA-256 `ae967cf959ba468aa8900e71a56219746ba472809b17be77260c45ce0c2c49d8`.
+- Survey receipt SHA-256 `a605045222643f99ad1a0d112517737e2d403ba9dd3ac49a76900032688cd71e`.
+
+The attached `city-structure-inventory-20261126/islais-third-street-b23`
+evidence retains the frozen map extract, 45 survey nodes and keyboard
+drive traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  islais-creek-third-street-northbound islais-creek-third-street-northbound-outside-lane \
+  islais-creek-third-street-southbound islais-creek-third-street-southbound-outside-lane
+```

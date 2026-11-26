@@ -3970,7 +3970,6 @@ for (const [direction, road, start, finish] of [
 }
 for (const [road, owners, speed, offset] of [
   ["crossover-drive-over-jfk", ["8085876c"], 16, 2],
-  ["islais-creek-third-street", ["808f7fa4"], 12, 3],
   ["islais-creek-illinois-street", ["808f7fa4"], 11, 1.35],
   ["mission-creek-fourth-street", ["808f7fd4"], 11, 1.8],
 ]) {
@@ -3982,6 +3981,27 @@ for (const [road, owners, speed, offset] of [
       reverse,
       laneGuides: { [road]: { lane: reverse ? offset : -offset } },
       groundApproachMetres: 9,
+      maxAirborneMetres: 0,
+      maxDurationMs: 60_000,
+    };
+  }
+}
+const islaisThird = "islais-creek-third-street";
+for (const [direction, reverse, inside, outside] of [
+  ["northbound", true, 10.4, 14.15],
+  ["southbound", false, -2.1, -5.5],
+]) {
+  for (const [suffix, lane] of [
+    ["", inside],
+    ["-outside-lane", outside],
+  ]) {
+    cases[`${islaisThird}-${direction}${suffix}`] = {
+      owners: ["808f7fa4"],
+      roads: [islaisThird],
+      speed: 12,
+      reverse,
+      laneGuides: { [islaisThird]: { lane } },
+      groundApproachMetres: 12,
       maxAirborneMetres: 0,
       maxDurationMs: 60_000,
     };
