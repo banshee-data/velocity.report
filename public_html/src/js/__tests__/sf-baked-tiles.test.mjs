@@ -3178,6 +3178,7 @@ test("southbound US 101 stays on its level through the Hester fork and collector
   const exit = road("hester-bayshore-exit");
   const collector = road("hester-collector-return");
   const edge = road("hester-to-city-edge");
+  const through = road("past-candlestick-exit");
   for (const [from, to] of [
     [paul, main],
     [paul, entry],
@@ -3185,6 +3186,7 @@ test("southbound US 101 stays on its level through the Hester fork and collector
     [entry, collector],
     [main, edge],
     [collector, edge],
+    [edge, through],
   ]) {
     assert.deepEqual(from.points.at(-1), to.points[0]);
     assert.deepEqual(from.seams.end, to.seams.start);
@@ -3197,11 +3199,11 @@ test("southbound US 101 stays on its level through the Hester fork and collector
       ),
     );
   }
-  for (const ramp of [paul, main, entry, collector]) {
+  for (const ramp of [paul, main, entry, collector, edge]) {
     assert.deepEqual(ramp.groundEnds, []);
     assert.equal(buildBakedRoadContact(ramp).portals.length, 0);
   }
-  for (const ramp of [exit, edge]) {
+  for (const ramp of [exit, through]) {
     const [{ x, y, z }] = buildBakedRoadContact(ramp).portals;
     assert.deepEqual(ramp.groundEnds, ["end"]);
     assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
@@ -5738,6 +5740,55 @@ test("Blanken Avenue crosses below US 101 and releases at both street portals", 
       assert.equal(collisionAt(obstacles, car, z), null, `point ${i}`);
     }
   }
+});
+
+test("Candlestick carries the exit above Alana Way and preserves the through lane", () => {
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const owner = "808f7f2c";
+  const adjacent = "808f7f24";
+  const load = (token) => {
+    const raw = file(`tiles/${token}.json.gz`);
+    assert.equal(
+      manifest.roadBake.candlestickExitSurvey.tiles[token].sha256,
+      digest(raw),
+    );
+    return JSON.parse(gunzipSync(raw));
+  };
+  const tile = load(owner);
+  const approachId = "sf-contact/us101-south-hester-to-city-edge";
+  const throughId = "sf-contact/us101-south-past-candlestick-exit";
+  const exitId = "sf-contact/us101-south-candlestick-exit";
+  const find = (id) => tile.playableRoads.find((road) => road.id === id);
+  const approach = find(approachId);
+  const through = find(throughId);
+  const exit = find(exitId);
+  assert.deepEqual(
+    load(adjacent).playableRoads.find(({ id }) => id === approachId),
+    approach,
+  );
+  for (const road of [through, exit]) {
+    assert.deepEqual(road.points[0], approach.points.at(-1));
+    assert.deepEqual(road.seams.start, approach.seams.end);
+  }
+  const branches = manifest.roadBake.playableTransitions.filter(
+    ({ from }) => from === `${approachId}:end`,
+  );
+  assert.deepEqual(
+    branches.map(({ to }) => to),
+    [`${throughId}:start`, `${exitId}:start`],
+  );
+  assert.deepEqual(branches[1].from_lateral_range_m, [-6.5, -2.2]);
+
+  const { surface, portals } = buildBakedRoadContact(exit);
+  const lower = buildBakedRoadContact(
+    find("sf-contact/alana-way-under-us101"),
+  ).surface;
+  const crossing = [3932.003, -5686.35];
+  assert.ok(Math.abs(surface.heightAt(...crossing) - 12.704) < 0.03);
+  assert.ok(Math.abs(lower.heightAt(...crossing) - 5.947) < 0.03);
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(groundAtWorld([tile], x, y, false) - z) < 0.02);
 });
 
 test("I-280 follows the surveyed carriageways and directed SR 82 ramps south of Geneva", () => {

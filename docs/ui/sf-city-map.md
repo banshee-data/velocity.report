@@ -363,6 +363,9 @@ The [20-course route audit](sf-road-route-audit.md) records the playable
 approaches, contact gaps, wrong-level highway reproduction and grade review sites
 on this release. The [Daly City separation and map-edge review](sf-road-route-audit.md#daly-city-separation-tunnel-and-the-map-edge)
 records the southbound I-280 bore and coverage limits at the Marin approaches.
+The [Candlestick Point exit review](sf-road-route-audit.md#candlestick-point-exit-over-alana-way)
+records the surveyed southbound US 101 fork, separate deck over Alana Way
+and handoff to Beatty Road.
 
 ### Yerba Buena tree clearance
 
