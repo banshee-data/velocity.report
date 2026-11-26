@@ -7,8 +7,8 @@ from pathlib import Path
 
 from pyproj import Transformer
 from s2sphere import Cell, CellId, LatLng
-from shapely import get_parts, line_merge, make_valid, union_all
-from shapely.geometry import MultiLineString, box, shape
+from shapely import get_parts, line_merge, make_valid, normalize, union_all
+from shapely.geometry import MultiLineString, Polygon, box, shape
 from shapely.ops import transform
 
 
@@ -45,7 +45,50 @@ BAKED_MINIMAP_ROADS = {
     "john-daly-southbound-i280-entry",
     "i280-daly-tunnel-to-return-merge",
     "i280-south-after-john-daly-merge",
+    "bay-bridge-east-span-eastbound",
+    "bay-bridge-oakland-eastbound",
 }
+OAKLAND_LAND_CELLS = ("80857fbc", "80857fb4")
+
+
+def extend_oakland_coast(tiles, coast, available):
+    patches = []
+    for token in OAKLAND_LAND_CELLS:
+        if token not in available:
+            continue
+        with gzip.open(tiles / f"{token}.json.gz", "rt") as file:
+            tile = json.load(file)
+        grid = tile["g"]
+        size, step, heights = grid["n"], grid["s"], grid["z"]
+        east, north = tile["o"][0] + grid["x0"], tile["o"][1] + grid["y0"]
+        for row in range(size - 1):
+            for column in range(size - 1):
+                i = row * size + column
+                if min(heights[i], heights[i + 1], heights[i + size],
+                       heights[i + size + 1]) > -32768:
+                    x, y = east + column * step, north + row * step
+                    patches.append(box(x, y, x + step, y + step))
+    if not patches:
+        return coast
+    added = union_all(patches).simplify(16)
+    affected = Polygon.from_bounds(*added.bounds).buffer(1)
+    preserved, neighbours = [], []
+    for rings in coast:
+        polygon = Polygon(rings[0], rings[1:])
+        if polygon.intersects(affected):
+            neighbours.append(polygon)
+        else:
+            preserved.append(rings)
+    shoreline = normalize(union_all([added, *neighbours], grid_size=1))
+    return [
+        *preserved,
+        *[
+            [[[round(x), round(y)] for x, y in ring.coords]
+             for ring in [part.exterior, *part.interiors]]
+            for part in get_parts(shoreline)
+            if part.geom_type == "Polygon" and part.area >= 3000
+        ],
+    ]
 
 
 def major_streets(tiles_dir, tiles):
@@ -121,6 +164,7 @@ def main():
         # A road bake can refresh the minimap against the existing land layers.
         existing = json.loads(coverage.read_text())
         layers = {name: existing[name] for name in ("coast", "parks")}
+    layers["coast"] = extend_oakland_coast(tiles, layers["coast"], cells)
     layers["arterials"] = major_streets(tiles, manifest["tiles"])
     cell_rows = ",\n".join(
         f"    {json.dumps(k)}: {json.dumps(v)}" for k, v in cells.items()

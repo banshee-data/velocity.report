@@ -500,6 +500,8 @@ seam before reaching the end of the published contact.
 
 The [John Daly exit and return audit](../ui/sf-road-route-audit.md#john-daly-boulevard-exit-and-return-to-southbound-i-280)
 records the verified cross-cell exit, independent lower approach and southbound merge.
+The [Oakland landing audit](../ui/sf-road-route-audit.md#bay-bridge-east-span-to-oakland)
+records both East Span carriageways across the four added cells.
 
 Use a deterministic fixture containing two crossing decks, the ground road, a ramp,
 a tunnel portal/interior, an unsupported gap and neighbouring building/tree geometry.

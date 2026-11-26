@@ -2865,6 +2865,36 @@ cases["east-span-eastbound"] = {
   rollingStart: true,
   finishOnDeck: true,
 };
+const oaklandOwners = [
+  "80858024",
+  "8085802c",
+  "80857f8c",
+  "80857f94",
+  "80857fbc",
+  "80857fb4",
+];
+cases["east-span-to-oakland"] = {
+  owners: oaklandOwners,
+  roads: [eastSpanEastbound, "bay-bridge-oakland-eastbound"],
+  rollingStart: true,
+  rollingStartMetres: 400,
+  initialSpeedMps: 22.35,
+  speed: 22.35,
+  maxAirborneMetresAfterEntrance: 0,
+  expectNoScrapes: true,
+  maxDurationMs: 235_000,
+};
+cases["oakland-to-east-span"] = {
+  owners: oaklandOwners,
+  roads: ["bay-bridge-oakland-westbound", eastSpanWestbound],
+  speed: 22.35,
+  groundApproachMetres: 9,
+  finishOnDeck: true,
+  finishDistance: 250,
+  maxAirborneMetresAfterEntrance: 0,
+  expectNoScrapes: true,
+  maxDurationMs: 235_000,
+};
 const eastSpan = "yerba-buena-upper-east-span";
 const westExit = "yerba-buena-east-westbound-off-ramp";
 const eastThrough = "yerba-buena-upper-east-through";

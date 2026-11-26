@@ -23,10 +23,12 @@ async function checkRoute() {
       )
         wrongOrigin.add(url.href);
     });
-    const start = "yerba-buena-westbound";
+    const oakland = process.argv.includes("--oakland");
+    const start = oakland ? "oakland-westbound" : "yerba-buena-westbound";
     await page.goto(`${origin}/sf/?at=${start}`);
     const eastSpan = "sf-contact/bay-bridge-east-span-westbound";
     for (const [id, min, max] of [
+      ...(oakland ? [["sf-contact/bay-bridge-oakland-westbound", 3, 4]] : []),
       [eastSpan, 48, 49],
       ["sf-contact/yerba-buena-upper-east-span", 58.5, 60.6],
       ["sf-contact/yerba-buena-upper-east-through", 60.3, 61.5],
@@ -61,7 +63,9 @@ async function checkRoute() {
       await handle.dispose();
       assert.ok(z >= min && z <= max, `${id}: ${z} m`);
       assert.ok(speed > 0, id);
-      if (id === eastSpan) {
+      if (
+        id === (oakland ? "sf-contact/bay-bridge-oakland-westbound" : eastSpan)
+      ) {
         assert.equal(await page.locator("#places").inputValue(), start);
         assert.ok(speed >= 45 * 0.44704, `Rolling start: ${speed} m/s`);
       }
@@ -76,7 +80,7 @@ async function checkRoute() {
     );
     assert.deepEqual(errors, []);
     assert.deepEqual([...wrongOrigin], []);
-    console.log("Yerba Buena, Fremont and Fourth Street route completed");
+    console.log(`${start}, Fremont and Fourth Street route completed`);
   } finally {
     await browser.close();
   }

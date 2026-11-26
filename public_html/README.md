@@ -153,10 +153,11 @@ The engine includes a 350 hp GTI-inspired tune, a two-second crash spin before b
 collision recovery, brake lamps, an emoji compass seeker for the current tile, a minimap
 with S2 cell boundaries, the shoreline, parks and major roads, and personal best times saved on the device.
 The fixed route has one distinct emoji at an intersection in each of 137 eligible tiles;
-25 tiles without a playable signposted intersection remain visible on the map.
+29 tiles without a playable signposted intersection remain visible on the map.
 See [driving controls, route generation and rendering](../docs/ui/sf-driving-view.md).
 The [road route audit](../docs/ui/sf-road-route-audit.md) records tested bridge,
-tunnel and highway connections, including the John Daly exit and return.
+tunnel and highway connections, including the John Daly exit and return
+and both Bay Bridge carriageways to Oakland.
 The touch pad captures held multi-touch input without selection or control gestures. The
 compact driving HUD puts steering on the left and brake/accelerator on the right. Hold the
 brake after stopping to reverse. The map, download sizes, records and trial setup are in a menu,
