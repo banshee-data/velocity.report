@@ -1,0 +1,1 @@
+- Cleared a survey-disproved obstruction on [the southbound Third Street Bridge approach over Mission Creek](../../ui/sf-road-route-audit.md#third-street-bridge-southbound-outside-lane).

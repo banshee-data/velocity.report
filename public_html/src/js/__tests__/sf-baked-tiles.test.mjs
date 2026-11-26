@@ -130,7 +130,14 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
     const fremontHash = fremont?.sha256 ?? westSpanHash;
     const edge = manifest.roadBake.westboundCityApproachEdgeSurvey.tiles[token];
     if (edge) assert.equal(edge.parentSha256, fremontHash);
-    assert.equal(edge?.sha256 ?? fremontHash, digest(raw));
+    let currentHash = edge?.sha256 ?? fremontHash;
+    for (const { tiles } of manifest.roadBake.roadTreeClearanceReviews) {
+      const clearance = tiles[token];
+      if (!clearance) continue;
+      assert.equal(clearance.parentSha256, currentHash);
+      currentHash = clearance.sha256;
+    }
+    assert.equal(currentHash, digest(raw));
     assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
     for (const road of JSON.parse(gunzipSync(raw)).playableRoads) {
       if (roads.has(road.id)) assert.deepEqual(roads.get(road.id), road);
@@ -343,6 +350,24 @@ test("the Alemany connector leaves lower pavement clear beneath the crossing", (
     assert.ok(Number.isFinite(z));
     assert.equal(collisionAt([index], { x, y, heading: -2 }, z), null);
   }
+});
+
+test("the southbound Third Street Bridge approach keeps its outside lane clear", () => {
+  const token = "808f7fd4";
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const receipt = manifest.roadBake.roadTreeClearanceReviews.findLast(
+    ({ tiles }) => tiles[token],
+  ).tiles[token];
+  assert.equal(receipt.sha256, digest(raw));
+  assert.equal(receipt.removed, 1);
+  assert.ok(!tile.tr.some(([x, y]) => x === 4638 && y === 2534));
+  assert.ok(tile.tr.some(([x, y]) => x === 4548 && y === 2645));
+  const car = { x: 4361.8, y: 1876.4, heading: -0.99 };
+  const z = groundAtWorld([tile], car.x, car.y, false);
+  assert.ok(Math.abs(z - 4.06) < 0.02);
+  assert.equal(collisionAt([buildCollisionIndex(tile, token)], car, z), null);
 });
 
 test("local bridges carry the car above the ground grid and meet street pavement", () => {
