@@ -4944,8 +4944,8 @@ An alternate Mission Bay line cleared the first tree in the fixed-step
 driver. The Chrome drive crashed at a later street location. Those
 results remain open in the citywide check.
 
-The current plan uses the Oakland shoreline manifest above and
-has SHA-256 `fb8bef34f7ee786a3a5fc4f679804dea8c366a61f142cf49df826ffcbdf359f4`.
+The course plan for the Oakland shoreline manifest above had
+SHA-256 `fb8bef34f7ee786a3a5fc4f679804dea8c366a61f142cf49df826ffcbdf359f4`.
 The published game uses the static tile bundle. These checks establish
 game traversal for the driven approaches. Covered survey gaps still use
 the documented inferred profiles. [Current contact courses](../../tools/sf-drive/road-audit-current-contact-routes.json)
@@ -4998,3 +4998,44 @@ node tools/sf-drive/drive-road-audit.cjs /tmp/sf-street-forks.jsonl excelsior --
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   san-jose-bosworth-southwest san-jose-bosworth-northeast cesar-chavez-street-to-us101-south
 ```
+
+### Survey evidence at the remaining tree collisions
+
+**World, Data and Goals.** The first 20-course replay on the street fork
+bake ended five routes at inferred tree trunks. The review located the exact
+game tree rows and read the April 2023 USGS 3DEP B23 returns at their
+centres. Pavement-height samples fall within 0.35 m of the game ground.
+The vehicle band runs from 0.45 to 2.20 m above that ground. The near
+column counts returns within 1.05 m and the trunk column counts returns
+within the game collision radius plus 0.20 m.
+
+| Location                         | Tile and tree row   | Pavement-height returns | Vehicle band near / trunk |
+| -------------------------------- | ------------------- | ----------------------: | ------------------------: |
+| Embarcadero                      | `80858064` row 1509 |                     374 |                   34 / 27 |
+| Terry A Francois Boulevard       | `808f7fdc` row 536  |                     257 |                    14 / 4 |
+| Columbus Avenue                  | `808580e4` row 2114 |                     275 |                    17 / 7 |
+| John F Kennedy Drive             | `80858744` row 2643 |                     210 |                    20 / 0 |
+| Randall Street                   | `808f7e64` row 3608 |                     311 |                     0 / 0 |
+| Bayshore Boulevard after Randall | `808f7e54` row 3008 |                     207 |                     0 / 0 |
+
+The vehicle-band counts are unclassified returns. They leave the
+obstruction type uncertain where returns occupy the trunk footprint.
+The John F Kennedy Drive returns begin 0.71 m from the inferred trunk.
+The Randall Street and Bayshore Boulevard footprints have hundreds of
+pavement-height samples and an empty sampled vehicle band. A scratch
+replay omitted those two rows. The Excelsior course reached 4.57 km
+before another Bayshore tree collision, up from 2.01 km on the
+published bake. The next review needs to cover the roadside corridor
+and check that the resulting drive can finish.
+
+The Mission Bay course now drives an adjacent lane at both Third Street
+and Terry A Francois Boulevard. In production Chrome the 2.48 km drive
+collected both pickups, stayed grounded and peaked at 4.3% driven grade.
+With the updated course, the fixed-step city campaign finishes 16 of
+20 routes. The four remaining courses reach tree collisions.
+
+The current contact course plan has SHA-256
+`6866b2d0f9b8c72afec7df79ce3bf94435427ab433a8d52399b77018a0a72701`.
+
+The retained `street-fork-evidence-20261125` run records the B23 metadata
+digest, individual node hashes, game tree indices and per-class counts.

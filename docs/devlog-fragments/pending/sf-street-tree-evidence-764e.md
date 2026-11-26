@@ -1,0 +1,1 @@
+- Verified the full Mission Bay pickup route around two street obstacles in Chrome and recorded the survey evidence at the remaining collisions. The Excelsior replay reached the next Bayshore obstruction after two suspect trunk footprints. [Road route audit](../../ui/sf-road-route-audit.md#survey-evidence-at-the-remaining-tree-collisions)
