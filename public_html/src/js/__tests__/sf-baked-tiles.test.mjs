@@ -131,6 +131,41 @@ test("The Embarcadero has street clearance beneath the retained Bay Bridge volum
   assert.equal(collisionAt(obstacles, besideLane, ground), "building");
 });
 
+test("the northbound Embarcadero right lane clears both inferred volumes", () => {
+  const token = "80858074";
+  const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  const obstacles = [buildCollisionIndex(tile, token)];
+  const [east, north] = tile.o;
+  const [, , direction, points] = tile.r[15];
+  assert.equal(tile.n[tile.r[15][0]], "The Embarcadero");
+  assert.equal(direction, 1);
+  let stations = 0;
+  let adjacentObstructions = 0;
+  for (let i = 0; i + 3 < points.length; i += 2) {
+    const x = east + points[i] / 10;
+    const y = north + points[i + 1] / 10;
+    if (y < 3170 || y > 3220) continue;
+    const heading = Math.atan2(
+      points[i + 3] - points[i + 1],
+      points[i + 2] - points[i],
+    );
+    const right = {
+      x: x + 3 * Math.sin(heading),
+      y: y - 3 * Math.cos(heading),
+      heading,
+    };
+    const street = groundAtWorld([tile], right.x, right.y, true);
+    assert.ok(street > 3 && street < 4);
+    assert.equal(collisionAt(obstacles, right, street), null);
+    const center = groundAtWorld([tile], x, y, true);
+    if (collisionAt(obstacles, { x, y, heading }, center) === "building")
+      adjacentObstructions++;
+    stations++;
+  }
+  assert.ok(stations >= 16);
+  assert.ok(adjacentObstructions >= 6);
+});
+
 test("local bridges carry the car above the ground grid and meet street pavement", () => {
   const specifications = [
     ["8085876c", "crossover-drive-over-jfk", [-3462, 1194.7], 6],
