@@ -5991,3 +5991,28 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   candlestick-southbound-exit candlestick-southbound-through \
   alana-way-below-candlestick-forward alana-way-below-candlestick-reverse
 ```
+
+## Third Street Bridge southbound outside lane
+
+**World and Data.** Chrome stalled 33.3 m into the mapped southbound
+approach to the Third Street Bridge over Mission Creek. The affected
+route follows OpenStreetMap ways `280398660`, `674496104` and `675874861`.
+The inferred trunk sat 0.35 m from that lane's mapped centre. The April
+2023 survey recorded 70 pavement-height returns within 0.7 m of its
+footprint, with an empty vehicle-height band and no overhead returns
+there. The bake clears that single scenery row in tile `808f7fd4`.
+[San Francisco Public Works](https://sfpublicworks.org/ThirdStreetBridge).
+
+**Physics.** The corrected run completed the mapped southbound approach
+and deck in 11.9 s. The four bridge-lane checks also reached their street
+destinations. The five runs recorded zero scenery scrapes, dips and
+airborne travel. The fixed-step check passed the same 476 travel
+directions, 344 joins and 516 ground handoffs as the parent bake.
+
+- Parent manifest SHA-256 `6cf01967a5c666a70134f47e984ee6e2ee4cc9efd76f1c023ac7f4157851c76c`.
+- Updated manifest SHA-256 `3f8aa1f65f9b274cc188729560a90fc956481cdb325e54f1eab926704e0b13ac`.
+- Survey receipt SHA-256 `c88145cb31a104d2e9be753031512b76f4bba79edc989ab2f775b3ba186c9d1c`.
+- Gerardus clearance SHA-256 `cafbaf0da9de3c75c6a985e76f5c49da9135f86091f18cb7682ae47ddedd7518`.
+
+The attached `city-structure-inventory-20261126/mission-creek-bridge-b23`
+run retains the 17 source nodes, their hashes and the keyboard courses.
