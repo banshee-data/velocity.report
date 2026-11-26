@@ -1175,6 +1175,10 @@ cases["branch-east-ramp"] = {
   roads: ["branch-east-off-ramp", sanJoseExit, sanJoseShared],
   owners: sanJoseOwners,
   speed: 13,
+  cameraStations: [
+    { x: 397, y: -3221, surface: "branch-east-off-ramp", camera: "exterior" },
+    { x: 495.7, y: -3144.2, surface: "branch-east-off-ramp", camera: "tunnel" },
+  ],
   groundedHandoff: true,
   maxAirborneMetresAfterEntrance: 2,
   maxDurationMs: 115_000,

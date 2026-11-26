@@ -6,6 +6,7 @@ import {
   MIRROR_VIEW_RANGE,
   coveredRoadBlend,
   driveCameraPose,
+  inTunnelInterior,
   incarRoll,
   overheadDeckBlend,
 } from "../sf-drive-camera.js";
@@ -21,6 +22,29 @@ test("the default view is zoomed out and clears uphill terrain behind the car", 
   assert.equal(pose.hideCar, false);
   assert.equal(pose.mirror, false);
   assert.equal(driveCameraPose("zoomed", car, 10, () => null).position[2], 36);
+});
+
+test("the cockpit is limited to the surveyed tunnel interior", () => {
+  const surface = {
+    kind: "tunnel",
+    appearance: { interior: [12, 45], clearance: 5 },
+    profile: [
+      { position: [0, 0, 10], s_m: 0 },
+      { position: [30, 0, 10], s_m: 30 },
+      { position: [30, 40, 10], s_m: 70 },
+    ],
+  };
+  for (const [x, y, inside] of [
+    [8, -2, false],
+    [12, -2, true],
+    [29, 7, true],
+    [31, 15, true],
+    [32, 16, false],
+  ]) {
+    assert.equal(inTunnelInterior(surface, { x, y }), inside);
+  }
+  assert.equal(inTunnelInterior({ kind: "bridge_deck" }, car), false);
+  assert.equal(inTunnelInterior({ kind: "tunnel" }, car), true);
 });
 
 test("the chase camera lowers before a covered span and rises after it", () => {
