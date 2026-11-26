@@ -1,0 +1,1 @@
+- Placed Main Post tunnel contact beneath the Presidio park and fitted the exposed Halleck–Girard causeway to surveyed pavement. Chrome exercised both mainline directions and the Gorgas exit, and the [road route audit](../../ui/sf-road-route-audit.md#main-post-portals-and-the-presidio-causeway) records the portal evidence and remaining inventory matches.

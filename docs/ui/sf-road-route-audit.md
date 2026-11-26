@@ -5444,3 +5444,71 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   bernal-cut-highland-eastbound bernal-cut-highland-westbound \
   silliman-roundtrip san-jose-tingley-ground-approach
 ```
+
+### Main Post portals and the Presidio causeway
+
+**World, Physics, UI and Data.** The independent inventory comparison used
+443 motor-road ways from the San Francisco OpenStreetMap extract. It screened
+350 bridge tags and 93 tunnel tags for a nearby baked alignment with the same
+heading and structure type. It also rescreened 293 Public Works, SFMTA and
+Caltrans markers. The map tags and inventory points identify candidates for
+review. Geometry can be offset across source maps, roads may use ordinary
+terrain, and some markers refer to a railway or pedestrian crossing.
+[OpenStreetMap extract](https://download.bbbike.org/osm/bbbike/SanFrancisco/) ·
+[SFMTA clearance inventory](https://data.sf.gov/Transportation/Clearance-Heights-Bridges-and-Underpasses/eb2x-6eay/about_data) ·
+[Caltrans bridge inventory](https://caltrans-gis.dot.ca.gov/arcgis/rest/services/CHhighway/State_Highway_Bridges/FeatureServer/0).
+
+Chrome used keyboard input to finish 14 legal-direction approaches at nine
+clearance markers where the ground supports the street. These included Jackson
+at Front and Drumm, Washington at Battery, Hayes near Polk, Jamestown, Thomas
+More Way, Old Mason at Halleck and both Third Street approaches at Salinas.
+All finished grounded. The runs found zero scrapes, air travel or dips deeper
+than 0.5 m. The highest driven grade was 22.81% on the outbound Jamestown line.
+
+The Main Post comparison found that the game enclosed the exposed Halleck–Girard
+causeway and left most of Main Post open. The aerial return profiles distinguish
+the roof, the visible pavement at the mouths and the running surface on the
+causeway. The covered southbound interior interpolates between the measured
+approaches. The corrected route keeps the Girard and Gorgas branch inside the
+bore and puts the mainline on the exposed deck. The original causeway fit was
+about 6 m below the observed northbound road at a sample 135 m into that section.
+[Federal tunnel inventory](https://www.fhwa.dot.gov/bridge/inspection/tunnel/inventory/download.cfm) ·
+[Presidio Parkway project](https://www.fhwa.dot.gov/ipd/project_profiles/ca_presidio.aspx) ·
+[April 2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+| Browser witness                                            | Published parent                    | Revised contact           |
+| ---------------------------------------------------------- | ----------------------------------- | ------------------------- |
+| Northbound beneath Main Post near game east −1,390 m       | Exterior camera at 1.56 m           | Tunnel camera at 1.56 m   |
+| Southbound beneath Main Post near game east −1,390 m       | Exterior camera at 10.50 m          | Tunnel camera at 1.43 m   |
+| Northbound on the exposed causeway near game east −1,100 m | Covered running surface in the bake | Exterior camera at 8.29 m |
+| Southbound on the exposed causeway near game east −1,100 m | Covered running surface in the bake | Exterior camera at 7.71 m |
+
+The first candidate exposed an inferred face on the measured southbound deck.
+The 5 m lane clearance clips 101.21 m² from that face. The survey found 8,935
+pavement returns and zero vehicle-height returns in the clipped area. The side
+faces remain. Chrome completed northbound, southbound and the Gorgas exit on the
+revised contact with zero scrapes and zero air travel. The East Span also names
+the actual terminal owners in the expanded Oakland tiles, with identical road
+points and joins.
+
+The contact audit passed 473 directed traversals across 381 surfaces and all
+342 directed joins. The 515 handoffs yielded 512 transfers to/from ground and
+three direct continuations. Fifteen light scrapes did not stop their handoff
+probes. The alignment comparison still includes unresolved matches at I-80 in
+SoMa and the I-280/Mariposa complex. The score measures proximity and heading,
+so those matches need evidence of their level and road identity.
+
+- Parent game SHA-256 `11aa3fe204c385c329effe9a7a8844997e62fd10fb0ad415ef02997a023928e5`.
+- Revised game SHA-256 `3b75aedad5a122612b62866047d01f4823155a1439c6c1cadf09f95e4eddba47`.
+- Revised contact SHA-256 `2338c402f32b6799bff4126bdea319d232e06a644b18b6c825aacfae44148dcf`.
+- OpenStreetMap extract SHA-256 `a16fd54d5b081163a6ad9503e323685a484f976e34df7b3a0d9576d41b6f7299`.
+- Clearance course export SHA-256 `f15a3cf7b4309d1c9b4532ae676f4b9344e1faabbe2cc0a8951e385ed678b1f8`.
+
+The local evidence run `city-structure-inventory-20261126` retains the original
+survey nodes, inventory, test courses and browser traces.
+
+```sh
+node tools/sf-drive/audit-baked-road-contact.mjs --drive-links --drive-spans
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  northbound southbound presidio-main-post-to-gorgas presidio-marina-to-doyle
+```

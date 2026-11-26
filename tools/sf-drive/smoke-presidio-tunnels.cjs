@@ -4374,6 +4374,77 @@ function fromGround(points, firstRoad) {
   };
 }
 
+const mainPostNorth = "main-post-northbound";
+const mainPostSouthWest = "main-post-southbound-west";
+const northCauseway = "presidio-nb-causeway";
+const southCauseway = "presidio-sb-causeway";
+const gorgasInterior = "presidio-gorgas-southbound-covered-exit";
+const gorgasRamp = "presidio-gorgas-southbound-exit";
+const northMainPostCameras = [
+  { x: -1100, y: 4825, surface: northCauseway, camera: "exterior" },
+  { x: -1390, y: 4784, surface: mainPostNorth, camera: "tunnel" },
+];
+const southMainPostCameras = [
+  { x: -1390, y: 4764, surface: mainPostSouthWest, camera: "tunnel" },
+  { x: -1100, y: 4802, surface: southCauseway, camera: "exterior" },
+];
+for (const name of ["northbound", "presidio-doyle-northbound"]) {
+  const route = cases[name];
+  route.forBake = (has) =>
+    has(northCauseway)
+      ? {
+          roads: route.roads.flatMap((id) =>
+            id === mainPostNorth ? [northCauseway, id] : [id],
+          ),
+          cameraStations: northMainPostCameras,
+        }
+      : {};
+}
+for (const name of ["presidio-marina-to-doyle", "presidio-marina-to-sr1"]) {
+  const route = cases[name];
+  route.forBake = (has) =>
+    has(northCauseway)
+      ? {
+          roads: route.roads.flatMap((id) =>
+            id === "presidio-nb-between" ? [mainPostNorth, id] : [id],
+          ),
+          cameraStations: [northMainPostCameras[1]],
+        }
+      : {};
+}
+for (const name of ["southbound", "presidio-doyle-southbound"]) {
+  const route = cases[name];
+  route.forBake = (has) =>
+    has(southCauseway)
+      ? {
+          roads: route.roads.flatMap((id) => {
+            if (id === "main-post-sb-approach") return [mainPostSouthWest];
+            if (id === "main-post-southbound") return [id, southCauseway];
+            return [id];
+          }),
+          forks: [
+            ...(route.forks ?? []),
+            [mainPostSouthWest, "main-post-southbound", 1.4],
+          ],
+          cameraStations: southMainPostCameras,
+        }
+      : {};
+}
+cases["presidio-main-post-to-gorgas"] = {
+  roads: ["presidio-sb-between", mainPostSouthWest, gorgasInterior, gorgasRamp],
+  speed: 14,
+  rollingStart: true,
+  rollingStartMetres: 282,
+  speedLimits: { [gorgasRamp]: 9 },
+  forks: [[mainPostSouthWest, gorgasInterior, -1.45]],
+  cameraStations: [
+    southMainPostCameras[0],
+    { x: -1100, y: 4753, surface: gorgasRamp, camera: "exterior" },
+  ],
+  expectNoScrapes: true,
+  maxAirborneMetres: 0,
+};
+
 async function asset(pathname) {
   if (candidate) return readFile(join(candidate, pathname));
   const response = await fetch(`${origin}/sf/${pathname}`);
@@ -4513,6 +4584,7 @@ async function drive(
   groundTurn,
   sampleApproach,
   sampleDeparture,
+  cameraStations,
 ) {
   return page.evaluate(
     async ({
@@ -4525,6 +4597,7 @@ async function drive(
       groundTurn,
       sampleApproach,
       sampleDeparture,
+      cameraStations,
     }) => {
       const driveModule = performance
         .getEntriesByType("resource")
@@ -4661,6 +4734,7 @@ async function drive(
       const approachPoses = [];
       const departurePoses = [];
       const notices = new Set();
+      const cameraObservations = new Map();
       const driveNotice = document.querySelector("#driveNotice");
       return new Promise((resolve) => {
         function finish(status) {
@@ -4685,6 +4759,9 @@ async function drive(
             approachPoses,
             departurePoses,
             ...(notices.size && { scrapeNotices: [...notices] }),
+            ...(cameraStations.length && {
+              cameraObservations: [...cameraObservations.values()],
+            }),
             ...(groundTurn && { reversedOnGround }),
             maxMph: Math.round(maxSpeed * 2.23694 * 10) / 10,
             seconds: Math.round((performance.now() - started) / 100) / 10,
@@ -4738,6 +4815,18 @@ async function drive(
           )
             airborneBeforeLastRoad = true;
           if (surfaceId && !seen.has(surfaceId)) seen.set(surfaceId, pose);
+          for (const [i, station] of cameraStations.entries()) {
+            if (
+              !cameraObservations.has(i) &&
+              Math.hypot(pose.x - station.x, pose.y - station.y) < 8
+            ) {
+              cameraObservations.set(i, {
+                surface: pose.surfaceId,
+                camera: pose.camera,
+                grounded: pose.grounded,
+              });
+            }
+          }
           if (surfaceId && pose.grounded) lastSupported = pose;
           if (
             !surfaceId &&
@@ -4832,6 +4921,7 @@ async function drive(
       groundTurn,
       sampleApproach,
       sampleDeparture,
+      cameraStations,
     },
   );
 }
@@ -4906,6 +4996,7 @@ async function main() {
         forks = [],
         covered,
         allowedCovered = [],
+        cameraStations = [],
       } = {
         ...definition,
         ...definition.forBake?.((slug) => roads.has(prefix + slug)),
@@ -5156,6 +5247,7 @@ async function main() {
           groundTurn,
           sampleApproach,
           sampleDeparture,
+          cameraStations,
         );
         const clearance = (poses) =>
           Math.max(
@@ -5204,6 +5296,15 @@ async function main() {
           contactSections.map(({ id }) => id),
         );
         assert.ok(result.seen.every(({ grounded }) => grounded));
+        if (cameraStations.length)
+          assert.deepEqual(
+            result.cameraObservations,
+            cameraStations.map(({ surface, camera }) => ({
+              surface: prefix + surface,
+              camera,
+              grounded: true,
+            })),
+          );
         assert.deepEqual(
           result.enclosed,
           sections.filter(({ kind }) => kind === "tunnel").map(({ id }) => id),

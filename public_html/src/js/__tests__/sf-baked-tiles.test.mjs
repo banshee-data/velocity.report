@@ -1999,6 +1999,14 @@ test("both East Span carriageways connect to Oakland with four complete cross-ti
     const road = contact(tiles.at(-1), name);
     const inner = contact(tiles[0], `bay-bridge-east-span-${direction}`);
     const [before, after] = fromOakland ? [road, inner] : [inner, road];
+    assert.deepEqual(
+      inner.owners,
+      fromOakland ? ["80857f8c", "80858024"] : ["80858024", "80857f8c"],
+    );
+    assert.deepEqual(
+      contact(tiles[1], `bay-bridge-east-span-${direction}`),
+      inner,
+    );
     assert.deepEqual(before.points.at(-1), after.points[0]);
     assert.deepEqual(before.seams.end, after.seams.start);
     assert.ok(
@@ -3316,7 +3324,7 @@ test("surveyed ground approaches and carriageways stay clear of inferred trunks"
     assert.ok(crossover.tr.some(([u, v]) => u === x && v === y));
 });
 
-test("Presidio's four bores turn into continuous contact at their portals", () => {
+test("Presidio's through lanes stay continuous across the Battery and Main Post portals", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808586d4", "808586dc", "808586ec"].map((t) =>
     JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
@@ -3327,8 +3335,8 @@ test("Presidio's four bores turn into continuous contact at their portals", () =
   const parkwayThrough = new Map([
     ["sf-contact/presidio-nb-viaduct:end", "sf-contact/presidio-nb-exit:start"],
     [
-      "sf-contact/presidio-sb-between:end",
-      "sf-contact/main-post-sb-approach:start",
+      "sf-contact/main-post-southbound-west:end",
+      "sf-contact/main-post-southbound:start",
     ],
   ]);
   const transitions = new Map(
@@ -3341,7 +3349,14 @@ test("Presidio's four bores turn into continuous contact at their portals", () =
   );
   for (const [direction, bores] of [
     ["nb", ["main-post-northbound", "battery-northbound"]],
-    ["sb", ["battery-southbound", "main-post-southbound"]],
+    [
+      "sb",
+      [
+        "battery-southbound",
+        "main-post-southbound-west",
+        "main-post-southbound",
+      ],
+    ],
   ]) {
     const start = `sf-contact/presidio-${direction}-entry`;
     const end =
@@ -3382,43 +3397,75 @@ test("Presidio's four bores turn into continuous contact at their portals", () =
     assert.equal([...visited].at(-1), end);
   }
 
-  const [north, , plaza] = tiles;
-  for (const [tile, name, entry, upper] of [
-    [north, "main-post-southbound", { x: -1038.3, y: 4807.3, heading: 0 }, 8.3],
-    [
-      plaza,
-      "toll-plaza-tunnel",
-      { x: -3169.55, y: 5207.47, heading: 0.625 },
-      55.4,
-    ],
-  ]) {
-    const road = roads.get(`sf-contact/${name}`);
-    const { surface, appearance, portals } = buildBakedRoadContact(road);
-    assert.ok(appearance, name);
-    if (tile === plaza) {
-      assert.equal(portals.length, 2);
-      for (const { x, y, z } of portals)
-        assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
-    }
-    const floor = surface.heightAt(entry.x, entry.y);
-    assert.ok(Number.isFinite(floor), name);
-    const indexes = [buildCollisionIndex(tile, tile.t)];
-    assert.equal(collisionAt(indexes, entry, floor), null, name);
-    assert.equal(collisionAt(indexes, entry, upper), "building", name);
-  }
+  const plaza = tiles[2];
+  const { surface, appearance, portals } = buildBakedRoadContact(
+    roads.get("sf-contact/toll-plaza-tunnel"),
+  );
+  assert.ok(appearance);
+  assert.equal(portals.length, 2);
+  for (const { x, y, z } of portals)
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.03);
+  const entry = { x: -3169.55, y: 5207.47, heading: 0.625 };
+  const floor = surface.heightAt(entry.x, entry.y);
+  assert.ok(Number.isFinite(floor));
+  const indexes = [buildCollisionIndex(plaza, plaza.t)];
+  assert.equal(collisionAt(indexes, entry, floor), null);
+  assert.equal(collisionAt(indexes, entry, 55.4), "building");
 });
 
-test("Marina Boulevard and Main Post join the same northbound Presidio contact", () => {
+test("Main Post bores underpass the park and leave the measured causeway open", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808586d4.json.gz")));
+  const contact = (id) =>
+    buildBakedRoadContact(
+      tile.playableRoads.find((road) => road.id === `sf-contact/${id}`),
+    );
+  for (const [bore, causeway, inside, outside, minimumElevation] of [
+    [
+      "main-post-northbound",
+      "presidio-nb-causeway",
+      [-1390, 4784],
+      [-1100, 4825],
+      8,
+    ],
+    [
+      "main-post-southbound-west",
+      "presidio-sb-causeway",
+      [-1390, 4764],
+      [-1100, 4802],
+      7.5,
+    ],
+  ]) {
+    const tunnel = contact(bore);
+    assert.ok(tunnel.appearance);
+    const floor = tunnel.surface.heightAt(...inside);
+    assert.ok(floor > 0 && floor < 3, bore);
+    assert.ok(groundAtWorld([tile], ...inside, true) - floor > 6, bore);
+    const exposed = contact(causeway);
+    assert.equal(exposed.surface.kind, "bridge_deck");
+    assert.ok(!exposed.appearance);
+    assert.ok(exposed.surface.heightAt(...outside) > minimumElevation, causeway);
+  }
+  const { surface } = contact("presidio-sb-causeway");
+  const entry = { x: -1047.5, y: 4805.6, heading: 0.1 };
+  const floor = surface.heightAt(entry.x, entry.y);
+  assert.ok(floor > 8.4);
+  assert.equal(
+    collisionAt([buildCollisionIndex(tile, tile.t)], entry, floor),
+    null,
+  );
+});
+
+test("Marina Boulevard and the northbound causeway join at the Main Post portal", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tile = JSON.parse(gunzipSync(file("tiles/808586d4.json.gz")));
   const road = (slug) =>
     tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
   const marina = road("presidio-marina-northbound-entry");
-  const mainPost = road("main-post-northbound");
-  const northbound = road("presidio-nb-between");
+  const causeway = road("presidio-nb-causeway");
+  const northbound = road("main-post-northbound");
   assert.deepEqual(marina.groundEnds, ["start"]);
   assert.deepEqual(marina.widthTransitionMetres, { end: 24 });
-  for (const entrance of [marina, mainPost]) {
+  for (const entrance of [marina, causeway]) {
     assert.deepEqual(entrance.points.at(-1), northbound.points[0]);
     assert.deepEqual(entrance.seams.end, northbound.seams.start);
     assert.ok(
