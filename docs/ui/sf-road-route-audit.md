@@ -5035,7 +5035,7 @@ With the updated course, the fixed-step city campaign finishes 16 of
 20 routes. The four remaining courses reach tree collisions.
 
 The current contact course plan has SHA-256
-`6866b2d0f9b8c72afec7df79ac7bce05bb979b2d090bddf44c295651426f563`.
+`6866b2d0f9b8c72afec7df79ce3bf94435427ab433a8d52399b77018a0a72701`.
 
 The retained `street-fork-evidence-20261125` run records the B23 metadata
 digest, individual node hashes, game tree indices and per-class counts.
