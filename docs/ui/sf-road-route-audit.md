@@ -4838,15 +4838,22 @@ handoffs, including three onward connections onto other baked roads.
 **UI and Goals.** The minimap carries the new cells across the bay
 and includes the Oakland shoreline derived from the terrain window.
 The 137 existing quest markers retain their locations and identity.
+The First Street and Essex Street routes continue to Oakland. The added
+Oakland westbound start rolls at 50 mph and follows the existing Fremont
+exit and Fourth Street entrance.
 The adjoining MacArthur Maze ramp network needs its own road and
 terrain review.
 
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs east-span-to-oakland oakland-to-east-span
+node tools/sf-drive/smoke-bridge.cjs --eastbound
+node tools/sf-drive/smoke-bridge.cjs --essex
+node tools/sf-drive/smoke-yerba-buena.cjs --oakland
 ```
 
-- Game manifest SHA-256 `534887ca15afc1246caf2c2e43432ac0472c312daf1c92294b3529bca56187f0`.
+- Game manifest SHA-256 `1cb8b5f1556ca099075009af302a717a2a2c4b6dc9a95a5ae2928d50922506b7`.
 - Gerardus contact SHA-256 `44cbdfbac5237d70cadbb632f2dfdfa2c65c225f48c4c207a2d5839c4cadb4ec`.
+- Drive guide SHA-256 `d012bff68c9e683799a111e9d81715a9b171f19c7138c07b1cf07baba720eedf`.
 
 The `oakland-touchdown-evidence-20261125` run retains the mapped
 alignment, survey samples, terrain window and cross-section measurements.

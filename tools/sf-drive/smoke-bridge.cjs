@@ -67,11 +67,18 @@ const { chromium } = require("playwright");
     console.log(
       "The start picker loads the baked Bay Bridge drive at speed, Fremont exit and a stationary intersection.",
     );
-    if (process.argv.includes("--eastbound")) {
-      const start = "yerba-buena-eastbound";
+    if (
+      process.argv.includes("--eastbound") ||
+      process.argv.includes("--essex")
+    ) {
+      const start = process.argv.includes("--essex")
+        ? "essex-eastbound"
+        : "yerba-buena-eastbound";
       await page.goto(`${host}/sf/?at=${start}`);
       for (const surface of [
-        "first-street-eastbound-entry",
+        start === "essex-eastbound"
+          ? "essex-street-eastbound-entry"
+          : "first-street-eastbound-entry",
         "sf-eastbound-lower-approach",
         "bay-bridge-eastbound-lower",
         "yerba-buena-lower-west-approach",
@@ -80,6 +87,7 @@ const { chromium } = require("playwright");
         "yerba-buena-lower-east-approach",
         "yerba-buena-lower-east-after-entry",
         "sf-contact/bay-bridge-east-span-eastbound",
+        "sf-contact/bay-bridge-oakland-eastbound",
       ]) {
         await waitForStart(start, surface, null, 220_000);
         if (surface.startsWith("yerba-buena-lower-tunnel")) {
@@ -92,10 +100,10 @@ const { chromium } = require("playwright");
       }
       await page.waitForFunction(
         () => {
-          const { north, contact, routeComplete } =
+          const { east, contact, routeComplete } =
             document.querySelector("#drive").dataset;
           return (
-            Number(north) > 6410 &&
+            Number(east) > 10785 &&
             contact === "grounded" &&
             routeComplete === "true"
           );
@@ -104,9 +112,7 @@ const { chromium } = require("playwright");
         { timeout: 120_000 },
       );
       assert.deepEqual(errors, []);
-      console.log(
-        "The eastbound drive reached the East Span map boundary from First Street.",
-      );
+      console.log(`The ${start} drive reached Oakland pavement.`);
     }
   } finally {
     await browser.close();

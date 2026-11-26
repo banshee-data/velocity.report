@@ -1878,6 +1878,7 @@ test("both East Span carriageways connect to Oakland with four complete cross-ti
   });
   const contact = (tile, suffix) =>
     tile.playableRoads.find(({ id }) => id === `sf-contact/${suffix}`);
+  const drive = JSON.parse(file("gamedrives.json")).drives[0];
   for (const direction of ["eastbound", "westbound"]) {
     const fromOakland = direction === "westbound";
     const name = `bay-bridge-oakland-${direction}`;
@@ -1903,6 +1904,21 @@ test("both East Span carriageways connect to Oakland with four complete cross-ti
     assert.ok(
       Math.abs(groundAtWorld(tiles, east, north, true) - height) < 0.02,
     );
+    if (fromOakland) {
+      const route = cityDriveApproach(drive, "oakland-westbound");
+      assert.deepEqual(route.sections[0].positions, road.points);
+      assert.equal(route.initial_speed_mps, 22.352);
+      assert.ok(route.sections.some(({ id }) => id === "fremont-exit"));
+      assert.ok(
+        route.sections.some(({ id }) => id === "fourth-street-entrance"),
+      );
+      assert.equal(route.sections.at(-1).id, "westbound-i80");
+    } else {
+      for (const start of ["yerba-buena-eastbound", "essex-eastbound"]) {
+        const route = cityDriveApproach(drive, start);
+        assert.deepEqual(route.sections.at(-1).positions, road.points);
+      }
+    }
   }
 });
 
@@ -1966,7 +1982,7 @@ test("the upper East Span forks to Macalla Road without crossing the lower deck"
   assert.ok(exit.profile.at(-1).s_m > 310);
 });
 
-test("the eastbound bridge start connects First Street to the lower bore and east approach", () => {
+test("the eastbound bridge start connects First Street to Oakland through the lower bore", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const drive = JSON.parse(file("gamedrives.json")).drives.find(
     ({ id }) => id === BAY_BRIDGE_CITY_DRIVE,
@@ -2005,8 +2021,12 @@ test("the eastbound bridge start connects First Street to the lower bore and eas
     );
   }
   assert.equal(
-    selected.sections.at(-1).id,
+    selected.sections.at(-2).id,
     "sf-contact/bay-bridge-east-span-eastbound",
+  );
+  assert.equal(
+    selected.sections.at(-1).id,
+    "sf-contact/bay-bridge-oakland-eastbound",
   );
 });
 
