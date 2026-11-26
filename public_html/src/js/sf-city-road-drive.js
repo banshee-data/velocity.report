@@ -401,6 +401,7 @@ export function driveOnCityRoute(
   network,
   pavement,
   requestOwner = () => false,
+  requireGuide = false,
 ) {
   const next =
     strikeHighwayRail(car, input, dt, surface) ||
@@ -421,7 +422,12 @@ export function driveOnCityRoute(
   const street = driveOnRoadSurface(car, input, dt, { heightAt: pavement });
   // Keep the route span ID on adjacent pavement so resume uses the same leg,
   // even where a later leg passes through the same intersection.
-  return street.blocked ? next : street;
+  if (
+    street.blocked ||
+    (requireGuide && surface.heightAt(street.x, street.y) === null)
+  )
+    return next;
+  return street;
 }
 
 export function cityDriveOnRoute(surface, car) {

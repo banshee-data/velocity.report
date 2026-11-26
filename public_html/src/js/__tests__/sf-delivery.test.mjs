@@ -182,6 +182,9 @@ test("the default Bay Bridge route completes every named delivery on the bundled
       surface,
       surfaces,
       graph,
+      height,
+      undefined,
+      true,
     );
     if (nextCar.surfaceId !== car.surfaceId) spans.push(nextCar.surfaceId);
     car = nextCar;

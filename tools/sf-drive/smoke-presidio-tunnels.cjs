@@ -2084,6 +2084,22 @@ for (const {
     laneGuides: { [road]: { clearance: { station, offset, length } } },
   };
 }
+cases["westbound-city-measured-right-lane"] = {
+  owners: ["80858074", "8085807c"],
+  roads: ["city-approach"],
+  speed: 18,
+  rollingStart: true,
+  rollingStartMetres: 325,
+  initialSpeedMps: 16,
+  finishOnDeck: true,
+  finishDistance: 462,
+  maxAirborneMetres: 0,
+  maxDurationMs: 45_000,
+  expectNoScrapes: true,
+  laneGuides: {
+    "city-approach": { clearance: { offset: -17.2, station: 395, length: 85 } },
+  },
+};
 cases["west-city-approach-fremont-exit"] = {
   ...cases["upper-to-fremont"],
   owners: ["80858074", "8085807c"],

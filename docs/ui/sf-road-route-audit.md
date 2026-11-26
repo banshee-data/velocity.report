@@ -5858,3 +5858,41 @@ witnesses, node hashes and browser traces.
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   san-jose-tingley-southbound san-jose-tingley-ground-approach
 ```
+
+## Surveyed right-hand lane on the Bay Bridge city approach
+
+**World and Data.** The revised contact reaches 21.17 m to the right
+of the game line before the Fremont split. The previous contact narrowed
+inside the right-hand lane. On the parent bake a keyboard drive left the
+deck, travelled 24.62 m airborne and crashed. The wider contact follows
+the observed edge through the approach and uses the existing transverse
+section at the split. The named drive loads the same measured width as
+free drive.
+
+The widened lane exposed an inferred building face. Its overlap with the
+reviewed deck strip is 2.47 m². The April 2023 survey shows 235 class-17
+returns near the deck height in the overlap and seven unclassified
+returns in the vehicle-height band. The bake caps the inferred overlap
+at 42.5 m. The tile check still finds the building volume at 30 m below
+the deck. The survey describes conditions at the acquisition date.
+
+**Physics and Traffic.** Chrome completed the outside lane, the Fremont
+exit and the I-80 through route with zero airborne travel. The full
+fixed-step audit passed 474 travel directions and all 342 directed joins.
+The default delivery replay also checks the street handoff at the bottom
+of Fremont. Its tyres may contact same-level pavement beside the narrow
+guide while its centre stays on the route.
+
+- Parent manifest SHA-256 `7e9fe18435e778320ca948eb4022af2d676f1089b312a21729d15fab05bf0406`.
+- Revised manifest SHA-256 `d8cc8e53a93013a8d53cc67834379d39acca0dd8e1bafb23600a72569fa3e9c1`.
+- Revised contact SHA-256 `5452d11603a7d0d4bac9e3fa26d153b5a9f0cc6d0db250ba27ccf7906c398ffb`.
+- Survey edge receipt SHA-256 `d9bdbbd9d357f168dc657e34712a4e23370c41c9723bbd3471e5f4af4e003cd6`.
+
+The attached `city-structure-inventory-20261126/i80-city-approach-edge-b23`
+evidence directory retains the survey and the browser and replay traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  westbound-city-measured-right-lane west-city-approach-fremont-exit \
+  west-city-approach-through
+```

@@ -1,0 +1,1 @@
+- Matched the westbound city-approach contact to the surveyed outside lane and let automatic deliveries keep tyre contact on adjacent same-level pavement while following the guide at Fremont. [Road replay evidence](../../ui/sf-road-route-audit.md#surveyed-right-hand-lane-on-the-bay-bridge-city-approach).

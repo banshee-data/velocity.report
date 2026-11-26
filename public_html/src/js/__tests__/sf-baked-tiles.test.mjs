@@ -127,7 +127,10 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
     const westSpanHash = westSpan?.sha256 ?? existingHash;
     const fremont = manifest.roadBake.i80FremontAlignmentSurvey.tiles[token];
     if (fremont) assert.equal(fremont.parentSha256, westSpanHash);
-    assert.equal(fremont?.sha256 ?? westSpanHash, digest(raw));
+    const fremontHash = fremont?.sha256 ?? westSpanHash;
+    const edge = manifest.roadBake.westboundCityApproachEdgeSurvey.tiles[token];
+    if (edge) assert.equal(edge.parentSha256, fremontHash);
+    assert.equal(edge?.sha256 ?? fremontHash, digest(raw));
     assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
     for (const road of JSON.parse(gunzipSync(raw)).playableRoads) {
       if (roads.has(road.id)) assert.deepEqual(roads.get(road.id), road);
@@ -196,7 +199,9 @@ test("The Embarcadero has street clearance beneath the retained Bay Bridge volum
   const fremont = manifest.roadBake.i80FremontAlignmentSurvey.tiles[token];
   assert.equal(review.tiles[token].sha256, westSpan.parentSha256);
   assert.equal(westSpan.sha256, fremont.parentSha256);
-  assert.equal(fremont.sha256, digest(raw));
+  const edge = manifest.roadBake.westboundCityApproachEdgeSurvey.tiles[token];
+  assert.equal(edge.parentSha256, fremont.sha256);
+  assert.equal(edge.sha256, digest(raw));
 
   const tile = JSON.parse(gunzipSync(raw));
   const obstacles = [buildCollisionIndex(tile, token)];
@@ -1750,7 +1755,10 @@ test("the westbound deck holds the sampled outside lanes above their lower level
     const raw = file(`tiles/${token}.json.gz`);
     const fremont = roadBake.i80FremontAlignmentSurvey.tiles[token];
     if (fremont) assert.equal(fremont.parentSha256, receipt.sha256);
-    assert.equal(fremont?.sha256 ?? receipt.sha256, digest(raw));
+    const previous = fremont?.sha256 ?? receipt.sha256;
+    const edge = roadBake.westboundCityApproachEdgeSurvey.tiles[token];
+    if (edge) assert.equal(edge.parentSha256, previous);
+    assert.equal(edge?.sha256 ?? previous, digest(raw));
     assert.equal(raw.length, entries.find(({ t }) => t === token).bytes);
     const tile = JSON.parse(gunzipSync(raw));
     collision.push(buildCollisionIndex(tile, token));
@@ -1796,6 +1804,34 @@ test("the westbound deck holds the sampled outside lanes above their lower level
       assert.ok(Number.isFinite(below) && z - below > 8);
     }
   }
+});
+
+test("the westbound outside lane stays on the city approach deck before Fremont", () => {
+  const tiles = ["80858074", "8085807c"].map((t) =>
+    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
+  );
+  const road = tiles[0].playableRoads.find(({ id }) => id === "city-approach");
+  assert.deepEqual(
+    tiles[1].playableRoads.find(({ id }) => id === road.id),
+    road,
+  );
+  const { surface } = buildBakedRoadContact(road);
+  const indices = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
+  for (const [x, y, height] of [
+    [4315.615, 2893.522, 44.243],
+    [4303.072, 2882.353, 43.846],
+    [4296.864, 2877.573, 43.6],
+  ]) {
+    const car = { x, y, heading: -2.44 };
+    const z = surface.heightAt(x, y);
+    assert.ok(Number.isFinite(z) && Math.abs(z - height) < 0.5);
+    assert.ok(roadSupportsCar(surface.heightAt, { ...car, z }));
+    assert.equal(collisionAt(indices, car, z), null);
+  }
+  assert.equal(
+    collisionAt(indices, { x: 4303.072, y: 2882.353, heading: -2.44 }, 30),
+    "building",
+  );
 });
 
 test("the east island ramp joins the upper bore without changing the through tunnel level", () => {
