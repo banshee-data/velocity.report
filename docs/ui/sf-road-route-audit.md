@@ -5569,3 +5569,41 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   soma-measured-eastbound-lane soma-measured-westbound-lane \
   i80-westbound-over-fifth i80-westbound-fifth-harrison i80-fifth-bryant-entry
 ```
+
+## I-280 Mariposa approach lanes
+
+**World and Data.** Chrome passed the Mariposa entrance and exit and the
+18th Street viaduct on the parent build. Steering away from the centre on the
+two mainline approaches exposed another pair of decks with contact narrower
+than the measured pavement. Both used 8 m wide strips. The reviewed tile
+widens the surveyed intervals on both sides and tapers into the existing
+cross-sections at the ends. The road points, elevation guides and directed
+joins are shared with the parent bake.
+
+The deck-width review used 146 April 2023 EPT nodes and the same 3 m station
+spacing, 1 m lateral spacing and pavement return gate as the SoMa review.
+Southbound passed 87 left and 86 right edge checks. Northbound passed 82 left
+and 91 right edge checks. These checks locate the surveyed lane extents
+at the tested level. Exact deck edges and crossfall are outside the fit.
+[San Francisco LiDAR survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+**Physics.** The same keyboard steering lines moved 9 m left of the baked
+centre with route assist off. On the parent, the northbound run fell for
+24.76 m of travel and the southbound run fell for 25.69 m before both crashed
+below the deck. The corrected drives finished grounded with no scrapes and no
+airborne travel. The asset test also checks chassis support on the right side
+of each approach. These results cover the tested mainline movements.
+
+- Parent game manifest SHA-256 `dd7f5d4ff8eb36b9acf70519d12b264c5ac29be99b42b1664905949d452f897c`.
+- Revised game manifest SHA-256 `fab27ba3c09f3faef45d2dab1a29a21c6224753558aad01de14ecd179100a73a`.
+- Revised contact SHA-256 `571a65dda9fb590fde6a7a2e24785ee5f41b600cd7ba06953f1e00336a514f23`.
+- Survey receipt SHA-256 `ed12d40c9291e6801e467f05ec0afd4e90fdc2420a91facf55d34a33c7dac0ba`.
+
+The attached `city-structure-inventory-20261126` evidence run retains the
+survey nodes, sample receipt and browser traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  mariposa-northbound-outer mariposa-southbound-outer \
+  mariposa-west-to-southbound-i280 i280-mariposa-exit mariposa-upper-18th-viaduct
+```

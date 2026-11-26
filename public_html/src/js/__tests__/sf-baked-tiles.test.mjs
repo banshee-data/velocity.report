@@ -3896,6 +3896,34 @@ test("the surveyed SoMa I-80 lanes stay on their own decks and clear the capped 
   }
 });
 
+test("both I-280 Mariposa approaches support the surveyed lanes on either side", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7fcc.json.gz")));
+  for (const [slug, station, offsets] of [
+    ["i280-king-to-mariposa", 283, [-7, 9]],
+    ["i280-mariposa-northbound", 352, [-5.5, 9]],
+  ]) {
+    const road = tile.playableRoads.find(
+      ({ id }) => id === `sf-contact/${slug}`,
+    );
+    const { surface } = buildBakedRoadContact(road);
+    const i = surface.profile.findIndex(({ s_m }) => s_m >= station);
+    const [east, north, z] = surface.profile[i].position;
+    const a = surface.profile[i - 1].position;
+    const b = surface.profile[i + 1].position;
+    const heading = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    for (const lateral of offsets) {
+      const car = {
+        x: east - lateral * Math.sin(heading),
+        y: north + lateral * Math.cos(heading),
+        heading,
+        z,
+      };
+      assert.ok(Math.abs(surface.heightAt(car.x, car.y) - z) < 0.15);
+      assert.ok(roadSupportsCar(surface.heightAt, car));
+    }
+  }
+});
+
 test("the Alemany fork carries both I-280 through traffic and the ramp to southbound US 101", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["808f7ef4", "808f7efc", "808f7ee4"];

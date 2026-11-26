@@ -1,0 +1,1 @@
+- Widened the surveyed lanes on both I-280 approaches at Mariposa while keeping the ramp joins. The [road route audit](../../ui/sf-road-route-audit.md#i-280-mariposa-approach-lanes) records the reproduced falls and grounded browser runs.
