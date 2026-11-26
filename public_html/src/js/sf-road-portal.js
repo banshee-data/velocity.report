@@ -5,6 +5,7 @@ const tolerance = 0.22;
 const rampLookahead = 5;
 const sharedTerminalTolerance = 0.05;
 const minimumAlignmentLead = 0.02;
+const sideEdgeTolerance = 0.05;
 
 export function followsGroundPortal(car, portals) {
   const travel = car.v < 0 ? -1 : 1;
@@ -43,9 +44,10 @@ export function roadPortals(
   groundExitOnly = [],
   seams = {},
   groundEntryProbeMetres = {},
+  sideGroundAccess = [],
 ) {
   const { contact, profile } = surface;
-  return groundEnds.map((end) => {
+  const terminals = groundEnds.map((end) => {
     const atEnd = end === "end";
     const index = atEnd ? profile.length - 1 : 0;
     const [x, y, z] = profile[index].position;
@@ -82,6 +84,66 @@ export function roadPortals(
           : 0,
     };
   });
+  const sides = sideGroundAccess.map((access) =>
+    sideRoadPortal(surface, access),
+  );
+  return sides.includes(null) ? null : [...terminals, ...sides];
+}
+
+function sideRoadPortal(surface, { side, startMetres, endMetres }) {
+  const { contact, profile } = surface;
+  const edge = side === "left" ? 0 : 1;
+  const edgeAt = (station) => {
+    const end = profile.findIndex(({ s_m }) => s_m >= station);
+    const a = contact.vertices[2 * Math.max(0, end - 1) + edge];
+    const b = contact.vertices[2 * end + edge];
+    if (end === 0) return b;
+    const fraction =
+      (station - profile[end - 1].s_m) /
+      (profile[end].s_m - profile[end - 1].s_m);
+    return a.map((value, index) => value + (b[index] - value) * fraction);
+  };
+  const a = edgeAt(startMetres);
+  const b = edgeAt(endMetres);
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const length = Math.hypot(dx, dy);
+  if (length <= 0.002) return null;
+  const sign = side === "left" ? 1 : -1;
+  const nx = (sign * dy) / length;
+  const ny = (-sign * dx) / length;
+  // A side crossing uses one contact plane. Check the deck edge stays in
+  // that plane across the declared interval, including intermediate vertices.
+  if (
+    profile.some(({ s_m }, index) => {
+      if (s_m <= startMetres || s_m >= endMetres) return false;
+      const [x, y] = contact.vertices[2 * index + edge];
+      return Math.abs((x - a[0]) * nx + (y - a[1]) * ny) > sideEdgeTolerance;
+    })
+  )
+    return null;
+  const [x, y] = a.map((value, index) => (value + b[index]) / 2);
+  const z = surface.heightAt(
+    x + nx * sideEdgeTolerance,
+    y + ny * sideEdgeTolerance,
+  );
+  if (z === null) return null;
+  const halfWidth = length / 2;
+  return {
+    surface,
+    sideAccess: { side, startMetres, endMetres },
+    x,
+    y,
+    z,
+    nx,
+    ny,
+    entryX: nx,
+    entryY: ny,
+    leftWidth: halfWidth,
+    rightWidth: halfWidth,
+    halfWidth,
+    entryProbe: 0,
+  };
 }
 
 // Road and pavement meet at a declared terminal. The tyre footprint can
@@ -104,10 +166,19 @@ function stepThrough(car, input, dt, portal, pavementHeight) {
   if (priorHeight === null || Math.abs(car.z - priorHeight) > tolerance)
     return null;
 
-  const heightAt = (east, north) =>
-    along(east, north) >= 0
-      ? surface.heightAt(east, north)
-      : pavementHeight(east, north);
+  const heightAt = (east, north) => {
+    const distance = along(east, north);
+    if (distance < 0) return pavementHeight(east, north);
+    return (
+      surface.heightAt(east, north) ??
+      (portal.sideAccess && distance <= sideEdgeTolerance
+        ? surface.heightAt(
+            east + nx * sideEdgeTolerance,
+            north + ny * sideEdgeTolerance,
+          )
+        : null)
+    );
+  };
   const next = driveOnRoadSurface(car, input, dt, { heightAt });
   if (next.blocked) return null;
   const after = along(next.x, next.y);
@@ -117,7 +188,15 @@ function stepThrough(car, input, dt, portal, pavementHeight) {
   // A strip outside the ramp's mouth should never select this portal or
   // interfere with the normal street physics.
   const offset = (next.y - y) * nx - (next.x - x) * ny;
-  if (surface.heightAt(x - offset * ny, y + offset * nx) === null) return null;
+  if (portal.sideAccess && Math.abs(offset) > portal.halfWidth) return null;
+  const inset = portal.sideAccess ? sideEdgeTolerance : 0;
+  if (
+    surface.heightAt(
+      x - offset * ny + inset * nx,
+      y + offset * nx + inset * ny,
+    ) === null
+  )
+    return null;
 
   // Street traffic can cross the shallow end of a ramp diagonally.
   // Commit to the ramp once the current line of travel reaches its lane.
