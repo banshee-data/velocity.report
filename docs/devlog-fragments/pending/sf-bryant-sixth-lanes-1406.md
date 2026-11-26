@@ -1,0 +1,1 @@
+- Kept the [surveyed Bryant entrance and Sixth Street exit lanes](../../ui/sf-road-route-audit.md#surveyed-lanes-at-the-bryant-entrance-and-sixth-street-exit) on their elevated decks through the freeway merges.
