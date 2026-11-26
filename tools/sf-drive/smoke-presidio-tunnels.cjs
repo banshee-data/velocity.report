@@ -1011,6 +1011,18 @@ for (const [name, ramp, deck] of [
     speedLimits: { [ramp]: 11 },
   };
 }
+const fifthBryantEntry = "i80-eastbound-fifth-bryant-entry";
+cases["i80-fifth-bryant-divider-lane"] = {
+  ...cases["i80-fifth-bryant-entry"],
+  finishDistance: 125,
+  laneGuides: {
+    [fifthBryantEntry]: {
+      clearance: { offset: 2.35, station: 251, length: 114 },
+    },
+  },
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+};
 for (const reverse of [false, true]) {
   cases[
     reverse ? "dogpatch-twentieth-eastbound" : "dogpatch-twentieth-westbound"

@@ -5647,3 +5647,38 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   i80-westbound-fifth-outer-join i80-westbound-fourth-outer \
   i80-westbound-over-fifth i80-westbound-fifth-harrison
 ```
+
+## Fifth and Bryant entrance beside the Harrison exit
+
+**World and Data.** An early wider preview crossed a raised divider onto the
+westbound ramp. The retained 2023 survey shows the divider moving from about
+6 m to 22 m left of the old eastbound line. The revised tile data follows
+separate paved paths. It keeps the directed joins and the existing street
+levels. The two approaches to eastbound I-80 meet at the same 20.8 m section.
+At 70 stations per ramp, pavement was confirmed at all three sampled offsets
+from the revised lines. The largest lane p95 vertical residual on those probes
+was 0.28 m eastbound and 0.11 m westbound.
+
+**Physics.** `railRanges` defines the side and along-road interval of a rail.
+The same finite segments draw the rail and stop the car. The right rail on
+the Fifth and Bryant entrance ends about 46 m before the median rail, leaving
+the merge open. Fixed-step driving covered 473 directions across 381 baked
+surfaces and all 342 directed joins. The `i80-fifth-bryant-divider-lane` Chrome
+case steers up to 2.35 m left of the revised ramp line, enters the lower climb,
+and records 0 m airborne. The browser runs use the published game code path
+with manual steering input and bundled tiles.
+
+- Parent game manifest SHA-256 `a512a827575fdd490dae9355acffdb15cab6ce43df678a0f652cb4ae370163d3`.
+- Revised game manifest SHA-256 `f2899af22e92fd5d19256f60f0086a0791feef8f99e5dd5f164021b00a22edce`.
+- Revised contact SHA-256 `7137dc500d8814fae847badc1df2958dd4be3dfdab7d7f47b7b2bc1ad4bebe8a`.
+
+The `soma-fifth-eastbound-b23` directory in `city-structure-inventory-20261126`
+retains the original survey nodes and the browser and fixed-step measurements.
+The tests cover game contact and movement on the sampled lanes. The LiDAR
+data captures roadside conditions at its acquisition date.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i80-fifth-bryant-divider-lane i80-westbound-fifth-harrison \
+  i80-westbound-over-fifth
+```
