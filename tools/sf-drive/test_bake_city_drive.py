@@ -524,6 +524,93 @@ def test_additional_tree_review_keeps_prior_removals_on_rebake(
     assert (rebake / name).read_bytes() == packed
 
 
+def test_road_tree_clearance_on_an_independent_tile_keeps_the_prior_review(
+    tmp_path, reviewed_trees
+):
+    original, reviewed, tile = reviewed_trees
+    encode, digest = tree_bake["encode"], tree_bake["digest"]
+    token = "808f7c4c"
+    name = f"tiles/{token}.json.gz"
+    path = reviewed / "tiles/manifest.json"
+    old_manifest = path.read_bytes()
+    manifest = json.loads(old_manifest)
+    prior = manifest["roadBake"]["treeClassification"]
+    raw = gzip.compress(encode({**tile, "t": token}), mtime=0)
+    manifest["tiles"].append({"t": token, "bytes": len(raw)})
+    path.write_bytes(encode(manifest))
+    (reviewed / name).write_bytes(raw)
+    quest = reviewed / "quest-route.json"
+    quest.write_bytes(
+        quest.read_bytes().replace(
+            digest(old_manifest).encode(), digest(path.read_bytes()).encode()
+        )
+    )
+
+    patch = tmp_path / "road-clearance.json"
+    patch.write_bytes(
+        encode({
+            "format": "sf-road-tree-clearance/v1",
+            "tile_manifest_sha256": digest(path.read_bytes()),
+            "base_tile_sha256": {token: digest(raw)},
+            "ept_sha256": "survey-index",
+            "ept_nodes_sha256": {},
+            "survey_receipt_sha256": "survey-receipt",
+            "tree_inventory_sha256": None,
+            "inferred_tree_patches": {
+                token: [
+                    {"index": 1, "sha256": digest(encode(tile["tr"][1])), "parts": []}
+                ],
+            },
+        })
+    )
+    result = tmp_path / "road-clearance"
+    tree_bake["bake"](reviewed, patch, result)
+    result_manifest = (result / "tiles/manifest.json").read_bytes()
+    road_bake = json.loads(result_manifest)["roadBake"]
+    assert road_bake["treeClassification"] == prior
+    assert road_bake["roadTreeClearanceReviews"][0]["tiles"][token]["removed"] == 1
+    assert json.loads((result / "quest-route.json").read_bytes())["manifestSha256"] == digest(result_manifest)
+    result_rows = json.loads(gzip.decompress((result / name).read_bytes()))["tr"]
+    assert result_rows == [tile["tr"][0], *tile["tr"][2:]]
+
+    rebaked_raw = gzip.compress(
+        encode({**tile, "t": token, "g": {"detail": "rebaked terrain"}}), mtime=0
+    )
+    path = original / "tiles/manifest.json"
+    old_manifest = path.read_bytes()
+    manifest = json.loads(old_manifest)
+    manifest["tiles"].append({"t": token, "bytes": len(rebaked_raw)})
+    path.write_bytes(encode(manifest))
+    (original / name).write_bytes(rebaked_raw)
+    quest = original / "quest-route.json"
+    quest.write_bytes(
+        quest.read_bytes().replace(
+            digest(old_manifest).encode(), digest(path.read_bytes()).encode()
+        )
+    )
+    carried = tmp_path / "rebaked-with-clearance"
+    tree_bake["carry_forward"](original, result, original / "tiles", carried)
+    carried_payload = (carried / name).read_bytes()
+    carried_tile = json.loads(gzip.decompress(carried_payload))
+    assert carried_tile["tr"] == result_rows
+    assert carried_tile["g"] == {"detail": "rebaked terrain"}
+    carried_bake = json.loads((carried / "tiles/manifest.json").read_bytes())["roadBake"]
+    carried_review = carried_bake["roadTreeClearanceReviews"][0]["tiles"][token]
+    assert carried_review["reviewedSha256"] == digest((result / name).read_bytes())
+    assert carried_review["sha256"] == digest(carried_payload)
+    assert carried_review["parentSha256"] == digest(raw)
+    assert carried_bake["treeClassification"]["tiles"].keys() == prior["tiles"].keys()
+
+    candidate = json.loads(gzip.decompress(rebaked_raw))
+    candidate["tr"][1][2] += 1
+    altered = gzip.compress(encode(candidate), mtime=0)
+    (original / name).write_bytes(altered)
+    blocked = tmp_path / "changed-tree-rebake"
+    with pytest.raises(ValueError, match="Tree rows were added, changed or reordered"):
+        tree_bake["carry_forward"](original, result, original / "tiles", blocked)
+    assert not blocked.exists()
+
+
 def test_carry_forward_preserves_rebaked_roads_and_independent_removals(
     tmp_path, reviewed_trees
 ):

@@ -2,7 +2,7 @@
 """Apply or carry forward a reviewed tree classification for an SF game bake."""
 
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 import gzip
 import hashlib
 import json
@@ -91,10 +91,12 @@ def bake(release, patch, output):
     product_raw = patch.read_bytes()
     product = json.loads(product_raw)
     if (
-        product["format"] != "sf-inferred-tree-classification/v1"
+        product["format"]
+        not in ("sf-inferred-tree-classification/v1", "sf-road-tree-clearance/v1")
         or product["tile_manifest_sha256"] != parent
     ):
         raise ValueError("Tree classification needs its pinned game release")
+    road_clearance = product["format"] == "sf-road-tree-clearance/v1"
     patches = product["inferred_tree_patches"]
     if not patches.keys() <= {row["t"] for row in manifest["tiles"]}:
         raise ValueError("Tree classification references an unknown tile")
@@ -104,6 +106,10 @@ def bake(release, patch, output):
     changed = {}
     road_bake = manifest["roadBake"]
     previous = road_bake.get("treeClassification")
+    if road_clearance and previous and patches.keys() & previous["tiles"].keys():
+        raise ValueError("Use an additional tree review for previously classified tiles")
+    if road_clearance:
+        previous = None
     release_receipts = previous["tiles"] if previous else {}
     if previous and not patches.keys() <= release_receipts.keys():
         raise ValueError("Additional review must use previously classified tiles")
@@ -112,6 +118,9 @@ def bake(release, patch, output):
         if token not in patches:
             continue
         raw_tile = (tiles / f"{token}.json.gz").read_bytes()
+        initial_tile_hash = digest(raw_tile)
+        if road_clearance and product["base_tile_sha256"][token] != initial_tile_hash:
+            raise ValueError(f"Road clearance tile hash differs in {token}")
         data = json.loads(gzip.decompress(raw_tile))
         removed = set()
         for row in patches[token]:
@@ -125,12 +134,12 @@ def bake(release, patch, output):
             ):
                 raise ValueError(f"Tree row does not match at {token}/{index}")
             removed.add(index)
+        removed_rows = [digest(encode(data["tr"][i])) for i in sorted(removed)]
         data["tr"] = [
             row for index, row in enumerate(data["tr"]) if index not in removed
         ]
         payload = gzip.compress(encode(data), compresslevel=9, mtime=0)
         changed[token] = payload
-        initial_tile_hash = digest(raw_tile)
         prior_receipt = release_receipts.get(token)
         if prior_receipt and prior_receipt["sha256"] != initial_tile_hash:
             raise ValueError(f"Previous tree review tile hash differs in {token}")
@@ -140,6 +149,8 @@ def bake(release, patch, output):
             "removed": len(removed)
             + (prior_receipt["removed"] if prior_receipt else 0),
         }
+        if road_clearance:
+            release_receipts[token]["treeRowSha256"] = removed_rows
         record_tile(manifest, tile, payload)
 
     classification = {
@@ -149,13 +160,22 @@ def bake(release, patch, output):
         "surveyNodesSha256": product["ept_nodes_sha256"],
         "streetTreeInventorySha256": product["tree_inventory_sha256"],
     }
-    if previous:
+    if road_clearance:
+        road_bake.setdefault("roadTreeClearanceReviews", []).append(
+            {
+                **classification,
+                "surveyReceiptSha256": product["survey_receipt_sha256"],
+                "tiles": release_receipts,
+            }
+        )
+    elif previous:
         previous.setdefault("additionalReviews", []).append(classification)
     else:
         road_bake["treeClassification"] = {**classification, "tiles": release_receipts}
     print(
         write_release(
-            release, output, manifest, parent_raw, changed, carry=bool(previous)
+            release, output, manifest, parent_raw, changed,
+            carry=road_clearance or bool(previous),
         ),
         {token: release_receipts[token] for token in changed},
     )
@@ -221,19 +241,66 @@ def carry_tile(token, candidate, before, after, receipt, source_removals):
     }
 
 
+def carry_road_clearance(token, candidate, reviewed, receipts, source_removals):
+    """Preserve reviewed row removals when another tile layer has changed."""
+    rows = [identity for receipt in receipts for identity in receipt["treeRowSha256"]]
+    removed = set(rows)
+    if len(removed) != len(rows) or digest(reviewed) != receipts[-1]["sha256"]:
+        raise ValueError(f"Road clearance receipt differs in {token}")
+    reviewed_rows = [
+        digest(encode(row)) for row in json.loads(gzip.decompress(reviewed))["tr"]
+    ]
+    if removed.intersection(reviewed_rows):
+        raise ValueError(f"The reviewed tile restored a road clearance tree in {token}")
+
+    data = json.loads(gzip.decompress(candidate))
+    original = data["tr"]
+    hashes = [digest(encode(row)) for row in original]
+    matches = [identity for identity in hashes if identity in removed]
+    if len(matches) != len(set(matches)):
+        raise ValueError(f"Road clearance tree identity is ambiguous in {token}")
+    remaining = [identity for identity in hashes if identity not in removed]
+    if missing_rows(reviewed_rows, remaining, token) - source_removals:
+        raise ValueError(
+            f"The rebake removed a tree without a pinned contact patch in {token}"
+        )
+    data["tr"] = [
+        row
+        for row, identity in zip(original, hashes, strict=True)
+        if identity not in removed
+    ]
+    packed = gzip.compress(encode(data), compresslevel=9, mtime=0)
+    for receipt in receipts:
+        receipt.setdefault("reviewedSha256", receipt["sha256"])
+        receipt["sha256"] = digest(packed)
+    return packed
+
+
 def carry_forward(release, reviewed_release, review_input, output, playable=None):
     raw_manifest = (release / "tiles/manifest.json").read_bytes()
     manifest = json.loads(raw_manifest)
     approved_manifest = json.loads(
         (reviewed_release / "tiles/manifest.json").read_bytes()
     )
-    classification = approved_manifest["roadBake"]["treeClassification"]
-    receipts = classification["tiles"]
-    if manifest["roadBake"].get("treeClassification"):
+    approved = approved_manifest["roadBake"]
+    classification = approved.get("treeClassification")
+    receipts = classification["tiles"] if classification else {}
+    road_reviews = approved.get("roadTreeClearanceReviews", [])
+    if not classification and not road_reviews:
+        raise ValueError("Carry-forward requires a reviewed release")
+    road_receipts = defaultdict(list)
+    for review in road_reviews:
+        for token, receipt in review["tiles"].items():
+            road_receipts[token].append(receipt)
+    if any(
+        key in manifest["roadBake"]
+        for key in ("treeClassification", "roadTreeClearanceReviews")
+    ):
         raise ValueError(
             "Carry-forward needs a raw road bake before tree classification"
         )
-    if not receipts.keys() <= {tile["t"] for tile in manifest["tiles"]}:
+    tokens = {tile["t"] for tile in manifest["tiles"]}
+    if not (receipts.keys() | road_receipts.keys()) <= tokens:
         raise ValueError("The rebake is missing a classified tree tile")
 
     playable_raw = playable.read_bytes() if playable else None
@@ -245,23 +312,35 @@ def carry_forward(release, reviewed_release, review_input, output, playable=None
     changed = {}
     for tile in manifest["tiles"]:
         token = tile["t"]
-        if token not in receipts:
+        if token not in receipts and token not in road_receipts:
             continue
         name = f"{token}.json.gz"
-        approved = {
-            patch["sha256"] for patch in patches.get(token, []) if patch["parts"] == []
+        candidate = (release / "tiles" / name).read_bytes()
+        reviewed = (reviewed_release / "tiles" / name).read_bytes()
+        source_removals = {
+            patch["sha256"]
+            for patch in patches.get(token, [])
+            if patch["parts"] == []
         }
-        payload, receipts[token] = carry_tile(
-            token,
-            (release / "tiles" / name).read_bytes(),
-            (review_input / name).read_bytes(),
-            (reviewed_release / "tiles" / name).read_bytes(),
-            receipts[token],
-            approved,
-        )
+        if token in receipts:
+            payload, receipts[token] = carry_tile(
+                token,
+                candidate,
+                (review_input / name).read_bytes(),
+                reviewed,
+                receipts[token],
+                source_removals,
+            )
+        else:
+            payload = carry_road_clearance(
+                token, candidate, reviewed, road_receipts[token], source_removals
+            )
         changed[token] = payload
         record_tile(manifest, tile, payload)
-    manifest["roadBake"]["treeClassification"] = classification
+    if classification:
+        manifest["roadBake"]["treeClassification"] = classification
+    if road_reviews:
+        manifest["roadBake"]["roadTreeClearanceReviews"] = road_reviews
     print(
         write_release(
             release, output, manifest, raw_manifest, changed, playable_raw, carry=True
