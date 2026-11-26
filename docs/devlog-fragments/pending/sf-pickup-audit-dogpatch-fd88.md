@@ -1,0 +1,1 @@
+- Updated the [21-course pickup replay](../../ui/sf-road-route-audit.md#pickup-regression-on-the-dogpatch-release) for the baked Fifth Street and Hester connections and measured the driven grades and dips.

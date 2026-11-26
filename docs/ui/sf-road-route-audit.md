@@ -6442,3 +6442,54 @@ run retains the survey, exact tile package and paired browser traces.
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   dogpatch-to-sixth-northbound dogpatch-to-fifth-northbound
 ```
+
+## Pickup regression on the Dogpatch release
+
+**World, Physics and Goals.** The 20 pickup routes and one direct waterfront
+control each collected both emoji in the 120 Hz replay. Together they drove
+46.9 km. The Fifth Street course now follows the published southbound merge
+before reaching Pennsylvania Avenue. The Bayview course uses the published
+Hester frontage lead. With the old Fifth sequence, the replay entered the
+lead and stopped at the end of the baked contact. With the updated sequence,
+it finished on Toland Street after travelling 1.23 km beyond its last
+elevated contact.
+
+The table uses the driven altitude at 1 m intervals. A dip is a descent
+more than 0.5 m below the line between samples 4 m on each side. All courses
+recorded zero such dips. Peak grades and airborne distance include local
+streets. The highest peak was 26.2% on the Twin Peaks route, which never
+selected an elevated road. The ground grid screen flagged 286 intervals
+above 50% across 15,025 ground-draped road rows. Those intervals include
+streets beyond this campaign and still need review.
+
+| Pickup course       | Driven km | p95 / peak grade | Airborne m |
+| ------------------- | --------: | ---------------: | ---------: |
+| Waterfront via Main |      2.14 |      4.4% / 8.6% |       0.26 |
+| Direct waterfront   |      1.92 |      1.3% / 3.0% |          0 |
+| SoMa under the deck |      1.48 |      6.5% / 8.8% |          0 |
+| Mission Bay         |      2.47 |      1.8% / 7.1% |       0.95 |
+| Dogpatch to 21st    |      2.63 |    15.0% / 22.2% |          0 |
+| Dogpatch via 23rd   |      2.44 |    18.9% / 21.6% |          0 |
+| Stockton Tunnel     |      1.64 |    10.1% / 15.6% |       0.26 |
+| Broadway Tunnel     |      1.55 |     9.6% / 19.3% |          0 |
+| Toll Plaza tunnel   |      1.61 |     8.8% / 13.8% |          0 |
+| SoMa via I-280      |      3.86 |    13.7% / 21.3% |          0 |
+| US 101 to Bayview   |      3.28 |    11.0% / 17.9% |       0.52 |
+| North Beach hills   |      1.23 |      6.2% / 7.8% |          0 |
+| Golden Gate Park    |      4.95 |     5.6% / 11.1% |          0 |
+| Excelsior           |      1.61 |    20.0% / 22.5% |          0 |
+| Castro to Mission   |      2.01 |      5.1% / 6.4% |       0.26 |
+| Lake Merced         |      2.52 |      5.0% / 6.1% |          0 |
+| Ocean Beach         |      2.16 |      2.4% / 3.7% |          0 |
+| Pacific Heights     |      1.70 |    17.9% / 19.1% |       0.69 |
+| Presidio west       |      2.17 |    11.1% / 21.5% |       6.69 |
+| Sunset avenues      |      2.29 |     8.7% / 10.1% |       0.61 |
+| Twin Peaks          |      1.20 |    16.2% / 26.2% |      11.18 |
+
+Game manifest SHA-256 `376ca8ed60c84b7af3e0a3c943e97e45fda1a6d28672c451648535371cc8fd88`.
+The [checked-in route plan](../../tools/sf-drive/road-audit-current-contact-routes.json)
+has SHA-256 `95249b02cb9c0fe45b62266222f87432bf5214a88e3cfedd42c0141e657013fc`.
+
+```sh
+node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-current-contact-routes.json
+```
