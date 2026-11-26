@@ -3,6 +3,9 @@ package eligibilitytest
 import (
 	"flag"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
@@ -41,5 +44,20 @@ func TestConfigureCLIProvisionsOnlyNamedFixture(t *testing.T) {
 		if u.Decision != "allowed" || u.CaptureSHA256 != hash {
 			t.Fatalf("unexpected use: %+v", u)
 		}
+	}
+}
+
+// Run the failure in a subprocess because a fixture's fatal assertion must
+// abort its calling test, rather than return a partially configured environment.
+func TestConfigureCLIRejectsMissingCapture(t *testing.T) {
+	if os.Getenv("VELOCITY_TEST_MISSING_CAPTURE") == "1" {
+		ConfigureCLI(t, filepath.Join(t.TempDir(), "missing.pcap"), "development")
+		t.Fatal("fixture setup continued after missing capture")
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestConfigureCLIRejectsMissingCapture$")
+	cmd.Env = append(os.Environ(), "VELOCITY_TEST_MISSING_CAPTURE=1")
+	output, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "missing.pcap") || strings.Contains(string(output), "setup continued") {
+		t.Fatalf("fixture did not abort on the missing input: %v\n%s", err, output)
 	}
 }
