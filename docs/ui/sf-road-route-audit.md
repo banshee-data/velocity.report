@@ -6512,3 +6512,36 @@ manifest is `376ca8ed60c84b7af3e0a3c943e97e45fda1a6d28672c451648535371cc8fd88`.
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs island-east-roundtrip
 ```
+
+## Surveyed lanes at the Bryant entrance and Sixth Street exit
+
+**World and Data.** The revised Bryant entry reaches up to 7.5 m left
+of its existing centreline before tapering into eastbound I-80. The
+northbound Sixth Street curve shares a 15 m contact at its seam, reaching
+11 m right of the existing centreline. Its wider lane tapers to the
+existing exit width. Both changes preserve the road elevations and
+directed joins. The edge survey found pavement at all 180 sampled bands.
+
+**Physics.** The recorded keyboard drives follow OpenStreetMap ways
+`27093144` and `508664746`, with route assist off. On the old Bryant
+bake the car fell from the traced lane and crashed. On the old Sixth
+bake it fell to the street and reached the map position below the exit.
+Both revised runs held the correct road level.
+
+| Lane                             | Old airborne travel | Revised distance | Revised airborne travel | Revised finish           |
+| -------------------------------- | ------------------: | ---------------: | ----------------------: | ------------------------ |
+| Bryant to eastbound I-80         |              15.7 m |            327 m |                     0 m | I-80 above Fourth Street |
+| Northbound I-280 to Sixth Street |              19.5 m |            265 m |                     0 m | Sixth Street exit deck   |
+
+The static audit passed all 487 travel directions and 350 directed joins.
+The retained `bryant-sixth-lane-width-20261126` run records the survey
+receipts and paired browser trials on the attached evidence volume.
+
+- Parent manifest SHA-256 `376ca8ed60c84b7af3e0a3c943e97e45fda1a6d28672c451648535371cc8fd88`.
+- Updated manifest SHA-256 `3e67480d84d5bb4424cf0f156caa9ba26eb1d3392a22f7f6d0397be670cf1406`.
+- Edge receipt SHA-256 `fb866e9826a5ffd0fbe1a539b03c2def333b8d92b1854a58a1d0063799052753`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i80-bryant-entry i80-fifth-bryant-entry dogpatch-to-sixth-northbound
+```

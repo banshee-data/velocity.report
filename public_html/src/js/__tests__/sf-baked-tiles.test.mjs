@@ -42,6 +42,14 @@ const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
+function assertRampWidthReceipt(roadBake, token, previous, raw) {
+  const review =
+    roadBake.bryantEastboundWidthSurvey.tiles[token] ??
+    roadBake.sixthNorthExitWidthSurvey.tiles[token];
+  if (review) assert.equal(review.parentSha256, previous);
+  assert.equal(review?.sha256 ?? previous, digest(raw));
+}
+
 test("the Yerba Buena bake records its surveyed tree clearance and keeps the road network", () => {
   const manifestBytes = file("tiles/manifest.json");
   const manifest = JSON.parse(manifestBytes);
@@ -83,7 +91,7 @@ test("the Fourth Street merge clears the capped face above its lower volume", ()
   assert.equal(fork.parentSha256, review.sha256);
   const divider = manifest.roadBake.i80FifthDividerSurvey.tiles[token];
   assert.equal(divider.parentSha256, fork.sha256);
-  assert.equal(divider.sha256, digest(raw));
+  assertRampWidthReceipt(manifest.roadBake, token, divider.sha256, raw);
 
   const index = buildCollisionIndex(tile, token);
   const car = { x: 3382.15, y: 2037.35, heading: -2.37 };
@@ -104,7 +112,7 @@ test("both Moscone spans leave Howard Street open below their overhead volumes",
   assert.equal(fork.parentSha256, howard.sha256);
   const divider = manifest.roadBake.i80FifthDividerSurvey.tiles[token];
   assert.equal(divider.parentSha256, fork.sha256);
-  assert.equal(divider.sha256, digest(raw));
+  assertRampWidthReceipt(manifest.roadBake, token, divider.sha256, raw);
 
   const tile = JSON.parse(gunzipSync(raw));
   const index = buildCollisionIndex(tile, token);
@@ -153,7 +161,7 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
       assert.equal(sixthMerge.parentSha256, currentHash);
       currentHash = sixthMerge.sha256;
     }
-    assert.equal(currentHash, digest(raw));
+    assertRampWidthReceipt(manifest.roadBake, token, currentHash, raw);
     assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
     for (const road of JSON.parse(gunzipSync(raw)).playableRoads) {
       if (roads.has(road.id)) assert.deepEqual(roads.get(road.id), road);
@@ -382,7 +390,7 @@ test("the southbound Third Street Bridge approach keeps its outside lane clear",
   assert.equal(next.parentSha256, receipt.sha256);
   const sixthMerge = manifest.roadBake.sixthSouthMergeSurvey.tiles[token];
   assert.equal(sixthMerge.parentSha256, next.sha256);
-  assert.equal(sixthMerge.sha256, digest(raw));
+  assertRampWidthReceipt(manifest.roadBake, token, sixthMerge.sha256, raw);
   assert.equal(receipt.removed, 1);
   assert.ok(!tile.tr.some(([x, y]) => x === 4638 && y === 2534));
   assert.ok(tile.tr.some(([x, y]) => x === 4548 && y === 2645));
@@ -1234,7 +1242,7 @@ test("the 18th Street entrance stays on its own deck until the measured merge", 
   assert.equal(sixthMerge.parentSha256, next.sha256);
   const dogpatch = roadBake.dogpatchNorthMergeSurvey.tiles[token];
   assert.equal(dogpatch.parentSha256, sixthMerge.sha256);
-  assert.equal(dogpatch.sha256, digest(raw));
+  assertRampWidthReceipt(roadBake, token, dogpatch.sha256, raw);
   assert.ok(station > 91 && station < 93);
   const road = (id) =>
     tile.playableRoads.find((row) => row.id === `sf-contact/${id}`);
@@ -1352,7 +1360,7 @@ test("the southbound Sixth Street deck joins after the separate Fifth Street app
     const sixth = roadBake.sixthSouthMergeSurvey.tiles[token];
     const dogpatch = roadBake.dogpatchNorthMergeSurvey.tiles[token];
     if (dogpatch) assert.equal(dogpatch.parentSha256, sixth.sha256);
-    assert.equal((dogpatch ?? sixth).sha256, digest(raw));
+    assertRampWidthReceipt(roadBake, token, (dogpatch ?? sixth).sha256, raw);
     return JSON.parse(gunzipSync(raw));
   });
   const road = (id, tile = tiles[0]) =>
@@ -1402,7 +1410,12 @@ test("the northbound I-280 fork carries the surveyed lane to Fifth Street", () =
     assert.equal(sixthMerge.parentSha256, review.tiles[t].sha256);
     const dogpatch = roadBake.dogpatchNorthMergeSurvey.tiles[t];
     if (dogpatch) assert.equal(dogpatch.parentSha256, sixthMerge.sha256);
-    assert.equal((dogpatch ?? sixthMerge).sha256, digest(raws[i]));
+    assertRampWidthReceipt(
+      roadBake,
+      t,
+      (dogpatch ?? sixthMerge).sha256,
+      raws[i],
+    );
   }
 
   const road = (tile, name) =>
@@ -1628,7 +1641,7 @@ test("the Central Freeway connector stays on separate pavement to eastbound I-80
   const tile = JSON.parse(gunzipSync(raw));
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const receipt = roadBake.centralEastMergeSurvey.tiles[token];
-  assert.equal(receipt.sha256, digest(raw));
+  assertRampWidthReceipt(roadBake, token, receipt.sha256, raw);
   const road = (slug) =>
     tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
   const ramp = road("central-freeway-i80-east-connector");
@@ -6580,9 +6593,11 @@ test("the outside Dogpatch entrance lane stays elevated across the northbound me
   const tokens = ["808f7fa4", "808f7fac", "808f7fb4", "808f7fcc"];
   const tiles = tokens.map((token) => {
     const raw = file(`tiles/${token}.json.gz`);
-    assert.equal(
+    assertRampWidthReceipt(
+      roadBake,
+      token,
       roadBake.dogpatchNorthMergeSurvey.tiles[token].sha256,
-      digest(raw),
+      raw,
     );
     return JSON.parse(gunzipSync(raw));
   });
@@ -6632,4 +6647,65 @@ test("the outside Dogpatch entrance lane stays elevated across the northbound me
   assert.ok(roadSupportsCar(mainline.heightAt, after));
   const outside = travel(20, 16);
   assert.equal(mainline.heightAt(outside.x, outside.y), null);
+});
+
+test("the surveyed Bryant entry lane stays on the deck and joins eastbound I-80", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tile = (token) => {
+    const raw = file(`tiles/${token}.json.gz`);
+    assert.equal(
+      roadBake.bryantEastboundWidthSurvey.tiles[token].sha256,
+      digest(raw),
+    );
+    return JSON.parse(gunzipSync(raw));
+  };
+  const [south, north] = ["808f7e2c", "80858084"].map(tile);
+  const road = (owner, slug) =>
+    owner.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
+  const bryant = road(south, "i80-eastbound-bryant-entry");
+  const next = road(north, "i80-eastbound-fourth");
+  assert.deepEqual(bryant, road(north, "i80-eastbound-bryant-entry"));
+  assert.deepEqual(bryant.points.at(-1), next.points[0]);
+  assert.deepEqual(bryant.seams.end, next.seams.start);
+  const { surface } = buildBakedRoadContact(bryant);
+  for (const [x, y, heading] of [
+    [3020.3, 1694, 0.93],
+    [3085.69, 1769.62, 0.79],
+  ]) {
+    assert.ok(roadSupportsCar(surface.heightAt, { x, y, heading }));
+    assert.ok(
+      surface.heightAt(x, y) - groundAtWorld([south, north], x, y, true) > 5,
+    );
+  }
+});
+
+test("the surveyed northbound Sixth Street lane stays above the street across the seam", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tiles = ["808f7fcc", "808f7fd4"].map((token) => {
+    const raw = file(`tiles/${token}.json.gz`);
+    assert.equal(
+      roadBake.sixthNorthExitWidthSurvey.tiles[token].sha256,
+      digest(raw),
+    );
+    return JSON.parse(gunzipSync(raw));
+  });
+  const road = (slug) =>
+    tiles
+      .flatMap(({ playableRoads }) => playableRoads)
+      .find(({ id }) => id === `sf-contact/${slug}`);
+  const lead = road("i280-mariposa-sixth-approach");
+  const exit = road("i280-sixth-northbound");
+  assert.deepEqual(lead.points.at(-1), exit.points[0]);
+  assert.deepEqual(lead.seams.end, exit.seams.start);
+  const { surface: approach } = buildBakedRoadContact(lead);
+  const { surface: ramp } = buildBakedRoadContact(exit);
+  const pavement = (x, y) => approach.heightAt(x, y) ?? ramp.heightAt(x, y);
+  for (const [x, y, heading] of [
+    [3826.41, 936.49, 2.2],
+    [3817.81, 948.77, 2.13],
+    [3809.85, 961.48, 2.1],
+  ]) {
+    assert.ok(roadSupportsCar(pavement, { x, y, heading }));
+    assert.ok(pavement(x, y) - groundAtWorld(tiles, x, y, true) > 7);
+  }
 });
