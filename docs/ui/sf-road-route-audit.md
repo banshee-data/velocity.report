@@ -5750,3 +5750,46 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   west-soma-before-fourth-outside-lane west-city-approach-fremont-exit \
   west-city-approach-through westbound-harrison-loop
 ```
+
+## Measured Fremont Street exit alignment
+
+**World and Data.** The geometry now follows the two mapped Fremont exit
+ways, 619027325 and 110361656, onto Fremont Street. The April 2023 survey
+found pavement at all 87 centre probes, spaced about 4 m apart. At those
+locations the parent bake had 43 missing same-level matches. The revised
+contact matches all 87 within 0.55 m. The p95 absolute differences against
+the same fitting survey are 0.30 m on the approach way and 0.02 m on the
+independent ramp way. These are fit checks using the acquisition data.
+The fit preserves the existing street landing. The steepest interval
+is 10.55% on the retained lower descent.
+
+**Physics.** The westbound approach, Fremont exit and I-80 through lanes
+share one asymmetric cross-section at the split. The contact uses smooth
+transitions into the measured lane. The right lane leads to the exit.
+The other lanes continue towards Harrison and Fourth. The named 50 mph
+Bay Bridge drive uses the same baked geometry as free drive for the
+West Span, the city approach and the exit. The exit keeps its right-side
+barrier and open left edge beyond the fork.
+
+Chrome keyboard runs finished the Fremont descent, the I-80 through
+turn, the Harrison loop and the outside city-approach lane with 0 m of
+airborne travel. The named drive also passed through the upper Yerba Buena
+bore, used Fremont and rejoined I-80 at Fourth Street. The fixed-step audit
+passed all 473 directions across 381 baked surfaces and all 342 directed
+joins. The 515 ground handoffs yielded 512 ground transfers and three
+direct continuations. These totals cover the packaged contacts.
+
+- Parent game manifest SHA-256 `2a373503b139aaa307105846650fa3b36559aa7671eddc6a6cf3e52ce15864f1`.
+- Revised game manifest SHA-256 `d8577f8b8e5d41901e8c198bcfc60f22fad3ade99c1feaf0cdee80c70b5dfe6e`.
+- Revised contact SHA-256 `e8a72571aa720191c932b33249a062e430293cbfc107e57be35e6da5d916f0e6`.
+- Survey receipt SHA-256 `9335129a6ad5a9bff83d6fe829320ae1b109946da2f19f5a009f12185413cf09`.
+
+The `west-span-width-b23` directory in `city-structure-inventory-20261126`
+retains the source nodes, fit checks and browser traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  west-city-approach-fremont-exit west-city-approach-through \
+  westbound-harrison-loop west-city-approach-outside-lane
+node tools/sf-drive/smoke-yerba-buena.cjs
+```

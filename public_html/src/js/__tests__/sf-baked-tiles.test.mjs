@@ -7,6 +7,7 @@ import { Raycaster, Vector3 } from "../../vendor/three/three.module.js";
 import { buildBakedRoadContact } from "../sf-baked-road-contact.js";
 import {
   BAY_BRIDGE_CITY_DRIVE,
+  buildCityGameDrive,
   buildRaisedRoad,
   cityDriveApproach,
 } from "../sf-city-road-drive.js";
@@ -123,7 +124,10 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
     const existingHash = climb?.sha256 ?? receipt.sha256;
     const westSpan = manifest.roadBake.i80WestSpanWidthSurvey.tiles[token];
     if (westSpan) assert.equal(westSpan.parentSha256, existingHash);
-    assert.equal(westSpan?.sha256 ?? existingHash, digest(raw));
+    const westSpanHash = westSpan?.sha256 ?? existingHash;
+    const fremont = manifest.roadBake.i80FremontAlignmentSurvey.tiles[token];
+    if (fremont) assert.equal(fremont.parentSha256, westSpanHash);
+    assert.equal(fremont?.sha256 ?? westSpanHash, digest(raw));
     assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
     for (const road of JSON.parse(gunzipSync(raw)).playableRoads) {
       if (roads.has(road.id)) assert.deepEqual(roads.get(road.id), road);
@@ -189,8 +193,10 @@ test("The Embarcadero has street clearance beneath the retained Bay Bridge volum
     ({ tiles }) => tiles[token],
   );
   const westSpan = manifest.roadBake.i80WestSpanWidthSurvey.tiles[token];
+  const fremont = manifest.roadBake.i80FremontAlignmentSurvey.tiles[token];
   assert.equal(review.tiles[token].sha256, westSpan.parentSha256);
-  assert.equal(westSpan.sha256, digest(raw));
+  assert.equal(westSpan.sha256, fremont.parentSha256);
+  assert.equal(fremont.sha256, digest(raw));
 
   const tile = JSON.parse(gunzipSync(raw));
   const obstacles = [buildCollisionIndex(tile, token)];
@@ -1648,9 +1654,68 @@ test("the upper West Span shares its Fremont fork with the westbound freeway con
   }
   const exit = roads.get("fremont-exit");
   assert.deepEqual(exit.groundEnds, ["end"]);
-  assert.deepEqual(exit.railRanges, [
-    { side: "right", startMetres: 95, endMetres: 710 },
-  ]);
+  assert.equal(exit.railRanges.length, 1);
+  const [rail] = exit.railRanges;
+  assert.equal(rail.side, "right");
+  assert.equal(rail.startMetres, 90);
+  const remaining =
+    buildBakedRoadContact(exit).surface.profile.at(-1).s_m - rail.endMetres;
+  assert.ok(remaining > 0 && remaining < 5);
+});
+
+test("the Fremont exit uses the measured lane in both free drive and the named Bay Bridge drive", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const roadRecords = ["80858074", "8085807c"].flatMap(
+    (token) =>
+      JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))).playableRoads,
+  );
+  const roads = new Map(roadRecords.map((road) => [road.id, road]));
+  const {
+    drives: [drive],
+  } = JSON.parse(file("gamedrives.json"));
+  for (const definition of [
+    drive,
+    cityDriveApproach(drive, "yerba-buena-westbound"),
+  ]) {
+    const named = buildCityGameDrive(definition, () => 0);
+    for (const id of [
+      "bay-bridge-westbound",
+      "city-approach",
+      "fremont-exit",
+    ]) {
+      const measured = buildBakedRoadContact(roads.get(id)).surface;
+      const surface = named.surfaces.find((candidate) => candidate.id === id);
+      assert.deepEqual(surface.contact, measured.contact, id);
+      assert.deepEqual(surface.railRanges, measured.railRanges, id);
+    }
+  }
+  const exit = buildBakedRoadContact(roads.get("fremont-exit")).surface;
+  for (const [x, y, observed] of [
+    [4213.89, 2821.37, 40.13],
+    [4113.51, 2785.36, 35.4],
+    [4038.94, 2796.74, 31.02],
+    [4003.31, 2814.7, 29.27],
+    [3969.63, 2842.89, 27.57],
+  ]) {
+    const height = exit.heightAt(x, y);
+    assert.ok(Number.isFinite(height) && Math.abs(height - observed) < 0.08);
+  }
+  const branches = new Map(
+    roadBake.playableTransitions
+      .filter(({ from }) => from === "city-approach:end")
+      .map(({ to, from_lateral_range_m }) => [to, from_lateral_range_m]),
+  );
+  for (const [lane, target] of [
+    [-4.5, "fremont-exit:start"],
+    [1.3, "sf-contact/i80-westbound-fremont-split:start"],
+  ]) {
+    assert.deepEqual(
+      [...branches]
+        .filter(([, [left, right]]) => lane >= left && lane <= right)
+        .map(([id]) => id),
+      [target],
+    );
+  }
 });
 
 test("the westbound deck holds the sampled outside lanes above their lower levels", () => {
@@ -1660,7 +1725,9 @@ test("the westbound deck holds the sampled outside lanes above their lower level
   const collision = [];
   for (const [token, receipt] of Object.entries(review.tiles)) {
     const raw = file(`tiles/${token}.json.gz`);
-    assert.equal(receipt.sha256, digest(raw));
+    const fremont = roadBake.i80FremontAlignmentSurvey.tiles[token];
+    if (fremont) assert.equal(fremont.parentSha256, receipt.sha256);
+    assert.equal(fremont?.sha256 ?? receipt.sha256, digest(raw));
     assert.equal(raw.length, entries.find(({ t }) => t === token).bytes);
     const tile = JSON.parse(gunzipSync(raw));
     collision.push(buildCollisionIndex(tile, token));
