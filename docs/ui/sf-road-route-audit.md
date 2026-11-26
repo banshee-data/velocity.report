@@ -5896,3 +5896,36 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   westbound-city-measured-right-lane west-city-approach-fremont-exit \
   west-city-approach-through
 ```
+
+## Surveyed ground lead-in to Tingley
+
+**World and Data.** The coarse 8 m grid overestimated the pavement
+height before the southbound portal by up to 0.81 m. The bake fits 53
+class-2 pavement stations from the April 2023 survey along DataSF
+centreline `11439203`. The added 1 m rectangle follows the measured
+grade. Its perimeter joins the coarse grid and the portal retains its
+previous elevation. The separate fine rectangle already present in the
+tile keeps its original samples. Ground contact, the terrain mesh and
+road markings use the same detail selection.
+
+**Physics.** Three Chrome keyboard drives on the parent terrain
+travelled 2.42–2.51 m airborne before the portal, at less than 0.11 m
+above the pavement. The car stayed grounded below the crossing. The
+revised build completed three southbound drives in 20.9 s each and
+one northbound drive in 32.0 s. All four stayed grounded, recorded zero
+scenery scrapes, traversed the covered view and returned to open pavement.
+
+- Parent manifest SHA-256 `d8cc8e53a93013a8d53cc67834379d39acca0dd8e1bafb23600a72569fa3e9c1`.
+- Revised manifest SHA-256 `e6e478bc61780659fab43bbeea59a16885d8d610151dadeab5f11bd95ea35943`.
+- Revised tile `808f7e7c` SHA-256 `04fa40a08d4822449e79c086da99f0a8a53c8eb88f42da114d64b5f957fa6043`.
+- Survey receipt SHA-256 `7d076ef5703bcb77fff0cc1b8a7a9602a3f47b3bbfa70a7bf603239106c37576`.
+- Gerardus terrain detail SHA-256 `e0a8a9f67c9498c26f3536d2bd7418c49439b34a48bc3a8952deea98e85fa0ca`.
+
+The attached `city-structure-inventory-20261126/tingley-southbound-portal`
+evidence retains the station receipt, node hashes and keyboard traces.
+
+```sh
+python3 tools/sf-drive/apply-terrain-detail.py "$PARENT_GAME" "$DETAIL_OUTPUT" "$GAME_OUTPUT"
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  san-jose-tingley-southbound san-jose-tingley-ground-approach
+```

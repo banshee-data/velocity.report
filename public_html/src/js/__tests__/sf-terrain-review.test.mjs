@@ -49,6 +49,44 @@ test("rendered ground, vector paint and contact use the same fine triangles and 
   assert.equal(groundAt(g, 2, 0.75, false), 0);
 });
 
+test("disjoint terrain detail patches retain coarse contact between them", () => {
+  const rectangle = (x0, z) => ({
+    x0,
+    y0: 0,
+    s: 1,
+    columns: 3,
+    rows: 3,
+    z: [0, 0, 0, 0, z, 0, 0, 0, 0],
+  });
+  const g = {
+    x0: 0,
+    y0: 0,
+    s: 2,
+    n: 4,
+    z: Array(16).fill(0),
+    detail: rectangle(0, 10),
+    details: [rectangle(4, 20)],
+  };
+  const world = { g, o: [0, 0] };
+  const boundary = [
+    [0, 0],
+    [6, 0],
+    [6, 6],
+    [0, 6],
+  ];
+  const { positions } = terrainTriangles(world, boundary);
+  assert.deepEqual(
+    roadMarkingTriangles(world, boundary, [boundary]),
+    positions,
+  );
+  const heights = positions.filter((_, index) => index % 3 === 1);
+  assert.ok(heights.includes(1));
+  assert.ok(heights.includes(2));
+  assert.equal(groundAt(g, 1, 1, false), 1);
+  assert.equal(groundAt(g, 3, 1, false), 0);
+  assert.equal(groundAt(g, 5, 1, false), 2);
+});
+
 test("pavement draw adjustments leave the sampled driving ground intact", () => {
   const g = {
     x0: 0,

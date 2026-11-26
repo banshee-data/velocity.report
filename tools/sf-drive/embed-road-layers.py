@@ -315,6 +315,18 @@ def patch_terrain_detail(grid, patch, base_sha256):
         )
     ):
         raise ValueError("Terrain detail boundary differs from the coarse grid")
+    additional = patch.get("additional") is True
+    details = grid.get("details", [])
+    separate = [*details, grid.get("detail")] if additional else details
+    for prior in separate:
+        if prior is None:
+            continue
+        east = prior["x0"] + (prior["columns"] - 1) * prior["s"]
+        north = prior["y0"] + (prior["rows"] - 1) * prior["s"]
+        if x0 < east and prior["x0"] < x1 and y0 < north and prior["y0"] < y1:
+            raise ValueError("Additional terrain detail must be disjoint")
+    if additional:
+        return {**grid, "details": [*details, detail]}
     if (prior := grid.get("detail")) is not None:
         old_columns, old_rows = prior["columns"], prior["rows"]
         column = int((prior["x0"] - x0) // step)
