@@ -1,5 +1,5 @@
 {
-  "manifestSha256": "352ee066ec4f33e8d80cccc3af707147d45380c9887345252128aab7b55c69fb",
+  "manifestSha256": "0f3633b834853b483100df5b94865caec32b1f3ddd154307575e521489d3ebb6",
   "streetMph": 23,
   "highwayMph": 40,
   "routes": [
@@ -17,6 +17,17 @@
         [4148, 3774, -3.5]
       ],
       "maxAirborneMetres": 1
+    },
+    {
+      "id": "waterfront-direct",
+      "from": "⚓",
+      "to": "🌉",
+      "groundOnly": true,
+      "laneDetours": [
+        [3988, 3945, -3.5],
+        [4148, 3774, -3.5]
+      ],
+      "maxAirborneMetres": 0
     },
     {
       "id": "soma-under-deck",

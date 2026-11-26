@@ -2347,6 +2347,41 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-main-street.cjs
 - Contact SHA-256 `b3aa6a3b99df652fddd86eba1ab07a45dd897be92c9c8426f262795568b6791d`.
 - One L13 tile changed. The emoji placement revision was preserved.
 
+### Direct Embarcadero passage
+
+**World and Data.** An inferred overhead volume in tile `80858074` extended
+down to 3.2 m and blocked one southbound lane beneath the Bay Bridge. The
+April 2023 survey recorded 7,276 pavement-height returns, 18,379 overhead
+returns and zero returns from 0.45 to 2.2 m above pavement inside the
+reviewed 3.5 m corridor. The two adjacent 0.5 m bands held 50 returns
+at vehicle height. The bake raises the base of 22.5 m² of the inferred
+volume inside the lane and retains the geometry beside it. The test
+checks simulated clearance. The physical underside elevation remains
+unmeasured. [Gerardus review and reproduction](https://github.com/banshee-data/gerardus/pull/210).
+
+**Physics and Goals.** With the same southbound keyboard line, Chrome
+crashed 30.0 m into the crossing on the parent bake. The corrected bake
+cleared 95.0 m at street level. The full waterfront run collected both
+pickups over 1,933.3 m, stayed grounded, and recorded a 2.7% peak grade and
+zero dips deeper than 0.5 m. The deck surfaces and terrain are identical
+by hash. The package audit passed 471 directed traversals and 340 joins.
+All 513 handoffs completed, with three continuing onto another baked road.
+
+- Parent manifest SHA-256 `352ee066ec4f33e8d80cccc3af707147d45380c9887345252128aab7b55c69fb`.
+- Corrected manifest SHA-256 `0f3633b834853b483100df5b94865caec32b1f3ddd154307575e521489d3ebb6`.
+- Gerardus review SHA-256 `34fa9bd0c972cacc349aeeb6965f0312debb93986fcf8e3790e58bb5166c4e92`.
+
+```sh
+plan=tools/sf-drive/road-audit-current-contact-routes.json
+node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses waterfront-direct > /tmp/sf-embarcadero-course.jsonl
+SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
+  /tmp/sf-embarcadero-course.jsonl --verify waterfront-direct
+```
+
+The `embarcadero-volume-survey` run on the attached evidence volume
+retains the survey node receipts, the comparison and full browser runs,
+and the baked contact audit.
+
 ## Harrison Street past the Fourth Street entrance
 
 The first Main Street retry exposed a second failure at Fourth and
