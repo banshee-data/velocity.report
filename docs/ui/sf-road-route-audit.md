@@ -2382,6 +2382,34 @@ The `embarcadero-volume-survey` run on the attached evidence volume
 retains the survey node receipts, the comparison and full browser runs,
 and the baked contact audit.
 
+#### Northbound right lane
+
+The northbound carriageway crosses two parts of the retained overhead
+volume. A Chrome drive along the existing right lane stalled at 61.1 m.
+The first local correction passed that face and reached a second one
+26 m farther along. Both surveyed right-lane corridors had pavement and
+overhead returns with zero returns at vehicle height. The bake clears the
+right lane and preserves the other inferred faces, including at the
+adjacent points where the survey found low returns. [Gerardus review](https://github.com/banshee-data/gerardus/pull/210).
+
+Chrome drove the corrected 97.2 m crossing with no airborne travel or
+dips deeper than 0.5 m. The northbound sample was 3 m right of the
+baked centreline. The corresponding street-level regression checks
+the whole crossing and verifies that the centreline still detects the
+retained volume. The southbound clearance uses the corridor verified
+above. The tests describe the street-level game passage.
+
+- First corridor pavement and overhead returns 9,010 and 6,468.
+- Second corridor pavement and overhead returns 4,143 and 9,721.
+- Corrected game manifest SHA-256 `6a2930ae7b9ef462b9a30a7183a807577884805eccb3ad5482d26645fccca8bf`.
+- Northbound review SHA-256 `bfd6d3595af363e821ef9647f74bcea8e831f82f05b655d39e4fa66599013356`.
+
+```sh
+node tools/sf-drive/export-embarcadero-crossing.mjs > /tmp/sf-embarcadero-north-course.jsonl
+SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
+  /tmp/sf-embarcadero-north-course.jsonl --street-segment=0:99 embarcadero-northbound-right-lane
+```
+
 ## Harrison Street past the Fourth Street entrance
 
 The first Main Street retry exposed a second failure at Fourth and

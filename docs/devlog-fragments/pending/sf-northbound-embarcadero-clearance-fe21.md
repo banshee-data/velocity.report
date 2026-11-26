@@ -1,0 +1,1 @@
+- Cleared the two northbound Embarcadero spans in the survey-checked right lane and verified the street-level passage in Chrome. [Road route audit](../../ui/sf-road-route-audit.md#northbound-right-lane)
