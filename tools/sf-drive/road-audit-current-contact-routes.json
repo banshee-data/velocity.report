@@ -1,5 +1,5 @@
 {
-  "manifestSha256": "3b75aedad5a122612b62866047d01f4823155a1439c6c1cadf09f95e4eddba47",
+  "manifestSha256": "376ca8ed60c84b7af3e0a3c943e97e45fda1a6d28672c451648535371cc8fd88",
   "streetMph": 23,
   "highwayMph": 40,
   "routes": [
@@ -110,6 +110,7 @@
       "contact": {
         "roads": [
           "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-fifth-south-to-sixth-merge",
           "sf-contact/i280-king-to-mariposa",
           "sf-contact/i280-south-through-18th",
           "sf-contact/i280-dogpatch-approach",
@@ -136,6 +137,7 @@
           "sf-contact/us101-south-hester-salinas-entry",
           "sf-contact/us101-south-hester-entrance-collector",
           "sf-contact/us101-south-hester-bayshore-exit",
+          "sf-contact/bayshore-hester-frontage-lead",
           "sf-contact/bayshore-hester-frontage-to-third"
         ],
         "entry": [3533.634, -4270.155, "Salinas Ave"],
@@ -144,9 +146,13 @@
         "beforeSurfaces": ["sf-contact/silver-avenue-bridge"],
         "sectionMph": {
           "sf-contact/us101-south-hester-bayshore-exit": 21,
+          "sf-contact/bayshore-hester-frontage-lead": 23,
           "sf-contact/bayshore-hester-frontage-to-third": 23
         },
-        "groundLinkMph": { "sf-contact/bayshore-hester-frontage-to-third": 9 },
+        "groundLinkMph": {
+          "sf-contact/bayshore-hester-frontage-lead": 9,
+          "sf-contact/bayshore-hester-frontage-to-third": 9
+        },
         "laneGuides": {
           "sf-contact/us101-south-hester-entrance-collector": {
             "approach": -1.6,
