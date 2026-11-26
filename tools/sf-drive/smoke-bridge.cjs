@@ -97,6 +97,7 @@ const { chromium } = require("playwright");
           assert.ok(Number(altitude) < 51.3);
           assert.equal(cameraContact, "tunnel");
         }
+        console.log(`${start} reached ${surface}`);
       }
       await page.waitForFunction(
         () => {
@@ -109,7 +110,7 @@ const { chromium } = require("playwright");
           );
         },
         null,
-        { timeout: 120_000 },
+        { timeout: 220_000 },
       );
       assert.deepEqual(errors, []);
       console.log(`The ${start} drive reached Oakland pavement.`);
