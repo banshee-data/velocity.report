@@ -345,6 +345,11 @@ async function main() {
           }
           if (course.expectedEnclosed)
             assert.deepEqual(result.enclosed, course.expectedEnclosed, id);
+          if (course.maxAirborneMetres !== undefined)
+            assert.ok(
+              result.airborneMetres <= course.maxAirborneMetres,
+              `${id} travelled ${result.airborneMetres} m airborne`,
+            );
         }
       } catch (error) {
         console.log(
