@@ -1,0 +1,1 @@
+- Baked the surveyed Fremont Street exit into the Bay Bridge approach, shared its contact with the named drive, and verified the exit and I-80 through lanes with [Chrome keyboard runs](../../ui/sf-road-route-audit.md#measured-fremont-street-exit-alignment).

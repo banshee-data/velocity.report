@@ -614,7 +614,7 @@ cases["upper-to-fremont"] = {
   speed: 22,
   rollingStart: true,
   speedLimits: { "fremont-exit": 11.5 },
-  forks: [["city-approach", "fremont-exit", -1.2]],
+  forks: [["city-approach", "fremont-exit", -4.5]],
   laneGuides: {
     "fremont-exit": {
       clearance: { offset: 1.6, station: 456, length: 30 },

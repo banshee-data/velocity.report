@@ -7,6 +7,7 @@ import {
 import { driveOnRoadNetwork } from "./sf-road-network.js";
 import { leaveRoadSurface, strikeHighwayRail } from "./sf-highway-edge.js";
 import { validTunnelWallOpenings } from "./sf-tunnel-mesh.js";
+import { buildBakedRoadContact } from "./sf-baked-road-contact.js";
 
 export const BAY_BRIDGE_CITY_DRIVE = "bay-bridge-highway-drive";
 export const BAY_BRIDGE_APPROACH = "Bay Bridge approach";
@@ -94,8 +95,8 @@ export function applyCityDriveScenery(tile, exclusions) {
   }
 }
 
-// The published positions have no claimed surveyed width. The separate,
-// authored game drive supplies its own road width and ordered connections.
+// Named drives keep their authored route and can carry the same measured
+// contact cross-sections as the tiles for a published section.
 export function buildCityGameDrive(drive, groundHeight) {
   const points = [];
   const spans = new Map();
@@ -153,95 +154,44 @@ export function buildCityGameDrive(drive, groundHeight) {
   const topology = { surfaces, endpoints: [], transitions: [] };
   for (const [number, span] of entries.entries()) {
     const { start, end, id, kind } = span;
-    const fromWidth = Math.min(
-      span.width_m,
-      entries[number - 1]?.width_m ?? span.width_m,
-    );
-    const toWidth = Math.min(
-      span.width_m,
-      entries[number + 1]?.width_m ?? span.width_m,
-    );
-    const profile = [];
-    const vertices = [];
-    const triangles = [];
     for (let i = start; i <= end; i++) {
-      const [x, y, z] = points[i];
-      const s = stations[i] - stations[start];
-      const remaining = stations[end] - stations[i];
-      const width =
-        Math.min(
-          span.width_m - (span.width_m - fromWidth) * (1 - Math.min(1, s / 12)),
-          span.width_m -
-            (span.width_m - toWidth) * (1 - Math.min(1, remaining / 12)),
-        ) / 2;
-      const nx = -Math.sin(tangents[i]);
-      const ny = Math.cos(tangents[i]);
-      vertices.push(
-        [x + nx * width, y + ny * width, z],
-        [x - nx * width, y - ny * width, z],
-      );
-      profile.push({ position: points[i], s_m: s, support: "interpolated" });
-      if (i > start) {
-        const a = vertices.length - 4;
-        triangles.push([a, a + 1, a + 2], [a + 1, a + 3, a + 2]);
-      }
       speed[i] = Math.min(
         speed[i],
         span.speed_mps ?? Infinity,
         kind === "ground" ? 20 : kind === "ramp" ? 26 : 52,
       );
     }
-    const contact = {
-      vertices,
-      triangles,
-      support: vertices.map(() => "interpolated"),
-    };
-    const meshHeight = indexRoadContact(contact);
-    const end_ids = [`${id}:start`, `${id}:end`];
-    const clearance = span.game_clearance_m;
-    const interior = [0, profile.at(-1).s_m];
-    const wallOpenings = span.tunnel_wall_openings_m;
-    if (
-      wallOpenings !== undefined &&
-      (kind !== "tunnel" || !validTunnelWallOpenings(wallOpenings, interior))
-    )
-      throw new Error("The game drive contains invalid tunnel wall openings.");
-    if (
-      kind === "tunnel" &&
-      (!Number.isFinite(clearance) || clearance < 2.5 || clearance > 10)
-    )
-      throw new Error("The game tunnel needs a valid clearance.");
-    surfaces.push({
-      id,
-      kind,
-      label: span.label,
-      contact,
-      profile,
-      end_ids,
-      end_tiles: ["game", "game"],
-      terminalHalfWidths: [fromWidth / 2, toWidth / 2],
-      terminalBearings: [tangents[start] + Math.PI, tangents[end]],
-      ...(kind === "tunnel" && {
-        appearance: {
-          interior,
-          clearance,
-          ...(wallOpenings && { wallOpenings }),
-        },
-      }),
-      rail: span.rail,
-      railSides: span.rail_sides,
-      railBounceOnly: id === "fourth-street-entrance",
-      highwayRailHalfWidth: span.rail
-        ? Math.min(fromWidth, toWidth) / 2 - 0.35
-        : 0,
-      heightAt:
-        kind === "ground"
-          ? (x, y) => (meshHeight(x, y) === null ? null : groundHeight(x, y))
-          : meshHeight,
-    });
+    const hasMeasuredContact = span.road_contact !== undefined;
+    const baked =
+      hasMeasuredContact &&
+      buildBakedRoadContact({
+        ...span.road_contact,
+        id,
+        kind,
+        label: span.label,
+        points: span.positions,
+      });
+    if (hasMeasuredContact && !baked)
+      throw new Error("The game drive contains invalid measured road contact.");
+    const surface = baked
+      ? {
+          ...baked.surface,
+          end_tiles: ["game", "game"],
+          ...(baked.appearance && { appearance: baked.appearance }),
+        }
+      : authoredDriveSurface(
+          span,
+          entries,
+          number,
+          points,
+          stations,
+          tangents,
+          groundHeight,
+        );
+    surfaces.push(surface);
     for (const [i, position] of [points[start], points[end]].entries())
       topology.endpoints.push({
-        id: end_ids[i],
+        id: surface.end_ids[i],
         position,
         surface_id: id,
         surface_owner: "game",
@@ -252,7 +202,7 @@ export function buildCityGameDrive(drive, groundHeight) {
       topology.transitions.push({
         id: `${previous.id}:${id}`,
         from: `${previous.id}:end`,
-        to: end_ids[0],
+        to: surface.end_ids[0],
         // The driving controller routes forward. Manual driving may back across the same join.
         direction: "both",
         support: "interpolated",
@@ -309,6 +259,99 @@ export function buildCityGameDrive(drive, groundHeight) {
         drive.initial_speed_mps ??
         (drive.id === BAY_BRIDGE_CITY_DRIVE ? 50 * 0.44704 : 0),
     },
+  };
+}
+
+function authoredDriveSurface(
+  span,
+  entries,
+  number,
+  points,
+  stations,
+  tangents,
+  groundHeight,
+) {
+  const { start, end, id, kind } = span;
+  const fromWidth = Math.min(
+    span.width_m,
+    entries[number - 1]?.width_m ?? span.width_m,
+  );
+  const toWidth = Math.min(
+    span.width_m,
+    entries[number + 1]?.width_m ?? span.width_m,
+  );
+  const profile = [];
+  const vertices = [];
+  const triangles = [];
+  for (let i = start; i <= end; i++) {
+    const [x, y, z] = points[i];
+    const s = stations[i] - stations[start];
+    const remaining = stations[end] - stations[i];
+    const width =
+      Math.min(
+        span.width_m - (span.width_m - fromWidth) * (1 - Math.min(1, s / 12)),
+        span.width_m -
+          (span.width_m - toWidth) * (1 - Math.min(1, remaining / 12)),
+      ) / 2;
+    const nx = -Math.sin(tangents[i]);
+    const ny = Math.cos(tangents[i]);
+    vertices.push(
+      [x + nx * width, y + ny * width, z],
+      [x - nx * width, y - ny * width, z],
+    );
+    profile.push({ position: points[i], s_m: s, support: "interpolated" });
+    if (i > start) {
+      const a = vertices.length - 4;
+      triangles.push([a, a + 1, a + 2], [a + 1, a + 3, a + 2]);
+    }
+  }
+  const contact = {
+    vertices,
+    triangles,
+    support: vertices.map(() => "interpolated"),
+  };
+  const meshHeight = indexRoadContact(contact);
+  const end_ids = [`${id}:start`, `${id}:end`];
+  const clearance = span.game_clearance_m;
+  const interior = [0, profile.at(-1).s_m];
+  const wallOpenings = span.tunnel_wall_openings_m;
+  if (
+    wallOpenings !== undefined &&
+    (kind !== "tunnel" || !validTunnelWallOpenings(wallOpenings, interior))
+  )
+    throw new Error("The game drive contains invalid tunnel wall openings.");
+  if (
+    kind === "tunnel" &&
+    (!Number.isFinite(clearance) || clearance < 2.5 || clearance > 10)
+  )
+    throw new Error("The game tunnel needs a valid clearance.");
+  return {
+    id,
+    kind,
+    label: span.label,
+    contact,
+    profile,
+    end_ids,
+    end_tiles: ["game", "game"],
+    terminalHalfWidths: [fromWidth / 2, toWidth / 2],
+    terminalBearings: [tangents[start] + Math.PI, tangents[end]],
+    ...(kind === "tunnel" && {
+      appearance: {
+        interior,
+        clearance,
+        ...(wallOpenings && { wallOpenings }),
+      },
+    }),
+    rail: span.rail,
+    railSides: span.rail_sides,
+    railBounceOnly: id === "fourth-street-entrance",
+    highwayRailHalfWidth: span.rail
+      ? Math.min(fromWidth, toWidth) / 2 - 0.35
+      : 0,
+    heightAt:
+      kind === "ground"
+        ? (x, y) => (meshHeight(x, y) === null ? null : groundHeight(x, y))
+        : meshHeight,
   };
 }
 
