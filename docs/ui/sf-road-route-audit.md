@@ -6169,8 +6169,8 @@ The mapped Chrome drive reached the East Span without airborne
 travel, dips, or scrapes. The named entrance also reached the deck
 and showed the exterior view on the open span. Separate keyboard
 runs confirmed the lower tunnel through route and the eastbound exit
-to Macalla. The legacy direct off/on replay still needs a route
-through the current Southgate street connection.
+to Macalla. The complete off/on replay now uses the Southgate street
+connection described below.
 
 - Parent manifest SHA-256 `e8c27244800e8aab5da9e737588f5a53b3923b4f78436cf2aba14865133688fb`.
 - Updated manifest SHA-256 `77c30b57181be2b447464609c630c366b87f5b02b0a60efb3828cbc2e9d3ec74`.
@@ -6492,4 +6492,23 @@ has SHA-256 `95249b02cb9c0fe45b62266222f87432bf5214a88e3cfedd42c0141e657013fc`.
 
 ```sh
 node tools/sf-drive/audit-road-routes.mjs --plan=tools/sf-drive/road-audit-current-contact-routes.json
+```
+
+## Lower Yerba Buena exit and eastbound re-entry
+
+**World, Physics and UI.** The old replay expected the lower exit to join
+Hillcrest directly. The baked exit now reaches Macalla over the Southgate
+feeder. From Macalla the keyboard drive turns around on ordinary pavement,
+uses the clear lane around the Southgate bends and climbs the Hillcrest
+entrance onto the East Span.
+
+The complete Chrome run drove 399.8 m on local pavement, had zero airborne
+travel and reached the East Span in 263.9 seconds. It registered one tree
+scrape and continued. The replay observed both tunnel sections, the covered
+Southgate feeder and the open East Span. A separate 276 m keyboard drive
+from Macalla to Hillcrest also stayed grounded throughout. The tested
+manifest is `376ca8ed60c84b7af3e0a3c943e97e45fda1a6d28672c451648535371cc8fd88`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs island-east-roundtrip
 ```
