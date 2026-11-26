@@ -120,7 +120,10 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
     const raw = file(`tiles/${token}.json.gz`);
     const climb = manifest.roadBake.i80LowerClimbWidthSurvey.tiles[token];
     if (climb) assert.equal(climb.parentSha256, receipt.sha256);
-    assert.equal(climb?.sha256 ?? receipt.sha256, digest(raw));
+    const existingHash = climb?.sha256 ?? receipt.sha256;
+    const westSpan = manifest.roadBake.i80WestSpanWidthSurvey.tiles[token];
+    if (westSpan) assert.equal(westSpan.parentSha256, existingHash);
+    assert.equal(westSpan?.sha256 ?? existingHash, digest(raw));
     assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
     for (const road of JSON.parse(gunzipSync(raw)).playableRoads) {
       if (roads.has(road.id)) assert.deepEqual(roads.get(road.id), road);
@@ -185,7 +188,9 @@ test("The Embarcadero has street clearance beneath the retained Bay Bridge volum
   const review = manifest.roadBake.buildingClearanceReviews.findLast(
     ({ tiles }) => tiles[token],
   );
-  assert.equal(review.tiles[token].sha256, digest(raw));
+  const westSpan = manifest.roadBake.i80WestSpanWidthSurvey.tiles[token];
+  assert.equal(review.tiles[token].sha256, westSpan.parentSha256);
+  assert.equal(westSpan.sha256, digest(raw));
 
   const tile = JSON.parse(gunzipSync(raw));
   const obstacles = [buildCollisionIndex(tile, token)];
@@ -1617,6 +1622,7 @@ test("the upper West Span shares its Fremont fork with the westbound freeway con
   for (const ids of [
     ["city-approach", "fremont-exit"],
     [
+      "bay-bridge-westbound",
       "city-approach",
       "sf-contact/i80-westbound-fremont-split",
       "sf-contact/i80-westbound-upper-soma",
@@ -1642,7 +1648,64 @@ test("the upper West Span shares its Fremont fork with the westbound freeway con
   }
   const exit = roads.get("fremont-exit");
   assert.deepEqual(exit.groundEnds, ["end"]);
-  assert.deepEqual(exit.railSides, ["right"]);
+  assert.deepEqual(exit.railRanges, [
+    { side: "right", startMetres: 95, endMetres: 710 },
+  ]);
+});
+
+test("the westbound deck holds the sampled outside lanes above their lower levels", () => {
+  const { roadBake, tiles: entries } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.i80WestSpanWidthSurvey;
+  const roads = new Map();
+  const collision = [];
+  for (const [token, receipt] of Object.entries(review.tiles)) {
+    const raw = file(`tiles/${token}.json.gz`);
+    assert.equal(receipt.sha256, digest(raw));
+    assert.equal(raw.length, entries.find(({ t }) => t === token).bytes);
+    const tile = JSON.parse(gunzipSync(raw));
+    collision.push(buildCollisionIndex(tile, token));
+    for (const road of tile.playableRoads) {
+      if (roads.has(road.id)) assert.deepEqual(roads.get(road.id), road);
+      roads.set(road.id, road);
+    }
+  }
+
+  const lower = buildBakedRoadContact(
+    roads.get("bay-bridge-eastbound-lower"),
+  ).surface;
+  for (const [id, station, offset] of [
+    ["bay-bridge-westbound", 325, -9],
+    ["bay-bridge-westbound", 1230, -9],
+    ["bay-bridge-westbound", 1476, -9],
+    ["bay-bridge-westbound", 2460, -9],
+    ["city-approach", 6, -10],
+    ["city-approach", 163, -10],
+    ["city-approach", 290, -10],
+    ["city-approach", 390, -10],
+    ["sf-contact/i80-westbound-fremont-split", 58, -10],
+    ["sf-contact/i80-westbound-upper-soma", 124, -10],
+  ]) {
+    const { surface } = buildBakedRoadContact(roads.get(id));
+    const i = surface.profile.findIndex(({ s_m }) => s_m >= station);
+    const {
+      position: [x, y, z],
+    } = surface.profile[i];
+    const a = surface.profile[i - 1].position;
+    const b = surface.profile[i + 1].position;
+    const heading = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    const car = {
+      x: x - offset * Math.sin(heading),
+      y: y + offset * Math.cos(heading),
+      z,
+      heading,
+    };
+    assert.ok(roadSupportsCar(surface.heightAt, car), `${id} at ${station} m`);
+    assert.equal(collisionAt(collision, car, z), null);
+    if (id === "bay-bridge-westbound") {
+      const below = lower.heightAt(car.x, car.y);
+      assert.ok(Number.isFinite(below) && z - below > 8);
+    }
+  }
 });
 
 test("the east island ramp joins the upper bore without changing the through tunnel level", () => {

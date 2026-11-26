@@ -1,0 +1,1 @@
+- Widened the westbound Bay Bridge, city approach and SoMa contact to carry the outside lanes. The [road route audit](../../ui/sf-road-route-audit.md#outside-lanes-on-the-westbound-bay-bridge-and-city-approach) records the survey, scenery clearance and Chrome drives.

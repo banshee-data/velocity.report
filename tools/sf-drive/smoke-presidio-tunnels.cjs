@@ -2018,6 +2018,82 @@ cases["soma-lower-climb-merge-lane"] = {
     },
   },
 };
+const westboundLaneRuns = [
+  {
+    name: "west-span-outside-lane",
+    road: "bay-bridge-westbound",
+    owners: ["8085803c", "80858074"],
+    start: 1080,
+    finish: 1360,
+    station: 1230,
+    offset: -7,
+    length: 110,
+  },
+  {
+    name: "west-city-approach-outside-lane",
+    road: "city-approach",
+    owners: ["80858074", "8085807c"],
+    start: 296,
+    finish: 486,
+    station: 385,
+    offset: -10,
+    length: 91,
+  },
+  {
+    name: "west-soma-before-fourth-outside-lane",
+    road: somaUpper,
+    owners: ["8085807c"],
+    start: 53,
+    finish: 209,
+    station: 124,
+    offset: -10,
+    length: 65,
+  },
+];
+for (const {
+  name,
+  road,
+  owners,
+  start,
+  finish,
+  station,
+  offset,
+  length,
+} of westboundLaneRuns) {
+  cases[name] = {
+    owners,
+    roads: [road],
+    speed: 18,
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 16,
+    finishOnDeck: true,
+    finishDistance: finish,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 36_000,
+    laneGuides: { [road]: { clearance: { station, offset, length } } },
+  };
+}
+cases["west-city-approach-fremont-exit"] = {
+  ...cases["upper-to-fremont"],
+  owners: ["80858074", "8085807c"],
+  roads: ["city-approach", "fremont-exit"],
+  rollingStartMetres: 341,
+  maxDurationMs: 125_000,
+  maxAirborneMetres: 0,
+};
+cases["west-city-approach-through"] = {
+  ...cases["westbound-harrison-fork-through"],
+  owners: ["80858074", "8085807c"],
+  roads: ["city-approach", harrisonFork, somaUpper],
+  rollingStartMetres: 341,
+  forks: [
+    ["city-approach", harrisonFork, 1.3],
+    ...cases["westbound-harrison-fork-through"].forks,
+  ],
+  maxAirborneMetres: 0,
+};
 cases["i80-westbound-fourth-merge-offset"] = {
   owners: ["8085807c", "80858084"],
   roads: [fourthThrough],
