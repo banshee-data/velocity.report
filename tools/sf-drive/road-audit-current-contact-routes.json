@@ -111,7 +111,7 @@
             "holdApproach": true
           },
           "sf-contact/us101-south-hester-bayshore-exit": {
-            "approach": -1.5,
+            "approach": -2.25,
             "holdApproach": true,
             "clearance": {
               "offset": 1.7,
