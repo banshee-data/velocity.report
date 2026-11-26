@@ -5944,10 +5944,11 @@ with zero scrapes, dips or airborne travel.
 
 **Data.** The patch binds the complete input tile and the three row
 hashes. Its release receipt carries the survey hashes alongside the
-existing tree-classification review.
+existing tree-classification review. A rebake reuses the three row
+identities and retains the clearance receipt when the terrain changes.
 
 - Parent manifest SHA-256 `e6e478bc61780659fab43bbeea59a16885d8d610151dadeab5f11bd95ea35943`.
-- Revised manifest SHA-256 `3d32aa4be86037784c14df220f293bf307bfd5204d605d1300a24f5bac4a927a`.
+- Revised manifest SHA-256 `b61687ae9764f69c26494bea10ba3186741793f3d5ac8a7046c7f6c9503af2c3`.
 - Survey receipt SHA-256 `ed168cc5d5e45915df81feb421d4151f5683e3b364a4608717b084bd756b365b`.
 - Gerardus clearance SHA-256 `4f88f38daef31b0175ae9d5249ca0034523003843ad0e1676614f0f59e7d69c4`.
 

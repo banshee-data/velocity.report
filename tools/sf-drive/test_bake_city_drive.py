@@ -527,7 +527,7 @@ def test_additional_tree_review_keeps_prior_removals_on_rebake(
 def test_road_tree_clearance_on_an_independent_tile_keeps_the_prior_review(
     tmp_path, reviewed_trees
 ):
-    _, reviewed, tile = reviewed_trees
+    original, reviewed, tile = reviewed_trees
     encode, digest = tree_bake["encode"], tree_bake["digest"]
     token = "808f7c4c"
     name = f"tiles/{token}.json.gz"
@@ -572,6 +572,34 @@ def test_road_tree_clearance_on_an_independent_tile_keeps_the_prior_review(
     assert json.loads((result / "quest-route.json").read_bytes())["manifestSha256"] == digest(result_manifest)
     result_rows = json.loads(gzip.decompress((result / name).read_bytes()))["tr"]
     assert result_rows == [tile["tr"][0], *tile["tr"][2:]]
+
+    rebaked_raw = gzip.compress(
+        encode({**tile, "t": token, "g": {"detail": "rebaked terrain"}}), mtime=0
+    )
+    path = original / "tiles/manifest.json"
+    old_manifest = path.read_bytes()
+    manifest = json.loads(old_manifest)
+    manifest["tiles"].append({"t": token, "bytes": len(rebaked_raw)})
+    path.write_bytes(encode(manifest))
+    (original / name).write_bytes(rebaked_raw)
+    quest = original / "quest-route.json"
+    quest.write_bytes(
+        quest.read_bytes().replace(
+            digest(old_manifest).encode(), digest(path.read_bytes()).encode()
+        )
+    )
+    carried = tmp_path / "rebaked-with-clearance"
+    tree_bake["carry_forward"](original, result, original / "tiles", carried)
+    carried_payload = (carried / name).read_bytes()
+    carried_tile = json.loads(gzip.decompress(carried_payload))
+    assert carried_tile["tr"] == result_rows
+    assert carried_tile["g"] == {"detail": "rebaked terrain"}
+    carried_bake = json.loads((carried / "tiles/manifest.json").read_bytes())["roadBake"]
+    carried_review = carried_bake["roadTreeClearanceReviews"][0]["tiles"][token]
+    assert carried_review["reviewedSha256"] == digest((result / name).read_bytes())
+    assert carried_review["sha256"] == digest(carried_payload)
+    assert carried_review["parentSha256"] == digest(raw)
+    assert carried_bake["treeClassification"]["tiles"].keys() == prior["tiles"].keys()
 
 
 def test_carry_forward_preserves_rebaked_roads_and_independent_removals(
