@@ -3443,7 +3443,10 @@ test("Main Post bores underpass the park and leave the measured causeway open", 
     const exposed = contact(causeway);
     assert.equal(exposed.surface.kind, "bridge_deck");
     assert.ok(!exposed.appearance);
-    assert.ok(exposed.surface.heightAt(...outside) > minimumElevation, causeway);
+    assert.ok(
+      exposed.surface.heightAt(...outside) > minimumElevation,
+      causeway,
+    );
   }
   const { surface } = contact("presidio-sb-causeway");
   const entry = { x: -1047.5, y: 4805.6, heading: 0.1 };
@@ -3860,7 +3863,37 @@ test("the westbound Fifth exit crosses below the continuing freeway and reaches 
     heading,
   };
   assert.equal(collisionAt(indexes, pose, pz), null);
-  assert.equal(roadBake.overheadBuildingPatches["8085807c"], 2);
+  assert.equal(roadBake.overheadBuildingPatches["8085807c"], 3);
+});
+
+test("the surveyed SoMa I-80 lanes stay on their own decks and clear the capped face", () => {
+  const token = "8085807c";
+  const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  const obstacles = [buildCollisionIndex(tile, token)];
+  for (const [slug, chainage, lateral] of [
+    ["i80-eastbound-lower-climb", 147, 10],
+    ["i80-westbound-upper-soma", 365, -10],
+  ]) {
+    const road = tile.playableRoads.find(
+      ({ id }) => id === `sf-contact/${slug}`,
+    );
+    const { surface } = buildBakedRoadContact(road);
+    const i = surface.profile.findIndex(({ s_m }) => s_m >= chainage);
+    const [east, north, z] = surface.profile[i].position;
+    const a = surface.profile[i - 1].position;
+    const b = surface.profile[i + 1].position;
+    const heading = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    const car = {
+      x: east - lateral * Math.sin(heading),
+      y: north + lateral * Math.cos(heading),
+      heading,
+      z,
+    };
+    assert.ok(Math.abs(surface.heightAt(car.x, car.y) - z) < 0.1);
+    assert.ok(roadSupportsCar(surface.heightAt, car));
+    assert.equal(collisionAt(obstacles, car, z), null);
+    if (lateral < 0) assert.equal(collisionAt(obstacles, car, 23), "building");
+  }
 });
 
 test("the Alemany fork carries both I-280 through traffic and the ramp to southbound US 101", () => {
