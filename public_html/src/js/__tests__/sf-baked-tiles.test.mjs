@@ -349,7 +349,9 @@ test("the Alemany connector leaves lower pavement clear beneath the crossing", (
   const review = manifest.roadBake.roadTreeClearanceReviews.findLast(
     ({ tiles }) => tiles[token],
   ).tiles[token];
-  assert.equal(review.sha256, digest(raw));
+  const viaduct = manifest.roadBake.alemanyWestViaductSurvey.tiles[token];
+  assert.equal(viaduct.parentSha256, review.sha256);
+  assert.equal(viaduct.sha256, digest(raw));
   assert.equal(review.removed, 3);
   const index = buildCollisionIndex(tile, token);
   for (const [tx, ty] of [
@@ -1256,6 +1258,41 @@ test("the 18th Street entrance stays on its own deck until the measured merge", 
     assert.equal(approachContact.heightAt(x, y), null);
     assert.equal(mainContact.heightAt(x, y), null);
   }
+});
+
+test("western Alemany Boulevard follows the elevated lane to street pavement", () => {
+  const token = "808f7c4c";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  assert.equal(
+    roadBake.alemanyWestViaductSurvey.tiles[token].sha256,
+    digest(raw),
+  );
+  assert.equal(roadBake.coveredGroundRoadPatches[token], 1);
+  const deck = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/alemany-west-viaduct",
+  );
+  const { surface, portals } = buildBakedRoadContact(deck);
+  assert.equal(portals.length, 2);
+  for (const portal of portals)
+    assert.ok(
+      Math.abs(groundAtWorld([tile], portal.x, portal.y, true) - portal.z) <
+        0.005,
+    );
+
+  const [x, y] = [-2775.5, -5609.1];
+  const height = surface.heightAt(x, y);
+  assert.ok(
+    Number.isFinite(height) && height - groundAtWorld([tile], x, y, true) > 9.5,
+  );
+
+  const [raisedApproach, lowerStreet] = tile.r.slice(6, 8);
+  assert.equal(tile.n[raisedApproach[0]], "Alemany Blvd");
+  const maxSouth = Math.min(...raisedApproach[3].filter((_, i) => i % 2));
+  assert.ok(tile.o[1] + maxSouth / 10 > -5495);
+  assert.equal(tile.n[lowerStreet[0]], "Alemany Blvd");
+  assert.equal(lowerStreet[2], 2);
 });
 
 test("Market Street meets its approaches on both surveyed carriageways", () => {

@@ -6329,3 +6329,29 @@ run retains the survey, both fitted carriageways and the keyboard drives.
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs market-viaduct-northbound market-viaduct-southbound
 ```
+
+## Western Alemany Boulevard viaduct
+
+**World and Data.** The April 2023 survey places the raised westbound lane
+up to 9.8 m above the terrain used in the previous game bake. The new
+377.0 m surface follows the measured deck through both approaches to
+ordinary street pavement. The adjacent eastbound street keeps its own
+level. The fit uses 252 stations from the 305-node local extract, with
+a 1.8 cm p95 difference from the sampled pavement medians.
+
+**Physics and UI.** On the matched 410 m Chrome course, peak grade dropped
+from 38.8% to 7.3%. The previous run travelled 2.1 m airborne. The revised
+run stayed on the viaduct through both handoffs and reached street
+pavement with no airborne travel, dips or scrapes.
+
+- Parent manifest SHA-256 `3e8e1ffe86620257a5bd4f0b12e6f61e82ccd58764948bc28249ef59853bb02c`.
+- Updated manifest SHA-256 `c7c22599d98a010fd6b0f9415af747d1c1e38ee1593f2f1817d3dd909bcc6499`.
+- Contact SHA-256 `dfdb7894ec3225119d4aa189e32cb7f96d894f30eba80dd721c527ba295b3e9e`.
+- Fitted profile SHA-256 `ce9167bc67746b497f8538f707c305dfd9dd2f15a9bef3672883edcdfb4f80b4`.
+
+The attached `city-structure-inventory-20261126/alemany-west-portals-mapped-ramp-20261126-b23`
+run retains the survey, fitted profile and paired keyboard drives.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs west-alemany-viaduct
+```
