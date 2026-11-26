@@ -79,17 +79,28 @@ function seamGuide(source, target, from, to, lane) {
 }
 
 function portalGuide(portal, inward, lane, angle) {
-  const { surface, x, y, nx, ny, entryX, entryY } = portal;
+  const { surface, x, y, nx, ny, entryX, entryY, sideAccess } = portal;
   const start = surface.profile[0].position;
   const fromStart = Math.hypot(x - start[0], y - start[1]) < 0.01;
   const length = surface.profile.at(-1).s_m;
   if (length < 3.5) return null;
-  const after = Math.min(13, length - 0.75);
+  const maxDepth = sideAccess
+    ? (Array.from(
+        { length: Math.ceil(13 / spacing) },
+        (_, i) => (i + 1) * spacing,
+      ).find(
+        (depth) => surface.heightAt(x + nx * depth, y + ny * depth) === null,
+      ) ?? 13)
+    : length;
+  const margin = sideAccess ? CAR_HALF_LENGTH + 0.35 : 0.75;
+  const after = Math.min(13, maxDepth - margin);
+  if (after <= 2) return null;
+  const approach = sideAccess ? Math.ceil(14 / spacing) : 80;
   const heading = Math.atan2(entryY, entryX) + angle;
   const points = Array.from(
-    { length: 81 + Math.floor(after / spacing) },
+    { length: approach + 1 + Math.floor(after / spacing) },
     (_, i) => {
-      const d = (i - 80) * spacing;
+      const d = (i - approach) * spacing;
       if (d < 0) {
         return {
           x: x + Math.cos(heading) * d - ny * lane,
@@ -97,7 +108,9 @@ function portalGuide(portal, inward, lane, angle) {
           d,
         };
       }
-      const [east, north] = at(surface, fromStart ? d : length - d);
+      const [east, north] = sideAccess
+        ? [x + nx * d, y + ny * d]
+        : at(surface, fromStart ? d : length - d);
       const taper = smooth(1 - d / 10);
       return { x: east - ny * lane * taper, y: north + nx * lane * taper, d };
     },
@@ -546,11 +559,14 @@ export function auditBakedRoadLinks(contacts, joins, tiles) {
         );
         const description = {
           road: id,
-          terminal: portal.surface.end_ids[end],
+          ...(portal.sideAccess
+            ? { sideAccess: portal.sideAccess }
+            : { terminal: portal.surface.end_ids[end] }),
           direction: inward ? "entry" : "exit",
         };
         const continuation =
           !inward &&
+          !portal.sideAccess &&
           traces.find(({ road }) =>
             passedJoins.has(`${description.terminal}/${road}`),
           );

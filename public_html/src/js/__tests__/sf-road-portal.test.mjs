@@ -109,6 +109,52 @@ test("a sideways, airborne or wrong-level crossing cannot acquire a road portal"
   assert.equal(cross({ ...flatCar(-0.01, 0, 0), grounded: false }), null);
 });
 
+test("a surveyed side interval joins pavement and deck in either direction", () => {
+  const road = {
+    id: "side-landing",
+    kind: "bridge_deck",
+    points: [
+      [0, 0, 3],
+      [10, 0, 3],
+      [30, 0, 3],
+      [40, 0, 3],
+    ],
+    width: 8,
+    owners: ["808f7fd4", "808f7fcc"],
+    sideGroundAccess: [{ side: "left", startMetres: 14, endMetres: 26 }],
+  };
+  const { portals } = buildBakedRoadContact(road);
+  assert.equal(portals.length, 1);
+  const cross = (car, pavement = () => 3) =>
+    driveThroughRoadPortal(car, { throttle: 1 }, DT, [portals], pavement);
+
+  const entry = cross(flatCar(20, 4.01, -Math.PI / 2, 3));
+  assert.ok(entry?.grounded);
+  assert.equal(entry.surfaceId, road.id);
+  const exit = cross({
+    ...flatCar(20, 3.99, Math.PI / 2, 3),
+    surfaceId: road.id,
+  });
+  assert.ok(exit?.grounded);
+  assert.equal(exit.surfaceId, undefined);
+
+  assert.equal(cross(flatCar(27, 4.01, -Math.PI / 2, 3)), null);
+  assert.equal(cross(flatCar(20, -4.01, Math.PI / 2, 3)), null);
+  assert.equal(
+    cross(flatCar(20, 4.01, -Math.PI / 2), () => 0),
+    null,
+  );
+  assert.equal(cross(flatCar(20, 4.01, 0, 3)), null);
+  assert.equal(buildBakedRoadContact({ ...road, railSides: ["left"] }), null);
+  assert.equal(
+    buildBakedRoadContact({
+      ...road,
+      sideGroundAccess: [{ side: "left", startMetres: 14, endMetres: 41 }],
+    }),
+    null,
+  );
+});
+
 test("an exit-only ramp hands off to pavement without capturing through traffic", () => {
   const road = {
     id: "signed-exit",

@@ -214,7 +214,7 @@ test("local bridges carry the car above the ground grid and meet street pavement
     );
     const { surface, portals } = buildBakedRoadContact(road);
     assert.equal(surface.kind, "bridge_deck");
-    assert.equal(portals.length, 2);
+    assert.equal(portals.filter((portal) => !portal.sideAccess).length, 2);
     for (const portal of portals) {
       assert.ok(
         Math.abs(groundAtWorld([tile], portal.x, portal.y, true) - portal.z) <
@@ -243,6 +243,27 @@ test("local bridges carry the car above the ground grid and meet street pavement
         0.025,
     );
   }
+});
+
+test("Oakdale joins Dunshee at deck level while retaining the lower rail cut", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7f04.json.gz")));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/oakdale-avenue-caltrain-bridge",
+  );
+  const { portals, surface } = buildBakedRoadContact(road);
+  const [access] = portals.filter((portal) => portal.sideAccess);
+  assert.deepEqual(access.sideAccess, {
+    side: "left",
+    startMetres: 38,
+    endMetres: 50,
+  });
+  assert.ok(
+    Math.abs(groundAtWorld([tile], access.x, access.y, true) - access.z) < 0.01,
+  );
+  const lowPoint = [3977, -2540];
+  const railCut = groundAtWorld([tile], ...lowPoint, true);
+  assert.equal(railCut, 13.5875);
+  assert.ok(surface.heightAt(...lowPoint) - railCut > 4.5);
 });
 
 test("Lincoln Way selects the eastbound deck across both approach lanes", () => {

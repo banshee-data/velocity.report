@@ -54,6 +54,7 @@ export function buildBakedRoadContact(road) {
     groundEnds = [],
     groundExitOnly = [],
     groundEntryProbeMetres = {},
+    sideGroundAccess = [],
     seams = {},
     widthTransitionMetres = {},
     widthSections,
@@ -133,6 +134,21 @@ export function buildBakedRoadContact(road) {
   }
   const { start: startTaper = 0, end: endTaper = 0 } = widthTransitionMetres;
   if (startTaper + endTaper > distance) return null;
+  if (
+    !Array.isArray(sideGroundAccess) ||
+    sideGroundAccess.some(
+      (access) =>
+        !access ||
+        !["left", "right"].includes(access.side) ||
+        railSides.includes(access.side) ||
+        !Number.isFinite(access.startMetres) ||
+        !Number.isFinite(access.endMetres) ||
+        access.startMetres < 0 ||
+        access.endMetres > distance ||
+        access.endMetres <= access.startMetres,
+    )
+  )
+    return null;
   if (
     widthSections !== undefined &&
     (!Array.isArray(widthSections) ||
@@ -259,6 +275,15 @@ export function buildBakedRoadContact(road) {
       ? { interior, clearance, ...(openings && { wallOpenings: openings }) }
       : null;
   if (openings !== undefined && !appearance) return null;
+  const portals = roadPortals(
+    surface,
+    groundEnds,
+    groundExitOnly,
+    seams,
+    groundEntryProbeMetres,
+    sideGroundAccess,
+  );
+  if (!portals) return null;
   return {
     surface,
     appearance,
@@ -269,12 +294,6 @@ export function buildBakedRoadContact(road) {
       surface_owner: owners[i],
       support: "interpolated",
     })),
-    portals: roadPortals(
-      surface,
-      groundEnds,
-      groundExitOnly,
-      seams,
-      groundEntryProbeMetres,
-    ),
+    portals,
   };
 }

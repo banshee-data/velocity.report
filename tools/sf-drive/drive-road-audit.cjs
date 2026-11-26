@@ -9,7 +9,7 @@ async function drive(page, course, key) {
   return page.evaluate(
     async ({ course, key }) => {
       const canvas = document.querySelector("#drive");
-      const { waypoints, from, to, streetSegment } = course;
+      const { waypoints, from, to, streetSegment, finishOnStreet } = course;
       const held = new Set();
       const surfaces = new Set();
       const enclosed = new Set();
@@ -83,6 +83,7 @@ async function drive(page, course, key) {
         if (streetSegment && car.road) status = "selected baked contact";
         else if (
           !streetSegment &&
+          !finishOnStreet &&
           collected.includes(from) &&
           collected.includes(to)
         )
@@ -118,6 +119,15 @@ async function drive(page, course, key) {
           Math.hypot(car.x - finishX, car.y - finishY) < 2.5
         ) {
           status = "street segment completed";
+          continue;
+        }
+        if (
+          finishOnStreet &&
+          car.contact === "grounded" &&
+          !car.road &&
+          Math.hypot(car.x - finishX, car.y - finishY) < 4
+        ) {
+          status = "street destination reached";
           continue;
         }
         let aim = at;
@@ -220,10 +230,7 @@ async function main() {
         segment[1] > segment[0] + 8,
       "Provide one course and --street-segment=start:end in metres",
     );
-  assert.ok(
-    path,
-    "Provide the NDJSON courses from audit-road-routes.mjs --export-courses",
-  );
+  assert.ok(path, "Provide an NDJSON course export");
   const courses = readFileSync(path, "utf8").trim().split("\n").map(JSON.parse);
   const origin = process.env.SF_BASE_URL || "http://127.0.0.1:8090";
   const manifest = await fetch(`${origin}/sf/tiles/manifest.json`);
@@ -335,7 +342,13 @@ async function main() {
           assert.equal(result.status, "street segment completed", id);
           assert.equal(result.airborneMetres, 0, id);
         } else if (verify) {
-          assert.equal(result.status, "both emoji collected", id);
+          assert.equal(
+            result.status,
+            course.finishOnStreet
+              ? "street destination reached"
+              : "both emoji collected",
+            id,
+          );
           if (course.expectedSurfaces) {
             assert.deepEqual(result.surfaces, course.expectedSurfaces, id);
             assert.ok(
@@ -345,6 +358,11 @@ async function main() {
           }
           if (course.expectedEnclosed)
             assert.deepEqual(result.enclosed, course.expectedEnclosed, id);
+          if (course.maxDips !== undefined)
+            assert.ok(
+              result.dips <= course.maxDips,
+              `${id} had ${result.dips} dips`,
+            );
           if (course.maxAirborneMetres !== undefined)
             assert.ok(
               result.airborneMetres <= course.maxAirborneMetres,

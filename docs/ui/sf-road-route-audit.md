@@ -5190,3 +5190,52 @@ node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses north-
 SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
   /tmp/sf-columbus-course.jsonl --verify north-beach-hills
 ```
+
+### Oakdale Avenue and Dunshee Street
+
+**World, Physics and Data.** The four keyboard drives turn between both
+Oakdale Avenue directions and Dunshee Street. The previous bake let all
+four cars reach their destination coordinates. Both drives from Dunshee
+missed the Oakdale deck. The eastbound drive briefly followed terrain
+towards the rail cut, with a dip of 1.34 m over an eight-metre chord.
+The baseline and comparison use the same lane guides, with route assist
+off, starting from a local checkpoint and targeting about 12 mph away
+from the turning arc. The driver measures absolute grade and dips at
+one-metre intervals along its travelled line.
+
+| Turn            | Previous bake used deck | Previous peak grade | Previous dips over 0.5 m | Updated peak grade | Updated dips over 0.5 m |
+| --------------- | ----------------------- | ------------------: | -----------------------: | -----------------: | ----------------------: |
+| West to Dunshee | Yes                     |               20.4% |                        0 |               8.2% |                       0 |
+| East to Dunshee | Yes                     |               20.1% |                        0 |               8.0% |                       0 |
+| Dunshee to east | No                      |               40.1% |                        7 |               9.7% |                       0 |
+| Dunshee to west | No                      |               23.3% |                        2 |               9.7% |                       0 |
+
+The B23 class-2 survey refines 329 one-metre terrain samples along
+the Dunshee approach by at most 1.26 m. Its elevation at the seam
+is 17.377 m. The existing deck edge is 17.379 m. The bake adds a
+left-side connection between stations 38 and 50 m. A check at
+`(3977, -2540)` retains the 13.59 m rail-cut terrain under the
+18.17 m deck. The comparison describes game contact and nearby
+pavement observations. [Caltrain Oakdale map](https://www.caltrain.com/media/34844/download).
+[USGS B23 index](https://usgs-lidar-public.s3.us-west-2.amazonaws.com/CA_SanFrancisco_1_B23/ept.json).
+
+All four updated Chrome drives used the deck, continued at least
+29.9 m on destination pavement and recorded zero airborne travel.
+All 20 fixed-step pickup courses also completed across 44.94 km
+with zero dips deeper than 0.5 m. The drive-link audit completed
+471 directed traversals, 340 joins and 515 ground handoff probes. Three probes
+continue directly onto an adjacent baked contact.
+
+- Previous game manifest SHA-256 `6a2930ae7b9ef462b9a30a7183a807577884805eccb3ad5482d26645fccca8bf`.
+- Updated game manifest SHA-256 `fceac8a2056623b6109829afaa17b84b490e2c6bb061b3c4f47f0a2af7013880`.
+- B23 survey receipts SHA-256 `cc9cde5f0148a31b842a5217065de0067d2996bd94d26236d8bb279248576705`.
+
+- Twenty-course plan SHA-256 `ab92270012f24d28a0b486d971f4f3a29fc566c1c1220f140b2039498c1c1701`.
+
+The `oakdale-dunshee-evidence-20261125` run on the attached
+evidence volume retains the B23 survey nodes and replay measurements.
+
+```sh
+node tools/sf-drive/export-oakdale-dunshee-crossings.mjs > /tmp/sf-oakdale-turns.ndjson
+SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs /tmp/sf-oakdale-turns.ndjson --verify
+```
