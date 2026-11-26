@@ -4889,7 +4889,7 @@ road profiles still supply both carriageways and their handoffs.
 **World, Physics and Data.** The three original tunnel courses stopped at
 archived street rows that deliberately supply no vehicle contact. The two
 freeway courses followed street alignments at forks where the current
-bake has directed ramps. The updated courses retain all ten pickup
+bake has directed ramps. The updated courses retain their original pickup
 endpoints and use the published portals. The I-280 course enters from
 Fifth Street and exits south onto Pennsylvania Avenue. The U.S. 101
 course crosses Silver Avenue, enters from Salinas Avenue, takes the
@@ -4906,16 +4906,20 @@ The pickup plan brakes for that turn and sets up 1.5 m inside the exit
 lane to enter the frontage road without cutting across the junction.
 The Howard course keeps the Moscone passes on street contact and uses an
 adjacent lane to clear an inferred building about 370 m farther west.
+The Dogpatch course drives below I-280 on 23rd Street. Moving 5 m across
+the 22nd Street pavement later in the route cleared a building collision
+in both the fixed-step driver and Chrome.
 
 **Goals and UI.** The fixed-step driver collected both pickups on all
-six courses. On the five layered courses, it verified the contact order
-and drove at least 20 m beyond the final contact. Grade percentages describe the full
-driven course, including local streets. A dip is a descent more than
+seven courses. The five courses with declared contact sequences verified their
+order and drove at least 20 m beyond the final contact. Grade percentages describe
+the full driven course, including local streets. A dip is a descent more than
 0.5 m below the line between samples 4 m on each side.
 
 | Course                                    | Driven distance | Beyond final exit | p95 / peak grade | Airborne distance |
 | ----------------------------------------- | --------------: | ----------------: | ---------------: | ----------------: |
 | Howard Street under the Moscone spans     |       1,478.0 m |                 — |      6.5% / 8.8% |               0 m |
+| 23rd Street beneath I-280                 |       2,440.5 m |         1,063.2 m |    18.9% / 21.6% |               0 m |
 | Stockton northbound                       |       1,641.7 m |           856.1 m |    10.1% / 15.6% |            0.26 m |
 | Broadway eastbound                        |       1,546.6 m |           566.4 m |     9.6% / 19.3% |               0 m |
 | Toll Plaza eastbound                      |       1,612.5 m |           250.2 m |     8.8% / 13.8% |               0 m |
@@ -4925,15 +4929,19 @@ driven course, including local streets. A dip is a descent more than
 The fixed-step runs measured zero dips above 0.5 m. Browser verification
 uses manual keyboard controls, checks both pickups, checks the ordered
 contacts and final ground exit, and requires the game to enter the
-enclosed view on each of the three tunnel courses.
+enclosed view on each of the three tunnel courses. The six pickup courses
+listed in the browser command completed in Chrome. On the full Bayview
+replay the keyboard driver still took the northbound branch at Hester
+and stalled. The focused Hester check verifies the successful turn from
+the exit ramp onto the frontage road.
 
-With the six courses substituted into the original 20-course set,
-13 collected both pickups. Four hit trees, two hit buildings, and the
+With the seven courses substituted into the original 20-course set,
+14 collected both pickups. Four hit trees, one hit a building, and the
 Excelsior course stopped on the Bosworth contact near Diamond Street.
 Those results remain open in the citywide check.
 
 The current plan uses the Oakland shoreline manifest above and
-has SHA-256 `c69270162b55b88418628e1a1c8ba2f32c57db89a8175ef9065302fb922bd891`.
+has SHA-256 `d3aeba35e1285c9867ccf18d0ba39b7fc72b1c27ae7a40f39c07f92193322617`.
 The published game uses the static tile bundle. These checks establish
 game traversal for the driven approaches. Covered survey gaps still use
 the documented inferred profiles. [Current contact courses](../../tools/sf-drive/road-audit-current-contact-routes.json)
@@ -4943,7 +4951,8 @@ plan=tools/sf-drive/road-audit-current-contact-routes.json
 node tools/sf-drive/audit-road-routes.mjs --plan="$plan"
 node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses > /tmp/sf-contact-courses.jsonl
 SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
-  /tmp/sf-contact-courses.jsonl --verify
+  /tmp/sf-contact-courses.jsonl --verify \
+  soma-under-deck dogpatch-23rd stockton-tunnel broadway-tunnel toll-plaza-tunnel soma-i280
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   hester-exit-to-frontage
 ```
