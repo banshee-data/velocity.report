@@ -2000,6 +2000,24 @@ for (const { name, road, start, finish, clearance } of somaMeasuredLaneRuns) {
     laneGuides: { [road]: { clearance } },
   };
 }
+cases["soma-lower-climb-merge-lane"] = {
+  owners: ["8085807c"],
+  roads: ["i80-eastbound-lower-climb"],
+  speed: 15,
+  rollingStart: true,
+  rollingStartMetres: 12,
+  initialSpeedMps: 12,
+  finishOnDeck: true,
+  finishDistance: 171,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+  maxDurationMs: 35_000,
+  laneGuides: {
+    "i80-eastbound-lower-climb": {
+      clearance: { offset: 21.5, station: 68, length: 62 },
+    },
+  },
+};
 cases["i80-westbound-fourth-merge-offset"] = {
   owners: ["8085807c", "80858084"],
   roads: [fourthThrough],

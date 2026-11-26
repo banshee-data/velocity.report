@@ -1,0 +1,1 @@
+- Carried the outside eastbound I-80 lane beyond the Fifth Street merge. The [road route audit](../../ui/sf-road-route-audit.md#outer-lane-beyond-the-fifth-street-merge) records the surveyed width and the browser drive that now stays on the climb.
