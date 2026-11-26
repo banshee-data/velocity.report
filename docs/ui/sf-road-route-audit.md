@@ -2642,8 +2642,9 @@ April 2023 3DEP observations supported all 609 fitting stations. The new
 road surfaces are 20 m wide in the game. They taper into the existing
 approaches over 32 m. An obstacle check exercised the centre and two
 lateral offsets on both extensions and lead-ins. All 3,018 poses were
-clear. The width and grade describe game contact. The game map ends
-over water before the Oakland landing.
+clear. The width and grade describe game contact. This revision ended
+over water. The [Oakland landing bake](#bay-bridge-east-span-to-oakland)
+continued both carriageways to land.
 
 The First Street and Essex starts both continue onto the new eastbound
 contact. The westbound start begins at 50 mph near the eastern map
@@ -4813,3 +4814,39 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
 
 The `game-map-edge-tunnels-evidence-20261125` run retains the bracketed
 survey samples, alignment extracts, contact audit and Chrome replays.
+
+## Bay Bridge East Span to Oakland
+
+**World and Data.** Four new L13 cells carry both East Span
+carriageways to the Oakland I-80 approaches. Each cell carries both
+complete strips and the westward joins pick up the original Yerba
+Buena approaches. The 2023 and 2025 surveys support all 3,135
+centreline stations. Their overlapping station heights differed by
+at most 13 cm at p95. Offsets out to 8 m on either side also have
+observed pavement support. The game's contact width is 20 m, with
+peak grades of 2.28% eastbound and 2.30% westbound.
+[USGS 3DEP](https://www.fisheries.noaa.gov/inport/item/73386)
+and [NOAA Baylands](https://www.fisheries.noaa.gov/inport/item/80225).
+
+**Physics.** Chrome drove the added eastbound span from the existing
+deck to pavement in Oakland and the westbound route from pavement
+onto the existing deck. Both used the game keyboard controls and
+stayed grounded without scrapes or crashes. The static audit passed
+471 directed strip traversals, 340 directed joins and 513 ground
+handoffs, including three onward connections onto other baked roads.
+
+**UI and Goals.** The minimap carries the new cells across the bay
+and includes the Oakland shoreline derived from the terrain window.
+The 137 existing quest markers retain their locations and identity.
+The adjoining MacArthur Maze ramp network needs its own road and
+terrain review.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs east-span-to-oakland oakland-to-east-span
+```
+
+- Game manifest SHA-256 `534887ca15afc1246caf2c2e43432ac0472c312daf1c92294b3529bca56187f0`.
+- Gerardus contact SHA-256 `44cbdfbac5237d70cadbb632f2dfdfa2c65c225f48c4c207a2d5839c4cadb4ec`.
+
+The `oakland-touchdown-evidence-20261125` run retains the mapped
+alignment, survey samples, terrain window and cross-section measurements.

@@ -231,8 +231,15 @@ test("the fixed route accounts for every baked tile and uses unique emoji at rea
     ),
   );
   assert.equal(route.targets.length, 137);
-  assert.equal(route.skipped.length, 25);
-  for (const t of ["80858434", "808585cc"])
+  assert.equal(route.skipped.length, 29);
+  for (const t of [
+    "80858434",
+    "808585cc",
+    "80857f8c",
+    "80857f94",
+    "80857fbc",
+    "80857fb4",
+  ])
     assert.ok(
       route.skipped.some(
         (row) => row.t === t && row.reason === "No signposted intersection",

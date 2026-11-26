@@ -1,0 +1,1 @@
+- Connected both Bay Bridge East Span carriageways to pavement in Oakland. The [route audit](../../ui/sf-road-route-audit.md#bay-bridge-east-span-to-oakland) records the new cells, survey coverage, and keyboard drives in both directions.

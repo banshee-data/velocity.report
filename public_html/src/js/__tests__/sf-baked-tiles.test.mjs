@@ -50,7 +50,9 @@ test("the Yerba Buena bake records its surveyed tree clearance and keeps the roa
   const tile = JSON.parse(gunzipSync(raw));
   const receipt = release.tiles[token];
   assert.equal(receipt.removed, 30);
-  assert.equal(receipt.sha256, digest(raw));
+  const landing = manifest.provenance.oakland_touchdown_survey;
+  assert.equal(receipt.sha256, landing.previousIslandTileSha256);
+  assert.equal(landing.islandTileSha256, digest(raw));
   assert.equal(route.manifestSha256, digest(manifestBytes));
   assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
   assert.ok(
@@ -1804,7 +1806,7 @@ test("Yerba Buena connects continuously through the upper tunnel to the original
   assert.ok(length > 164 && length < 166);
 });
 
-test("both East Span carriageways reach the map edge on separate surveyed contacts", () => {
+test("both East Span carriageways connect to Yerba Buena on separate surveyed contacts", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tile = JSON.parse(gunzipSync(file("tiles/80858024.json.gz")));
   const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
@@ -1862,6 +1864,45 @@ test("both East Span carriageways reach the map edge on separate surveyed contac
       const [bx, by, bz] = road.points[i];
       assert.ok(Math.abs(bz - az) / Math.hypot(bx - ax, by - ay) < 0.025);
     }
+  }
+});
+
+test("both East Span carriageways connect to Oakland with four complete cross-tile copies", () => {
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const coverage = JSON.parse(file("coverage.json"));
+  const owners = ["80857f8c", "80857f94", "80857fbc", "80857fb4"];
+  const tiles = ["80858024", ...owners].map((token) => {
+    assert.ok(manifest.tiles.some(({ t }) => t === token));
+    assert.equal(coverage.cells[token].length, 4);
+    return JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+  });
+  const contact = (tile, suffix) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${suffix}`);
+  for (const direction of ["eastbound", "westbound"]) {
+    const fromOakland = direction === "westbound";
+    const name = `bay-bridge-oakland-${direction}`;
+    const road = contact(tiles.at(-1), name);
+    const inner = contact(tiles[0], `bay-bridge-east-span-${direction}`);
+    const [before, after] = fromOakland ? [road, inner] : [inner, road];
+    assert.deepEqual(before.points.at(-1), after.points[0]);
+    assert.deepEqual(before.seams.end, after.seams.start);
+    assert.ok(
+      manifest.roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${before.id}:end` &&
+          to === `${after.id}:start` &&
+          direction === "forward",
+      ),
+    );
+    for (const tile of tiles.slice(1)) {
+      assert.deepEqual(contact(tile, name), road);
+    }
+    const end = fromOakland ? "start" : "end";
+    const [east, north, height] = road.points.at(fromOakland ? 0 : -1);
+    assert.deepEqual(road.groundEnds, [end]);
+    assert.ok(
+      Math.abs(groundAtWorld(tiles, east, north, true) - height) < 0.02,
+    );
   }
 });
 
@@ -2220,14 +2261,7 @@ test("baked roads agree across tile owners and reach their declared ground porta
       );
     }
   }
-  assert.deepEqual(unconnected.sort(), [
-    "sf-contact/bay-bridge-east-span-eastbound:end",
-    "sf-contact/bay-bridge-east-span-westbound:start",
-  ]);
-  for (const id of unconnected) {
-    const [[x, y]] = terminals.get(id);
-    assert.equal(groundAtWorld(loaded, x, y, true), null, id);
-  }
+  assert.deepEqual(unconnected, []);
   const fork = "sf-contact/i280-18th-off-ramp:end";
   const exits = [
     "sf-contact/i280-18th-exit",
