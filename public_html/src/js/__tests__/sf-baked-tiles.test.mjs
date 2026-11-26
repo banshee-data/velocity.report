@@ -56,7 +56,9 @@ test("the Yerba Buena bake records its surveyed tree clearance and keeps the roa
   assert.equal(receipt.sha256, landing.previousIslandTileSha256);
   const hillcrest = manifest.roadBake.hillcrestEastSpanSurvey.tiles[token];
   assert.equal(landing.islandTileSha256, hillcrest.parentSha256);
-  assert.equal(hillcrest.sha256, digest(raw));
+  const westbound = manifest.roadBake.ybiUpperWestSurvey.tiles[token];
+  assert.equal(westbound.parentSha256, hillcrest.sha256);
+  assert.equal(westbound.sha256, digest(raw));
   assert.equal(route.manifestSha256, digest(manifestBytes));
   assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
   assert.ok(
@@ -2374,13 +2376,61 @@ test("the lower island exit stays below the upper bore and reaches the island st
   }
 });
 
+test("the upper westbound Yerba Buena deck reaches Macalla on surveyed pavement", () => {
+  const token = "80858024";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  assert.equal(roadBake.ybiUpperWestSurvey.tiles[token].sha256, digest(raw));
+  const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
+  const early = roads.get("sf-contact/yerba-buena-upper-east-through");
+  const late = roads.get("yerba-buena-east-approach");
+  const entrance = roads.get("sf-contact/macalla-road-westbound-i80-entrance");
+  const common = roads.get("sf-contact/yerba-buena-upper-after-macalla-merge");
+  assert.deepEqual(early.points.at(-1), late.points[0]);
+  assert.deepEqual(early.seams.end, late.seams.start);
+  for (const road of [late, entrance]) {
+    assert.deepEqual(road.points.at(-1), common.points[0]);
+    assert.deepEqual(road.seams.end, common.seams.start);
+  }
+
+  const east = buildBakedRoadContact(early).surface;
+  const west = buildBakedRoadContact(late).surface;
+  const nearBend =
+    east.heightAt(6757.1, 5768.1) ?? west.heightAt(6757.1, 5768.1);
+  assert.ok(Number.isFinite(nearBend) && Math.abs(nearBend - 60.82) < 0.2);
+  const merge = buildBakedRoadContact(common).surface;
+  assert.ok(
+    roadSupportsCar((x, y) => west.heightAt(x, y) ?? merge.heightAt(x, y), {
+      x: 6628.435,
+      y: 5606.129,
+      heading: common.seams.start.bearing,
+    }),
+  );
+
+  const driveBytes = file("gamedrives.json");
+  assert.equal(digest(driveBytes), roadBake.driveSha256);
+  const { drives } = JSON.parse(driveBytes);
+  const sections = drives.flatMap(({ approaches }) =>
+    (approaches ?? []).flatMap(({ sections }) => sections),
+  );
+  for (const road of [early, late]) {
+    const named = sections.filter(({ id }) => id === road.id);
+    assert.equal(named.length, 2);
+    for (const section of named)
+      assert.deepEqual(section.positions, road.points);
+  }
+});
+
 test("Hillcrest stays in its own surveyed lane to the East Span merge", () => {
   const token = "80858024";
   const raw = file(`tiles/${token}.json.gz`);
   const tile = JSON.parse(gunzipSync(raw));
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const receipt = roadBake.hillcrestEastSpanSurvey.tiles[token];
-  assert.equal(receipt.sha256, digest(raw));
+  const westbound = roadBake.ybiUpperWestSurvey.tiles[token];
+  assert.equal(westbound.parentSha256, receipt.sha256);
+  assert.equal(westbound.sha256, digest(raw));
   const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
   const entry = roads.get("sf-contact/yerba-buena-east-eastbound-on-ramp");
   const lower = roads.get("yerba-buena-lower-east-after-entry");
@@ -2947,10 +2997,14 @@ test("the reviewed decks replace the provisional spans and clear the lower I-280
     decks.add(geometry);
     geometry.dispose();
   }
+  // The surveyed westbound deck follows a different footprint from these previews.
+  for (const run of ["14214000/forward/0", "14244000/forward/0"]) {
+    const preview = previews.get(`overpass/${run}`);
+    assert.ok(preview, run);
+    assert.equal(buildRaisedRoad(preview, replaced), null, run);
+  }
   for (const run of [
-    "14214000/forward/0",
     "14241000/forward/0",
-    "14244000/forward/0",
     "14245000/forward/0",
     "19365000/forward/0",
     "19304000/forward/0",
@@ -2973,11 +3027,12 @@ test("the reviewed decks replace the provisional spans and clear the lower I-280
   assert.ok(Number.isFinite(z));
   assert.equal(overheadDeckBlend(car, z, surface.heightAt, decks.ceiling), 0);
   const lowerBay = buildBakedRoadContact(
-    roads.get("yerba-buena-lower-east-after-entry"),
+    roads.get("yerba-buena-lower-east-approach"),
   ).surface;
-  const islandCar = { x: 6779.889, y: 5771.358, heading: 0.8537 };
+  const islandCar = { x: 6676.4267, y: 5658.1896, heading: 0.8536 };
   const islandZ = lowerBay.heightAt(islandCar.x, islandCar.y);
   assert.ok(Number.isFinite(islandZ));
+  assert.ok(decks.ceiling(islandCar.x, islandCar.y, islandZ) - islandZ > 7);
   assert.ok(
     overheadDeckBlend(islandCar, islandZ, lowerBay.heightAt, decks.ceiling) >
       0.7,
