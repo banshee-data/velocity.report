@@ -1,0 +1,1 @@
+- Verified both Bayview pickups in Chrome after the Salinas entrance, Hester exit and Third Street frontage handoff. The revised Hester approach stayed grounded through the fork. [Road route audit](../../ui/sf-road-route-audit.md#pickup-courses-on-the-published-map)

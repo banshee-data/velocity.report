@@ -4902,8 +4902,8 @@ At Hester, the first keyboard replay took the northbound Bayshore
 approach and crashed when the test steered back towards the frontage
 road. A focused keyboard replay capped the short pavement connection at
 9 mph and reached the correct frontage road with zero airborne distance.
-The pickup plan brakes for that turn and sets up 1.5 m inside the exit
-lane to enter the frontage road without cutting across the junction.
+The full pickup drive also cleared the junction when the keyboard guide
+set up 2.25 m inside the exit lane and braked for the turn.
 The Howard course keeps the Moscone passes on street contact and uses an
 adjacent lane to clear an inferred building about 370 m farther west.
 The Dogpatch course drives below I-280 on 23rd Street. Moving 5 m across
@@ -4924,16 +4924,17 @@ the full driven course, including local streets. A dip is a descent more than
 | Broadway eastbound                        |       1,546.6 m |           566.4 m |     9.6% / 19.3% |               0 m |
 | Toll Plaza eastbound                      |       1,612.5 m |           250.2 m |     8.8% / 13.8% |               0 m |
 | I-280 to Pennsylvania Avenue              |       3,862.6 m |         1,235.0 m |    13.7% / 21.3% |               0 m |
-| U.S. 101 to Third Street and Meade Avenue |       3,278.9 m |           468.9 m |    11.0% / 17.9% |            0.52 m |
+| U.S. 101 to Third Street and Meade Avenue |       3,279.7 m |           468.9 m |    11.0% / 17.9% |            0.52 m |
 
 The fixed-step runs measured zero dips above 0.5 m. Browser verification
 uses manual keyboard controls, checks both pickups, checks the ordered
 contacts and final ground exit, and requires the game to enter the
-enclosed view on each of the three tunnel courses. The six pickup courses
-listed in the browser command completed in Chrome. On the full Bayview
-replay the keyboard driver still took the northbound branch at Hester
-and stalled. The focused Hester check verifies the successful turn from
-the exit ramp onto the frontage road.
+enclosed view on each of the three tunnel courses. All seven pickup courses
+completed in Chrome. The full Bayview keyboard drive covered 3,290.1 m,
+stayed grounded, and travelled 474.3 m beyond the final frontage-road
+handoff. Its p95 driven grade was 11.1% and its peak was 17.2%. The original
+keyboard line ran wide at Hester and selected the northbound Bayshore
+approach. The focused Hester check covers the turn separately.
 
 With the seven courses substituted into the original 20-course set,
 14 collected both pickups. Four hit trees, one hit a building, and the
@@ -4941,7 +4942,7 @@ Excelsior course stopped on the Bosworth contact near Diamond Street.
 Those results remain open in the citywide check.
 
 The current plan uses the Oakland shoreline manifest above and
-has SHA-256 `d3aeba35e1285c9867ccf18d0ba39b7fc72b1c27ae7a40f39c07f92193322617`.
+has SHA-256 `b229b9de5b4a1ea38e24789069c7bce05bb979b2d090bddf44c295651426f563`.
 The published game uses the static tile bundle. These checks establish
 game traversal for the driven approaches. Covered survey gaps still use
 the documented inferred profiles. [Current contact courses](../../tools/sf-drive/road-audit-current-contact-routes.json)
@@ -4951,8 +4952,7 @@ plan=tools/sf-drive/road-audit-current-contact-routes.json
 node tools/sf-drive/audit-road-routes.mjs --plan="$plan"
 node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses > /tmp/sf-contact-courses.jsonl
 SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
-  /tmp/sf-contact-courses.jsonl --verify \
-  soma-under-deck dogpatch-23rd stockton-tunnel broadway-tunnel toll-plaza-tunnel soma-i280
+  /tmp/sf-contact-courses.jsonl --verify
 SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
   hester-exit-to-frontage
 ```
