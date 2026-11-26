@@ -4984,6 +4984,38 @@ test("the Macalla loop merges into westbound I-80 at the upper level", () => {
   }
 });
 
+test("the CA 1 North connector has its own road level between two ground portals", () => {
+  const token = "808f7c44";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const { tiles } = roadBake.dalyCa1NorthConnectorSurvey;
+  assert.deepEqual(Object.keys(tiles), [token]);
+  assert.equal(tiles[token].sha256, digest(raw));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/daly-ca1-north-connector",
+  );
+  const { surface, portals } = buildBakedRoadContact(road);
+  assert.deepEqual(road.owners, [token, token]);
+  assert.equal(portals.length, 2);
+  for (const { x, y, z } of portals)
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.02);
+
+  const index = buildCollisionIndex(tile, token);
+  for (const [x, y, observed] of [
+    [-2715.7695, -5965.4002, 76.29],
+    [-2717.6977, -5927.4494, 76.55],
+  ]) {
+    const car = { x, y, heading: Math.PI / 2 };
+    const z = surface.heightAt(x, y);
+    const ground = groundAtWorld([tile], x, y, true);
+    assert.ok(Number.isFinite(ground) && z - ground > 10);
+    assert.ok(Number.isFinite(z) && Math.abs(z - observed) < 0.02);
+    assert.ok(roadSupportsCar(surface.heightAt, { ...car, z }));
+    assert.equal(collisionAt([index], car, z), null);
+  }
+});
+
 test("John Daly exit and lower I-280 approach rejoin at the southbound entrance", () => {
   const manifest = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808f7c3c", "808f7c44"].map((token) =>

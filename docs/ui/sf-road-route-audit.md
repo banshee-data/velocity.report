@@ -5793,3 +5793,34 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   westbound-harrison-loop west-city-approach-outside-lane
 node tools/sf-drive/smoke-yerba-buena.cjs
 ```
+
+## CA 1 North connector at John Daly Boulevard
+
+**World and Data.** The northbound CA 1 connector uses its own surface
+between the mapped approaches near John Daly Boulevard. The parent bake
+placed its path on terrain as much as 16.19 m below the observed deck.
+The April 2023 survey provided pavement at all 106 two-metre stations
+used for the new contact. On the central deck, all 72 tested sections
+contained same-level deck returns 4 m to the right and 2 m to the left
+of the mapped line. The tile now carries a continuous 210 m surface.
+The two ends match the surrounding street terrain. The north end
+allows departure in the mapped direction.
+
+**Physics.** Chrome used keyboard input from the southern approach,
+crossed the connector and returned to terrain in 21 s, with 0 m of
+airborne travel and zero scenery scrapes. The citywide contact audit
+passed 474 travel directions across 382 surfaces and all 342 directed
+joins. It recorded 515 ground transfers and three direct continuations.
+
+- Parent game manifest SHA-256 `d8577f8b8e5d41901e8c198bcfc60f22fad3ade99c1feaf0cdee80c70b5dfe6e`.
+- Revised game manifest SHA-256 `f52492af70a7671d10b512ffb623574a8c696a41a0d9992f8a21b12a84bb4bd2`.
+- Revised contact SHA-256 `b97d9d74eba840743f0be9d799af802feb548c58d4b88b6a0ffa5b59e182cc7c`.
+- EPT node receipt SHA-256 `fad71311418ae7b2fb021a99fe711026ade7c43386dacc12d73a9b5baddc7177`.
+
+The `daly-ca1-north-connector-b23` evidence directory retains the 93 EPT
+nodes, source alignment, pavement checks and browser traces.
+[USGS San Francisco LiDAR survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs daly-ca1-north-connector
+```

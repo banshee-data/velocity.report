@@ -133,6 +133,15 @@ cases["baker-to-bunker-underpass"] = {
 const dalyOwners = ["808f7c3c", "808f7c44"];
 const dalyUpper = "john-daly-westbound-overpass";
 const dalyMerged = "i280-south-after-john-daly-merge";
+cases["daly-ca1-north-connector"] = {
+  owners: dalyOwners,
+  roads: ["daly-ca1-north-connector"],
+  speed: 12,
+  groundApproachMetres: 9,
+  maxAirborneMetres: 0,
+  maxDurationMs: 70_000,
+  expectNoScrapes: true,
+};
 cases["i280-john-daly-off-and-back"] = {
   owners: dalyOwners,
   roads: [
