@@ -4,6 +4,13 @@
   "highwayMph": 40,
   "routes": [
     {
+      "id": "soma-under-deck",
+      "from": "🏙️",
+      "to": "🎭",
+      "via": [[3200, 2258]],
+      "laneDetours": [[3050, 2348.4, -4.75]]
+    },
+    {
       "id": "stockton-tunnel",
       "from": "🐉",
       "to": "🍝",
@@ -94,6 +101,8 @@
             "holdApproach": true
           },
           "sf-contact/us101-south-hester-bayshore-exit": {
+            "approach": -1.5,
+            "holdApproach": true,
             "clearance": {
               "offset": 1.7,
               "station": 24,
