@@ -10,6 +10,7 @@ import {
   buildCityGameDrive,
   cityDriveApproach,
   cityDriveControls,
+  driveOnCityRoute,
 } from "../../public_html/src/js/sf-city-road-drive.js";
 import {
   buildCollisionIndex,
@@ -23,10 +24,7 @@ import {
   highwayRailSegments,
   strikeHighwayRail,
 } from "../../public_html/src/js/sf-highway-edge.js";
-import {
-  driveOnRoadNetwork,
-  indexRoadNetwork,
-} from "../../public_html/src/js/sf-road-network.js";
+import { indexRoadNetwork } from "../../public_html/src/js/sf-road-network.js";
 import { contactGeometry } from "../../public_html/src/js/sf-road-contact.js";
 import { deckClearanceIndex } from "../../public_html/src/js/sf-tree-clearance.js";
 
@@ -81,9 +79,9 @@ function tile(token) {
   return loaded.get(token);
 }
 
-const drive = buildCityGameDrive(published, (x, y) =>
-  groundAtWorld([tile(tileAt(map.tiles, x, y).t).world], x, y, true),
-);
+const pavement = (x, y) =>
+  groundAtWorld([tile(tileAt(map.tiles, x, y).t).world], x, y, true);
+const drive = buildCityGameDrive(published, pavement);
 for (const surface of drive.surfaces) registerDeck(surface);
 const graph = indexRoadNetwork(drive.topology.transitions);
 graph.add(drive.topology);
@@ -143,9 +141,17 @@ for (let tick = 0; tick < 540 / step; tick++) {
     break;
   }
   const surface = surfaces.get(car.surfaceId);
-  const next =
-    strikeHighwayRail(car, input, step, surface) ||
-    driveOnRoadNetwork(car, input, step, surface, surfaces, graph, () => false);
+  const next = driveOnCityRoute(
+    car,
+    input,
+    step,
+    surface,
+    surfaces,
+    graph,
+    pavement,
+    undefined,
+    true,
+  );
   const at = `${next.surfaceId} (${next.x.toFixed(2)}, ${next.y.toFixed(2)})`;
   assert.ok(!next.blocked && next.grounded, `Lost road contact at ${at}`);
   assert.ok(!next.roadImpact, `Hit a highway rail at ${at}`);
