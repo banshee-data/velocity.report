@@ -199,6 +199,20 @@ def test_bake_validates_asymmetric_width_and_bounds_its_stations():
     )
 
 
+def test_bake_bounds_the_directed_approach_lane_by_the_source_seam():
+    valid = road_layers["valid_approach_lane"]
+    join = {"from": "trunk:end", "direction": "forward"}
+    seam = {"width": 19.5, "leftWidth": 2}
+    assert valid(join, seam)
+    assert valid({**join, "from_lateral_range_m": [-17.5, 0.65]}, seam)
+    assert valid({**join, "from_lateral_range_m": [0.65, 2]}, seam)
+    for lane in ([-18, 0.65], [0.65, 3], [1, -1], [True, 2], None):
+        assert not valid({**join, "from_lateral_range_m": lane}, seam)
+    assert not valid(
+        {**join, "direction": "both", "from_lateral_range_m": [-1, 1]}, seam
+    )
+
+
 @pytest.mark.parametrize(
     ("covered", "expected"),
     [

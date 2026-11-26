@@ -275,34 +275,48 @@ test("fork steering is independent of station spacing and preserves a tied conti
     const surfaces = new Map(
       pieces.map(({ surface }) => [surface.id, surface]),
     );
-    for (const [heading, expected] of [
-      [0, "straight"],
-      [0.175, "straight"],
-      [0.197, "left"],
-      [0.38, "left"],
-    ]) {
+    const choose = (graph, y, heading) => {
       const car = {
         x: -0.015,
-        y: 0,
+        y,
         z: 12,
         v: 6,
         heading,
         grounded: true,
         surfaceId: "trunk",
       };
-      const next = driveOnRoadNetwork(
+      return driveOnRoadNetwork(
         car,
         { throttle: 0 },
         1 / 120,
         trunk.surface,
         surfaces,
-        network,
+        graph,
         () => false,
       );
+    };
+    for (const [heading, expected] of [
+      [0, "straight"],
+      [0.175, "straight"],
+      [0.197, "left"],
+      [0.38, "left"],
+    ]) {
+      const next = choose(network, 0, heading);
       assert.equal(next.surfaceId, expected);
       assert.equal(next.z, 12);
       assert.equal(next.seam.surfaceId, "trunk");
     }
+    const laneTransitions = transitions.map((edge) => ({
+      ...edge,
+      from_lateral_range_m: edge.to.startsWith("left:") ? [0.5, 4] : [-4, 0.5],
+    }));
+    const lanes = indexRoadNetwork(laneTransitions);
+    lanes.add({
+      endpoints: pieces.flatMap((road) => road.endpoints),
+      transitions: laneTransitions,
+    });
+    assert.equal(choose(lanes, 1.5, 0).surfaceId, "left");
+    assert.equal(choose(lanes, -1.5, 0.38).surfaceId, "straight");
   }
 });
 

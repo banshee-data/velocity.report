@@ -641,14 +641,16 @@ cases["upper-to-octavia"] = {
   forks: [
     ["city-approach", "i80-westbound-fremont-split", 1.3],
     ["i80-westbound-fremont-split", "i80-westbound-upper-soma", -1.8],
-    ["i80-westbound-upper-soma", "i80-westbound-fourth-merge", -1.6],
+    ["i80-westbound-upper-soma", "i80-westbound-fourth-merge", -12],
     ...cases["central-from-fourth"].forks,
   ],
   laneGuides: {
     ...cases["central-from-fourth"].laneGuides,
     "i80-westbound-upper-soma": {
+      approachMetres: 115,
       clearance: { offset: 2.2, station: 40, length: 28 },
     },
+    "i80-westbound-fourth-merge": { entranceMetres: 230 },
   },
 };
 const harrisonFork = "i80-westbound-fremont-split";
@@ -1916,6 +1918,44 @@ cases["potrero-avenue-to-bayshore"] = {
 
 const fifthRamp = "i80-westbound-fifth-harrison-exit";
 const fourthThrough = "i80-westbound-fourth-merge";
+cases["i80-westbound-fifth-outer-join"] = {
+  owners: ["8085807c", "80858084"],
+  roads: [somaUpper, fourthThrough],
+  speed: 16,
+  rollingStart: true,
+  initialSpeedMps: 15,
+  rollingStartMetres: 465,
+  finishOnDeck: true,
+  finishDistance: 90,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+  maxDurationMs: 40_000,
+  laneGuides: {
+    [somaUpper]: { lane: -10 },
+    [fourthThrough]: {
+      lane: -10,
+      entranceEast: -0.8823,
+      entranceNorth: -0.7795,
+      entranceMetres: 16,
+    },
+  },
+};
+cases["i80-westbound-fourth-outer"] = {
+  owners: ["8085807c", "80858084"],
+  roads: [fourthThrough],
+  speed: 16,
+  rollingStart: true,
+  initialSpeedMps: 15,
+  rollingStartMetres: 25,
+  finishOnDeck: true,
+  finishDistance: 225,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+  maxDurationMs: 40_000,
+  laneGuides: {
+    [fourthThrough]: { clearance: { offset: -10, station: 115, length: 86 } },
+  },
+};
 const somaMeasuredLaneRuns = [
   {
     name: "soma-measured-westbound-lane",
@@ -1973,14 +2013,25 @@ cases["i80-westbound-fifth-harrison"] = {
   ...fifthStart,
   roads: ["i80-westbound-upper-soma", fifthRamp],
   speedLimits: { [fifthRamp]: 12 },
-  forks: [["i80-westbound-upper-soma", fifthRamp, 1.35]],
+  laneGuides: {
+    [somaUpper]: { lane: -5.4 },
+    [fifthRamp]: {
+      entranceEast: -3.8068,
+      entranceNorth: 3.83,
+      entranceMetres: 285,
+    },
+  },
   covered: ["sf-contact/" + fifthRamp],
 };
 cases["i80-westbound-over-fifth"] = {
   ...fifthStart,
   roads: ["i80-westbound-upper-soma", fourthThrough],
   speedLimits: { [fourthThrough]: 15 },
-  forks: [["i80-westbound-upper-soma", fourthThrough, -1.6]],
+  forks: [[somaUpper, fourthThrough, -12]],
+  laneGuides: {
+    [somaUpper]: { approachMetres: 115 },
+    [fourthThrough]: { entranceMetres: 230 },
+  },
   finishOnDeck: true,
   finishDistance: 510,
   covered: [],

@@ -73,7 +73,9 @@ test("the Fourth Street merge clears the capped face above its lower volume", ()
   const review = manifest.roadBake.buildingClearanceReviews.findLast(
     ({ tiles }) => tiles[token],
   ).tiles[token];
-  assert.equal(review.sha256, digest(raw));
+  const fork = manifest.roadBake.i80FifthForkLaneWidthSurvey.tiles[token];
+  assert.equal(fork.parentSha256, review.sha256);
+  assert.equal(fork.sha256, digest(raw));
 
   const index = buildCollisionIndex(tile, token);
   const car = { x: 3382.15, y: 2037.35, heading: -2.37 };
@@ -90,7 +92,9 @@ test("both Moscone spans leave Howard Street open below their overhead volumes",
     .filter(Boolean);
   const howard = receipts.at(-1);
   assert.equal(howard.parentSha256, receipts.at(-2).sha256);
-  assert.equal(howard.sha256, digest(raw));
+  const fork = manifest.roadBake.i80FifthForkLaneWidthSurvey.tiles[token];
+  assert.equal(fork.parentSha256, howard.sha256);
+  assert.equal(fork.sha256, digest(raw));
 
   const tile = JSON.parse(gunzipSync(raw));
   const index = buildCollisionIndex(tile, token);
@@ -3824,17 +3828,19 @@ test("the westbound Fifth exit crosses below the continuing freeway and reaches 
   const approach = route("i80-westbound-upper-soma");
   const exit = route("i80-westbound-fifth-harrison-exit");
   const through = route("i80-westbound-fourth-merge");
-  for (const branch of [exit, through]) {
+  for (const [branch, approachLane] of [
+    [exit, [-8.8, 2]],
+    [through, [-17.5, -8.8]],
+  ]) {
     assert.deepEqual(approach.points.at(-1), branch.points[0]);
     assert.deepEqual(approach.seams.end, branch.seams.start);
-    assert.ok(
-      roadBake.playableTransitions.some(
-        (edge) =>
-          edge.from === `${approach.id}:end` &&
-          edge.to === `${branch.id}:start` &&
-          edge.direction === "forward",
-      ),
+    const edge = roadBake.playableTransitions.find(
+      (edge) =>
+        edge.from === `${approach.id}:end` &&
+        edge.to === `${branch.id}:start` &&
+        edge.direction === "forward",
     );
+    assert.deepEqual(edge?.from_lateral_range_m, approachLane);
   }
   assert.deepEqual(exit.owners, tokens);
   assert.deepEqual(
@@ -3863,7 +3869,7 @@ test("the westbound Fifth exit crosses below the continuing freeway and reaches 
     heading,
   };
   assert.equal(collisionAt(indexes, pose, pz), null);
-  assert.equal(roadBake.overheadBuildingPatches["8085807c"], 3);
+  assert.equal(roadBake.overheadBuildingPatches["8085807c"], 5);
 });
 
 test("the surveyed SoMa I-80 lanes stay on their own decks and clear the capped face", () => {
