@@ -1,0 +1,1 @@
+- Kept street turns on the ground at Diamond and César Chávez while preserving the upper San Jose Avenue deck and the southbound US 101 entrance. Verified both choices with Chrome keyboard replays. [Road route audit](../../ui/sf-road-route-audit.md#diamond-street-and-césar-chávez-street-forks)
