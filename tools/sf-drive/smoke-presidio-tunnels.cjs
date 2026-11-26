@@ -396,15 +396,17 @@ cases["sixth-southbound"] = {
 };
 const mariposaMergeStation = 91.96837;
 const sixthForkApproach = "i280-mariposa-northbound";
+const sixthStreetNorthLead = "i280-mariposa-sixth-approach";
 const sixthStreetNorthEnd = "i280-sixth-northbound";
 const fifthStreetNorthExit = "i280-north-fifth-exit";
-const sixthStreetNorthFork = [sixthForkApproach, sixthStreetNorthEnd, -1.4];
-const fifthStreetNorthFork = [sixthForkApproach, fifthStreetNorthExit, 1.65];
+const sixthStreetNorthFork = [sixthForkApproach, sixthStreetNorthLead, -1.4];
+const fifthStreetNorthFork = [sixthForkApproach, fifthStreetNorthExit, 4.2];
 cases["sixth-northbound"] = {
   roads: [
     "eighteenth-east-viaduct",
     "i280-eighteenth-north-entry",
     sixthForkApproach,
+    sixthStreetNorthLead,
     sixthStreetNorthEnd,
   ],
   owners: i280Owners,
@@ -430,7 +432,7 @@ cases["sixth-northbound"] = {
 cases["eighteenth-to-fifth-northbound"] = {
   ...cases["sixth-northbound"],
   roads: [
-    ...cases["sixth-northbound"].roads.slice(0, -1),
+    ...cases["sixth-northbound"].roads.slice(0, -2),
     fifthStreetNorthExit,
   ],
   forks: [fifthStreetNorthFork],
@@ -712,6 +714,7 @@ cases["dogpatch-to-sixth-northbound"] = {
     "i280-south-of-eighteenth-northbound",
     "i280-mariposa-northbound-approach",
     sixthForkApproach,
+    sixthStreetNorthLead,
     sixthStreetNorthEnd,
   ],
   owners: ["808f7fb4", "808f7fbc", "808f7fcc", "808f7fd4", "808f7fac"],
@@ -736,8 +739,11 @@ cases["dogpatch-to-sixth-northbound"] = {
 const dogpatchNorth = cases["dogpatch-to-sixth-northbound"];
 cases["dogpatch-to-fifth-northbound"] = {
   ...dogpatchNorth,
-  roads: [...dogpatchNorth.roads.slice(0, -1), fifthStreetNorthExit],
-  forks: [fifthStreetNorthFork],
+  roads: [...dogpatchNorth.roads.slice(0, -2), fifthStreetNorthExit],
+  forks: [
+    ["i280-dogpatch-northbound", "i280-south-of-eighteenth-northbound", 2.2],
+    fifthStreetNorthFork,
+  ],
 };
 const alemanyWest = "i280-north-alemany-west-approach";
 const alemanyThrough = "i280-north-alemany-main";
@@ -2348,7 +2354,7 @@ for (const [name, road, start, finish, station, length] of [
     "mariposa-northbound-outer",
     sixthForkApproach,
     220 - mariposaMergeStation,
-    487 - mariposaMergeStation,
+    362 - mariposaMergeStation,
     352 - mariposaMergeStation,
     110,
   ],

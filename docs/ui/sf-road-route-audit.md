@@ -6215,3 +6215,32 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   sixth-northbound eighteenth-to-fifth-northbound \
   dogpatch-to-sixth-northbound dogpatch-to-fifth-northbound mariposa-northbound-outer
 ```
+
+## Mariposa approach to the Fifth Street exit
+
+**World and Data.** The surveyed exit lane peels left from I-280 while
+the through lanes continue towards Sixth Street. The bake now carries
+the exit on an independent 323.7 m profile from the shared carriageway
+to the existing descent. At the fork, the player's lateral position
+selects the exit or through lanes. The 216 fitted stations have a
+0.9 cm p95 difference from the sampled April 2023 pavement medians.
+
+**Physics and UI.** A Chrome drive along the mapped lane left the
+previous contact and travelled 19.2 m airborne. The revised contact
+made the same 425 m drive with no airborne travel, dips or scrapes.
+The peak grade measured during the drive was 1.27%. The checked game
+test drives the fork from the through lane and the exit lane with both
+branches loaded. The two tile owners carry matching exit geometry.
+
+- Parent manifest SHA-256 `079e6f1a219bcabcbdcf4f996496613421c404c9b224fde35525c54445f14de8`.
+- Updated manifest SHA-256 `c78c88ee707d3c6da1d2c05c1833c0eaffefd6770df9c3cd6916a7869db44e66`.
+- Contact SHA-256 `2eebb374de48946020aec21b4b596b51f0284ef856c31ab3c51537a97e143f01`.
+- Fitted profile SHA-256 `c1095dcd6a87cf1b0e4231f19162c96eb2002ca9b1a3b919d98d4ce50f8f0ef7`.
+
+The attached `city-structure-inventory-20261126/mariposa-mapped-ramp-20261126-b23`
+run retains the survey, both contact releases and the keyboard traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  mariposa-northbound-outer eighteenth-to-fifth-northbound dogpatch-to-fifth-northbound
+```
