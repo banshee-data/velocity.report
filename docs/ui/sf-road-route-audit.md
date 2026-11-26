@@ -5824,3 +5824,37 @@ nodes, source alignment, pavement checks and browser traces.
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs daly-ca1-north-connector
 ```
+
+## Southbound San Jose Avenue at Tingley
+
+**World and Physics.** A keyboard approach from 12 m before the southbound
+portal stalled on two inferred trunks. They were in the neighbouring
+scenery tile. The April 2023 survey found 148 and 144 pavement-height
+returns within 0.7 m of their respective footprints. Neither footprint
+had returns from 0.30 to 1.95 m above the surveyed pavement, or classified
+canopy above that range. The bake removes those two rows. The road contact
+and its two terrain handoffs keep the surveyed levels.
+
+Chrome reached the lower road in the covered camera view and returned to
+open street pavement. The southbound run took 20.9 s and the northbound
+run took 31.7 s. Both stayed grounded and recorded zero scenery scrapes.
+
+An independent set of Chrome drives also crossed First, Fremont and Beale
+Streets beneath the Transit Center on the parent bake. All three reached
+their street destinations with zero dips deeper than 0.5 m, airtime or
+scenery scrapes. The city pavement already serves those passages.
+[Transbay Joint Powers Authority](https://www.tjpa.org/transbay-program/building-center).
+
+- Parent manifest SHA-256 `f52492af70a7671d10b512ffb623574a8c696a41a0d9992f8a21b12a84bb4bd2`.
+- Revised manifest SHA-256 `7e9fe18435e778320ca948eb4022af2d676f1089b312a21729d15fab05bf0406`.
+- Revised contact SHA-256 `9f357a42bcf0afc8d5693b729addce8e77d81c312e41aac8b3b475a678cb35a8`.
+- Survey receipt SHA-256 `9d0289ed7ad1d5db5f09e0330a62da8f4c40db1bcc5091fa9452d31169bd00be`.
+
+The `tingley-southbound-portal` directory in the attached
+`city-structure-inventory-20261126` evidence run retains the collision
+witnesses, node hashes and browser traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  san-jose-tingley-southbound san-jose-tingley-ground-approach
+```

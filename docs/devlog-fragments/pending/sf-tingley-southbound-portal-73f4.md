@@ -1,0 +1,1 @@
+- Cleared two unsupported tree trunks from the southbound San Jose Avenue portal and [verified both Tingley undercrossing approaches in Chrome](../../ui/sf-road-route-audit.md#southbound-san-jose-avenue-at-tingley).
