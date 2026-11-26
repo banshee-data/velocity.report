@@ -29,22 +29,26 @@ export function highwayRailSegments(surface) {
   const profile = surface.profile;
   const rails = [];
   for (const side of [-1, 1]) {
-    if (
-      surface.railSides &&
-      !surface.railSides.includes(side < 0 ? "left" : "right")
-    )
-      continue;
+    const name = side < 0 ? "left" : "right";
+    const complete = !surface.railSides || surface.railSides.includes(name);
+    const ranges = (surface.railRanges || []).filter(
+      (rail) => rail.side === name,
+    );
+    if (!complete && !ranges.length) continue;
     let previous = null;
-    for (let i = 1; i < profile.length - 1; i++) {
+    for (let i = 0; i < profile.length; i++) {
       const {
         s_m,
         position: [x, y],
         edgeWidths,
       } = profile[i];
-      if (s_m < sideClearance || s_m > profile.at(-1).s_m - sideClearance)
+      if (
+        complete &&
+        (s_m < sideClearance || s_m > profile.at(-1).s_m - sideClearance)
+      )
         continue;
-      const before = profile[i - 1].position;
-      const after = profile[i + 1].position;
+      const before = (profile[i - 1] ?? profile[i]).position;
+      const after = (profile[i + 1] ?? profile[i]).position;
       const dx = after[0] - before[0];
       const dy = after[1] - before[1];
       const length = Math.hypot(dx, dy);
@@ -60,11 +64,27 @@ export function highwayRailSegments(surface) {
       const north = y - (side * dx * insetWidth) / length;
       const z = surface.heightAt(east, north);
       const point = z === null ? null : [east, north, z];
-      if (previous && point)
-        rails.push(
-          side > 0 ? roadEdge(previous, point) : roadEdge(point, previous),
-        );
-      previous = point;
+      if (previous && point) {
+        const add = (a, b) =>
+          rails.push(side > 0 ? roadEdge(a, b) : roadEdge(b, a));
+        if (complete) {
+          add(previous.point, point);
+        } else {
+          const at = (station) => {
+            const fraction =
+              (station - previous.station) / (s_m - previous.station);
+            return previous.point.map(
+              (v, axis) => v + fraction * (point[axis] - v),
+            );
+          };
+          for (const { startMetres, endMetres } of ranges) {
+            const start = Math.max(startMetres, previous.station);
+            const end = Math.min(endMetres, s_m);
+            if (end > start) add(at(start), at(end));
+          }
+        }
+      }
+      previous = point ? { point, station: s_m } : null;
     }
   }
   return rails;

@@ -795,6 +795,41 @@ test("a right-only ramp leaves its left edge open and still strikes on the right
   assert.equal(leaveRoadSurface(edge, {}, dt, surface).leavingRoad, true);
 });
 
+test("a measured rail ends at its station and leaves the merge open", () => {
+  const rail = { side: "left", startMetres: 5.25, endMetres: 17.75 };
+  const road = {
+    id: "merge",
+    kind: "ramp",
+    width: 6,
+    owners: ["808f7fcc", "808f7fcc"],
+    points: Array.from({ length: 16 }, (_, i) => [2 * i, 0, 10]),
+    railRanges: [rail],
+  };
+  const { surface } = buildBakedRoadContact(road);
+  surface.railSegments = highwayRailSegments(surface);
+  const railStations = surface.railSegments.flatMap(({ a, b }) => [a[0], b[0]]);
+  assert.equal(Math.min(...railStations), 5.25);
+  assert.equal(Math.max(...railStations), 17.75);
+  assert.ok(surface.railSegments.every(({ a, b }) => a[1] > 0 && b[1] > 0));
+
+  const car = { x: 12, y: 0.45, z: 10, v: 7, heading: Math.PI / 2 };
+  const hit = (pose) => strikeHighwayRail(pose, {}, 1 / 120, surface);
+  assert.equal(hit(car).edgeContact, "bounce");
+  assert.equal(hit({ ...car, x: 22 }), null);
+  assert.equal(hit({ ...car, y: -car.y, heading: -car.heading }), null);
+
+  const opening = { ...rail, startMetres: 17.75, endMetres: 23 };
+  assert.ok(buildBakedRoadContact({ ...road, sideGroundAccess: [opening] }));
+  for (const fields of [
+    { railSides: ["left"] },
+    { railRanges: [rail, { ...rail, startMetres: 17 }] },
+    { railRanges: [{ ...rail, endMetres: 31 }] },
+    { sideGroundAccess: [{ ...opening, startMetres: 17 }] },
+  ]) {
+    assert.equal(buildBakedRoadContact({ ...road, ...fields }), null);
+  }
+});
+
 test("an unrailed deck preserves momentum at its side and open end", () => {
   const surface = {
     profile: [

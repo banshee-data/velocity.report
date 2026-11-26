@@ -75,7 +75,9 @@ test("the Fourth Street merge clears the capped face above its lower volume", ()
   ).tiles[token];
   const fork = manifest.roadBake.i80FifthForkLaneWidthSurvey.tiles[token];
   assert.equal(fork.parentSha256, review.sha256);
-  assert.equal(fork.sha256, digest(raw));
+  const divider = manifest.roadBake.i80FifthDividerSurvey.tiles[token];
+  assert.equal(divider.parentSha256, fork.sha256);
+  assert.equal(divider.sha256, digest(raw));
 
   const index = buildCollisionIndex(tile, token);
   const car = { x: 3382.15, y: 2037.35, heading: -2.37 };
@@ -94,7 +96,9 @@ test("both Moscone spans leave Howard Street open below their overhead volumes",
   assert.equal(howard.parentSha256, receipts.at(-2).sha256);
   const fork = manifest.roadBake.i80FifthForkLaneWidthSurvey.tiles[token];
   assert.equal(fork.parentSha256, howard.sha256);
-  assert.equal(fork.sha256, digest(raw));
+  const divider = manifest.roadBake.i80FifthDividerSurvey.tiles[token];
+  assert.equal(divider.parentSha256, fork.sha256);
+  assert.equal(divider.sha256, digest(raw));
 
   const tile = JSON.parse(gunzipSync(raw));
   const index = buildCollisionIndex(tile, token);
@@ -105,6 +109,38 @@ test("both Moscone spans leave Howard Street open below their overhead volumes",
     const car = { x, y, heading: -2.35725 };
     assert.equal(collisionAt([index], car, 9.6), null);
     assert.equal(collisionAt([index], car, base), "building");
+  }
+});
+
+test("the Fifth Street divider covers both ramps and leaves the eastbound merge open", () => {
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const review = manifest.roadBake.i80FifthDividerSurvey;
+  const roads = new Map();
+  for (const [token, receipt] of Object.entries(review.tiles)) {
+    const raw = file(`tiles/${token}.json.gz`);
+    assert.equal(receipt.sha256, digest(raw));
+    assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
+    for (const road of JSON.parse(gunzipSync(raw)).playableRoads) {
+      if (roads.has(road.id)) assert.deepEqual(roads.get(road.id), road);
+      else roads.set(road.id, road);
+    }
+  }
+  const entry = roads.get("sf-contact/i80-eastbound-fifth-bryant-entry");
+  const exit = roads.get("sf-contact/i80-westbound-fifth-harrison-exit");
+  const soma = roads.get("sf-contact/i80-eastbound-soma");
+  const climb = roads.get("sf-contact/i80-eastbound-lower-climb");
+  assert.deepEqual(entry.seams.end, climb.seams.start);
+  assert.deepEqual(soma.seams.end, climb.seams.start);
+  const [median, gore] = entry.railRanges;
+  assert.equal(median.side, "left");
+  assert.equal(gore.side, "right");
+  assert.ok(median.endMetres - gore.endMetres > 40);
+  assert.equal(exit.railRanges[0].side, "left");
+  assert.ok(
+    exit.railRanges[0].endMetres - exit.railRanges[0].startMetres > 230,
+  );
+  for (const road of [entry, exit]) {
+    assert.ok(highwayRailSegments(buildBakedRoadContact(road).surface).length);
   }
 });
 
@@ -3848,7 +3884,7 @@ test("the westbound Fifth exit crosses below the continuing freeway and reaches 
     exit,
   );
   const { surface, portals } = buildBakedRoadContact(exit);
-  assert.deepEqual(surface.coveredRange, [410, 445]);
+  assert.deepEqual(surface.coveredRange, [410.369, 445.369]);
   const upper = buildBakedRoadContact(through).surface;
   const {
     position: [x, y, z],

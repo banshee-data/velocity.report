@@ -213,6 +213,41 @@ def valid_tunnel_wall_openings(road):
     return True
 
 
+def valid_rail_ranges(road):
+    rails = road.get("railRanges", [])
+    if not isinstance(rails, list):
+        return False
+    if not rails:
+        return True
+    points = road["points"]
+    distance = sum(math.dist(a[:2], b[:2]) for a, b in zip(points, points[1:]))
+    access = road.get("sideGroundAccess", [])
+    if not isinstance(access, list):
+        return False
+    seen = {"left": [], "right": []}
+    for interval in [*access, *rails]:
+        if not isinstance(interval, dict):
+            return False
+        side = interval.get("side")
+        start, end = interval.get("startMetres"), interval.get("endMetres")
+        if (
+            side not in ("left", "right")
+            or side in road.get("railSides", [])
+            or any(
+                type(v) not in (int, float) or not math.isfinite(v)
+                for v in (start, end)
+            )
+            or not 0 <= start < end <= distance
+        ):
+            return False
+        seen[side].append((start, end))
+    for rail in rails:
+        start, end = rail["startMetres"], rail["endMetres"]
+        if sum(a < end and start < b for a, b in seen[rail["side"]]) > 1:
+            return False
+    return True
+
+
 def patch_terrain_detail(grid, patch, base_sha256):
     """Add a reviewed rectangle tied to its exact base tile."""
     detail = patch["detail"]
@@ -359,6 +394,7 @@ def playable_product(path, sha256, base_hash, revision, manifest):
             )
             or road["owners"] != [owner(points[0]), owner(points[-1])]
             or not valid_width_transitions(road)
+            or not valid_rail_ranges(road)
             or not valid_covered_range(road)
             or not valid_tunnel_wall_openings(road)
         ):

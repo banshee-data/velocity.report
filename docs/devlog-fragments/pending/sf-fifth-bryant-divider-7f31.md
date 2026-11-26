@@ -1,0 +1,1 @@
+- Refit the Fifth and Bryant I-80 entrance and the opposite Harrison exit around their surveyed divider. The [road route audit](../../ui/sf-road-route-audit.md#fifth-and-bryant-entrance-beside-the-harrison-exit) records the lane checks, rail intervals and manual merge drive.

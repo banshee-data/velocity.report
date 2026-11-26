@@ -59,6 +59,7 @@ export function buildBakedRoadContact(road) {
     widthTransitionMetres = {},
     widthSections,
     railSides = [],
+    railRanges = [],
     covered_range_m: coveredRange,
   } = road;
   if (
@@ -135,6 +136,29 @@ export function buildBakedRoadContact(road) {
   const { start: startTaper = 0, end: endTaper = 0 } = widthTransitionMetres;
   if (startTaper + endTaper > distance) return null;
   if (
+    !Array.isArray(railRanges) ||
+    railRanges.some(
+      (rail, i) =>
+        !rail ||
+        !["left", "right"].includes(rail.side) ||
+        railSides.includes(rail.side) ||
+        !Number.isFinite(rail.startMetres) ||
+        !Number.isFinite(rail.endMetres) ||
+        rail.startMetres < 0 ||
+        rail.endMetres > distance ||
+        rail.endMetres <= rail.startMetres ||
+        railRanges
+          .slice(0, i)
+          .some(
+            (previous) =>
+              previous.side === rail.side &&
+              previous.startMetres < rail.endMetres &&
+              rail.startMetres < previous.endMetres,
+          ),
+    )
+  )
+    return null;
+  if (
     !Array.isArray(sideGroundAccess) ||
     sideGroundAccess.some(
       (access) =>
@@ -145,7 +169,13 @@ export function buildBakedRoadContact(road) {
         !Number.isFinite(access.endMetres) ||
         access.startMetres < 0 ||
         access.endMetres > distance ||
-        access.endMetres <= access.startMetres,
+        access.endMetres <= access.startMetres ||
+        railRanges.some(
+          (rail) =>
+            rail.side === access.side &&
+            rail.startMetres < access.endMetres &&
+            access.startMetres < rail.endMetres,
+        ),
     )
   )
     return null;
@@ -254,8 +284,10 @@ export function buildBakedRoadContact(road) {
     terminalBearings: [tangents[0] + Math.PI, tangents.at(-1)],
     heightAt: indexRoadContact(contact),
     railSides,
+    railRanges,
     coveredRange,
-    highwayRailHalfWidth: railSides.length ? width / 2 - 0.35 : 0,
+    highwayRailHalfWidth:
+      railSides.length || railRanges.length ? width / 2 - 0.35 : 0,
   };
   const interior = road.interior_range_m;
   const clearance = road.game_clearance_m;

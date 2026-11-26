@@ -199,6 +199,21 @@ def test_bake_validates_asymmetric_width_and_bounds_its_stations():
     )
 
 
+def test_bake_rejects_rail_ranges_that_cover_portals_or_conflict_with_other_rails():
+    valid = road_layers["valid_rail_ranges"]
+    rail = {"side": "left", "startMetres": 4.5, "endMetres": 17.75}
+    road = {"points": [[0, 0, 0], [10, 0, 1], [20, 0, 2]], "railRanges": [rail]}
+    opening = {**rail, "startMetres": 17.75, "endMetres": 20}
+    assert valid(road)
+    assert valid({**road, "sideGroundAccess": [opening]})
+    assert valid({**road, "railRanges": [rail, {**rail, "side": "right"}]})
+    assert not valid({**road, "railSides": ["left"]})
+    assert not valid({**road, "railRanges": [rail, {**rail, "startMetres": 5}]})
+    assert not valid({**road, "railRanges": [{**rail, "endMetres": 20.1}]})
+    assert not valid({**road, "sideGroundAccess": [{**opening, "startMetres": 17.5}]})
+    assert not valid({**road, "sideGroundAccess": [None]})
+
+
 def test_bake_bounds_the_directed_approach_lane_by_the_source_seam():
     valid = road_layers["valid_approach_lane"]
     join = {"from": "trunk:end", "direction": "forward"}
