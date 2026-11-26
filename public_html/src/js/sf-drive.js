@@ -2938,8 +2938,9 @@ export async function startDrive({
             surface,
             roadSurfaces,
             manual ? manualNetwork : network,
-            manual || resumeRecovery ? terrainHeight : undefined,
+            terrainHeight,
             manual ? requestRoadOwner : undefined,
+            !manual && !resumeRecovery,
           );
         } else if (!candidate) {
           candidate = driveOnRoadSurface(car, controls, 1 / 120, surface);
