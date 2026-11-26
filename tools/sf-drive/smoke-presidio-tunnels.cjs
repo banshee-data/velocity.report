@@ -2381,6 +2381,17 @@ for (const [name, road, start, finish, station, length] of [
   };
 }
 
+for (const direction of ["northbound", "southbound"]) {
+  cases[`market-viaduct-${direction}`] = {
+    roads: [`market-west-viaduct-${direction}`],
+    owners: ["808f7e0c"],
+    speed: 11,
+    groundApproachMetres: 9,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+  };
+}
+
 const southernUs101Owners = [
   "808f7e54",
   "808f7ee4",

@@ -1258,6 +1258,49 @@ test("the 18th Street entrance stays on its own deck until the measured merge", 
   }
 });
 
+test("Market Street meets its approaches on both surveyed carriageways", () => {
+  const token = "808f7e0c";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  assert.equal(
+    roadBake.marketWestViaductSurvey.tiles[token].sha256,
+    digest(raw),
+  );
+  assert.equal(roadBake.coveredGroundRoadPatches[token], 2);
+
+  for (const [direction, x, y, minimumClearance] of [
+    ["northbound", -280.07, -1036.29, 14],
+    ["southbound", -289.58, -1039.56, 10.8],
+  ]) {
+    const road = tile.playableRoads.find(
+      ({ id }) => id === `sf-contact/market-west-viaduct-${direction}`,
+    );
+    const { surface, portals } = buildBakedRoadContact(road);
+    assert.deepEqual(road.groundEnds, ["start", "end"]);
+    for (const portal of portals)
+      assert.ok(
+        Math.abs(groundAtWorld([tile], portal.x, portal.y, true) - portal.z) <
+          0.005,
+      );
+    const deck = surface.heightAt(x, y);
+    assert.ok(
+      Number.isFinite(deck) &&
+        deck - groundAtWorld([tile], x, y, true) > minimumClearance,
+    );
+  }
+
+  const [east, north] = tile.o;
+  for (const [street, , , positions] of tile.r) {
+    if (tile.n[street] !== "Market St") continue;
+    for (let i = 0; i < positions.length; i += 2) {
+      const x = east + positions[i] / 10;
+      const y = north + positions[i + 1] / 10;
+      assert.ok(x < -310 || x > -242 || y < -1050 || y > -955);
+    }
+  }
+});
+
 test("the southbound Sixth Street deck joins after the separate Fifth Street approach", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["808f7fcc", "808f7fd4"];
