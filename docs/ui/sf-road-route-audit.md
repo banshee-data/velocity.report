@@ -5954,3 +5954,40 @@ identities and retains the clearance receipt when the terrain changes.
 
 The attached `city-structure-inventory-20261126/alemany-connector-b23`
 evidence retains the course, keyboard traces and 33 survey nodes.
+
+## Candlestick Point exit over Alana Way
+
+**World and Data.** The prior bake had southbound US 101 and the lower
+Alana Way contact. OpenStreetMap ways `8920531`, `124019865`, `514397132`
+and `8920532` identify the separate Exit 429A route to Beatty Road. The
+April 2023 survey supplies 188 fitted pavement stations along the added
+374.2 m contact. Twenty-nine stations use class-17 deck observations.
+At their crossing, game contact is 12.70 m on the exit and 5.95 m on
+Alana Way. The difference describes the separation between the game
+surfaces. Physical clearance would require the bridge underside.
+
+**Physics.** The bake splits the existing mainline at a common
+transverse seam and retains every mainline survey point. The right-side
+lane can transfer to the exit. The through lanes continue on the
+original profile. The ramp fit matches the terrain at the Beatty Road
+handoff. Chrome drove 16.7 m beyond the ramp terminal with zero airborne
+travel. Both Alana Way directions stayed on the lower road and returned
+to exterior camera view. The Hester mainline and collector traversed the
+through branch and returned to the ground. The fixed-step city audit
+passed 476 travel directions, 344 directed joins and 516 ground handoffs.
+
+- Parent manifest SHA-256 `b61687ae9764f69c26494bea10ba3186741793f3d5ac8a7046c7f6c9503af2c3`.
+- Updated manifest SHA-256 `6cf01967a5c666a70134f47e984ee6e2ee4cc9efd76f1c023ac7f4157851c76c`.
+- Gerardus contact SHA-256 `9efe622e335582262188a2e23fdc7340fbf87a9ebd11663babd123076f3c59e6`.
+- Survey receipt SHA-256 `4fd27a9c32e405d3033035c02f2bc53d9f03831fff42ed53a6226569dac67301`.
+- Sampled profile SHA-256 `b477629ce6cc8235386a34bacab4823b4ce4a46ffa6f7c21c6a1cf9f424b69fe`.
+
+The attached `city-structure-inventory-20261126/candlestick-exit-b23`
+run retains 137 EPT nodes, their checksums, the extracted alignment
+and the browser courses.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  candlestick-southbound-exit candlestick-southbound-through \
+  alana-way-below-candlestick-forward alana-way-below-candlestick-reverse
+```

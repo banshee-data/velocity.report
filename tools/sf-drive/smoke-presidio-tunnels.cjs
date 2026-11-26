@@ -1818,6 +1818,8 @@ const hesterCollector = "us101-south-hester-collector-entry";
 const hesterReturn = "us101-south-hester-collector-return";
 const hesterRoad = "us101-south-hester-bayshore-exit";
 const hesterEdge = "us101-south-hester-to-city-edge";
+const candlestickThrough = "us101-south-past-candlestick-exit";
+const candlestickExit = "us101-south-candlestick-exit";
 const hesterStart = {
   owners: ["808f7ee4", "808f7f24", "808f7f2c"],
   speed: 18,
@@ -1828,10 +1830,10 @@ const hesterStart = {
   laneGuides: {
     [hesterMain]: { clearance: { offset: 1.85, station: 592, length: 22 } },
     [hesterRoad]: { clearance: { offset: 1.7, station: 24, length: 22 } },
-    [hesterEdge]: {
+    [candlestickThrough]: {
       clearance: [
-        { offset: 1.35, station: 647, length: 23 },
-        { offset: -1.75, station: 740, length: 35 },
+        { offset: 1.35, station: 17.5, length: 17.5 },
+        { offset: -1.75, station: 108.4, length: 35 },
       ],
     },
   },
@@ -1846,17 +1848,92 @@ cases["us101-south-hester-exit"] = {
 };
 cases["us101-south-hester-mainline"] = {
   ...hesterStart,
-  roads: [hesterPaul, hesterMain, hesterEdge],
-  forks: [[hesterPaul, hesterMain, 1.9]],
+  roads: [hesterPaul, hesterMain, hesterEdge, candlestickThrough],
+  forks: [
+    [hesterPaul, hesterMain, 1.9],
+    [hesterEdge, candlestickThrough, 1.35],
+  ],
 };
 cases["us101-south-hester-collector"] = {
   ...hesterStart,
-  roads: [hesterPaul, hesterCollector, hesterReturn, hesterEdge],
+  roads: [
+    hesterPaul,
+    hesterCollector,
+    hesterReturn,
+    hesterEdge,
+    candlestickThrough,
+  ],
   forks: [
     [hesterPaul, hesterCollector, -1.8],
     [hesterCollector, hesterReturn, 1.65],
+    [hesterEdge, candlestickThrough, 1.35],
   ],
 };
+cases["candlestick-southbound-exit"] = {
+  roads: [hesterEdge, candlestickExit],
+  owners: ["808f7f24", "808f7f2c"],
+  forks: [[hesterEdge, candlestickExit, -3.7]],
+  rollingStart: true,
+  rollingStartMetres: 575,
+  initialSpeedMps: 15,
+  speed: 15,
+  speedLimits: { [candlestickExit]: 10 },
+  connectByGround: true,
+  groundDeparture: [
+    [3873.755, -5877.573, 6.197],
+    [3868.95, -5878.956, 6.125],
+    [3864.145, -5880.339, 6.048],
+    [3859.333, -5881.697, 5.97],
+  ],
+  maxDepartureClearanceMetres: 0.15,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+  maxDurationMs: 95_000,
+};
+cases["candlestick-southbound-through"] = {
+  roads: [hesterEdge, candlestickThrough],
+  owners: ["808f7f24", "808f7f2c"],
+  forks: [[hesterEdge, candlestickThrough, 1.35]],
+  laneGuides: hesterStart.laneGuides,
+  rollingStart: true,
+  rollingStartMetres: 575,
+  initialSpeedMps: 16,
+  speed: 16,
+  finishOnDeck: true,
+  finishDistance: 172,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+  maxDurationMs: 55_000,
+};
+for (const reverse of [false, true]) {
+  const road = "alana-way-under-us101";
+  const direction = reverse ? "reverse" : "forward";
+  cases[`alana-way-below-candlestick-${direction}`] = {
+    roads: [road],
+    owners: ["808f7f2c"],
+    reverse,
+    speed: 8,
+    groundApproachMetres: 7,
+    connectByGround: true,
+    groundDeparture: reverse
+      ? [
+          [3901.339, -5693.336, 6.391],
+          [3896.491, -5694.561, 6.424],
+          [3891.644, -5695.786, 6.512],
+          [3886.796, -5697.01, 6.727],
+        ]
+      : [
+          [4015.134, -5671.009, 5.048],
+          [4020.051, -5670.102, 4.976],
+          [4024.968, -5669.195, 4.893],
+          [4029.885, -5668.287, 4.879],
+          [4033.819, -5667.561, 4.898],
+        ],
+    covered: [prefix + road],
+    maxAirborneMetres: 0,
+    maxDurationMs: 45_000,
+  };
+}
 
 cases["us101-south-bayshore-north-turn"] = {
   owners: ["808f7e4c"],

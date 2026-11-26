@@ -1,0 +1,1 @@
+- Baked the [surveyed Candlestick Point exit over Alana Way](../../ui/sf-road-route-audit.md#candlestick-point-exit-over-alana-way) with a right-lane fork and grounded handoff onto Beatty Road.
