@@ -4857,3 +4857,18 @@ node tools/sf-drive/smoke-yerba-buena.cjs --oakland
 
 The `oakland-touchdown-evidence-20261125` run retains the mapped
 alignment, survey samples, terrain window and cross-section measurements.
+
+### Twenty-course regression check
+
+The Daly and Oakland manifests produced identical measurements and
+outcomes on the same 20 checked-in emoji course definitions. Seven
+courses collected both emoji. Six hit scenery, three stopped at the
+end of a baked strip, three reported unresolved tunnel connections
+in the course replay, and one stalled. Separate Chrome keyboard drives
+traversed Stockton, Broadway and the Toll Plaza tunnel in both
+directions, including their street handoffs.
+
+The ground-only grade screen sampled 15,023 road rows on each
+manifest and flagged 289 intervals above 50% grade. The retained
+run includes both the simulated road contact results and the grade
+outputs.
