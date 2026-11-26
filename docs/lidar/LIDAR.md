@@ -413,3 +413,5 @@ attached-drive build diagnosis, without qualifying physical following measuremen
 The [Lombard–Broderick corpus exposure record](operations/lombard-broderick-corpus-exposure.md)
 separates its retained validation assignment from observed software-development/QA exposure
 and the resulting limits on independent validation claims.
+
+The [DRAC diagnostic handoff](operations/drac-diagnostic-packet.md) reserves twelve development-only review slots and records the missing evidence and operator-review dependencies.

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	fx "github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitytest"
 )
 
 // benchFixture is the reference multi-frame capture used by the perf gate.
@@ -55,6 +57,7 @@ func TestBenchMainRejectsMissingPCAP(t *testing.T) {
 }
 
 func TestBenchMainRunsBenchmarkOverFixture(t *testing.T) {
+	fx.ConfigureCLI(t, benchFixture, "development")
 	dir := t.TempDir()
 	out := filepath.Join(dir, "bench.json")
 
@@ -141,6 +144,7 @@ func TestBenchMainRejectsTrackerExperiment(t *testing.T) {
 }
 
 func TestBenchMainRunsABackgroundExperiment(t *testing.T) {
+	fx.ConfigureCLI(t, benchFixture, "development")
 	dir := t.TempDir()
 	out := filepath.Join(dir, "bench.json")
 	code := BenchMain([]string{
@@ -167,6 +171,7 @@ func TestBenchMainRunsABackgroundExperiment(t *testing.T) {
 }
 
 func TestBenchMainRunsTheRegionLevers(t *testing.T) {
+	fx.ConfigureCLI(t, benchFixture, "development")
 	dir := t.TempDir()
 	out := filepath.Join(dir, "bench.json")
 	code := BenchMain([]string{

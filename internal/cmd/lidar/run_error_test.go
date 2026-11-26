@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	fx "github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitytest"
 )
 
 func TestSplitMain_RunError(t *testing.T) {
@@ -24,6 +26,7 @@ func TestSplitMain_RunError(t *testing.T) {
 
 func TestSettlingEvalMain_WriteReportError(t *testing.T) {
 	pcapFile := truncatedCapture(t, 1000)
+	fx.ConfigureCLI(t, pcapFile, "development")
 	f := filepath.Join(t.TempDir(), "afile")
 	_ = os.WriteFile(f, []byte("x"), 0o644)
 	badOut := filepath.Join(f, "sub", "report.json") // parent is a file -> write fails

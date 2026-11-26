@@ -211,18 +211,19 @@ digest, and every reason. Refusals are recorded too.
 
 `GET /api/lidar/eligibility` serves this table beside the live status.
 
-| Entry point                                                                                                                                                                                                      | Purpose                | Enforcement                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------- |
-| `POST /api/lidar/sweep/start`                                                                                                                                                                                    | tuning                 | Enforced before the sweep starts (PCAP or live sensor)            |
-| `POST /api/lidar/sweep/auto`                                                                                                                                                                                     | tuning                 | Enforced before the auto-tuner starts                             |
-| `POST /api/lidar/sweep/hint`                                                                                                                                                                                     | tuning                 | Enforced for every capture of the clip                            |
-| `POST /api/lidar/pcap/start` with a `tuning_config` under `experiments/`                                                                                                                                         | development evaluation | Enforced before the configuration is applied                      |
-| `POST /api/lidar/pcap/start` otherwise                                                                                                                                                                           | production             | Not gated: replays, scene assets and publication are unchanged    |
-| `lidar-state-estimation-baseline`                                                                                                                                                                                | development evaluation | Enforced before any capture is read; held-out scores name a split |
-| `lidar-refinement-eval`                                                                                                                                                                                          | development evaluation | Enforced before the capture is replayed                           |
-| Labelling workspace                                                                                                                                                                                              | developer diagnostic   | Qualification items served as counts only                         |
-| `lidar-box-eval`, `lidar-near-face-eval`, `lidar-ground-truth-eval`, `settling-eval`, `lidar-fg-diag`, `lidar-track-scorecard`, `lidar-evidence-oracle`, `lidar-closeness-audit`, `lidar-bench`, `vrlog-analyse` | development evaluation | **Not yet**: they check a split when given one                    |
-| Tracks, Runs and scene pages                                                                                                                                                                                     | developer diagnostic   | **Not yet**: they show any run the database holds                 |
+| Entry point                                                                                                                                                          | Purpose                | Enforcement                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------ |
+| `POST /api/lidar/sweep/start`                                                                                                                                        | tuning                 | Enforced before the sweep starts (PCAP or live sensor)                   |
+| `POST /api/lidar/sweep/auto`                                                                                                                                         | tuning                 | Enforced before the auto-tuner starts                                    |
+| `POST /api/lidar/sweep/hint`                                                                                                                                         | tuning                 | Enforced for every capture of the clip                                   |
+| `POST /api/lidar/pcap/start` with a `tuning_config` under `experiments/`                                                                                             | development evaluation | Enforced before the configuration is applied                             |
+| `POST /api/lidar/pcap/start` otherwise                                                                                                                               | production             | Not gated: replays, scene assets and publication are unchanged           |
+| `lidar-state-estimation-baseline`                                                                                                                                    | development evaluation | Enforced before any capture is read; held-out scores name a split        |
+| `lidar-refinement-eval`                                                                                                                                              | development evaluation | Enforced before the capture is replayed                                  |
+| Labelling workspace                                                                                                                                                  | developer diagnostic   | Qualification items served as counts only                                |
+| `lidar-near-face-eval`, `lidar-ground-truth-eval`, `lidar-fg-diag vrlog`, `lidar-track-scorecard`, `lidar-evidence-oracle`, `lidar-closeness-audit`, `vrlog-analyse` | development evaluation | **Not yet**: they check a split when given one                           |
+| `lidar-box-eval`, `settling-eval`, `lidar-bench`, `jobs benchmark`, `lidar-fg-diag replay`                                                                           | development evaluation | Enforced for every raw capture before packet parsing and output creation |
+| Tracks, Runs and scene pages                                                                                                                                         | developer diagnostic   | **Not yet**: they show any run the database holds                        |
 
 A replay under default parameters through `pcap/start` cannot be told apart from production
 processing, so a person who replays a protected capture that way and reads the run is not
@@ -236,7 +237,7 @@ version 70; start the server on it once) and `-actor`, or `VELOCITY_COHORT_MANIF
 `VELOCITY_ANNOTATION_ROOT` and `VELOCITY_ELIGIBILITY_DB`; `-measures` names the families a run
 reads (empty is all four, the strictest).
 
-**Breaking:** without a manifest, sweeps, auto-tune, HINT, experiment-arm replays and the two
+**Breaking:** without a manifest, sweeps, auto-tune, HINT, experiment-arm replays and the guarded
 evaluators above are refused. That is the fail-closed rule; the assignments themselves are a
 decision for the owner (below). The first revision is committed at
 [`config/cohorts/cohort-manifest.json`](../../../config/cohorts/cohort-manifest.json): Kirkham at
@@ -327,3 +328,11 @@ qualification evaluation are **refused**, and the page says protection is incomp
 
 Nanosecond times and identities are served as decimal strings: a JavaScript number cannot hold a
 2026 time in nanoseconds exactly.
+
+### Raw-capture perimeter follow-up
+
+The [loader audit](qualification-perimeter-audit.md) records the raw-capture extension,
+bypass regressions and remaining derived-data boundaries. This is partial perimeter coverage;
+it does not close qualification custody or permit a held-out read. Worker benchmarks use the
+same three `VELOCITY_*` environment variables as offline tools. A job's capture manifest proves
+byte identity, but grants no cohort eligibility.

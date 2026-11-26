@@ -31,6 +31,7 @@ import (
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
@@ -65,6 +66,7 @@ func main() {
 		samplePts  = flag.Int("sample-points", 256, "with -evidence-db, retained sample points per observation (1 to 1024)")
 		joinRecs   = flag.String("join-records", "", "optional JSONL of every cluster the motion join built, warm-up included: components, extent, owner and each component's confirmed track (l4clus0011's merge reference); needs a tuning file that enables the join")
 	)
+	guard := eligibilitycli.RegisterFlags(flag.CommandLine)
 	flag.Parse()
 	// The pipeline reads the default tuning document wherever it runs from.
 	config.SetEmbeddedDefaults(radarassets.TuningDefaults)
@@ -76,6 +78,9 @@ func main() {
 	}
 	if *pcaps == "" || *outPath == "" {
 		log.Fatal("-pcap and -out are required")
+	}
+	if err := guard.AuthorizeCaptures("lidar-box-eval", strings.Split(*pcaps, ",")); err != nil {
+		log.Fatal(err)
 	}
 	chosen, err := selectVariants(*variants)
 	if err != nil {

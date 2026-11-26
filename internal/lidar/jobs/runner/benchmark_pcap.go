@@ -5,11 +5,13 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/jobs"
 	"github.com/banshee-data/velocity.report/internal/lidar/lidarbench"
 )
@@ -22,6 +24,12 @@ type benchmarkExecutor struct{}
 func (benchmarkExecutor) Run(ctx context.Context, req jobs.JobRequest, env Env) (json.RawMessage, error) {
 	if len(env.Captures) != 1 {
 		return nil, fmt.Errorf("benchmark replays one capture; the manifest lists %d", len(env.Captures))
+	}
+	// This executor bypasses BenchMain. Apply the same worker-owned policy
+	// before the engine reads samples; request metadata cannot grant eligibility.
+	guard := eligibilitycli.RegisterFlags(flag.NewFlagSet("benchmark-worker", flag.ContinueOnError))
+	if err := guard.AuthorizeCaptures("jobs benchmark", []string{env.Captures[0].Path}); err != nil {
+		return nil, err
 	}
 	var p jobs.BenchmarkParams
 	if len(req.Params) > 0 {

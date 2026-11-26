@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	fx "github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitytest"
+
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/pcapgo"
@@ -94,6 +96,7 @@ func TestSplitMain_MissingPCAP(t *testing.T) {
 
 func TestMain_RoutesSettlingEval(t *testing.T) {
 	pcapFile := truncatedCapture(t, 1000)
+	fx.ConfigureCLI(t, pcapFile, "development")
 	out := filepath.Join(t.TempDir(), "report.json")
 	code := quiet(t, func() int {
 		return Main([]string{"settling-eval", "--port", "2369", "--output", out, pcapFile})
