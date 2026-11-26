@@ -5547,8 +5547,14 @@ test("Ocean Avenue crosses above I-280 and the northbound entrance joins at Mont
     tiles.flatMap((tile) => tile.playableRoads.map((road) => [road.id, road])),
   );
   const crossing = roads.get("sf-contact/ocean-avenue-bridge");
-  assert.equal(crossing.width, 16);
+  const survey = roadBake.oceanAvenueLaneWidthSurvey;
+  assert.equal(survey.stations_per_band, 98);
+  assert.deepEqual(crossing.widthSections, [[0, 9.35, 12.4]]);
   for (const owner of crossing.owners) {
+    assert.equal(
+      survey.tiles[owner].sha256,
+      digest(file(`tiles/${owner}.json.gz`)),
+    );
     const tile = tiles.find(({ t }) => t === owner);
     assert.deepEqual(
       tile.playableRoads.find(({ id }) => id === crossing.id),
@@ -5557,6 +5563,18 @@ test("Ocean Avenue crosses above I-280 and the northbound entrance joins at Mont
   }
   const { surface, portals } = buildBakedRoadContact(crossing);
   assert.equal(portals.length, 2);
+  const [startX, startY] = crossing.points[0];
+  const [endX, endY] = crossing.points.at(-1);
+  for (const x of [-650, -665, -690, -710, -728]) {
+    const y = startY + ((x - startX) / (endX - startX)) * (endY - startY);
+    for (const lane of [-10, 4.6, 7.7]) {
+      assert.ok(
+        roadSupportsCar(surface.heightAt, { x, y: y - lane, heading: Math.PI }),
+      );
+    }
+    assert.equal(surface.heightAt(x, y + 13), null);
+    assert.equal(surface.heightAt(x, y - 10), null);
+  }
   assert.ok(
     surface.heightAt(-690, -4111.4) -
       groundAtWorld(tiles, -690, -4111.4, true) >
