@@ -6184,3 +6184,34 @@ run retains the 161 survey nodes, map extract and keyboard traces.
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   island-east-eastbound-entry island-east-lower-mainline island-east-eastbound-exit-to-macalla
 ```
+
+## 18th Street onto northbound I-280
+
+**World and Data.** The April 2023 aerial survey shows the entrance lane still
+about 10 m east of the previous game contact near Mariposa. The revised
+bake retains the entrance turn and the existing mainline geometry. It
+follows the independent ramp for another 169.3 m and joins the through
+lanes 92.0 m farther north. The 120 fitted stations have at least 120
+class-17 returns near the centre and 104 pavement returns in each lateral
+band. The p95 difference from the sampled pavement medians is 1.6 cm.
+
+**Physics and UI.** The paired Chrome drives used the same stationary
+start on the ramp and the same measured lane. The published parent
+lost contact, travelled 16.4 m airborne and crashed below the ramp.
+The revised bake carried the car onto I-280 with no airborne travel,
+dips or scrapes. The game tests also check that all three measured
+points on the separate ramp stay outside the mainline contact.
+
+- Parent manifest SHA-256 `77c30b57181be2b447464609c630c366b87f5b02b0a60efb3828cbc2e9d3ec74`.
+- Updated manifest SHA-256 `079e6f1a219bcabcbdcf4f996496613421c404c9b224fde35525c54445f14de8`.
+- Contact SHA-256 `fcd6ffc3c0d2f8368d91f15ac207c0bd3bb58e336d6e056b9346b9b7b8796f7b`.
+- Fitted profile SHA-256 `dae6b2716227f59e04e5216a4ce4c7ff777688d1e515fc8a22eea87326cd25a9`.
+
+The attached `city-structure-inventory-20261126/mariposa-mapped-ramp-20261126-b23`
+run retains the 240 survey nodes, map extract, fitted profile and paired traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  sixth-northbound eighteenth-to-fifth-northbound \
+  dogpatch-to-sixth-northbound dogpatch-to-fifth-northbound mariposa-northbound-outer
+```

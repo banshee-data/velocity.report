@@ -394,6 +394,7 @@ cases["sixth-southbound"] = {
   },
   rampApproach: true,
 };
+const mariposaMergeStation = 91.96837;
 const sixthForkApproach = "i280-mariposa-northbound";
 const sixthStreetNorthEnd = "i280-sixth-northbound";
 const fifthStreetNorthExit = "i280-north-fifth-exit";
@@ -709,6 +710,7 @@ cases["dogpatch-to-sixth-northbound"] = {
     "i280-dogpatch-east-north-entry",
     "i280-dogpatch-northbound",
     "i280-south-of-eighteenth-northbound",
+    "i280-mariposa-northbound-approach",
     sixthForkApproach,
     sixthStreetNorthEnd,
   ],
@@ -2342,7 +2344,14 @@ cases["mariposa-upper-18th-viaduct"] = {
 
 for (const [name, road, start, finish, station, length] of [
   ["mariposa-southbound-outer", "i280-king-to-mariposa", 130, 400, 283, 115],
-  ["mariposa-northbound-outer", sixthForkApproach, 220, 487, 352, 110],
+  [
+    "mariposa-northbound-outer",
+    sixthForkApproach,
+    220 - mariposaMergeStation,
+    487 - mariposaMergeStation,
+    352 - mariposaMergeStation,
+    110,
+  ],
 ]) {
   cases[name] = {
     owners: i280Owners,
