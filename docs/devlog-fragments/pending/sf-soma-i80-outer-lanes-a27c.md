@@ -1,0 +1,1 @@
+- Extended SoMa I-80 deck contact beneath surveyed outer lanes in both directions and capped an inferred face across the westbound pavement. The [road route audit](../../ui/sf-road-route-audit.md#soma-i-80-outer-lane-contact) records the reproduced falls, survey support and grounded browser runs.

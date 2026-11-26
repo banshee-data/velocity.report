@@ -5512,3 +5512,60 @@ node tools/sf-drive/audit-baked-road-contact.mjs --drive-links --drive-spans
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   northbound southbound presidio-main-post-to-gorgas presidio-marina-to-doyle
 ```
+
+## SoMa I-80 outer lane contact
+
+**World and Data.** Manual lane changes exposed narrow contact strips on the
+eastbound climb to the lower Bay Bridge and westbound approaching the Fifth
+Street exit. The existing cross-sections put only 6 m and 5.5 m of contact on
+the affected sides. The April 2023 survey shows pavement farther across each
+deck. The rebake uses the existing station, left-width and right-width fields
+to extend contact up to 19 m left of the eastbound alignment and 16.5 m right
+of the westbound alignment. The fixed alignments and shared end cross-sections
+carry the existing ramp joins.
+
+The survey sampled every 3 m along the alignment, at 1 m lateral intervals,
+using a 0.62 m query radius and a 0.55 m height band about the game deck. All
+104 widened eastbound stations and 102 westbound stations met the support
+threshold of eight pavement-class returns at the tested inset. This checks
+the added extent against the selected elevation band. It does not measure
+crossfall or the exact kerb, and the game contact remains flat across each
+section. [San Francisco LiDAR survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+The wider westbound drive exposed an inferred face that crossed a travelled
+lane. The 55.74 m² cap preserves the lower volume and adjacent faces. The survey
+contained 4,556 pavement-class returns in the overlap. Higher unclassified
+returns concentrated in two narrow bands along the lanes, consistent with
+traffic present at acquisition. The review uses those observations to correct
+a game scenery face. The single scan does not establish permanent clearance.
+
+**Physics.** The keyboard controller used the same target lines with route
+assist off. Each moved about 10 m to the sampled lane before returning toward
+the centre. The released game dropped the car off the narrow contact. Chrome
+completed both corrected drives grounded and without a scrape.
+
+| Route          | Airborne travel before | Airborne travel after |
+| -------------- | ---------------------: | --------------------: |
+| Eastbound I-80 |                24.69 m |                   0 m |
+| Westbound I-80 |                26.01 m |                   0 m |
+
+Chrome also passed the westbound through route over Fifth Street and followed
+the separate westbound exit down to Harrison Street. The eastbound drive entered
+from Fifth and Bryant and stayed on the rising deck. The fixed-step audit
+passed all 473 allowed span directions across 381 surfaces. The tests cover
+the sampled lines and retained connections. Other lanes, turns and the
+I-280/Mariposa alignment matches remain outside this check.
+
+- Parent game manifest SHA-256 `3b75aedad5a122612b62866047d01f4823155a1439c6c1cadf09f95e4eddba47`.
+- Revised game manifest SHA-256 `dd7f5d4ff8eb36b9acf70519d12b264c5ac29be99b42b1664905949d452f897c`.
+- Revised contact SHA-256 `a7e41653361e7883a8b753e89a3658a2c3f1db4e75b0f1b620e0761ed027ba6c`.
+- Survey receipt SHA-256 `dd85558e83db4edf781cce30f48b696e8b8a70e0f58b91433d8740e4a8e7fd03`.
+
+The attached evidence run `city-structure-inventory-20261126` holds the original
+347 survey nodes, the station checks and the Chrome traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  soma-measured-eastbound-lane soma-measured-westbound-lane \
+  i80-westbound-over-fifth i80-westbound-fifth-harrison i80-fifth-bryant-entry
+```

@@ -1916,6 +1916,38 @@ cases["potrero-avenue-to-bayshore"] = {
 
 const fifthRamp = "i80-westbound-fifth-harrison-exit";
 const fourthThrough = "i80-westbound-fourth-merge";
+const somaMeasuredLaneRuns = [
+  {
+    name: "soma-measured-westbound-lane",
+    road: somaUpper,
+    start: 230,
+    finish: 455,
+    clearance: { offset: -10, station: 343, length: 107 },
+  },
+  {
+    name: "soma-measured-eastbound-lane",
+    road: "i80-eastbound-lower-climb",
+    start: 52,
+    finish: 242,
+    clearance: { offset: 10, station: 147, length: 91 },
+  },
+];
+for (const { name, road, start, finish, clearance } of somaMeasuredLaneRuns) {
+  cases[name] = {
+    owners: ["8085807c"],
+    roads: [road],
+    speed: 16,
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 15,
+    finishOnDeck: true,
+    finishDistance: finish,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 38_000,
+    laneGuides: { [road]: { clearance } },
+  };
+}
 cases["i80-westbound-fourth-merge-offset"] = {
   owners: ["8085807c", "80858084"],
   roads: [fourthThrough],
