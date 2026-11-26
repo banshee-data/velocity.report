@@ -2616,16 +2616,25 @@ cases["bayshore-hester-entry-us101"] = {
   finishDistance: 70,
   maxDurationMs: 130_000,
 };
+const hesterFrontage = [
+  "bayshore-hester-frontage-lead",
+  "bayshore-hester-frontage-to-third",
+];
 cases["bayshore-hester-frontage-to-third"] = {
-  roads: ["bayshore-hester-frontage-to-third"],
+  roads: hesterFrontage,
   owners: ["808f7f24", "808f7f1c", "808f7f2c"],
   speed: 11,
   groundApproachMetres: 7,
   maxAirborneMetres: 0,
   maxDurationMs: 115_000,
 };
+cases["hester-third-street-northbound-approach"] = {
+  ...cases["bayshore-hester-frontage-to-third"],
+  roads: ["hester-third-northbound-bridge-approach", hesterFrontage[1]],
+  speed: 8.5,
+};
 cases["hester-exit-to-frontage"] = {
-  roads: [hesterRoad, "bayshore-hester-frontage-to-third"],
+  roads: [hesterRoad, ...hesterFrontage],
   owners: ["808f7f24", "808f7f1c", "808f7f2c"],
   rollingStart: true,
   rollingStartMetres: 217,

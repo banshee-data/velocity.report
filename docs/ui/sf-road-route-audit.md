@@ -6115,3 +6115,39 @@ The replay uses the Ocean Avenue release manifest and road geometry.
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs branch-east-ramp
 ```
+
+## Third Street northbound from Hester
+
+**World and Data.** The OSM approach from Hester lies about 16 m east
+of the Bayshore frontage strip near its southern end. Chrome drove it
+on the prior release and recorded 12.0 m airborne, a 107.7% apparent
+grade at a terrain step and two dips deeper than 0.5 m. The April 2023
+survey supports 100 approach stations, with a p95 pavement residual
+of 1.4 cm. The added contact carries both southern approaches to the
+same Third Street seam. A separate survey checks the widened east edge
+of the ground handoff at Le Conte. The one removed inferred trunk
+intersects the surveyed lane edge. Its footprint has 182 pavement
+returns and no returns at vehicle height within 0.7 m.
+
+**Physics.** The widened handoff kept the keyboard drive grounded over
+the mapped approach and onto Third Street. The pre-release drive
+continued 77.8 m on the far street with zero air travel and no sampled
+dips. Its 15.8% peak grade includes both street approaches. The
+fixed-step package audit passed 477 travel directions, 346 directed
+joins and 518 ground handoffs. Three further handoffs continued onto
+verified adjacent roads.
+
+- Parent game manifest SHA-256 `05265b16ba945c738e3ef7f3d88cddb05d148e0400e313b807f77b9b16e3fe2d`.
+- Updated game manifest SHA-256 `e8c27244800e8aab5da9e737588f5a53b3923b4f78436cf2aba14865133688fb`.
+- Contact SHA-256 `ab3ed39f5e7a675e2ef5dd525e73d4bd36c3d65831a9dcc314faaaa84d33aba6`.
+- Approach fit SHA-256 `460601479a7040e5f7f3a49917c8017421b0b2d579372e57ed3db353fb1109ce`.
+- Tree clearance receipt SHA-256 `4af483725fa194a49039f48c6a16d4f5474c9b64c3d4122f930c7e5285104a56`.
+
+The attached LiDAR evidence includes both survey runs and the raw
+Chrome traces under `city-structure-inventory-20261126`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  hester-third-street-northbound-approach bayshore-hester-frontage-to-third \
+  hester-exit-to-frontage
+```

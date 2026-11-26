@@ -867,40 +867,73 @@ test("Saint Charles passes over I-280 and western Alemany passes below it", () =
   }
 });
 
-test("the Hester frontage road stays above the terrain into Third Street", () => {
-  const tile = JSON.parse(gunzipSync(file("tiles/808f7f24.json.gz")));
-  const road = tile.playableRoads.find(
-    ({ id }) => id === "sf-contact/bayshore-hester-frontage-to-third",
+test("both Hester approaches stay above the terrain and join Third Street", () => {
+  const token = "808f7f24";
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const raw = file(`tiles/${token}.json.gz`);
+  const clearance = roadBake.roadTreeClearanceReviews.findLast(
+    ({ tiles }) => tiles[token],
+  ).tiles[token];
+  assert.equal(
+    roadBake.hesterThirdApproachSurvey.tiles[token].sha256,
+    clearance.parentSha256,
   );
-  assert.deepEqual(road.source_cnn, ["2820000", "233101"]);
-  const contact = buildBakedRoadContact(road);
-  assert.equal(contact.portals.length, 2);
-  for (const { x, y, z } of contact.portals)
-    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.05);
+  assert.equal(clearance.sha256, digest(raw));
+  const tile = JSON.parse(gunzipSync(raw));
+  assert.ok(!tile.tr.some(([x, y]) => x === -2632 && y === -2318));
+  const [bayshore, third, through] = [
+    "bayshore-hester-frontage-lead",
+    "hester-third-northbound-bridge-approach",
+    "bayshore-hester-frontage-to-third",
+  ].map((name) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`),
+  );
+  assert.deepEqual(bayshore.source_cnn, ["2820000", "233101"]);
+  for (const approach of [bayshore, third]) {
+    assert.deepEqual(approach.points.at(-1), through.points[0]);
+    assert.deepEqual(approach.seams.end, through.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to }) =>
+          from === `${approach.id}:end` && to === `${through.id}:start`,
+      ),
+    );
+  }
 
-  const [x, y] = [3660.595, -4885.528];
-  const upper = contact.surface.heightAt(x, y);
-  const terrain = groundAtWorld([tile], x, y, true);
-  assert.ok(upper > 49 && upper < 49.4);
-  assert.ok(upper - terrain > 8.5 && upper - terrain < 9.5);
+  const pavement = (x, y) => groundAtWorld([tile], x, y, true);
+  for (const [road, x, y] of [
+    [bayshore, 3660.595, -4885.528],
+    [third, 3658.23, -4904.96],
+  ]) {
+    const contact = buildBakedRoadContact(road);
+    assert.equal(contact.portals.length, 1);
+    const upper = contact.surface.heightAt(x, y);
+    assert.ok(upper >= 48.8 && upper < 49.4);
+    assert.ok(upper - pavement(x, y) > 8.5 && upper - pavement(x, y) < 9.5);
+  }
 
   const obstacles = [buildCollisionIndex(tile, tile.t)];
-  for (let i = 0; i < road.points.length; i++) {
-    const [x, y, z] = road.points[i];
-    const before = road.points[Math.max(0, i - 1)];
-    const after = road.points[Math.min(road.points.length - 1, i + 1)];
-    const heading = Math.atan2(after[1] - before[1], after[0] - before[0]);
-    for (const offset of [-1.5, 0, 1.5]) {
-      const pose = {
-        x: x - Math.sin(heading) * offset,
-        y: y + Math.cos(heading) * offset,
-        heading,
-      };
-      assert.equal(
-        collisionAt(obstacles, pose, z),
-        null,
-        `${x}, ${y}, ${offset}`,
-      );
+  for (const road of [bayshore, third, through]) {
+    const { portals } = buildBakedRoadContact(road);
+    assert.equal(portals.length, 1);
+    for (const { x, y, z } of portals)
+      assert.ok(Math.abs(pavement(x, y) - z) < 0.05);
+    for (const [i, [x, y, z]] of road.points.entries()) {
+      const before = road.points[Math.max(0, i - 1)];
+      const after = road.points[Math.min(road.points.length - 1, i + 1)];
+      const heading = Math.atan2(after[1] - before[1], after[0] - before[0]);
+      for (const offset of [-1.5, 0, 1.5]) {
+        const pose = {
+          x: x - Math.sin(heading) * offset,
+          y: y + Math.cos(heading) * offset,
+          heading,
+        };
+        assert.equal(
+          collisionAt(obstacles, pose, z),
+          null,
+          `${x}, ${y}, ${offset}`,
+        );
+      }
     }
   }
 });
@@ -5827,8 +5860,14 @@ test("Candlestick carries the exit above Alana Way and preserves the through lan
   const adjacent = "808f7f24";
   const load = (token) => {
     const raw = file(`tiles/${token}.json.gz`);
+    const original = manifest.roadBake.candlestickExitSurvey.tiles[token];
+    const hester = manifest.roadBake.hesterThirdApproachSurvey.tiles[token];
+    if (hester) assert.equal(hester.parentSha256, original.sha256);
+    const tree = manifest.roadBake.roadTreeClearanceReviews.findLast(
+      ({ tiles }) => hester && tiles[token]?.parentSha256 === hester.sha256,
+    );
     assert.equal(
-      manifest.roadBake.candlestickExitSurvey.tiles[token].sha256,
+      tree?.tiles[token].sha256 ?? hester?.sha256 ?? original.sha256,
       digest(raw),
     );
     return JSON.parse(gunzipSync(raw));
