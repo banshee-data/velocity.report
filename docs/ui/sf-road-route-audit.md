@@ -6055,3 +6055,44 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   islais-creek-third-street-northbound islais-creek-third-street-northbound-outside-lane \
   islais-creek-third-street-southbound islais-creek-third-street-southbound-outside-lane
 ```
+
+## Ocean Avenue deck over I-280
+
+**World and Data.** The previous bake let the mapped westbound lane
+cross on the terrain grid without selecting the deck. The two
+carriageways follow OpenStreetMap ways `27145836` and `27145834`.
+The westbound lane runs about 10 m north of the game reference line,
+beyond the original 8 m edge. The rebake extends the deck 12.4 m north
+and 9.35 m south to support the three mapped lanes and their tyre
+footprints. Both owners carry the same complete contact. The previous
+99 m longitudinal profile, terrain and ramp joins retain their geometry.
+[SFMTA Balboa Park circulation study](https://www.sfmta.com/media/7103/download?inline=).
+
+The April 2023 survey sampled 98 stations in each of three lane bands
+and both edge bands. The median pavement heights differ from the game
+profile by 11.1 to 17.1 cm at p95 in the lanes, and by 14.4 to 19.1 cm
+at the two edges. These measurements compare the lane observations
+with shared game contact.
+
+**Physics and UI.** All three surveyed lanes selected the deck and
+crossed from street to street in Chrome, with zero airborne travel.
+The eastbound camera returned to its exterior view after the street
+handoff. A separate keyboard drive turned from the deck onto northbound
+I-280 with 11.6 m on the intervening pavement and zero airborne travel.
+The fixed-step city audit passed 476 travel directions, 344 directed
+joins and 516 ground handoffs. Three further handoffs continued onto
+verified adjacent roads.
+
+- Parent manifest SHA-256 `bd6086d531970c1932d7cb4cfb8278501da25812ef1ad6470937db4261cf7a78`.
+- Updated manifest SHA-256 `05265b16ba945c738e3ef7f3d88cddb05d148e0400e313b807f77b9b16e3fe2d`.
+- Gerardus contact SHA-256 `58fa810c38b3b6c256cda5d975da9a1addd6d6a4bae4348f0845adbaabace7d9`.
+- Survey receipt SHA-256 `207cb80f3cf0af0a75b1768fdbb73bee0ecf0ad0a0d73752bdfc79748cbecc9a`.
+
+The attached `city-structure-inventory-20261126/ocean-avenue-lanes-b23`
+run retains the 61 source nodes, the map extract and the keyboard traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  ocean-avenue-bridge-westbound-mapped ocean-avenue-bridge-eastbound-inside-mapped \
+  ocean-avenue-bridge-eastbound-outside-mapped ocean-bridge-to-i280-northbound
+```

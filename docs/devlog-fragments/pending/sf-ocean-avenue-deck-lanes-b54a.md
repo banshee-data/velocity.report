@@ -1,0 +1,1 @@
+- Baked the measured [Ocean Avenue deck width](../../ui/sf-road-route-audit.md#ocean-avenue-deck-over-i-280) into both owner tiles and verified the three lanes and the northbound I-280 entrance in Chrome.

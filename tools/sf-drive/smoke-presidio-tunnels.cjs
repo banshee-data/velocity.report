@@ -3649,9 +3649,23 @@ for (const [direction, reverse] of [
           [-747, -4111.07, 74.1],
           [-754, -4111.05, 74.45],
         ],
-    exitCamera: reverse ? "covered" : "exterior",
     groundApproachMetres: 6,
     speed: 8,
+  };
+}
+for (const [name, reverse, lane] of [
+  ["westbound-mapped", false, -10],
+  ["eastbound-inside-mapped", true, 4.6],
+  ["eastbound-outside-mapped", true, 7.7],
+]) {
+  cases[`ocean-avenue-bridge-${name}`] = {
+    owners: oceanOwners,
+    roads: ["ocean-avenue-bridge"],
+    reverse,
+    laneGuides: { "ocean-avenue-bridge": { lane } },
+    groundApproachMetres: 10,
+    speed: 8,
+    maxAirborneMetres: 0,
   };
 }
 cases["i280-ocean-northbound-entry"] = {
