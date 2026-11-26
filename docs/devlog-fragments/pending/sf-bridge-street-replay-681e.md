@@ -1,0 +1,1 @@
+- Verified all three [Bay Bridge replays](../../ui/sf-road-route-audit.md#fremont-street-handoff-replay) through Fremont and back onto I-80 at Fourth using the game's city-route contact logic.

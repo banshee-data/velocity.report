@@ -6392,3 +6392,24 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   island-east-westbound-through-exit macalla-westbound-roundtrip \
   island-east-lower-mainline island-east-eastbound-entry
 ```
+
+### Fremont street handoff replay
+
+**World and Physics.** Chrome crossed from the Fremont ramp onto Fremont
+Street at 7.3 m NAVD88, then re-entered I-80 at Fourth. The standalone
+fixed-step replay was calling the elevated network directly, so it stopped
+when the tyres reached the edge of the narrow street guide. The replay now
+uses the game's city-route contact logic, which checks the surrounding
+pavement at the same level. Its bridge and ramp contact assertions still
+require a grounded car.
+
+On manifest `c4303cb692fac675c9519edc05da17c5ec09614e9ea95cd4c4a4ad3c4c9b98e3`,
+the default, Yerba Buena and Oakland replays each reached westbound I-80
+after the Fremont exit and Fourth entrance. They completed in 236.82,
+323.07 and 459.74 seconds of game time, respectively.
+
+```sh
+node tools/sf-drive/replay-city-drive.mjs
+node tools/sf-drive/replay-city-drive.mjs yerba-buena-westbound
+node tools/sf-drive/replay-city-drive.mjs oakland-westbound
+```
