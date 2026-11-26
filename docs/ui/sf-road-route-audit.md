@@ -5107,8 +5107,8 @@ with both pickups, zero airborne distance and zero measured dips. Two
 focused runs on Main Street stayed at street level, at 4.23–6.91 m in the
 game, and cleared the Bay Bridge crossing.
 
-Nineteen of the 20 fixed-step pickup replays now collected both emojis.
-North Beach still stops at the Columbus Avenue tree after 149.7 m. The
+Nineteen of the 20 fixed-step pickup replays collected both emojis.
+North Beach stopped at the Columbus Avenue tree after 149.7 m. The
 original lines and their collision results remain in the record above.
 This run checks completion and terrain behaviour on the given game paths.
 
@@ -5124,4 +5124,41 @@ node tools/sf-drive/audit-road-routes.mjs --plan="$plan" excelsior golden-gate-p
 node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses > /tmp/sf-layered-pickup-courses.jsonl
 SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
   /tmp/sf-layered-pickup-courses.jsonl --verify excelsior golden-gate-park waterfront
+```
+
+### Columbus Avenue at street level
+
+**Physics, Goals and Data.** The original North Beach replay hit the
+inferred trunk on Columbus Avenue. The survey above found returns at
+vehicle height there. The new replay keeps the trees and uses the game's
+vehicle hull against the same static collision data. It checks ground
+poses every two metres, searches within 3.5 m of the original route, and
+limits each lateral change to half a metre per station. The replay
+targets 15.2 mph. The resulting guide stays within 3.01 m of the original
+line and follows Columbus Avenue to Green Street.
+
+The fixed-step replay travelled 1,232.5 m, collected both pickups and
+recorded no airborne travel, scrapes or dips deeper than 0.5 m over eight
+metres. Driven grade was 6.2% at p95 and 7.8% at the peak. On the published
+game, the full manual-input Chrome run covered 1,231.6 m and collected both
+pickups with zero airborne travel and zero measured dips. The checks
+exercise a specific steering line in the game. The observed returns
+leave the source of the low obstructions uncertain.
+
+All 20 fixed-step courses on this manifest collected both pickups.
+They covered 44.94 km in 74 min 53 s of simulation and crossed 42 tile
+seams. The largest measured step across a seam was 8.8 cm. The driven
+profiles contained zero dips deeper than 0.5 m over eight metres.
+
+- Published game manifest SHA-256 `0f3633b834853b483100df5b94865caec32b1f3ddd154307575e521489d3ebb6`.
+- Twenty-course plan SHA-256 `4b83bb42e42c3c53b4aa6971ffc1ce1208feb840eeb6e050a1271d2c24cd9756`.
+
+The `columbus-clearance-driving` run on the attached evidence volume
+retains the campaign plan, fixed-step replay and browser telemetry.
+
+```sh
+plan=tools/sf-drive/road-audit-current-contact-routes.json
+node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses north-beach-hills > /tmp/sf-columbus-course.jsonl
+SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
+  /tmp/sf-columbus-course.jsonl --verify north-beach-hills
 ```

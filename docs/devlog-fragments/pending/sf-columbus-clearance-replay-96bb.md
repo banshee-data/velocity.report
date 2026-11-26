@@ -1,0 +1,1 @@
+- Added a North Beach pickup regression that drives around the existing Columbus Avenue obstacles using the game's vehicle hull and collision data. [Road route audit](../../ui/sf-road-route-audit.md#columbus-avenue-at-street-level)

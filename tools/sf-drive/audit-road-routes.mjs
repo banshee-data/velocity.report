@@ -36,6 +36,7 @@ import {
   seriousImpact,
 } from "../../public_html/src/js/sf-crash.js";
 import { steeringLine } from "./steering-line.mjs";
+import { roadClearanceOffsets } from "./road-clearance-line.mjs";
 
 const exportCourses = process.argv.includes("--export-courses");
 const args = process.argv.slice(2).filter((arg) => arg !== "--export-courses");
@@ -254,7 +255,7 @@ function routeBetween(from, to, tunnel, highway, groundOnly = false) {
     if (cost !== costs.get(node)) continue;
     if (node === to) {
       const route = [];
-      for (let end = to; end !== from;) {
+      for (let end = to; end !== from; ) {
         const { previous, edge } = parents.get(end);
         route.push({ ...edge, from: previous });
         end = previous;
@@ -458,6 +459,73 @@ function applyLaneDetours(path, detours) {
       s: station,
       z: courseHeight(point.road, point.x, point.y),
     };
+  });
+}
+
+function collisionIndexes(nearby) {
+  return nearby.map((tile) => {
+    if (!indexes.has(tile.t))
+      indexes.set(
+        tile.t,
+        buildCollisionIndex(tile, tile.t, new Map(), bakedDecks.ceiling),
+      );
+    return indexes.get(tile.t);
+  });
+}
+
+function clearanceGuide(path, { lateralMetres, speedMph }) {
+  assert.ok(path.every(({ road }) => !road.surfaceId && !road.tunnel));
+  assert.ok(Number.isFinite(lateralMetres) && lateralMetres >= 0);
+  assert.ok(Number.isFinite(speedMph) && speedMph > 0);
+  const stations = [];
+  let i = 0;
+  for (let s = 4; s < path.at(-1).s - 4; s += 2) {
+    while (path[i + 1].s < s) i++;
+    const a = path[i];
+    const b = path[i + 1];
+    const headingAtStation = heading(a, b);
+    const point = blend(a, b, (s - a.s) / (b.s - a.s));
+    stations.push({
+      ...point,
+      s,
+      heading: headingAtStation,
+      road: { ...b.road, speedMph },
+      obstacles: collisionIndexes(
+        tilesAround(manifest.tiles, point.x, point.y, 60).want.map((token) =>
+          tiles.get(token),
+        ),
+      ),
+    });
+  }
+  const lanePose = ({ x, y, heading }, offset) => ({
+    x: x - offset * Math.sin(heading),
+    y: y + offset * Math.cos(heading),
+    heading,
+  });
+  const offsets = roadClearanceOffsets(
+    stations,
+    lateralMetres,
+    (station, offset) => {
+      const pose = lanePose(station, offset);
+      const z = heightAt(pose.x, pose.y);
+      return (
+        z === null ||
+        obstacleContact(station.obstacles, drivingHull({ ...pose, z })) !== null
+      );
+    },
+  );
+  const guided = [
+    path[0],
+    ...stations.map((station, index) => ({
+      ...lanePose(station, offsets[index]),
+      road: station.road,
+    })),
+    path.at(-1),
+  ];
+  let s = 0;
+  return guided.map((point, index) => {
+    if (index) s += distance(guided[index - 1], point);
+    return { ...point, s, z: heightAt(point.x, point.y) };
   });
 }
 
@@ -697,15 +765,7 @@ function drive(path, from, to) {
       nearby = tilesAround(manifest.tiles, car.x, car.y, 60).want.map((token) =>
         tiles.get(token),
       );
-      collisions = nearby.map((tile) => {
-        if (!indexes.has(tile.t)) {
-          indexes.set(
-            tile.t,
-            buildCollisionIndex(tile, tile.t, new Map(), bakedDecks.ceiling),
-          );
-        }
-        return indexes.get(tile.t);
-      });
+      collisions = collisionIndexes(nearby);
     }
     if (tick % 18 === 0) road = nearestRoad(nearby, car.x, car.y);
     const control = steerer(car);
@@ -855,9 +915,9 @@ for (const spec of plan.routes) {
   const route = routeFor(spec, from, to);
   assert.ok(route?.length, `No course found for ${spec.id}`);
   const sampled = samplePath(route);
-  const path = spec.laneDetours?.length
-    ? applyLaneDetours(sampled, spec.laneDetours)
-    : sampled;
+  let path = sampled;
+  if (spec.laneDetours?.length) path = applyLaneDetours(path, spec.laneDetours);
+  if (spec.clearanceGuide) path = clearanceGuide(path, spec.clearanceGuide);
   const expectedSurfaces = spec.expectContactExit
     ? [
         ...(spec.contact.beforeSurfaces ?? []),
