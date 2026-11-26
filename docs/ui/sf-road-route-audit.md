@@ -6273,3 +6273,31 @@ run retains the survey, fitted profile and both Chrome drives.
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   mariposa-southbound-outer sixth-southbound i280-18th
 ```
+
+## Central Freeway onto eastbound I-80
+
+**World and Data.** The measured Central Freeway lanes continue
+separately beside the approach from northbound US 101. The previous
+bake moved the Central Freeway lanes into the common approach about
+70 m before the mapped merge. The revised bake fits 108.6 m to the
+downstream seam while retaining the northbound US 101 approach. The
+84 sampled stations have a 1.1 cm p95 difference from the April 2023
+pavement medians.
+
+**Physics and UI.** The mapped Chrome drive on the previous bake
+lost contact, travelled 20.4 m airborne and crashed. The revised
+bake completed the same 197 m course with no airborne travel,
+dips or scrapes. Regression checks confirm contact on the separate
+ramp and both transitions onto the shared carriageway.
+
+- Parent manifest SHA-256 `7dcf5c88810872c2a0307a93832858f1790c6fdbdae0372ef6d83ee87fe05af3`.
+- Updated manifest SHA-256 `5e4e053e5f3d9f6ac388bcd64f512d2fd81274344353d4f426ca5533433652cb`.
+- Contact SHA-256 `d293a7cd16730c36655e4695015bc055597921f576e80918611352bdde9a25e8`.
+- Fitted profile SHA-256 `edb40d5f899c71c644cdacda547780e676b61f1b986b2114a50d00c8f742730f`.
+
+The attached `city-structure-inventory-20261126/central-east-mapped-ramp-20261126-b23`
+run retains the survey, fitted profile and both Chrome drives.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs central-octavia-entry
+```

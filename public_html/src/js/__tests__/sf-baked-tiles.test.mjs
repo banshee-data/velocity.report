@@ -1534,6 +1534,36 @@ test("Alemany connects to US 101 and leaves the original I-280 branch available"
   assert.ok(roadBake.overheadBuildingPatches["808f7e54"] >= 1);
 });
 
+test("the Central Freeway connector stays on separate pavement to eastbound I-80", () => {
+  const token = "808f7e2c";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const receipt = roadBake.centralEastMergeSurvey.tiles[token];
+  assert.equal(receipt.sha256, digest(raw));
+  const road = (slug) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
+  const ramp = road("central-freeway-i80-east-connector");
+  const lead = road("i80-eastbound-us101-approach");
+  const eastbound = road("i80-eastbound-interchange");
+  for (const approach of [ramp, lead]) {
+    assert.deepEqual(approach.points.at(-1), eastbound.points[0]);
+    assert.deepEqual(approach.seams.end, eastbound.seams.start);
+  }
+
+  const central = buildBakedRoadContact(ramp).surface;
+  const us101 = buildBakedRoadContact(lead).surface;
+  for (const [x, y, z] of [
+    [3043.1, 1135, 17],
+    [3037.8, 1154.3, 16.85],
+    [3034.6, 1163.8, 16.5],
+  ]) {
+    const height = central.heightAt(x, y);
+    assert.ok(Number.isFinite(height) && Math.abs(height - z) < 0.25);
+    assert.equal(us101.heightAt(x, y), null);
+  }
+});
+
 test("US 101 reaches Potrero and joins the existing eastbound I-80 deck", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["808f7e2c", "808f7e34", "808f7e4c", "808f7e54"];
@@ -1550,12 +1580,14 @@ test("US 101 reaches Potrero and joins the existing eastbound I-80 deck", () => 
   const i80Approach = road("us101-north-i80-approach");
   const ramp = road("us101-north-i80-east-connector");
   const i80 = road("i80-eastbound-interchange");
+  const us101Lead = road("i80-eastbound-us101-approach");
   for (const [before, after] of [
     [incoming, potrero],
     [potrero, exit],
     [potrero, i80Approach],
     [i80Approach, ramp],
-    [ramp, i80],
+    [ramp, us101Lead],
+    [us101Lead, i80],
     [road("central-freeway-i80-east-connector"), i80],
   ]) {
     assert.deepEqual(before.points.at(-1), after.points[0], after.id);
