@@ -1096,6 +1096,7 @@ test("Dogpatch northbound runs below 18th Street and keeps 20th Street on its ow
     "i280-dogpatch-east-north-entry",
     "i280-dogpatch-northbound",
     "i280-south-of-eighteenth-northbound",
+    "i280-mariposa-northbound-approach",
     "i280-mariposa-northbound",
   ].map((id) => `sf-contact/${id}`);
   for (const [index, id] of names.slice(1).entries()) {
@@ -1196,6 +1197,45 @@ test("the westbound Harrison loop hands off below both Bay Bridge approaches", (
   assert.ok(ramp > 25 && ramp < 26);
   assert.ok(lowerDeck > 33 && lowerDeck < 34);
   assert.ok(upperDeck > 42 && upperDeck < 43);
+});
+
+test("the 18th Street entrance stays on its own deck until the measured merge", () => {
+  const token = "808f7fcc";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const { tiles, merge_station_metres: station } =
+    roadBake.eighteenthMariposaMergeSurvey;
+  assert.equal(tiles[token].sha256, digest(raw));
+  assert.ok(station > 91 && station < 93);
+  const road = (id) =>
+    tile.playableRoads.find((row) => row.id === `sf-contact/${id}`);
+  const ramp = road("i280-eighteenth-north-entry");
+  const approach = road("i280-mariposa-northbound-approach");
+  const main = road("i280-mariposa-northbound");
+  const links = roadBake.playableTransitions
+    .filter(({ from }) => from === `${ramp.id}:end`)
+    .map(({ to, direction }) => [to, direction]);
+  assert.deepEqual(links, [[`${main.id}:start`, "forward"]]);
+
+  for (const incoming of [ramp, approach]) {
+    assert.deepEqual(incoming.points.at(-1), main.points[0]);
+    assert.deepEqual(incoming.seams.end, main.seams.start);
+  }
+
+  const rampContact = buildBakedRoadContact(ramp).surface;
+  const approachContact = buildBakedRoadContact(approach).surface;
+  const mainContact = buildBakedRoadContact(main).surface;
+  for (const [x, y, z] of [
+    [4151.2, 531.5, 24.0],
+    [4139.4, 559.1, 23.5],
+    [4134.8, 567.9, 23.4],
+  ]) {
+    const height = rampContact.heightAt(x, y);
+    assert.ok(Number.isFinite(height) && Math.abs(height - z) < 0.3);
+    assert.equal(approachContact.heightAt(x, y), null);
+    assert.equal(mainContact.heightAt(x, y), null);
+  }
 });
 
 test("northbound I-280 keeps both city exits connected across tile owners", () => {
@@ -4315,9 +4355,12 @@ test("the surveyed SoMa I-80 lanes stay on their own decks and clear the capped 
 
 test("both I-280 Mariposa approaches support the surveyed lanes on either side", () => {
   const tile = JSON.parse(gunzipSync(file("tiles/808f7fcc.json.gz")));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const { merge_station_metres: split } =
+    roadBake.eighteenthMariposaMergeSurvey;
   for (const [slug, station, offsets] of [
     ["i280-king-to-mariposa", 283, [-7, 9]],
-    ["i280-mariposa-northbound", 352, [-5.5, 9]],
+    ["i280-mariposa-northbound", 352 - split, [-5.5, 9]],
   ]) {
     const road = tile.playableRoads.find(
       ({ id }) => id === `sf-contact/${slug}`,

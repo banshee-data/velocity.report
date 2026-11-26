@@ -1,0 +1,1 @@
+- Baked the [18th Street entrance lane through its I-280 merge](../../ui/sf-road-route-audit.md#18th-street-onto-northbound-i-280) and verified that Chrome now follows the measured lane without losing contact.
