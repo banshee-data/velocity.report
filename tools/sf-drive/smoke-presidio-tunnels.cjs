@@ -264,7 +264,12 @@ for (const [name, through] of [
     },
   };
 }
-const i280Approach = ["i280-fifth-south-entry", "i280-king-to-mariposa"];
+const southboundFifthApproach = "i280-fifth-south-to-sixth-merge";
+const i280Approach = [
+  "i280-fifth-south-entry",
+  southboundFifthApproach,
+  "i280-king-to-mariposa",
+];
 const dogpatchOwners = [
   ...i280Owners,
   "808f7fb4",
@@ -2349,7 +2354,7 @@ cases["mariposa-upper-18th-viaduct"] = {
 };
 
 for (const [name, road, start, finish, station, length] of [
-  ["mariposa-southbound-outer", "i280-king-to-mariposa", 130, 400, 283, 115],
+  ["mariposa-southbound-outer", southboundFifthApproach, 130, 338, 283, 115],
   [
     "mariposa-northbound-outer",
     sixthForkApproach,

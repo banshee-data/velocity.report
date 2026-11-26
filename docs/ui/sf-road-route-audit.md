@@ -6244,3 +6244,32 @@ run retains the survey, both contact releases and the keyboard traces.
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   mariposa-northbound-outer eighteenth-to-fifth-northbound dogpatch-to-fifth-northbound
 ```
+
+## Sixth Street onto southbound I-280
+
+**World and Data.** The surveyed Sixth Street lanes stay on an upper
+deck near 19 m NAVD88 where the previous bake turned towards the Fifth
+Street approach. The revised bake retains the first 527.3 m of the
+Sixth Street entrance and fits 490.8 m of separately supported
+pavement to the downstream merge. The through section and the Fifth
+Street approach retain their geometry. The 307 new stations have a
+1.1 cm p95 difference from the April 2023 pavement medians.
+
+**Physics and UI.** The mapped Chrome run in the parent travelled
+18.3 m airborne and crashed below the deck. The same drive covered
+about 1.05 km in the revised bake, stayed grounded and reached I-280
+with no dips or scrapes. Game tests check the separate pavement
+and the matching ramp copies across both tile owners.
+
+- Parent manifest SHA-256 `c78c88ee707d3c6da1d2c05c1833c0eaffefd6770df9c3cd6916a7869db44e66`.
+- Updated manifest SHA-256 `7dcf5c88810872c2a0307a93832858f1790c6fdbdae0372ef6d83ee87fe05af3`.
+- Contact SHA-256 `400b6e2fa30d30f1742aa3b94c42636859837289236fb6292d1f28cfb7437fe0`.
+- Fitted profile SHA-256 `f8f7a14d03245d6fe55c8e1c58d92ba1b1738dd63d1744312db10d4ab6805d09`.
+
+The attached `city-structure-inventory-20261126/south-fifth-mapped-ramp-20261126-b23`
+run retains the survey, fitted profile and both Chrome drives.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  mariposa-southbound-outer sixth-southbound i280-18th
+```

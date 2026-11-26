@@ -58,8 +58,9 @@ function load(token) {
 
 const owner = (x, y) => tileAt(manifest.tiles, x, y).t;
 const ground = (x, y) => groundAtWorld([load(owner(x, y)).tile], x, y, true);
-const [entryId, deckId] = [
+const [entryId, approachId, deckId] = [
   "sf-contact/i280-fifth-south-entry",
+  "sf-contact/i280-fifth-south-to-sixth-merge",
   "sf-contact/i280-king-to-mariposa",
 ];
 load("808f7fd4");
@@ -67,6 +68,8 @@ load("808f7fcc");
 const ramp = pieces.get(entryId);
 const deck = pieces.get(deckId);
 assert.ok(ramp && deck);
+const approach = pieces.get(approachId);
+const sections = approach ? [ramp, approach, deck] : [ramp, deck];
 const [start, second] = ramp.points;
 const heading = Math.atan2(second[1] - start[1], second[0] - start[0]);
 const x = start[0] - 12 * Math.cos(heading);
@@ -77,7 +80,7 @@ const pavement = (east, north) => ({
 });
 const course = buildCityGameDrive(
   {
-    sections: [ramp, deck].map((road) => ({
+    sections: sections.map((road) => ({
       id: road.id,
       kind: road.kind,
       width_m: road.width,
@@ -139,7 +142,7 @@ for (let tick = 0; tick < 17000; tick++) {
   seen.add(next.surfaceId);
   car = next;
 }
-assert.deepEqual([...seen], [undefined, entryId, deckId]);
+assert.deepEqual([...seen], [undefined, ...sections.map(({ id }) => id)]);
 assert.ok(atEnd, "the car did not reach the next mainline junction");
 const sample = ramp.points.find(([x, y]) => x > 3692 && y < 1355);
 assert.ok(sample[2] > ground(...sample.slice(0, 2)) + 10);

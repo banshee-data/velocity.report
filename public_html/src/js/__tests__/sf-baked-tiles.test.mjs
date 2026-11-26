@@ -146,6 +146,11 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
       assert.equal(northboundExit.parentSha256, currentHash);
       currentHash = northboundExit.sha256;
     }
+    const sixthMerge = manifest.roadBake.sixthSouthMergeSurvey.tiles[token];
+    if (sixthMerge) {
+      assert.equal(sixthMerge.parentSha256, currentHash);
+      currentHash = sixthMerge.sha256;
+    }
     assert.equal(currentHash, digest(raw));
     assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
     for (const road of JSON.parse(gunzipSync(raw)).playableRoads) {
@@ -371,7 +376,9 @@ test("the southbound Third Street Bridge approach keeps its outside lane clear",
   ).tiles[token];
   const next = manifest.roadBake.mariposaFifthExitSurvey.tiles[token];
   assert.equal(next.parentSha256, receipt.sha256);
-  assert.equal(next.sha256, digest(raw));
+  const sixthMerge = manifest.roadBake.sixthSouthMergeSurvey.tiles[token];
+  assert.equal(sixthMerge.parentSha256, next.sha256);
+  assert.equal(sixthMerge.sha256, digest(raw));
   assert.equal(receipt.removed, 1);
   assert.ok(!tile.tr.some(([x, y]) => x === 4638 && y === 2534));
   assert.ok(tile.tr.some(([x, y]) => x === 4548 && y === 2645));
@@ -1217,7 +1224,9 @@ test("the 18th Street entrance stays on its own deck until the measured merge", 
     roadBake.eighteenthMariposaMergeSurvey;
   const next = roadBake.mariposaFifthExitSurvey.tiles[token];
   assert.equal(next.parentSha256, tiles[token].sha256);
-  assert.equal(next.sha256, digest(raw));
+  const sixthMerge = roadBake.sixthSouthMergeSurvey.tiles[token];
+  assert.equal(sixthMerge.parentSha256, next.sha256);
+  assert.equal(sixthMerge.sha256, digest(raw));
   assert.ok(station > 91 && station < 93);
   const road = (id) =>
     tile.playableRoads.find((row) => row.id === `sf-contact/${id}`);
@@ -1249,14 +1258,64 @@ test("the 18th Street entrance stays on its own deck until the measured merge", 
   }
 });
 
+test("the southbound Sixth Street deck joins after the separate Fifth Street approach", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7fcc", "808f7fd4"];
+  const tiles = tokens.map((token) => {
+    const raw = file(`tiles/${token}.json.gz`);
+    assert.equal(
+      roadBake.sixthSouthMergeSurvey.tiles[token].sha256,
+      digest(raw),
+    );
+    return JSON.parse(gunzipSync(raw));
+  });
+  const road = (id, tile = tiles[0]) =>
+    tile.playableRoads.find((r) => r.id === `sf-contact/${id}`);
+  const sixth = road("i280-sixth-southbound");
+  assert.deepEqual(sixth, road("i280-sixth-southbound", tiles[1]));
+  const fifth = road("i280-fifth-south-entry");
+  const lead = road("i280-fifth-south-to-sixth-merge");
+  const main = road("i280-king-to-mariposa");
+
+  for (const [from, target] of [
+    [fifth, lead],
+    [lead, main],
+    [sixth, main],
+  ]) {
+    assert.deepEqual(from.points.at(-1), target.points[0]);
+    assert.deepEqual(from.seams.end, target.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        (edge) =>
+          edge.from === `${from.id}:end` && edge.to === `${target.id}:start`,
+      ),
+    );
+  }
+
+  const upper = buildBakedRoadContact(sixth).surface;
+  const lower = buildBakedRoadContact(lead).surface;
+  for (const [x, y] of [
+    [3699.9, 1102.3],
+    [3718.2, 1034.8],
+    [3729.6, 1007.1],
+  ]) {
+    const height = upper.heightAt(x, y);
+    assert.ok(Number.isFinite(height) && Math.abs(height - 19) < 0.25);
+    assert.equal(lower.heightAt(x, y), null);
+  }
+});
+
 test("the northbound I-280 fork carries the surveyed lane to Fifth Street", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["808f7fcc", "808f7fd4"];
   const raws = tokens.map((t) => file(`tiles/${t}.json.gz`));
   const tiles = raws.map((raw) => JSON.parse(gunzipSync(raw)));
   const review = roadBake.mariposaFifthExitSurvey;
-  for (const [i, t] of tokens.entries())
-    assert.equal(review.tiles[t].sha256, digest(raws[i]));
+  for (const [i, t] of tokens.entries()) {
+    const sixthMerge = roadBake.sixthSouthMergeSurvey.tiles[t];
+    assert.equal(sixthMerge.parentSha256, review.tiles[t].sha256);
+    assert.equal(sixthMerge.sha256, digest(raws[i]));
+  }
 
   const road = (tile, name) =>
     tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`);
@@ -4411,7 +4470,7 @@ test("both I-280 Mariposa approaches support the surveyed lanes on either side",
   const { merge_station_metres: split } =
     roadBake.eighteenthMariposaMergeSurvey;
   for (const [slug, station, offsets] of [
-    ["i280-king-to-mariposa", 283, [-7, 9]],
+    ["i280-fifth-south-to-sixth-merge", 283, [-7, 9]],
     ["i280-mariposa-northbound", 352 - split, [-5.5, 9]],
   ]) {
     const road = tile.playableRoads.find(
