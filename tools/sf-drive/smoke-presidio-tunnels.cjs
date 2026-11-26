@@ -2341,6 +2341,28 @@ cases["hester-salinas-to-bayshore"] = {
   laneGuides: hesterStart.laneGuides,
 };
 
+for (const [road, tile, station, lane, exitCamera] of [
+  ["i280-north-geneva-entry", "808f7c2c", 190, -0.75, "covered"],
+  ["bosworth-southbound-entry", "808f7e64", 85, -0.75, "covered"],
+  [hesterLowerEntrance, "808f7f24", 84, 0.75, "exterior"],
+]) {
+  cases[`${road}-offset-lane`] = {
+    owners: [tile],
+    roads: [road],
+    laneGuides: { [road]: { lane } },
+    rollingStart: true,
+    rollingStartMetres: station - 23,
+    finishOnDeck: true,
+    finishDistance: station + 28,
+    exitCamera,
+    speed: 8,
+    initialSpeedMps: 8,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 25_000,
+  };
+}
+
 cases["hester-upper-northbound-over-entrances"] = {
   ...hesterStreetEntries,
   roads: [northboundUs101Hester],
