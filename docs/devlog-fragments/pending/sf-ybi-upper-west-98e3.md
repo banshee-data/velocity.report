@@ -1,0 +1,1 @@
+- Baked the [upper westbound Yerba Buena curve and the Macalla merge](../../ui/sf-road-route-audit.md#westbound-upper-deck-at-yerba-buena). Chrome verified the upper through drive and the Macalla exit and re-entry.

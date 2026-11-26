@@ -6355,3 +6355,40 @@ run retains the survey, fitted profile and paired keyboard drives.
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs west-alemany-viaduct
 ```
+
+## Westbound upper deck at Yerba Buena
+
+**World and Data.** The surveyed westbound lane bends away from the old
+baked contact east of the island. The revised contact follows 286.5 m of
+pavement and widens the shared Macalla seam to the measured 19 m section.
+The two named westbound approaches use the same centreline. The 174
+fitted stations have a 0.8 cm p95 difference from the sampled April 2023
+pavement medians. The captured seam cross-sections support the
+carriageway on both sides.
+
+**Physics and UI.** On the previous bake, the mapped keyboard drive
+travelled 43.0 m airborne and crashed. The revised Chrome run covered
+346 m with zero airborne travel or dips. The Macalla round trip left
+the upper road, drove 64.4 m on ordinary pavement and re-entered I-80
+without leaving the ground. The lower mainline stayed grounded on
+its own surface.
+
+The fixed-step named replays reached the Fremont exit on both bakes
+and lost contact at the same spot near game coordinates (4021, 3171).
+The island browser checks cover the upper cross-island drive and the
+Macalla exit and re-entry.
+
+- Parent manifest SHA-256 `c7c22599d98a010fd6b0f9415af747d1c1e38ee1593f2f1817d3dd909bcc6499`.
+- Updated manifest SHA-256 `c4303cb692fac675c9519edc05da17c5ec09614e9ea95cd4c4a4ad3c4c9b98e3`.
+- Contact SHA-256 `cbb5f7a332d9a3238bdf04b456d0cc5e3928645e93bef531c95244431d1291bd`.
+- Named approaches SHA-256 `d9430946a06582bd895556ab3478857dd11210cb138f7959724d7d67177dde76`.
+- Fitted profile SHA-256 `a470cd275890bce9ad8c43d3bb83472d36df4bf167e1c8d61a2319f4a38cce24`.
+
+The attached `city-structure-inventory-20261126/ybi-upper-west-merge-mapped-ramp-20261126-b23`
+run retains the 270 survey nodes, fit and keyboard drives.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-east-westbound-through-exit macalla-westbound-roundtrip \
+  island-east-lower-mainline island-east-eastbound-entry
+```
