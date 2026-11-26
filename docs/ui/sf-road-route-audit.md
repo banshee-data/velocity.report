@@ -6096,3 +6096,22 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   ocean-avenue-bridge-westbound-mapped ocean-avenue-bridge-eastbound-inside-mapped \
   ocean-avenue-bridge-eastbound-outside-mapped ocean-bridge-to-i280-northbound
 ```
+
+## Branch East tunnel camera
+
+**UI and World.** The ramp to San Jose Avenue carries open approaches
+and a covered bore in a single continuous surface. The published
+camera switched to the cockpit on the approach at about station 52 m.
+The baked tunnel interior begins at 106.6 m and ends at 250.9 m.
+The camera now uses that same interval as the tunnel mesh. The chase
+view on the open approach still responds to overhead decks.
+
+**Physics.** Chrome crossed the mapped open span with the exterior
+camera, switched to the cockpit in the bore and continued over the
+San Jose Avenue viaduct to street pavement. It used the same road
+contact throughout the camera transition, with zero airborne travel.
+The replay uses the Ocean Avenue release manifest and road geometry.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs branch-east-ramp
+```

@@ -1,0 +1,1 @@
+- Limited the cockpit view to the baked tunnel interior, restoring the open approach view on the [Branch East ramp](../../ui/sf-road-route-audit.md#branch-east-tunnel-camera).

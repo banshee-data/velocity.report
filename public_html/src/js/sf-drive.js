@@ -63,6 +63,7 @@ import {
   MIRROR_VIEW_RANGE,
   coveredRoadBlend,
   driveCameraPose,
+  inTunnelInterior,
   incarRoll,
   overheadDeckBlend,
   CHASE_DISTANCE,
@@ -3254,6 +3255,7 @@ export async function startDrive({
         : 0;
     // Keep the horizon and view direction steady while the chassis tumbles.
     if (surface) cameraCoveredRoad = surface.coveredRange ? surface : null;
+    const tunnelInterior = inTunnelInterior(surface, car);
     const crossingBlend = coveredRoadBlend(cameraCoveredRoad, car);
     if (!surface && crossingBlend === 0) cameraCoveredRoad = null;
     if (
@@ -3266,7 +3268,7 @@ export async function startDrive({
     )
       cameraDeckDeparture = null;
     const deckBlend =
-      state.view === "zoomed" && crossingBlend < 1 && surface?.kind !== "tunnel"
+      state.view === "zoomed" && crossingBlend < 1 && !tunnelInterior
         ? overheadDeckBlend(
             car,
             carZ,
@@ -3278,7 +3280,7 @@ export async function startDrive({
     const coveredBlend =
       state.view === "zoomed" ? Math.max(crossingBlend, deckBlend) : 0;
     const view = driveCameraPose(
-      surface?.kind === "tunnel"
+      tunnelInterior
         ? "incar"
         : crash && state.view === "incar"
           ? "zoomed"
@@ -3407,12 +3409,11 @@ export async function startDrive({
           : "airborne";
       canvas.dataset.altitude = carZ.toFixed(3);
       canvas.dataset.surface = surface?.kind || "city";
-      canvas.dataset.cameraContact =
-        surface?.kind === "tunnel"
-          ? "tunnel"
-          : coveredBlend > 0
-            ? "covered"
-            : "exterior";
+      canvas.dataset.cameraContact = tunnelInterior
+        ? "tunnel"
+        : coveredBlend > 0
+          ? "covered"
+          : "exterior";
       canvas.dataset.surfaceId = surface?.id || "";
       canvas.dataset.routeComplete = String(completedCityDrive);
       canvas.dataset.roadWait = String(waitingForRoad);

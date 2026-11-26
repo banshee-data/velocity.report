@@ -307,6 +307,7 @@ export function buildBakedRoadContact(road) {
       ? { interior, clearance, ...(openings && { wallOpenings: openings }) }
       : null;
   if (openings !== undefined && !appearance) return null;
+  if (appearance) surface.appearance = appearance;
   const portals = roadPortals(
     surface,
     groundEnds,

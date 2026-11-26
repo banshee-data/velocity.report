@@ -28,11 +28,7 @@ export function incarRoll(previous, lateralAcceleration, dt) {
   return previous + (target - previous) * (1 - Math.exp(-dt / 0.16));
 }
 
-export function coveredRoadBlend(surface, { x, y }) {
-  const range = surface?.coveredRange;
-  if (!range) return 0;
-  const [start, end] = range;
-  const profile = surface.profile;
+function cameraRoadStation(profile, { x, y }) {
   let distanceSquared = Infinity;
   let lateralSquared = Infinity;
   let station = 0;
@@ -58,6 +54,23 @@ export function coveredRoadBlend(surface, { x, y }) {
         (x - east - dx * along) ** 2 + (y - north - dy * along) ** 2;
     }
   }
+  return { station, lateralSquared };
+}
+
+export function inTunnelInterior(surface, car) {
+  if (surface?.kind !== "tunnel") return false;
+  const interior = surface.appearance?.interior;
+  // Older authored drives treat the full tunnel section as enclosed.
+  if (!interior) return true;
+  const { station } = cameraRoadStation(surface.profile, car);
+  return station >= interior[0] && station <= interior[1];
+}
+
+export function coveredRoadBlend(surface, car) {
+  const range = surface?.coveredRange;
+  if (!range) return 0;
+  const [start, end] = range;
+  const { station, lateralSquared } = cameraRoadStation(surface.profile, car);
   // Retire the covered view when a car leaves the corridor sideways.
   if (lateralSquared > 20 ** 2) return 0;
   const distance = Math.max(0, start - station, station - end - CHASE_DISTANCE);

@@ -177,7 +177,6 @@ export function buildCityGameDrive(drive, groundHeight) {
       ? {
           ...baked.surface,
           end_tiles: ["game", "game"],
-          ...(baked.appearance && { appearance: baked.appearance }),
         }
       : authoredDriveSurface(
           span,
