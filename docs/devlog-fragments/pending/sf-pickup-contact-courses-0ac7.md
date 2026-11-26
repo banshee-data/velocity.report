@@ -1,0 +1,1 @@
+- Added five full pickup drives through the published Stockton, Broadway and Toll Plaza tunnels and the I-280 and U.S. 101 exits. The browser check verifies the selected road levels, return to ground and both pickups. [Road route audit](../../ui/sf-road-route-audit.md#five-pickup-courses-through-the-published-contacts)

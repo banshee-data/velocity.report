@@ -4883,3 +4883,64 @@ road profiles still supply both carriageways and their handoffs.
 
 - Game manifest SHA-256 `a1e3c80787a6b6c2278307dacdd0749c8cb46e2354f254432997f039ad54c5b3`.
 - Gerardus contact SHA-256 `44cbdfbac5237d70cadbb632f2dfdfa2c65c225f48c4c207a2d5839c4cadb4ec`.
+
+### Five pickup courses through the published contacts
+
+**World, Physics and Data.** The three original tunnel courses stopped at
+archived street rows that deliberately supply no vehicle contact. The two
+freeway courses followed street alignments at forks where the current
+bake has directed ramps. The updated courses retain all ten pickup
+endpoints and use the published portals. The I-280 course enters from
+Fifth Street and exits south onto Pennsylvania Avenue. The U.S. 101
+course crosses Silver Avenue, enters from Salinas Avenue, takes the
+Hester exit and leaves the frontage road on Third Street before turning
+onto Key Avenue. An earlier test cut the turn onto Silver Avenue and
+missed the west portal. It measured a 73.8% peak grade on terrain. With
+the Silver Avenue approach aligned to the portal, the replay selected
+the deck and recorded a 17.9% whole-course peak on Jennings Street.
+At Hester, the first keyboard replay took the northbound Bayshore
+approach and crashed when the test steered back towards the frontage
+road. A focused keyboard replay capped the short pavement connection at
+9 mph and reached the correct frontage road with zero airborne distance.
+The pickup plan now brakes for that turn.
+
+**Goals and UI.** The fixed-step driver collected both pickups on all
+five courses. It verified the order of the baked contacts and drove at
+least 20 m beyond the final one. Grade percentages describe the full
+driven course, including local streets. A dip is a descent more than
+0.5 m below the line between samples 4 m on each side.
+
+| Course                                    | Driven distance | Beyond final exit | p95 / peak grade | Airborne distance |
+| ----------------------------------------- | --------------: | ----------------: | ---------------: | ----------------: |
+| Stockton northbound                       |       1,641.7 m |           856.1 m |    10.1% / 15.6% |            0.26 m |
+| Broadway eastbound                        |       1,546.6 m |           566.4 m |     9.6% / 19.3% |               0 m |
+| Toll Plaza eastbound                      |       1,612.5 m |           250.2 m |     8.8% / 13.8% |               0 m |
+| I-280 to Pennsylvania Avenue              |       3,862.6 m |         1,235.0 m |    13.7% / 21.3% |               0 m |
+| U.S. 101 to Third Street and Meade Avenue |       3,277.4 m |           468.9 m |    11.0% / 17.9% |            0.52 m |
+
+The fixed-step runs measured zero dips above 0.5 m. Browser verification
+uses manual keyboard controls, checks both pickups, checks the ordered
+contacts and final ground exit, and requires the game to enter the
+enclosed view on each of the three tunnel courses.
+
+With the five courses substituted into the original 20-course set,
+12 collected both pickups. Four hit trees, two hit buildings, the
+SoMa course stalled on Howard Street beyond the Moscone spans, and the
+Excelsior course stopped on the Bosworth contact near Diamond Street.
+Those results remain open in the citywide check.
+
+The current five-course plan uses the Oakland shoreline manifest above and
+has SHA-256 `6de2ce627a7c9a181cf6bb19ce5ddd431e8671ea5758e800d73780337398dc79`.
+The published game uses the static tile bundle. These checks establish
+game traversal for the driven approaches. Covered survey gaps still use
+the documented inferred profiles. [Current contact courses](../../tools/sf-drive/road-audit-current-contact-routes.json)
+
+```sh
+plan=tools/sf-drive/road-audit-current-contact-routes.json
+node tools/sf-drive/audit-road-routes.mjs --plan="$plan"
+node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses > /tmp/sf-contact-courses.jsonl
+SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs \
+  /tmp/sf-contact-courses.jsonl --verify
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  hester-exit-to-frontage
+```

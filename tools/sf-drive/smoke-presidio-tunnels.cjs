@@ -2296,6 +2296,20 @@ cases["bayshore-hester-frontage-to-third"] = {
   maxAirborneMetres: 0,
   maxDurationMs: 115_000,
 };
+cases["hester-exit-to-frontage"] = {
+  roads: [hesterRoad, "bayshore-hester-frontage-to-third"],
+  owners: ["808f7f24", "808f7f1c", "808f7f2c"],
+  rollingStart: true,
+  rollingStartMetres: 217,
+  initialSpeedMps: 7,
+  speed: 9,
+  connectByGround: true,
+  groundConnection: { after: prefix + hesterRoad, via: [], speedMps: 4 },
+  finishOnDeck: true,
+  finishDistance: 95,
+  maxAirborneMetres: 0,
+  maxDurationMs: 90_000,
+};
 
 const hesterThirdEntry = "us101-south-hester-third-entry";
 const hesterSalinasEntry = "us101-south-hester-salinas-entry";
