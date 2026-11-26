@@ -1,0 +1,1 @@
+- Baked the [surveyed I-280 lane to the Fifth Street exit](../../ui/sf-road-route-audit.md#mariposa-approach-to-the-fifth-street-exit) and checked the exit and through lanes at the same fork.

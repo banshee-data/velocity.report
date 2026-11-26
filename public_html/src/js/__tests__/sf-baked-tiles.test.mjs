@@ -34,6 +34,7 @@ import {
   driveOnRoadSurface,
   roadSupportsCar,
 } from "../sf-road-contact.js";
+import { driveOnRoadNetwork, indexRoadNetwork } from "../sf-road-network.js";
 import { deckClearanceIndex } from "../sf-tree-clearance.js";
 import { tunnelMesh } from "../sf-tunnel-mesh.js";
 
@@ -138,6 +139,12 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
       if (!clearance) continue;
       assert.equal(clearance.parentSha256, currentHash);
       currentHash = clearance.sha256;
+    }
+    const northboundExit =
+      manifest.roadBake.mariposaFifthExitSurvey.tiles[token];
+    if (northboundExit) {
+      assert.equal(northboundExit.parentSha256, currentHash);
+      currentHash = northboundExit.sha256;
     }
     assert.equal(currentHash, digest(raw));
     assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
@@ -362,7 +369,9 @@ test("the southbound Third Street Bridge approach keeps its outside lane clear",
   const receipt = manifest.roadBake.roadTreeClearanceReviews.findLast(
     ({ tiles }) => tiles[token],
   ).tiles[token];
-  assert.equal(receipt.sha256, digest(raw));
+  const next = manifest.roadBake.mariposaFifthExitSurvey.tiles[token];
+  assert.equal(next.parentSha256, receipt.sha256);
+  assert.equal(next.sha256, digest(raw));
   assert.equal(receipt.removed, 1);
   assert.ok(!tile.tr.some(([x, y]) => x === 4638 && y === 2534));
   assert.ok(tile.tr.some(([x, y]) => x === 4548 && y === 2645));
@@ -1206,7 +1215,9 @@ test("the 18th Street entrance stays on its own deck until the measured merge", 
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const { tiles, merge_station_metres: station } =
     roadBake.eighteenthMariposaMergeSurvey;
-  assert.equal(tiles[token].sha256, digest(raw));
+  const next = roadBake.mariposaFifthExitSurvey.tiles[token];
+  assert.equal(next.parentSha256, tiles[token].sha256);
+  assert.equal(next.sha256, digest(raw));
   assert.ok(station > 91 && station < 93);
   const road = (id) =>
     tile.playableRoads.find((row) => row.id === `sf-contact/${id}`);
@@ -1238,34 +1249,73 @@ test("the 18th Street entrance stays on its own deck until the measured merge", 
   }
 });
 
-test("northbound I-280 keeps both city exits connected across tile owners", () => {
+test("the northbound I-280 fork carries the surveyed lane to Fifth Street", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
-  const tiles = ["808f7fcc", "808f7fd4"].map((t) =>
-    JSON.parse(gunzipSync(file(`tiles/${t}.json.gz`))),
-  );
+  const tokens = ["808f7fcc", "808f7fd4"];
+  const raws = tokens.map((t) => file(`tiles/${t}.json.gz`));
+  const tiles = raws.map((raw) => JSON.parse(gunzipSync(raw)));
+  const review = roadBake.mariposaFifthExitSurvey;
+  for (const [i, t] of tokens.entries())
+    assert.equal(review.tiles[t].sha256, digest(raws[i]));
+
   const road = (tile, name) =>
     tile.playableRoads.find(({ id }) => id === `sf-contact/${name}`);
   const incoming = road(tiles[0], "i280-mariposa-northbound");
+  const through = road(tiles[0], "i280-mariposa-sixth-approach");
   const fifth = road(tiles[1], "i280-north-fifth-exit");
+  const sixth = road(tiles[0], "i280-sixth-northbound");
   assert.deepEqual(fifth, road(tiles[0], "i280-north-fifth-exit"));
-  assert.deepEqual(fifth.owners, ["808f7fcc", "808f7fd4"]);
-  assert.deepEqual(fifth.points[0], incoming.points.at(-1));
-  assert.deepEqual(fifth.seams.start, incoming.seams.end);
-  const exits = roadBake.playableTransitions
-    .filter(
-      ({ from, direction }) =>
-        from === `${incoming.id}:end` && direction === "forward",
-    )
-    .map(({ to }) => to)
-    .sort();
-  assert.deepEqual(exits, [
-    "sf-contact/i280-north-fifth-exit:start",
-    "sf-contact/i280-sixth-northbound:start",
-  ]);
+  assert.deepEqual(fifth.owners, tokens);
+  for (const branch of [through, fifth]) {
+    assert.deepEqual(branch.points[0], incoming.points.at(-1));
+    assert.deepEqual(branch.seams.start, incoming.seams.end);
+  }
+  assert.deepEqual(through.points.at(-1), sixth.points[0]);
+  assert.deepEqual(through.seams.end, sixth.seams.start);
+
+  const entries = [incoming, through, fifth].map(buildBakedRoadContact);
+  const surfaces = new Map(entries.map(({ surface }) => [surface.id, surface]));
+  const graph = indexRoadNetwork(roadBake.playableTransitions);
+  graph.add({
+    endpoints: entries.flatMap(({ endpoints }) => endpoints),
+    transitions: roadBake.playableTransitions,
+  });
+  const [east, north, z] = incoming.points.at(-1);
+  const heading = incoming.seams.end.bearing;
+  const dx = Math.cos(heading);
+  const dy = Math.sin(heading);
+  for (const [lateral, expected] of [
+    [0, through],
+    [4.2, fifth],
+  ]) {
+    let car = {
+      x: east - 7 * dx - lateral * dy,
+      y: north - 7 * dy + lateral * dx,
+      z,
+      v: 12,
+      heading,
+      surfaceId: incoming.id,
+    };
+    for (let tick = 0; tick < 120 && car.surfaceId === incoming.id; tick++) {
+      car = driveOnRoadNetwork(
+        car,
+        { throttle: 0.1, brake: false, steer: 0 },
+        1 / 120,
+        surfaces.get(incoming.id),
+        surfaces,
+        graph,
+        () => false,
+      );
+    }
+    assert.equal(car.surfaceId, expected.id);
+  }
+
+  const height = surfaces.get(fifth.id).heightAt(3775.1, 977.3);
+  assert.ok(Number.isFinite(height) && Math.abs(height - 16.5) < 0.25);
+  assert.equal(surfaces.get(through.id).heightAt(3775.1, 977.3), null);
   assert.deepEqual(fifth.groundEnds, ["end"]);
-  const end = fifth.points.at(-1);
-  const [x, y, z] = end;
-  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - z) < 0.1);
+  const [x, y, finishZ] = fifth.points.at(-1);
+  assert.ok(Math.abs(groundAtWorld(tiles, x, y, true) - finishZ) < 0.1);
 });
 
 test("Alemany northbound stays on its own deck and clears the surveyed Dogpatch pavement", () => {
@@ -3149,6 +3199,7 @@ test("Sixth Street reaches both I-280 levels through continuous paved approaches
   const exitWest = road("i280-18th-exit-west-turn");
   const ramp = road("i280-eighteenth-north-entry");
   const mariposa = road("i280-mariposa-northbound");
+  const sixthApproach = road("i280-mariposa-sixth-approach");
   assert.deepEqual(south, road("i280-sixth-southbound", tiles[1]));
   assert.deepEqual(north, road("i280-sixth-northbound", tiles[1]));
   assert.equal(roadBake.coveredGroundRoadPatches["808f7fcc"], 3);
@@ -3162,7 +3213,8 @@ test("Sixth Street reaches both I-280 levels through continuous paved approaches
     [exitWest, landing],
     [east, ramp],
     [ramp, mariposa],
-    [mariposa, north],
+    [mariposa, sixthApproach],
+    [sixthApproach, north],
   ]) {
     assert.deepEqual(from.points.at(-1), to.points[0]);
     assert.deepEqual(from.seams.end, to.seams.start);
