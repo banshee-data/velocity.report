@@ -1,0 +1,1 @@
+- Baked the surveyed [Hillcrest entrance through the East Span merge](../../ui/sf-road-route-audit.md#hillcrest-lane-to-the-east-span) and verified that the mapped lane stays grounded in Chrome.

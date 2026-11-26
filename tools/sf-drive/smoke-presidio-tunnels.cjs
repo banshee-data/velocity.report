@@ -3024,20 +3024,21 @@ cases["island-east-lower-mainline"] = {
   allowedCovered: ["yerba-buena-lower-east-after-entry"],
   maxDurationMs: 115_000,
 };
+const hillcrestEntry = "yerba-buena-east-eastbound-on-ramp";
+const hillcrestMerge = "bay-bridge-east-span-eastbound";
 cases["island-east-eastbound-entry"] = {
   owners: lowerEastOwners,
-  roads: [
-    "yerba-buena-east-eastbound-on-ramp",
-    "yerba-buena-lower-east-after-entry",
-  ],
-  groundApproachMetres: 7,
+  roads: [hillcrestEntry, hillcrestMerge],
+  groundApproachMetres: 10,
   speed: 10,
-  speedLimits: { "yerba-buena-lower-east-after-entry": 17 },
+  speedLimits: { [hillcrestMerge]: 17 },
   finishOnDeck: true,
-  finishDistance: 70,
-  covered: [prefix + "yerba-buena-east-eastbound-on-ramp"],
-  allowedCovered: ["yerba-buena-lower-east-after-entry"],
-  maxDurationMs: 75_000,
+  finishDistance: 45,
+  cameraStations: [
+    { x: 6783.7, y: 5747.4, surface: hillcrestEntry, camera: "exterior" },
+  ],
+  maxAirborneMetres: 0,
+  maxDurationMs: 90_000,
 };
 cases["island-east-roundtrip"] = {
   ...cases["island-east-eastbound-exit"],

@@ -6151,3 +6151,36 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   hester-third-street-northbound-approach bayshore-hester-frontage-to-third \
   hester-exit-to-frontage
 ```
+
+## Hillcrest lane to the East Span
+
+**World and Data.** The mapped eastbound lane continues east of the
+previous early merge. Its centre was roughly 14 m from the baked
+contact near the east shore. The keyboard drive on the published
+parent missed the ramp surface, travelled 27.8 m in the air and
+crashed below the deck. The revised bake follows the lane for
+301.0 m from Hillcrest to the shared East Span seam. The separate
+lower through lanes keep their existing contact and geometry.
+[SFCTA Southgate interchange project](https://www.sfcta.org/projects/yerba-buena-island-i-80-southgate-road-and-interchange-project).
+
+**Physics and UI.** The April 2023 survey supports 179 stations with a
+0.7 cm p95 difference between fitted and median pavement heights.
+The mapped Chrome drive reached the East Span without airborne
+travel, dips, or scrapes. The named entrance also reached the deck
+and showed the exterior view on the open span. Separate keyboard
+runs confirmed the lower tunnel through route and the eastbound exit
+to Macalla. The legacy direct off/on replay still needs a route
+through the current Southgate street connection.
+
+- Parent manifest SHA-256 `e8c27244800e8aab5da9e737588f5a53b3923b4f78436cf2aba14865133688fb`.
+- Updated manifest SHA-256 `77c30b57181be2b447464609c630c366b87f5b02b0a60efb3828cbc2e9d3ec74`.
+- Contact SHA-256 `52f12c2afce5f7be5907bda0e2e4b277495eb8698b6827584c2064907e323581`.
+- Fitted profile SHA-256 `33cde74d95330ab3f0c25d4eb26915d4debcb912d785a7cdbed18fd0eb2f869d`.
+
+The attached `city-structure-inventory-20261126/hillcrest-on-ramp-fit-20261126-b23`
+run retains the 161 survey nodes, map extract and keyboard traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-east-eastbound-entry island-east-lower-mainline island-east-eastbound-exit-to-macalla
+```

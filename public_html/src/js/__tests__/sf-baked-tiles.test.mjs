@@ -53,7 +53,9 @@ test("the Yerba Buena bake records its surveyed tree clearance and keeps the roa
   assert.equal(receipt.removed, 30);
   const landing = manifest.provenance.oakland_touchdown_survey;
   assert.equal(receipt.sha256, landing.previousIslandTileSha256);
-  assert.equal(landing.islandTileSha256, digest(raw));
+  const hillcrest = manifest.roadBake.hillcrestEastSpanSurvey.tiles[token];
+  assert.equal(landing.islandTileSha256, hillcrest.parentSha256);
+  assert.equal(hillcrest.sha256, digest(raw));
   assert.equal(route.manifestSha256, digest(manifestBytes));
   assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
   assert.ok(
@@ -2111,48 +2113,63 @@ test("the lower island exit stays below the upper bore and reaches the island st
   }
 });
 
-test("Hillcrest joins the lower east bridge deck through the same seam as the mainline", () => {
-  const tile = JSON.parse(gunzipSync(file("tiles/80858024.json.gz")));
+test("Hillcrest stays in its own surveyed lane to the East Span merge", () => {
+  const token = "80858024";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const receipt = roadBake.hillcrestEastSpanSurvey.tiles[token];
+  assert.equal(receipt.sha256, digest(raw));
   const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
   const entry = roads.get("sf-contact/yerba-buena-east-eastbound-on-ramp");
-  const mainline = roads.get("yerba-buena-lower-east-approach");
-  const deck = roads.get("yerba-buena-lower-east-after-entry");
-  const upper = buildBakedRoadContact(
-    roads.get("yerba-buena-east-approach"),
-  ).surface;
-  for (const road of [entry, mainline]) {
-    assert.deepEqual(road.points.at(-1), deck.points[0]);
-    assert.deepEqual(road.seams.end, deck.seams.start);
+  const lower = roads.get("yerba-buena-lower-east-after-entry");
+  const span = roads.get("sf-contact/bay-bridge-east-span-eastbound");
+  for (const road of [entry, lower]) {
+    assert.deepEqual(road.points.at(-1), span.points[0]);
+    assert.deepEqual(road.seams.end, span.seams.start);
     assert.ok(
       roadBake.playableTransitions.some(
         (edge) =>
           edge.from === `${road.id}:end` &&
-          edge.to === `${deck.id}:start` &&
+          edge.to === `${span.id}:start` &&
           edge.direction === "forward",
       ),
     );
   }
+
   const { surface, portals } = buildBakedRoadContact(entry);
   assert.equal(portals.length, 1);
   const [{ x, y, z }] = portals;
   assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.005);
-  const [start, end] = surface.coveredRange;
-  const under = surface.profile.filter(
-    ({ s_m }) => s_m > start + 5 && s_m < end - 5,
-  );
-  assert.ok(under.length > 12);
-  for (const {
-    position: [x, y, z],
-  } of under) {
-    assert.ok(upper.heightAt(x, y) - z > 7);
+  const witnesses = [
+    [6754.1, 5707.1, 51.4],
+    [6783.7, 5747.4, 51.9],
+    [6837.3, 5819.7, 52.5],
+  ];
+  const lowerContact = buildBakedRoadContact(lower).surface;
+  for (const [x, y, z] of witnesses) {
+    assert.ok(Math.abs(surface.heightAt(x, y) - z) < 0.3);
+    assert.equal(lowerContact.heightAt(x, y), null);
+    assert.ok(z - groundAtWorld([tile], x, y, true) > 8);
   }
+
+  const scenery = [buildCollisionIndex(tile, token)];
   for (const [i, { position, s_m }] of surface.profile.slice(1).entries()) {
     const previous = surface.profile[i];
-    assert.ok(
-      Math.abs(position[2] - previous.position[2]) / (s_m - previous.s_m) <
-        0.06,
+    const [x, y, z] = position;
+    const heading = Math.atan2(
+      y - previous.position[1],
+      x - previous.position[0],
     );
+    assert.ok(Math.abs(z - previous.position[2]) / (s_m - previous.s_m) < 0.04);
+    for (const lane of [-1.4, 0, 1.4]) {
+      const car = {
+        x: x - lane * Math.sin(heading),
+        y: y + lane * Math.cos(heading),
+        heading,
+      };
+      assert.equal(collisionAt(scenery, car, z), null, `Hillcrest ${s_m} m`);
+    }
   }
 });
 
