@@ -2392,6 +2392,15 @@ for (const direction of ["northbound", "southbound"]) {
   };
 }
 
+cases["west-alemany-viaduct"] = {
+  roads: ["alemany-west-viaduct"],
+  owners: ["808f7c4c"],
+  speed: 11,
+  groundApproachMetres: 14,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+};
+
 const southernUs101Owners = [
   "808f7e54",
   "808f7ee4",
