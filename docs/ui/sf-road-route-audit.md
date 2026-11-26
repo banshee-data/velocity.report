@@ -5239,3 +5239,56 @@ evidence volume retains the B23 survey nodes and replay measurements.
 node tools/sf-drive/export-oakdale-dunshee-crossings.mjs > /tmp/sf-oakdale-turns.ndjson
 SF_BASE_URL=https://velocity.report node tools/sf-drive/drive-road-audit.cjs /tmp/sf-oakdale-turns.ndjson --verify
 ```
+
+### Off-centre ramp lanes at Geneva, Bosworth and Hester
+
+**World, Physics and Data.** The road contact audit drove 471 allowed
+directions at each of two 0.75 m offsets. Six completed drives scraped
+inferred trunks. This bake clears three rows where April 2023 survey
+returns show pavement, upper surfaces and an empty vehicle-height band.
+The review windows extend 1.35 m from the Geneva and Bosworth entrance
+rows and 0.80 m from the Hester collector row. A return within 0.25 m
+of the game contact counts towards pavement support. The vehicle-height
+band is 0.35–2.20 m above that contact.
+[USGS survey metadata](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+| Lane                                  | Pavement returns | Returns at vehicle height | Scrape ticks before | Scrape ticks after |
+| ------------------------------------- | ---------------: | ------------------------: | ------------------: | -----------------: |
+| I-280 northbound entrance at Geneva   |               27 |                         0 |                  34 |                  0 |
+| I-280 southbound entrance at Bosworth |               24 |                         0 |                   9 |                  0 |
+| US 101 southbound collector at Hester |               53 |                         0 |                   1 |                  0 |
+
+Chrome reproduced the Geneva scrape on the parent bake. The updated
+keyboard drives finished at all three sites with zero sampled airborne
+travel and zero scrapes. At Geneva and Bosworth the browser stayed at
+the lower road level with the covered view. The fixed-step runs are
+the paired before-and-after measurement for Bosworth and Hester.
+
+The remaining three offset scrapes still completed their traversals.
+The Bosworth merge has returns in the vehicle-height band. The exact
+review windows at Monterey and Tingley lack observed lower pavement.
+These survey limits leave the three game rows in place. The isolated
+right-offset start at the Dogpatch north fork still lacks tyre support.
+A continuous Chrome drive enters the fork from the preceding I-280
+off-ramp and reaches Pennsylvania Avenue grounded.
+
+All 471 centred traversals, 340 directed joins and 515 ground handoffs
+cleared their existing checks. All 20 fixed-step pickup routes finished
+over 44.94 km with zero dips deeper than 0.5 m. The survey and replays
+describe these game paths and their sampled windows.
+
+- Previous game manifest SHA-256 `fceac8a2056623b6109829afaa17b84b490e2c6bb061b3c4f47f0a2af7013880`.
+- Updated game manifest SHA-256 `014be98202fa8dbd5020b4446cb9fac9cd7270392aa03f2996739a7725e2463b`.
+- B23 survey receipts SHA-256 `3b40bc6e767506b2231d844397344684890561327979383f3269fb9eeec68722`.
+- Twenty-course plan SHA-256 `1024db48c0d296a6de78744f6bd31b75224ddf7f688d676e8e33538581bcda8c`.
+
+The `highway-lane-edge-evidence-20261125` run retains the survey nodes
+and replay evidence on the attached evidence volume.
+
+```sh
+node tools/sf-drive/audit-baked-road-contact.mjs --span-lane=-0.75
+node tools/sf-drive/audit-baked-road-contact.mjs --span-lane=0.75
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-north-geneva-entry-offset-lane bosworth-southbound-entry-offset-lane \
+  us101-south-hester-entrance-collector-offset-lane
+```

@@ -166,6 +166,33 @@ test("the northbound Embarcadero right lane clears both inferred volumes", () =>
   assert.ok(adjacentObstructions >= 6);
 });
 
+test("reviewed offset lanes clear the inferred trunks on the three ramps", () => {
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const review = manifest.roadBake.treeClassification.additionalReviews.find(
+    ({ classificationSha256 }) =>
+      classificationSha256 ===
+      "2ddfa4f406782f4a10df5693508952f2b8ec84de849b9b423664aadc562942c6",
+  );
+  assert.ok(review);
+  for (const [token, row, [x, y, z, heading]] of [
+    ["808f7c2c", [4329, 4204], [-659.634, -4123.431, 64.917, 1.318]],
+    ["808f7e64", [-3451, -3058], [560.155, -3018.053, 50.275, -2.359]],
+    ["808f7f24", [-3572, 1222], [3544.39, -4604.596, 39.249, -1.469]],
+  ]) {
+    const raw = file(`tiles/${token}.json.gz`);
+    const tile = JSON.parse(gunzipSync(raw));
+    assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
+    assert.ok(
+      !tile.tr.some(([tx, ty]) => tx === row[0] && ty === row[1]),
+      token,
+    );
+    const index = buildCollisionIndex(tile, token);
+    assert.equal(collisionAt([index], { x, y, heading }, z), null, token);
+  }
+  const bosworth = JSON.parse(gunzipSync(file("tiles/808f7e7c.json.gz")));
+  assert.ok(bosworth.tr.some(([x, y]) => x === 4369 && y === -638));
+});
+
 test("local bridges carry the car above the ground grid and meet street pavement", () => {
   const specifications = [
     ["8085876c", "crossover-drive-over-jfk", [-3462, 1194.7], 6],
