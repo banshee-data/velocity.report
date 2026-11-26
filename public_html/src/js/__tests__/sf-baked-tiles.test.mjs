@@ -70,7 +70,9 @@ test("the Fourth Street merge clears the capped face above its lower volume", ()
   const manifest = JSON.parse(file("tiles/manifest.json"));
   const raw = file(`tiles/${token}.json.gz`);
   const tile = JSON.parse(gunzipSync(raw));
-  const review = manifest.roadBake.buildingClearanceReviews.at(-1).tiles[token];
+  const review = manifest.roadBake.buildingClearanceReviews.findLast(
+    ({ tiles }) => tiles[token],
+  ).tiles[token];
   assert.equal(review.sha256, digest(raw));
 
   const index = buildCollisionIndex(tile, token);
@@ -83,9 +85,11 @@ test("both Moscone spans leave Howard Street open below their overhead volumes",
   const token = "80858084";
   const raw = file(`tiles/${token}.json.gz`);
   const manifest = JSON.parse(file("tiles/manifest.json"));
-  const receipts = manifest.roadBake.buildingClearanceReviews;
-  const howard = receipts.at(-1).tiles[token];
-  assert.equal(howard.parentSha256, receipts.at(-2).tiles[token].sha256);
+  const receipts = manifest.roadBake.buildingClearanceReviews
+    .map(({ tiles }) => tiles[token])
+    .filter(Boolean);
+  const howard = receipts.at(-1);
+  assert.equal(howard.parentSha256, receipts.at(-2).sha256);
   assert.equal(howard.sha256, digest(raw));
 
   const tile = JSON.parse(gunzipSync(raw));
@@ -98,6 +102,33 @@ test("both Moscone spans leave Howard Street open below their overhead volumes",
     assert.equal(collisionAt([index], car, 9.6), null);
     assert.equal(collisionAt([index], car, base), "building");
   }
+});
+
+test("The Embarcadero has street clearance beneath the retained Bay Bridge volume", () => {
+  const token = "80858074";
+  const raw = file(`tiles/${token}.json.gz`);
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const review = manifest.roadBake.buildingClearanceReviews.findLast(
+    ({ tiles }) => tiles[token],
+  );
+  assert.equal(review.tiles[token].sha256, digest(raw));
+
+  const tile = JSON.parse(gunzipSync(raw));
+  const obstacles = [buildCollisionIndex(tile, token)];
+  for (const [x, y] of [
+    [4563.4, 3185.567],
+    [4567.975, 3161.65],
+    [4569.225, 3156],
+  ]) {
+    const car = { x, y, heading: -1.375 };
+    const ground = groundAtWorld([tile], x, y, true);
+    assert.ok(ground >= 3.2 && ground <= 3.5);
+    assert.equal(collisionAt(obstacles, car, ground), null);
+    assert.equal(collisionAt(obstacles, car, 36.3), "building");
+  }
+  const besideLane = { x: 4569.4, y: 3186.5, heading: -1.375 };
+  const ground = groundAtWorld([tile], besideLane.x, besideLane.y, true);
+  assert.equal(collisionAt(obstacles, besideLane, ground), "building");
 });
 
 test("local bridges carry the car above the ground grid and meet street pavement", () => {

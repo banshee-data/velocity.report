@@ -1,0 +1,1 @@
+- Cleared the simulated southbound lane beneath the Bay Bridge at The Embarcadero with a survey-backed scenery correction. The full waterfront pickup run finished grounded in Chrome. [Road route audit](../../ui/sf-road-route-audit.md#direct-embarcadero-passage)
