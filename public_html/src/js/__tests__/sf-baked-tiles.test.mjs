@@ -3272,8 +3272,41 @@ test("the Broadway portal lanes clear inferred trunks at their supported road le
   }
   assert.deepEqual(
     owners.map((token) => roadBake.inferredTreePatches[token]),
-    [4, 1],
+    [4, 2],
   );
+});
+
+test("the surveyed ground approaches retain pavement through the ramp and tunnel entries", () => {
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const review = manifest.roadBake.treeClassification.additionalReviews.find(
+    ({ classificationSha256 }) =>
+      classificationSha256 ===
+      "ef159a1631e2bb2217c51ed9c0eddbbc87a195017582beb9967ef08b5323c6e7",
+  );
+  assert.ok(review);
+  for (const [token, row, [x, y, z, heading]] of [
+    [
+      "808580f4",
+      [-3334, -2679],
+      [2566.646533, 4140.084305, 39.350755, -2.915933],
+    ],
+    [
+      "808f7c3c",
+      [2890, 4607],
+      [-1799.651503, -5528.700417, 89.519388, 1.945773],
+    ],
+    ["808f7e2c", [-2501, -844], [2650.740653, 1152.678111, 5.3, -0.211633]],
+  ]) {
+    const tile = JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`)));
+    assert.ok(
+      !tile.tr.some(([tx, ty]) => tx === row[0] && ty === row[1]),
+      token,
+    );
+    const index = buildCollisionIndex(tile, token);
+    assert.equal(collisionAt([index], { x, y, heading }, z), null, token);
+  }
+  const dogpatch = JSON.parse(gunzipSync(file("tiles/808f7fb4.json.gz")));
+  assert.ok(dogpatch.tr.some(([x, y]) => x === 2662 && y === -3926));
 });
 
 test("Presidio's four bores turn into continuous contact at their portals", () => {

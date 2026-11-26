@@ -1047,6 +1047,19 @@ for (const direction of ["north", "south"]) {
     laneGuides: { "i280-south-beyond-dogpatch": dogpatchClearance },
   };
 }
+cases["dogpatch-pennsylvania-to-i280"] = {
+  ...cases["i280-dogpatch-enter-north"],
+  finishDistance: 90,
+  groundApproachMetres: 0,
+  groundArrival: [
+    [4174.2, -850],
+    [4175.8, -882],
+    [4174.8, -891.1],
+  ],
+  groundedHandoff: true,
+  expectNoScrapes: true,
+  maxDurationMs: 85_000,
+};
 for (const reverse of [false, true]) {
   cases[reverse ? "alemany-eastbound" : "alemany-westbound"] = {
     roads: ["alemany-i280-overpass"],
@@ -4155,6 +4168,39 @@ for (const [name, road, reverse, groundDeparture, speed, covered] of [
     maxDurationMs: 55000,
   };
 }
+for (const [name, road, owners, exitCamera] of [
+  [
+    "broadway-west-ground-approach",
+    "broadway-westbound",
+    ["808580f4", "808580ec"],
+    "tunnel",
+  ],
+  [
+    "western-alemany-ground-approach",
+    "western-alemany-westbound-under-i280",
+    ["808f7c3c"],
+    "covered",
+  ],
+  [
+    "tenth-bryant-ground-approach",
+    tenthBryant,
+    ["808f7e2c", "80858084", "808f7e34"],
+    "exterior",
+  ],
+]) {
+  cases[name] = {
+    roads: [road],
+    owners,
+    groundApproachMetres: road === tenthBryant ? 16 : 18,
+    finishOnDeck: true,
+    finishDistance: 60,
+    speed: 8,
+    exitCamera,
+    expectNoScrapes: true,
+    maxDurationMs: 45_000,
+  };
+}
+
 for (const [name, road, start, finish, under] of [
   ["saint-charles-i280-northbound", "i280-north-edge-to-sr82", 111, 222, true],
   ["saint-charles-i280-southbound", "i280-south-sr82-to-edge", 420, 530, true],
@@ -5048,6 +5094,7 @@ async function main() {
             +initial.east - checkpoint.x,
             +initial.north - checkpoint.y,
           ) < (place || startPlace ? 24 : 1),
+          `${name} started at (${initial.east}, ${initial.north}) instead of (${checkpoint.x}, ${checkpoint.y})`,
         );
         if (place) assert.equal(initial.surfaceId, place.surfaceId);
         if (startPlace) {
