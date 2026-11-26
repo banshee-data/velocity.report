@@ -1,0 +1,1 @@
+- Verified both Dogpatch pickup routes below I-280 and through the open lane on 22nd Street. The second route raises the fixed-step city campaign to 15 of 20 completed courses. [Road route audit](../../ui/sf-road-route-audit.md#pickup-courses-on-the-published-map)

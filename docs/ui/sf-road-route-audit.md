@@ -4906,12 +4906,12 @@ The full pickup drive also cleared the junction when the keyboard guide
 set up 2.25 m inside the exit lane and braked for the turn.
 The Howard course keeps the Moscone passes on street contact and uses an
 adjacent lane to clear an inferred building about 370 m farther west.
-The Dogpatch course drives below I-280 on 23rd Street. Moving 5 m across
+Both Dogpatch courses drive below I-280 on 23rd Street. Moving 5 m across
 the 22nd Street pavement later in the route cleared a building collision
 in both the fixed-step driver and Chrome.
 
 **Goals and UI.** The fixed-step driver collected both pickups on all
-seven courses. The five courses with declared contact sequences verified their
+eight courses. The five courses with declared contact sequences verified their
 order and drove at least 20 m beyond the final contact. Grade percentages describe
 the full driven course, including local streets. A dip is a descent more than
 0.5 m below the line between samples 4 m on each side.
@@ -4919,7 +4919,8 @@ the full driven course, including local streets. A dip is a descent more than
 | Course                                    | Driven distance | Beyond final exit | p95 / peak grade | Airborne distance |
 | ----------------------------------------- | --------------: | ----------------: | ---------------: | ----------------: |
 | Howard Street under the Moscone spans     |       1,478.0 m |                 — |      6.5% / 8.8% |               0 m |
-| 23rd Street beneath I-280                 |       2,440.5 m |         1,063.2 m |    18.9% / 21.6% |               0 m |
+| Dogpatch from Watchman and Missouri       |       2,630.6 m |         1,632.4 m |    15.0% / 22.2% |               0 m |
+| Dogpatch from Texas and 17th              |       2,440.5 m |         1,063.2 m |    18.9% / 21.6% |               0 m |
 | Stockton northbound                       |       1,641.7 m |           856.1 m |    10.1% / 15.6% |            0.26 m |
 | Broadway eastbound                        |       1,546.6 m |           566.4 m |     9.6% / 19.3% |               0 m |
 | Toll Plaza eastbound                      |       1,612.5 m |           250.2 m |     8.8% / 13.8% |               0 m |
@@ -4929,20 +4930,22 @@ the full driven course, including local streets. A dip is a descent more than
 The fixed-step runs measured zero dips above 0.5 m. Browser verification
 uses manual keyboard controls, checks both pickups, checks the ordered
 contacts and final ground exit, and requires the game to enter the
-enclosed view on each of the three tunnel courses. All seven pickup courses
+enclosed view on each of the three tunnel courses. All eight pickup courses
 completed in Chrome. The full Bayview keyboard drive covered 3,290.1 m,
 stayed grounded, and travelled 474.3 m beyond the final frontage-road
 handoff. Its p95 driven grade was 11.1% and its peak was 17.2%. The original
 keyboard line ran wide at Hester and selected the northbound Bayshore
 approach. The focused Hester check covers the turn separately.
 
-With the seven courses substituted into the original 20-course set,
-14 collected both pickups. Four hit trees, one hit a building, and the
+With the eight courses substituted into the original 20-course set,
+15 collected both pickups. Four hit trees, and the
 Excelsior course stopped on the Bosworth contact near Diamond Street.
-Those results remain open in the citywide check.
+An alternate Mission Bay line cleared the first tree in the fixed-step
+driver. The Chrome drive crashed at a later street location. Those
+results remain open in the citywide check.
 
 The current plan uses the Oakland shoreline manifest above and
-has SHA-256 `b229b9de5b4a1ea38e24789069c7bce05bb979b2d090bddf44c295651426f563`.
+has SHA-256 `fb8bef34f7ee786a3a5fc4f679804dea8c366a61f142cf49df826ffcbdf359f4`.
 The published game uses the static tile bundle. These checks establish
 game traversal for the driven approaches. Covered survey gaps still use
 the documented inferred profiles. [Current contact courses](../../tools/sf-drive/road-audit-current-contact-routes.json)

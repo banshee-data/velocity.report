@@ -11,6 +11,13 @@
       "laneDetours": [[3050, 2348.4, -4.75]]
     },
     {
+      "id": "dogpatch-21st",
+      "from": "🛣️",
+      "to": "🐾",
+      "via": [[4540, -80]],
+      "laneDetours": [[4802.9, -207.9, 5]]
+    },
+    {
       "id": "dogpatch-23rd",
       "from": "🚂",
       "to": "🐾",
