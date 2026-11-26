@@ -398,7 +398,9 @@ test("the Third Street deck over Islais Creek supports all four surveyed lanes",
   const raw = file(`tiles/${token}.json.gz`);
   const tile = JSON.parse(gunzipSync(raw));
   const review = roadBake.islaisThirdStreetLaneWidthSurvey;
-  assert.equal(review.tiles[token].sha256, digest(raw));
+  const dogpatch = roadBake.dogpatchNorthMergeSurvey.tiles[token];
+  assert.equal(dogpatch.parentSha256, review.tiles[token].sha256);
+  assert.equal(dogpatch.sha256, digest(raw));
   assert.equal(review.stations_per_band, 110);
 
   const road = tile.playableRoads.find(
@@ -1230,7 +1232,9 @@ test("the 18th Street entrance stays on its own deck until the measured merge", 
   assert.equal(next.parentSha256, tiles[token].sha256);
   const sixthMerge = roadBake.sixthSouthMergeSurvey.tiles[token];
   assert.equal(sixthMerge.parentSha256, next.sha256);
-  assert.equal(sixthMerge.sha256, digest(raw));
+  const dogpatch = roadBake.dogpatchNorthMergeSurvey.tiles[token];
+  assert.equal(dogpatch.parentSha256, sixthMerge.sha256);
+  assert.equal(dogpatch.sha256, digest(raw));
   assert.ok(station > 91 && station < 93);
   const road = (id) =>
     tile.playableRoads.find((row) => row.id === `sf-contact/${id}`);
@@ -1345,10 +1349,10 @@ test("the southbound Sixth Street deck joins after the separate Fifth Street app
   const tokens = ["808f7fcc", "808f7fd4"];
   const tiles = tokens.map((token) => {
     const raw = file(`tiles/${token}.json.gz`);
-    assert.equal(
-      roadBake.sixthSouthMergeSurvey.tiles[token].sha256,
-      digest(raw),
-    );
+    const sixth = roadBake.sixthSouthMergeSurvey.tiles[token];
+    const dogpatch = roadBake.dogpatchNorthMergeSurvey.tiles[token];
+    if (dogpatch) assert.equal(dogpatch.parentSha256, sixth.sha256);
+    assert.equal((dogpatch ?? sixth).sha256, digest(raw));
     return JSON.parse(gunzipSync(raw));
   });
   const road = (id, tile = tiles[0]) =>
@@ -1396,7 +1400,9 @@ test("the northbound I-280 fork carries the surveyed lane to Fifth Street", () =
   for (const [i, t] of tokens.entries()) {
     const sixthMerge = roadBake.sixthSouthMergeSurvey.tiles[t];
     assert.equal(sixthMerge.parentSha256, review.tiles[t].sha256);
-    assert.equal(sixthMerge.sha256, digest(raws[i]));
+    const dogpatch = roadBake.dogpatchNorthMergeSurvey.tiles[t];
+    if (dogpatch) assert.equal(dogpatch.parentSha256, sixthMerge.sha256);
+    assert.equal((dogpatch ?? sixthMerge).sha256, digest(raws[i]));
   }
 
   const road = (tile, name) =>
@@ -6567,4 +6573,63 @@ test("Monterey Boulevard and the Branch East exit share one upper deck into San 
       groundAtWorld(tiles, departure.x, departure.y, true) - departure.z,
     ) < 0.02,
   );
+});
+
+test("the outside Dogpatch entrance lane stays elevated across the northbound merge", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7fa4", "808f7fac", "808f7fb4", "808f7fcc"];
+  const tiles = tokens.map((token) => {
+    const raw = file(`tiles/${token}.json.gz`);
+    assert.equal(
+      roadBake.dogpatchNorthMergeSurvey.tiles[token].sha256,
+      digest(raw),
+    );
+    return JSON.parse(gunzipSync(raw));
+  });
+  const roads = new Map(
+    tiles.flatMap(({ playableRoads }) =>
+      playableRoads.map((road) => [road.id, road]),
+    ),
+  );
+  const [entry, through, merged] = [
+    "i280-dogpatch-east-north-entry",
+    "i280-north-south-dogpatch",
+    "i280-dogpatch-northbound",
+  ].map((slug) => roads.get(`sf-contact/${slug}`));
+  for (const approach of [entry, through]) {
+    assert.deepEqual(approach.points.at(-1), merged.points[0]);
+    assert.deepEqual(approach.seams.end, merged.seams.start);
+    assert.ok(
+      roadBake.playableTransitions.some(
+        ({ from, to, direction }) =>
+          from === `${approach.id}:end` &&
+          to === `${merged.id}:start` &&
+          direction === "forward",
+      ),
+    );
+  }
+  assert.deepEqual(entry.groundEnds, ["start"]);
+  assert.deepEqual(merged.groundEnds, []);
+  const ramp = buildBakedRoadContact(entry).surface;
+  const mainline = buildBakedRoadContact(merged).surface;
+  const heading = merged.seams.start.bearing;
+  const [x, y, height] = merged.points[0];
+  const travel = (station, offset) => ({
+    x: x + station * Math.cos(heading) + offset * Math.sin(heading),
+    y: y + station * Math.sin(heading) - offset * Math.cos(heading),
+    heading,
+  });
+  const car = travel(0, 9.25);
+  assert.ok(
+    roadSupportsCar(
+      (east, north) =>
+        ramp.heightAt(east, north) ?? mainline.heightAt(east, north),
+      car,
+    ),
+  );
+  assert.ok(height - groundAtWorld(tiles, car.x, car.y, true) > 6);
+  const after = travel(20, 8.25);
+  assert.ok(roadSupportsCar(mainline.heightAt, after));
+  const outside = travel(20, 16);
+  assert.equal(mainline.heightAt(outside.x, outside.y), null);
 });

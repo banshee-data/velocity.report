@@ -1,0 +1,1 @@
+- Widened the [northbound I-280 entrance at Dogpatch](../../ui/sf-road-route-audit.md#outside-entrance-lane-at-the-northbound-dogpatch-merge). The mapped lane now reaches the mainline with continuous deck contact.

@@ -6413,3 +6413,32 @@ node tools/sf-drive/replay-city-drive.mjs
 node tools/sf-drive/replay-city-drive.mjs yerba-buena-westbound
 node tools/sf-drive/replay-city-drive.mjs oakland-westbound
 ```
+
+## Outside entrance lane at the northbound Dogpatch merge
+
+**World and Data.** The baked 6 m merge ended inside the travelled lane
+shown by OpenStreetMap way `48570001`. The revised bake shares one
+15 m contact across the two northbound arrivals and carries the outside
+lane up to 12 m to the right of the centreline. All 112 surveyed edge
+probes found at least 37 class-17 pavement returns. The elevation comes
+from the existing centreline profile. The edge probes measure the pavement
+width and do not model crossfall.
+
+**Physics.** Manual Chrome driving on the mapped entrance crossed
+415 m, stayed on the deck at the merge and reached the northbound
+mainline. The previous bake dropped the car for 19.6 m of airborne travel
+and crashed. The revised run had zero airborne travel and no dips deeper
+than 0.5 m. Peak driven grade was 6.3%.
+
+- Parent game manifest SHA-256 `c4303cb692fac675c9519edc05da17c5ec09614e9ea95cd4c4a4ad3c4c9b98e3`.
+- Revised game manifest SHA-256 `376ca8ed60c84b7af3e0a3c943e97e45fda1a6d28672c451648535371cc8fd88`.
+- Revised contact SHA-256 `8f6e5d816eba3fcd88d005df28249f5125e76b337d77d932405a4fa5af744f79`.
+- Survey receipt SHA-256 `1472c9adeaf4cce6695676aa952373f15b50f374864653343e409d8c1a98f4bf`.
+
+The attached `city-structure-inventory-20261126/dogpatch-north-merge-mapped-ramp-20261126-b23`
+run retains the survey, exact tile package and paired browser traces.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  dogpatch-to-sixth-northbound dogpatch-to-fifth-northbound
+```
