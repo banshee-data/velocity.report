@@ -1,5 +1,5 @@
 {
-  "manifestSha256": "03bec60ff34964fcbfaf32f38dc51e625141be4353fe264c03833309d6d4ce67",
+  "manifestSha256": "11aa3fe204c385c329effe9a7a8844997e62fd10fb0ad415ef02997a023928e5",
   "streetMph": 23,
   "highwayMph": 40,
   "routes": [
@@ -186,6 +186,7 @@
       "from": "🛹",
       "to": "🦬",
       "groundOnly": true,
+      "laneDetours": [[-3299.2, 692.2, -2.4]],
       "contact": {
         "roads": ["sf-contact/crossover-drive-over-jfk"],
         "entry": [-3477, 1229.7, "Crossover Dr"],
@@ -214,7 +215,14 @@
       },
       "expectContactExit": true,
       "maxAirborneMetres": 0
-    }
+    },
+    { "id": "castro-mission", "from": "🏳️‍🌈", "to": "🌮" },
+    { "id": "lake-merced", "from": "🛶", "to": "🎣" },
+    { "id": "ocean-beach", "from": "🏄", "to": "🐚" },
+    { "id": "pacific-heights", "from": "🦢", "to": "🪞" },
+    { "id": "presidio-west", "from": "🪵", "to": "🚲" },
+    { "id": "sunset-avenues", "from": "🌈", "to": "🏄" },
+    { "id": "twin-peaks", "from": "📷", "to": "🗻" }
   ],
   "expectCompletion": true
 }

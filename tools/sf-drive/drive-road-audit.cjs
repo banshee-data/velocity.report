@@ -9,8 +9,10 @@ async function drive(page, course, key) {
   return page.evaluate(
     async ({ course, key }) => {
       const canvas = document.querySelector("#drive");
+      const driveNotice = document.querySelector("#driveNotice");
       const { waypoints, from, to, streetSegment, finishOnStreet } = course;
       const held = new Set();
+      const scrapes = new Set();
       const surfaces = new Set();
       const enclosed = new Set();
       const grounded = [];
@@ -23,12 +25,14 @@ async function drive(page, course, key) {
       let car;
       let distance = 0;
       let airborneMetres = 0;
+      let firstAirborne;
       let loading = 0;
       let groundExit;
       let before;
       let maxSpeed = 0;
       let collected = [];
       let status;
+      let crashNotice;
       const round = (value) => Math.round(value * 1000) / 1000;
       const press = (code, down) => {
         if (held.has(code) === down) return;
@@ -45,6 +49,8 @@ async function drive(page, course, key) {
       while (!status) {
         const now = await new Promise(requestAnimationFrame);
         const d = canvas.dataset;
+        const notice = driveNotice?.textContent;
+        if (notice?.startsWith("Scraped a ")) scrapes.add(notice);
         car = {
           x: +d.east,
           y: +d.north,
@@ -71,7 +77,10 @@ async function drive(page, course, key) {
           }
           distance += step;
           if (step > 0.005) motionTime = now;
-          if (car.contact === "airborne") airborneMetres += step;
+          if (car.contact === "airborne") {
+            airborneMetres += step;
+            firstAirborne ??= car;
+          }
           if (car.contact === "loading" || d.roadBlocked === "true")
             loading += now - before.now;
         }
@@ -88,8 +97,10 @@ async function drive(page, course, key) {
           collected.includes(to)
         )
           status = "both emoji collected";
-        else if (d.replay === "crash" || progress.crashes > 0) status = "crash";
-        else if (now - motionTime > 12000) status = "stalled";
+        else if (d.replay === "crash" || progress.crashes > 0) {
+          status = "crash";
+          crashNotice = notice;
+        } else if (now - motionTime > 12000) status = "stalled";
         else if (now - began > (lastStation / 1.5 + 75) * 1000)
           status = "timed out";
         if (status || now - inputTime < 27) continue;
@@ -184,12 +195,15 @@ async function drive(page, course, key) {
       grades.sort((a, b) => a - b);
       return {
         status,
+        ...(crashNotice && { crashNotice }),
+        scrapeNotices: [...scrapes],
         collected,
         seconds: round((performance.now() - began) / 1000),
         distance: round(distance),
         progress: waypoints[at][2],
         maxMph: round(maxSpeed * 2.236936),
         airborneMetres: round(airborneMetres),
+        ...(firstAirborne && { firstAirborne }),
         blockedSeconds: round(loading / 1000),
         afterExitMetres:
           groundExit === undefined ? null : round(distance - groundExit),

@@ -4201,6 +4201,23 @@ for (const [name, road, owners, exitCamera] of [
   };
 }
 
+cases["san-jose-tingley-ground-approach"] = {
+  roads: ["san-jose-tingley-northbound"],
+  owners: ["808f7e7c", "808f7e64"],
+  groundApproachMetres: 0,
+  groundArrival: [
+    [358.2, -3269.9],
+    [366.9, -3265.8],
+    [382.6, -3255.1],
+  ],
+  covered: ["sf-contact/san-jose-tingley-northbound"],
+  exitCamera: "covered",
+  speed: 9,
+  expectNoScrapes: true,
+  groundedHandoff: true,
+  maxAirborneMetres: 0,
+  maxDurationMs: 65_000,
+};
 for (const [name, road, start, finish, under] of [
   ["saint-charles-i280-northbound", "i280-north-edge-to-sr82", 111, 222, true],
   ["saint-charles-i280-southbound", "i280-south-sr82-to-edge", 420, 530, true],
