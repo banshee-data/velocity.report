@@ -8,7 +8,7 @@
 
 import { treeRadius } from "./sf-tree-damage.js";
 import { validBuildingFace } from "./sf-building-walls.js";
-import { GROUND_MISSING, groundDetailAt } from "./sf-drive-surface.js";
+import { GROUND_MISSING, matchingGroundDetail } from "./sf-drive-surface.js";
 
 import {
   drivingHull,
@@ -35,7 +35,7 @@ export function tilesAround(tiles, x, y, loadMargin = 900, dropMargin = 1600) {
 
 /** Ground height (m, NAVD88) at tile-local (lx, ly) metres, or null outside the grid or on a gap. */
 export function groundAt(g, lx, ly, allowGaps = true) {
-  if (groundDetailAt(g.detail, lx, ly)) g = g.detail;
+  g = matchingGroundDetail(g, lx, ly) ?? g;
   const columns = g.columns ?? g.n;
   const rows = g.rows ?? g.n;
   const fx = (lx - g.x0) / g.s;

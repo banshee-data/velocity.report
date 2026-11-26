@@ -337,6 +337,20 @@ def test_bake_extends_terrain_detail_and_preserves_the_existing_samples():
         add_detail(grid, patch, "tile-sha")
 
 
+def test_bake_can_add_fine_terrain_in_a_disjoint_part_of_a_tile():
+    detail = {"x0": 0, "y0": 0, "s": 1, "columns": 3, "rows": 3, "z": [60] * 9}
+    grid = {"x0": 0, "y0": 0, "s": 2, "n": 4, "z": [60] * 16, "detail": detail}
+    new = {**detail, "x0": 4, "z": [60, 60, 60, 60, 55, 60, 60, 60, 60]}
+    patch = {"base_tile_sha256": "tile-sha", "detail": new, "additional": True}
+    add_detail = road_layers["patch_terrain_detail"]
+    patched = add_detail(grid, patch, "tile-sha")
+    assert patched == {**grid, "details": [new]}
+    with pytest.raises(ValueError, match="must be disjoint"):
+        add_detail(patched, patch, "tile-sha")
+    with pytest.raises(ValueError, match="must be disjoint"):
+        add_detail(grid, {**patch, "detail": detail}, "tile-sha")
+
+
 def test_tunnel_wall_openings_are_ordered_and_confined_to_the_interior():
     valid = road_layers["valid_tunnel_wall_openings"]
     tunnel = {"kind": "tunnel", "interior_range_m": [1, 60]}

@@ -292,9 +292,23 @@ test("San Jose Avenue is clear from the southbound approach into the Tingley und
     digest(raw),
   );
   const scenery = JSON.parse(gunzipSync(raw));
-  const approach = JSON.parse(gunzipSync(file("tiles/808f7e7c.json.gz")));
+  const approachBytes = file("tiles/808f7e7c.json.gz");
+  const approach = JSON.parse(gunzipSync(approachBytes));
+  const review = manifest.roadBake.terrainDetailReviews.findLast(
+    ({ tile }) => tile === approach.t,
+  );
+  assert.equal(review.sha256, digest(approachBytes));
+  assert.equal(approach.g.detail.s, 1);
+  assert.equal(approach.g.details[0].s, 1);
   const tiles = [scenery, approach];
   const indexes = tiles.map((tile) => buildCollisionIndex(tile, tile.t));
+  for (const [x, y, measured] of [
+    [462.9301, -3110.0556, 46.16],
+    [459.1922, -3113.3765, 45.9],
+    [455.4544, -3116.6975, 45.65],
+  ]) {
+    assert.ok(Math.abs(groundAtWorld(tiles, x, y, false) - measured) < 0.2);
+  }
   for (const [x, y] of [
     [450.358, -3119.004],
     [448.585, -3121.154],

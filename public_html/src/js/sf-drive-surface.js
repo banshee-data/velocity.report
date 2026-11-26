@@ -18,6 +18,11 @@ export function groundDetailAt(detail, x, y) {
   );
 }
 
+export function matchingGroundDetail(grid, x, y) {
+  if (groundDetailAt(grid.detail, x, y)) return grid.detail;
+  return grid.details?.find((detail) => groundDetailAt(detail, x, y));
+}
+
 function groundQuad(grid, columns, x, y, i, j) {
   const k = j * columns + i;
   const { s, z } = grid;
@@ -34,8 +39,8 @@ function groundQuad(grid, columns, x, y, i, j) {
 export function* groundQuads(grid, origin, i, j) {
   const x = grid.x0 + i * grid.s;
   const y = grid.y0 + j * grid.s;
-  const { detail } = grid;
-  if (!groundDetailAt(detail, x, y)) {
+  const detail = matchingGroundDetail(grid, x, y);
+  if (!detail) {
     const quad = groundQuad(grid, grid.n, origin[0] + x, origin[1] + y, i, j);
     if (quad) yield quad;
     return;
