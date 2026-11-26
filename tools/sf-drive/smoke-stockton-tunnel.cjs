@@ -94,8 +94,8 @@ async function main() {
           }
           if (sample.surface === road.id) {
             entry ||= sample;
-            assert.equal(sample.camera, "tunnel");
             if (!interior && Math.abs(sample.y - 3500) < 12) {
+              assert.equal(sample.camera, "tunnel");
               interior = sample;
               if (process.env.SF_TUNNEL_SCREENSHOT && label === "Northbound")
                 await page.screenshot({
@@ -113,6 +113,7 @@ async function main() {
           entry && interior && exit,
           JSON.stringify({ entry, interior, exit }),
         );
+        assert.equal(entry.camera, "exterior");
         assert.equal(exit.camera, "exterior");
         assert.ok(
           Math.abs(exit.altitude - (label === "Northbound" ? 42.2 : 28.2)) <
