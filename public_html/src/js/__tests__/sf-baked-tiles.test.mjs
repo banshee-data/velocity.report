@@ -50,6 +50,15 @@ function assertRampWidthReceipt(roadBake, token, previous, raw) {
   assert.equal(review?.sha256 ?? previous, digest(raw));
 }
 
+function assertSouthgateReview(roadBake, token, raw) {
+  const review = roadBake.southgateLegacyRoadReview.tiles[token];
+  assert.equal(
+    review.parentSha256,
+    roadBake.ybiUpperWestSurvey.tiles[token].sha256,
+  );
+  assert.equal(review.sha256, digest(raw));
+}
+
 test("the Yerba Buena bake records its surveyed tree clearance and keeps the road network", () => {
   const manifestBytes = file("tiles/manifest.json");
   const manifest = JSON.parse(manifestBytes);
@@ -66,7 +75,7 @@ test("the Yerba Buena bake records its surveyed tree clearance and keeps the roa
   assert.equal(landing.islandTileSha256, hillcrest.parentSha256);
   const westbound = manifest.roadBake.ybiUpperWestSurvey.tiles[token];
   assert.equal(westbound.parentSha256, hillcrest.sha256);
-  assert.equal(westbound.sha256, digest(raw));
+  assertSouthgateReview(manifest.roadBake, token, raw);
   assert.equal(route.manifestSha256, digest(manifestBytes));
   assert.equal(manifest.tiles.find(({ t }) => t === token).bytes, raw.length);
   assert.ok(
@@ -77,6 +86,34 @@ test("the Yerba Buena bake records its surveyed tree clearance and keeps the roa
   assert.ok(!tile.tr.some(([x, y]) => x === -1623 && y === -3934));
   // This nearby row retained returns within the vehicle-height band.
   assert.ok(tile.tr.some(([x, y, h]) => x === 1497 && y === 1206 && h === 73));
+});
+
+test("South Gate keeps the distinct street branch and retires the obsolete painted connection", () => {
+  const token = "80858024";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  assertSouthgateReview(roadBake, token, raw);
+  const review = roadBake.southgateLegacyRoadReview.tiles[token];
+  assert.equal(roadBake.coveredGroundRoadPatches[token], 1);
+  assert.equal(
+    review.rowSha256,
+    "cc2bd7a6633ae9e8010ef7af3b4ca96693ff52b7446126bfb9cb2ecfe7f4c4cd",
+  );
+
+  const streets = tile.r.filter(([name]) => tile.n[name] === "South Gate Rd");
+  assert.equal(streets.length, 1);
+  assert.equal(
+    digest(JSON.stringify(streets[0]) + "\n"),
+    "06a097f958b7331a5ad2d5a4e138fafb0b4b48dcd3b0bcc04969881f3af6da89",
+  );
+  for (const id of [
+    "sf-contact/yerba-buena-eastbound-exit-to-southgate",
+    "sf-contact/yerba-buena-southgate-to-macalla-shared",
+    "sf-contact/yerba-buena-east-eastbound-on-ramp",
+  ]) {
+    assert.ok(tile.playableRoads.some((road) => road.id === id));
+  }
 });
 
 test("the Fourth Street merge clears the capped face above its lower volume", () => {
@@ -2423,7 +2460,7 @@ test("the upper westbound Yerba Buena deck reaches Macalla on surveyed pavement"
   const raw = file(`tiles/${token}.json.gz`);
   const tile = JSON.parse(gunzipSync(raw));
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
-  assert.equal(roadBake.ybiUpperWestSurvey.tiles[token].sha256, digest(raw));
+  assertSouthgateReview(roadBake, token, raw);
   const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
   const early = roads.get("sf-contact/yerba-buena-upper-east-through");
   const late = roads.get("yerba-buena-east-approach");
@@ -2472,7 +2509,7 @@ test("Hillcrest stays in its own surveyed lane to the East Span merge", () => {
   const receipt = roadBake.hillcrestEastSpanSurvey.tiles[token];
   const westbound = roadBake.ybiUpperWestSurvey.tiles[token];
   assert.equal(westbound.parentSha256, receipt.sha256);
-  assert.equal(westbound.sha256, digest(raw));
+  assertSouthgateReview(roadBake, token, raw);
   const roads = new Map(tile.playableRoads.map((road) => [road.id, road]));
   const entry = roads.get("sf-contact/yerba-buena-east-eastbound-on-ramp");
   const lower = roads.get("yerba-buena-lower-east-after-entry");

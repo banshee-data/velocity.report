@@ -6684,3 +6684,35 @@ node tools/sf-drive/drive-road-audit.cjs /tmp/sf-brotherhood-courses.ndjson --ve
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   junipero-serra-brotherhood-northbound junipero-serra-brotherhood-southbound
 ```
+
+## Retired South Gate Road ground trace
+
+**World, UI and Data.** The game painted an obsolete 137.5 m
+street record across the redesigned Yerba Buena interchange.
+At adjacent stations 8 and 9 m, the surveyed median ground
+heights are 50.48 and 46.99 m NAVD88. At station 76 m, the same
+horizontal window sees the lower road at 44.65 m and a separate
+deck at 50.86 m. The 0.82 m windows use 57 original EPT nodes.
+The latest traffic layout uses the separately baked connections.
+[SFCTA Southgate interchange project](https://www.sfcta.org/projects/yerba-buena-island-i-80-southgate-road-and-interchange-project).
+[USGS survey provenance](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+**Physics.** Chrome followed the old painted trace toward
+Hillcrest for 127 m and recorded 9.2 m of airborne travel and
+three dips. In the other direction it recorded 6.6 m airborne
+and four dips. The game now drops the single obsolete ground
+row in tile `80858024` and retains the adjacent street record,
+the terrain, and every baked road contact and directed join.
+The lower feeder to Macalla and the upper connections at
+Hillcrest and Macalla use their existing surveyed surfaces.
+
+- Parent manifest SHA-256 `03e1d2298ec08bdb7573dd4249f2280ac2f55bc2f40cb11dd7a762a8c235d3bd`.
+- Survey receipt SHA-256 `676c3cb640ad0e4da6c3d9b33ee6992de2813cd44c07c914ce50c58f3dbe6172`.
+- Contact export SHA-256 `b58e8015bd50a38f733d7b0f2a74fa6b6f2d029d4150ca7f33a7b1acfcf0ffc2`.
+- Updated manifest SHA-256 `9875075f0c956d18fb34ede6218e8b005ed95b21ad0a9dc18eb8906a362aa66e`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-east-southgate-offset island-east-eastbound-entry \
+  macalla-westbound-roundtrip island-east-roundtrip
+```

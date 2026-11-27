@@ -1,0 +1,1 @@
+- Retired the [obsolete South Gate Road trace](../../ui/sf-road-route-audit.md#retired-south-gate-road-ground-trace) across separate road levels at Yerba Buena Island. The surveyed ramp contacts and adjacent street record carry through the correction.
