@@ -1310,6 +1310,10 @@ encounters; the report's provisional slice and field promotion are not.
   status that is `provisional` or `synthetic_oracle` and never promoted, and is tested free of
   verdict words.
 
+The [mixed-rate report validation](../lidar/operations/headway-mixed-rate-validation.md)
+checks the two time denominators, and records the source identity and interval policy still
+needed to compose wider-period reports without double-counting.
+
 ## 11. Evaluation datasets
 
 The implemented `ScoreHeldOut` harness (`following_heldout_scoring_v2`) pins its bounds and its

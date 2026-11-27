@@ -1,0 +1,1 @@
+- Validated mixed-cadence [following-exposure accounting](../../lidar/operations/headway-mixed-rate-validation.md), distinguished supported-time and accounted-time shares, and documented the duplicate-source gap before wider-period reporting.
