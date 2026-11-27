@@ -3369,6 +3369,31 @@ cases["oakland-to-east-span"] = {
   expectNoScrapes: true,
   maxDurationMs: 235_000,
 };
+// Both outer lanes pass the observation deck on each separate carriageway.
+for (const [direction, road, start, finish] of [
+  ["eastbound", eastSpanEastbound, 217, 536],
+  ["westbound", eastSpanWestbound, 366, 686],
+]) {
+  for (const [side, lane] of [
+    ["left", 7.2],
+    ["right", -7.2],
+  ]) {
+    cases[`east-span-observation-${direction}-${side}`] = {
+      owners: ["80858024", "80857f8c"],
+      roads: [road],
+      speed: 19,
+      rollingStart: true,
+      rollingStartMetres: start,
+      initialSpeedMps: 0,
+      finishOnDeck: true,
+      finishDistance: finish,
+      laneGuides: { [road]: { lane } },
+      maxAirborneMetres: 0,
+      expectNoScrapes: true,
+      maxDurationMs: 55_000,
+    };
+  }
+}
 const eastSpan = "yerba-buena-upper-east-span";
 const westExit = "yerba-buena-east-westbound-off-ramp";
 const eastThrough = "yerba-buena-upper-east-through";
