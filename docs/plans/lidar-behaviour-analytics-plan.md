@@ -1384,6 +1384,9 @@ Development and emission are gated differently, per 2.1.
 
 ### Phase 6A: single-track kinematics
 
+External-reference preparation: the [Madrid v2 smoke test](../research/2026-11-27-madrid-kinematics-smoke.md)
+compares position-derived and CAN speed on one drive; it does not satisfy physical validation.
+
 **Goal.** Passage-level speed, acceleration, braking, curvature,
 and stop behaviour that needs no map.
 

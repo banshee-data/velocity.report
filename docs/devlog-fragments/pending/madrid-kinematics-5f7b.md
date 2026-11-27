@@ -1,0 +1,1 @@
+- Ran a checksummed Madrid v2 driving session through an offline GNSS/CAN kinematics smoke test and [documented the clock and speed discrepancies](../../research/2026-11-27-madrid-kinematics-smoke.md) without qualifying the archive as physical ground truth.
