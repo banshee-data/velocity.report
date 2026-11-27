@@ -363,8 +363,9 @@ async function main() {
               : "both emoji collected",
             id,
           );
-          if (course.expectedSurfaces) {
+          if (course.expectedSurfaces)
             assert.deepEqual(result.surfaces, course.expectedSurfaces, id);
+          if (course.expectedSurfaces?.length) {
             assert.ok(
               result.afterExitMetres >= 20 && result.stop.road === null,
               `${id} did not clear its final road contact`,

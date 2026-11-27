@@ -6637,3 +6637,50 @@ below the 18 cm airtime display threshold. The three rows need survey
 review before any release change to the vegetation.
 
 - Diagnostic manifest SHA-256 `4892f9c4766c3e43f60d282862c89888c7a8ce646a4e01e77f432a08e415f417`.
+
+## Surveyed clearance beneath Junipero Serra Boulevard
+
+**World and Data.** The original USGS point cloud covers the three
+Brotherhood Way footprints from the earlier crash trial. The review
+streamed 19 EPT nodes directly from the survey source. It used
+non-withheld returns within 0.7 m horizontally and counted classes 1,
+2 and 17 within 0.22 m of the lower road height. The vehicle-height
+band ran from 0.25 m to 2 m above the game terrain.
+[USGS San Francisco lidar survey](https://www.fisheries.noaa.gov/inport/item/73386).
+
+| Tree row | Lower road returns | Median road NAVD88 | Vehicle-height returns | Median overhead NAVD88 |
+| -------: | -----------------: | -----------------: | ---------------------: | ---------------------: |
+|     1346 |                 79 |            52.38 m |                      0 |                59.75 m |
+|     1380 |                 97 |            52.37 m |                      0 |                59.57 m |
+|     1487 |                 43 |            53.13 m |                      0 |                58.65 m |
+
+The pinned street-tree inventory placed the nearest recorded tree
+20.7 m from the closest footprint. The upper returns included no
+vegetation classes within the review radius. The three tree rows
+have lower road observations and clear vehicle bands. The rebake
+removes those rows from tile `808f7c4c` and preserves its remaining
+vegetation, road geometry, and directed joins.
+
+**Physics.** Chrome completed both lower-road trials. Each ended
+grounded on Brotherhood Way at street level. The westbound run
+registered a brief crest at the same location as the earlier
+diagnostic. Both Junipero Serra runs used their intended upper
+decks and reached adjoining pavement with zero airborne travel.
+The static audit passed 487 directed traversals and 350 directed
+joins.
+
+- Parent manifest SHA-256 `3e67480d84d5bb4424cf0f156caa9ba26eb1d3392a22f7f6d0397be670cf1406`.
+- Original EPT header SHA-256 `85c7c5879cef7ef65155776c41c583acd1c6d3bb450041732dbf00877c6a5c29`.
+- Survey receipt SHA-256 `21e263a5b77eb0a744b077853898a1c436d399949e0c67961118734786abb60a`.
+- Clearance product SHA-256 `fe9636a081e5ab8a0ecff708eefa99aa383ef244fcac27eaf01a7e61dfe196e3`.
+- Updated manifest SHA-256 `03e1d2298ec08bdb7573dd4249f2280ac2f55bc2f40cb11dd7a762a8c235d3bd`.
+
+Run the lower cases with a game server serving the manifest from
+the current checkout. The upper cases use the same server.
+
+```sh
+node tools/sf-drive/export-brotherhood-crossings.mjs > /tmp/sf-brotherhood-courses.ndjson
+node tools/sf-drive/drive-road-audit.cjs /tmp/sf-brotherhood-courses.ndjson --verify
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  junipero-serra-brotherhood-northbound junipero-serra-brotherhood-southbound
+```
