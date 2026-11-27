@@ -4,7 +4,7 @@ The test asks whether this release can serve as an external reference for positi
 speed and coarse longitudinal acceleration.
 
 - **Status:** One-session exploratory benchmark. No estimator, release gate, safety threshold,
-or production metric changed.
+  or production metric changed.
 
 ## Source and reproduction
 
