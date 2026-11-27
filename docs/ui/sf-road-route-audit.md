@@ -6605,3 +6605,35 @@ lanes on the combined trial, both grounded throughout.
 The table measures the packaged road network on the sampled paths. Lane
 changes, player-selected turns and the remaining scenery contacts need
 separate play checks.
+
+### Lower street checks at Sloat and Brotherhood Way
+
+**World and Physics.** Four Chrome drives followed the directed street
+lines for both directions beneath Sloat Boulevard and Junipero Serra
+Boulevard. Each used a target 1.45 m to the right of its line and a
+12 m/s speed target. The Sunset Boulevard runs used street segments
+`12289202` southbound and `12289102` northbound. Brotherhood Way used
+`3240203` westbound and `3240102` eastbound. The browser used its normal
+keyboard inputs with route assist off.
+
+| Lower street          | Public game | Road and tree trial | Three-collider diagnostic |
+| --------------------- | ----------- | ------------------- | ------------------------- |
+| Sunset southbound     | Completed   | Completed           |                           |
+| Sunset northbound     | Completed   | Completed           |                           |
+| Brotherhood westbound | Crashed     | Crashed             | Completed                 |
+| Brotherhood eastbound | Crashed     | Crashed             | Completed                 |
+
+Both Sunset runs stayed below the bridge. Northbound, the public game
+recorded 9.3 m of airborne travel with a maximum clearance of 8.6 cm
+above the sampled ground. The Brotherhood crashes matched three tree
+colliders in tile `808f7c4c`, at game coordinates `(-2739, -5236.2)`,
+`(-2777, -5238.2)` and `(-2775, -5252.2)`. The trial kept all three.
+
+The disposable diagnostic disabled those three colliders by removing their
+rows from the public bake. Both Brotherhood drives finished on the lower
+street. Westbound still recorded 9.4 m airborne, with a maximum clearance
+of 10.2 cm. Eastbound stayed grounded throughout. These clearances are
+below the 18 cm airtime display threshold. The three rows need survey
+review before any release change to the vegetation.
+
+- Diagnostic manifest SHA-256 `4892f9c4766c3e43f60d282862c89888c7a8ce646a4e01e77f432a08e415f417`.

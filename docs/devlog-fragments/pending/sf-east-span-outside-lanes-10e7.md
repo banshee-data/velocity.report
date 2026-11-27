@@ -1,2 +1,3 @@
 - Added four [East Span outside-lane browser checks](../../ui/sf-road-route-audit.md#outside-lanes-near-the-east-span-observation-deck) around the observation deck inventory point. Each run kept the car grounded on its own carriageway.
 - Checked the [combined road and tree bake](../../ui/sf-road-route-audit.md#compatibility-with-the-citywide-tree-classification) with all 487 directed traversals and 350 joins. The trial removed two scrape cases at the northbound US 101 entrance from Cesar Chavez.
+- Reproduced both [Brotherhood Way lower-road crashes](../../ui/sf-road-route-audit.md#lower-street-checks-at-sloat-and-brotherhood-way) and isolated them to three tree colliders in a disposable diagnostic bake.
