@@ -6545,3 +6545,95 @@ receipts and paired browser trials on the attached evidence volume.
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   i80-bryant-entry i80-fifth-bryant-entry dogpatch-to-sixth-northbound
 ```
+
+## Outside lanes near the East Span observation deck
+
+**World and Data.** The observation deck inventory point is near older
+terrain-draped road lines whose ground samples cross the shoreline. The
+surveyed eastbound and westbound decks are separate surfaces farther
+north at the same easting. The terrain screen's gaps near the old rows
+therefore do not measure continuity of either playable deck.
+
+**Physics.** Chrome drove both sides of each 20 m deck, following targets
+7.2 m left and right of its centreline with route assist off. Each test
+started from rest on its own carriageway and stayed there for roughly
+320 m. Each drive finished grounded on its starting deck, with zero
+airborne travel. A longer eastbound run reached Oakland pavement and a
+westbound run rejoined the Yerba Buena deck. Both stayed grounded. The
+tested package was the public game manifest
+`3e67480d84d5bb4424cf0f156caa9ba26eb1d3392a22f7f6d0397be670cf1406`.
+The offsets exercise the game contact at this crossing. The pavement
+width observations and their coverage are recorded in the
+[Oakland landing bake](#bay-bridge-east-span-to-oakland).
+
+```sh
+SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  east-span-observation-eastbound-left east-span-observation-eastbound-right \
+  east-span-observation-westbound-left east-span-observation-westbound-right
+```
+
+### Compatibility with the citywide tree classification
+
+**World, Physics and Data.** A separate local trial combined Arrow's
+reviewed tree rows with the public Bryant and Sixth Street contacts.
+The four road tiles changed variable widths, transition lengths or
+seams. The tree rows, terrain and road fields used by the #189 classifier
+matched across all 166 tiles in its input and the newer road bake. The
+trial verified the original row identities and preserved both the
+reviewed removals and the newer road contacts.
+
+| Game contact check        | Public road bake | Combined trial |
+| ------------------------- | ---------------: | -------------: |
+| Directed road traversals  |          487/487 |        487/487 |
+| Directed road joins       |          350/350 |        350/350 |
+| Ground handoffs exercised |              533 |            533 |
+| Handoffs with a scrape    |               16 |             14 |
+
+Three of the 533 handoffs continued onto another baked road in each
+arm. The other 530 completed as ground handoffs. The two scrape differences
+were both at the northbound US 101 entrance from Cesar Chavez. Chrome also
+drove that entrance onto the freeway without a scrape. The largest
+remaining scrape count was 48 physics ticks at the Pennsylvania Avenue
+entrance to northbound I-280. The car still completed that handoff.
+A separate Chrome drive joined from Pennsylvania Avenue without a scrape.
+Chrome independently completed the widened Bryant and Sixth Street
+lanes on the combined trial, both grounded throughout.
+
+- Original classifier output SHA-256 `3c3cd4e7bdb88ac6cb869d9438283ef3cdda9a04ccf7ff8bd57f2090d1b960c6`.
+- Combined trial manifest SHA-256 `6121b665b2ed1a8a73ceb7ebed8eb9096ef4e8af1df01bac503183f88552d2a2`.
+
+The table measures the packaged road network on the sampled paths. Lane
+changes, player-selected turns and the remaining scenery contacts need
+separate play checks.
+
+### Lower street checks at Sloat and Brotherhood Way
+
+**World and Physics.** Four Chrome drives followed the directed street
+lines for both directions beneath Sloat Boulevard and Junipero Serra
+Boulevard. Each used a target 1.45 m to the right of its line and a
+12 m/s speed target. The Sunset Boulevard runs used street segments
+`12289202` southbound and `12289102` northbound. Brotherhood Way used
+`3240203` westbound and `3240102` eastbound. The browser used its normal
+keyboard inputs with route assist off.
+
+| Lower street          | Public game | Road and tree trial | Three-collider diagnostic |
+| --------------------- | ----------- | ------------------- | ------------------------- |
+| Sunset southbound     | Completed   | Completed           |                           |
+| Sunset northbound     | Completed   | Completed           |                           |
+| Brotherhood westbound | Crashed     | Crashed             | Completed                 |
+| Brotherhood eastbound | Crashed     | Crashed             | Completed                 |
+
+Both Sunset runs stayed below the bridge. Northbound, the public game
+recorded 9.3 m of airborne travel with a maximum clearance of 8.6 cm
+above the sampled ground. The Brotherhood crashes matched three tree
+colliders in tile `808f7c4c`, at game coordinates `(-2739, -5236.2)`,
+`(-2777, -5238.2)` and `(-2775, -5252.2)`. The trial kept all three.
+
+The disposable diagnostic disabled those three colliders by removing their
+rows from the public bake. Both Brotherhood drives finished on the lower
+street. Westbound still recorded 9.4 m airborne, with a maximum clearance
+of 10.2 cm. Eastbound stayed grounded throughout. These clearances are
+below the 18 cm airtime display threshold. The three rows need survey
+review before any release change to the vegetation.
+
+- Diagnostic manifest SHA-256 `4892f9c4766c3e43f60d282862c89888c7a8ce646a4e01e77f432a08e415f417`.
