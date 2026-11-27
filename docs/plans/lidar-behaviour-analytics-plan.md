@@ -93,6 +93,11 @@ measurement**: passing clearance around cyclists, yielding at crossings, post-en
 conflict points. Those are geometric quantities, measurable in a ten-second window, that mobile
 telemetry measures poorly or not at all.
 
+The [driving-behaviour benchmark validation plan](lidar-driving-behaviour-benchmark-validation-plan.md)
+adds a frozen reference and perturbation protocol, kinematic derivative scoring and offline
+interaction sensitivity in 05x, then portable transfer and intervention comparisons in 06x.
+It does not change this plan's metric definitions, promotion gates or deferred 07x conflict scope.
+
 ## 1. Core design principle
 
 Model observables, not verdicts.
