@@ -1,0 +1,1 @@
+- Cleared three surveyed [Brotherhood Way tree colliders](../../ui/sf-road-route-audit.md#surveyed-clearance-beneath-junipero-serra-boulevard). Chrome completed both lower street lanes and both upper Junipero Serra decks.

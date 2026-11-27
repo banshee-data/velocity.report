@@ -356,12 +356,10 @@ test("the Alemany connector leaves lower pavement clear beneath the crossing", (
   const token = "808f7c4c";
   const raw = file(`tiles/${token}.json.gz`);
   const tile = JSON.parse(gunzipSync(raw));
-  const review = manifest.roadBake.roadTreeClearanceReviews.findLast(
-    ({ tiles }) => tiles[token],
-  ).tiles[token];
   const viaduct = manifest.roadBake.alemanyWestViaductSurvey.tiles[token];
-  assert.equal(viaduct.parentSha256, review.sha256);
-  assert.equal(viaduct.sha256, digest(raw));
+  const review = manifest.roadBake.roadTreeClearanceReviews.find(
+    ({ tiles }) => tiles[token]?.sha256 === viaduct.parentSha256,
+  ).tiles[token];
   assert.equal(review.removed, 3);
   const index = buildCollisionIndex(tile, token);
   for (const [tx, ty] of [
@@ -375,6 +373,30 @@ test("the Alemany connector leaves lower pavement clear beneath the crossing", (
     const z = groundAtWorld([tile], x, y, false);
     assert.ok(Number.isFinite(z));
     assert.equal(collisionAt([index], { x, y, heading: -2 }, z), null);
+  }
+});
+
+test("both Brotherhood Way street lanes clear the reviewed collider positions", () => {
+  const token = "808f7c4c";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const { sha256: parent } = roadBake.alemanyWestViaductSurvey.tiles[token];
+  const clearance = roadBake.roadTreeClearanceReviews.find(
+    ({ tiles }) => tiles[token]?.parentSha256 === parent,
+  ).tiles[token];
+  assert.equal(clearance.sha256, digest(raw));
+  assert.equal(clearance.removed, 3);
+  const index = buildCollisionIndex(tile, token);
+  for (const [tx, ty, x, y, heading] of [
+    [3130, 648, -2777.06, -5252.73, 0],
+    [3110, 788, -2774.6, -5237.15, Math.PI],
+    [3490, 808, -2736.6, -5236.65, Math.PI],
+  ]) {
+    assert.ok(!tile.tr.some(([e, n]) => e === tx && n === ty));
+    const z = groundAtWorld([tile], x, y, true);
+    assert.ok(Number.isFinite(z));
+    assert.equal(collisionAt([index], { x, y, heading }, z), null);
   }
 });
 
@@ -1279,10 +1301,11 @@ test("western Alemany Boulevard follows the elevated lane to street pavement", (
   const raw = file(`tiles/${token}.json.gz`);
   const tile = JSON.parse(gunzipSync(raw));
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
-  assert.equal(
-    roadBake.alemanyWestViaductSurvey.tiles[token].sha256,
-    digest(raw),
-  );
+  const viaduct = roadBake.alemanyWestViaductSurvey.tiles[token];
+  const clearance = roadBake.roadTreeClearanceReviews.find(
+    ({ tiles }) => tiles[token]?.parentSha256 === viaduct.sha256,
+  ).tiles[token];
+  assert.equal(clearance.sha256, digest(raw));
   assert.equal(roadBake.coveredGroundRoadPatches[token], 1);
   const deck = tile.playableRoads.find(
     ({ id }) => id === "sf-contact/alemany-west-viaduct",
