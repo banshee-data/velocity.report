@@ -1,0 +1,1 @@
+- Added the [driving-behaviour benchmark validation plan](../../plans/lidar-driving-behaviour-benchmark-validation-plan.md) and scheduled frozen external references, error propagation, derivative and interaction scoring, portable transfer and intervention comparisons in the 05x and 06x backlog; retained physical qualification and deferred conflict promotion gates.
