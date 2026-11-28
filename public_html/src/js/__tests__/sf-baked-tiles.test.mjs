@@ -481,8 +481,16 @@ test("San Jose Avenue is clear from the southbound approach into the Tingley und
   const token = "808f7e64";
   const raw = file(`tiles/${token}.json.gz`);
   const manifest = JSON.parse(file("tiles/manifest.json"));
+  const reviewedHash = (tile, sha256) =>
+    manifest.roadBake.roadTreeClearanceReviews.reduce((hash, { tiles }) => {
+      const receipt = tiles[tile];
+      return receipt?.parentSha256 === hash ? receipt.sha256 : hash;
+    }, sha256);
   assert.equal(
-    manifest.roadBake.tingleyPortalClearance.tiles[token].sha256,
+    reviewedHash(
+      token,
+      manifest.roadBake.tingleyPortalClearance.tiles[token].sha256,
+    ),
     digest(raw),
   );
   const scenery = JSON.parse(gunzipSync(raw));
@@ -491,7 +499,7 @@ test("San Jose Avenue is clear from the southbound approach into the Tingley und
   const review = manifest.roadBake.terrainDetailReviews.findLast(
     ({ tile }) => tile === approach.t,
   );
-  assert.equal(review.sha256, digest(approachBytes));
+  assert.equal(reviewedHash(approach.t, review.sha256), digest(approachBytes));
   assert.equal(approach.g.detail.s, 1);
   assert.equal(approach.g.details[0].s, 1);
   const tiles = [scenery, approach];
@@ -5052,6 +5060,30 @@ test("the two surveyed Broadway roof footprints leave the westbound lanes clear"
     const tile = JSON.parse(gunzipSync(raw));
     assert.equal(review.tiles[token].sha256, digest(raw));
     assert.equal(review.tiles[token].removed, count);
+    assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
+    assert.equal(
+      collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z),
+      null,
+    );
+  }
+});
+
+test("I-280 upper deck observations keep three lower lanes clear", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.roadTreeClearanceReviews.find(
+    ({ parentManifestSha256 }) =>
+      parentManifestSha256 ===
+      "51d6133a2823d3768a97796813bd1855941e91f2e41af11b90f281f3b3d119e9",
+  );
+  for (const [token, [east, north], [x, y, heading, z]] of [
+    ["808f7e64", [-4911, -4858], [414.24, -3200.95, 1.204, 41.709]],
+    ["808f7e7c", [-2435, -4264], [-333.75, -3525.02, -2.498, 61.229]],
+    ["808f7e64", [-4631, -4798], [440.21, -3193.69, 0.696, 48.108]],
+  ]) {
+    const raw = file(`tiles/${token}.json.gz`);
+    const tile = JSON.parse(gunzipSync(raw));
+    assert.equal(review.tiles[token].sha256, digest(raw));
+    assert.equal(review.tiles[token].removed, token === "808f7e64" ? 2 : 1);
     assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
     assert.equal(
       collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z),

@@ -7414,3 +7414,37 @@ The map-coordinate tests leave coverage across the full lane width open
 for review. The frozen way identifiers are `309010740`, `309010745`, and
 `648873170`. The local `freeway-unmatched-public-survey` evidence retains
 the sampled profiles and the EPT node receipts at all three sites.
+
+## Lower lanes near Tingley, Monterey and Branch East
+
+**World and Data.** Two lower lanes scraped inferred trunks and the
+Branch East ramp stalled at a third. At 0.55 m radius, the April 2023
+survey found 105 upper returns at Tingley (53.69–62.46 m NAVD88), 97
+at Monterey (69.41–69.53 m), and 96 at Branch East (53.80–53.85 m).
+The corresponding baked road levels are 41.70 m, 61.32 m, and 48.07 m.
+The city orthophotos place the reviewed footprints on upper pavement or
+at its edge. The elevation observations describe the upper surfaces, and
+the game uses its existing lower contacts beneath them. The revised
+bundle clears three inferred scenery rows at these footprints.
+[USGS 3DEP survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list),
+[Tingley orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167669/405457),
+[Monterey orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167644/405468)
+and [Branch East orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167670/405457).
+
+**Physics and UI.** Chrome keyboard drives in the affected lanes reach
+all three endpoints grounded and free of scenery scrapes. Tingley and
+Monterey reach the covered camera view. Branch East reaches the tunnel
+view. A separate Fourth-to-Octavia replay used the through lane at Fifth
+and reached Octavia in 201 s once the test guide moved 2 m toward the
+through branch. The adjacent exit also completed in an independent
+keyboard drive.
+
+- Parent manifest SHA-256 `51d6133a2823d3768a97796813bd1855941e91f2e41af11b90f281f3b3d119e9`.
+- Survey receipt SHA-256 `34bdbd4c855e19887647180cb65af9207373bbe5569fb56b1c9fc362f83197d6`.
+- Clearance export SHA-256 `2a7a604c9e34f5430f4ffd8208295bebaf1b7b0bc9a0117049191bda3f2d3766`.
+- Updated manifest SHA-256 `e0e56e14e2162fe313ec4b9b07d0c1ea2d2bf0476a5f3b213461bc2c8e622a8e`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  tingley-north-inner-lane monterey-to-ocean-inner-lane branch-east-second-inner-lane
+```
