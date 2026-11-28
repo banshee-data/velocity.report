@@ -801,10 +801,13 @@ const alemanyWest = "i280-north-alemany-west-approach";
 const alemanyThrough = "i280-north-alemany-main";
 const alemanyStayNorth = ["i280-north-alemany-entry", alemanyThrough, 1.6];
 const alemanyWestThrough = [alemanyWest, alemanyThrough, 1.6];
+const alemanyBeforeConnectorMerge = "i280-north-alemany-before-connector-merge";
+const alemanyConnectorMergeStation = 283.531;
 const alemanyNorthApproach = [
   "i280-north-alemany-entry",
   "i280-north-alemany-main",
   "i280-north-alemany-climb",
+  alemanyBeforeConnectorMerge,
   "i280-north-lower-viaduct",
   "i280-north-south-dogpatch",
 ];
@@ -820,13 +823,14 @@ for (const branch of ["fifth", "sixth"]) {
       ...exit.speedLimits,
       "i280-north-alemany-entry": 11,
       "i280-north-alemany-climb": 15,
+      [alemanyBeforeConnectorMerge]: 14,
       "i280-north-lower-viaduct": 14,
     },
     forks: [
       ...exit.forks,
       alemanyStayNorth,
       ["i280-north-alemany-main", "i280-north-alemany-climb", -1.5],
-      ["i280-north-alemany-climb", "i280-north-lower-viaduct", -1.35],
+      ["i280-north-alemany-climb", alemanyBeforeConnectorMerge, -1.35],
       ["i280-north-lower-viaduct", "i280-north-south-dogpatch", 1.55],
     ],
     laneGuides: {
@@ -840,12 +844,18 @@ for (const branch of ["fifth", "sixth"]) {
           { offset: -1.8, station: 116, length: 23 },
         ],
       },
-      "i280-north-lower-viaduct": {
+      [alemanyBeforeConnectorMerge]: {
         clearance: [
           { offset: -1.8, station: 59, length: 18 },
           { offset: 1.9, station: 154, length: 39 },
-          { offset: 1.9, station: 621, length: 29 },
         ],
+      },
+      "i280-north-lower-viaduct": {
+        clearance: {
+          offset: 1.9,
+          station: 621 - alemanyConnectorMergeStation,
+          length: 29,
+        },
       },
     },
   };
@@ -853,7 +863,7 @@ for (const branch of ["fifth", "sixth"]) {
 const alemanyToSixth = cases["alemany-to-sixth-northbound"];
 cases["alemany-to-cesar-chavez-northbound"] = {
   ...alemanyToSixth,
-  roads: [...alemanyNorthApproach.slice(0, 4), "i280-north-cesar-chavez-exit"],
+  roads: [...alemanyNorthApproach.slice(0, -1), "i280-north-cesar-chavez-exit"],
   speedLimits: {
     ...alemanyToSixth.speedLimits,
     "i280-north-cesar-chavez-exit": 11,
@@ -861,7 +871,7 @@ cases["alemany-to-cesar-chavez-northbound"] = {
   forks: [
     alemanyStayNorth,
     ["i280-north-alemany-main", "i280-north-alemany-climb", -1.5],
-    ["i280-north-alemany-climb", "i280-north-lower-viaduct", -1.35],
+    ["i280-north-alemany-climb", alemanyBeforeConnectorMerge, -1.35],
     ["i280-north-lower-viaduct", "i280-north-cesar-chavez-exit", -1.4],
   ],
 };
@@ -2578,11 +2588,15 @@ cases["northbound-us101-silliman-alemany-loop"] = {
 };
 
 const alemanySouthboundConnector = "us101-north-to-i280-south";
+const alemanySharedConnector = "us101-north-alemany-connector-approach";
+const alemanyNorthboundConnector = "us101-north-to-i280-north";
+const alemanyConnectorForkStation = 747.379;
 const alemanyNorthboundApproach = "us101-north-bayshore-to-paul";
 const alemanyUpperConnector = "i280-north-to-us101-south-connector";
 cases["northbound-us101-to-southbound-i280"] = {
   roads: [
     alemanyNorthboundApproach,
+    alemanySharedConnector,
     alemanySouthboundConnector,
     "i280-south-alemany-through",
   ],
@@ -2594,16 +2608,46 @@ cases["northbound-us101-to-southbound-i280"] = {
     "808f7f04",
     "808f7e5c",
   ],
-  forks: [[alemanyNorthboundApproach, alemanySouthboundConnector, -2]],
+  forks: [
+    [alemanyNorthboundApproach, alemanySharedConnector, -2],
+    [alemanySharedConnector, alemanySouthboundConnector, 2.15],
+  ],
   speed: 20,
-  speedLimits: { [alemanySouthboundConnector]: 18 },
+  speedLimits: {
+    [alemanySharedConnector]: 18,
+    [alemanySouthboundConnector]: 18,
+  },
   rollingStart: true,
   rollingStartMetres: 406,
   initialSpeedMps: 18,
   finishOnDeck: true,
   finishDistance: 115,
   maxDurationMs: 165_000,
-  covered: [prefix + alemanySouthboundConnector],
+  covered: [
+    prefix + alemanySharedConnector,
+    prefix + alemanySouthboundConnector,
+  ],
+};
+cases["northbound-us101-to-northbound-i280"] = {
+  ...cases["northbound-us101-to-southbound-i280"],
+  roads: [
+    alemanySharedConnector,
+    alemanyNorthboundConnector,
+    "i280-north-lower-viaduct",
+  ],
+  rollingStartMetres: 675,
+  speed: 16,
+  initialSpeedMps: 14,
+  forks: [[alemanySharedConnector, alemanyNorthboundConnector, -2.15]],
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+  finishDistance: 120,
+  covered: [
+    prefix + alemanySharedConnector,
+    prefix + alemanyNorthboundConnector,
+    "sf-contact/i280-north-lower-viaduct",
+  ],
+  exitCamera: "covered",
 };
 cases["alemany-upper-over-northbound-connector"] = {
   roads: [alemanyUpperConnector, "i280-to-us101-south-descent"],
@@ -2650,14 +2694,14 @@ const northAlemanyClimb = "i280-north-alemany-climb";
 const northAlemanyLower = "i280-north-lower-viaduct";
 cases["northbound-i280-below-alemany-left-exit"] = {
   ...southAlemanyFork,
-  roads: [northAlemanyClimb, northAlemanyLower],
+  roads: [northAlemanyClimb, alemanyBeforeConnectorMerge],
   rollingStartMetres: 695,
   finishDistance: 240,
   speed: 14,
-  forks: [[northAlemanyClimb, northAlemanyLower, -1.35]],
+  forks: [[northAlemanyClimb, alemanyBeforeConnectorMerge, -1.35]],
   laneGuides: alemanyToSixth.laneGuides,
   maxAirborneMetres: 0,
-  covered: [prefix + northAlemanyClimb, prefix + northAlemanyLower],
+  covered: [prefix + northAlemanyClimb, prefix + alemanyBeforeConnectorMerge],
   exitCamera: "covered",
   maxDurationMs: 55_000,
 };
@@ -2665,11 +2709,11 @@ cases["northbound-i280-clears-remaining-cover"] = {
   roads: [northAlemanyLower],
   owners: ["808f7efc", "808f7fac", "808f7f04"],
   rollingStart: true,
-  rollingStartMetres: 640,
+  rollingStartMetres: 640 - alemanyConnectorMergeStation,
   initialSpeedMps: 12,
   speed: 13,
   finishOnDeck: true,
-  finishDistance: 761,
+  finishDistance: 761 - alemanyConnectorMergeStation,
   covered: [prefix + northAlemanyLower],
   exitCamera: "exterior",
   maxDurationMs: 40_000,
@@ -2687,10 +2731,10 @@ cases["alemany-late-lower-crossings-camera"] = {
   owners: ["808f7ee4", "808f7efc", "808f7f1c"],
   speed: 15,
   rollingStart: true,
-  rollingStartMetres: 1240,
+  rollingStartMetres: 1240 - alemanyConnectorForkStation,
   initialSpeedMps: 14,
   finishOnDeck: true,
-  finishDistance: 1430,
+  finishDistance: 1430 - alemanyConnectorForkStation,
   maxDurationMs: 45_000,
   covered: [prefix + alemanySouthboundConnector],
   exitCamera: "covered",

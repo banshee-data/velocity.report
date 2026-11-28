@@ -6995,3 +6995,41 @@ deeper than 0.5 m or scrapes. It finished on the southbound connection near
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   i280-fifth-southbound-to-mariposa mariposa-southbound-outer sixth-southbound
 ```
+
+## Northbound US 101 to northbound I-280 at Alemany
+
+**World and Data.** A new 891 m contact starts at the fork on the shared US 101
+approach and joins northbound I-280 at the mapped merge. The southbound choice
+keeps its existing coordinates. Both connections use shared endpoints and
+separate approach lanes. The crossing carriageways stay on their own levels.
+
+The April 2023 survey found lower pavement near 29–31 m NAVD88 and returns
+from the upper deck near 38 m over the first part of the connector. The fit
+uses the visible lower edges and interpolates through roof-shadowed sections to
+the existing I-280 contact at 21.17 m. The mapped plan comes from OpenStreetMap
+ways `495831132` and `61540061`. Five inferred tree footprints entered the new
+game lane. The local survey windows contain no vegetation-class returns at those
+footprints and do contain upper deck returns. The bake removes only those five
+inferred rows. The aerial observations leave parts of the lower surface obscured.
+[USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+**Physics and UI.** The published parent left the existing connector on the
+mapped northbound line and crashed after 13.8 m airborne. With route assist
+off, Chrome used the new fork and drove 1,015 m to northbound I-280 with no
+airborne travel or driven dips over 0.5 m. The southbound branch also reached
+its own deck grounded. The package audit passed 490 directed span traversals
+and 354 directed joins, with no unexpected ground handoff failures.
+
+- Parent manifest SHA-256 `7ed298a9ad7c6079857f976ccea4d39392f46b6b8414fb3b86a240365f0d2e52`.
+- Updated manifest SHA-256 `e9b115b841fcc399e7e6655a4364aa37db5bc6b94f32d925020b0197c84b7f4c`.
+- Contact SHA-256 `e13bdbc046b5325d7585bd5bca29ab14141549f88800664a51c7cdfb31a5e836`.
+- Shoulder survey SHA-256 `5648d2f457adada3261301ad53a0b123561c5dcebd368e0a8e22e55ef70fea3d`.
+- Merge survey SHA-256 `22db4aff26dd154b5c0dfe9baee14fc4206510c88e49a8cea013d9e0edc72857`.
+- Clearance survey SHA-256 `c74b2f8bc12bddab3ebaeff688938894ee45d46d4cb58d139e45512d31ebaf7d`.
+
+```sh
+python tools/sf-drive/bake-alemany-northbound.py "$PARENT_GAME" "$CONTACT" "$RELEASE"
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  northbound-us101-to-northbound-i280 northbound-us101-to-southbound-i280 \
+  northbound-i280-below-alemany-left-exit northbound-i280-clears-remaining-cover
+```
