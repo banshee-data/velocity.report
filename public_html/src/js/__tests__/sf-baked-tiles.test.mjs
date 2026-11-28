@@ -58,6 +58,7 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
     roadBake.i280MariposaFifthCurveSurvey,
     roadBake.alemanyNorthboundConnectorSurvey,
     roadBake.i80HarrisonLoopPavementSurvey,
+    roadBake.macallaWestboundExitSurvey,
   ]) {
     const tile = review.tiles[token];
     if (!tile) continue;
@@ -73,7 +74,7 @@ function assertSouthgateReview(roadBake, token, raw) {
     review.parentSha256,
     roadBake.ybiUpperWestSurvey.tiles[token].sha256,
   );
-  assert.equal(review.sha256, digest(raw));
+  assertLaterRoadTileReceipt(roadBake, token, review.sha256, raw);
 }
 
 test("the Yerba Buena bake records its surveyed tree clearance and keeps the road network", () => {
@@ -1383,6 +1384,31 @@ test("the Harrison loop supports the surveyed lane on the outside of its curve",
     assert.ok(roadSupportsCar(surface.heightAt, { x, y, heading }));
     assert.ok(Math.abs(surface.heightAt(x, y) - height) < 0.25);
   }
+});
+
+test("the westbound Macalla ramp follows the surveyed lane down to the island road", () => {
+  const token = "80858024";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const receipt = roadBake.macallaWestboundExitSurvey;
+  assert.equal(receipt.source_osm_way, 322962944);
+  assert.equal(receipt.tiles[token].sha256, digest(raw));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/yerba-buena-east-westbound-off-ramp",
+  );
+  const { surface, portals } = buildBakedRoadContact(road);
+  for (const [x, y, z, heading] of [
+    [6705.62, 5818.4, 58.08, 2.98],
+    [6681.05, 5816.22, 56.98, -2.8],
+    [6658.13, 5797.65, 55.35, -2.16],
+  ]) {
+    assert.ok(roadSupportsCar(surface.heightAt, { x, y, heading }));
+    assert.ok(Math.abs(surface.heightAt(x, y) - z) < 0.3);
+  }
+  assert.equal(portals.length, 1);
+  const [{ x, y, z }] = portals;
+  assert.ok(Math.abs(z - groundAtWorld([tile], x, y, true)) < 0.03);
 });
 
 test("the 18th Street entrance stays on its own deck until the measured merge", () => {
