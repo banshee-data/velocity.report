@@ -56,6 +56,7 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
     roadBake.centralWestSplitSurvey,
     roadBake.i80FifthMappedSeamSurvey,
     roadBake.i280MariposaFifthCurveSurvey,
+    roadBake.alemanyNorthboundConnectorSurvey,
   ]) {
     const tile = review.tiles[token];
     if (!tile) continue;
@@ -1646,6 +1647,7 @@ test("Alemany northbound stays on its own deck and clears the surveyed Dogpatch 
     "i280-north-alemany-entry",
     "i280-north-alemany-main",
     "i280-north-alemany-climb",
+    "i280-north-alemany-before-connector-merge",
     "i280-north-lower-viaduct",
     "i280-north-south-dogpatch",
     "i280-dogpatch-northbound",
@@ -1679,7 +1681,9 @@ test("Alemany northbound stays on its own deck and clears the surveyed Dogpatch 
   );
   assert.ok(roadBake.overheadBuildingPatches["808f7fac"] >= 3);
   assert.equal(roadBake.overheadBuildingPatches["808f7fb4"], 1);
-  const road = buildBakedRoadContact(chain[4]).surface;
+  const road = buildBakedRoadContact(
+    lookup("i280-north-south-dogpatch"),
+  ).surface;
   for (const station of [945, 975, 1129, 1155]) {
     const i = road.profile.findIndex(({ s_m }) => s_m >= station);
     assert.ok(i > 0);
@@ -4936,7 +4940,7 @@ test("the southbound I-280 left exit stays on the upper deck and joins southboun
   const mainline = road("i280-south-to-alemany-mainline");
   const exit = road("i280-south-to-us101-south-exit");
   const descent = road("i280-to-us101-south-descent");
-  const lower = road("i280-north-lower-viaduct");
+  const lower = road("i280-north-alemany-before-connector-merge");
   for (const [before, after] of [
     [approach, mainline],
     [approach, exit],
@@ -5335,7 +5339,7 @@ test("the northbound Silliman fork hands off to Bayshore Boulevard below the dec
 
 test("the Alemany connector keeps both stacked crossings and the US 101 through fork", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
-  const tokens = ["808f7ee4", "808f7efc", "808f7f1c"];
+  const tokens = ["808f7ee4", "808f7efc", "808f7f1c", "808f7f04", "808f7fac"];
   const tiles = tokens.map((token) =>
     JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
   );
@@ -5346,12 +5350,20 @@ test("the Alemany connector keeps both stacked crossings and the US 101 through 
   );
   const road = (name) => roads.get(`sf-contact/${name}`);
   const approach = road("us101-north-bayshore-to-paul");
+  const shared = road("us101-north-alemany-connector-approach");
   const connector = road("us101-north-to-i280-south");
+  const north = road("us101-north-to-i280-north");
+  const west = road("i280-north-alemany-before-connector-merge");
+  const lowerMainline = road("i280-north-lower-viaduct");
   const through = road("us101-north-paul-to-silliman");
   const merge = road("i280-south-alemany-through");
   for (const [from, to] of [
-    [approach, connector],
+    [approach, shared],
     [approach, through],
+    [shared, connector],
+    [shared, north],
+    [north, lowerMainline],
+    [west, lowerMainline],
     [connector, merge],
   ]) {
     assert.deepEqual(from.points.at(-1), to.points[0]);
@@ -5366,15 +5378,22 @@ test("the Alemany connector keeps both stacked crossings and the US 101 through 
       ),
     );
   }
-  for (const tile of tiles) {
-    assert.deepEqual(
-      tile.playableRoads.find(({ id }) => id === connector.id),
-      connector,
-    );
+  for (const ramp of [shared, connector, north]) {
+    for (const token of new Set(ramp.owners)) {
+      const tile = tiles[tokens.indexOf(token)];
+      assert.deepEqual(
+        tile.playableRoads.find(({ id }) => id === ramp.id),
+        ramp,
+      );
+    }
   }
   assert.deepEqual(connector.groundEnds, []);
   const { surface } = buildBakedRoadContact(connector);
-  assert.deepEqual(surface.coveredRange, [675, 1025]);
+  const sharedSurface = buildBakedRoadContact(shared).surface;
+  const northSurface = buildBakedRoadContact(north).surface;
+  assert.equal(sharedSurface.coveredRange[0], 675);
+  assert.equal(surface.coveredRange[0], 0);
+  assert.equal(northSurface.coveredRange[0], 0);
   const obstacles = tiles.map((tile, index) =>
     buildCollisionIndex(tile, tokens[index]),
   );
@@ -5388,6 +5407,12 @@ test("the Alemany connector keeps both stacked crossings and the US 101 through 
     assert.ok(upper - lower > 7 && upper - lower < 8);
     assert.equal(collisionAt(obstacles, { x, y, heading }, lower), null);
   }
+  const measuredLane = { x: 3118.432, y: -3041.715, heading: 1.95 };
+  assert.ok(roadSupportsCar(northSurface.heightAt, measuredLane));
+  assert.ok(
+    Math.abs(northSurface.heightAt(measuredLane.x, measuredLane.y) - 31.1) <
+      0.15,
+  );
 });
 
 test("Bayshore stays on the upper street through the Hester fork and merges onto US 101", () => {
