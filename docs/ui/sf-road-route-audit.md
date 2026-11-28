@@ -6716,3 +6716,30 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   island-east-southgate-offset island-east-eastbound-entry \
   macalla-westbound-roundtrip island-east-roundtrip
 ```
+
+### Live Macalla round-trip steering
+
+**Physics and Data.** On the live manifest above, the first
+continuous eastbound keyboard run left the lower bore, turned
+around on Macalla, and remained grounded. It scraped a tree
+near the South Gate bend and circled a missed return waypoint
+until the 375-second limit. Separate runs completed the same
+exit and Hillcrest re-entry with zero airborne travel.
+
+The revised test line follows the bend farther from the trunk
+at game coordinates `(6754.7, 5617.6)`. Its nominal clearance
+increased from 1.29 m to 3.53 m, measured from the car centre to
+the trunk at 0.25 m sample spacing. The old line hit the trunk
+with each inward offset from 0.5 m to 1.5 m. The revised line
+cleared the packaged scenery at all seven offsets from −1.5 m
+to +1.5 m. These samples use the game collision hull and the
+current baked ground height. They measure the game's steering
+margin on this bend. The smoke test now advances when the car
+passes a waypoint within 2.5 m of the approaching line.
+
+Both Chrome reruns used keyboard inputs with route assist off.
+Eastbound returned through Hillcrest onto the East Span after
+400.8 m on local streets. Westbound rejoined the west approach
+after 64.1 m on local streets. Each reversed on the ground and
+finished grounded, with zero airborne travel and zero scrapes.
+Neither browser requested Arrow road data.

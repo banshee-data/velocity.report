@@ -1,0 +1,1 @@
+- Corrected the Macalla browser regression steering around South Gate and verified both island exit and re-entry routes on the [live road bake](../../ui/sf-road-route-audit.md#live-macalla-round-trip-steering).

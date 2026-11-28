@@ -3151,10 +3151,12 @@ cases["island-east-roundtrip"] = {
         [6750, 5658],
         [6760, 5645],
         [6765, 5632],
-        [6763, 5624],
-        [6758, 5618],
-        [6751, 5614],
-        [6746, 5616],
+        // Leave room for the tree on the inside of the South Gate bend.
+        [6762, 5624],
+        [6757.5, 5615],
+        [6752, 5612.5],
+        [6747, 5613.5],
+        [6745, 5618],
         [6741, 5628],
         [6737, 5643],
       ],
@@ -5180,9 +5182,20 @@ async function drive(
         } else if (turnPhase === 5) {
           limit = groundTurn.returnSpeedMps ?? limit;
           const points = groundTurn.returnVia ?? [];
-          const [x, y] = points[returnPoint] ?? entrance;
-          if (Math.hypot(pose.x - x, pose.y - y) < 1.6)
-            returnPoint = Math.min(returnPoint + 1, points.length);
+          while (returnPoint < points.length) {
+            const [x, y] = points[returnPoint];
+            const [fromX, fromY] = points[returnPoint - 1] ?? [east, north];
+            const dx = x - fromX;
+            const dy = y - fromY;
+            const offsetX = pose.x - x;
+            const offsetY = pose.y - y;
+            // Advance after passing a waypoint while still on its approach line.
+            const passed =
+              offsetX * dx + offsetY * dy >= 0 &&
+              Math.abs(offsetX * dy - offsetY * dx) <= 2.5 * Math.hypot(dx, dy);
+            if (!passed && Math.hypot(offsetX, offsetY) >= 2) break;
+            returnPoint++;
+          }
           steer = steerToward(...(points[returnPoint] ?? entrance));
         }
         const brake = braking || Math.abs(pose.v) > limit + 0.45;
