@@ -123,25 +123,51 @@ function portalGuide(portal, inward, lane, angle) {
   return { points, finish: inward ? Math.min(5, after - 1) : -6 };
 }
 
+function lateralPoint(surface, station, lane) {
+  const [x, y] = at(surface, station);
+  const [ax, ay] = at(surface, station - 0.25);
+  const [bx, by] = at(surface, station + 0.25);
+  const heading = Math.atan2(by - ay, bx - ax);
+  return {
+    x: x - Math.sin(heading) * lane,
+    y: y + Math.cos(heading) * lane,
+    heading,
+  };
+}
+
+function interiorEndpoint(surface, lane, end, margin, length) {
+  const bearing = surface.terminalBearings?.[end];
+  const station = end ? length - margin : margin;
+  if (bearing === undefined) return station;
+  const [x, y] = at(surface, end ? length : 0);
+  const nx = Math.cos(bearing);
+  const ny = Math.sin(bearing);
+  // The transverse cut may be skewed relative to this lane. Crossings of
+  // the cut belong to the join audit, which can support tyres on both roads.
+  const inside = (east, north) =>
+    (east - x) * nx + (north - y) * ny <= 0 ? 0 : null;
+  for (let extra = 0; extra <= Math.min(4, length / 2 - margin); extra += 0.1) {
+    const candidate = station + (end ? -extra : extra);
+    if (roadSupportsCar(inside, lateralPoint(surface, candidate, lane)))
+      return candidate;
+  }
+  return station;
+}
+
 function interiorGuide(surface, reverse, lane) {
   const length = surface.profile.at(-1).s_m;
   const margin = CAR_HALF_LENGTH + 0.35;
-  const run = length - 2 * margin;
+  const start = interiorEndpoint(surface, lane, 0, margin, length);
+  const end = interiorEndpoint(surface, lane, 1, margin, length);
+  const run = end - start;
   if (run <= 1) return null;
   const intervals = Math.ceil(run / 0.5);
   const sampleStep = run / intervals;
   const points = Array.from({ length: intervals + 1 }, (_, i) => {
     const d = i * sampleStep;
-    const s = margin + (reverse ? run - d : d);
-    const [x, y] = at(surface, s);
-    const [ax, ay] = at(surface, s - 0.25);
-    const [bx, by] = at(surface, s + 0.25);
-    const norm = Math.hypot(bx - ax, by - ay);
-    return {
-      x: x - ((by - ay) / norm) * lane,
-      y: y + ((bx - ax) / norm) * lane,
-      d,
-    };
+    const s = reverse ? end - d : start + d;
+    const { x, y } = lateralPoint(surface, s, lane);
+    return { x, y, d };
   });
   return { points, finish: run, spacing: sampleStep };
 }
