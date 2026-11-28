@@ -1,0 +1,1 @@
+- Cleared four inferred trees from the [tested Potrero and Alemany freeway lanes](../../ui/sf-road-route-audit.md#potrero-and-alemany-freeway-lane-clearance), including two positions below upper decks.
