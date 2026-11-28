@@ -42,6 +42,15 @@ const path = (file) => new URL(`../../sf/${file}`, import.meta.url);
 const file = (name) => readFileSync(path(name));
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
+function assertLaterTreeTileReceipt(roadBake, token, previous, raw) {
+  let current = previous;
+  for (const { tiles } of roadBake.roadTreeClearanceReviews) {
+    const receipt = tiles[token];
+    if (receipt?.parentSha256 === current) current = receipt.sha256;
+  }
+  assert.equal(current, digest(raw));
+}
+
 function assertRampWidthReceipt(roadBake, token, previous, raw) {
   const review =
     roadBake.bryantEastboundWidthSurvey.tiles[token] ??
@@ -481,17 +490,11 @@ test("San Jose Avenue is clear from the southbound approach into the Tingley und
   const token = "808f7e64";
   const raw = file(`tiles/${token}.json.gz`);
   const manifest = JSON.parse(file("tiles/manifest.json"));
-  const reviewedHash = (tile, sha256) =>
-    manifest.roadBake.roadTreeClearanceReviews.reduce((hash, { tiles }) => {
-      const receipt = tiles[tile];
-      return receipt?.parentSha256 === hash ? receipt.sha256 : hash;
-    }, sha256);
-  assert.equal(
-    reviewedHash(
-      token,
-      manifest.roadBake.tingleyPortalClearance.tiles[token].sha256,
-    ),
-    digest(raw),
+  assertLaterTreeTileReceipt(
+    manifest.roadBake,
+    token,
+    manifest.roadBake.tingleyPortalClearance.tiles[token].sha256,
+    raw,
   );
   const scenery = JSON.parse(gunzipSync(raw));
   const approachBytes = file("tiles/808f7e7c.json.gz");
@@ -499,7 +502,7 @@ test("San Jose Avenue is clear from the southbound approach into the Tingley und
   const review = manifest.roadBake.terrainDetailReviews.findLast(
     ({ tile }) => tile === approach.t,
   );
-  assert.equal(reviewedHash(approach.t, review.sha256), digest(approachBytes));
+  assertLaterTreeTileReceipt(manifest.roadBake, approach.t, review.sha256, approachBytes);
   assert.equal(approach.g.detail.s, 1);
   assert.equal(approach.g.details[0].s, 1);
   const tiles = [scenery, approach];
@@ -1145,14 +1148,12 @@ test("both Hester approaches stay above the terrain and join Third Street", () =
   const token = "808f7f24";
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const raw = file(`tiles/${token}.json.gz`);
-  const clearance = roadBake.roadTreeClearanceReviews.findLast(
-    ({ tiles }) => tiles[token],
-  ).tiles[token];
-  assert.equal(
+  assertLaterTreeTileReceipt(
+    roadBake,
+    token,
     roadBake.hesterThirdApproachSurvey.tiles[token].sha256,
-    clearance.parentSha256,
+    raw,
   );
-  assert.equal(clearance.sha256, digest(raw));
   const tile = JSON.parse(gunzipSync(raw));
   assert.ok(!tile.tr.some(([x, y]) => x === -2632 && y === -2318));
   const [bayshore, third, through] = [
@@ -5092,6 +5093,46 @@ test("I-280 upper deck observations keep three lower lanes clear", () => {
   }
 });
 
+test("the Toll Plaza building clearance preserves the inside lane", () => {
+  const token = "808586ec";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.buildingClearanceReviews.find(
+    ({ parentManifestSha256 }) =>
+      parentManifestSha256 ===
+      "e0e56e14e2162fe313ec4b9b07d0c1ea2d2bf0476a5f3b213461bc2c8e622a8e",
+  );
+  assert.equal(review.tiles[token].sha256, digest(raw));
+  const road = tile.playableRoads.find(({ id }) => id === "sf-contact/toll-plaza-tunnel");
+  const { surface } = buildBakedRoadContact(road);
+  const pose = { x: -3135.1, y: 5234.85, heading: 0.628 };
+  assert.ok(Math.abs(surface.heightAt(pose.x, pose.y) - 51.1) < 0.05);
+  assert.equal(collisionAt([buildCollisionIndex(tile, token)], pose, 51.113), null);
+});
+
+test("the four reviewed approach lanes clear the inferred trunks", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.roadTreeClearanceReviews.find(
+    ({ parentManifestSha256 }) =>
+      parentManifestSha256 ===
+      "c609ad9ed13155f308142d641f8335de2e8e44a61fbb031e40b8f5351c56b2e2",
+  );
+  for (const [token, [east, north], [x, y, heading, z]] of [
+    ["8085842c", [1800, 3840], [-3898.65, 8425.9, -2.5752, 83.924]],
+    ["808f7f24", [-3792, 2202], [3523.3, -4504.12, -1.4473, 40.633]],
+    ["808f7f24", [-3252, 2402], [3577.38, -4484.41, -1.9243, 32.846]],
+    ["808f7efc", [1578, -809], [3059.5, -3075.241, -1.1615, 17.53]],
+  ]) {
+    const raw = file(`tiles/${token}.json.gz`);
+    const tile = JSON.parse(gunzipSync(raw));
+    assert.equal(review.tiles[token].sha256, digest(raw));
+    assert.equal(review.tiles[token].removed, token === "808f7f24" ? 2 : 1);
+    assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
+    assert.equal(collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z), null);
+  }
+});
+
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["8085807c", "80858084"];
@@ -6768,12 +6809,11 @@ test("Candlestick carries the exit above Alana Way and preserves the through lan
     const original = manifest.roadBake.candlestickExitSurvey.tiles[token];
     const hester = manifest.roadBake.hesterThirdApproachSurvey.tiles[token];
     if (hester) assert.equal(hester.parentSha256, original.sha256);
-    const tree = manifest.roadBake.roadTreeClearanceReviews.findLast(
-      ({ tiles }) => hester && tiles[token]?.parentSha256 === hester.sha256,
-    );
-    assert.equal(
-      tree?.tiles[token].sha256 ?? hester?.sha256 ?? original.sha256,
-      digest(raw),
+    assertLaterTreeTileReceipt(
+      manifest.roadBake,
+      token,
+      hester?.sha256 ?? original.sha256,
+      raw,
     );
     return JSON.parse(gunzipSync(raw));
   };
