@@ -3263,6 +3263,20 @@ cases["forest-and-sims-to-eastbound-i80"] = {
   entranceTimeoutMs: 215_000,
   maxDurationMs: 255_000,
 };
+cases["island-east-span-left-lane"] = {
+  owners: lowerEastOwners,
+  roads: [hillcrestMerge],
+  rollingStart: true,
+  rollingStartMetres: 40,
+  initialSpeedMps: 14,
+  speed: 14,
+  laneGuides: { [hillcrestMerge]: { lane: 5.75 } },
+  finishOnDeck: true,
+  finishDistance: 145,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+  maxDurationMs: 30_000,
+};
 cases["island-east-roundtrip"] = {
   ...cases["island-east-eastbound-exit-to-macalla"],
   roads: [

@@ -63,8 +63,13 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
     roadBake.macallaMappedLandingSurvey,
     roadBake.treasureIslandGroundApproach,
     roadBake.forestRoadDetour,
+    roadBake.buildingClearanceReviews.find(
+      ({ parentManifestSha256 }) =>
+        parentManifestSha256 ===
+        "18558e1a83a2ed8a18af4f74aabf6db951cc622276b74326272d8867369547c5",
+    ),
   ]) {
-    const tile = review.tiles[token];
+    const tile = review?.tiles[token];
     if (!tile) continue;
     assert.equal(tile.parentSha256, current);
     current = tile.sha256;
@@ -210,6 +215,23 @@ test("Forest and Sims Road meet on reviewed pavement and retain the trees on the
       tile.tr.some((row) => row.every((value, index) => value === tree[index])),
     );
   }
+});
+
+test("the East Span merge lane clears the inferred faces and retains upper and lower structure", () => {
+  const token = "80858024";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  assertSouthgateReview(roadBake, token, raw);
+  const index = [buildCollisionIndex(tile, token)];
+  const overhead = { x: 6940.1, y: 5940.8, heading: 0.68 };
+  const pavement = { x: 6951, y: 5948.8, heading: 0.69 };
+  for (const car of [overhead, pavement]) {
+    assert.equal(collisionAt(index, car, 54.9), null);
+    assert.equal(collisionAt(index, car, 20), "building");
+  }
+  assert.equal(collisionAt(index, overhead, 61.4), "building");
+  assert.equal(collisionAt(index, pavement, 61.4), null);
 });
 
 test("the Fourth Street merge clears the capped face above its lower volume", () => {
