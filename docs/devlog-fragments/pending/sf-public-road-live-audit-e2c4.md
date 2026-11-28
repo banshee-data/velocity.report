@@ -1,0 +1,1 @@
+- Recorded [live Bay Bridge, tunnel and crossing replays](../../ui/sf-road-route-audit.md#live-crossing-and-service-road-review) and reviewed the 22 remaining service-road flags against map connections and garage access records.
