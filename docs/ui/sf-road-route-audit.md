@@ -7383,10 +7383,10 @@ end the test reaches the tunnel camera. At the western end it moves from
 the tunnel camera to the covered view after crossing the affected lane.
 These are game traversals at the tested lane offsets.
 
-| Check | Frozen input |
-| --- | --- |
-| Parent manifest | `5c1a88856d25e68f22074b86a6f22bc2420afbac4a7e2762345c21bac9215a27` |
-| Survey receipt | `4f20c50733c9402d8091481c116b4dd6dddb621cac5f439d051d7183bd5f9b45` |
+| Check            | Frozen input                                                       |
+| ---------------- | ------------------------------------------------------------------ |
+| Parent manifest  | `5c1a88856d25e68f22074b86a6f22bc2420afbac4a7e2762345c21bac9215a27` |
+| Survey receipt   | `4f20c50733c9402d8091481c116b4dd6dddb621cac5f439d051d7183bd5f9b45` |
 | Clearance export | `177fb2e7a4cc3a846eb1f713c81e304d7c0dd71faef30db4a10b760be439efce` |
 | Updated manifest | `51d6133a2823d3768a97796813bd1855941e91f2e41af11b90f281f3b3d119e9` |
 
