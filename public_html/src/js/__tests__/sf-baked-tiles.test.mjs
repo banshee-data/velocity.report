@@ -4976,6 +4976,40 @@ test("both SR 1 approaches carry the same contact across the tile boundary", () 
   }
 });
 
+test("the MacArthur south approach clears the measured inner lane", () => {
+  const token = "8085871c";
+  const raw = file(`tiles/${token}.json.gz`);
+  const treeTile = JSON.parse(gunzipSync(raw));
+  const roadTile = JSON.parse(gunzipSync(file("tiles/80858724.json.gz")));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.roadTreeClearanceReviews.findLast(
+    ({ tiles }) => tiles[token],
+  ).tiles[token];
+  assert.equal(review.sha256, digest(raw));
+  assert.equal(review.removed, 1);
+  assert.deepEqual(review.treeRowSha256, [
+    "a842d33d2bf3d29ffc76b9fa7f4e2e14e5f5020336bcd28638b317b32b540c7c",
+  ]);
+  const treeHashes = treeTile.tr.map((row) =>
+    digest(JSON.stringify(row) + "\n"),
+  );
+  assert.ok(!treeHashes.includes(review.treeRowSha256[0]));
+  assert.ok(
+    treeTile.tr.some(([x, y, h]) => x === -1833 && y === 2803 && h === 11),
+  );
+  const tunnel = roadTile.playableRoads.find(
+    ({ id }) => id === "sf-contact/macarthur-tunnel",
+  );
+  const { surface } = buildBakedRoadContact(tunnel);
+  const pose = { x: -2607.998, y: 3543.697, heading: 1.446 };
+  const contact = surface.heightAt(pose.x, pose.y);
+  assert.ok(Math.abs(contact - 61.52) < 0.01);
+  assert.equal(
+    collisionAt([buildCollisionIndex(treeTile, token)], pose, contact),
+    null,
+  );
+});
+
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["8085807c", "80858084"];

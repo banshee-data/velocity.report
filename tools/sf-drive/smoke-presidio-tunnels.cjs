@@ -5120,6 +5120,25 @@ function fromPavement(points, firstRoad, speed) {
   };
 }
 
+const macarthurBore = "macarthur-tunnel";
+for (const direction of ["northbound", "southbound"]) {
+  const north = direction === "northbound";
+  cases[`macarthur-inner-${direction}`] = {
+    ...cases[`macarthur-${direction}`],
+    laneGuides: { [macarthurBore]: { lane: -2 } },
+    speed: 10,
+    rollingStart: true,
+    initialSpeedMps: 8,
+    rollingStartMetres: north ? 2 : 435,
+    finishOnDeck: north,
+    finishDistance: north ? 145 : undefined,
+    exitCamera: north ? "tunnel" : "exterior",
+    maxAirborneMetresAfterEntrance: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 38_000,
+  };
+}
+
 const mainPostNorth = "main-post-northbound";
 const mainPostSouthWest = "main-post-southbound-west";
 const northCauseway = "presidio-nb-causeway";

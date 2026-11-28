@@ -1,0 +1,1 @@
+- Removed an inferred tree from the [MacArthur south approach lane](../../ui/sf-road-route-audit.md#inner-lane-at-the-macarthur-south-approach), where the same Chrome drive stalled in both directions on the previous bake.

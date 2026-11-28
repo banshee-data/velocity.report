@@ -7293,3 +7293,32 @@ values. The two browser drives verify the tested lane in the game.
 python tools/sf-drive/apply-building-clearance.py "$PARENT_GAME" "$REVIEW" "$RELEASE"
 node tools/sf-drive/smoke-presidio-tunnels.cjs island-east-span-left-lane
 ```
+
+## Inner lane at the MacArthur south approach
+
+Chrome ran the same inner-lane guide in both directions on the parent
+and candidate bakes. The parent scraped one inferred tree and stalled
+at the southern approach in both directions. The corrected northbound
+drive continued into the bore and finished with the tunnel camera. The
+southbound drive reached exterior pavement. Both finished with zero
+scrapes and zero airborne travel.
+
+The April 2023 USGS samples within 1.35 m of the inferred trunk include
+439 returns near the pavement and 47 at vehicle height. The highest
+return was 1.82 m above the pavement. The city's 2025 orthophoto shows
+open pavement at that position. The game bake removes that one tree
+row from tile `8085871c`. The contact surface across the approach and
+the bore is the same on both bakes. The observations cover the open
+approach.
+[April 2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+[City 2025 orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167569/405233).
+
+- Parent game manifest SHA-256 `48d8a2a75801069e72d1109405555d936e90ce710224a7d6a04763fd1ac0dae9`.
+- Survey node receipt SHA-256 `0e542b39245daa10e9386ce567ba0bf8badf3f39c88fe9fb8e15a4807e0fd634`.
+- Classification SHA-256 `d7cb30030a35f26edf5716b8a253e56397860ddb893af8d1d4e1df44c7bd8069`.
+- Updated game manifest SHA-256 `54b27d7e91d245ef4a7148fd36fe48fd9d6a49c39b336af5c373cf0c819a4532`.
+
+```sh
+python tools/sf-drive/apply-tree-classification.py "$PARENT_GAME" "$CLASSIFICATION" "$RELEASE"
+node tools/sf-drive/smoke-presidio-tunnels.cjs macarthur-inner-northbound macarthur-inner-southbound
+```
