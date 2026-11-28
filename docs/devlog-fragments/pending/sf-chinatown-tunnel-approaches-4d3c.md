@@ -1,0 +1,1 @@
+- Placed the Hyde Street pickup on its measured deck and kept its road level through checkpoint recovery. Updated the [Stockton and Broadway tunnel delivery checks](../../ui/sf-road-route-audit.md#chinatown-tunnel-delivery-approaches) to reach both pickups through the street approaches.

@@ -479,6 +479,9 @@ export function advanceTrial(trial, dt, car, driving, allowPickup = true) {
     for (const t of trial.targets) {
       if (trial.collected.has(t.t) || Math.hypot(car.x - t.x, car.y - t.y) > 8)
         continue;
+      if ((t.surfaceId || "") !== (car.surfaceId || "")) continue;
+      if (t.surfaceId && (!car.grounded || !(Math.abs(car.z - t.z) <= 2)))
+        continue;
       trial.collected.add(t.t);
       found.push(t);
     }

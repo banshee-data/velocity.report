@@ -134,6 +134,23 @@ test("the Yerba Buena bake records its surveyed tree clearance and keeps the roa
   assert.ok(tile.tr.some(([x, y, h]) => x === 1497 && y === 1206 && h === 73));
 });
 
+test("the Hyde Street pickup uses the deck above the Broadway tunnel", () => {
+  const route = JSON.parse(file("quest-route.json"));
+  const target = route.targets.find(({ t }) => t === "808580ec");
+  const tile = JSON.parse(gunzipSync(file(`tiles/${target.t}.json.gz`)));
+  assert.equal(target.surfaceId, "sf-contact/hyde-street-over-broadway");
+  const surface = (id) =>
+    buildBakedRoadContact(tile.playableRoads.find((road) => road.id === id))
+      .surface;
+  const deck = surface(target.surfaceId).heightAt(target.x, target.y);
+  const tunnel = surface("sf-contact/broadway-eastbound").heightAt(
+    target.x,
+    target.y,
+  );
+  assert.equal(target.z, deck);
+  assert.ok(Number.isFinite(tunnel) && deck - tunnel > 6);
+});
+
 test("South Gate keeps the distinct street branch and retires the obsolete painted connection", () => {
   const token = "80858024";
   const raw = file(`tiles/${token}.json.gz`);

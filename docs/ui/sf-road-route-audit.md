@@ -7671,3 +7671,50 @@ jq --arg sha "$sha" '.manifestSha256=$sha' \
 node tools/sf-drive/audit-road-routes.mjs --assets="$BUNDLE" --plan="$BOUND_PLAN"
 node tools/sf-drive/smoke-stockton-tunnel.cjs
 ```
+
+## Chinatown tunnel delivery approaches
+
+The direct tunnel checks passed, while three of the cross-city delivery
+courses still stopped on their approach or departure streets. This run kept
+the same pickup endpoints and the same 166-tile release. For the southbound
+Stockton course, it bound the 🛤️ pickup to its existing measured contact on
+Hyde Street, 62.03 m above the vertical datum and 6.91 m above the eastbound
+Broadway road at the same coordinates. A car must be grounded on the
+assigned deck to collect the pickup. The game uses that same deck for its
+marker and can resume a saved checkpoint there.
+
+The northbound Stockton course takes Union Street to Columbus Avenue. The
+southbound course descends from the Hyde deck via Pacific Avenue and comes
+out on Stockton towards SoMa. Both use a low-speed clearance guide on the
+streets after leaving the bore. The westbound Broadway approach follows
+Vallejo and Montgomery streets to the portal. Its previous course used
+the Bartol Street steps. No tile changes were needed for these three
+courses.
+
+| Delivery                      | Driven distance | Ground after final contact | Peak driven grade | Ground dips | Airborne distance |
+| ----------------------------- | --------------: | -------------------------: | ----------------: | ----------: | ----------------: |
+| Stockton northbound, 🏙️ to 🍫 |       3,781.6 m |                  1,867.5 m |             9.04% |           0 |               0 m |
+| Stockton southbound, 🛤️ to 🎭 |       3,095.0 m |                  1,365.0 m |            21.61% |           0 |            0.63 m |
+| Broadway westbound, ⚓ to 🎟️  |       3,687.7 m |                  1,640.8 m |            22.81% |           0 |               0 m |
+
+The fixed-step replay collected both endpoints in all three cases. With
+those three routes substituted into the earlier 20-course set, 13 routes
+finished. The seven outstanding deliveries recorded four tree impacts,
+two departures from their planned course and one stall. The 21 maintained
+road-contact courses also finished on this tile release. These runs measure
+the game and its baked surfaces. The grades on Washington and Vallejo
+streets include the street approaches, and the results do not establish
+physical road condition or inventory-wide coverage.
+
+The tile manifest SHA-256 was
+`24231aba1d387a6bec936060e4ba50c11ccbc1d7b4cd4e2366bfb7659e62ef5a`.
+The quest placement SHA-256 stayed
+`bcc1a3f4116282e4aefbfa4299731cef517e9c6ad0521a97c5fa30313eb5c64d`
+so existing pickup progress remains readable.
+
+```sh
+plan=tools/sf-drive/road-audit-chinatown-approaches.json
+node tools/sf-drive/audit-road-routes.mjs --plan="$plan"
+node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses > "$COURSES"
+node tools/sf-drive/drive-road-audit.cjs --verify "$COURSES"
+```

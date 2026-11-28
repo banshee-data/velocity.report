@@ -30,10 +30,15 @@ export function restoreTrial(trial, saved) {
     trial.status = "finished";
   else if (trial.elapsed > 0 || trial.collected.size) trial.status = "running";
   const { checkpoint } = saved;
-  return checkpoint &&
-    [checkpoint.x, checkpoint.y, checkpoint.heading].every(Number.isFinite)
-    ? { x: checkpoint.x, y: checkpoint.y, heading: checkpoint.heading }
-    : null;
+  if (
+    !checkpoint ||
+    ![checkpoint.x, checkpoint.y, checkpoint.heading].every(Number.isFinite)
+  )
+    return null;
+  const { x, y, heading, surfaceId } = checkpoint;
+  const knownPickup =
+    surfaceId && trial.targets.some((target) => target.surfaceId === surfaceId);
+  return { x, y, heading, ...(knownPickup && { surfaceId }) };
 }
 
 export function bestAirtimes(entries, landing) {

@@ -52,3 +52,20 @@ test("a saved trial restores unique eligible pickups and its safe checkpoint", (
   );
   assert.equal(trial.status, "finished");
 });
+
+test("a layered pickup checkpoint restores only a known pickup surface", () => {
+  const trial = { targets: [{ t: "upper", surfaceId: "hyde" }] };
+  const point = { x: 2, y: 5, heading: 1 };
+  const saved = {
+    collected: ["upper"],
+    checkpoint: { ...point, surfaceId: "hyde" },
+  };
+  assert.deepEqual(restoreTrial(trial, saved), saved.checkpoint);
+  assert.deepEqual(
+    restoreTrial(trial, {
+      ...saved,
+      checkpoint: { ...point, surfaceId: "old-bore" },
+    }),
+    point,
+  );
+});

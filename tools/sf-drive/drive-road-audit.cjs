@@ -288,7 +288,13 @@ async function main() {
       }
       const [x, y] = course.waypoints[0];
       const [east, north] = course.waypoints.find((point) => point[2] >= 4);
-      const checkpoint = { x, y, heading: Math.atan2(north - y, east - x) };
+      const checkpoint = {
+        x,
+        y,
+        heading: Math.atan2(north - y, east - x),
+        ...(course.startSurfaceId &&
+          !segment && { surfaceId: course.startSurfaceId }),
+      };
       const key = `sf-progress-v1:sf-trial-v2:${course.progressBaseSha256}:${course.placementSha256}:downtown`;
       const page = await browser.newPage({
         viewport: { width: 480, height: 320 },
@@ -339,6 +345,24 @@ async function main() {
           Math.hypot(initial[0] - x, initial[1] - y) < 4,
           "Checkpoint did not load",
         );
+        if (course.startSurfaceId && !segment) {
+          assert.equal(
+            await canvas.getAttribute("data-surface-id"),
+            course.startSurfaceId,
+          );
+          if (verify) {
+            await canvas.focus();
+            await page.keyboard.press("r");
+            await page
+              .locator("#driveNotice")
+              .filter({ hasText: "Back at the checkpoint · clock continues" })
+              .waitFor();
+            await page.waitForFunction((id) => {
+              const { dataset } = document.querySelector("#drive");
+              return dataset.contact === "grounded" && dataset.surfaceId === id;
+            }, course.startSurfaceId);
+          }
+        }
         const result = await drive(page, course, key);
         console.log(
           JSON.stringify({

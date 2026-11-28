@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   GROUND_MISSING,
+  advanceTrial,
   carStep,
+  createTrial,
   groundAt,
   groundAtWorld,
   nextCrossing,
@@ -17,6 +19,27 @@ const flatGrid = (zDm, n = 3) => ({
   s: 8,
   n,
   z: new Array(n * n).fill(zDm),
+});
+
+test("stacked pickups require the assigned road contact and ground support", () => {
+  const deck = { t: "upper", x: 0, y: 0, surfaceId: "hyde", z: 62 };
+  const street = { t: "street", x: 0, y: 0 };
+  const trial = createTrial([deck, street]);
+  const car = { x: 0, y: 0, z: 62, grounded: true, surfaceId: "hyde" };
+
+  for (const approach of [
+    { ...car, surfaceId: "broadway", z: 55 },
+    { ...car, surfaceId: "hyde", z: 55 },
+    { ...car, grounded: false },
+  ])
+    assert.deepEqual(advanceTrial(trial, 1, approach, true), []);
+  assert.deepEqual(advanceTrial(trial, 1, car, true, false), []);
+  assert.deepEqual(advanceTrial(trial, 1, car, true), [deck]);
+  assert.deepEqual(
+    advanceTrial(trial, 1, { ...car, surfaceId: "", z: 55 }, true),
+    [street],
+  );
+  assert.equal(trial.status, "finished");
 });
 
 test("tilesAround loads near tiles nearest first and drops far ones", () => {
