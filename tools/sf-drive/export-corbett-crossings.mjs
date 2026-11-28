@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
+import { streetCourseWaypoints } from "./steering-line.mjs";
 
 const assets = new URL("../../public_html/src/sf/", import.meta.url);
 const read = (path) => readFileSync(new URL(path, assets));
@@ -17,44 +18,15 @@ const street = tile.r.find(
 );
 assert.ok(street, "Corbett Avenue west of Cuesta Court is missing");
 const raw = street[3];
-const segments = [];
-let station = 0;
-for (let i = 2; i < raw.length; i += 2) {
-  const [x, y] = [ox + raw[i - 2] / 10, oy + raw[i - 1] / 10];
-  const [dx, dy] = [ox + raw[i] / 10 - x, oy + raw[i + 1] / 10 - y];
-  const length = Math.hypot(dx, dy);
-  if (length > 0) segments.push({ station, x, y, dx, dy, length });
-  station += length;
-}
-
-function at(distance) {
-  const { station, x, y, dx, dy, length } = segments.find(
-    (segment) => distance <= segment.station + segment.length,
-  );
-  const t = (distance - station) / length;
-  return [x + t * dx, y + t * dy];
-}
+const points = [];
+for (let i = 0; i < raw.length; i += 2)
+  points.push([ox + raw[i] / 10, oy + raw[i + 1] / 10]);
 
 // The course crosses the Public Works 220M marker's nearest point on Corbett.
 for (const [id, start, end] of [
   ["corbett-at-cuesta-forward", 14.18, 104.18],
   ["corbett-at-cuesta-reverse", 104.18, 14.18],
 ]) {
-  const intervals = Math.ceil(Math.abs(end - start) / 2.3);
-  const waypoints = Array.from({ length: intervals + 1 }, (_, i) => {
-    const progress = ((end - start) * i) / intervals;
-    const s = start + progress;
-    const [x, y] = at(s);
-    const [ax, ay] = at(s - 0.75);
-    const [bx, by] = at(s + 0.75);
-    const right = ((end > start ? 1 : -1) * 1.5) / Math.hypot(bx - ax, by - ay);
-    return [
-      x + right * (by - ay),
-      y - right * (bx - ax),
-      Math.abs(progress),
-      9,
-    ];
-  });
   console.log(
     JSON.stringify({
       id,
@@ -66,7 +38,7 @@ for (const [id, start, end] of [
       expectedEnclosed: [],
       maxDips: 0,
       maxAirborneMetres: 0,
-      waypoints,
+      waypoints: streetCourseWaypoints(points, start, end, 9),
     }),
   );
 }

@@ -373,6 +373,8 @@ async function main() {
           }
           if (course.expectedEnclosed)
             assert.deepEqual(result.enclosed, course.expectedEnclosed, id);
+          if (course.expectNoScrapes)
+            assert.deepEqual(result.scrapeNotices, [], id);
           if (course.maxDips !== undefined)
             assert.ok(
               result.dips <= course.maxDips,

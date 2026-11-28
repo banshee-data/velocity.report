@@ -52,3 +52,40 @@ export function steeringLine(points, guide = {}) {
     ];
   });
 }
+
+export function streetCourseWaypoints(points, start, finish, speed) {
+  const segments = [];
+  let station = 0;
+  for (const [i, [x, y]] of points.slice(0, -1).entries()) {
+    const [bx, by] = points[i + 1];
+    const [dx, dy] = [bx - x, by - y];
+    const length = Math.hypot(dx, dy);
+    if (!length) continue;
+    segments.push({ station, x, y, dx, dy, length });
+    station += length;
+  }
+  function at(distance) {
+    const segment = segments.find(
+      ({ station, length }) => distance <= station + length,
+    );
+    const { x, y, dx, dy, length } = segment;
+    const t = (distance - segment.station) / length;
+    return [x + t * dx, y + t * dy];
+  }
+  const run = finish - start;
+  const intervals = Math.ceil(Math.abs(run) / 2.3);
+  return Array.from({ length: intervals + 1 }, (_, i) => {
+    const progress = (run * i) / intervals;
+    const s = start + progress;
+    const [x, y] = at(s);
+    const [ax, ay] = at(s - 0.75);
+    const [bx, by] = at(s + 0.75);
+    const right = (Math.sign(run) * 1.5) / Math.hypot(bx - ax, by - ay);
+    return [
+      x + right * (by - ay),
+      y - right * (bx - ax),
+      Math.abs(progress),
+      speed,
+    ];
+  });
+}
