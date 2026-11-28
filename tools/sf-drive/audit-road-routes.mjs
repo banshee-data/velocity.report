@@ -997,6 +997,7 @@ for (const spec of plan.routes) {
         progressBaseSha256: manifest.terrainRebake.progressBaseSha256,
         startSurfaceId: from.surfaceId,
         expectedSurfaces,
+        browserContactAlternatives: spec.browserContactAlternatives,
         expectNoScrapes: spec.expectNoScrapes,
         maxDips: spec.maxDips,
         maxAirborneMetres: spec.maxAirborneMetres,

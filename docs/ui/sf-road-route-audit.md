@@ -7728,3 +7728,119 @@ node tools/sf-drive/audit-road-routes.mjs --plan="$plan"
 node tools/sf-drive/audit-road-routes.mjs --plan="$plan" --export-courses > "$COURSES"
 node tools/sf-drive/drive-road-audit.cjs --verify "$COURSES"
 ```
+
+## Twenty deliveries on the current road bake
+
+The three Chinatown replacements and seven updated approaches complete the
+20 cross-city pickup pairs on manifest
+`24231aba1d387a6bec936060e4ba50c11ccbc1d7b4cd4e2366bfb7659e62ef5a`.
+The control used the earlier cross-city course plan on the same tiles, with
+the three Chinatown replacements. It finished 13 courses. With the seven
+additional route choices, the game contact and collision replay at 120 Hz
+completed all 20 at a total driven distance of 73.71 km. No measured
+ground dip exceeded 0.5 m over the eight-metre chord. The largest driven
+tile-seam step was 0.104 m and the largest one-metre grade was 28.47%.
+
+| Delivery                           | Ground route or structure                                          | Driven distance | Ground grade p95 / peak |
+| ---------------------------------- | ------------------------------------------------------------------ | --------------: | ----------------------: |
+| Mission Bay to Pennsylvania Avenue | I-280 from Fifth to the 18th Street fork, then Pennsylvania Avenue |         3.04 km |          8.82% / 13.77% |
+| Mission Bay to Alemany             | I-280, the US 101 connector and the San Bruno Avenue exit          |        10.87 km |          6.72% / 14.52% |
+| Dogpatch to Potrero                | Indiana Street to the westbound 23rd Street undercrossing          |         4.12 km |         16.20% / 23.68% |
+| Richmond to Golden Gate Park       | Crossover Drive deck over JFK, then Lincoln Way                    |         4.51 km |           7.31% / 9.09% |
+| Ocean Beach to Fort Funston        | West side of Skyline Boulevard past the retained trunk             |         3.82 km |           6.42% / 9.98% |
+| Lake Merced to Ingleside           | Street lane clearance on the Font Boulevard approach               |         3.43 km |         17.49% / 23.79% |
+| Twin Peaks to Bernal               | Portola Drive and Clipper Street                                   |         5.74 km |         16.55% / 27.61% |
+
+The Pennsylvania Avenue check permits the short, observed contact on the
+southbound mainline at the 18th Street fork in Chrome. The rest of the
+ordered contact sequence and the exit back onto the street are required.
+Chrome collected both pickups through the Dogpatch undercrossing, the
+Crossover Drive deck, Fort Funston, Ingleside and Twin Peaks to Bernal.
+Those five runs had zero airborne metres and zero measured dips. The
+Crossover Drive delivery reported a building scrape and continued to its
+destination.
+The repeat Pennsylvania Avenue browser drive also collected both pickups,
+finished on city pavement 389.4 m beyond the ramp and recorded zero
+airborne metres, scrapes or measured dips. A separate browser probe
+reached the Ellsworth exit handoff grounded at 15.52 m.
+The Alemany browser drive covered 10.90 km via the San Bruno Avenue
+exit, with 2.46 km of street driving after the ramp. It collected both
+pickups with zero airborne metres, scrapes or measured dips. A
+fixed-step delivery via Ellsworth reached city pavement and later
+encountered a tree on Bay Shore Boulevard. The table measures delivery
+paths and game contact. The separate directional checks cover the spans
+and joins.
+
+A separate Chrome keyboard drive took manual control at 49.4 mph on the
+west span, exited at Fremont and re-entered westbound I-80 at Fourth
+Street. It finished in 384.3 s without airborne travel. The sampled
+speed was 46.3–54.3 mph on the span and 11.3–54.3 mph across the route.
+
+Arrow's completed citywide classification preview, manifest
+`d52ca07ac56e2edbea43786ed91af4794f32b7df7360aa3e753f64d37ac005c3`,
+also contains 166 tiles. Against the road bake above, the two manifests
+have 393 shared contact IDs, 23 with different records. The live tiles
+also include five newer contacts, including the two Macalla Road landings
+and the northbound US 101 to I-280 connector. Carrying the reviewed tree
+rows forward requires preserving these road records and the current quest
+metadata. The current game uses the existing static tiles.
+
+### Packaged road contacts
+
+The 120 Hz contact audit checked every admitted direction on the packaged
+bridge decks, ramps and tunnels. It drives each span and join with the
+game chassis, including slower or offset approaches where needed.
+
+| Result                        | Current public tiles | Arrow classification preview |
+| ----------------------------- | -------------------: | ---------------------------: |
+| Packaged spans                |                  398 |                          393 |
+| Bridge deck directions passed |            235 / 235 |                    234 / 234 |
+| Ramp directions passed        |            219 / 219 |                    215 / 215 |
+| Tunnel directions passed      |              38 / 38 |                      38 / 38 |
+| Directed joins passed         |            356 / 356 |                    350 / 350 |
+| Ground handoffs accepted      |            534 / 534 |                    533 / 533 |
+| Ground handoffs with a scrape |                   15 |                           14 |
+
+Both releases recorded zero span scrapes and zero failed joins or
+handoffs. On each release, three handoffs continued onto another tested
+span. Twenty span directions on each release needed a speed or lane
+adjustment. The live run checked 867,058 chassis poses and returned zero
+static contact flags. These runs cover the admitted directions in each
+package. Citywide geographic coverage requires comparison with the
+structure inventory.
+
+The separate ground-draped screen checked 15,025 street rows on each
+release. It flagged 273 intervals above 50% grade on the public package
+and 286 on the Arrow preview. Each had 51 missing ground intervals.
+The screen samples the terrain beneath raised roads, so these counts
+identify locations for review. They are separate from the wheel contact
+measured during the drives.
+
+The classification product used
+`376ca8ed60c84b7af3e0a3c943e97e45fda1a6d28672c451648535371cc8fd88`
+as its input. Of 2,286 reviewed row hashes across 139 tiles, 2,281 have
+a unique match on the live release, three match multiple tree rows and
+two are absent. The product SHA-256 is
+`3c3cd4e7bdb88ac6cb869d9438283ef3cdda9a04ccf7ff8bd57f2090d1b960c6`.
+
+```sh
+node tools/sf-drive/audit-baked-road-contact.mjs public_html/src/sf/tiles --drive-links --drive-spans
+node tools/sf-drive/audit-baked-road-contact.mjs "$ARROW_BUNDLE/tiles" --drive-links --drive-spans
+```
+
+### Replaying the deliveries
+
+```sh
+chinatown=tools/sf-drive/road-audit-chinatown-approaches.json
+approaches=tools/sf-drive/road-audit-current-delivery-approaches.json
+jq --slurpfile tunnels "$chinatown" --slurpfile city "$approaches" '
+  .manifestSha256 = $city[0].manifestSha256 |
+  .expectCompletion = true |
+  .routes |= map(. as $prior |
+    ([$tunnels[0].routes[], $city[0].routes[]] |
+      map(select(.id == $prior.id)) | first) // $prior)
+' tools/sf-drive/road-audit-cross-city-routes.json > "$PLAN"
+node tools/sf-drive/audit-road-routes.mjs --plan="$PLAN"
+node tools/sf-drive/audit-road-routes.mjs --plan="$PLAN" --export-courses > "$COURSES"
+node tools/sf-drive/drive-road-audit.cjs --verify "$COURSES" mission-bay-to-pennsylvania dogpatch-to-potrero
+```

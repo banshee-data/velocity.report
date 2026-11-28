@@ -1,0 +1,201 @@
+{
+  "manifestSha256": "24231aba1d387a6bec936060e4ba50c11ccbc1d7b4cd4e2366bfb7659e62ef5a",
+  "streetMph": 23,
+  "highwayMph": 40,
+  "expectCompletion": true,
+  "routes": [
+    {
+      "id": "mission-bay-to-pennsylvania",
+      "from": "⚾",
+      "to": "🚂",
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-fifth-south-to-sixth-merge",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-18th-off-ramp",
+          "sf-contact/i280-pennsylvania-exit"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [4080.9, 372.9, "Pennsylvania Ave"],
+        "approachOffsets": {
+          "sf-contact/i280-king-to-mariposa": 1.45
+        },
+        "sectionMph": {
+          "sf-contact/i280-king-to-mariposa": 25,
+          "sf-contact/i280-18th-off-ramp": 20,
+          "sf-contact/i280-pennsylvania-exit": 12
+        }
+      },
+      "expectContactExit": true,
+      "maxAirborneMetres": 4,
+      "maxDips": 0,
+      "expectNoScrapes": true,
+      "browserContactAlternatives": [
+        [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-fifth-south-to-sixth-merge",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-south-through-18th",
+          "sf-contact/i280-18th-off-ramp",
+          "sf-contact/i280-pennsylvania-exit"
+        ]
+      ]
+    },
+    {
+      "id": "dogpatch-to-potrero",
+      "from": "🚚",
+      "to": "🧁",
+      "contact": {
+        "roads": ["sf-contact/dogpatch-23rd-lower"],
+        "reverse": true,
+        "entry": [4257, -535, "23rd St"],
+        "exit": [4151, -543, "23rd St"],
+        "beforeVia": [
+          [4346.3, -812.7, "Indiana St"],
+          [4325, -529.6, "Indiana St"]
+        ],
+        "laneGuides": {
+          "sf-contact/dogpatch-23rd-lower": {
+            "lane": 1.55
+          }
+        },
+        "sectionMph": {
+          "sf-contact/dogpatch-23rd-lower": 14
+        },
+        "afterGuide": [[4150, -543.02]]
+      },
+      "expectCompletion": true,
+      "expectContactExit": true,
+      "expectNoScrapes": true,
+      "maxDips": 0,
+      "maxAirborneMetres": 4
+    },
+    {
+      "id": "mission-bay-to-alemany",
+      "from": "🏀",
+      "to": "🌺",
+      "contact": {
+        "roads": [
+          "sf-contact/i280-fifth-south-entry",
+          "sf-contact/i280-fifth-south-to-sixth-merge",
+          "sf-contact/i280-king-to-mariposa",
+          "sf-contact/i280-south-through-18th",
+          "sf-contact/i280-dogpatch-approach",
+          "sf-contact/i280-south-through-dogpatch",
+          "sf-contact/i280-south-beyond-dogpatch",
+          "sf-contact/i280-south-to-us101-south-exit",
+          "sf-contact/i280-to-us101-south-descent",
+          "sf-contact/us101-south-paul-approach",
+          "sf-contact/us101-south-san-bruno-exit"
+        ],
+        "entry": [3853.3, 1619.4, "5th St"],
+        "exit": [3427.3865, -4253.4056, "San Bruno Ave"],
+        "laneGuides": {
+          "sf-contact/i280-dogpatch-approach": {
+            "approach": 1.25,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-through-dogpatch": {
+            "entranceEast": 1.25,
+            "entranceMetres": 20
+          },
+          "sf-contact/i280-south-beyond-dogpatch": {
+            "approach": 1.7,
+            "holdApproach": true
+          },
+          "sf-contact/i280-south-to-us101-south-exit": {
+            "entranceEast": 1.2148483002208474,
+            "entranceNorth": -1.189177702217174,
+            "entranceMetres": 21
+          },
+          "sf-contact/us101-south-paul-approach": {
+            "approach": -2.0,
+            "holdApproach": true
+          },
+          "sf-contact/us101-south-san-bruno-exit": {
+            "entranceEast": -1.9040947911625294,
+            "entranceNorth": -0.6119011572694755,
+            "entranceMetres": 21
+          }
+        },
+        "afterVia": [[2930.2, -3097.8, "Silver Ave"]]
+      },
+      "laneDetours": [
+        [4649.9, 1435.9, 3.5],
+        [4439.3, 1460.4, 2.8]
+      ],
+      "groundOnly": true,
+      "expectCompletion": true,
+      "expectContactExit": true,
+      "expectNoScrapes": true,
+      "maxDips": 0,
+      "maxAirborneMetres": 4
+    },
+    {
+      "id": "richmond-to-golden-gate-park",
+      "from": "🎬",
+      "to": "🦬",
+      "groundOnly": true,
+      "laneDetours": [[-3299.2, 692.2, -2.4]],
+      "contact": {
+        "roads": ["sf-contact/crossover-drive-over-jfk"],
+        "entry": [-3477, 1229.7, "Crossover Dr"],
+        "exit": [-3437.4, 1138.9, "Crossover Dr"],
+        "sectionMph": {
+          "sf-contact/crossover-drive-over-jfk": 20
+        },
+        "afterVia": [
+          [-3438.9, 592.2, "Lincoln Way"],
+          [-5265.7, 495, "Lincoln Way"],
+          [-5360, 490.2, "Chain Of Lakes Dr"]
+        ]
+      },
+      "expectContactExit": true,
+      "maxAirborneMetres": 4,
+      "expectCompletion": true,
+      "maxDips": 0
+    },
+    {
+      "id": "ocean-beach-to-fort-funston",
+      "from": "🐚",
+      "to": "🪂",
+      "laneDetours": [[-5294, -4708, -2.9]],
+      "expectCompletion": true,
+      "expectNoScrapes": true,
+      "maxDips": 0,
+      "maxAirborneMetres": 4
+    },
+    {
+      "id": "lake-merced-to-ingleside",
+      "from": "🛶",
+      "to": "🧸",
+      "clearanceGuide": {
+        "lateralMetres": 3.5,
+        "speedMph": 15.2
+      },
+      "expectCompletion": true,
+      "expectNoScrapes": true,
+      "maxDips": 0,
+      "maxAirborneMetres": 4
+    },
+    {
+      "id": "twin-peaks-to-bernal",
+      "from": "📷",
+      "to": "📚",
+      "clearanceGuide": {
+        "lateralMetres": 3.5,
+        "speedMph": 15.2
+      },
+      "via": [
+        [-585.8, -1469.6],
+        [-294.9, -1100.8],
+        [154.7, -1258.1]
+      ],
+      "expectCompletion": true,
+      "expectNoScrapes": true,
+      "maxDips": 0,
+      "maxAirborneMetres": 4
+    }
+  ]
+}
