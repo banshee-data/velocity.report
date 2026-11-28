@@ -3155,9 +3155,14 @@ cases["island-east-eastbound-exit-to-macalla"] = {
     [6691.168, 5752.094, 49.7117],
     [6686.4248, 5753.6758, 50.2454],
   ],
-  covered: [prefix + southgateFeeder, prefix + southgateShared],
+  covered: [
+    prefix + lowerEastExit,
+    prefix + southgateFeeder,
+    prefix + southgateShared,
+  ],
   exitCamera: "covered",
   maxDepartureClearanceMetres: 0.25,
+  maxAirborneMetres: 0,
 };
 cases["island-east-lower-mainline"] = {
   owners: lowerEastOwners,
@@ -3283,7 +3288,7 @@ cases["island-east-roundtrip"] = {
   },
   finishOnDeck: true,
   finishDistance: 55,
-  covered: [prefix + southgateFeeder, prefix + southgateShared],
+  covered: cases["island-east-eastbound-exit-to-macalla"].covered,
   allowedCovered: [prefix + hillcrestEntry, hillcrestMerge],
   maxAirborneMetres: 0,
   maxDurationMs: 375_000,
