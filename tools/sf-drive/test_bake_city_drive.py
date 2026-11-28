@@ -611,6 +611,42 @@ def test_road_tree_clearance_on_an_independent_tile_keeps_the_prior_review(
     assert not blocked.exists()
 
 
+def test_road_clearance_carries_with_an_earlier_tree_classification(tmp_path, reviewed_trees):
+    original, reviewed, tile = reviewed_trees
+    encode, digest = tree_bake["encode"], tree_bake["digest"]
+    manifest = reviewed / "tiles/manifest.json"
+    prior = json.loads(manifest.read_bytes())["roadBake"]["treeClassification"]
+    (token,) = prior["tiles"]
+    name = f"tiles/{token}.json.gz"
+    row_hash = digest(encode(tile["tr"][1]))
+    patch = tmp_path / "road-clearance.json"
+    patch.write_bytes(encode({
+        "format": "sf-road-tree-clearance/v1",
+        "tile_manifest_sha256": digest(manifest.read_bytes()),
+        "base_tile_sha256": {token: digest((reviewed / name).read_bytes())},
+        "ept_sha256": "survey-index",
+        "ept_nodes_sha256": {},
+        "survey_receipt_sha256": "survey-receipt",
+        "tree_inventory_sha256": None,
+        "inferred_tree_patches": {token: [{"index": 0, "sha256": row_hash, "parts": []}]},
+    }))
+    approved = tmp_path / "approved-clearance"
+    tree_bake["bake"](reviewed, patch, approved)
+    road_bake = json.loads((approved / "tiles/manifest.json").read_bytes())["roadBake"]
+    assert road_bake["treeClassification"] == prior
+    assert json.loads(gzip.decompress((approved / name).read_bytes()))["tr"] == tile["tr"][2:]
+
+    carried = tmp_path / "carried-clearance"
+    tree_bake["carry_forward"](original, approved, original / "tiles", carried)
+    rebuilt = (carried / name).read_bytes()
+    assert json.loads(gzip.decompress(rebuilt))["tr"] == tile["tr"][2:]
+    road_bake = json.loads((carried / "tiles/manifest.json").read_bytes())["roadBake"]
+    assert road_bake["treeClassification"]["tiles"][token]["removed"] == 1
+    receipt = road_bake["roadTreeClearanceReviews"][0]["tiles"][token]
+    assert receipt["treeRowSha256"] == [row_hash]
+    assert receipt["sha256"] == digest(rebuilt)
+
+
 def test_road_clearance_carries_reviewed_duplicate_rows_only():
     encode, digest = tree_bake["encode"], tree_bake["digest"]
     token = "808580f4"

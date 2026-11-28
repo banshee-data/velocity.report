@@ -7541,3 +7541,43 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   branch-east-west-side-lane bosworth-outside-lane sr82-south-ramp-inside \
   sr82-south-ramp-paved-lane i280-sr82-southbound-exit i280-sr82-exit-and-reentry
 ```
+
+## Covered lanes at Broadway and Yerba Buena, and the Potrero exit edge
+
+**World and Data.** A two-metre offset in either direction on the Broadway
+covered approach stopped at an inferred trunk. The slower outer-lane run on
+Yerba Buena's eastbound exit scraped an inferred trunk below the upper pavement
+edge. The April 2023 survey recorded 283 returns near the lower Broadway lane
+and 514 above it. All 794 returns at the Yerba Buena footprint were above the
+baked lower contact. Neither footprint contained returns in the tested
+vehicle-height band or classified vegetation. The bake clears those two rows.
+The aerial view of Yerba Buena leaves the obscured lower contact dependent on
+its prior review. [USGS 3DEP survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list),
+[Broadway orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167718/405217)
+and [Yerba Buena orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167877/405163).
+
+At Potrero the two-metre offset ran past the painted edge and hit a tree in the
+roadside strip. The revised right edge narrows to 1.12 m at station 166 m,
+following the photographed edge and widening towards the terminal. The tree,
+left pavement edge, grades and ramp joins use the preceding bake.
+[Potrero orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167757/405339).
+
+**Physics and UI.** Chrome reached the end of both Broadway offset probes, the
+Yerba Buena outer-lane probe and the revised paved lane at Potrero. All four
+finished grounded with zero scrapes. Broadway and Yerba Buena kept their
+covered camera through the checked sections. The full eastbound drive from
+the lower tunnel through Southgate to Macalla finished in 78.3 s with zero
+scrapes and airborne travel. The fixed-step audit passed all 492 directed spans.
+
+- Parent game manifest SHA-256 `7e882a393d184ba684223d1913bb10b0099e489f5b8df899d1842f40041108fc`.
+- Clearance export SHA-256 `4848906ea2d6853ea1e182949ed693c8ade5fa8a16f03c19f3f2c169edad354f`.
+- Potrero contact export SHA-256 `6c41bd578909767b25cabb617bac967da21ea68e3984dad241411d1a0a2998f6`.
+- Updated game manifest SHA-256 `0645cbd9767b206623a315884cf1a16f8a2f144400b6930fbd9d5877449c9c76`.
+
+```sh
+python tools/sf-drive/apply-tree-classification.py "$PARENT_GAME" "$CLEARANCE" "$REVIEWED_GAME"
+python tools/sf-drive/bake-potrero-exit-edge.py "$REVIEWED_GAME" "$CONTACT" "$RELEASE"
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  broadway-eastbound-outer broadway-eastbound-outer-reverse potrero-exit-paved-lane \
+  island-eastbound-exit-outer
+```

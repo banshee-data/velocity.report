@@ -77,13 +77,14 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
         parentManifestSha256 ===
         "18558e1a83a2ed8a18af4f74aabf6db951cc622276b74326272d8867369547c5",
     ),
+    roadBake.potreroExitEdgeSurvey,
   ]) {
     const tile = review?.tiles[token];
     if (!tile) continue;
     assert.equal(tile.parentSha256, current);
     current = tile.sha256;
   }
-  assert.equal(current, digest(raw));
+  assertLaterTreeTileReceipt(roadBake, token, current, raw);
 }
 
 function assertSouthgateReview(roadBake, token, raw) {
@@ -1980,7 +1981,9 @@ test("westbound I-80 keeps both US 101 choices on their surveyed branches", () =
   const [west, southTile] = ["808f7e2c", "808f7e34"].map((token) => {
     const raw = file(`tiles/${token}.json.gz`);
     const receipt = roadBake.centralWestSplitSurvey.tiles[token];
-    assert.equal(receipt.sha256, digest(raw));
+    const edge = roadBake.potreroExitEdgeSurvey.tiles[token];
+    if (edge) assert.equal(edge.parentSha256, receipt.sha256);
+    assert.equal(edge?.sha256 ?? receipt.sha256, digest(raw));
     return JSON.parse(gunzipSync(raw));
   });
   const road = (slug, tile = west) =>
@@ -5057,7 +5060,7 @@ test("the two surveyed Broadway roof footprints leave the westbound lanes clear"
   ]) {
     const raw = file(`tiles/${token}.json.gz`);
     const tile = JSON.parse(gunzipSync(raw));
-    assert.equal(review.tiles[token].sha256, digest(raw));
+    assertLaterTreeTileReceipt(roadBake, token, review.tiles[token].sha256, raw);
     assert.equal(review.tiles[token].removed, count);
     assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
     assert.equal(
@@ -5169,6 +5172,71 @@ test("the SR 82 exit pavement edge leaves the median tree outside the contact", 
   assert.equal(surface.heightAt(-1137, -5207.5), null);
   assert.equal(portals.length, 1);
   assert.equal(portals[0].exitOnly, true);
+});
+
+test("covered lanes clear the inferred trunks at Broadway and Yerba Buena", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.roadTreeClearanceReviews.find(
+    ({ parentManifestSha256 }) =>
+      parentManifestSha256 ===
+      "7e882a393d184ba684223d1913bb10b0099e489f5b8df899d1842f40041108fc",
+  );
+  for (const [token, [east, north], { x, y, heading, z }] of [
+    [
+      "808580ec",
+      [61, 74],
+      { x: 1909.6, y: 4028.85, heading: -2.988, z: 55.35 },
+    ],
+    [
+      "80858024",
+      [-1823, -2874],
+      { x: 6704.4, y: 5667.68, heading: 0.328, z: 51.748 },
+    ],
+  ]) {
+    const raw = file(`tiles/${token}.json.gz`);
+    const tile = JSON.parse(gunzipSync(raw));
+    assert.equal(review.tiles[token].removed, 1);
+    assertLaterTreeTileReceipt(
+      roadBake,
+      token,
+      review.tiles[token].sha256,
+      raw,
+    );
+    assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
+    assert.equal(
+      collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z),
+      null,
+    );
+  }
+});
+
+test("the Potrero exit retains paved contact and excludes the roadside strip", () => {
+  const token = "808f7e34";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  assertLaterTreeTileReceipt(
+    roadBake,
+    token,
+    roadBake.potreroExitEdgeSurvey.tiles[token].sha256,
+    raw,
+  );
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/us101-north-potrero-exit",
+  );
+  const { surface, portals } = buildBakedRoadContact(road);
+  assert.ok(tile.tr.some(([east, north]) => east === 1937 && north === 1798));
+  const i = surface.profile.findIndex(({ s_m }) => s_m >= 166);
+  const [x, y] = surface.profile[i].position;
+  const [ax, ay] = surface.profile[i - 1].position;
+  const heading = Math.atan2(y - ay, x - ax);
+  assert.ok(roadSupportsCar(surface.heightAt, { x, y, heading }));
+  assert.equal(surface.heightAt(3093.7, 357.8), null);
+  assert.equal(portals.length, 1);
+  assert.deepEqual(
+    [portals[0].x, portals[0].y, portals[0].z],
+    road.points.at(-1),
+  );
 });
 
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
