@@ -1,0 +1,1 @@
+- Replaced the obsolete [Treasure Island Road approach at Southgate](../../ui/sf-road-route-audit.md#treasure-island-road-ground-approach-at-southgate) with the mapped pavement leading to the existing bridge contact.

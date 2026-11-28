@@ -7154,3 +7154,41 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   northbound-us101-to-northbound-i280 northbound-us101-to-southbound-i280 \
   northbound-i280-below-alemany-left-exit northbound-i280-clears-remaining-cover
 ```
+
+## Treasure Island Road ground approach at Southgate
+
+**World and Physics.** The game painted a former road alignment between
+two levels at the east end of Yerba Buena Island. Chrome followed that
+paint at a target of 18 mph and recorded 4.7 m of airborne travel toward
+Southgate and 4.1 m in the opposite direction. The deepest sampled dip
+was 0.71 m. The street heights came from the terrain grid. The mapped
+one-way approach runs east of the former trace and joins the existing
+4.8 m wide contact at 56.93 m NAVD88. Chrome completed 151 m on that
+mapped route with zero airborne travel and a peak driven grade of 11.9%.
+[SFCTA Southgate interchange project](https://www.sfcta.org/projects/yerba-buena-island-i-80-southgate-road-and-interchange-project).
+
+**Data.** At station 120 m of the former trace, the April 2023 survey
+recorded 56.92 m NAVD88 on the old centreline and 46.99 m about 3.1 m to
+its right. The ground approach assessment uses 83 one-metre stations
+along the mapped alignment, with observations at the centre and four
+lateral offsets. The centre median at the existing handoff was 56.79 m.
+The bake replaces one ground road row with the mapped approach and ends
+its paint at the existing contact. The terrain, bridge contact, and
+directed joins retain their existing geometry. The measurements describe
+the observed survey epoch and the game route tested here.
+[April 2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+On the candidate, Chrome drove 48.2 m on ground before acquiring the
+baked Southgate surface and reached the deck finish with zero airborne
+travel. The fixed-step bake audit passed 492 directed span traversals,
+356 directed joins, and 531 terrain handoffs, plus three continuations.
+
+- Parent manifest SHA-256 `7c49be5011b627fcf952c216aa8b9e344a86cd22415bff760b077e7b13723339`.
+- Frozen map SHA-256 `0bcf43034380dbd755f30a10bcb87a95961e1c663801e85b167b8190f80f3b24`, ways `1169436017` and `1034687992`.
+- Survey receipt SHA-256 `564f86d79dc4f4e0185ddcc3e7f3995bcd4900ecff30cfaf5db9b6a9645f5763`.
+- Contact export SHA-256 `54f39d414d658aacb29f57ba96d1825352d9ecc5f2fb36dc69c24099fc92392f`.
+- Updated manifest SHA-256 `90bffbecbb9e79b608bed6966df7477a59b666f086a90be4add37b98602d6590`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs treasure-island-road-to-southgate
+```

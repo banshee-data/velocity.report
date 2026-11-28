@@ -61,6 +61,7 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
     roadBake.macallaWestboundExitSurvey,
     roadBake.eastboundSouthgateMappedExitSurvey,
     roadBake.macallaMappedLandingSurvey,
+    roadBake.treasureIslandGroundApproach,
   ]) {
     const tile = review.tiles[token];
     if (!tile) continue;
@@ -115,7 +116,7 @@ test("South Gate keeps the distinct street branch and retires the obsolete paint
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   assertSouthgateReview(roadBake, token, raw);
   const review = roadBake.southgateLegacyRoadReview.tiles[token];
-  assert.equal(roadBake.coveredGroundRoadPatches[token], 1);
+  assert.equal(roadBake.coveredGroundRoadPatches[token], 2);
   assert.equal(
     review.rowSha256,
     "cc2bd7a6633ae9e8010ef7af3b4ca96693ff52b7446126bfb9cb2ecfe7f4c4cd",
@@ -134,6 +135,35 @@ test("South Gate keeps the distinct street branch and retires the obsolete paint
   ]) {
     assert.ok(tile.playableRoads.some((road) => road.id === id));
   }
+});
+
+test("Treasure Island Road paint ends at the existing Southgate deck portal", () => {
+  const token = "80858024";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.treasureIslandGroundApproach;
+  assertSouthgateReview(roadBake, token, raw);
+  assert.deepEqual(review.source_osm_ways, [1169436017, 1034687992]);
+  const rows = tile.r.filter(([name]) => tile.n[name] === "Treasure Island Rd");
+  const row = rows.find(
+    (candidate) =>
+      digest(JSON.stringify(candidate) + "\n") === review.approachRowSha256,
+  );
+  assert.ok(row);
+  assert.ok(
+    rows.every(
+      (candidate) =>
+        digest(JSON.stringify(candidate) + "\n") !== review.sourceRowSha256,
+    ),
+  );
+  const bridge = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/yerba-buena-southgate-to-macalla",
+  );
+  const [x, y] = row[3].slice(-2).map((v, i) => tile.o[i] + v / 10);
+  const [portalX, portalY] = bridge.points[0];
+  assert.ok(Math.hypot(x - portalX, y - portalY) < 0.08);
+  assert.equal(row[4].at(-1) / 5, bridge.width);
 });
 
 test("the Fourth Street merge clears the capped face above its lower volume", () => {
@@ -3138,7 +3168,11 @@ test("both westbound Macalla lanes follow their own paved landings", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const receipt = roadBake.macallaMappedLandingSurvey;
   assert.deepEqual(receipt.source_osm_ways, [322962944, 1178201287, 617825976]);
-  assert.equal(receipt.tiles[token].sha256, digest(raw));
+  assert.equal(
+    receipt.tiles[token].sha256,
+    roadBake.treasureIslandGroundApproach.tiles[token].parentSha256,
+  );
+  assertSouthgateReview(roadBake, token, raw);
   const landings = ["west-landing", "mapped-landing"].map((suffix) => {
     const id = `sf-contact/yerba-buena-westbound-macalla-${suffix}`;
     const road = tile.playableRoads.find((entry) => entry.id === id);
