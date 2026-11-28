@@ -6925,6 +6925,33 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   i280-dogpatch-exit-north-short i280-dogpatch-exit-south-short
 ```
 
+### Off-centre audit of the north fork
+
+The isolated span probe began 2.58 m into the north branch at a 0.75 m
+right offset. One rear tyre was still on the upstream ramp at
+21.92 m NAVD88. The other three tyres had support on the branch. The
+separate directed join passed at the same offset. Chrome then crossed
+from the upstream ramp and reached Pennsylvania Avenue in 15.3 s, with
+zero airborne travel and no scrapes.
+
+The span audit now starts and finishes with its tyres inside each
+terminal cut before testing isolated support. It still detects an
+interior gap. The join audit retains its complete crossing, including
+the section where the two surfaces support different tyres.
+
+On game manifest
+`48d8a2a75801069e72d1109405555d936e90ce710224a7d6a04763fd1ac0dae9`,
+the revised screen passed all 492 directed span traversals at both
+0.75 m offsets. The default audit passed all 356 joins and recorded 531
+terrain handoffs and three direct continuations. These are traversals
+of the packaged road network at the tested offsets.
+
+```sh
+node tools/sf-drive/audit-baked-road-contact.mjs --span-lane=-0.75
+node tools/sf-drive/audit-baked-road-contact.mjs --span-lane=0.75
+node tools/sf-drive/smoke-presidio-tunnels.cjs i280-dogpatch-exit-north-fork
+```
+
 ## Mason Street and JFK Drive crossing clearance
 
 **World and Data.** The route screen identified a mapped

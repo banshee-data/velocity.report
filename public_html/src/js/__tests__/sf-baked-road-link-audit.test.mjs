@@ -88,6 +88,32 @@ test("the span audit drives the directions allowed by the road terminals", () =>
   assert.deepEqual(audit.failures, []);
 });
 
+test("the span audit starts inside a skewed cut and still detects a contact gap", () => {
+  const road = buildBakedRoadContact(
+    makeRoad("skewed", 0, ["start", "end"], {
+      start: { ...seam, bearing: Math.PI / 3 },
+    }),
+  );
+  const audit = (contact) =>
+    auditBakedRoadSpans([contact], [], new Map(), -0.75);
+  assert.equal(audit(road).passed, 2);
+  const missingPavement = {
+    ...road,
+    surface: {
+      ...road.surface,
+      heightAt: (x, y) =>
+        x >= 7 && x <= 12 ? null : road.surface.heightAt(x, y),
+    },
+  };
+  const blocked = audit(missingPavement);
+  assert.equal(blocked.passed, 0);
+  assert.ok(
+    blocked.failures.every(({ attempts }) =>
+      attempts.every(({ outcome }) => outcome === "stopped"),
+    ),
+  );
+});
+
 test("the span audit expands bidirectional and reverse-only joins", () => {
   const roads = [
     makeRoad("west", 0, ["start"], { end: seam }),

@@ -1164,6 +1164,17 @@ for (const direction of ["north", "south"]) {
     laneGuides: { "i280-south-beyond-dogpatch": dogpatchClearance },
   };
 }
+const dogpatchOffRamp = "i280-dogpatch-off-ramp";
+const pennsylvaniaNorth = "i280-dogpatch-pennsylvania-north";
+cases["i280-dogpatch-exit-north-fork"] = {
+  ...cases["i280-dogpatch-exit-north-short"],
+  roads: [dogpatchOffRamp, pennsylvaniaNorth],
+  rollingStartMetres: 285,
+  initialSpeedMps: 9,
+  speed: 9,
+  forks: [],
+  maxDurationMs: 40_000,
+};
 cases["dogpatch-pennsylvania-to-i280"] = {
   ...cases["i280-dogpatch-enter-north"],
   finishDistance: 90,
