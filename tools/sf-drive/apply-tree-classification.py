@@ -252,21 +252,24 @@ def carry_tile(token, candidate, before, after, receipt, source_removals):
 def carry_road_clearance(token, candidate, reviewed, receipts, source_removals):
     """Preserve reviewed row removals when another tile layer has changed."""
     rows = [identity for receipt in receipts for identity in receipt["treeRowSha256"]]
-    removed = set(rows)
-    if len(removed) != len(rows) or digest(reviewed) != receipts[-1]["sha256"]:
+    removed = Counter(rows)
+    if (
+        len(rows) != sum(receipt["removed"] for receipt in receipts)
+        or digest(reviewed) != receipts[-1]["sha256"]
+    ):
         raise ValueError(f"Road clearance receipt differs in {token}")
     reviewed_rows = [
         digest(encode(row)) for row in json.loads(gzip.decompress(reviewed))["tr"]
     ]
-    if removed.intersection(reviewed_rows):
+    if any(identity in removed for identity in reviewed_rows):
         raise ValueError(f"The reviewed tile restored a road clearance tree in {token}")
 
     data = json.loads(gzip.decompress(candidate))
     original = data["tr"]
     hashes = [digest(encode(row)) for row in original]
-    matches = [identity for identity in hashes if identity in removed]
-    if len(matches) != len(set(matches)):
-        raise ValueError(f"Road clearance tree identity is ambiguous in {token}")
+    matches = Counter(identity for identity in hashes if identity in removed)
+    if matches - removed:
+        raise ValueError(f"The rebake has more copies of a reviewed tree in {token}")
     remaining = [identity for identity in hashes if identity not in removed]
     if missing_rows(reviewed_rows, remaining, token) - source_removals:
         raise ValueError(

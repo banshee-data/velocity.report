@@ -4916,6 +4916,28 @@ for (const [name, road, owners, exitCamera] of [
   };
 }
 
+for (const [name, lane, start, finish, exitCamera] of [
+  ["broadway-west-inner-east-portal", -2, 17, 155, "tunnel"],
+  ["broadway-west-inner-west-portal", 2, 582, 652, "covered"],
+]) {
+  const road = "broadway-westbound";
+  cases[name] = {
+    roads: [road],
+    owners: ["808580f4", "808580ec"],
+    laneGuides: { [road]: { lane } },
+    rollingStart: true,
+    initialSpeedMps: 8,
+    rollingStartMetres: start,
+    finishOnDeck: true,
+    finishDistance: finish,
+    speed: 8,
+    exitCamera,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 35_000,
+  };
+}
+
 cases["san-jose-tingley-ground-approach"] = {
   roads: ["san-jose-tingley-northbound"],
   owners: ["808f7e7c", "808f7e64"],

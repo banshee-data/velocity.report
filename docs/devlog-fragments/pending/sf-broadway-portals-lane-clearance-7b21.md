@@ -1,0 +1,1 @@
+- Cleared eight inferred tree rows from the two westbound Broadway portal approaches and preserved the reviewed row counts across later bakes. The [route audit](../../ui/sf-road-route-audit.md#broadway-westbound-portal-lanes) records both Chrome lane drives and the survey evidence.

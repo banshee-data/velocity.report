@@ -5037,6 +5037,29 @@ test("the Potrero and Alemany lane reviews clear the measured pavement", () => {
   }
 });
 
+test("the two surveyed Broadway roof footprints leave the westbound lanes clear", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.roadTreeClearanceReviews.find(
+    ({ parentManifestSha256 }) =>
+      parentManifestSha256 ===
+      "5c1a88856d25e68f22074b86a6f22bc2420afbac4a7e2762345c21bac9215a27",
+  );
+  for (const [token, [east, north], count, [x, y, heading, z]] of [
+    ["808580f4", [-3816, -2767], 7, [2519.8, 4132.03, -3, 41.32]],
+    ["808580ec", [452, 163], 1, [1948.6, 4039.56, -2.988, 55.515]],
+  ]) {
+    const raw = file(`tiles/${token}.json.gz`);
+    const tile = JSON.parse(gunzipSync(raw));
+    assert.equal(review.tiles[token].sha256, digest(raw));
+    assert.equal(review.tiles[token].removed, count);
+    assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
+    assert.equal(
+      collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z),
+      null,
+    );
+  }
+});
+
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["8085807c", "80858084"];
