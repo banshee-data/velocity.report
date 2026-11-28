@@ -7359,3 +7359,58 @@ python tools/sf-drive/apply-tree-classification.py "$PARENT_GAME" "$CLASSIFICATI
 node tools/sf-drive/smoke-presidio-tunnels.cjs potrero-approach-outer-lane \
   alemany-beyond-right-lane alemany-entry-left-lane alemany-through-left-lane
 ```
+
+## Broadway westbound portal lanes
+
+**World and Data.** Two scenery footprints interrupted the westbound
+lanes near the Broadway tunnel approaches. The eastern footprint contained
+seven inferred trunk rows, including six exact copies. The western footprint
+contained one row. Both positions coincide with rooftop surfaces in the
+2025 city orthophoto. Within 0.55 m of each footprint, the April 2023 survey
+recorded 76 eastern returns at 60.10–60.16 m NAVD88 and 95 western upper
+returns at 60.65–64.06 m. Neither footprint contained classified vegetation
+or returns between 0.4 m and 2.6 m above the corresponding baked road level.
+Aerial returns at the eastern footprint describe the roof above the street.
+The bake clears the eight rows and retains the existing road and roof geometry.
+[USGS 3DEP survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list),
+[city orthophoto at the eastern footprint](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167738/405214)
+and [city orthophoto at the western footprint](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167720/405217).
+
+**Physics and UI.** With manual keyboard input at an 8 m/s target, both
+lane probes stalled on a tree collision on the parent bake. The revised
+bake clears both approaches while the car stays grounded. At the eastern
+end the test reaches the tunnel camera. At the western end it moves from
+the tunnel camera to the covered view after crossing the affected lane.
+These are game traversals at the tested lane offsets.
+
+| Check            | Frozen input                                                       |
+| ---------------- | ------------------------------------------------------------------ |
+| Parent manifest  | `5c1a88856d25e68f22074b86a6f22bc2420afbac4a7e2762345c21bac9215a27` |
+| Survey receipt   | `4f20c50733c9402d8091481c116b4dd6dddb621cac5f439d051d7183bd5f9b45` |
+| Clearance export | `177fb2e7a4cc3a846eb1f713c81e304d7c0dd71faef30db4a10b760be439efce` |
+| Updated manifest | `51d6133a2823d3768a97796813bd1855941e91f2e41af11b90f281f3b3d119e9` |
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  broadway-west-inner-east-portal broadway-west-inner-west-portal
+```
+
+### Map inventory screen on the Potrero and Alemany release
+
+**Data.** The proximity and heading screen compared 443 frozen
+OpenStreetMap motor-road ways to the 398 contacts in the parent manifest
+above. Of the 443 ways, 338 matched along their complete mapped length.
+Thirty-two had an unmatched interval at least 30 m long. The screen flags
+positions for geometry review. It covers mapped ways tagged as structures
+and includes passages already served by the terrain grid.
+
+**Physics.** A keyboard drive along First Street beneath the Transit
+Center covered 76.7 m on the terrain grid. The three map-coordinate starts
+near Tingley and the Doyle loop each stalled after spawning on ordinary
+terrain. Chrome completed both separately prepared San Jose Avenue
+approaches in 20.9 s and 31.1 s, the Doyle loop to SR 1 in 71.7 s, and the
+Branch East ramp in 46.0 s. Each drive stayed grounded with zero scrapes.
+The map-coordinate tests leave coverage across the full lane width open
+for review. The frozen way identifiers are `309010740`, `309010745`, and
+`648873170`. The local `freeway-unmatched-public-survey` evidence retains
+the sampled profiles and the EPT node receipts at all three sites.

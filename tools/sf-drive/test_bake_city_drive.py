@@ -611,6 +611,38 @@ def test_road_tree_clearance_on_an_independent_tile_keeps_the_prior_review(
     assert not blocked.exists()
 
 
+def test_road_clearance_carries_reviewed_duplicate_rows_only():
+    encode, digest = tree_bake["encode"], tree_bake["digest"]
+    token = "808580f4"
+    duplicate = [2, 1, 4, 1]
+    kept = [3, 1, 9, 2]
+
+    def packed(rows):
+        return gzip.compress(encode({"tr": rows}), mtime=0)
+
+    reviewed = packed([kept])
+    identity = digest(encode(duplicate))
+    receipt = {
+        "sha256": digest(reviewed),
+        "treeRowSha256": [identity, identity],
+        "removed": 2,
+    }
+    carry = tree_bake["carry_road_clearance"]
+    result = carry(
+        token, packed([duplicate, kept, duplicate]), reviewed, [receipt.copy()], set()
+    )
+    assert json.loads(gzip.decompress(result))["tr"] == [kept]
+
+    with pytest.raises(ValueError, match="more copies of a reviewed tree"):
+        carry(
+            token,
+            packed([duplicate, kept, duplicate, duplicate]),
+            reviewed,
+            [receipt],
+            set(),
+        )
+
+
 def test_carry_forward_preserves_rebaked_roads_and_independent_removals(
     tmp_path, reviewed_trees
 ):
