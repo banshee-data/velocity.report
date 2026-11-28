@@ -7924,3 +7924,48 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs northbound southbound \
   island-east-lower-mainline island-east-upper-mainline
 node tools/sf-drive/smoke-stockton-tunnel.cjs
 ```
+
+### Live crossing and service-road review
+
+The public site served the revised `09f430108d4b` tiles. Chrome
+completed nine street drives on that release. All four Third Street
+lanes, both directions at Evans and Mariposa, and the First Street
+Transit Center crossing finished grounded with no airborne travel,
+scrapes or dips. All 170 public runtime files matched the game merge
+`311e666bd1fc08e90f8ce048c4a5a96b45ec02b6` byte for byte. Adding the
+matching structure contact export produced a 171-file validated Arrow
+package. The attached `public-release-inventory-09f430` run under
+`city-structure-inventory-20261126` retains the browser results and
+package receipt.
+
+On the same public release, Chrome repeated the ten federal tunnel
+records, including both Yerba Buena bores. The westbound Bay Bridge
+replay crossed the west span, exited at Fremont and rejoined westbound
+I-80 at Fourth Street. The eastbound replay continued to Oakland
+pavement. The browser probes follow scripted steering or the game
+drive and cover the paths and speeds exercised by the replay.
+
+The same frozen OpenStreetMap extract supplied the service-road
+topology. At each end of a flagged way, the screen followed shared
+coordinates through up to four road ways, counting the first
+classified motor street reached on each branch. It skipped walking
+paths and ways tagged `private`, `customers` or `no`. The search
+ignored direction of travel. Legal turns, pavement and access
+required separate evidence.
+
+| Disposition                                        | Ways                                                                                                                  | Finding                                                                                                                                     |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access tagged as private, customers or destination | `48433611`, `56029759`, `722054927`, `742702371`, `971629943`, `1105663387`, `1151044950`, `1167668216`, `1413510412` | Six private, two customer-access and one destination-access way.                                                                            |
+| Parking and building access identified             | `28843606`, `132813868`, `1093790281`, `1340066146`                                                                   | The mapped connections and operator records point to the Sutter Stockton, 555 Ninth Street, Costco and Japan Center garages respectively.   |
+| Destination access indicated by the map            | `658556300`, `1065081989`, `1157518702`                                                                               | Drive-through, student union loading dock and parking aisle respectively.                                                                   |
+| Public through connection remains unconfirmed      | `32839447`, `563105549`, `564392635`, `722063855`, `1416816167`, `1416816169`                                         | One driveway returns to the same North Point Street way. The other five reach a mapped motor street from at most one end within the search. |
+
+This screen found no additional verified public through connection
+among the 22 service-road flags. It leaves vehicle access to the six
+unconfirmed ways unresolved and provides no road heights for any
+of the service roads. Routing and contacts retain their existing
+coverage.
+[Sutter Stockton garage operations](https://archives.sfmta.com/cms/cmta/documents/1-15-08%20Garage%20RFP.pdf) ·
+[555 Ninth Street planning record](https://commissions.sfplanning.org/cpcpackets/2015-009753CUA.pdf) ·
+[Costco garage operator](https://impark.myparkingworld.com/Pages/Lots/Lot_Details.aspx?app=2&bnum=27&lnum=28) ·
+[Japan Center garage operator](https://www.japancentergarage.org/getting-here).
