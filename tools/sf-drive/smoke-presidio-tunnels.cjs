@@ -4938,6 +4938,82 @@ for (const [name, lane, start, finish, exitCamera] of [
   };
 }
 
+for (const [
+  name,
+  road,
+  owners,
+  lane,
+  start,
+  finish,
+  speed,
+  exitCamera,
+  reverse,
+] of [
+  [
+    "broadway-eastbound-outer",
+    "broadway-eastbound",
+    ["808580f4", "808580ec"],
+    -2,
+    630,
+    680,
+    8,
+    "covered",
+    false,
+  ],
+  [
+    "broadway-eastbound-outer-reverse",
+    "broadway-eastbound",
+    ["808580f4", "808580ec"],
+    -2,
+    56,
+    105,
+    8,
+    "covered",
+    true,
+  ],
+  [
+    "potrero-exit-paved-lane",
+    "us101-north-potrero-exit",
+    ["808f7e34", "808f7e2c"],
+    -0.25,
+    114,
+    191,
+    8,
+    "exterior",
+    false,
+  ],
+  [
+    "island-eastbound-exit-outer",
+    "yerba-buena-east-eastbound-off-ramp",
+    ["80858024", "8085803c"],
+    2.25,
+    12,
+    53,
+    5,
+    "covered",
+    false,
+  ],
+]) {
+  cases[name] = {
+    roads: [road],
+    owners,
+    reverse,
+    laneGuides: { [road]: { lane } },
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: speed,
+    speed,
+    finishOnDeck: true,
+    finishDistance: finish,
+    exitCamera,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 20_000,
+    expectedEnclosed: [],
+    covered: exitCamera === "covered" ? [prefix + road] : [],
+  };
+}
+
 for (const [name, road, tokens, lane, start, finish, exitCamera] of [
   [
     "tingley-north-inner-lane",
@@ -6034,6 +6110,7 @@ async function main() {
         speedLimits = {},
         forks = [],
         covered,
+        expectedEnclosed,
         allowedCovered = [],
         cameraStations = [],
       } = {
@@ -6355,7 +6432,8 @@ async function main() {
           );
         assert.deepEqual(
           result.enclosed,
-          sections.filter(({ kind }) => kind === "tunnel").map(({ id }) => id),
+          expectedEnclosed ??
+            sections.filter(({ kind }) => kind === "tunnel").map(({ id }) => id),
         );
         if (covered) {
           assert.deepEqual(

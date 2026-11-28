@@ -1,0 +1,1 @@
+- Cleared the lower lanes at Broadway and Yerba Buena, fitted the right pavement edge at the Potrero exit, and kept both tree reviews when rebaking the same tile. The [browser lane checks](../../ui/sf-road-route-audit.md#covered-lanes-at-broadway-and-yerba-buena-and-the-potrero-exit-edge) stayed grounded with zero scrapes.

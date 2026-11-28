@@ -114,8 +114,6 @@ def bake(release, patch, output):
     changed = {}
     road_bake = manifest["roadBake"]
     previous = road_bake.get("treeClassification")
-    if road_clearance and previous and patches.keys() & previous["tiles"].keys():
-        raise ValueError("Use an additional tree review for previously classified tiles")
     if road_clearance:
         previous = None
     release_receipts = previous["tiles"] if previous else {}
@@ -207,8 +205,9 @@ def missing_rows(original, remaining, token):
     return missing
 
 
-def carry_tile(token, candidate, before, after, receipt, source_removals):
-    if digest(before) != receipt["parentSha256"] or digest(after) != receipt["sha256"]:
+def carry_tile(token, candidate, before, after, receipt, source_removals, road_receipts=()):
+    final_receipt = road_receipts[-1] if road_receipts else receipt
+    if digest(before) != receipt["parentSha256"] or digest(after) != final_receipt["sha256"]:
         raise ValueError(f"Tree review tile hash differs in {token}")
     original, reviewed, rebaked = [
         json.loads(gzip.decompress(raw)) for raw in (before, after, candidate)
@@ -219,9 +218,12 @@ def carry_tile(token, candidate, before, after, receipt, source_removals):
     ]
     reviewed_removals = missing_rows(original_rows, reviewed_rows, token)
     earlier_removals = set(receipt.get("rebakeRemovedTreeRows", []))
-    inherited = reviewed_removals - earlier_removals
+    road_removals = {row for review in road_receipts for row in review["treeRowSha256"]}
+    inherited = reviewed_removals - earlier_removals - road_removals
     if (
-        not earlier_removals <= reviewed_removals
+        not (earlier_removals | road_removals) <= reviewed_removals
+        or earlier_removals & road_removals
+        or len(road_removals) != sum(review["removed"] for review in road_receipts)
         or len(inherited) != receipt["removed"]
     ):
         raise ValueError(f"Tree review removal count differs in {token}")
@@ -234,18 +236,22 @@ def carry_tile(token, candidate, before, after, receipt, source_removals):
         raise ValueError(
             f"The rebake removed a tree without a pinned contact patch in {token}"
         )
+    retained_removals = inherited | road_removals
     rebaked["tr"] = [
         row
         for row, row_hash in zip(rebaked["tr"], candidate_rows, strict=True)
-        if row_hash not in inherited
+        if row_hash not in retained_removals
     ]
     payload = gzip.compress(encode(rebaked), compresslevel=9, mtime=0)
+    for review in road_receipts:
+        review.setdefault("reviewedSha256", review["sha256"])
+        review["sha256"] = digest(payload)
     return payload, {
         **receipt,
         "sha256": digest(payload),
         "carriedFromSha256": digest(after),
         "rebakedInputSha256": digest(candidate),
-        "rebakeRemovedTreeRows": sorted(current_removals - inherited),
+        "rebakeRemovedTreeRows": sorted(current_removals - retained_removals),
     }
 
 
@@ -341,6 +347,7 @@ def carry_forward(release, reviewed_release, review_input, output, playable=None
                 reviewed,
                 receipts[token],
                 source_removals,
+                road_receipts[token],
             )
         else:
             payload = carry_road_clearance(
