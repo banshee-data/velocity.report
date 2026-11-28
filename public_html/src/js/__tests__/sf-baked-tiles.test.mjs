@@ -60,6 +60,7 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
     roadBake.i80HarrisonLoopPavementSurvey,
     roadBake.macallaWestboundExitSurvey,
     roadBake.eastboundSouthgateMappedExitSurvey,
+    roadBake.macallaMappedLandingSurvey,
   ]) {
     const tile = review.tiles[token];
     if (!tile) continue;
@@ -1403,7 +1404,7 @@ test("the westbound Macalla ramp follows the surveyed lane down to the island ro
   const road = tile.playableRoads.find(
     ({ id }) => id === "sf-contact/yerba-buena-east-westbound-off-ramp",
   );
-  const { surface, portals } = buildBakedRoadContact(road);
+  const { surface } = buildBakedRoadContact(road);
   for (const [x, y, z, heading] of [
     [6705.62, 5818.4, 58.08, 2.98],
     [6681.05, 5816.22, 56.98, -2.8],
@@ -1412,9 +1413,6 @@ test("the westbound Macalla ramp follows the surveyed lane down to the island ro
     assert.ok(roadSupportsCar(surface.heightAt, { x, y, heading }));
     assert.ok(Math.abs(surface.heightAt(x, y) - z) < 0.3);
   }
-  assert.equal(portals.length, 1);
-  const [{ x, y, z }] = portals;
-  assert.ok(Math.abs(z - groundAtWorld([tile], x, y, true)) < 0.03);
 });
 
 test("the 18th Street entrance stays on its own deck until the measured merge", () => {
@@ -2652,7 +2650,7 @@ test("the eastbound Southgate exit follows the surveyed lower pavement beyond th
     receipt.source_osm_ways,
     [1034687989, 1034687990, 1170347858],
   );
-  assert.equal(receipt.tiles[token].sha256, digest(raw));
+  assertSouthgateReview(roadBake, token, raw);
   const road = (id) =>
     tile.playableRoads.find((candidate) => candidate.id === id);
   const through = road("yerba-buena-lower-tunnel-east-of-exit");
@@ -3080,11 +3078,15 @@ test("the upper East Span forks to Macalla Road without crossing the lower deck"
   const stem = road("yerba-buena-upper-east-span");
   const through = road("yerba-buena-upper-east-through");
   const ramp = road("yerba-buena-east-westbound-off-ramp");
+  const west = road("yerba-buena-westbound-macalla-west-landing");
+  const mapped = road("yerba-buena-westbound-macalla-mapped-landing");
   const upper = roads.get("yerba-buena-east-approach");
   for (const [before, after] of [
     [stem, through],
     [stem, ramp],
     [through, upper],
+    [ramp, west],
+    [ramp, mapped],
   ]) {
     assert.deepEqual(before.points.at(-1), after.points[0]);
     assert.deepEqual(before.seams.end, after.seams.start);
@@ -3123,13 +3125,35 @@ test("the upper East Span forks to Macalla Road without crossing the lower deck"
   }
   const overhead = { x: 6937.2, y: 5993.1, heading: -2.4 };
   assert.equal(collisionAt([index], overhead, 65), "building");
-  const { surface: exit, portals } = buildBakedRoadContact(ramp);
-  assert.equal(portals.length, 1);
-  const [{ x, y, z }] = portals;
-  assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.005);
+  const { surface: exit } = buildBakedRoadContact(ramp);
   assert.ok(exit.profile[0].position[2] > 60);
-  assert.ok(exit.profile.at(-1).position[2] > 54);
-  assert.ok(exit.profile.at(-1).s_m > 310);
+  const { surface: earlierLanding } = buildBakedRoadContact(west);
+  assert.ok(exit.profile.at(-1).s_m + earlierLanding.profile.at(-1).s_m > 310);
+});
+
+test("both westbound Macalla lanes follow their own paved landings", () => {
+  const token = "80858024";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const receipt = roadBake.macallaMappedLandingSurvey;
+  assert.deepEqual(receipt.source_osm_ways, [322962944, 1178201287, 617825976]);
+  assert.equal(receipt.tiles[token].sha256, digest(raw));
+  const landings = ["west-landing", "mapped-landing"].map((suffix) => {
+    const id = `sf-contact/yerba-buena-westbound-macalla-${suffix}`;
+    const road = tile.playableRoads.find((entry) => entry.id === id);
+    return buildBakedRoadContact(road);
+  });
+  for (const { portals } of landings) {
+    assert.equal(portals.length, 1);
+    const [{ x, y, z }] = portals;
+    assert.ok(Math.abs(groundAtWorld([tile], x, y, true) - z) < 0.005);
+  }
+  assert.ok(landings[1].portals[0].exitOnly);
+  const { surface } = landings[1];
+  const car = { x: 6651.27, y: 5775.25, heading: -1.48 };
+  assert.ok(roadSupportsCar(surface.heightAt, car));
+  assert.ok(Math.abs(surface.heightAt(car.x, car.y) - 54.17) < 0.18);
 });
 
 test("the eastbound bridge start connects First Street to Oakland through the lower bore", () => {

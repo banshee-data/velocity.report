@@ -1,0 +1,1 @@
+- Added the [second surveyed westbound Macalla Road landing](../../ui/sf-road-route-audit.md#second-westbound-landing-at-macalla-road), where the mapped lane previously left the baked ramp before touching down.

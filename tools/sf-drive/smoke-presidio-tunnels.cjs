@@ -3517,15 +3517,20 @@ for (const [direction, road, start, finish] of [
 }
 const eastSpan = "yerba-buena-upper-east-span";
 const westExit = "yerba-buena-east-westbound-off-ramp";
+const westLanding = "yerba-buena-westbound-macalla-west-landing";
+const mappedLanding = "yerba-buena-westbound-macalla-mapped-landing";
 const eastThrough = "yerba-buena-upper-east-through";
 cases["island-east-westbound-exit"] = {
   owners: islandEastOwners,
-  roads: [eastSpanWestbound, eastSpan, westExit],
+  roads: [eastSpanWestbound, eastSpan, westExit, westLanding],
   rollingStart: true,
   startPlace: "yerba-buena-westbound",
   speed: 14,
-  speedLimits: { [westExit]: 9 },
-  forks: [[eastSpan, westExit, -2.25]],
+  speedLimits: { [westExit]: 9, [westLanding]: 8 },
+  forks: [
+    [eastSpan, westExit, -2.25],
+    [westExit, westLanding, -1.6],
+  ],
   connectByGround: true,
   groundDeparture: [
     [6628, 5768, 56],
@@ -3533,6 +3538,21 @@ cases["island-east-westbound-exit"] = {
   ],
   maxAirborneMetres: 0,
   maxDurationMs: 165_000,
+};
+cases["island-east-westbound-mapped-landing"] = {
+  ...cases["island-east-westbound-exit"],
+  roads: [eastSpanWestbound, eastSpan, westExit, mappedLanding],
+  forks: [
+    [eastSpan, westExit, -2.25],
+    [westExit, mappedLanding, 1.6],
+  ],
+  speedLimits: { [westExit]: 9, [mappedLanding]: 7 },
+  groundDeparture: [
+    [6651.99, 5762.5, 53.56],
+    [6652.1, 5757, 53.42],
+  ],
+  maxAirborneMetres: 0,
+  groundedHandoff: true,
 };
 cases["island-east-westbound-through-exit"] = {
   owners: islandEastOwners,
@@ -3551,13 +3571,14 @@ cases["macalla-westbound-roundtrip"] = {
     eastSpanWestbound,
     eastSpan,
     westExit,
+    westLanding,
     macallaEntrance,
     ...upperFromIsland.slice(1, 5),
   ],
-  speedLimits: { [westExit]: 9, [macallaEntrance]: 11 },
+  speedLimits: { [westExit]: 9, [westLanding]: 8, [macallaEntrance]: 11 },
   groundDeparture: undefined,
   groundConnection: {
-    after: prefix + westExit,
+    after: prefix + westLanding,
     via: [
       [6631, 5767],
       [6623, 5770],
