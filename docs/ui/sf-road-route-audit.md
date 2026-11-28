@@ -6964,3 +6964,34 @@ screen passed all 487 span directions and 350 joins.
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   i80-fifth-bryant-entry i80-fifth-bryant-divider-lane
 ```
+
+## Mariposa curve from Fifth Street onto southbound I-280
+
+**World and Data.** The baked Fifth Street approach diverged from the surveyed
+southbound lanes before Mariposa. The game left part of the lower roadway
+outside its contact strip. The new fit carries 304 m through the curve and keeps
+the separate higher Sixth Street approach. It meets the original Fifth Street
+road at both ends, and both tile owners store matching approaches at the join.
+[USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+The fit uses 305 stations from 79 EPT nodes through depth 13. It has at least
+222 class 17 returns at each centre or adjacent sample. The fitted height differs
+from the sampled centre medians by 0.65 cm at p95 and 1.01 cm at most. The fit
+uses one height per cross-section and has a peak longitudinal grade of 1.2%.
+
+**Physics and UI.** With route assist off, Chrome recorded 21.1 m airborne and
+dropped from the prior deck to about 4.1 m NAVD88 at street level. The revised
+game drove about 203 m along the same course with zero airborne travel, dips
+deeper than 0.5 m or scrapes. It finished on the southbound connection near
+18.2 m NAVD88. The package passed all 487 span traversals and 350 joins.
+
+- Parent manifest SHA-256 `893a0e062330f05ab83ad09775db6d09dba4c61017072605c8aa59fdf2301f06`.
+- Updated manifest SHA-256 `7ed298a9ad7c6079857f976ccea4d39392f46b6b8414fb3b86a240365f0d2e52`.
+- Contact SHA-256 `51aa44a8595c0009c4e1401d52b9e8d39f882f0cfa23cafbb9e1862c4bf1897a`.
+- Survey receipt SHA-256 `84bb9dbaf8c7538a7946e18ed80df9485e9e24b20568c08627d0f0a606d3b327`.
+- Fitted profile SHA-256 `063442e31e2d3782b974cd9207d8b473cd6380a0dc4983847455dfe3d51a36a0`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-fifth-southbound-to-mariposa mariposa-southbound-outer sixth-southbound
+```

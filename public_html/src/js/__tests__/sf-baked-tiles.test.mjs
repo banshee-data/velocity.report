@@ -51,12 +51,18 @@ function assertRampWidthReceipt(roadBake, token, previous, raw) {
 }
 
 function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
-  const westSplit = roadBake.centralWestSplitSurvey.tiles[token];
-  if (westSplit) assert.equal(westSplit.parentSha256, previous);
-  const afterWestSplit = westSplit?.sha256 ?? previous;
-  const fifth = roadBake.i80FifthMappedSeamSurvey.tiles[token];
-  if (fifth) assert.equal(fifth.parentSha256, afterWestSplit);
-  assert.equal(fifth?.sha256 ?? afterWestSplit, digest(raw));
+  let current = previous;
+  for (const review of [
+    roadBake.centralWestSplitSurvey,
+    roadBake.i80FifthMappedSeamSurvey,
+    roadBake.i280MariposaFifthCurveSurvey,
+  ]) {
+    const tile = review.tiles[token];
+    if (!tile) continue;
+    assert.equal(tile.parentSha256, current);
+    current = tile.sha256;
+  }
+  assert.equal(current, digest(raw));
 }
 
 function assertSouthgateReview(roadBake, token, raw) {
@@ -1498,6 +1504,7 @@ test("the southbound Sixth Street deck joins after the separate Fifth Street app
   const sixth = road("i280-sixth-southbound");
   assert.deepEqual(sixth, road("i280-sixth-southbound", tiles[1]));
   const fifth = road("i280-fifth-south-entry");
+  assert.deepEqual(fifth, road("i280-fifth-south-entry", tiles[1]));
   const lead = road("i280-fifth-south-to-sixth-merge");
   const main = road("i280-king-to-mariposa");
 
@@ -1518,6 +1525,7 @@ test("the southbound Sixth Street deck joins after the separate Fifth Street app
 
   const upper = buildBakedRoadContact(sixth).surface;
   const lower = buildBakedRoadContact(lead).surface;
+  const entry = buildBakedRoadContact(fifth).surface;
   for (const [x, y] of [
     [3699.9, 1102.3],
     [3718.2, 1034.8],
@@ -1526,6 +1534,15 @@ test("the southbound Sixth Street deck joins after the separate Fifth Street app
     const height = upper.heightAt(x, y);
     assert.ok(Number.isFinite(height) && Math.abs(height - 19) < 0.25);
     assert.equal(lower.heightAt(x, y), null);
+  }
+  for (const [surface, x, y, z, heading] of [
+    [entry, 3724.6, 1075.6, 17.35, -1.39],
+    [lower, 3744.6, 1008.6, 17.75, -1.17],
+  ]) {
+    const height = surface.heightAt(x, y);
+    assert.ok(Number.isFinite(height) && Math.abs(height - z) < 0.15);
+    assert.ok(roadSupportsCar(surface.heightAt, { x, y, heading }));
+    assert.equal(upper.heightAt(x, y), null);
   }
 });
 

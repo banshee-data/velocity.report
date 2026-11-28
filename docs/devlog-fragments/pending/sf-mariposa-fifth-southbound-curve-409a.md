@@ -1,0 +1,1 @@
+- Refitted the Fifth Street lanes on the lower southbound I-280 curve at Mariposa. The [SF road audit](../../ui/sf-road-route-audit.md#mariposa-curve-from-fifth-street-onto-southbound-i-280) records the street-level drop on the old bake and the grounded drive on the revised deck.
