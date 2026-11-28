@@ -7237,3 +7237,32 @@ The street grade still comes from the earlier terrain survey.
 python tools/sf-drive/bake-forest-road-detour.py "$PARENT_GAME" "$CONTACT" "$RELEASE"
 node tools/sf-drive/smoke-presidio-tunnels.cjs forest-and-sims-to-eastbound-i80
 ```
+
+## Left lane beyond the Hillcrest merge
+
+A keyboard drive 5.75 m left of the baked East Span centreline scraped a
+building and crashed shortly after the Hillcrest merge. The same drive on
+the reviewed bake stayed grounded and finished at 26 mph with no scrapes.
+The test starts about 40 m past the merge and finishes about 133 m past
+it. The existing centreline drive through the island remains a separate
+check.
+
+The April 2023 survey recorded 732 and 1,299 class-17 pavement returns where
+two inferred faces crossed the deck. Neither overlap contained returns
+0.32 to 2.6 m above the deck. One overlap contained 712 higher returns,
+which support retaining its overhead face. The bake splits the two
+volumes at the deck edge, caps the lower fragments below the pavement,
+and keeps the supported overhead fragment and the neighbouring faces.
+The bridge contact, width and join geometry retain their previous
+values. The two browser drives verify the tested lane in the game.
+[April 2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+- Parent game manifest SHA-256 `18558e1a83a2ed8a18af4f74aabf6db951cc622276b74326272d8867369547c5`.
+- Survey node receipt SHA-256 `47440e62a3536be5c12c4cd35a35346a9a8a132794f1390d0254f5b5ededea5b`.
+- Building clearance SHA-256 `f019f78a2f315d9d1ffebf2ed2eab27eeb95cc1b57620badfff8795ce2b122bd`.
+- Updated game manifest SHA-256 `48d8a2a75801069e72d1109405555d936e90ce710224a7d6a04763fd1ac0dae9`.
+
+```sh
+python tools/sf-drive/apply-building-clearance.py "$PARENT_GAME" "$REVIEW" "$RELEASE"
+node tools/sf-drive/smoke-presidio-tunnels.cjs island-east-span-left-lane
+```

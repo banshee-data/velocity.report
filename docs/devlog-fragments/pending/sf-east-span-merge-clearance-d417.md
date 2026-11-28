@@ -1,0 +1,1 @@
+- Cleared two inferred faces from the [left lane beyond the Hillcrest merge](../../ui/sf-road-route-audit.md#left-lane-beyond-the-hillcrest-merge), retaining the surveyed upper structure. Chrome reproduced the old collision and drove the corrected lane without a scrape.
