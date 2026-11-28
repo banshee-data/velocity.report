@@ -7448,3 +7448,49 @@ keyboard drive.
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   tingley-north-inner-lane monterey-to-ocean-inner-lane branch-east-second-inner-lane
 ```
+
+## Toll Plaza tunnel and four approach lanes
+
+**World and Data.** At Toll Plaza an inferred building wall projected
+into the north side of the 7.2 m game tunnel. The car stopped about 60 m
+into the bore, with its floor at 51.11 m NAVD88. The two affected roof
+footprints span 5.21 m² and 4.89 m² within the reviewed road corridor.
+They contained 501 and 574 aerial returns, respectively. Their lowest
+observed heights were 55.14 m and 55.11 m. The bake raises the inferred
+bottom to 55.0 m over the corridor. This clearance is a game fit to the
+authored bore and survey separation. The upper faces and building volume
+outside the corridor remain in the game.
+[USGS 3DEP survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list)
+and [Toll Plaza orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167552/405177).
+
+The four additional footprints are on the Alexander Avenue east approach,
+Hester collector, Hester–Salinas entrance and southbound Silliman exit.
+The 0.55 m samples contained 99, 69, 23 and 84 pavement-height returns,
+respectively, and a separate upper band at each site. They contained zero
+returns at vehicle height and zero returns classified as vegetation.
+The orthophotos show pavement at these footprints. The bake removes
+only the four matching inferred trunks.
+[Alexander](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167526/405071),
+[Hester collector](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167772/405501),
+[Hester–Salinas](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167773/405500)
+and [Silliman](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167756/405453).
+
+**Physics and UI.** Chrome reproduced a stall at each of the five
+footprints. The corrected keyboard drives cleared them with zero scrapes
+or airborne travel. Both Toll Plaza portal approaches also completed and
+returned to the exterior camera. The Geary–Fillmore browser probe passed
+on the parent. The Branch East west-side, Bosworth and SR 82 samples still
+show returns at vehicle height near the collision footprints. Those locations
+need further separation of the lane from the structure beside it.
+
+- Parent manifest SHA-256 `e0e56e14e2162fe313ec4b9b07d0c1ea2d2bf0476a5f3b213461bc2c8e622a8e`.
+- Toll Plaza clearance SHA-256 `2732ce8b191e6f6381070647ea350de53c414d49e6f1870c207d15ba4d2f71e8`.
+- Approach clearance SHA-256 `0b27e28dc05320f3ef35d56f63fe2d067c1f77ee92ffa6ceb1e177268e563c58`.
+- Updated manifest SHA-256 `c1bbe6e4fc4dc6f59251c9f2d6e13355c7302929ce76c583f21c1c8e1b0cd967`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  toll-tunnel-wide-lane toll-eastbound toll-westbound \
+  hester-collector-outside hester-salinas-outside \
+  silliman-south-exit-outside alexander-east-road-edge
+```

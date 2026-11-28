@@ -1,0 +1,1 @@
+- Cleared the wider lane through the Toll Plaza tunnel and removed four inferred trunks at the Alexander, Hester and Silliman approaches. The [road route audit](../../ui/sf-road-route-audit.md#toll-plaza-tunnel-and-four-approach-lanes) records the survey and Chrome checks.

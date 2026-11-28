@@ -4984,6 +4984,62 @@ for (const [name, road, tokens, lane, start, finish, exitCamera] of [
   };
 }
 
+for (const [name, road, tokens, lane, start, finish, exitCamera] of [
+  [
+    "toll-tunnel-wide-lane",
+    "toll-plaza-tunnel",
+    ["808586ec"],
+    2,
+    37,
+    91,
+    "tunnel",
+  ],
+  [
+    "hester-collector-outside",
+    "us101-south-hester-collector-entry",
+    ["808f7f24"],
+    -2,
+    134,
+    180,
+    "exterior",
+  ],
+  [
+    "hester-salinas-outside",
+    "us101-south-hester-salinas-entry",
+    ["808f7f24"],
+    2,
+    201,
+    246,
+    "covered",
+  ],
+  [
+    "silliman-south-exit-outside",
+    "us101-south-silliman-exit",
+    ["808f7efc"],
+    -2,
+    71,
+    125,
+    "exterior",
+  ],
+  [
+    "alexander-east-road-edge",
+    "alexander-avenue-east-approach",
+    ["8085842c"],
+    -2,
+    6,
+    43,
+    "exterior",
+  ],
+]) {
+  cases[name] = {
+    roads: [road], owners: tokens,
+    laneGuides: { [road]: { lane } },
+    rollingStart: true, initialSpeedMps: 8, rollingStartMetres: start,
+    finishOnDeck: true, finishDistance: finish, speed: 8, exitCamera,
+    maxAirborneMetres: 0, expectNoScrapes: true, maxDurationMs: 20_000,
+  };
+}
+
 cases["san-jose-tingley-ground-approach"] = {
   roads: ["san-jose-tingley-northbound"],
   owners: ["808f7e7c", "808f7e64"],
