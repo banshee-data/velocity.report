@@ -27,7 +27,8 @@ def record_tile(manifest, tile, payload):
 
 
 def write_release(
-    release, output, manifest, input_manifest, changed, playable=None, *, carry=False
+    release, output, manifest, input_manifest, changed, playable=None, *,
+    carry=False, drive_export=None
 ):
     route_raw = (release / "quest-route.json").read_bytes()
     prior_hash = digest(input_manifest)
@@ -36,13 +37,20 @@ def write_release(
         or route_raw.count(prior_hash.encode()) != 1
     ):
         raise ValueError("Quest route must bind the input tile manifest exactly once")
+    drives = (release / "gamedrives.json").read_bytes()
+    drive_hash = (
+        json.loads(input_manifest)["roadBake"].get("driveSha256")
+        if drive_export is not None
+        else manifest["roadBake"].get("driveSha256")
+    )
+    if drive_hash is not None and digest(drives) != drive_hash:
+        raise ValueError("Game drive export does not match the input tile manifest")
+    if drive_export is not None:
+        drives = drive_export
+        manifest["roadBake"]["driveSha256"] = digest(drives)
     manifest_raw = encode(manifest)
     manifest_hash = digest(manifest_raw)
     route_raw = route_raw.replace(prior_hash.encode(), manifest_hash.encode(), 1)
-    drives = (release / "gamedrives.json").read_bytes()
-    drive_hash = manifest["roadBake"].get("driveSha256")
-    if drive_hash is not None and digest(drives) != drive_hash:
-        raise ValueError("Game drive export does not match the input tile manifest")
 
     def save(bundle):
         (bundle / "tiles").mkdir(parents=True)

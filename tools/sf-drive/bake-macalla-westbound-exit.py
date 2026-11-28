@@ -16,7 +16,7 @@ def main():
         args.parent,
         args.contact,
         args.output,
-        road_id="sf-contact/yerba-buena-east-westbound-off-ramp",
+        road_ids={"sf-contact/yerba-buena-east-westbound-off-ramp"},
         token="80858024",
         source_key="macalla_westbound_exit_survey",
         receipt_key="macallaWestboundExitSurvey",

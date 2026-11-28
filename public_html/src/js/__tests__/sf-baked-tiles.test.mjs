@@ -59,6 +59,7 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
     roadBake.alemanyNorthboundConnectorSurvey,
     roadBake.i80HarrisonLoopPavementSurvey,
     roadBake.macallaWestboundExitSurvey,
+    roadBake.eastboundSouthgateMappedExitSurvey,
   ]) {
     const tile = review.tiles[token];
     if (!tile) continue;
@@ -1393,7 +1394,12 @@ test("the westbound Macalla ramp follows the surveyed lane down to the island ro
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const receipt = roadBake.macallaWestboundExitSurvey;
   assert.equal(receipt.source_osm_way, 322962944);
-  assert.equal(receipt.tiles[token].sha256, digest(raw));
+  assertLaterRoadTileReceipt(
+    roadBake,
+    token,
+    receipt.tiles[token].parentSha256,
+    raw,
+  );
   const road = tile.playableRoads.find(
     ({ id }) => id === "sf-contact/yerba-buena-east-westbound-off-ramp",
   );
@@ -2633,6 +2639,44 @@ test("the lower island exit stays below the upper bore and reaches the island st
         `wall across lower tunnel at ${points[i]}`,
       );
     }
+  }
+});
+
+test("the eastbound Southgate exit follows the surveyed lower pavement beyond the bore", () => {
+  const token = "80858024";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const receipt = roadBake.eastboundSouthgateMappedExitSurvey;
+  assert.deepEqual(
+    receipt.source_osm_ways,
+    [1034687989, 1034687990, 1170347858],
+  );
+  assert.equal(receipt.tiles[token].sha256, digest(raw));
+  const road = (id) =>
+    tile.playableRoads.find((candidate) => candidate.id === id);
+  const through = road("yerba-buena-lower-tunnel-east-of-exit");
+  const ramp = road("sf-contact/yerba-buena-east-eastbound-off-ramp");
+  const { surface } = buildBakedRoadContact(ramp);
+  for (const [x, y, z, heading] of [
+    [6690, 5658, 51.45, 0.58],
+    [6718.8, 5663.1, 51.67, -0.69],
+    [6726.1, 5649.1, 51.15, -1.25],
+  ]) {
+    assert.ok(roadSupportsCar(surface.heightAt, { x, y, heading }));
+    assert.ok(Math.abs(surface.heightAt(x, y) - z) < 0.3);
+  }
+  assert.ok(surface.coveredRange[1] > 28 && surface.coveredRange[1] < 30);
+
+  const { drives } = JSON.parse(file("gamedrives.json"));
+  for (const name of ["yerba-buena-eastbound", "essex-eastbound"]) {
+    const drive = cityDriveApproach(drives[0], name);
+    const guide = drive.sections.find(({ id }) => id === through.id);
+    assert.deepEqual(guide.positions, through.points);
+    assert.deepEqual(
+      guide.tunnel_wall_openings_m,
+      through.tunnel_wall_openings_m,
+    );
   }
 });
 

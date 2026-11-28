@@ -1,0 +1,1 @@
+- Baked the [mapped eastbound Southgate exit](../../ui/sf-road-route-audit.md#eastbound-lower-bore-exit-to-southgate-road) onto lower roadway contact and kept the East Span through bore on its own level.

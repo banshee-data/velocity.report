@@ -2183,6 +2183,42 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
   broadway-westbound broadway-eastbound
 ```
 
+## Eastbound lower-bore exit to Southgate Road
+
+**World and Data.** The shipped exit diverged from the mapped lane near the
+lower bore. The new alignment follows OpenStreetMap ways `1034687989`,
+`1034687990` and `1170347858` to the existing Southgate feeder join. The
+lower through line retains its pavement coordinates and both named
+eastbound drives use the revised wall openings. The exit leaves the tunnel
+at the main bore's portal plane, then runs beneath the upper deck for
+about 29 m before emerging into the open. [SFCTA Southgate interchange project](https://www.sfcta.org/projects/yerba-buena-island-i-80-southgate-road-and-interchange-project).
+
+The April 2023 survey samples use 75 EPT nodes. In the exposed bend the
+survey records the lower pavement between 51 and 52 m NAVD88, while
+the visible upper deck is near 59–60 m. The lower approach obscured
+by the upper deck uses the existing lower bore heights and interpolates
+to the exposed return band. The source and the game keep the two road
+levels separate. [USGS San Francisco LiDAR](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+**Physics and UI.** Chrome stalled at the first part of the mapped branch on
+the parent bake after 20.8 m. The revised keyboard run from the lower bore
+reached Macalla Road from the exit. The independent lower mainline run
+followed the continuing deck onto the East Span. Both stayed grounded.
+The fixed-step package audit passed 490 span directions and 354 joins.
+
+- Parent game manifest SHA-256 `07a1391cd5a81fb4fa723bae0b8443c41c2dd4588419243ba25ed9ff43318f72`.
+- Revised game manifest SHA-256 `2238cef5a80ca0049f8e2be5eb5c76e34149470ce84c0eedf8b007cb2cb61e60`.
+- Revised source contact SHA-256 `e71751dbfcbeae7bd7639f2ead33cda43100741db9fb49646ef8b721bc5ad5d3`.
+- Survey receipt SHA-256 `3cc7ac8553a8f3a70812ddfc2214c12c8d5cb6d369b7b97a08d425986ab07849`.
+
+The attached-volume run `sf-current-structure-validation.k4CiYg` retains the
+inventory comparison, survey receipt and route observations.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-east-eastbound-exit-to-macalla island-east-lower-mainline island-east-roundtrip
+```
+
 ## Westbound East Span exit to Macalla Road
 
 The westbound East Span now has a 143 m supported lead-in before its

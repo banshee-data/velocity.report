@@ -16,7 +16,7 @@ def main():
         args.parent,
         args.contact,
         args.output,
-        road_id="sf-contact/i80-westbound-harrison-loop",
+        road_ids={"sf-contact/i80-westbound-harrison-loop"},
         token="8085807c",
         source_key="i80_harrison_loop_pavement_survey",
         receipt_key="i80HarrisonLoopPavementSurvey",
