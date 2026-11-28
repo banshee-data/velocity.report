@@ -7494,3 +7494,41 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   hester-collector-outside hester-salinas-outside \
   silliman-south-exit-outside alexander-east-road-edge
 ```
+
+## Branch East, Bosworth and the SR 82 pavement edge
+
+**Data and World.** The wider keyboard probes stalled on inferred trunks
+at Branch East, Bosworth and the inside of the southbound SR 82 exit.
+For each site, the vehicle-height returns within the swept lane came
+from one flightline. Pavement observations from other flightlines
+covered every return within the tested strip. The farthest match was
+0.257 m at Branch East for 12 returns, 0.131 m at Bosworth for 46 returns,
+and 0.123 m at SR 82 for 48 returns. The bake clears the three inferred
+trunk rows at these footprints.
+[USGS 3DEP survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+At the outer SR 82 probe, the orthophoto places a tree beyond the
+pavement on the median. The game contact extended through that median.
+The revised width follows the photographed road edge, reaching 1.25 m
+left of the existing reference line between stations 145 m and 238 m
+and widening towards the adjacent sections. The median tree remains
+beside the ramp. The same contact keeps its right edge and uses the
+existing grades and endpoints.
+[City orthophoto near the SR 82 median](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167616/405525).
+
+**Physics and UI.** Chrome drove all three reviewed lane paths with
+keyboard input, reached the expected tunnel, covered or exterior camera
+and finished grounded without scrapes. The SR 82 paved-lane probe and
+full southbound exit also completed without airborne travel. The fixed-step
+package audit passed 492 directed spans, 356 joins and 531 ground handoffs.
+
+- Parent manifest SHA-256 `c1bbe6e4fc4dc6f59251c9f2d6e13355c7302929ce76c583f21c1c8e1b0cd967`.
+- Repeat-flightline clearance SHA-256 `8db372aada7888a073403f5dfe856cc7f938bd4139ff380778730fbe078b1027`.
+- SR 82 contact export SHA-256 `a8c87de56df0225fe65aa8c35eff4784d758439a97198b421eeee0f0d4b7bcc9`.
+- Updated manifest SHA-256 `7e882a393d184ba684223d1913bb10b0099e489f5b8df899d1842f40041108fc`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  branch-east-west-side-lane bosworth-outside-lane sr82-south-ramp-inside \
+  sr82-south-ramp-paved-lane i280-sr82-southbound-exit
+```

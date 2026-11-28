@@ -5040,6 +5040,61 @@ for (const [name, road, tokens, lane, start, finish, exitCamera] of [
   };
 }
 
+for (const [name, road, owners, lane, start, finish, exitCamera] of [
+  [
+    "branch-east-west-side-lane",
+    "branch-east-off-ramp",
+    ["808f7e7c", "808f7e64"],
+    -2,
+    85,
+    145,
+    "tunnel",
+  ],
+  [
+    "bosworth-outside-lane",
+    "bosworth-i280-southbound-merge",
+    ["808f7e7c", "808f7e64"],
+    -2,
+    96,
+    148,
+    "covered",
+  ],
+  [
+    "sr82-south-ramp-inside",
+    "i280-south-sr82-exit",
+    ["808f7c24"],
+    -2,
+    123,
+    170,
+    "exterior",
+  ],
+  [
+    "sr82-south-ramp-paved-lane",
+    "i280-south-sr82-exit",
+    ["808f7c24"],
+    -1.5,
+    176,
+    225,
+    "exterior",
+  ],
+]) {
+  cases[name] = {
+    roads: [road],
+    owners,
+    laneGuides: { [road]: { lane } },
+    rollingStart: true,
+    initialSpeedMps: 8,
+    rollingStartMetres: start,
+    finishOnDeck: true,
+    finishDistance: finish,
+    speed: 8,
+    exitCamera,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 20_000,
+  };
+}
+
 cases["san-jose-tingley-ground-approach"] = {
   roads: ["san-jose-tingley-northbound"],
   owners: ["808f7e7c", "808f7e64"],
