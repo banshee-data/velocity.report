@@ -542,7 +542,7 @@ cases["central-from-fourth"] = {
     "i80-westbound-central-connector": 14,
   },
   forks: [
-    ["westbound-i80", "i80-westbound-fifth", 1.55],
+    ["westbound-i80", "i80-westbound-fifth", 2],
     ["i80-westbound-interchange", "i80-westbound-central-connector", -1.65],
   ],
   laneGuides: {
@@ -4935,6 +4935,52 @@ for (const [name, lane, start, finish, exitCamera] of [
     maxAirborneMetres: 0,
     expectNoScrapes: true,
     maxDurationMs: 35_000,
+  };
+}
+
+for (const [name, road, tokens, lane, start, finish, exitCamera] of [
+  [
+    "tingley-north-inner-lane",
+    "san-jose-tingley-northbound",
+    ["808f7e7c", "808f7e64"],
+    0.75,
+    38,
+    88,
+    "covered",
+  ],
+  [
+    "monterey-to-ocean-inner-lane",
+    "i280-south-monterey-to-ocean",
+    ["808f7e7c", "808f7e84"],
+    -0.75,
+    350,
+    410,
+    "covered",
+  ],
+  [
+    "branch-east-second-inner-lane",
+    "branch-east-off-ramp",
+    ["808f7e7c", "808f7e64"],
+    2,
+    85,
+    140,
+    "tunnel",
+  ],
+]) {
+  cases[name] = {
+    roads: [road],
+    owners: tokens,
+    laneGuides: { [road]: { lane } },
+    rollingStart: true,
+    initialSpeedMps: 8,
+    rollingStartMetres: start,
+    finishOnDeck: true,
+    finishDistance: finish,
+    speed: 8,
+    exitCamera,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 22_000,
   };
 }
 

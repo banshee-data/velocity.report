@@ -1,0 +1,1 @@
+- Cleared inferred tree collisions in the covered lanes at Tingley and Monterey and in the Branch East ramp. The [road route audit](../../ui/sf-road-route-audit.md#lower-lanes-near-tingley-monterey-and-branch-east) records the survey and Chrome checks.
