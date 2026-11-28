@@ -282,6 +282,18 @@ const i280Approach = [
   southboundFifthApproach,
   "i280-king-to-mariposa",
 ];
+cases["i280-fifth-southbound-to-mariposa"] = {
+  roads: i280Approach.slice(0, 2),
+  owners: ["808f7fd4", "808f7fcc"],
+  speed: 14,
+  initialSpeedMps: 13,
+  rollingStart: true,
+  rollingStartMetres: 535,
+  finishOnDeck: true,
+  finishDistance: 164,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+};
 const dogpatchOwners = [
   ...i280Owners,
   "808f7fb4",
