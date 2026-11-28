@@ -1,0 +1,1 @@
+- Verified both Pennsylvania Avenue exit branches from the freeway and added them to the [keyboard driving regression](../../ui/sf-road-route-audit.md#pennsylvania-avenue-exit-from-the-freeway-approach).
