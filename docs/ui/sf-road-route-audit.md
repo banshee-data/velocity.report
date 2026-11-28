@@ -6865,3 +6865,27 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs northbound southbound \
   island-east-lower-mainline island-east-upper-mainline
 node tools/sf-drive/smoke-stockton-tunnel.cjs
 ```
+
+### Tunnel crossings at the package boundary
+
+**Physics.** The browser repeat followed the published
+Marin and Daly corridors on the Corbett manifest. The first
+southbound drive through the Robin Williams Tunnel took the
+Alexander Avenue exit while the test expected the US 101
+through lane. Moving into the appropriate lane before the
+split allowed each route to finish. Chrome reached the US 101
+through deck in 80.0 s and Alexander Avenue pavement in
+95.8 s. Both used the enclosed view in the tunnel and reached
+a grounded exterior finish without airborne travel or scrapes.
+
+The northbound Robin Williams bore, both Baker–Barry
+directions, the Bunker Road underpass and the southbound Daly
+separation also finished grounded. These are checks on the
+published map's boundary corridors.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  alexander-to-waldo-nb waldo-to-alexander-sb waldo-to-alexander-exit \
+  alexander-to-baker baker-to-bunker-underpass baker-barry-eastbound \
+  daly-separation-centre
+```
