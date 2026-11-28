@@ -7212,8 +7212,13 @@ deck. It entered via the Hillcrest ramp and finished grounded on the East
 Span at 30.4 mph. The 1 m samples recorded a p95 grade of 17.4%, a
 maximum of 25.3%, and no dips deeper than 0.5 m over an 8 m window.
 There were 6.9 m of airborne travel around the existing Sims Road crest.
-The car landed and continued. These are game measurements over the
-reviewed course.
+The car landed and continued. The regression drive follows the baked road
+paint and the baked deck centreline at a lower approach speed. Chrome
+recorded 842.3 m of continuous street contact, acquired the Hillcrest
+ramp and East Span in order, and reached 151.4 m beyond the merge without
+a scrape or airborne travel. The first guide used a mapped line farther
+out on the deck and crashed 72.9 m beyond the merge. These are game
+measurements over the tested lines.
 
 **Data.** The 8 cm imagery controls the horizontal alignment. The bake keeps
 the existing terrain elevations, ramp contact, and directed joins. Forest

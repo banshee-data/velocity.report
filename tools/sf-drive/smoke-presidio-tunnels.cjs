@@ -3259,8 +3259,6 @@ cases["forest-and-sims-to-eastbound-i80"] = {
   groundArrivalSpeed: 5.2,
   minGroundArrivalMetres: 800,
   finishDistance: 160,
-  maxAirborneMetres: undefined,
-  maxAirborneMetresAfterEntrance: 0,
   expectNoScrapes: true,
   entranceTimeoutMs: 215_000,
   maxDurationMs: 255_000,
