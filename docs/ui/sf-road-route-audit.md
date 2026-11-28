@@ -7192,3 +7192,43 @@ travel. The fixed-step bake audit passed 492 directed span traversals,
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs treasure-island-road-to-southgate
 ```
+
+## Forest and Sims Roads to eastbound I-80
+
+**World and Physics.** A Chrome drive following the old mapped Forest Road
+line stalled 196.3 m into the island detour. The 2025 city orthophoto shows
+that line straying onto the shoulder. Following the marked lane on the
+parent bake moved the stop to 396.7 m, at an inferred tree on the pavement.
+The updated tile follows the paved lane on Forest Road and around Sims Road,
+removes that tree, and retains the six reviewed trees on the verge. The same
+tile now supplies a left and right width at every vertex of the Treasure
+Island Road approach to Southgate, correcting the paint record from the
+previous bake.
+[City orthophoto at the Forest Road bend](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167872/405167).
+[Island detour advisory](https://media.api.sf.gov/documents/091323_Communications_0.pdf).
+
+Chrome drove 1,185.2 m with keyboard input from the detour to the I-80
+deck. It entered via the Hillcrest ramp and finished grounded on the East
+Span at 30.4 mph. The 1 m samples recorded a p95 grade of 17.4%, a
+maximum of 25.3%, and no dips deeper than 0.5 m over an 8 m window.
+There were 6.9 m of airborne travel around the existing Sims Road crest.
+The car landed and continued. These are game measurements over the
+reviewed course.
+
+**Data.** The 8 cm imagery controls the horizontal alignment. The bake keeps
+the existing terrain elevations, ramp contact, and directed joins. Forest
+and Sims share a painted vertex at their turn. The deck audit of this bake
+passed 492 directed span traversals and 356 directed joins, with 531 terrain
+handoffs and three direct continuations. These checks cover baked contacts.
+The street grade still comes from the earlier terrain survey.
+
+- Parent game manifest SHA-256 `90bffbecbb9e79b608bed6966df7477a59b666f086a90be4add37b98602d6590`.
+- Frozen road alignment SHA-256 `0bcf43034380dbd755f30a10bcb87a95961e1c663801e85b167b8190f80f3b24`.
+- Orthophoto receipt SHA-256 `9342be2ffa04b40e167006b8f7e65908418d66d58d12342691cd96fb3357aee7`.
+- Revised contact export SHA-256 `e4040c040cc0d24b2f27c0c8852ab642a0b73982a2d8731023b80eba3ed91c2c`.
+- Updated game manifest SHA-256 `18558e1a83a2ed8a18af4f74aabf6db951cc622276b74326272d8867369547c5`.
+
+```sh
+python tools/sf-drive/bake-forest-road-detour.py "$PARENT_GAME" "$CONTACT" "$RELEASE"
+node tools/sf-drive/smoke-presidio-tunnels.cjs forest-and-sims-to-eastbound-i80
+```

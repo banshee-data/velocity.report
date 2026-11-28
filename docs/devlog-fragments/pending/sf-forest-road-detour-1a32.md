@@ -1,0 +1,1 @@
+- Corrected the Forest and Sims Road detour pavement, cleared an inferred tree from the lane, and restored paired paint widths for the Southgate approach. Added a [Chrome drive up Hillcrest and onto eastbound I-80](../../ui/sf-road-route-audit.md#forest-and-sims-roads-to-eastbound-i-80).
