@@ -482,8 +482,6 @@ test("reviewed offset lanes clear the inferred trunks on the three ramps", () =>
     const index = buildCollisionIndex(tile, token);
     assert.equal(collisionAt([index], { x, y, heading }, z), null, token);
   }
-  const bosworth = JSON.parse(gunzipSync(file("tiles/808f7e7c.json.gz")));
-  assert.ok(bosworth.tr.some(([x, y]) => x === 4369 && y === -638));
 });
 
 test("San Jose Avenue is clear from the southbound approach into the Tingley undercrossing", () => {
@@ -5083,7 +5081,7 @@ test("I-280 upper deck observations keep three lower lanes clear", () => {
   ]) {
     const raw = file(`tiles/${token}.json.gz`);
     const tile = JSON.parse(gunzipSync(raw));
-    assert.equal(review.tiles[token].sha256, digest(raw));
+    assertLaterTreeTileReceipt(roadBake, token, review.tiles[token].sha256, raw);
     assert.equal(review.tiles[token].removed, token === "808f7e64" ? 2 : 1);
     assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
     assert.equal(
@@ -5131,6 +5129,46 @@ test("the four reviewed approach lanes clear the inferred trunks", () => {
     assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
     assert.equal(collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z), null);
   }
+});
+
+test("repeat-flightline pavement clears the lower approach lanes", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.roadTreeClearanceReviews.find(
+    ({ parentManifestSha256 }) =>
+      parentManifestSha256 ===
+      "c1bbe6e4fc4dc6f59251c9f2d6e13355c7302929ce76c583f21c1c8e1b0cd967",
+  );
+  for (const [token, [east, north], [x, y, heading, z]] of [
+    ["808f7e64", [-4531, -4778], [449.65, -3190.89, 0.712, 48.073]],
+    ["808f7e7c", [4369, -638], [346.2, -3161.59, -2.628, 52.473]],
+    ["808f7c24", [-90, 4345], [-1099.04, -5165.93, -2.419, 88.192]],
+  ]) {
+    const raw = file(`tiles/${token}.json.gz`);
+    const tile = JSON.parse(gunzipSync(raw));
+    const widthReview = roadBake.sr82ExitEdgeSurvey.tiles[token];
+    if (widthReview) assert.equal(widthReview.parentSha256, review.tiles[token].sha256);
+    assert.equal(widthReview?.sha256 ?? review.tiles[token].sha256, digest(raw));
+    assert.equal(review.tiles[token].removed, 1);
+    assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
+    assert.equal(collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z), null);
+  }
+});
+
+test("the SR 82 exit pavement edge leaves the median tree outside the contact", () => {
+  const tile = JSON.parse(gunzipSync(file("tiles/808f7c24.json.gz")));
+  assert.ok(tile.tr.some(([east, north]) => east === -450 && north === 3945));
+  const road = tile.playableRoads.find(({ id }) => id === "sf-contact/i280-south-sr82-exit");
+  const { surface, portals } = buildBakedRoadContact(road);
+  const index = surface.profile.findIndex(({ s_m }) => s_m >= 200);
+  const { position: [x, y], edgeWidths } = surface.profile[index];
+  assert.deepEqual(edgeWidths, [1.25, 4]);
+  const [ax, ay] = surface.profile[index - 1].position;
+  const heading = Math.atan2(y - ay, x - ax);
+  const pavement = { x: x + 1.5 * Math.sin(heading), y: y - 1.5 * Math.cos(heading), heading };
+  assert.ok(roadSupportsCar(surface.heightAt, pavement));
+  assert.equal(surface.heightAt(-1137, -5207.5), null);
+  assert.equal(portals.length, 1);
+  assert.equal(portals[0].exitOnly, true);
 });
 
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
