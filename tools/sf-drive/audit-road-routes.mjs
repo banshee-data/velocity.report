@@ -398,6 +398,12 @@ function layeredRoute(contact, from, to, start, destination, groundOnly) {
   });
   const connector = (from, to, name) =>
     distance(from, to) > 0.01 ? [{ from, to, name }] : [];
+  const guide = (first, waypoints, last, name) => {
+    const points = [first, ...waypoints.map(([x, y]) => ({ x, y })), last];
+    return points
+      .slice(1)
+      .flatMap((point, i) => connector(points[i], point, name));
+  };
   const ribbon = sections.flatMap((nextSection, i) => {
     const link = groundLinks[roads[i]];
     if (link) {
@@ -405,13 +411,15 @@ function layeredRoute(contact, from, to, start, destination, groundOnly) {
       const departure = sections[i - 1].at(-1).to;
       const arrival = nextSection[0].from;
       const leave = snap(departure, [link.from], 55);
-      const enter = snap(arrival, [link.to], 55);
+      const enter = link.entry
+        ? portalNode(link.entry)
+        : snap(arrival, [link.to], 55);
       const street = groundLegs(leave, enter, link.via ?? [], groundOnly);
       assert.ok(street, `No ground connection from ${link.from} to ${link.to}`);
       return [
         ...connector(departure, leave, link.from),
         ...street,
-        ...connector(enter, arrival, link.to),
+        ...guide(enter, link.arrivalGuide ?? [], arrival, link.to),
         ...nextSection,
       ];
     }
@@ -429,12 +437,6 @@ function layeredRoute(contact, from, to, start, destination, groundOnly) {
       ...nextSection,
     ];
   });
-  const guide = (first, waypoints, last, name) => {
-    const points = [first, ...waypoints.map(([x, y]) => ({ x, y })), last];
-    return points
-      .slice(1)
-      .flatMap((point, i) => connector(points[i], point, name));
-  };
   return [
     ...(startsOnContact
       ? []

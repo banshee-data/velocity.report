@@ -7688,23 +7688,33 @@ southbound course descends from the Hyde deck via Pacific Avenue and comes
 out on Stockton towards SoMa. Both use a low-speed clearance guide on the
 streets after leaving the bore. The westbound Broadway approach follows
 Vallejo and Montgomery streets to the portal. Its previous course used
-the Bartol Street steps. No tile changes were needed for these three
-courses.
+the Bartol Street steps. The eastbound Broadway course also leaves the
+Hyde deck, turns west on Pacific Avenue, then makes its eastbound
+approach via Van Ness Avenue and Broadway. All four courses used the
+existing tiles.
 
 | Delivery                      | Driven distance | Ground after final contact | Peak driven grade | Ground dips | Airborne distance |
 | ----------------------------- | --------------: | -------------------------: | ----------------: | ----------: | ----------------: |
 | Stockton northbound, 🏙️ to 🍫 |       3,781.6 m |                  1,867.5 m |             9.04% |           0 |               0 m |
 | Stockton southbound, 🛤️ to 🎭 |       3,095.0 m |                  1,365.0 m |            21.61% |           0 |            0.63 m |
 | Broadway westbound, ⚓ to 🎟️  |       3,687.7 m |                  1,640.8 m |            22.81% |           0 |               0 m |
+| Broadway eastbound, 🛤️ to 🍝  |       2,316.9 m |                    566.4 m |            16.12% |           0 |               0 m |
 
-The fixed-step replay collected both endpoints in all three cases. With
-those three routes substituted into the earlier 20-course set, 13 routes
-finished. The seven outstanding deliveries recorded four tree impacts,
-two departures from their planned course and one stall. The 21 maintained
-road-contact courses also finished on this tile release. These runs measure
-the game and its baked surfaces. The grades on Washington and Vallejo
-streets include the street approaches, and the results do not establish
-physical road condition or inventory-wide coverage.
+The fixed-step replay collected both endpoints in all four cases. With
+the three cross-city courses substituted into the earlier 20-course set,
+13 routes finished. The seven outstanding deliveries recorded four tree
+impacts, two departures from their planned course and one stall. These
+runs measure the game and its baked surfaces, including the steep street
+approaches on Washington and Vallejo streets. Physical road condition and
+inventory-wide coverage remain outside this test.
+
+Chrome drove Stockton northbound, Stockton southbound and Broadway
+westbound with the candidate game modules and public tiles. The recorded
+distances were 3,790.2 m, 3,105.7 m and 3,694.0 m respectively. All three
+collected both pickups, used the enclosed tunnel view and returned to
+street contact. The browser recorded zero airborne metres, zero barrier
+scrapes and zero ground dips deeper than 0.5 m on those drives. Keyboard
+respawn recovered the Hyde checkpoint at 62.035 m.
 
 The tile manifest SHA-256 was
 `24231aba1d387a6bec936060e4ba50c11ccbc1d7b4cd4e2366bfb7659e62ef5a`.
