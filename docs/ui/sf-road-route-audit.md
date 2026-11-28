@@ -7322,3 +7322,40 @@ approach.
 python tools/sf-drive/apply-tree-classification.py "$PARENT_GAME" "$CLASSIFICATION" "$RELEASE"
 node tools/sf-drive/smoke-presidio-tunnels.cjs macarthur-inner-northbound macarthur-inner-southbound
 ```
+
+## Potrero and Alemany freeway lane clearance
+
+The two-metre offset screen identified an inferred tree on the
+northbound US 101 approach to Potrero and three on southbound I-280
+at Alemany. The updated game tile bake removes those four scenery
+rows. It keeps the roadway contact, the upper decks and the other
+scenery in those tiles.
+
+Within the reviewed footprints, the April 2023 survey recorded
+323 pavement-height returns at Potrero and 176, 191 and 317 at the
+three Alemany sites. The two covered footprints at Alemany had
+a separate band of upper-deck returns. At Potrero the seven
+higher returns ranged from 47.02 to 47.22 m NAVD88 above pavement
+at 30.33 m. The 2025 city images corroborate the road footprint.
+[April 2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+[Potrero orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167763/405365).
+[Alemany entry orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167711/405454).
+
+Chrome reached the finish in all four candidate drives with no
+scrapes or airtime. The lower lane beyond Alemany retained its covered
+camera. In the full fixed-step audit, the candidate passed all 492
+directed span traversals and 356 joins, plus 531 ground handoffs and
+three direct continuations. The separate two-metre screens reached
+452 of 492 on the right and 456 of 492 on the left, two more than the
+parent on each side. The wider screens retain failed probes for
+follow-up.
+
+- Parent game manifest SHA-256 `54b27d7e91d245ef4a7148fd36fe48fd9d6a49c39b336af5c373cf0c819a4532`.
+- Classification SHA-256 `6176ca161278daf99696a17ed5c34e4e0eedc7b9ccc50d7763800633731d8b12`.
+- Updated game manifest SHA-256 `5c1a88856d25e68f22074b86a6f22bc2420afbac4a7e2762345c21bac9215a27`.
+
+```sh
+python tools/sf-drive/apply-tree-classification.py "$PARENT_GAME" "$CLASSIFICATION" "$RELEASE"
+node tools/sf-drive/smoke-presidio-tunnels.cjs potrero-approach-outer-lane \
+  alemany-beyond-right-lane alemany-entry-left-lane alemany-through-left-lane
+```

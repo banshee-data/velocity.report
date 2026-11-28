@@ -5010,6 +5010,33 @@ test("the MacArthur south approach clears the measured inner lane", () => {
   );
 });
 
+test("the Potrero and Alemany lane reviews clear the measured pavement", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const clearance = roadBake.roadTreeClearanceReviews.find(
+    ({ parentManifestSha256 }) =>
+      parentManifestSha256 ===
+      "54b27d7e91d245ef4a7148fd36fe48fd9d6a49c39b336af5c373cf0c819a4532",
+  );
+  const review = [
+    ["808f7e4c", [3512, 4680], [3252.491, -414.881, 1.807, 30.203]],
+    ["808f7e8c", [4289, 6162], [1336.441, -3154.918, -3.183, 27.83]],
+    ["808f7ef4", [-2072, 2820], [1699.422, -3100.201, -2.997, 22.531]],
+    ["808f7ef4", [3388, 3140], [2245.003, -3067.275, -2.826, 11.043]],
+  ];
+  for (const [token, [east, north], [x, y, heading, z]] of review) {
+    const raw = file(`tiles/${token}.json.gz`);
+    const tile = JSON.parse(gunzipSync(raw));
+    const receipt = clearance.tiles[token];
+    assert.equal(receipt.sha256, digest(raw));
+    assert.equal(receipt.removed, token === "808f7ef4" ? 2 : 1);
+    assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
+    assert.equal(
+      collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z),
+      null,
+    );
+  }
+});
+
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tokens = ["8085807c", "80858084"];

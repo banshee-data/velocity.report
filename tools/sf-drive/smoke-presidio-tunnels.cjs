@@ -5139,6 +5139,58 @@ for (const direction of ["northbound", "southbound"]) {
   };
 }
 
+for (const [name, road, owners, lane, start, finish, exitCamera] of [
+  [
+    "potrero-approach-outer-lane",
+    "us101-north-potrero-approach",
+    ["808f7e34", "808f7e4c"],
+    -2,
+    355,
+    425,
+  ],
+  [
+    "alemany-beyond-right-lane",
+    "i280-south-beyond-alemany",
+    ["808f7ef4", "808f7e64", "808f7e8c"],
+    -2,
+    8,
+    65,
+    "covered",
+  ],
+  [
+    "alemany-entry-left-lane",
+    "i280-south-alemany-entry",
+    ["808f7ef4"],
+    2,
+    130,
+    198,
+  ],
+  [
+    "alemany-through-left-lane",
+    "i280-south-alemany-through",
+    ["808f7efc", "808f7ef4"],
+    2,
+    285,
+    375,
+  ],
+]) {
+  cases[name] = {
+    owners,
+    roads: [road],
+    laneGuides: { [road]: { lane } },
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 10,
+    speed: 10,
+    finishOnDeck: true,
+    finishDistance: finish,
+    exitCamera,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 25_000,
+  };
+}
+
 const mainPostNorth = "main-post-northbound";
 const mainPostSouthWest = "main-post-southbound-west";
 const northCauseway = "presidio-nb-causeway";
