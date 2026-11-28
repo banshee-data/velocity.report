@@ -81,11 +81,23 @@ cases["waldo-to-alexander-sb"] = {
     "us101-south-over-alexander",
   ],
   speed: 16,
+  forks: [["us101-south-alexander-fork", "us101-south-over-alexander", 1.8]],
   finishOnDeck: true,
   finishDistance: 60,
   maxAirborneMetresAfterEntrance: 0,
   maxDurationMs: 160000,
   expectNoScrapes: true,
+};
+cases["waldo-to-alexander-exit"] = {
+  ...cases["waldo-to-alexander-sb"],
+  roads: [
+    ...cases["waldo-to-alexander-sb"].roads.slice(0, -1),
+    "us101-south-alexander-exit",
+  ],
+  forks: [["us101-south-alexander-fork", "us101-south-alexander-exit", -1.8]],
+  speedLimits: { "us101-south-alexander-exit": 9 },
+  finishOnDeck: false,
+  finishDistance: undefined,
 };
 cases["alexander-to-baker"] = {
   owners: marinOwners,
