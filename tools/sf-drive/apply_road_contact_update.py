@@ -11,7 +11,7 @@ def update_drive_walls(parent, roads, previous, encode):
         road["id"]: road.get("tunnel_wall_openings_m")
         for road in roads
         if road.get("tunnel_wall_openings_m")
-        != previous[road["id"]].get("tunnel_wall_openings_m")
+        != previous.get(road["id"], {}).get("tunnel_wall_openings_m")
     }
     if not walls:
         return None
@@ -31,7 +31,9 @@ def update_drive_walls(parent, roads, previous, encode):
     return encode(product) if changed else None
 
 
-def bake_contact_update(parent, contact, output, *, road_ids, token, source_key, receipt_key):
+def bake_contact_update(
+    parent, contact, output, *, road_ids, token, source_key, receipt_key, new_connections=()
+):
     directory = Path(__file__).parent
     embed = run_path(str(directory / "embed-road-layers.py"))
     release = run_path(str(directory / "apply-tree-classification.py"))
@@ -49,10 +51,14 @@ def bake_contact_update(parent, contact, output, *, road_ids, token, source_key,
     ):
         raise ValueError("The road update requires the reviewed parent contact")
     previous = json.loads(parent_contact)
+    transitions = product["transitions"]
+    previous_count = len(previous["transitions"])
     if (
         [road for road in previous["roads"] if road["id"] not in road_ids]
         != [road for road in product["roads"] if road["id"] not in road_ids]
-        or previous["transitions"] != product["transitions"]
+        or previous["transitions"] != transitions[:previous_count]
+        or [(edge["from"], edge["to"]) for edge in transitions[previous_count:]]
+        != [(f"{before}:end", f"{after}:start") for before, after in new_connections]
     ):
         raise ValueError("The road update changed another road or join")
     by_tile, _, receipts = embed["playable_product"](

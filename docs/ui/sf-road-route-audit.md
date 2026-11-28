@@ -2289,6 +2289,35 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   island-east-westbound-exit island-east-westbound-through-exit macalla-westbound-roundtrip
 ```
 
+### Second westbound landing at Macalla Road
+
+**World and Data.** The earlier wide exit reached its west landing, while
+the bend toward the mapped road junction still crossed the contact edge.
+The new 22 m branch leaves the existing ramp at a shared transverse
+section and follows OpenStreetMap ways `1178201287` and `617825976` to
+ordinary city pavement. The west branch retains its existing pavement
+and landing. The 34-node April 2023 survey records the grade descending
+from 54.9 m NAVD88 through the bend to the island road near 53.7 m.
+The new landing matches the game's terrain at that measured approach.
+[USGS San Francisco LiDAR](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+**Physics.** A Chrome drive through the mapped landing travelled 3.8 m
+airborne on the parent release. On the revised lane it crossed about
+44 m on the same steering line with zero airborne travel. Both
+landings have directed joins from the shared ramp. The static package
+audit passed 492 span directions, 356 joins and 534 ground handoff
+checks, including three direct continuations.
+
+- Parent game manifest SHA-256 `2238cef5a80ca0049f8e2be5eb5c76e34149470ce84c0eedf8b007cb2cb61e60`.
+- Revised game manifest SHA-256 `7c49be5011b627fcf952c216aa8b9e344a86cd22415bff760b077e7b13723339`.
+- Revised contact SHA-256 `e370afca16bf764425500dd818cb1f9fca953c731c03fabbdbb86deb4957cb9c`.
+- Survey receipt SHA-256 `4e87fb84eb588933c826d240d23bc5612b82c3d3f99224f2710074d516e5d1f3`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-east-westbound-mapped-landing macalla-westbound-roundtrip
+```
+
 ## Minna Street beneath the Chronicle building bridge
 
 The southbound Stockton course crossed the tunnel before crashing on
