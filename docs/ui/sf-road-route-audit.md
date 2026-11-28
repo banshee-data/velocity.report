@@ -7581,3 +7581,42 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   broadway-eastbound-outer broadway-eastbound-outer-reverse potrero-exit-paved-lane \
   island-eastbound-exit-outer
 ```
+
+## Fremont, the lower SoMa climb and Alexander pavement edges
+
+**World and Data.** The right contact edge on the Fremont exit crossed inside
+the marked travel lane. On the eastbound lower climb, the existing edge cut
+off sampled pavement near the Fifth Street merge. Both Alexander Avenue exits
+narrowed before the photographed fork pavement did. The source fit carries
+the observed pavement through those sections. On Fremont the existing
+right-hand rail follows the revised edge, and the left side stays open.
+The bridge deck heights, road reference lines and directed joins are retained.
+
+The April 2023 survey had at least six pavement-class returns within 0.75 m
+of each of the reviewed probes. Fremont had 13 qualifying stations at −3.2 m,
+the early lower climb had six at −2 m, and each Alexander exit had 14 at ±2.4 m.
+The lower climb returns were intermittent farther on, so its edge tapers back
+to the previous width by station 82 m. [USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list),
+[Fremont orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167786/405255),
+[lower SoMa orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167778/405274) and
+[north Alexander orthophoto](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167529/405078).
+
+**Physics.** On the parent game, the two-metre lower-climb Chrome probe left
+the deck, travelled 10.34 m airborne and landed at 4.956 m NAVD88. The revised
+bake kept the car on the deck. The new keyboard tests also cover the marked
+right lane on Fremont and both sides of the Alexander exit forks. The bake
+synchronises the measured edge in the named Bay Bridge drive and free drive.
+
+- Parent game manifest SHA-256 `0645cbd9767b206623a315884cf1a16f8a2f144400b6930fbd9d5877449c9c76`.
+- SoMa contact SHA-256 `2818402375c0bbc959deb5f27cfb8ccaa44ded63f1d592112dceb093974c7ab7`.
+- Alexander contact SHA-256 `609729f37860826892077d53b5c93fbdd996649be698f577a018992e75844d2e`.
+- Updated game manifest SHA-256 `24231aba1d387a6bec936060e4ba50c11ccbc1d7b4cd4e2366bfb7659e62ef5a`.
+
+```sh
+python tools/sf-drive/bake-bridge-fork-lane-edges.py \
+  "$PARENT_GAME" "$SOMA_CONTACT" "$ALEXANDER_CONTACT" "$RELEASE"
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  fremont-marked-right-lane soma-lower-right-paved-edge \
+  alexander-south-exit-broad-right alexander-south-exit-broad-left \
+  alexander-north-exit-broad-right alexander-north-exit-broad-left
+```
