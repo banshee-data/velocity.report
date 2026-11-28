@@ -53,7 +53,13 @@ export function steeringLine(points, guide = {}) {
   });
 }
 
-export function streetCourseWaypoints(points, start, finish, speed) {
+export function streetCourseWaypoints(
+  points,
+  start,
+  finish,
+  speed,
+  { laneOffset = 1.5, spacing = 2.3 } = {},
+) {
   const segments = [];
   let station = 0;
   for (const [i, [x, y]] of points.slice(0, -1).entries()) {
@@ -73,14 +79,15 @@ export function streetCourseWaypoints(points, start, finish, speed) {
     return [x + t * dx, y + t * dy];
   }
   const run = finish - start;
-  const intervals = Math.ceil(Math.abs(run) / 2.3);
+  const intervals = Math.ceil(Math.abs(run) / spacing);
   return Array.from({ length: intervals + 1 }, (_, i) => {
     const progress = (run * i) / intervals;
     const s = start + progress;
     const [x, y] = at(s);
     const [ax, ay] = at(s - 0.75);
     const [bx, by] = at(s + 0.75);
-    const right = (Math.sign(run) * 1.5) / Math.hypot(bx - ax, by - ay);
+    const right =
+      (Math.sign(run) * laneOffset) / Math.hypot(bx - ax, by - ay);
     return [
       x + right * (by - ay),
       y - right * (bx - ax),
