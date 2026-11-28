@@ -5477,6 +5477,65 @@ for (const [name, road, owners, lane, start, finish, exitCamera] of [
 
 const mainPostNorth = "main-post-northbound";
 const mainPostSouthWest = "main-post-southbound-west";
+for (const [name, road, owner, lane, start, finish] of [
+  ["fremont-marked-right-lane", "fremont-exit", "8085807c", -3.2, 235, 325],
+  [
+    "soma-lower-right-paved-edge",
+    "i80-eastbound-lower-climb",
+    "8085807c",
+    -2,
+    8,
+    71,
+  ],
+  [
+    "alexander-south-exit-broad-right",
+    "us101-south-alexander-exit",
+    "8085842c",
+    -2.4,
+    4,
+    51,
+  ],
+  [
+    "alexander-north-exit-broad-right",
+    "us101-north-alexander-exit",
+    "8085842c",
+    -2.4,
+    4,
+    48,
+  ],
+  [
+    "alexander-south-exit-broad-left",
+    "us101-south-alexander-exit",
+    "8085842c",
+    2.4,
+    4,
+    43,
+  ],
+  [
+    "alexander-north-exit-broad-left",
+    "us101-north-alexander-exit",
+    "8085842c",
+    2.4,
+    4,
+    42,
+  ],
+]) {
+  cases[name] = {
+    roads: [road],
+    owners: [owner],
+    laneGuides: { [road]: { lane } },
+    rollingStart: true,
+    rollingStartMetres: start,
+    initialSpeedMps: 8,
+    speed: 8,
+    finishOnDeck: true,
+    finishDistance: finish,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 20_000,
+  };
+}
+
 const northCauseway = "presidio-nb-causeway";
 const southCauseway = "presidio-sb-causeway";
 const gorgasInterior = "presidio-gorgas-southbound-covered-exit";

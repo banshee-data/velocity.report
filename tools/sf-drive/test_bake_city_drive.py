@@ -14,6 +14,32 @@ smooth_ramp_join = runpy.run_path(Path(__file__).with_name("bake-city-drive.py")
 road_layers = runpy.run_path(Path(__file__).with_name("embed-road-layers.py"))
 tree_bake = runpy.run_path(Path(__file__).with_name("apply-tree-classification.py"))
 building_bake = runpy.run_path(Path(__file__).with_name("apply-building-clearance.py"))
+update_drive_contacts = runpy.run_path(Path(__file__).with_name("apply_road_contact_update.py"))[
+    "update_drive_contacts"
+]
+
+
+def test_named_drive_contact_uses_revised_width_in_all_measured_routes(tmp_path):
+    original = [[0, 3, 3]]
+    revised = [[0, 3, 3], [15, 3, 4]]
+    drive = {
+        "sections": [{"id": "ramp", "road_contact": {"widthSections": original, "seams": {}}}],
+        "approaches": [
+            {"sections": [{"id": "ramp", "road_contact": {"widthSections": original}}]},
+            {"sections": [{"id": "ramp", "width_m": 6}]},
+        ],
+    }
+    (tmp_path / "gamedrives.json").write_text(json.dumps({"drives": [drive]}))
+    raw = update_drive_contacts(
+        tmp_path,
+        [{"id": "ramp", "widthSections": revised}],
+        {"ramp": {"widthSections": original}},
+        tree_bake["encode"],
+    )
+    (updated,) = json.loads(raw)["drives"]
+    assert updated["sections"][0]["road_contact"] == {"widthSections": revised, "seams": {}}
+    assert updated["approaches"][0]["sections"][0]["road_contact"]["widthSections"] == revised
+    assert updated["approaches"][1] == drive["approaches"][1]
 
 
 class SlopingPavement:

@@ -1,0 +1,1 @@
+- Fitted surveyed freeways at the [Fremont, lower SoMa and Alexander forks](../../ui/sf-road-route-audit.md#fremont-the-lower-soma-climb-and-alexander-pavement-edges). The two-metre lower-climb keyboard drive stayed on the eastbound deck after falling to the street on the parent game.

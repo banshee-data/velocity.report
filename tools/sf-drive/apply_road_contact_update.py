@@ -6,14 +6,15 @@ from pathlib import Path
 from runpy import run_path
 
 
-def update_drive_walls(parent, roads, previous, encode):
-    walls = {
-        road["id"]: road.get("tunnel_wall_openings_m")
-        for road in roads
-        if road.get("tunnel_wall_openings_m")
-        != previous.get(road["id"], {}).get("tunnel_wall_openings_m")
-    }
-    if not walls:
+def update_drive_contacts(parent, roads, previous, encode):
+    fields = ("tunnel_wall_openings_m", "widthSections")
+    updates = {}
+    for road in roads:
+        old = previous.get(road["id"], {})
+        changes = {key: road.get(key) for key in fields if road.get(key) != old.get(key)}
+        if changes:
+            updates[road["id"]] = changes
+    if not updates:
         return None
 
     product = json.loads((parent / "gamedrives.json").read_bytes())
@@ -21,13 +22,15 @@ def update_drive_walls(parent, roads, previous, encode):
     for drive in product["drives"]:
         for route in [drive, *drive.get("approaches", [])]:
             for span in route["sections"]:
-                if span["id"] not in walls:
-                    continue
-                if walls[span["id"]] is None:
-                    span.pop("tunnel_wall_openings_m", None)
-                else:
-                    span["tunnel_wall_openings_m"] = walls[span["id"]]
-                changed = True
+                for key, value in updates.get(span["id"], {}).items():
+                    target = span.get("road_contact") if key == "widthSections" else span
+                    if target is None or target.get(key) == value:
+                        continue
+                    if value is None:
+                        target.pop(key)
+                    else:
+                        target[key] = value
+                    changed = True
     return encode(product) if changed else None
 
 
@@ -80,7 +83,7 @@ def bake_contact_update(
     release["record_tile"](manifest, tile, packed)
     survey["tiles"] = {token: {"parentSha256": digest(raw), "sha256": digest(packed)}}
     manifest["roadBake"][receipt_key] = survey
-    drive_export = update_drive_walls(
+    drive_export = update_drive_contacts(
         parent,
         [road for road in product["roads"] if road["id"] in road_ids],
         {road["id"]: road for road in previous["roads"] if road["id"] in road_ids},

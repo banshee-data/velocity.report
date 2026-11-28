@@ -51,6 +51,13 @@ function assertLaterTreeTileReceipt(roadBake, token, previous, raw) {
   assert.equal(current, digest(raw));
 }
 
+function assertLaterForkPavementReceipt(roadBake, token, previous, raw) {
+  const review = roadBake.somaForkPavementSurvey.tiles[token] ??
+    roadBake.alexanderExitPavementSurvey.tiles[token];
+  if (review) assert.equal(review.parentSha256, previous);
+  assert.equal(review?.sha256 ?? previous, digest(raw));
+}
+
 function assertRampWidthReceipt(roadBake, token, previous, raw) {
   const review =
     roadBake.bryantEastboundWidthSurvey.tiles[token] ??
@@ -78,6 +85,8 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
         "18558e1a83a2ed8a18af4f74aabf6db951cc622276b74326272d8867369547c5",
     ),
     roadBake.potreroExitEdgeSurvey,
+    roadBake.somaForkPavementSurvey,
+    roadBake.alexanderExitPavementSurvey,
   ]) {
     const tile = review?.tiles[token];
     if (!tile) continue;
@@ -1478,7 +1487,7 @@ test("the Harrison loop supports the surveyed lane on the outside of its curve",
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const receipt = roadBake.i80HarrisonLoopPavementSurvey;
   assert.equal(receipt.source_osm_way, 31129372);
-  assert.equal(receipt.tiles[token].sha256, digest(raw));
+  assertLaterForkPavementReceipt(roadBake, token, receipt.tiles[token].sha256, raw);
   const road = tile.playableRoads.find(
     ({ id }) => id === "sf-contact/i80-westbound-harrison-loop",
   );
@@ -5127,7 +5136,7 @@ test("the four reviewed approach lanes clear the inferred trunks", () => {
   ]) {
     const raw = file(`tiles/${token}.json.gz`);
     const tile = JSON.parse(gunzipSync(raw));
-    assert.equal(review.tiles[token].sha256, digest(raw));
+    assertLaterForkPavementReceipt(roadBake, token, review.tiles[token].sha256, raw);
     assert.equal(review.tiles[token].removed, token === "808f7f24" ? 2 : 1);
     assert.ok(!tile.tr.some(([tx, ty]) => tx === east && ty === north));
     assert.equal(collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z), null);
@@ -5237,6 +5246,65 @@ test("the Potrero exit retains paved contact and excludes the roadside strip", (
     [portals[0].x, portals[0].y, portals[0].z],
     road.points.at(-1),
   );
+});
+
+test("the surveyed bridge forks keep the measured outer lanes on their decks", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const cases = [
+    ["8085807c", "somaForkPavementSurvey", "fremont-exit", 284, -3.2],
+    [
+      "8085807c",
+      "somaForkPavementSurvey",
+      "sf-contact/i80-eastbound-lower-climb",
+      12,
+      -2,
+    ],
+    [
+      "8085842c",
+      "alexanderExitPavementSurvey",
+      "sf-contact/us101-south-alexander-exit",
+      18,
+      -2.4,
+    ],
+    [
+      "8085842c",
+      "alexanderExitPavementSurvey",
+      "sf-contact/us101-north-alexander-exit",
+      18,
+      -2.4,
+    ],
+  ];
+  for (const [token, survey, id, station, offset] of cases) {
+    const raw = file(`tiles/${token}.json.gz`);
+    assertLaterTreeTileReceipt(
+      roadBake,
+      token,
+      roadBake[survey].tiles[token].sha256,
+      raw,
+    );
+    const tile = JSON.parse(gunzipSync(raw));
+    const road = tile.playableRoads.find((row) => row.id === id);
+    const { surface } = buildBakedRoadContact(road);
+    const i = surface.profile.findIndex(({ s_m }) => s_m >= station);
+    const [x, y] = surface.profile[i].position;
+    const [a, b] = [surface.profile[i - 1], surface.profile[i + 1]].map(
+      ({ position }) => position,
+    );
+    const heading = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    const car = {
+      x: x - offset * Math.sin(heading),
+      y: y + offset * Math.cos(heading),
+      heading,
+    };
+    assert.ok(roadSupportsCar(surface.heightAt, car), id);
+    if (id === "fremont-exit") {
+      assert.deepEqual(
+        road.railRanges.map(({ side }) => side),
+        ["right"],
+      );
+      assert.ok(surface.profile[i].edgeWidths[1] > 4.7);
+    }
+  }
 });
 
 test("the westbound Fifth exit crosses below the continuing freeway and reaches Harrison Street", () => {
