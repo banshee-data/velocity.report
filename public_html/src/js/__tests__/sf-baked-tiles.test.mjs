@@ -48,6 +48,10 @@ function assertLaterTreeTileReceipt(roadBake, token, previous, raw) {
     const receipt = tiles[token];
     if (receipt?.parentSha256 === current) current = receipt.sha256;
   }
+  for (const detail of roadBake.terrainDetailReviews) {
+    if (detail.tile === token && detail.parentSha256 === current)
+      current = detail.sha256;
+  }
   assert.equal(current, digest(raw));
 }
 
@@ -668,6 +672,62 @@ test("the southbound Third Street Bridge approach keeps its outside lane clear",
   const z = groundAtWorld([tile], car.x, car.y, false);
   assert.ok(Math.abs(z - 4.06) < 0.02);
   assert.equal(collisionAt([buildCollisionIndex(tile, token)], car, z), null);
+});
+
+test("the Third Street Bridge stays grounded where its two terrain tiles meet", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const tokens = ["808f7fd4", "808f7fdc"];
+  const tiles = tokens.map((token) =>
+    JSON.parse(gunzipSync(file(`tiles/${token}.json.gz`))),
+  );
+  const height = (x, y) => groundAtWorld(tiles, x, y, true);
+  const surfaceAt = (x, y) => ({ height: height(x, y), drivable: true });
+  const heading = -0.99;
+  const east = Math.cos(heading);
+  const north = Math.sin(heading);
+  const halfAxle = 1.3;
+  for (const [seamX, seamY] of [
+    [4391.166, 1832.399],
+    [4382.725, 1854.077],
+  ]) {
+    const [a, b] = tiles.map((tile) =>
+      groundAtWorld([tile], seamX, seamY, true),
+    );
+    assert.ok(
+      Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 0.005,
+      `Terrain tiles differ at ${seamX}, ${seamY}`,
+    );
+    const x = seamX - 8 * east;
+    const y = seamY - 8 * north;
+    const v = 9;
+    const rise =
+      height(x + halfAxle * east, y + halfAxle * north) -
+      height(x - halfAxle * east, y - halfAxle * north);
+    let car = {
+      x,
+      y,
+      z: height(x, y),
+      heading,
+      v,
+      vz: (v * rise) / (2 * halfAxle),
+      grounded: true,
+    };
+    for (let i = 0; i < 260; i++) {
+      car = contactStep(car, {}, 1 / 120, surfaceAt, halfAxle);
+      assert.ok(
+        car.grounded && !car.blocked,
+        `Lost support at ${car.x}, ${car.y}`,
+      );
+    }
+    assert.ok(car.y < seamY - 4);
+  }
+  for (const [index, token] of tokens.entries()) {
+    const review = roadBake.terrainDetailReviews.findLast(
+      ({ tile }) => tile === token,
+    );
+    assert.equal(review.sha256, digest(file(`tiles/${token}.json.gz`)));
+    assert.equal(tiles[index].g.details.at(-1).s, 1);
+  }
 });
 
 test("the Third Street deck over Islais Creek supports all four surveyed lanes", () => {

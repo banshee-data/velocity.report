@@ -1,0 +1,1 @@
+- Fitted both Third Street Bridge terrain tiles to the same surveyed pavement near the seam and added the [public crossing inventory replay](../../ui/sf-road-route-audit.md#public-crossing-inventory-and-third-street-bridge-terrain-seam) after the southbound lanes briefly lost contact.

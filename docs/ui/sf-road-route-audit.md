@@ -7844,3 +7844,83 @@ node tools/sf-drive/audit-road-routes.mjs --plan="$PLAN"
 node tools/sf-drive/audit-road-routes.mjs --plan="$PLAN" --export-courses > "$COURSES"
 node tools/sf-drive/drive-road-audit.cjs --verify "$COURSES" mission-bay-to-pennsylvania dogpatch-to-potrero
 ```
+
+## Public crossing inventory and Third Street Bridge terrain seam
+
+**World, Physics and Data.** The current OpenStreetMap screen used the
+same 443 frozen motor-road ways and compared them with the public
+`24231aba1d387a6bec936060e4ba50c11ccbc1d7b4cd4e2366bfb7659e62ef5a`
+game tiles. The width, heading and structure-type check matched 338
+ways throughout and flagged 32 with a continuous gap of at least 30 m.
+Ten of those ways were classified above service-road level. The
+remaining 22 service ways need their access and pavement checked
+before treating their flags as missing public through connections.
+[OpenStreetMap San Francisco extract](https://download.bbbike.org/osm/bbbike/SanFrancisco/).
+
+| Inventory way or ways                 | Browser check                                | Result on the tested line                                                                          |
+| ------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `27656674`, `674496104`, `1006830791` | Third Street at Mission Creek                | Four lanes crossed on terrain. Both southbound lanes hopped at the tile seam in the strict replay. |
+| `309010740`, `309010745`              | San Jose Avenue at Tingley                   | Both directions used the covered undercrossing.                                                    |
+| `648873170`                           | Doyle Drive northbound loop to SR 1          | Reached the deck after the covered section.                                                        |
+| `175507524`                           | First Street beneath the Transit Center      | The legal street direction finished grounded.                                                      |
+| `544431983`, `283080371`              | Mariposa Street and Evans Avenue crossings   | Both directions at each site finished grounded.                                                    |
+| `31487933`                            | Branch East ramp and upper I-280 carriageway | The ramp entered the tunnel view. The upper carriageway stayed out of that tunnel view.            |
+
+The 2026 federal inventory lists ten public-road tunnel records for
+San Francisco County. Chrome repeated the named passages on the public
+tiles. The Battery and Main Post northbound and southbound records,
+Yerba Buena, the Presidio Tunnel at MacArthur, Branch East, Broadway,
+Geary and Stockton all used the enclosed view and reached the exterior.
+The two Yerba Buena bores and both directions on the two-way local
+tunnels were tested. The upper Branch East drive and the Stockton
+street-level control remained separate from their tunnels.
+[National Tunnel Inventory](https://data.transportation.gov/Roadways-and-Bridges/National-Tunnel-Inventory/64m4-zwar).
+
+### Third Street Bridge terrain repair
+
+The 8 m grids on either side of the Third Street Bridge overlap. The
+height change at the nearest-tile boundary launched the southbound
+outside and inside lane probes for 2.43 m and 2.40 m respectively at
+about 20 mph. Both cars regained contact and finished. The earlier
+outside-lane tree removal still clears the approach.
+
+The repair fits the same measured pavement in both tiles and tapers
+back to each coarse grid outside the seam. Twenty-eight April 2023
+USGS nodes supplied the survey. A shared fit used 28,837 class-2 and
+25,371 class-17 returns. The fit used 958 one-metre pavement cells.
+For 242 held-out cells, the median absolute residual was 0.037 m and
+the 95th-percentile residual was 0.098 m. The graphics and contact
+reader use the same 1 m details.
+[Third Street Bridge](https://sfpublicworks.org/ThirdStreetBridge) ·
+[USGS April 2023 survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list) ·
+[Gerardus terrain exporter review](https://github.com/banshee-data/gerardus/pull/243).
+
+The candidate repeated each southbound lane twice and each northbound
+lane once. All six finished on the street with zero airborne travel,
+scrapes or measured dips. A fixed-step regression samples support from
+both tiles around the two launch positions and advances the car across
+the seam at 120 Hz. The parent failed that regression. On the revised
+package all 20 delivery courses, 492 span directions, 356 directed joins
+and 534 ground handoff checks completed.
+
+- Revised game manifest SHA-256 `09f430108d4bf0339b75c287052a9a138346c8056f99b698b7d9d67f77d13f4e`.
+- Survey receipt SHA-256 `762edd9d805db9aa8bddce79bb08de8afb4fcbff268b353dd0878c7176bb8de3`.
+- Tile `808f7fd4` terrain detail SHA-256 `585a804d5dc114cfc26baa7cc53fa1d90de9a4cfe975ba052f6a2af0d622fe01`.
+- Tile `808f7fdc` terrain detail SHA-256 `3053585a16f4b816eda62a2656f6dae857f3d918aa41217a598582a086f5baee`.
+- Motor-road inventory input SHA-256 `aa9812418df186db01ab9a12a36e293814ab8476054d9d5fd3e7fc6bbf52d2af`.
+- Federal county inventory response SHA-256 `22d11379bebef6cc766d4e8a5c7145c65d27478d8c86b1a787fadcf6d395fdcb`.
+
+The attached `city-structure-inventory-20261126/public-release-inventory-24231`
+run retains the frozen inventory results, per-file checksums for the
+parent game's staged Arrow package and the bridge survey and browser
+evidence.
+
+```sh
+node tools/sf-drive/export-inventory-crossings.mjs > "$COURSES"
+node tools/sf-drive/drive-road-audit.cjs --verify "$COURSES"
+node tools/sf-drive/smoke-presidio-tunnels.cjs northbound southbound \
+  macarthur-northbound macarthur-southbound geary-eastbound geary-westbound \
+  broadway-eastbound broadway-westbound branch-east-ramp branch-east-upper \
+  island-east-lower-mainline island-east-upper-mainline
+node tools/sf-drive/smoke-stockton-tunnel.cjs
+```
