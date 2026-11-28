@@ -7755,9 +7755,14 @@ The Pennsylvania Avenue check permits the short, observed contact on the
 southbound mainline at the 18th Street fork in Chrome. The rest of the
 ordered contact sequence and the exit back onto the street are required.
 Chrome collected both pickups through the Dogpatch undercrossing, the
-Crossover Drive deck, Fort Funston and Ingleside. Those four runs had zero
-airborne metres and zero measured dips. The Crossover Drive delivery
-reported a building scrape and continued to its destination.
+Crossover Drive deck, Fort Funston, Ingleside and Twin Peaks to Bernal.
+Those five runs had zero airborne metres and zero measured dips. The
+Crossover Drive delivery reported a building scrape and continued to its
+destination.
+The repeat Pennsylvania Avenue browser drive also collected both pickups,
+finished on city pavement 389.4 m beyond the ramp and recorded zero
+airborne metres, scrapes or measured dips. A separate browser probe
+reached the Ellsworth exit handoff grounded at 15.52 m.
 The Alemany itinerary takes the San Bruno Avenue exit. The direct exit
 at Ellsworth reached city pavement in a separate replay and later
 encountered a tree on Bay Shore Boulevard. The table measures delivery
@@ -7772,6 +7777,44 @@ also include five newer contacts, including the two Macalla Road landings
 and the northbound US 101 to I-280 connector. Carrying the reviewed tree
 rows forward requires preserving these road records and the current quest
 metadata. The current game uses the existing static tiles.
+
+### Packaged road contacts
+
+The 120 Hz contact audit checked every admitted direction on the packaged
+bridge decks, ramps and tunnels. It drives each span and join with the
+game chassis, including slower or offset approaches where needed.
+
+| Result                        | Current public tiles | Arrow classification preview |
+| ----------------------------- | -------------------: | ---------------------------: |
+| Packaged spans                |                  398 |                          393 |
+| Bridge deck directions passed |            235 / 235 |                    234 / 234 |
+| Ramp directions passed        |            219 / 219 |                    215 / 215 |
+| Tunnel directions passed      |              38 / 38 |                      38 / 38 |
+| Directed joins passed         |            356 / 356 |                    350 / 350 |
+| Ground handoffs accepted      |            534 / 534 |                    533 / 533 |
+| Ground handoffs with a scrape |                   15 |                           14 |
+
+Both releases recorded zero span scrapes and zero failed joins or
+handoffs. On each release, three handoffs continued onto another tested
+span. Twenty span directions on each release needed a speed or lane
+adjustment. The live run checked 867,058 chassis poses and returned zero
+static contact flags. These runs cover the admitted directions in each
+package. Citywide geographic coverage requires comparison with the
+structure inventory.
+
+The classification product used
+`376ca8ed60c84b7af3e0a3c943e97e45fda1a6d28672c451648535371cc8fd88`
+as its input. Of 2,286 reviewed row hashes across 139 tiles, 2,281 have
+a unique match on the live release, three match multiple tree rows and
+two are absent. The product SHA-256 is
+`3c3cd4e7bdb88ac6cb869d9438283ef3cdda9a04ccf7ff8bd57f2090d1b960c6`.
+
+```sh
+node tools/sf-drive/audit-baked-road-contact.mjs public_html/src/sf/tiles --drive-links --drive-spans
+node tools/sf-drive/audit-baked-road-contact.mjs "$ARROW_BUNDLE/tiles" --drive-links --drive-spans
+```
+
+### Replaying the deliveries
 
 ```sh
 chinatown=tools/sf-drive/road-audit-chinatown-approaches.json
