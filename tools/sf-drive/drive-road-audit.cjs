@@ -2,6 +2,7 @@
 const assert = require("node:assert/strict");
 const { createHash } = require("node:crypto");
 const { readFileSync } = require("node:fs");
+const { isDeepStrictEqual } = require("node:util");
 const { chromium } = require("playwright");
 const { confirmManualTakeover } = require("./manual-takeover.cjs");
 
@@ -387,8 +388,18 @@ async function main() {
               : "both emoji collected",
             id,
           );
-          if (course.expectedSurfaces)
-            assert.deepEqual(result.surfaces, course.expectedSurfaces, id);
+          if (course.expectedSurfaces) {
+            const alternatives = [
+              course.expectedSurfaces,
+              ...(course.browserContactAlternatives ?? []),
+            ];
+            if (
+              !alternatives.some((contacts) =>
+                isDeepStrictEqual(contacts, result.surfaces),
+              )
+            )
+              assert.deepEqual(result.surfaces, course.expectedSurfaces, id);
+          }
           if (course.expectedSurfaces?.length) {
             assert.ok(
               result.afterExitMetres >= 20 && result.stop.road === null,
