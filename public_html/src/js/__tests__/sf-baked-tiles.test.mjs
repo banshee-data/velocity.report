@@ -57,6 +57,7 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
     roadBake.i80FifthMappedSeamSurvey,
     roadBake.i280MariposaFifthCurveSurvey,
     roadBake.alemanyNorthboundConnectorSurvey,
+    roadBake.i80HarrisonLoopPavementSurvey,
   ]) {
     const tile = review.tiles[token];
     if (!tile) continue;
@@ -1359,6 +1360,29 @@ test("the westbound Harrison loop hands off below both Bay Bridge approaches", (
   assert.ok(ramp > 25 && ramp < 26);
   assert.ok(lowerDeck > 33 && lowerDeck < 34);
   assert.ok(upperDeck > 42 && upperDeck < 43);
+});
+
+test("the Harrison loop supports the surveyed lane on the outside of its curve", () => {
+  const token = "8085807c";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const receipt = roadBake.i80HarrisonLoopPavementSurvey;
+  assert.equal(receipt.source_osm_way, 31129372);
+  assert.equal(receipt.tiles[token].sha256, digest(raw));
+  const road = tile.playableRoads.find(
+    ({ id }) => id === "sf-contact/i80-westbound-harrison-loop",
+  );
+  const { surface } = buildBakedRoadContact(road);
+  for (const [x, y, height] of [
+    [4220.58, 2714.23, 29.9],
+    [4233.61, 2729.41, 29.4],
+    [4246.63, 2744.58, 28.6],
+  ]) {
+    const heading = 0.8615;
+    assert.ok(roadSupportsCar(surface.heightAt, { x, y, heading }));
+    assert.ok(Math.abs(surface.heightAt(x, y) - height) < 0.25);
+  }
 });
 
 test("the 18th Street entrance stays on its own deck until the measured merge", () => {

@@ -737,6 +737,18 @@ cases["westbound-harrison-loop"] = {
     },
   },
 };
+cases["westbound-harrison-loop-surveyed-lane"] = {
+  ...cases["westbound-harrison-loop"],
+  maxAirborneMetres: 0,
+  laneGuides: {
+    [harrisonLoop]: {
+      clearance: [
+        { offset: 2.05, station: 218, length: 55 },
+        ...cases["westbound-harrison-loop"].laneGuides[harrisonLoop].clearance,
+      ],
+    },
+  },
+};
 cases["westbound-harrison-fork-through"] = {
   roads: [harrisonFork, somaUpper],
   owners: upperOwners,
@@ -872,7 +884,7 @@ cases["alemany-to-cesar-chavez-northbound"] = {
     alemanyStayNorth,
     ["i280-north-alemany-main", "i280-north-alemany-climb", -1.5],
     ["i280-north-alemany-climb", alemanyBeforeConnectorMerge, -1.35],
-    ["i280-north-lower-viaduct", "i280-north-cesar-chavez-exit", -1.4],
+    ["i280-north-lower-viaduct", "i280-north-cesar-chavez-exit", -2.4],
   ],
 };
 const cesarChavezExit = cases["alemany-to-cesar-chavez-northbound"];
