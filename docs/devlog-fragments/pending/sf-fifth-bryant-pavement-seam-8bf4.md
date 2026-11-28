@@ -1,0 +1,1 @@
+- Widened the surveyed eastbound seam from Fifth Street to the lower Bay Bridge approach. The [SF road audit](../../ui/sf-road-route-audit.md#fifth-street-onto-the-lower-bay-bridge-approach) records the mapped drive that previously lost contact and the grounded run on the rebake.

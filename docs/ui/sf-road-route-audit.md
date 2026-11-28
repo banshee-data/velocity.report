@@ -6933,3 +6933,34 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   i80-westbound-us101-north-fork i80-westbound-us101-south-fork
 node tools/sf-drive/audit-baked-road-contact.mjs --drive-links --drive-spans
 ```
+
+## Fifth Street onto the lower Bay Bridge approach
+
+**World and Data.** The centreline drive from Fifth and Bryant reached eastbound
+I-80, but the mapped outside lane fell through the narrowing at the shared seam.
+The April 2023 survey shows continuous pavement across the seam to the outside
+lane. The contact widens along the final 62 m of the entrance. The matching
+seam on the entrance, through deck and climb extends 24.5 m left and 3.8 m right
+of its existing centre. The bake keeps all three centreline profiles and rail
+ranges. [USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+The review used 92 EPT nodes through depth 13 and checked 27 lateral probes with
+a 0.76 m radius across both sides of the seam. It confirmed pavement class returns
+at the inset from the proposed contact edge. It did not fit the crossfall or
+measure the guardrail profile.
+
+**Physics and UI.** The mapped route on the previous release lost contact at
+game east 3690.45 m and north 2300.88 m. Chrome recorded 17.8 m airborne and a
+crash. The corrected game drove about 151 m on the same line, stayed grounded through
+the merge, and recorded no scrapes or dips deeper than 0.5 m. The fixed-step
+screen passed all 487 span directions and 350 joins.
+
+- Parent manifest SHA-256 `8ef3c513566b3439ed780de9a231a92721673c1a01b0d28b0d1e11de7e55d6b9`.
+- Updated manifest SHA-256 `893a0e062330f05ab83ad09775db6d09dba4c61017072605c8aa59fdf2301f06`.
+- Contact SHA-256 `e43aba9dbe3385e5899f8266cb745afa0cc30e8eabd10cc66672385fab967bb2`.
+- Survey receipt SHA-256 `69ed4ffb681118b69764f947039334c623cf9c1f47923206686db2ac91eaaf79`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i80-fifth-bryant-entry i80-fifth-bryant-divider-lane
+```

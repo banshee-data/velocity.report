@@ -47,13 +47,16 @@ function assertRampWidthReceipt(roadBake, token, previous, raw) {
     roadBake.bryantEastboundWidthSurvey.tiles[token] ??
     roadBake.sixthNorthExitWidthSurvey.tiles[token];
   if (review) assert.equal(review.parentSha256, previous);
-  assertWestSplitReceipt(roadBake, token, review?.sha256 ?? previous, raw);
+  assertLaterRoadTileReceipt(roadBake, token, review?.sha256 ?? previous, raw);
 }
 
-function assertWestSplitReceipt(roadBake, token, previous, raw) {
+function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
   const westSplit = roadBake.centralWestSplitSurvey.tiles[token];
   if (westSplit) assert.equal(westSplit.parentSha256, previous);
-  assert.equal(westSplit?.sha256 ?? previous, digest(raw));
+  const afterWestSplit = westSplit?.sha256 ?? previous;
+  const fifth = roadBake.i80FifthMappedSeamSurvey.tiles[token];
+  if (fifth) assert.equal(fifth.parentSha256, afterWestSplit);
+  assert.equal(fifth?.sha256 ?? afterWestSplit, digest(raw));
 }
 
 function assertSouthgateReview(roadBake, token, raw) {
@@ -227,6 +230,14 @@ test("the Fifth Street divider covers both ramps and leaves the eastbound merge 
   );
   for (const road of [entry, exit]) {
     assert.ok(highwayRailSegments(buildBakedRoadContact(road).surface).length);
+  }
+  const ramp = buildBakedRoadContact(entry).surface;
+  const deck = buildBakedRoadContact(climb).surface;
+  for (const [surface, x, y] of [
+    [ramp, 3683, 2299],
+    [deck, 3703, 2318.8],
+  ]) {
+    assert.ok(roadSupportsCar(surface.heightAt, { x, y, heading: 0.78 }));
   }
 });
 
@@ -2334,7 +2345,7 @@ test("the westbound deck holds the sampled outside lanes above their lower level
     const previous = fremont?.sha256 ?? receipt.sha256;
     const edge = roadBake.westboundCityApproachEdgeSurvey.tiles[token];
     if (edge) assert.equal(edge.parentSha256, previous);
-    assert.equal(edge?.sha256 ?? previous, digest(raw));
+    assertLaterRoadTileReceipt(roadBake, token, edge?.sha256 ?? previous, raw);
     assert.equal(raw.length, entries.find(({ t }) => t === token).bytes);
     const tile = JSON.parse(gunzipSync(raw));
     collision.push(buildCollisionIndex(tile, token));
@@ -6812,7 +6823,7 @@ test("the surveyed Bryant entry lane stays on the deck and joins eastbound I-80"
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tile = (token) => {
     const raw = file(`tiles/${token}.json.gz`);
-    assertWestSplitReceipt(
+    assertLaterRoadTileReceipt(
       roadBake,
       token,
       roadBake.bryantEastboundWidthSurvey.tiles[token].sha256,
@@ -6844,9 +6855,11 @@ test("the surveyed northbound Sixth Street lane stays above the street across th
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tiles = ["808f7fcc", "808f7fd4"].map((token) => {
     const raw = file(`tiles/${token}.json.gz`);
-    assert.equal(
+    assertLaterRoadTileReceipt(
+      roadBake,
+      token,
       roadBake.sixthNorthExitWidthSurvey.tiles[token].sha256,
-      digest(raw),
+      raw,
     );
     return JSON.parse(gunzipSync(raw));
   });

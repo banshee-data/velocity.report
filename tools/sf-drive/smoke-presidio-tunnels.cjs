@@ -1398,6 +1398,7 @@ for (const [destination, offset] of [
   const exit = `us101-south-${destination}-exit`;
   cases[`harrison-to-${destination}`] = {
     ...harrisonSouth,
+    exitCamera: destination === "cesar-chavez" ? "covered" : "exterior",
     roads: [...harrisonSouth.roads, exit],
     forks: [
       ...harrisonSouth.forks,
@@ -1434,11 +1435,7 @@ for (const [name, approach, destination, approachForks] of [
     roads: [...approach, centralSouthMerge, ...exit.roads.slice(3)],
     owners: [...new Set([...exit.owners, ...centralOwners])],
     speed: 16,
-    forks: [
-      ...approachForks,
-      ["us101-south-potrero-main", "us101-south-potrero-exit", -1.6],
-      ...exit.forks.slice(1),
-    ],
+    forks: [...approachForks, ...exit.forks.slice(1)],
     speedLimits: { ...exit.speedLimits, [tenthBryant]: 11 },
     laneGuides: {
       ...exit.laneGuides,
