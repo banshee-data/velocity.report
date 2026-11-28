@@ -3217,6 +3217,52 @@ cases["island-east-eastbound-entry"] = {
   maxAirborneMetres: 0,
   maxDurationMs: 90_000,
 };
+cases["forest-and-sims-to-eastbound-i80"] = {
+  ...cases["island-east-eastbound-entry"],
+  groundApproachMetres: 0,
+  groundArrival: (tiles) => {
+    const tile = tiles.find(({ t }) => t === "80858024");
+    const rows = ["Forest Rd", "Sims Rd"].map((name) =>
+      tile.r.find(([index]) => tile.n[index] === name),
+    );
+    const paint = rows.flatMap((row, road) => {
+      const xy = row[3];
+      return Array.from({ length: xy.length / 2 }, (_, i) => [
+        tile.o[0] + xy[2 * i] / 10,
+        tile.o[1] + xy[2 * i + 1] / 10,
+      ]).slice(road);
+    });
+    return [
+      ...paint,
+      // Street approach from the end of the detour to the Hillcrest ramp.
+      [6737.28, 5466.59],
+      [6737.15, 5477.77],
+      [6738.44, 5487.65],
+      [6739.84, 5497.64],
+      [6740.9, 5507.29],
+      [6743.13, 5516.93],
+      [6743.68, 5527.05],
+      [6743.98, 5537.41],
+      [6744.33, 5547.68],
+      [6744.87, 5557.72],
+      [6745.49, 5567.64],
+      [6746.07, 5577.63],
+      [6746.1, 5587.61],
+      [6745.44, 5597.59],
+      [6744.3, 5607.51],
+      [6742.55, 5617.35],
+      [6740.33, 5627.09],
+      [6737.57, 5636.7],
+      [6734.82, 5646.31],
+    ];
+  },
+  groundArrivalSpeed: 5.2,
+  minGroundArrivalMetres: 800,
+  finishDistance: 160,
+  expectNoScrapes: true,
+  entranceTimeoutMs: 215_000,
+  maxDurationMs: 255_000,
+};
 cases["island-east-roundtrip"] = {
   ...cases["island-east-eastbound-exit-to-macalla"],
   roads: [
@@ -5028,6 +5074,27 @@ function fromGround(points, firstRoad) {
   };
 }
 
+function fromPavement(points, firstRoad, speed) {
+  const end = firstRoad.positions[0];
+  const positions = points.flatMap(([x, y], i) => {
+    const [nextX, nextY] = points[i + 1] ?? end;
+    const steps = Math.ceil(Math.hypot(nextX - x, nextY - y) / 2);
+    return Array.from({ length: steps }, (_, j) => [
+      x + (nextX - x) * (j / steps),
+      y + (nextY - y) * (j / steps),
+      end[2],
+    ]);
+  });
+  return {
+    id: "between-streets",
+    kind: "ground",
+    width_m: 4,
+    speed_mps: speed,
+    positions: [...positions, end],
+    sources: [],
+  };
+}
+
 const mainPostNorth = "main-post-northbound";
 const mainPostSouthWest = "main-post-southbound-west";
 const northCauseway = "presidio-nb-causeway";
@@ -5641,6 +5708,8 @@ async function main() {
         groundConnection,
         groundDeparture,
         groundArrival,
+        groundArrivalSpeed,
+        minGroundArrivalMetres = 18,
         groundedHandoff = false,
         finishOnDeck = false,
         finishDistance,
@@ -5767,8 +5836,17 @@ async function main() {
         : connectByGround
           ? withGroundConnections(contactSections, groundConnection)
           : contactSections;
-      if (groundArrival)
-        sections = [fromGround(groundArrival, sections[0]), ...sections];
+      if (groundArrival) {
+        const approach =
+          typeof groundArrival === "function"
+            ? fromPavement(
+                groundArrival(tiles),
+                sections[0],
+                groundArrivalSpeed,
+              )
+            : fromGround(groundArrival, sections[0]);
+        sections = [approach, ...sections];
+      }
       for (let i = 1; i < sections.length; i++) {
         const previous = sections[i - 1].positions.at(-1);
         const [x, y, z] = sections[i].positions[0];
@@ -6019,7 +6097,7 @@ async function main() {
         }
         if (groundArrival) {
           assert.ok(result.groundMetres > 20);
-          assert.ok(result.groundedMetres > 18);
+          assert.ok(result.groundedMetres > minGroundArrivalMetres);
           assert.ok(
             Math.abs(result.seen[0].z - contactSections[0].positions[0][2]) <
               0.15,

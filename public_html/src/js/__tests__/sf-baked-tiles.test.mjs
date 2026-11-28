@@ -62,6 +62,7 @@ function assertLaterRoadTileReceipt(roadBake, token, previous, raw) {
     roadBake.eastboundSouthgateMappedExitSurvey,
     roadBake.macallaMappedLandingSurvey,
     roadBake.treasureIslandGroundApproach,
+    roadBake.forestRoadDetour,
   ]) {
     const tile = review.tiles[token];
     if (!tile) continue;
@@ -116,7 +117,7 @@ test("South Gate keeps the distinct street branch and retires the obsolete paint
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   assertSouthgateReview(roadBake, token, raw);
   const review = roadBake.southgateLegacyRoadReview.tiles[token];
-  assert.equal(roadBake.coveredGroundRoadPatches[token], 2);
+  assert.equal(roadBake.coveredGroundRoadPatches[token], 3);
   assert.equal(
     review.rowSha256,
     "cc2bd7a6633ae9e8010ef7af3b4ca96693ff52b7446126bfb9cb2ecfe7f4c4cd",
@@ -148,7 +149,8 @@ test("Treasure Island Road paint ends at the existing Southgate deck portal", ()
   const rows = tile.r.filter(([name]) => tile.n[name] === "Treasure Island Rd");
   const row = rows.find(
     (candidate) =>
-      digest(JSON.stringify(candidate) + "\n") === review.approachRowSha256,
+      digest(JSON.stringify(candidate) + "\n") ===
+      roadBake.forestRoadDetour.groundRowSha256[0],
   );
   assert.ok(row);
   assert.ok(
@@ -163,7 +165,51 @@ test("Treasure Island Road paint ends at the existing Southgate deck portal", ()
   const [x, y] = row[3].slice(-2).map((v, i) => tile.o[i] + v / 10);
   const [portalX, portalY] = bridge.points[0];
   assert.ok(Math.hypot(x - portalX, y - portalY) < 0.08);
-  assert.equal(row[4].at(-1) / 5, bridge.width);
+  assert.equal(row[4].length, row[3].length);
+  assert.deepEqual(
+    row[4].slice(-2).map((width) => width / 5),
+    [bridge.width, bridge.width],
+  );
+});
+
+test("Forest and Sims Road meet on reviewed pavement and retain the trees on the verge", () => {
+  const token = "80858024";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const review = roadBake.forestRoadDetour;
+  assertSouthgateReview(roadBake, token, raw);
+  const rows = review.groundRowSha256
+    .slice(1)
+    .map((sha) =>
+      tile.r.find((row) => digest(JSON.stringify(row) + "\n") === sha),
+    );
+  assert.deepEqual(
+    rows.map(([name]) => tile.n[name]),
+    ["Forest Rd", "Sims Rd"],
+  );
+  assert.deepEqual(rows[0][3].slice(-2), rows[1][3].slice(0, 2));
+  for (const [, , , coordinates, widths] of rows) {
+    assert.equal(widths.length, coordinates.length);
+    assert.ok(widths.every((width) => width === 20));
+  }
+  assert.ok(
+    tile.tr.every(
+      (row) => digest(JSON.stringify(row) + "\n") !== review.treeRowSha256,
+    ),
+  );
+  for (const tree of [
+    [-3282, -3985, 11, 6],
+    [-3207, -4040, 11, 7],
+    [-3143, -4114, 10, 7],
+    [-3093, -4129, 10, 7],
+    [-2863, -4314, 5, 6],
+    [-2863, -5194, 10, 2],
+  ]) {
+    assert.ok(
+      tile.tr.some((row) => row.every((value, index) => value === tree[index])),
+    );
+  }
 });
 
 test("the Fourth Street merge clears the capped face above its lower volume", () => {
