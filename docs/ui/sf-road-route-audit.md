@@ -1343,6 +1343,35 @@ SF_BASE_URL=https://velocity.report node tools/sf-drive/smoke-presidio-tunnels.c
 - Contact SHA-256 `1cc4c318469b98446cb76612b491e91a5c92c834025fd61b8679bd920b9ac474`.
 - The bake changes one tile and preserves emoji placement.
 
+### Surveyed lane on the Harrison loop
+
+**World and Data.** The existing centre strip drifted towards the inside edge
+of the bend. The mapped pavement on way 31129372 was up to 5.6 m from the
+baked centreline. At the tightest section, the classified return band was
+about 7 m wide and the old centreline sat at its edge. The new fit uses 24
+cross-sections at 4 m spacing over stations 164–256 m. It moves the centre
+towards the observed pavement midpoint and updates the width and elevation
+together. The fit joins the parent course over stations 144–164 m and
+256–280 m. The start seam, lower street handoff and neighbouring deck levels
+retain their previous geometry. [April 2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list)
+
+**Physics.** A Chrome keyboard drive along the mapped pavement crashed after
+159.7 m on the parent tile. Repeating the same steering line over the revised
+course crossed 208.5 m with zero airborne travel. The full Harrison loop
+handed off onto city pavement, and the separate through drive kept the I-80
+deck. Each stayed grounded. The drive verifies game contact on the specified
+line and speed. The transition outside the observed stations remains inferred.
+
+- Parent contact SHA-256 `e13bdbc046b5325d7585bd5bca29ab14141549f88800664a51c7cdfb31a5e836`.
+- Revised contact SHA-256 `27e1813c1c16750f2555be94089c0f38c7ab1d8146edc46095ce09f5aba28c87`.
+- Revised game manifest SHA-256 `aaa5e567563a107cae576f25781e60489f5cfe6125407b6faf6eb068094f51ee`.
+- The 61-node edge survey receipt is `3d70c0518bcd9dcc07f66d64b7a9e277d9b269dc98e5b9f05f9ce6aad9955c62`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  westbound-harrison-loop-surveyed-lane westbound-harrison-fork-through
+```
+
 ## Potrero Avenue and Cesar Chavez Street entrances to US 101
 
 The Potrero Avenue and Cesar Chavez Street entrances join one elevated

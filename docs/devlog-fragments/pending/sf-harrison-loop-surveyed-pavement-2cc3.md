@@ -1,0 +1,1 @@
+- Shifted the westbound I-80 Harrison loop contact onto the [surveyed lane through the bend](../../ui/sf-road-route-audit.md#surveyed-lane-on-the-harrison-loop), where Chrome had reproduced a crash, and checked the separate I-80 through branch.
