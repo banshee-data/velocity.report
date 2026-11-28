@@ -3119,6 +3119,23 @@ cases["island-east-eastbound-exit"] = {
 };
 const southgateFeeder = "yerba-buena-eastbound-exit-to-southgate";
 const southgateShared = "yerba-buena-southgate-to-macalla-shared";
+cases["treasure-island-road-to-southgate"] = {
+  owners: ["80858024"],
+  roads: ["yerba-buena-southgate-to-macalla"],
+  groundArrival: [
+    [6735.3167, 5482.7416],
+    [6737.12, 5496.01],
+    [6738.84, 5507.11],
+    [6735.61, 5522.29],
+  ],
+  groundApproachMetres: 0,
+  finishOnDeck: true,
+  finishDistance: 84,
+  speed: 5.5,
+  maxAirborneMetres: 0,
+  expectNoScrapes: true,
+  maxDurationMs: 65_000,
+};
 cases["island-east-southgate-offset"] = {
   owners: ["80858024"],
   roads: [southgateFeeder],
