@@ -7522,6 +7522,15 @@ and finished grounded without scrapes. The SR 82 paved-lane probe and
 full southbound exit also completed without airborne travel. The fixed-step
 package audit passed 492 directed spans, 356 joins and 531 ground handoffs.
 
+On the live game, the round-trip keyboard course left southbound I-280 at
+SR 82, passed beneath I-280 on the baked Sickles Avenue contact, followed the
+paved lane east of the traffic island and took the northbound entrance back
+onto I-280. It completed in 189.6 s with 484.8 m of grounded travel between
+baked contacts and zero airborne travel or scenery scrapes. The earlier
+course treated Sickles as terrain and crossed the island on the return
+approach. The updated regression checks the covered view at Sickles and the
+final grounded merge. [City orthophoto at the traffic island](https://tile.sf.gov/api/tiles/p2025_rgb8cm/20/167606/405535).
+
 - Parent manifest SHA-256 `c1bbe6e4fc4dc6f59251c9f2d6e13355c7302929ce76c583f21c1c8e1b0cd967`.
 - Repeat-flightline clearance SHA-256 `8db372aada7888a073403f5dfe856cc7f938bd4139ff380778730fbe078b1027`.
 - SR 82 contact export SHA-256 `a8c87de56df0225fe65aa8c35eff4784d758439a97198b421eeee0f0d4b7bcc9`.
@@ -7530,5 +7539,5 @@ package audit passed 492 directed spans, 356 joins and 531 ground handoffs.
 ```sh
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   branch-east-west-side-lane bosworth-outside-lane sr82-south-ramp-inside \
-  sr82-south-ramp-paved-lane i280-sr82-southbound-exit
+  sr82-south-ramp-paved-lane i280-sr82-southbound-exit i280-sr82-exit-and-reentry
 ```

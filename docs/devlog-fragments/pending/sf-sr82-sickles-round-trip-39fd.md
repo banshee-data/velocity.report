@@ -1,0 +1,1 @@
+- Updated the [SR 82 exit and return regression](../../ui/sf-road-route-audit.md#branch-east-bosworth-and-the-sr-82-pavement-edge) to check the Sickles Avenue underpass and follow the paved approach to the northbound entrance. The full live keyboard drive stayed grounded with zero scrapes.
