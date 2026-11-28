@@ -3526,6 +3526,7 @@ cases["island-east-westbound-exit"] = {
     [6628, 5768, 56],
     [6618, 5772, 54.9],
   ],
+  maxAirborneMetres: 0,
   maxDurationMs: 165_000,
 };
 cases["island-east-westbound-through-exit"] = {

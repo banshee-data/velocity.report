@@ -2226,6 +2226,33 @@ release reopened the Bay Bridge and Embarcadero offline, saved a new
 emoji pickup and restored it with all three airtime records on another
 offline reload.
 
+### Lower bend and touchdown at Macalla Road
+
+**World and Data.** The previous ramp's lower section veered away from
+observed pavement by up to 7.2 m. The revised 317.3 m exit uses the
+alignment of mapped way 322962944 and the surveyed deck and landing
+sections. The deck section uses class 17 returns, and the landing uses
+same-level ground returns as the deck meets the island. The original
+fork and street endpoint locate both ends of the contact. The revised
+strip peaks at 8.0% grade. [April 2023 USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list)
+
+**Physics.** Chrome drove the same mapped line in the two bakes. On the
+parent game it crashed after 82.5 m, of which 20.0 m was airborne.
+The revised drive covered 121.9 m and stayed grounded. The full route
+from the 50 mph start left I-80, drove 64.6 m on Macalla Road and rejoined
+westbound I-80 into the upper bore, with zero airborne travel. The separate
+through route also stayed grounded. The browser results cover the tested
+driving lines.
+
+- Parent game manifest SHA-256 `aaa5e567563a107cae576f25781e60489f5cfe6125407b6faf6eb068094f51ee`.
+- Revised game manifest SHA-256 `07a1391cd5a81fb4fa723bae0b8443c41c2dd4588419243ba25ed9ff43318f72`.
+- Contact SHA-256 `7ce649735836416c8ac3c9d64de307928c5cd62b05a18dd5e7e45667a579dd73`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  island-east-westbound-exit island-east-westbound-through-exit macalla-westbound-roundtrip
+```
+
 ## Minna Street beneath the Chronicle building bridge
 
 The southbound Stockton course crossed the tunnel before crashing on
