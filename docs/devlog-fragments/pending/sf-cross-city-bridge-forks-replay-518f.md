@@ -1,0 +1,1 @@
+- Compared the [same 20 cross-city courses on both bridge-fork releases](../../ui/sf-road-route-audit.md#paired-20-course-check-after-the-bridge-fork-bake). Both finished the same ten courses. Direct browser drives cleared Stockton Tunnel in both directions and located the remaining delivery stops on the longer routes.

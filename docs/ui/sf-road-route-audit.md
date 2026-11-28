@@ -7620,3 +7620,54 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   alexander-south-exit-broad-right alexander-south-exit-broad-left \
   alexander-north-exit-broad-right alexander-north-exit-broad-left
 ```
+
+## Paired 20-course check after the bridge-fork bake
+
+**Question.** Would the bridge-fork width changes alter the 20 frozen
+cross-city delivery courses? The game loads both manifests with the same
+runtime. The previous release is the control and the bridge-fork release is
+the revised arm. Each run uses `tools/sf-drive/road-audit-cross-city-routes.json`
+with only the manifest digest rebound to that arm. The plan requests 23 mph
+on streets and 40 mph on highways. The controller runs the game's fixed-step
+contact and collision routines. Both pickups are required to count a finish.
+
+**Results.** Both arms finished 10 of 20 routes. All 20 runtime result
+objects, including their stop coordinates and driven height profiles, were
+identical between arms. The same approaches or departures remain open for
+work. A controller stop can occur before a structure or after a successful
+crossing.
+
+| Course                             | Outcome and last road                     | Structure progress                                              |
+| ---------------------------------- | ----------------------------------------- | --------------------------------------------------------------- |
+| Chinatown and Stockton northbound  | Stall on Columbus Avenue                  | Drove 354.4 m on the baked tunnel before reaching city pavement |
+| Chinatown and Stockton southbound  | Stall on Cyrus Place                      | Stopped before the tunnel approach                              |
+| Broadway to the Marina             | Building impact on Bartol Street          | Stopped before the Broadway tunnel                              |
+| Mission Bay to Pennsylvania Avenue | Course departure on southbound I-280      | Drove 616.7 m on the Fifth-to-Sixth contacts                    |
+| Mission Bay to Alemany             | Tree impact on Terry A Francois Boulevard | Stopped on the street approach                                  |
+| Dogpatch to Potrero                | Course departure at 23rd Street           | Drove 81.3 m on the lower Dogpatch contact                      |
+| Richmond to Golden Gate Park       | Tree impact on John F Kennedy Drive       | Street course                                                   |
+| Ocean Beach to Fort Funston        | Tree impact on Skyline Boulevard          | Street course                                                   |
+| Lake Merced to Ingleside           | Stall on Font Boulevard                   | Street course                                                   |
+| Twin Peaks to Bernal               | Tree impact on Twin Peaks Boulevard       | Street course                                                   |
+
+**Browser check.** The direct Stockton probes on the revised public game
+crossed the tunnel in both directions. They changed from the exterior to the
+interior camera and back to the exterior. The street-level probe above the
+bore stayed in the exterior view. This is evidence for the tunnel and its
+portals. The paired delivery replays cover the longer courses and their
+approach streets.
+
+- Previous manifest SHA-256 `0645cbd9767b206623a315884cf1a16f8a2f144400b6930fbd9d5877449c9c76`.
+- Revised manifest SHA-256 `24231aba1d387a6bec936060e4ba50c11ccbc1d7b4cd4e2366bfb7659e62ef5a`.
+- Previous bound plan SHA-256 `88eff7cdac4546d098d10fb96a2285d8870fe6a427498b53efd741c5accb2a02`.
+- Revised bound plan SHA-256 `8c43301af4ecf1b8e8a2498007e23269b9dcf9ace02bbcc66e29e7fe5b184845`.
+- Previous run SHA-256 `e1371f7e25c3544cc51e1ac0ef6a9af7f1dbfd5b043aa4448a83fae5426d97ec`.
+- Revised run SHA-256 `5092c72876ddb450db35049e5508822822720361140be8825c89931fea9b5f44`.
+
+```sh
+sha=$(shasum -a 256 "$BUNDLE/tiles/manifest.json" | cut -d ' ' -f1)
+jq --arg sha "$sha" '.manifestSha256=$sha' \
+  tools/sf-drive/road-audit-cross-city-routes.json > "$BOUND_PLAN"
+node tools/sf-drive/audit-road-routes.mjs --assets="$BUNDLE" --plan="$BOUND_PLAN"
+node tools/sf-drive/smoke-stockton-tunnel.cjs
+```
