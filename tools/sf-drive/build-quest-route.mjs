@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { format } from "prettier";
+import { buildBakedRoadContact } from "../../public_html/src/js/sf-baked-road-contact.js";
 import {
   buildCollisionIndex,
   collisionAt,
@@ -31,6 +32,7 @@ const skipped = [];
 for (const row of manifest.tiles) {
   const tile = tiles.get(row.t);
   const assignment = assignments[row.t];
+  const surfaceId = assignment?.surfaceId;
   const signTile = assignment?.signTile ? tiles.get(assignment.signTile) : tile;
   if (!signTile) throw new Error(`Unknown sign source for ${row.t}`);
   const neighbours = [...tiles.values()].filter(
@@ -45,6 +47,14 @@ for (const row of manifest.tiles) {
       Math.hypot(a.x - row.x, a.y - row.y) -
       Math.hypot(b.x - row.x, b.y - row.y),
   );
+  const road =
+    surfaceId && tile.playableRoads?.find(({ id }) => id === surfaceId);
+  const surface = road && buildBakedRoadContact(road)?.surface;
+  if (surfaceId && !surface)
+    throw new Error(`Missing pickup contact ${surfaceId}`);
+  const heightAt = surface
+    ? (x, y) => surface.heightAt(x, y)
+    : (x, y) => groundAtWorld(neighbours, x, y, true);
   const target = candidates.find((p) => {
     if (
       assignment?.intersection &&
@@ -53,13 +63,18 @@ for (const row of manifest.tiles) {
         tileAt(manifest.tiles, p.x, p.y).t !== row.t)
     )
       return false;
-    const z = groundAtWorld(neighbours, p.x, p.y, true);
-    return z !== null && !collisionAt(collisionIndexes, p, z);
+    const z = heightAt(p.x, p.y);
+    return Number.isFinite(z) && !collisionAt(collisionIndexes, p, z);
   });
   if (target) {
     if (!assignment?.emoji)
       throw new Error(`Missing emoji assignment for ${row.t}`);
-    targets.push({ t: row.t, emoji: assignment.emoji, ...target });
+    targets.push({
+      t: row.t,
+      emoji: assignment.emoji,
+      ...target,
+      ...(surface && { surfaceId, z: heightAt(target.x, target.y) }),
+    });
   } else {
     if (assignment)
       throw new Error(`No clear intersection for emoji assignment ${row.t}`);

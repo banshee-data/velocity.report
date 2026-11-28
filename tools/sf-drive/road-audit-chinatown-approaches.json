@@ -1,0 +1,143 @@
+{
+  "manifestSha256": "24231aba1d387a6bec936060e4ba50c11ccbc1d7b4cd4e2366bfb7659e62ef5a",
+  "tunnelSourceCommit": "eb47e0c56bcecd2cc34404a9dc152989059fbf52",
+  "expectCompletion": false,
+  "streetMph": 23,
+  "highwayMph": 40,
+  "routes": [
+    {
+      "id": "chinatown-stockton-north",
+      "from": "🏙️",
+      "to": "🍫",
+      "contact": {
+        "roads": ["sf-contact/stockton-tunnel"],
+        "entry": [2910.2, 3267.8, "Stockton St"],
+        "exit": [2840.8, 3692.2, "Stockton St"],
+        "afterVia": [
+          [2713, 4489.9, "Stockton St"],
+          [2623.4, 4475.4, "Columbus Ave"]
+        ]
+      },
+      "expectContactExit": true,
+      "expectEnclosed": true,
+      "afterClearanceGuide": {
+        "lateralMetres": 3.5,
+        "speedMph": 15.2
+      },
+      "expectCompletion": true,
+      "maxDips": 0,
+      "expectNoScrapes": true,
+      "maxAirborneMetres": 2
+    },
+    {
+      "id": "chinatown-stockton-south",
+      "from": "🛤️",
+      "to": "🎭",
+      "contact": {
+        "roads": [
+          "sf-contact/hyde-street-over-broadway",
+          "sf-contact/stockton-tunnel"
+        ],
+        "reverse": true,
+        "exit": [2910.2, 3267.8, "Stockton St"],
+        "laneGuides": {
+          "sf-contact/hyde-street-over-broadway": {
+            "lane": 1.5
+          }
+        },
+        "sectionMph": {
+          "sf-contact/hyde-street-over-broadway": 12
+        },
+        "groundLinks": {
+          "sf-contact/stockton-tunnel": {
+            "from": "Hyde St",
+            "to": "Stockton St",
+            "via": [
+              [1911.4, 3936.6, "Pacific Ave"],
+              [2345.4, 4005.6, "Pacific Ave"]
+            ]
+          }
+        }
+      },
+      "expectContactExit": true,
+      "expectEnclosed": true,
+      "afterClearanceGuide": {
+        "lateralMetres": 3.5,
+        "speedMph": 15.2
+      },
+      "expectCompletion": true,
+      "maxDips": 0,
+      "expectNoScrapes": true,
+      "maxAirborneMetres": 2
+    },
+    {
+      "id": "broadway-to-marina",
+      "from": "⚓",
+      "to": "🎟️",
+      "contact": {
+        "roads": ["sf-contact/broadway-westbound"],
+        "entry": [2568.7, 4147.4, "Broadway"],
+        "exit": [1751.4, 4006.6, "Broadway"],
+        "afterGuide": [
+          [1796, 4018],
+          [1774, 4015],
+          [1758, 4012]
+        ],
+        "beforeVia": [
+          [3245, 4361.7, "Vallejo St"],
+          [3165.4, 4348.8, "Montgomery St"]
+        ],
+        "afterVia": [[1605.4, 3990, "Polk St"]]
+      },
+      "expectContactExit": true,
+      "expectEnclosed": true,
+      "expectCompletion": true,
+      "maxDips": 0,
+      "expectNoScrapes": true,
+      "maxAirborneMetres": 2
+    },
+    {
+      "id": "broadway-tunnel",
+      "from": "🛤️",
+      "to": "🍝",
+      "contact": {
+        "roads": [
+          "sf-contact/hyde-street-over-broadway",
+          "sf-contact/broadway-eastbound"
+        ],
+        "reverse": true,
+        "exit": [2570.4, 4127.6, "Broadway"],
+        "laneGuides": {
+          "sf-contact/hyde-street-over-broadway": {
+            "lane": 1.5
+          }
+        },
+        "sectionMph": {
+          "sf-contact/hyde-street-over-broadway": 12
+        },
+        "groundLinks": {
+          "sf-contact/broadway-eastbound": {
+            "from": "Hyde St",
+            "to": "Broadway",
+            "via": [
+              [1911.4, 3936.6, "Pacific Ave"],
+              [1476.9, 3864.8, "Pacific Ave"],
+              [1460.5, 3966.9, "Van Ness Ave"]
+            ],
+            "arrivalGuide": [
+              [1767, 4003.1],
+              [1796, 4009.3]
+            ],
+            "entry": [1751.4, 4006.6, "Broadway"]
+          }
+        }
+      },
+      "expectContactExit": true,
+      "expectEnclosed": true,
+      "expectCompletion": true,
+      "expectNoScrapes": true,
+      "maxDips": 0,
+      "maxAirborneMetres": 2
+    }
+  ]
+}

@@ -185,7 +185,9 @@
       "x": 1897.2176470588236,
       "y": 4027.329411764706,
       "heading": -2.1112158270654806,
-      "names": ["Broadway", "Hyde St"]
+      "names": ["Broadway", "Hyde St"],
+      "surfaceId": "sf-contact/hyde-street-over-broadway",
+      "z": 62.034514671610694
     },
     {
       "t": "808580f4",

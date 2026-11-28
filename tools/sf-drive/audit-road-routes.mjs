@@ -355,22 +355,38 @@ function layeredRoute(contact, from, to, start, destination, groundOnly) {
     laneGuides = {},
     sectionMph = {},
     groundLinkMph = {},
+    groundLinks = {},
   } = contact;
-  const [enterNode, exitNode] = [entry, exit].map(([x, y, name]) =>
-    snap({ x, y }, [name], 55),
-  );
-  const before = groundLegs(start, enterNode, beforeVia, groundOnly);
+  const startsOnContact = from.surfaceId === roads[0];
+  const portalNode = ([x, y, name]) => snap({ x, y }, [name], 55);
+  const enterNode = startsOnContact ? null : portalNode(entry);
+  const exitNode = portalNode(exit);
+  const before = startsOnContact
+    ? []
+    : groundLegs(start, enterNode, beforeVia, groundOnly);
   const after = groundLegs(exitNode, destination, afterVia, groundOnly);
   assert.ok(before && after, "no ground route to a layered course portal");
-  const sections = roads.map((id) => {
+  const sections = roads.map((id, index) => {
     const surface = pieces.get(id);
     assert.ok(surface, `No baked contact ${id}`);
     const profile = reverse ? surface.points.toReversed() : surface.points;
     const offset = approachOffsets[id];
     const guide = laneGuides[id] ?? (offset ? { approach: offset } : null);
-    const points = (guide ? steeringLine(profile, guide) : profile).map(
+    let points = (guide ? steeringLine(profile, guide) : profile).map(
       ([x, y]) => ({ x, y }),
     );
+    if (index === 0 && startsOnContact) {
+      const nearest = points.reduce(
+        (best, point, i) =>
+          distance(point, from) < distance(points[best], from) ? i : best,
+        0,
+      );
+      points = [from, ...points.slice(nearest + 1)];
+      assert.ok(
+        points.length > 1,
+        "The layered pickup needs a running surface ahead",
+      );
+    }
     return points.slice(1).map((point, i) => ({
       from: points[i],
       to: point,
@@ -380,7 +396,33 @@ function layeredRoute(contact, from, to, start, destination, groundOnly) {
       speedMph: sectionMph[id],
     }));
   });
+  const connector = (from, to, name) =>
+    distance(from, to) > 0.01 ? [{ from, to, name }] : [];
+  const guide = (first, waypoints, last, name) => {
+    const points = [first, ...waypoints.map(([x, y]) => ({ x, y })), last];
+    return points
+      .slice(1)
+      .flatMap((point, i) => connector(points[i], point, name));
+  };
   const ribbon = sections.flatMap((nextSection, i) => {
+    const link = groundLinks[roads[i]];
+    if (link) {
+      assert.ok(i > 0, "A ground link needs two road contacts");
+      const departure = sections[i - 1].at(-1).to;
+      const arrival = nextSection[0].from;
+      const leave = snap(departure, [link.from], 55);
+      const enter = link.entry
+        ? portalNode(link.entry)
+        : snap(arrival, [link.to], 55);
+      const street = groundLegs(leave, enter, link.via ?? [], groundOnly);
+      assert.ok(street, `No ground connection from ${link.from} to ${link.to}`);
+      return [
+        ...connector(departure, leave, link.from),
+        ...street,
+        ...guide(enter, link.arrivalGuide ?? [], arrival, link.to),
+        ...nextSection,
+      ];
+    }
     const linkMph = groundLinkMph[roads[i]];
     if (linkMph === undefined) return nextSection;
     assert.ok(i > 0, "A ground link needs two road contacts");
@@ -395,18 +437,14 @@ function layeredRoute(contact, from, to, start, destination, groundOnly) {
       ...nextSection,
     ];
   });
-  const connector = (from, to, name) =>
-    distance(from, to) > 0.01 ? [{ from, to, name }] : [];
-  const guide = (first, waypoints, last, name) => {
-    const points = [first, ...waypoints.map(([x, y]) => ({ x, y })), last];
-    return points
-      .slice(1)
-      .flatMap((point, i) => connector(points[i], point, name));
-  };
   return [
-    ...connector(from, start, from.names[0]),
-    ...before,
-    ...guide(enterNode, beforeGuide, ribbon[0].from, entry[2]),
+    ...(startsOnContact
+      ? []
+      : [
+          ...connector(from, start, from.names[0]),
+          ...before,
+          ...guide(enterNode, beforeGuide, ribbon[0].from, entry[2]),
+        ]),
     ...ribbon,
     ...guide(ribbon.at(-1).to, afterGuide, exitNode, exit[2]),
     ...after,
@@ -527,6 +565,26 @@ function clearanceGuide(path, { lateralMetres, speedMph }) {
     if (index) s += distance(guided[index - 1], point);
     return { ...point, s, z: heightAt(point.x, point.y) };
   });
+}
+
+function guideAfterContact(path, settings) {
+  const lastContact = path.findLastIndex(({ road }) => road.surfaceId);
+  assert.ok(
+    lastContact >= 0 && lastContact < path.length - 1,
+    "Missing ground after the last contact",
+  );
+  const firstStreet = lastContact + 1;
+  const start = path[firstStreet].s;
+  const street = path
+    .slice(firstStreet)
+    .map((point) => ({ ...point, s: point.s - start }));
+  return [
+    ...path.slice(0, firstStreet),
+    ...clearanceGuide(street, settings).map((point) => ({
+      ...point,
+      s: point.s + start,
+    })),
+  ];
 }
 
 function profile(path) {
@@ -724,7 +782,11 @@ function controlsFor(path) {
 
 function drive(path, from, to) {
   const steerer = controlsFor(path);
-  const startZ = heightAt(from.x, from.y);
+  const startSurface = from.surfaceId && surfaces.get(from.surfaceId);
+  if (from.surfaceId && !startSurface) return { status: "start unsupported" };
+  const startZ = startSurface
+    ? startSurface.heightAt(from.x, from.y)
+    : heightAt(from.x, from.y);
   if (startZ === null) return { status: "start unsupported" };
   const startPoint = path.find((point) => point.s >= 4);
   let car = {
@@ -734,6 +796,7 @@ function drive(path, from, to) {
     v: 0,
     grounded: true,
     heading: heading(from, startPoint),
+    surfaceId: startSurface?.id,
   };
   const step = 1 / 120;
   let nearby = [];
@@ -866,13 +929,7 @@ function drive(path, from, to) {
     maxMph = Math.max(maxMph, next.v * 2.236936);
     stalls = next.v < 0.3 ? stalls + 1 : 0;
     car = next;
-    advanceTrial(
-      trial,
-      step,
-      car,
-      control.input.throttle > 0,
-      car.grounded && !car.surfaceId,
-    );
+    advanceTrial(trial, step, car, control.input.throttle > 0, car.grounded);
     if (trial.status === "finished") {
       status = "both emoji collected";
       break;
@@ -918,6 +975,8 @@ for (const spec of plan.routes) {
   let path = sampled;
   if (spec.laneDetours?.length) path = applyLaneDetours(path, spec.laneDetours);
   if (spec.clearanceGuide) path = clearanceGuide(path, spec.clearanceGuide);
+  if (spec.afterClearanceGuide)
+    path = guideAfterContact(path, spec.afterClearanceGuide);
   const expectedSurfaces = spec.expectContactExit
     ? [
         ...(spec.contact.beforeSurfaces ?? []),
@@ -936,7 +995,10 @@ for (const spec of plan.routes) {
         alignmentManifestSha256,
         placementSha256: quest.placementSha256,
         progressBaseSha256: manifest.terrainRebake.progressBaseSha256,
+        startSurfaceId: from.surfaceId,
         expectedSurfaces,
+        expectNoScrapes: spec.expectNoScrapes,
+        maxDips: spec.maxDips,
         maxAirborneMetres: spec.maxAirborneMetres,
         expectedEnclosed: spec.expectEnclosed
           ? spec.contact.roads.filter(
@@ -967,8 +1029,11 @@ for (const spec of plan.routes) {
       result,
     }),
   );
-  if (plan.expectCompletion)
+  if (spec.expectCompletion ?? plan.expectCompletion)
     assert.equal(result.status, "both emoji collected", spec.id);
+  if (spec.expectNoScrapes) assert.equal(result.scrapes, 0, spec.id);
+  if (spec.maxDips !== undefined)
+    assert.ok(result.drivenProfile.dips <= spec.maxDips, spec.id);
   if (spec.maxAirborneMetres !== undefined)
     assert.ok(
       result.airborneMetres <= spec.maxAirborneMetres,

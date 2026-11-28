@@ -1181,11 +1181,13 @@ export async function startDrive({
     );
     sprite.scale.set(6, 6, 1);
     const z =
+      target.z ??
       groundAtWorld(
         [...loaded.values()].map((e) => e.tile),
         target.x,
         target.y,
-      ) || 0;
+      ) ??
+      0;
     sprite.position.set(...V(target.x, target.y, z + 6));
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(4.5, 0.18, 6, 40),
@@ -1518,7 +1520,7 @@ export async function startDrive({
       indexes = entries.map((e) => e.collisions);
     return [
       ...entries.flatMap((e) => e.intersections),
-      ...route.targets.filter((t) => loaded.has(t.t)),
+      ...route.targets.filter((t) => !t.surfaceId && loaded.has(t.t)),
     ].filter((p) => {
       const z = groundAtWorld(tiles, p.x, p.y, true);
       return z !== null && !collisionAt(indexes, p, z);
@@ -1553,8 +1555,19 @@ export async function startDrive({
       return;
     }
     const safe = safeIntersections();
+    const checkpointSurface = roadSurfaces.get(checkpoint?.surfaceId);
+    const checkpointZ = checkpointSurface?.heightAt(checkpoint.x, checkpoint.y);
+    const supportedCheckpoint =
+      Number.isFinite(checkpointZ) &&
+      !collisionAt(
+        [...loaded.values()].map((entry) => entry.collisions),
+        checkpoint,
+        checkpointZ,
+      );
     const point =
+      (supportedCheckpoint && checkpoint) ||
       (checkpoint &&
+        !checkpoint.surfaceId &&
         safe.find(
           (p) => Math.hypot(p.x - checkpoint.x, p.y - checkpoint.y) < 1,
         )) ||
@@ -1573,10 +1586,11 @@ export async function startDrive({
     reset({ ...point, heading }, afterCrash);
     checkpoint = { ...point, heading };
     crashUntil = performance.now() + (afterCrash ? 0 : 750);
+    const location = point.surfaceId ? "checkpoint" : "intersection";
     announce(
       kind
-        ? `Hit a ${kind} · back at the intersection`
-        : "Back at the intersection · clock continues",
+        ? `Hit a ${kind} · back at the ${location}`
+        : `Back at the ${location} · clock continues`,
     );
   }
   async function startCrash(
@@ -2795,6 +2809,11 @@ export async function startDrive({
         (!navigator.onLine ||
           nearby.some((token) => failures.has(token)) ||
           nearby.every((token) => loaded.has(token)));
+      if (settled && !roadDrive && car.surfaceId && (!surface || z0 === null)) {
+        delete car.surfaceId;
+        checkpoint = null;
+        z0 = null;
+      }
       if (settled && !roadDrive && (!checkpoint || z0 === null)) {
         const nearest = safeIntersections().sort(
           (a, b) =>
@@ -2811,7 +2830,7 @@ export async function startDrive({
           car = { ...nearest, heading, v: 0, steering: 0 };
           checkpoint = { ...car };
           camInit = false;
-          z0 = heightAt(car.x, car.y);
+          z0 = terrainHeight(car.x, car.y);
         } else if (checkpoint && z0 === null) {
           // A tile revision may remove contact at a saved intersection.
           checkpoint = null;
@@ -3134,17 +3153,16 @@ export async function startDrive({
           wallDt,
           car,
           grounded && !crash && now >= crashUntil && input.throttle !== 0,
-          grounded &&
-            car.grounded &&
-            !bakedRoads.has(car.surfaceId) &&
-            !crash &&
-            !blocked &&
-            now >= crashUntil,
+          grounded && car.grounded && !crash && !blocked && now >= crashUntil,
         );
     for (const t of found)
       announce(
         `${t.emoji} Collected! ${trial.collected.size} / ${trial.targets.length}`,
       );
+    if (found.some(({ surfaceId }) => surfaceId)) {
+      const { x, y, heading, surfaceId } = car;
+      checkpoint = { x, y, heading, surfaceId };
+    }
     if (found.length) saveTrialProgress();
     if (before !== "finished" && trial.status === "finished") {
       const best = records();
