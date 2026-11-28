@@ -6743,3 +6743,42 @@ Eastbound returned through Hillcrest onto the East Span after
 after 64.1 m on local streets. Each reversed on the ground and
 finished grounded, with zero airborne travel and zero scrapes.
 Neither browser requested Arrow road data.
+
+## Corbett Avenue beside the Market Street structures
+
+**World and Data.** The Public Works inventory guided a live
+screen around four Market Street structures, Corbett Avenue,
+Cuesta Court and Sacramento Street above the Stockton bore.
+Chrome completed both directions at each site at a 20 mph
+target with route assist off. All 14 finishes were grounded.
+Only the northeast Corbett pass lost contact, for 2.62 m.
+Both Stockton bore directions also passed and used the tunnel
+camera. [Public Works inventory](https://data.sf.gov/w/x5tj-txci/ikek-yizv).
+
+At the Corbett dip, the April 2023 survey records 167.74 m
+NAVD88 where the old game interpolates 167.42 m. The detail
+uses pavement observations from 45 one-metre stations and
+five lateral samples per station. It fits the even stations,
+joins the existing coarse grid and retains the separate
+Market Street detail. The 36 held-out observations from the
+two travel lanes and centreline between stations 70 and 93 m
+put the absolute height residual at 22.9 cm p95 before the
+change and 1.2 cm afterwards. [USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+**Physics.** Both Corbett drives and both neighbouring Cuesta
+drives completed on the candidate with zero airtime, dips or
+scrapes. The highest grade recorded on the Corbett repeat
+was 23.8% near the south end of the course. These results
+measure contact and pavement in the game at the tested speed.
+All 487 packaged span traversals and 350 directed joins passed.
+
+- Parent manifest SHA-256 `9875075f0c956d18fb34ede6218e8b005ed95b21ad0a9dc18eb8906a362aa66e`.
+- Candidate manifest SHA-256 `da4ac4b066682ce2dfaaf8a3e877feec09e14a4e100e1fe104100b81cf092f5a`.
+- Candidate tile `808f7e0c` SHA-256 `bbaea6118ba1a7baaea78de7c31906909a110b658e8a1dc7dca7f2a3319c430b`.
+- Survey receipt SHA-256 `c207c139816808a11052802390bfb49d09a57e77fe13161a1796330f8e5ef1f4`.
+- Terrain detail SHA-256 `e5952b4711485e9f4ceee47675230661d2cf5089b0d088be48597513c9f62e41`.
+
+```sh
+node tools/sf-drive/export-corbett-crossings.mjs > /tmp/sf-corbett-courses.ndjson
+node tools/sf-drive/drive-road-audit.cjs /tmp/sf-corbett-courses.ndjson --verify
+```
