@@ -6803,3 +6803,65 @@ travel or scrapes. The tested manifest was
 node tools/sf-drive/smoke-presidio-tunnels.cjs \
   i280-dogpatch-exit-north-short i280-dogpatch-exit-south-short
 ```
+
+## Mason Street and JFK Drive crossing clearance
+
+**World and Data.** The route screen identified a mapped
+crossing near the Dutch Windmill and Mason Street over the
+Quartermaster Reach culverts. Both use ordinary game pavement.
+Chrome stalled westbound on Mason Street and scraped a tree
+eastbound on JFK Drive. The game's collision hull intersected
+one inferred trunk on each travel line.
+[Quartermaster Reach culverts](https://presidio.gov/explore/attractions/quartermaster-reach-marsh)
+and [Golden Gate Park road access](https://www.sfrecpark.org/1618/Getting-to-Golden-Gate-Park-by-Car).
+
+Within 0.7 m of each inferred trunk centre, the April 2023
+survey recorded 154 pavement-height returns on Mason Street
+and 38 on JFK Drive. Neither window contained returns from
+0.22 to 1.85 m above the game pavement. Some unclassified
+returns were overhead. The city tree-list queries returned
+zero records within the two search windows. The survey and
+inventory evidence support clearing the inferred trunk rows on
+the tested carriageways.
+[USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list)
+and [DataSF street trees](https://data.sf.gov/City-Infrastructure/San-Francisco-Street-Tree-Inventory/tkzw-k3nq).
+
+**Physics.** All eight Chrome drives completed on the revised
+bake. These were both directions across Mason Street, JFK Drive
+and Mariposa Street at the railway, plus the legal directions
+below the Transit Center on First and Fremont streets. They
+finished grounded, with zero scrapes, airborne travel or dips
+deeper than 0.5 m. The keyboard target was 20 mph with route
+assist off. The package passed 487 span traversals and 350 joins.
+
+- Parent manifest SHA-256 `da4ac4b066682ce2dfaaf8a3e877feec09e14a4e100e1fe104100b81cf092f5a`.
+- Revised manifest SHA-256 `e239831fb4f93b9a279a1e4324b180aa33863b76a494ecb266e763739a7bebbf`.
+- Survey receipt SHA-256 `30cd09f6d9fcfcc7610c262d188986314ae3b894fb2f2f26459352f9204bb914`.
+- Gerardus clearance SHA-256 `717ada5005753f61e941fb4ac64837832e0d76990259d7a28135051d7c4f309b`.
+
+```sh
+node tools/sf-drive/export-park-crossings.mjs > /tmp/sf-park-crossings.ndjson
+node tools/sf-drive/drive-road-audit.cjs /tmp/sf-park-crossings.ndjson --verify
+```
+
+### Tunnel inventory repeat on the Corbett release
+
+**Physics and UI.** The ten San Francisco County entries in
+the federal inventory each reached the enclosed view and an
+exterior finish. The tests used both Yerba Buena bores, both
+directions through MacArthur, Geary–Masonic, Broadway and
+Stockton, the Branch East ramp, and both Presidio US 101
+carriageways. The upper I-280 drive at Branch East stayed in
+the exterior view. The Stockton street-level probe also stayed
+in the exterior view. The lower Presidio loop and the two
+San Jose Avenue undercrossing directions completed separately
+in the covered view. These are game checks on the Corbett
+manifest above. [Federal tunnel inventory](https://www.fhwa.dot.gov/bridge/inspection/tunnel/inventory/download.cfm).
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs northbound southbound \
+  macarthur-northbound macarthur-southbound geary-eastbound geary-westbound \
+  broadway-eastbound broadway-westbound branch-east-ramp branch-east-upper \
+  island-east-lower-mainline island-east-upper-mainline
+node tools/sf-drive/smoke-stockton-tunnel.cjs
+```

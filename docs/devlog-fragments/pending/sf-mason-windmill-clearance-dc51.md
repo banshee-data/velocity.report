@@ -1,0 +1,1 @@
+- Cleared two survey-verified inferred trunk rows on Mason Street and JFK Drive, and repeated the federal tunnel inventory checks in the [SF road audit](../../ui/sf-road-route-audit.md#mason-street-and-jfk-drive-crossing-clearance).

@@ -463,6 +463,29 @@ test("both Brotherhood Way street lanes clear the reviewed collider positions", 
   }
 });
 
+test("Mason Street and JFK Drive clear both surveyed obstruction positions", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  for (const [token, tx, ty, x, y, heading, pavement] of [
+    ["808586d4", -1452, -620, -1234.122, 4913.584, -2.98, 3.018],
+    ["808587bc", -552, 1942, -6135.856, 1120.512, -0.11, 11.969],
+  ]) {
+    const raw = file(`tiles/${token}.json.gz`);
+    const tile = JSON.parse(gunzipSync(raw));
+    const review = roadBake.roadTreeClearanceReviews.findLast(
+      ({ tiles }) => tiles[token],
+    ).tiles[token];
+    assert.equal(review.sha256, digest(raw));
+    assert.equal(review.removed, 1);
+    assert.ok(!tile.tr.some(([east, north]) => east === tx && north === ty));
+    const z = groundAtWorld([tile], x, y, true);
+    assert.ok(Math.abs(z - pavement) < 0.02);
+    assert.equal(
+      collisionAt([buildCollisionIndex(tile, token)], { x, y, heading }, z),
+      null,
+    );
+  }
+});
+
 test("the southbound Third Street Bridge approach keeps its outside lane clear", () => {
   const token = "808f7fd4";
   const manifest = JSON.parse(file("tiles/manifest.json"));
