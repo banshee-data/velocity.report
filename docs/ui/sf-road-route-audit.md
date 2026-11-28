@@ -7763,11 +7763,18 @@ The repeat Pennsylvania Avenue browser drive also collected both pickups,
 finished on city pavement 389.4 m beyond the ramp and recorded zero
 airborne metres, scrapes or measured dips. A separate browser probe
 reached the Ellsworth exit handoff grounded at 15.52 m.
-The Alemany itinerary takes the San Bruno Avenue exit. The direct exit
-at Ellsworth reached city pavement in a separate replay and later
+The Alemany browser drive covered 10.90 km via the San Bruno Avenue
+exit, with 2.46 km of street driving after the ramp. It collected both
+pickups with zero airborne metres, scrapes or measured dips. A
+fixed-step delivery via Ellsworth reached city pavement and later
 encountered a tree on Bay Shore Boulevard. The table measures delivery
-paths and game contact. Coverage of every possible drive at each structure
-requires the separate directional span and join checks.
+paths and game contact. The separate directional checks cover the spans
+and joins.
+
+A separate Chrome keyboard drive took manual control at 49.4 mph on the
+west span, exited at Fremont and re-entered westbound I-80 at Fourth
+Street. It finished in 384.3 s without airborne travel. The sampled
+speed was 46.3–54.3 mph on the span and 11.3–54.3 mph across the route.
 
 Arrow's completed citywide classification preview, manifest
 `d52ca07ac56e2edbea43786ed91af4794f32b7df7360aa3e753f64d37ac005c3`,
@@ -7801,6 +7808,13 @@ adjustment. The live run checked 867,058 chassis poses and returned zero
 static contact flags. These runs cover the admitted directions in each
 package. Citywide geographic coverage requires comparison with the
 structure inventory.
+
+The separate ground-draped screen checked 15,025 street rows on each
+release. It flagged 273 intervals above 50% grade on the public package
+and 286 on the Arrow preview. Each had 51 missing ground intervals.
+The screen samples the terrain beneath raised roads, so these counts
+identify locations for review. They are separate from the wheel contact
+measured during the drives.
 
 The classification product used
 `376ca8ed60c84b7af3e0a3c943e97e45fda1a6d28672c451648535371cc8fd88`
