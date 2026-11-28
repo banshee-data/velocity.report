@@ -6928,7 +6928,7 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
 ### Off-centre audit of the north fork
 
 The isolated span probe began 2.58 m into the north branch at a 0.75 m
-right offset. Its left rear tyre was still on the upstream ramp at
+right offset. One rear tyre was still on the upstream ramp at
 21.92 m NAVD88. The other three tyres had support on the branch. The
 separate directed join passed at the same offset. Chrome then crossed
 from the upstream ramp and reached Pennsylvania Avenue in 15.3 s, with
