@@ -6782,3 +6782,24 @@ All 487 packaged span traversals and 350 directed joins passed.
 node tools/sf-drive/export-corbett-crossings.mjs > /tmp/sf-corbett-courses.ndjson
 node tools/sf-drive/drive-road-audit.cjs /tmp/sf-corbett-courses.ndjson --verify
 ```
+
+## Pennsylvania Avenue exit from the freeway approach
+
+**Physics.** An isolated audit could place a car 0.75 m to
+the right of the north fork's stored centreline with its
+wheel footprint unsupported at the start. A continuous
+Chrome drive from Fifth Street initially selected the parallel
+I‑280 mainline before reaching that fork.
+
+The revised keyboard course moves into the exit lane on the
+upstream deck. The full Fifth Street run used the north fork
+in 179.1 s. Two shorter runs started on the same upstream deck
+and took the north and south forks in 45.5 s and 44.1 s. All
+three reached street pavement grounded with zero airborne
+travel or scrapes. The tested manifest was
+`9875075f0c956d18fb34ede6218e8b005ed95b21ad0a9dc18eb8906a362aa66e`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i280-dogpatch-exit-north-short i280-dogpatch-exit-south-short
+```

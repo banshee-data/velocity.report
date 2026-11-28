@@ -1064,6 +1064,7 @@ for (const direction of ["north", "south"]) {
     owners: dogpatchOwners,
     speed: 16,
     speedLimits: { "i280-dogpatch-off-ramp": 12, [exit]: 8 },
+    forks: [["i280-dogpatch-approach", "i280-dogpatch-off-ramp", -2.4]],
     laneGuides: {
       "i280-dogpatch-off-ramp": { approach: -1.25, holdApproach: north },
       [exit]: north
@@ -1073,6 +1074,16 @@ for (const direction of ["north", "south"]) {
           }
         : null,
     },
+  };
+  cases[`i280-dogpatch-exit-${direction}-short`] = {
+    ...cases[`i280-dogpatch-exit-${direction}`],
+    roads: ["i280-dogpatch-approach", "i280-dogpatch-off-ramp", exit],
+    rollingStart: true,
+    rollingStartMetres: 383,
+    initialSpeedMps: 15,
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+    maxDurationMs: 90_000,
   };
   const entry = `i280-dogpatch-pennsylvania-on-${direction}`;
   cases[`i280-dogpatch-enter-${direction}`] = {
