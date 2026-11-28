@@ -388,6 +388,32 @@ test("San Jose Avenue is clear from the southbound approach into the Tingley und
   }
 });
 
+test("Corbett Avenue follows the surveyed pavement in both lanes", () => {
+  const token = "808f7e0c";
+  const raw = file(`tiles/${token}.json.gz`);
+  const tile = JSON.parse(gunzipSync(raw));
+  const manifest = JSON.parse(file("tiles/manifest.json"));
+  const review = manifest.roadBake.terrainDetailReviews.findLast(
+    ({ tile }) => tile === token,
+  );
+  assert.equal(review.sha256, digest(raw));
+  for (const [x, y, measured] of [
+    [-342.356, -984.191, 167.73],
+    [-345.402, -983.212, 167.73],
+    [-343.547, -987.993, 167.74],
+    [-346.603, -987.044, 167.75],
+  ]) {
+    const height = groundAtWorld([tile], x, y, true);
+    assert.ok(Number.isFinite(height));
+    assert.ok(
+      Math.abs(height - measured) < 0.035,
+      `Corbett height at ${x}, ${y}`,
+    );
+  }
+  assert.equal(tile.g.detail.s, 1);
+  assert.equal(tile.g.details.at(-1).s, 1);
+});
+
 test("the Alemany connector leaves lower pavement clear beneath the crossing", () => {
   const manifest = JSON.parse(file("tiles/manifest.json"));
   const token = "808f7c4c";
@@ -1374,10 +1400,14 @@ test("Market Street meets its approaches on both surveyed carriageways", () => {
   const raw = file(`tiles/${token}.json.gz`);
   const tile = JSON.parse(gunzipSync(raw));
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
-  assert.equal(
-    roadBake.marketWestViaductSurvey.tiles[token].sha256,
-    digest(raw),
+  const corbett = roadBake.terrainDetailReviews.findLast(
+    ({ tile }) => tile === token,
   );
+  assert.equal(
+    corbett.parentSha256,
+    roadBake.marketWestViaductSurvey.tiles[token].sha256,
+  );
+  assert.equal(corbett.sha256, digest(raw));
   assert.equal(roadBake.coveredGroundRoadPatches[token], 2);
 
   for (const [direction, x, y, minimumClearance] of [
