@@ -1,0 +1,1 @@
+- Rebaked the westbound I-80 fork towards the Central Freeway from surveyed pavement. Chrome completed the previously failing mapped lane and both fork choices without losing contact. The [SF road route audit](../../ui/sf-road-route-audit.md#westbound-i-80-towards-the-central-freeway) records the fit and browser results.

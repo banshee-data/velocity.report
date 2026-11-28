@@ -47,7 +47,13 @@ function assertRampWidthReceipt(roadBake, token, previous, raw) {
     roadBake.bryantEastboundWidthSurvey.tiles[token] ??
     roadBake.sixthNorthExitWidthSurvey.tiles[token];
   if (review) assert.equal(review.parentSha256, previous);
-  assert.equal(review?.sha256 ?? previous, digest(raw));
+  assertWestSplitReceipt(roadBake, token, review?.sha256 ?? previous, raw);
+}
+
+function assertWestSplitReceipt(roadBake, token, previous, raw) {
+  const westSplit = roadBake.centralWestSplitSurvey.tiles[token];
+  if (westSplit) assert.equal(westSplit.parentSha256, previous);
+  assert.equal(westSplit?.sha256 ?? previous, digest(raw));
 }
 
 function assertSouthgateReview(roadBake, token, raw) {
@@ -1775,6 +1781,46 @@ test("the Central Freeway connector stays on separate pavement to eastbound I-80
     const height = central.heightAt(x, y);
     assert.ok(Number.isFinite(height) && Math.abs(height - z) < 0.25);
     assert.equal(us101.heightAt(x, y), null);
+  }
+});
+
+test("westbound I-80 keeps both US 101 choices on their surveyed branches", () => {
+  const { roadBake } = JSON.parse(file("tiles/manifest.json"));
+  const [west, southTile] = ["808f7e2c", "808f7e34"].map((token) => {
+    const raw = file(`tiles/${token}.json.gz`);
+    const receipt = roadBake.centralWestSplitSurvey.tiles[token];
+    assert.equal(receipt.sha256, digest(raw));
+    return JSON.parse(gunzipSync(raw));
+  });
+  const road = (slug, tile = west) =>
+    tile.playableRoads.find(({ id }) => id === `sf-contact/${slug}`);
+  const approach = road("i80-westbound-interchange");
+  const north = road("i80-westbound-central-connector");
+  const south = road("i80-westbound-to-us101-south");
+  assert.deepEqual(south, road("i80-westbound-to-us101-south", southTile));
+  for (const [target, lanes] of [
+    [north, [-5.5, 1]],
+    [south, [1, 5.5]],
+  ]) {
+    assert.deepEqual(approach.points.at(-1), target.points[0]);
+    assert.deepEqual(approach.seams.end, target.seams.start);
+    const join = roadBake.playableTransitions.find(
+      ({ from, to }) =>
+        from === `${approach.id}:end` && to === `${target.id}:start`,
+    );
+    assert.deepEqual(join.from_lateral_range_m, lanes);
+  }
+
+  const northSurface = buildBakedRoadContact(north).surface;
+  const southSurface = buildBakedRoadContact(south).surface;
+  for (const [x, y, z] of [
+    [3000.6, 1163, 15.4],
+    [3004.3, 1146.1, 15.06],
+    [2998.3, 1044.3, 17.13],
+  ]) {
+    const height = northSurface.heightAt(x, y);
+    assert.ok(Number.isFinite(height) && Math.abs(height - z) < 0.25);
+    assert.equal(southSurface.heightAt(x, y), null);
   }
 });
 
@@ -6766,9 +6812,11 @@ test("the surveyed Bryant entry lane stays on the deck and joins eastbound I-80"
   const { roadBake } = JSON.parse(file("tiles/manifest.json"));
   const tile = (token) => {
     const raw = file(`tiles/${token}.json.gz`);
-    assert.equal(
+    assertWestSplitReceipt(
+      roadBake,
+      token,
       roadBake.bryantEastboundWidthSurvey.tiles[token].sha256,
-      digest(raw),
+      raw,
     );
     return JSON.parse(gunzipSync(raw));
   };
