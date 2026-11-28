@@ -529,13 +529,36 @@ cases["central-from-fourth"] = {
     "fourth-street-entrance": 11,
     "i80-westbound-central-connector": 14,
   },
-  forks: [["westbound-i80", "i80-westbound-fifth", 1.55]],
+  forks: [
+    ["westbound-i80", "i80-westbound-fifth", 1.55],
+    ["i80-westbound-interchange", "i80-westbound-central-connector", -1.65],
+  ],
   laneGuides: {
     "i80-westbound-fifth": {
       clearance: { offset: -2.2, station: 355, length: 26 },
     },
   },
 };
+for (const [destination, connector, offset] of [
+  ["north", "i80-westbound-central-connector", -1.65],
+  ["south", "i80-westbound-to-us101-south", 2.65],
+]) {
+  const approach = "i80-westbound-interchange";
+  cases[`i80-westbound-us101-${destination}-fork`] = {
+    roads: [approach, connector],
+    owners: ["808f7e2c", "808f7e34"],
+    speed: 15,
+    initialSpeedMps: 15,
+    rollingStart: true,
+    rollingStartMetres: 158,
+    finishOnDeck: true,
+    finishDistance: 180,
+    exitCamera: destination === "south" ? "covered" : "exterior",
+    forks: [[approach, connector, offset]],
+    maxAirborneMetres: 0,
+    expectNoScrapes: true,
+  };
+}
 cases["central-thirteenth-exit"] = {
   ...cases["central-from-fourth"],
   roads: [...centralNorth, "central-freeway-13th-exit"],
@@ -1363,7 +1386,10 @@ const harrisonSouth = {
     "us101-south-potrero-exit": 11,
     "us101-south-cesar-potrero-approach": 11,
   },
-  forks: [["i80-westbound-interchange", "i80-westbound-to-us101-south", 1.55]],
+  forks: [
+    ["i80-westbound-interchange", "i80-westbound-to-us101-south", 2.65],
+    ["us101-south-potrero-main", "us101-south-potrero-exit", -1.6],
+  ],
 };
 for (const [destination, offset] of [
   ["cesar-chavez", 1.6],

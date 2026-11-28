@@ -6889,3 +6889,47 @@ node tools/sf-drive/smoke-presidio-tunnels.cjs \
   alexander-to-baker baker-to-bunker-underpass baker-barry-eastbound \
   daly-separation-centre
 ```
+
+## Westbound I-80 towards the Central Freeway
+
+**World and Data.** The mapped northbound departure leaves the shared westbound
+I-80 alignment roughly 42 m before the old game split. The April 2023 survey
+shows pavement about 8 m west of the old centreline in the diverge. The rebake
+fits 296 m of the northbound connector through the next curve and moves the
+shared seam upstream. The southbound branch carries forward the existing road
+points. Both choices share the same endpoint and cross-section, with separate
+approach lanes. [Caltrans exit inventory](https://dot.ca.gov/-/media/dot-media/programs/safety-programs/documents/exit/f0017912-80.pdf) ·
+[USGS survey](https://www.fisheries.noaa.gov/inport/item/73386/full-list).
+
+The fit uses 296 stations about 1 m apart and 55 EPT nodes through depth 13.
+Class 17 medians came from 1 m radius samples on the centreline and at offsets
+of 2 m right and 3 m left. Sample counts were at least 169 at the centre and 16
+at either offset. The fitted elevation differs from the sampled centre median
+by 0.7 cm at p95 and 1.4 cm at most. These are residuals against the fitting
+samples. The contact surface still uses one elevation across each cross-section.
+
+**Physics and UI.** With route assist off, the published game lost contact at
+game east 3000.58 m and north 1164.83 m. Chrome recorded 17.6 m airborne and a
+crash. The first fit carried the car through the fork and exposed another loss
+of contact farther into the curve. The extended fit completed the 325 m mapped
+drive in 24.8 s with no airborne travel, scrapes or dips deeper than 0.5 m. The
+measured drive had a 6.0% p95 grade and a 6.3% peak. Separate keyboard drives
+reached both branch destinations grounded. The higher northbound branch ended
+in the exterior view and the lower southbound branch ended in the covered view.
+
+The package audit passed all 487 directed span traversals and 350 directed
+joins. It exercised 533 ground handoffs, of which 530 transferred between
+ground and a road and three continued directly onto another road.
+
+- Parent manifest SHA-256 `e239831fb4f93b9a279a1e4324b180aa33863b76a494ecb266e763739a7bebbf`.
+- Updated manifest SHA-256 `8ef3c513566b3439ed780de9a231a92721673c1a01b0d28b0d1e11de7e55d6b9`.
+- Contact SHA-256 `d3f94f110fdba37fcd13a8f99607a478ed5dbd412c5a40c0512f1de04d6691a8`.
+- Survey receipt SHA-256 `51881eecafaaa7846b88d5674fa60345964e29b7e79a3ac9d958e43df6a77b0f`.
+- Fitted profile SHA-256 `1098d94e310b316763a3abbb3518643a421d8ab8ce699a3b1e9bca4876e044aa`.
+- OpenStreetMap extract SHA-256 `91b54f7dc7c276fd1907cbf73bfc9fd744a246689c3445dd51037e44b724c4ac`.
+
+```sh
+node tools/sf-drive/smoke-presidio-tunnels.cjs \
+  i80-westbound-us101-north-fork i80-westbound-us101-south-fork
+node tools/sf-drive/audit-baked-road-contact.mjs --drive-links --drive-spans
+```
